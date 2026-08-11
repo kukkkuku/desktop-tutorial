@@ -3,6 +3,7 @@ import { AppProvider } from './state/AppContext'
 import Navigation, { type TabKey } from './components/Navigation'
 import TaskManagement from './components/TaskManagement'
 import TeamManagement from './components/TeamManagement'
+import EvaluationMatrix from './components/EvaluationMatrix'
 import CriteriaConfiguration from './components/CriteriaConfiguration'
 import EvaluationResults from './components/EvaluationResults'
 
@@ -16,6 +17,7 @@ export default function App() {
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
           {activeTab === 'tasks' && <TaskManagement />}
           {activeTab === 'members' && <TeamManagement />}
+          {activeTab === 'matrix' && <EvaluationMatrix />}
           {activeTab === 'criteria' && <CriteriaConfiguration />}
           {activeTab === 'results' && <EvaluationResults />}
         </main>

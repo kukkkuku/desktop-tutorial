@@ -18,6 +18,7 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
   )
   const [workload, setWorkload] = useState<Workload>(initialTask?.workload ?? '중')
   const [objective, setObjective] = useState(initialTask?.objective ?? '')
+  const [achievement, setAchievement] = useState(initialTask?.achievement ?? '')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   function validate(): boolean {
@@ -51,6 +52,7 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
       performanceGrade,
       workload,
       objective: objective.trim(),
+      achievement: achievement.trim(),
     })
   }
 
@@ -131,6 +133,17 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
               }`}
             />
             {errors.objective && <p className="mt-1 text-xs text-danger">{errors.objective}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-black">성과</label>
+            <textarea
+              value={achievement}
+              onChange={(e) => setAchievement(e.target.value)}
+              placeholder="실제 달성한 성과를 입력하세요 (선택)"
+              rows={2}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
           </div>
         </div>
 

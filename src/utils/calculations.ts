@@ -30,7 +30,15 @@ export const WORKLOAD_FACTOR: Record<Workload, number> = {
   소: 0.8,
 }
 
-export const CONTRIBUTION_TOLERANCE = 0.0001
+export const PERSONAL_GRADE_FACTOR: Record<PerformanceGrade, number> = {
+  S: 1.5,
+  A: 1.2,
+  B: 1.0,
+  C: 0.8,
+  D: 0.6,
+}
+
+export const CONTRIBUTION_TOLERANCE = 0.01
 
 export function calcTaskScore(task: Task, criteria: Criteria): number {
   const performanceScore = criteria.usePerformanceGrade
@@ -50,28 +58,45 @@ export function calcAllTaskScores(tasks: Task[], criteria: Criteria): TaskScoreR
   return tasks.map((task) => ({ task, score: calcTaskScore(task, criteria) }))
 }
 
-export function getContributionRatio(
+export function getContribution(
+  contributions: Contribution[],
+  taskId: string,
+  memberId: string,
+): Contribution | undefined {
+  return contributions.find((c) => c.taskId === taskId && c.memberId === memberId)
+}
+
+export function getContributionPercent(
   contributions: Contribution[],
   taskId: string,
   memberId: string,
 ): number {
-  const found = contributions.find((c) => c.taskId === taskId && c.memberId === memberId)
-  return found ? found.contributionRatio : 0
+  return getContribution(contributions, taskId, memberId)?.contributionPercent ?? 0
+}
+
+export function getPersonalPerformanceGrade(
+  contributions: Contribution[],
+  taskId: string,
+  memberId: string,
+): PerformanceGrade {
+  return getContribution(contributions, taskId, memberId)?.personalPerformanceGrade ?? 'B'
 }
 
 export function getTaskContributionSum(contributions: Contribution[], taskId: string): number {
   return contributions
     .filter((c) => c.taskId === taskId)
-    .reduce((sum, c) => sum + c.contributionRatio, 0)
+    .reduce((sum, c) => sum + c.contributionPercent, 0)
 }
 
 export function isContributionSumValid(sum: number): boolean {
-  return Math.abs(sum - 1.0) <= CONTRIBUTION_TOLERANCE
+  return Math.abs(sum - 100) <= CONTRIBUTION_TOLERANCE
 }
 
 export interface MemberResultRow {
   member: TeamMember
+  participatedTaskCount: number
   cumulativeScore: number
+  weightedAverageScore: number
   expectedScore: number
   ratio: number
   grade: EvaluationGrade
@@ -83,15 +108,43 @@ export function calcExpectedScore(taskScores: TaskScoreRow[]): number {
   return total / taskScores.length
 }
 
+export function calcPersonalGradeFactor(
+  contribution: Contribution | undefined,
+  criteria: Criteria,
+): number {
+  if (!criteria.usePersonalPerformanceGrade || !contribution) return 1.0
+  return PERSONAL_GRADE_FACTOR[contribution.personalPerformanceGrade]
+}
+
 export function calcMemberCumulativeScore(
   member: TeamMember,
   taskScores: TaskScoreRow[],
   contributions: Contribution[],
+  criteria: Criteria,
 ): number {
   return taskScores.reduce((sum, row) => {
-    const ratio = getContributionRatio(contributions, row.task.id, member.id)
-    return sum + row.score * ratio
+    const contribution = getContribution(contributions, row.task.id, member.id)
+    const percent = contribution?.contributionPercent ?? 0
+    const personalFactor = calcPersonalGradeFactor(contribution, criteria)
+    return sum + row.score * (percent / 100) * personalFactor
   }, 0)
+}
+
+export function calcMemberParticipation(
+  member: TeamMember,
+  tasks: Task[],
+  contributions: Contribution[],
+): { count: number; totalShare: number } {
+  let count = 0
+  let totalShare = 0
+  for (const task of tasks) {
+    const percent = getContributionPercent(contributions, task.id, member.id)
+    if (percent > 0) {
+      count += 1
+      totalShare += percent / 100
+    }
+  }
+  return { count, totalShare }
 }
 
 export function calcEvaluationGrade(ratio: number): EvaluationGrade {
@@ -111,19 +164,25 @@ export function calcMemberResults(
   const taskScores = calcAllTaskScores(tasks, criteria)
   const expectedScore = calcExpectedScore(taskScores)
 
-  return members
+  const rows = members
     .filter((m) => m.active)
     .map((member) => {
-      const cumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions)
+      const cumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
+      const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
+      const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
       const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
       return {
         member,
+        participatedTaskCount: count,
         cumulativeScore,
+        weightedAverageScore,
         expectedScore,
         ratio,
         grade: calcEvaluationGrade(ratio),
       }
     })
+
+  return rows.sort((a, b) => b.weightedAverageScore - a.weightedAverageScore)
 }
 
 export const GRADE_COLORS: Record<EvaluationGrade, string> = {

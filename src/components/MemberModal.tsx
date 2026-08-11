@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { TeamMember } from '../types'
+import type { Level, Position, TeamMember } from '../types'
+import { LEVEL_OPTIONS, POSITION_OPTIONS } from '../types'
 
 interface MemberModalProps {
   initialMember: TeamMember | null
@@ -17,6 +18,13 @@ export default function MemberModal({
 }: MemberModalProps) {
   const [name, setName] = useState(initialMember?.name ?? '')
   const [active, setActive] = useState(initialMember?.active ?? true)
+  const [position, setPosition] = useState<Position | ''>(initialMember?.position ?? '')
+  const [level, setLevel] = useState<Level | ''>(initialMember?.level ?? '')
+  const [yearsOfService, setYearsOfService] = useState(
+    initialMember?.yearsOfService != null ? String(initialMember.yearsOfService) : '',
+  )
+  const [role, setRole] = useState(initialMember?.role ?? '')
+  const [comment, setComment] = useState(initialMember?.comment ?? '')
   const [error, setError] = useState('')
 
   function handleSubmit() {
@@ -33,6 +41,11 @@ export default function MemberModal({
       id: initialMember?.id ?? uuidv4(),
       name: trimmedName,
       active,
+      position,
+      level,
+      yearsOfService: yearsOfService.trim() === '' ? null : Number(yearsOfService),
+      role: role.trim(),
+      comment: comment.trim(),
     })
   }
 
@@ -41,7 +54,7 @@ export default function MemberModal({
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
         <h3 className="text-lg font-bold text-black">{initialMember ? '팀원 수정' : '팀원 추가'}</h3>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto pr-1">
           <div>
             <label className="block text-sm font-medium text-black">이름</label>
             <input
@@ -54,6 +67,74 @@ export default function MemberModal({
               }`}
             />
             {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-black">직책</label>
+              <select
+                value={position}
+                onChange={(e) => setPosition(e.target.value as Position | '')}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              >
+                <option value="">-</option>
+                {POSITION_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-black">직급</label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value as Level | '')}
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              >
+                <option value="">-</option>
+                {LEVEL_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-black">연차</label>
+              <input
+                type="number"
+                min={0}
+                value={yearsOfService}
+                onChange={(e) => setYearsOfService(e.target.value)}
+                placeholder="예: 3"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-black">역할</label>
+              <input
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder="예: 기획, 디자인, 개발"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-black">코멘트</label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="팀원에 대한 코멘트를 남겨보세요 (선택)"
+              rows={2}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
           </div>
 
           <div className="flex items-center gap-2">

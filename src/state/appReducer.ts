@@ -1,15 +1,42 @@
-import type { AppState, Contribution, Criteria, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, PerformanceGrade, Task, TeamMember } from '../types'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: { id: string } }
+  | { type: 'IMPORT_TASKS'; payload: Task[] }
   | { type: 'ADD_MEMBER'; payload: TeamMember }
   | { type: 'UPDATE_MEMBER'; payload: TeamMember }
   | { type: 'DELETE_MEMBER'; payload: { id: string } }
-  | { type: 'SET_CONTRIBUTION'; payload: Contribution }
+  | { type: 'IMPORT_MEMBERS'; payload: TeamMember[] }
+  | { type: 'SET_CONTRIBUTION_PERCENT'; payload: { taskId: string; memberId: string; contributionPercent: number } }
+  | { type: 'SET_CONTRIBUTION_GRADE'; payload: { taskId: string; memberId: string; personalPerformanceGrade: PerformanceGrade } }
   | { type: 'SET_CRITERIA'; payload: Partial<Criteria> }
+
+function upsertContribution(
+  contributions: Contribution[],
+  taskId: string,
+  memberId: string,
+  patch: Partial<Pick<Contribution, 'contributionPercent' | 'personalPerformanceGrade'>>,
+): Contribution[] {
+  const exists = contributions.some((c) => c.taskId === taskId && c.memberId === memberId)
+  if (exists) {
+    return contributions.map((c) =>
+      c.taskId === taskId && c.memberId === memberId ? { ...c, ...patch } : c,
+    )
+  }
+  return [
+    ...contributions,
+    {
+      taskId,
+      memberId,
+      contributionPercent: 0,
+      personalPerformanceGrade: 'B',
+      ...patch,
+    },
+  ]
+}
 
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -32,6 +59,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         contributions: state.contributions.filter((c) => c.taskId !== action.payload.id),
       }
 
+    case 'IMPORT_TASKS':
+      return { ...state, tasks: action.payload }
+
     case 'ADD_MEMBER':
       return { ...state, members: [...state.members, action.payload] }
 
@@ -48,17 +78,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         contributions: state.contributions.filter((c) => c.memberId !== action.payload.id),
       }
 
-    case 'SET_CONTRIBUTION': {
-      const { taskId, memberId, contributionRatio } = action.payload
-      const exists = state.contributions.some(
-        (c) => c.taskId === taskId && c.memberId === memberId,
-      )
-      const contributions = exists
-        ? state.contributions.map((c) =>
-            c.taskId === taskId && c.memberId === memberId ? { ...c, contributionRatio } : c,
-          )
-        : [...state.contributions, { taskId, memberId, contributionRatio }]
-      return { ...state, contributions }
+    case 'IMPORT_MEMBERS':
+      return { ...state, members: action.payload }
+
+    case 'SET_CONTRIBUTION_PERCENT': {
+      const { taskId, memberId, contributionPercent } = action.payload
+      return {
+        ...state,
+        contributions: upsertContribution(state.contributions, taskId, memberId, { contributionPercent }),
+      }
+    }
+
+    case 'SET_CONTRIBUTION_GRADE': {
+      const { taskId, memberId, personalPerformanceGrade } = action.payload
+      return {
+        ...state,
+        contributions: upsertContribution(state.contributions, taskId, memberId, { personalPerformanceGrade }),
+      }
     }
 
     case 'SET_CRITERIA':
