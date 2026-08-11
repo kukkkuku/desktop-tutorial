@@ -14,8 +14,28 @@ import type {
 import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, POSITION_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberResults } from './calculations'
 
-function downloadWorkbook(wb: XLSX.WorkBook, filename: string) {
-  XLSX.writeFile(wb, filename)
+function downloadWorkbook(wb: XLSX.WorkBook, filename: string): boolean {
+  try {
+    const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([wbArray], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    return true
+  } catch (err) {
+    console.error('엑셀 다운로드 실패:', err)
+    alert(
+      '엑셀 다운로드에 실패했습니다. 이 창이 미리보기(임베드) 화면이라면 브라우저 새 탭에서 열어 다시 시도해주세요.',
+    )
+    return false
+  }
 }
 
 // ---------- Task template / import ----------

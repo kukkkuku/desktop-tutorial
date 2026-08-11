@@ -30,7 +30,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, undefined, loadInitialState)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch {
+      // Storage may be unavailable (private browsing, sandboxed embed, quota exceeded).
+      // Keep running in-memory; nothing else depends on persistence succeeding.
+    }
   }, [state])
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>
