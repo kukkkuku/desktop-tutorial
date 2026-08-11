@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode } from
 import type { AppState } from '../types'
 import { appReducer, type AppAction } from './appReducer'
 import { createSampleData } from '../utils/sampleData'
+import { migrateAppState } from '../utils/migrate'
 
 const STORAGE_KEY = 'ux-performance-evaluation-state'
 
@@ -9,10 +10,8 @@ function loadInitialState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      const parsed = JSON.parse(raw) as AppState
-      if (parsed && Array.isArray(parsed.tasks) && Array.isArray(parsed.members)) {
-        return parsed
-      }
+      const migrated = migrateAppState(JSON.parse(raw))
+      if (migrated) return migrated
     }
   } catch {
     // fall through to sample data
