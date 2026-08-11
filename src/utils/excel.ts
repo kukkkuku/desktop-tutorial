@@ -29,13 +29,29 @@ async function saveViaClaudeDownloads(wb: XLSX.WorkBook, filename: string): Prom
   const downloads = window.claude?.downloads
   if (!downloads) return false
 
-  const csvFilename = filename.replace(/\.xlsx$/i, '.csv')
+  const text = '﻿' + workbookToCsvText(wb) // U+FEFF BOM so Excel reads Korean text correctly
+
+  // .csv is in the "extended" allowlist, which may not be enabled for this
+  // view -- if so, retry with .txt, which is always in the base allowlist.
   try {
-    await downloads.save({ filename: csvFilename, data: '﻿' + workbookToCsvText(wb) })
+    await downloads.save({ filename: filename.replace(/\.xlsx$/i, '.csv'), data: text })
     return true
   } catch (err) {
     const code = (err as ClaudeDownloadsError | undefined)?.code
     if (code === 'declined') return false // user dismissed the prompt, nothing to report
+    if (code !== 'extension_not_enabled' && code !== 'rejected_extension') {
+      console.error('다운로드 실패:', err)
+      alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
+      return false
+    }
+  }
+
+  try {
+    await downloads.save({ filename: filename.replace(/\.xlsx$/i, '.txt'), data: text })
+    return true
+  } catch (err) {
+    const code = (err as ClaudeDownloadsError | undefined)?.code
+    if (code === 'declined') return false
     console.error('다운로드 실패:', err)
     alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
     return false
