@@ -14,7 +14,35 @@ import type {
 import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, POSITION_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberResults } from './calculations'
 
-function downloadWorkbook(wb: XLSX.WorkBook, filename: string): boolean {
+// Claude's Artifact preview blocks raw browser downloads and only allows
+// files to leave the frame through window.claude.downloads.save(), which
+// does not support the .xlsx extension -- so inside that preview we fall
+// back to a CSV rendering of the same workbook. The real deployed app
+// (no window.claude present) always gets the full .xlsx file.
+function workbookToCsvText(wb: XLSX.WorkBook): string {
+  return wb.SheetNames.map((name) => `# ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`).join(
+    '\n\n',
+  )
+}
+
+async function saveViaClaudeDownloads(wb: XLSX.WorkBook, filename: string): Promise<boolean> {
+  const downloads = window.claude?.downloads
+  if (!downloads) return false
+
+  const csvFilename = filename.replace(/\.xlsx$/i, '.csv')
+  try {
+    await downloads.save({ filename: csvFilename, data: '﻿' + workbookToCsvText(wb) })
+    return true
+  } catch (err) {
+    const code = (err as ClaudeDownloadsError | undefined)?.code
+    if (code === 'declined') return false // user dismissed the prompt, nothing to report
+    console.error('다운로드 실패:', err)
+    alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
+    return false
+  }
+}
+
+function downloadWorkbookAsFile(wb: XLSX.WorkBook, filename: string): boolean {
   try {
     const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
     const blob = new Blob([wbArray], {
@@ -38,11 +66,16 @@ function downloadWorkbook(wb: XLSX.WorkBook, filename: string): boolean {
   }
 }
 
+async function downloadWorkbook(wb: XLSX.WorkBook, filename: string): Promise<boolean> {
+  if (window.claude?.downloads) return saveViaClaudeDownloads(wb, filename)
+  return downloadWorkbookAsFile(wb, filename)
+}
+
 // ---------- Task template / import ----------
 
 const TASK_HEADERS = ['과제명', '과제등급', '업무량', '목표', '성과', '성과등급'] as const
 
-export function downloadTaskTemplate() {
+export async function downloadTaskTemplate() {
   const rows = [
     [...TASK_HEADERS],
     ['신규 랜딩페이지 제작', '핵심', '대', '전환율 15% 개선', '전환율 18% 달성', 'A'],
@@ -52,7 +85,7 @@ export function downloadTaskTemplate() {
   ws['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 8 }, { wch: 28 }, { wch: 28 }, { wch: 10 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '과제양식')
-  downloadWorkbook(wb, '과제_업로드_양식.xlsx')
+  await downloadWorkbook(wb, '과제_업로드_양식.xlsx')
 }
 
 export interface TaskImportResult {
@@ -118,7 +151,7 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
 
 const MEMBER_HEADERS = ['이름', '직책', '직급', '연차', '역할', '코멘트'] as const
 
-export function downloadMemberTemplate() {
+export async function downloadMemberTemplate() {
   const rows = [
     [...MEMBER_HEADERS],
     ['김민준', '팀장', '과장', 7, '기획', ''],
@@ -128,7 +161,7 @@ export function downloadMemberTemplate() {
   ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 30 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '팀원양식')
-  downloadWorkbook(wb, '팀원_업로드_양식.xlsx')
+  await downloadWorkbook(wb, '팀원_업로드_양식.xlsx')
 }
 
 export interface MemberImportResult {
@@ -193,7 +226,7 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
 
 // ---------- Results report export ----------
 
-export function downloadResultsReport(
+export async function downloadResultsReport(
   members: TeamMember[],
   tasks: Task[],
   contributions: Contribution[],
@@ -274,5 +307,5 @@ export function downloadResultsReport(
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, rankSheet, '순위표')
   XLSX.utils.book_append_sheet(wb, detailSheet, '과제별상세')
-  downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  await downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
