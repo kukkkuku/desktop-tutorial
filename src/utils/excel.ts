@@ -291,6 +291,7 @@ export interface PeerReviewImportResult {
   importedCount: number
   addedCount: number
   updatedCount: number
+  affectedTargetNames: string[]
 }
 
 const REVIEWER_HEADER_ALIASES = ['리뷰어', '평가자', '리뷰자']
@@ -321,6 +322,7 @@ export function parsePeerReviewWorkbook(
   let addedCount = 0
   let updatedCount = 0
   let contentRowCount = 0
+  const affectedTargetNames = new Set<string>()
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
@@ -358,6 +360,7 @@ export function parsePeerReviewWorkbook(
       grade: gradeRaw as PerformanceGrade,
     }
     byKey.set(key, review)
+    affectedTargetNames.add(targetName)
     importedCount += 1
     if (existing) {
       updatedCount += 1
@@ -370,7 +373,14 @@ export function parsePeerReviewWorkbook(
     errors.push('업로드한 파일에 내용이 없습니다. 다운로드한 양식에 리뷰어/대상팀원/등급을 채워 업로드해주세요.')
   }
 
-  return { peerReviews: Array.from(byKey.values()), errors, importedCount, addedCount, updatedCount }
+  return {
+    peerReviews: Array.from(byKey.values()),
+    errors,
+    importedCount,
+    addedCount,
+    updatedCount,
+    affectedTargetNames: Array.from(affectedTargetNames),
+  }
 }
 
 // ---------- Results report export ----------

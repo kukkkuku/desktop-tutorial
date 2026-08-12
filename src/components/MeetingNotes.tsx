@@ -270,12 +270,20 @@ export default function MeetingNotes() {
             </div>
 
             {peerReviewResult && (
-              <ImportFeedback
-                addedCount={peerReviewResult.addedCount}
-                updatedCount={peerReviewResult.updatedCount}
-                errors={peerReviewResult.errors}
-                onDismiss={() => setPeerReviewResult(null)}
-              />
+              <>
+                <ImportFeedback
+                  addedCount={peerReviewResult.addedCount}
+                  updatedCount={peerReviewResult.updatedCount}
+                  errors={peerReviewResult.errors}
+                  onDismiss={() => setPeerReviewResult(null)}
+                />
+                {peerReviewResult.affectedTargetNames.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    반영된 대상팀원: {peerReviewResult.affectedTargetNames.join(', ')} — 아래 팀원 칩을 눌러 각자 받은
+                    리뷰를 확인하세요.
+                  </p>
+                )}
+              </>
             )}
 
             {selectedMember && (
