@@ -110,7 +110,9 @@ export default function TeamManagement() {
         <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
           등록된 팀원이 없습니다.
           <br />
-          '+ 팀원 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
+          '+ 팀원 추가' 버튼으로 직접 등록하거나,
+          <br />
+          위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
         </p>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
