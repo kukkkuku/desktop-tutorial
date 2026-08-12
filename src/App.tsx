@@ -10,10 +10,15 @@ import EvaluationResults from './components/EvaluationResults'
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks')
 
+  function handleTabChange(tab: TabKey) {
+    setActiveTab(tab)
+    window.scrollTo(0, 0)
+  }
+
   return (
     <AppProvider>
       <div className="min-h-screen bg-white">
-        <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+        <Navigation activeTab={activeTab} onTabChange={handleTabChange} />
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
           {activeTab === 'tasks' && <TaskManagement />}
           {activeTab === 'members' && <TeamManagement />}

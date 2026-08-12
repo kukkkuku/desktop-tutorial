@@ -52,7 +52,10 @@ export default function EvaluationMatrix() {
             <table className="w-full border-collapse text-left text-sm">
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
-                  <th rowSpan={2} className="border-b border-gray-200 px-4 py-3 align-bottom font-semibold">
+                  <th
+                    rowSpan={2}
+                    className="sticky left-0 z-10 border-b border-gray-200 bg-[#F3F4F6] px-4 py-3 align-bottom font-semibold"
+                  >
                     과제 \ 팀원
                   </th>
                   {members.map((member) => (
@@ -86,7 +89,7 @@ export default function EvaluationMatrix() {
                   const taskScore = calcTaskScore(task, criteria)
                   return (
                     <tr key={task.id} className="border-t border-gray-200 text-black">
-                      <td className="px-4 py-3">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-3">
                         <div className="font-medium">{task.name}</div>
                         <div className="mt-0.5 text-xs text-gray-500">
                           {task.importance} · 업무량 {task.workload} · 점수 {taskScore.toFixed(1)}
@@ -106,7 +109,7 @@ export default function EvaluationMatrix() {
                                 value={percent || ''}
                                 onChange={(e) => handlePercentChange(task.id, member.id, e.target.value)}
                                 placeholder="0"
-                                className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                                className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
                               />
                             </td>
                             <td className="px-3 py-2">
@@ -114,7 +117,7 @@ export default function EvaluationMatrix() {
                                 value={grade}
                                 disabled={!criteria.usePersonalPerformanceGrade}
                                 onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                className={`w-20 rounded-md border px-2 py-1 text-sm ${
+                                className={`w-16 rounded-md border px-2 py-1 text-sm ${
                                   criteria.usePersonalPerformanceGrade
                                     ? 'border-gray-300 text-black'
                                     : 'border-gray-200 bg-gray-100 text-gray-400'

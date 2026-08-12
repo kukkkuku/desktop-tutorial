@@ -11,8 +11,8 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, description, checked, disabled, onChange }: ToggleRowProps) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-4">
-      <div>
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-4">
+      <div className="min-w-0 flex-1">
         <p className="font-medium text-black">{label}</p>
         <p className="mt-0.5 text-sm text-gray-500">{description}</p>
       </div>
