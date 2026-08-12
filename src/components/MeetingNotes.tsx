@@ -78,18 +78,22 @@ export default function MeetingNotes() {
       ) : (
         <div className="mt-2 rounded-lg border border-gray-200 p-4">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm font-medium text-black">팀원</label>
-            <select
-              value={selectedMemberId}
-              onChange={(e) => setSelectedMemberId(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            >
+            <span className="text-sm font-medium text-black">팀원</span>
+            <div className="flex flex-wrap gap-1.5">
               {members.map((member) => (
-                <option key={member.id} value={member.id}>
+                <button
+                  key={member.id}
+                  onClick={() => setSelectedMemberId(member.id)}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    member.id === selectedMemberId
+                      ? 'bg-accent text-white'
+                      : 'bg-gray-100 text-black hover:bg-gray-200'
+                  }`}
+                >
                   {member.name}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             {selectedMember && (
               <span className="text-sm text-gray-500">
                 {notesForMember.length}건의 면담 기록
