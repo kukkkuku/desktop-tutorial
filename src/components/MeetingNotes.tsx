@@ -61,7 +61,7 @@ export default function MeetingNotes() {
 
   return (
     <div>
-      <h3 className="mt-8 text-lg font-semibold text-black">팀원 면담 기록</h3>
+      <h2 className="text-xl font-bold text-black">팀원 면담</h2>
       <p className="mt-1 text-sm text-gray-600">
         팀원을 선택해 날짜별 면담 코멘트를 기록하고 수정/삭제할 수 있습니다.
       </p>

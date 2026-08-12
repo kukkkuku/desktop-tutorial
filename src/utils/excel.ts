@@ -5,6 +5,7 @@ import type {
   Criteria,
   Importance,
   Level,
+  MeetingNote,
   PerformanceGrade,
   Position,
   Task,
@@ -274,6 +275,7 @@ export async function downloadResultsReport(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
+  meetingNotes: MeetingNote[] = [],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria)
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -347,8 +349,23 @@ export async function downloadResultsReport(
     { wch: 16 },
   ]
 
+  const notesRows: (string | number)[][] = [['팀원', '날짜', '면담 코멘트']]
+  const sortedNotes = [...meetingNotes].sort((a, b) => {
+    const memberA = members.find((m) => m.id === a.memberId)?.name ?? ''
+    const memberB = members.find((m) => m.id === b.memberId)?.name ?? ''
+    return memberA.localeCompare(memberB) || a.date.localeCompare(b.date)
+  })
+  for (const note of sortedNotes) {
+    const member = members.find((m) => m.id === note.memberId)
+    if (!member) continue
+    notesRows.push([member.name, note.date, note.comment])
+  }
+  const notesSheet = XLSX.utils.aoa_to_sheet(notesRows)
+  notesSheet['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 50 }]
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, rankSheet, '순위표')
   XLSX.utils.book_append_sheet(wb, detailSheet, '과제별상세')
+  XLSX.utils.book_append_sheet(wb, notesSheet, '면담기록')
   await downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }

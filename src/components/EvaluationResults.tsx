@@ -1,13 +1,12 @@
 import { useAppState } from '../state/AppContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { downloadResultsReport } from '../utils/excel'
-import MeetingNotes from './MeetingNotes'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function EvaluationResults() {
   const { state } = useAppState()
-  const { tasks, members, contributions, criteria } = state
+  const { tasks, members, contributions, criteria, meetingNotes } = state
 
   const taskScores = calcAllTaskScores(tasks, criteria)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria)
@@ -18,7 +17,7 @@ export default function EvaluationResults() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-black">평가 결과</h2>
         <button
-          onClick={() => downloadResultsReport(members, tasks, contributions, criteria)}
+          onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes)}
           disabled={memberResults.length === 0}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -155,8 +154,6 @@ export default function EvaluationResults() {
           </tbody>
         </table>
       </div>
-
-      <MeetingNotes />
 
       <h3 className="mt-8 text-lg font-semibold text-black">평가 기준 현황</h3>
       <div className="mt-2 flex flex-wrap gap-2">
