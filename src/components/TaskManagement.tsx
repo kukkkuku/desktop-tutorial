@@ -105,6 +105,13 @@ export default function TaskManagement() {
         />
       )}
 
+      {state.tasks.length === 0 ? (
+        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
+          등록된 과제가 없습니다.
+          <br />
+          '+ 과제 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
+        </p>
+      ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
@@ -119,13 +126,6 @@ export default function TaskManagement() {
             </tr>
           </thead>
           <tbody>
-            {state.tasks.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                  등록된 과제가 없습니다. '+ 과제 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
-                </td>
-              </tr>
-            )}
             {state.tasks.map((task) => (
               <tr key={task.id} className="border-t border-gray-200 text-black">
                 <td className="px-4 py-3 font-medium">
@@ -164,6 +164,7 @@ export default function TaskManagement() {
           </tbody>
         </table>
       </div>
+      )}
 
       {modalOpen && (
         <TaskModal
