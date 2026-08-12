@@ -17,7 +17,7 @@ interface NavigationProps {
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="text-lg font-bold text-black">UX팀 성과평가 시스템</div>
         <nav className="flex flex-wrap gap-1">
           {TABS.map((tab) => (
