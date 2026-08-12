@@ -11,9 +11,9 @@ import type {
 
 export const IMPORTANCE_WEIGHT: Record<Importance, number> = {
   중점: 1.3,
-  핵심: 1.15,
+  핵심: 1.1,
   일반: 1.0,
-  지원: 0.88,
+  지원: 0.8,
 }
 
 export const PERFORMANCE_SCORE: Record<PerformanceGrade, number> = {

@@ -88,7 +88,7 @@ export default function EvaluationResults() {
             <tr>
               <th className="px-4 py-3 font-semibold">과제명</th>
               <th className="px-4 py-3 font-semibold">성과등급</th>
-              <th className="px-4 py-3 font-semibold">중요도</th>
+              <th className="px-4 py-3 font-semibold">과제등급</th>
               <th className="px-4 py-3 font-semibold">업무량</th>
               <th className="px-4 py-3 font-semibold">성과</th>
               <th className="px-4 py-3 font-semibold">점수</th>
@@ -158,7 +158,7 @@ export default function EvaluationResults() {
       <h3 className="mt-8 text-lg font-semibold text-black">평가 기준 현황</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         <CriteriaBadge label="성과등급" active={criteria.usePerformanceGrade} />
-        <CriteriaBadge label="중요도" active={criteria.useImportance} />
+        <CriteriaBadge label="과제등급" active={criteria.useImportance} />
         <CriteriaBadge label="업무량" active={criteria.useWorkload} />
         <CriteriaBadge label="개인수행등급" active={criteria.usePersonalPerformanceGrade} />
         <CriteriaBadge label="기여도" active />

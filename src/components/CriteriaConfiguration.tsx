@@ -71,9 +71,9 @@ export default function CriteriaConfiguration() {
             onChange={(checked) => update({ usePerformanceGrade: checked })}
           />
           <ToggleRow
-            label="중요도 사용"
-            onDescription="과제 중요도(중점 1.3 / 핵심 1.15 / 일반 1.0 / 지원 0.88)에 따라 가중치가 곱해집니다."
-            offDescription="모든 과제의 중요도 가중치를 1.0으로 간주합니다."
+            label="과제등급 사용"
+            onDescription="과제등급(중점 130점 / 핵심 110점 / 일반 100점 / 지원 80점)에 따라 가중치가 곱해집니다. 과제 자체의 전략적 중요도/성격에 따라 점수를 차등 적용합니다."
+            offDescription="모든 과제의 과제등급 가중치를 100점으로 간주합니다."
             checked={criteria.useImportance}
             onChange={(checked) => update({ useImportance: checked })}
           />

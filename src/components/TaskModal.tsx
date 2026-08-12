@@ -77,7 +77,7 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">중요도</label>
+            <label className="block text-sm font-medium text-black">과제등급</label>
             <select
               value={importance}
               onChange={(e) => setImportance(e.target.value as Importance)}
