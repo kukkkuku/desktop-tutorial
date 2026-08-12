@@ -1,11 +1,17 @@
 interface ImportFeedbackProps {
-  importedCount: number
+  addedCount: number
+  updatedCount: number
   errors: string[]
   onDismiss: () => void
 }
 
-export default function ImportFeedback({ importedCount, errors, onDismiss }: ImportFeedbackProps) {
+export default function ImportFeedback({ addedCount, updatedCount, errors, onDismiss }: ImportFeedbackProps) {
   const hasErrors = errors.length > 0
+  const parts: string[] = []
+  if (addedCount > 0) parts.push(`신규 ${addedCount}건 추가`)
+  if (updatedCount > 0) parts.push(`기존 ${updatedCount}건 업데이트`)
+  const summary = parts.length > 0 ? `${parts.join(', ')}되었습니다.` : '변경된 건이 없습니다.'
+
   return (
     <div
       className={`mt-4 rounded-md border px-4 py-3 ${
@@ -15,7 +21,7 @@ export default function ImportFeedback({ importedCount, errors, onDismiss }: Imp
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className={`text-sm font-semibold ${hasErrors ? 'text-danger' : 'text-success'}`}>
-            {importedCount}건을 업로드했습니다.
+            {summary}
             {hasErrors && ` (${errors.length}건 오류)`}
           </p>
           {hasErrors && (
