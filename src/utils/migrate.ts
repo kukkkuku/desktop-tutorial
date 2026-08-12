@@ -91,6 +91,73 @@ function migrateCriteria(raw: unknown): Criteria {
   }
 }
 
+// The old `createSampleData()` fixture (removed) hardcoded a real team's
+// name/task info and shipped as the default state to every browser that had
+// never touched localStorage. Browsers that opened the app before the fix
+// and never edited anything still have that exact fixture saved. Detect it
+// by name/field fingerprint (ignoring random ids) and treat it as if the
+// user never entered anything, so it resets to a clean empty state instead
+// of continuing to show someone else's real data.
+const LEGACY_SAMPLE_TASKS = [
+  { name: 'CloudX', importance: '중점', performanceGrade: 'A', workload: '대' },
+  { name: 'Design System', importance: '핵심', performanceGrade: 'S', workload: '중' },
+  { name: 'OneClick', importance: '일반', performanceGrade: 'B', workload: '소' },
+]
+const LEGACY_SAMPLE_MEMBERS = [
+  { name: '김기정', position: '팀장', level: '과장', yearsOfService: 7, role: '기획' },
+  { name: '이혜원', position: 'PL', level: '대리', yearsOfService: 4, role: '디자인' },
+  { name: '서승우', position: '팀원', level: '사원', yearsOfService: 2, role: '개발' },
+]
+const LEGACY_SAMPLE_CONTRIBUTIONS: Record<string, [number, PerformanceGrade]> = {
+  'CloudX|김기정': [50, 'A'],
+  'CloudX|이혜원': [30, 'B'],
+  'CloudX|서승우': [20, 'B'],
+  'Design System|김기정': [20, 'B'],
+  'Design System|이혜원': [50, 'S'],
+  'Design System|서승우': [30, 'A'],
+  'OneClick|김기정': [30, 'B'],
+  'OneClick|이혜원': [30, 'B'],
+  'OneClick|서승우': [40, 'A'],
+}
+
+export function isUntouchedLegacySample(state: AppState): boolean {
+  if (state.meetingNotes.length > 0 || state.peerReviews.length > 0) return false
+  if (state.tasks.length !== LEGACY_SAMPLE_TASKS.length) return false
+  if (state.members.length !== LEGACY_SAMPLE_MEMBERS.length) return false
+  if (state.contributions.length !== Object.keys(LEGACY_SAMPLE_CONTRIBUTIONS).length) return false
+
+  const tasksMatch = LEGACY_SAMPLE_TASKS.every((fixture) =>
+    state.tasks.some(
+      (t) =>
+        t.name === fixture.name &&
+        t.importance === fixture.importance &&
+        t.performanceGrade === fixture.performanceGrade &&
+        t.workload === fixture.workload,
+    ),
+  )
+  if (!tasksMatch) return false
+
+  const membersMatch = LEGACY_SAMPLE_MEMBERS.every((fixture) =>
+    state.members.some(
+      (m) =>
+        m.name === fixture.name &&
+        m.position === fixture.position &&
+        m.level === fixture.level &&
+        m.yearsOfService === fixture.yearsOfService &&
+        m.role === fixture.role,
+    ),
+  )
+  if (!membersMatch) return false
+
+  const taskNameById = new Map(state.tasks.map((t) => [t.id, t.name]))
+  const memberNameById = new Map(state.members.map((m) => [m.id, m.name]))
+  return state.contributions.every((c) => {
+    const key = `${taskNameById.get(c.taskId)}|${memberNameById.get(c.memberId)}`
+    const fixture = LEGACY_SAMPLE_CONTRIBUTIONS[key]
+    return fixture && fixture[0] === c.contributionPercent && fixture[1] === c.personalPerformanceGrade
+  })
+}
+
 export function migrateAppState(raw: unknown): AppState | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
