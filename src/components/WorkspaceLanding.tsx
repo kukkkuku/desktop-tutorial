@@ -28,9 +28,17 @@ export default function WorkspaceLanding() {
   const [newTeamName, setNewTeamName] = useState('')
   const [newPeriodName, setNewPeriodName] = useState('')
   const [createError, setCreateError] = useState('')
+  const [teamNameFocused, setTeamNameFocused] = useState(false)
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId) ?? null
   const existingTeamNames = Array.from(new Set(workspaces.map((w) => w.teamName)))
+  const trimmedNewTeamName = newTeamName.trim()
+  const isExactExistingTeam = existingTeamNames.includes(trimmedNewTeamName)
+  const teamNameSuggestions = trimmedNewTeamName
+    ? existingTeamNames.filter(
+        (name) => name !== trimmedNewTeamName && name.toLowerCase().includes(trimmedNewTeamName.toLowerCase()),
+      )
+    : existingTeamNames
 
   function handleOpen() {
     if (selectedWorkspace) selectWorkspace(selectedWorkspace.id)
@@ -136,25 +144,37 @@ export default function WorkspaceLanding() {
         <section className="w-full rounded-lg border border-gray-200 p-5">
           <h2 className="text-sm font-semibold text-gray-500">새 평가 시작하기</h2>
           <div className="mt-3 space-y-3">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-black">팀 이름</label>
               <input
                 type="text"
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
+                onFocus={() => setTeamNameFocused(true)}
+                onBlur={() => setTeamNameFocused(false)}
                 placeholder="예: UX팀"
-                list="existing-team-names"
+                autoComplete="off"
                 className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
                   createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'
                 }`}
               />
-              <datalist id="existing-team-names">
-                {existingTeamNames.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-              {existingTeamNames.includes(newTeamName.trim()) && (
-                <p className="mt-1 text-xs text-gray-500">기존 '{newTeamName.trim()}' 팀에 새 기간으로 추가돼요.</p>
+              {teamNameFocused && teamNameSuggestions.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
+                  {teamNameSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setNewTeamName(name)}
+                      className="block w-full px-3 py-2 text-left text-sm text-black hover:bg-gray-50"
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isExactExistingTeam && (
+                <p className="mt-1 text-xs text-gray-500">기존 '{trimmedNewTeamName}' 팀에 새 기간으로 추가돼요.</p>
               )}
             </div>
             <div>
