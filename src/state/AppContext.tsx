@@ -1,17 +1,21 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react'
 import type { AppState } from '../types'
-import { appReducer, type AppAction } from './appReducer'
+import { appReducer, syncAutoDistribution, type AppAction } from './appReducer'
 import { createSampleData } from '../utils/sampleData'
 import { migrateAppState } from '../utils/migrate'
 
 const STORAGE_KEY = 'ux-performance-evaluation-state'
+
+function withAutoDistribution(state: AppState): AppState {
+  return { ...state, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions) }
+}
 
 function loadInitialState(): AppState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const migrated = migrateAppState(JSON.parse(raw))
-      if (migrated) return migrated
+      if (migrated) return withAutoDistribution(migrated)
     }
   } catch {
     // fall through to sample data
