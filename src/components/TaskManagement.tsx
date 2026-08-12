@@ -110,7 +110,7 @@ export default function TaskManagement() {
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               <th className="px-4 py-3 font-semibold">과제명</th>
-              <th className="px-4 py-3 font-semibold">중요도</th>
+              <th className="px-4 py-3 font-semibold">과제등급</th>
               <th className="px-4 py-3 font-semibold">성과등급</th>
               <th className="px-4 py-3 font-semibold">업무량</th>
               <th className="px-4 py-3 font-semibold">목표</th>
