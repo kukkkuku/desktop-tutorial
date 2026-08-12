@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import type { MeetingNote, TeamMember } from '../types'
+import type { MeetingNote, PeerReview, TeamMember } from '../types'
 import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
+import { downloadPeerReviewTemplate, parsePeerReviewWorkbook, type PeerReviewImportResult } from '../utils/excel'
 import ConfirmDialog from './ConfirmDialog'
+import ImportFeedback from './ImportFeedback'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -11,9 +13,9 @@ function todayString() {
 
 export default function MeetingNotes() {
   const { state, dispatch } = useAppState()
-  const { members, meetingNotes, tasks, contributions, criteria } = state
+  const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
 
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria)
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
 
   const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id ?? '')
   const [newDate, setNewDate] = useState(todayString())
@@ -25,12 +27,17 @@ export default function MeetingNotes() {
 
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
 
+  const [peerReviewResult, setPeerReviewResult] = useState<PeerReviewImportResult | null>(null)
+  const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
+  const peerReviewFileInputRef = useRef<HTMLInputElement>(null)
+
   const selectedMember: TeamMember | undefined = members.find((m) => m.id === selectedMemberId)
   const selectedMemberRank = memberResults.findIndex((r) => r.member.id === selectedMemberId)
   const selectedMemberResult = selectedMemberRank >= 0 ? memberResults[selectedMemberRank] : undefined
   const notesForMember = meetingNotes
     .filter((n) => n.memberId === selectedMemberId)
     .sort((a, b) => b.date.localeCompare(a.date))
+  const peerReviewsForMember = peerReviews.filter((r) => r.targetMemberId === selectedMemberId)
 
   function handleAdd() {
     if (!selectedMemberId || !newDate || !newComment.trim()) return
@@ -61,6 +68,23 @@ export default function MeetingNotes() {
     if (deletingNote) {
       dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
       setDeletingNote(null)
+    }
+  }
+
+  async function handlePeerReviewFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const buffer = await file.arrayBuffer()
+    const result = parsePeerReviewWorkbook(buffer, members, peerReviews)
+    dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: result.peerReviews })
+    setPeerReviewResult(result)
+  }
+
+  function handleDeletePeerReviewConfirm() {
+    if (deletingPeerReview) {
+      dispatch({ type: 'DELETE_PEER_REVIEW', payload: { id: deletingPeerReview.id } })
+      setDeletingPeerReview(null)
     }
   }
 
@@ -216,8 +240,87 @@ export default function MeetingNotes() {
               ),
             )}
           </div>
+
+          <div className="mt-6 border-t border-gray-200 pt-4">
+            <p className="text-sm font-medium text-black">피어리뷰</p>
+            <p className="mt-0.5 text-sm text-gray-600">
+              팀원들에게 엑셀 양식을 나눠준 뒤, 각자 리뷰어명과 등급을 채운 파일을 받아 업로드하세요. 같은 리뷰어가 같은
+              대상팀원을 다시 평가하면 값이 갱신됩니다.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => downloadPeerReviewTemplate(members)}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+              >
+                엑셀 양식 다운로드
+              </button>
+              <button
+                onClick={() => peerReviewFileInputRef.current?.click()}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+              >
+                엑셀로 업로드
+              </button>
+              <input
+                ref={peerReviewFileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handlePeerReviewFileSelected}
+              />
+            </div>
+
+            {peerReviewResult && (
+              <ImportFeedback
+                addedCount={peerReviewResult.addedCount}
+                updatedCount={peerReviewResult.updatedCount}
+                errors={peerReviewResult.errors}
+                onDismiss={() => setPeerReviewResult(null)}
+              />
+            )}
+
+            {selectedMember && (
+              <div className="mt-3 space-y-2">
+                {peerReviewsForMember.length === 0 ? (
+                  <p className="rounded-md bg-gray-50 px-4 py-4 text-center text-sm text-gray-500">
+                    {selectedMember.name}님이 받은 피어리뷰가 아직 없습니다.
+                  </p>
+                ) : (
+                  peerReviewsForMember.map((review) => (
+                    <div
+                      key={review.id}
+                      className="flex items-center justify-between gap-3 rounded-md border border-gray-200 px-4 py-2"
+                    >
+                      <span className="text-sm text-black">
+                        <span className="font-medium">{review.reviewerName}</span>
+                        <span className="text-gray-500"> → {selectedMember.name}</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${GRADE_COLORS[review.grade]}`}>
+                          {review.grade}
+                        </span>
+                        <button
+                          onClick={() => setDeletingPeerReview(review)}
+                          className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deletingPeerReview !== null}
+        title="피어리뷰 삭제"
+        message={`${deletingPeerReview?.reviewerName}님이 남긴 피어리뷰를 삭제하시겠습니까?`}
+        onConfirm={handleDeletePeerReviewConfirm}
+        onCancel={() => setDeletingPeerReview(null)}
+      />
 
       <ConfirmDialog
         open={deletingNote !== null}

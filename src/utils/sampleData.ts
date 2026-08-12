@@ -90,7 +90,9 @@ export function createSampleData(): AppState {
       useImportance: true,
       useWorkload: true,
       usePersonalPerformanceGrade: false,
+      usePeerReview: false,
     },
     meetingNotes: [],
+    peerReviews: [],
   }
 }

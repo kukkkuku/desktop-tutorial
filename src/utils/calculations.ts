@@ -3,6 +3,7 @@ import type {
   Criteria,
   EvaluationGrade,
   Importance,
+  PeerReview,
   PerformanceGrade,
   Task,
   TeamMember,
@@ -130,6 +131,18 @@ export function calcMemberCumulativeScore(
   }, 0)
 }
 
+export function calcPeerReviewFactor(
+  peerReviews: PeerReview[],
+  memberId: string,
+  criteria: Criteria,
+): number {
+  if (!criteria.usePeerReview) return 1.0
+  const received = peerReviews.filter((r) => r.targetMemberId === memberId)
+  if (received.length === 0) return 1.0
+  const avgScore = received.reduce((sum, r) => sum + PERFORMANCE_SCORE[r.grade], 0) / received.length
+  return avgScore / 100
+}
+
 export function calcMemberParticipation(
   member: TeamMember,
   tasks: Task[],
@@ -160,6 +173,7 @@ export function calcMemberResults(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
+  peerReviews: PeerReview[] = [],
 ): MemberResultRow[] {
   const taskScores = calcAllTaskScores(tasks, criteria)
   const expectedScore = calcExpectedScore(taskScores)
@@ -167,7 +181,9 @@ export function calcMemberResults(
   const rows = members
     .filter((m) => m.active)
     .map((member) => {
-      const cumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
+      const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
+      const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
+      const cumulativeScore = rawCumulativeScore * peerReviewFactor
       const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
       const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
       const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0

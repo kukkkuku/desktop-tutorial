@@ -92,10 +92,17 @@ export default function CriteriaConfiguration() {
         <div className="mt-2 space-y-2">
           <ToggleRow
             label="개인수행등급 사용"
-            onDescription="팀원별 개인수행등급(S 1.5 / A 1.2 / B 1.0 / C 0.8 / D 0.6배)이 점수에 곱해집니다. (현재 버전 준비 중)"
+            onDescription="팀원별 개인수행등급(S 1.5 / A 1.2 / B 1.0 / C 0.8 / D 0.6배)이 점수에 곱해집니다."
             offDescription="모든 팀원의 개인수행등급 배율을 1.0으로 간주합니다."
             checked={criteria.usePersonalPerformanceGrade}
             onChange={(checked) => update({ usePersonalPerformanceGrade: checked })}
+          />
+          <ToggleRow
+            label="피어리뷰 사용"
+            onDescription="팀원이 서로에게 매긴 피어리뷰 등급의 평균(S 100 / A 90 / B 80 / C 70 / D 60점 → ÷100배율)이 점수에 곱해집니다. 팀원면담 탭에서 엑셀로 리뷰를 업로드하세요."
+            offDescription="피어리뷰를 받았더라도 점수 계산에는 반영하지 않습니다."
+            checked={criteria.usePeerReview}
+            onChange={(checked) => update({ usePeerReview: checked })}
           />
           <ToggleRow
             label="기여도"
