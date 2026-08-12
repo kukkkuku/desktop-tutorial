@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
 import ConfirmDialog from './ConfirmDialog'
@@ -19,18 +19,29 @@ function readWorkspaceCounts(id: string): { taskCount: number; memberCount: numb
 
 export default function WorkspaceLanding() {
   const { workspaces, createWorkspace, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
-  const [selectedId, setSelectedId] = useState(workspaces[0]?.id ?? '')
+  // Default to the most recently created workspace, not the first one ever
+  // made, so returning users land on the team/period they were just using.
+  const mostRecentWorkspace = workspaces[workspaces.length - 1]
+  const [selectedId, setSelectedId] = useState(mostRecentWorkspace?.id ?? '')
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
 
-  const [newTeamName, setNewTeamName] = useState(workspaces[0]?.teamName ?? '')
+  const [newTeamName, setNewTeamName] = useState(mostRecentWorkspace?.teamName ?? '')
   const [newPeriodName, setNewPeriodName] = useState('')
   const [createError, setCreateError] = useState('')
   const [teamNameFocused, setTeamNameFocused] = useState(false)
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId) ?? null
+
+  // Keep the "새 평가 시작하기" team name in sync with whichever workspace is
+  // currently picked in "기존 평가 열기" above it, so it's never stuck showing
+  // the very first team ever created when there are multiple teams.
+  useEffect(() => {
+    setNewTeamName(selectedWorkspace?.teamName ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
   const existingTeamNames = Array.from(new Set(workspaces.map((w) => w.teamName)))
   const trimmedNewTeamName = newTeamName.trim()
   const isExactExistingTeam = existingTeamNames.includes(trimmedNewTeamName)
