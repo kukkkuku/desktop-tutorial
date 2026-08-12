@@ -39,7 +39,7 @@ export default function EvaluationMatrix() {
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은
         항상 표시되며, 개인수행등급을 사용하지 않도록 설정하면 회색으로 비활성화됩니다(입력값은 보존).{' '}
-        각 과제의 기여도 합계는 반드시 100이 되어야 합니다.
+        각 과제의 기여도 합계는 반드시 100이 되어야 합니다. 기여도 합계 열은 좌측에 고정되어 스크롤해도 항상 보입니다.
       </p>
 
       {tasks.length === 0 || members.length === 0 ? (
@@ -54,9 +54,15 @@ export default function EvaluationMatrix() {
                 <tr>
                   <th
                     rowSpan={2}
-                    className="sticky left-0 z-10 border-b border-gray-200 bg-[#F3F4F6] px-4 py-3 align-bottom font-semibold"
+                    className="sticky left-0 z-20 w-40 min-w-[10rem] border-b border-gray-200 bg-[#F3F4F6] px-4 py-3 align-bottom font-semibold"
                   >
                     과제 \ 팀원
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="sticky left-40 z-20 border-b border-l border-gray-200 bg-[#F3F4F6] px-4 py-3 align-bottom font-semibold"
+                  >
+                    기여도 합계
                   </th>
                   {members.map((member) => (
                     <th
@@ -67,9 +73,6 @@ export default function EvaluationMatrix() {
                       {member.name}
                     </th>
                   ))}
-                  <th rowSpan={2} className="border-b border-l border-gray-200 px-4 py-3 align-bottom font-semibold">
-                    기여도 합계
-                  </th>
                 </tr>
                 <tr>
                   {members.map((member) => (
@@ -89,11 +92,18 @@ export default function EvaluationMatrix() {
                   const taskScore = calcTaskScore(task, criteria)
                   return (
                     <tr key={task.id} className="border-t border-gray-200 text-black">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-3">
+                      <td className="sticky left-0 z-10 w-40 min-w-[10rem] bg-white px-4 py-3">
                         <div className="font-medium">{task.name}</div>
                         <div className="mt-0.5 text-xs text-gray-500">
                           {task.importance} · 업무량 {task.workload} · 점수 {taskScore.toFixed(1)}
                         </div>
+                      </td>
+                      <td
+                        className={`sticky left-40 z-10 border-l border-gray-200 bg-white px-4 py-3 font-semibold ${
+                          valid ? 'text-success' : 'text-danger'
+                        }`}
+                      >
+                        {sum.toFixed(0)}%
                       </td>
                       {members.map((member) => {
                         const percent = getContributionPercent(contributions, task.id, member.id)
@@ -133,9 +143,6 @@ export default function EvaluationMatrix() {
                           </Fragment>
                         )
                       })}
-                      <td className={`border-l border-gray-200 px-4 py-3 font-semibold ${valid ? 'text-success' : 'text-danger'}`}>
-                        {sum.toFixed(0)}%
-                      </td>
                     </tr>
                   )
                 })}
