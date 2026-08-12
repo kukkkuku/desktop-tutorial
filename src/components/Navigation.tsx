@@ -61,9 +61,23 @@ export default function Navigation({
           </select>
           <button
             onClick={onExit}
-            className="whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-gray-500 hover:bg-gray-100"
+            title="홈으로"
+            aria-label="홈으로"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-500 hover:bg-gray-100"
           >
-            다른 팀 열기
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="M3 10.5 12 3l9 7.5" />
+              <path d="M5 9.5V21h14V9.5" />
+            </svg>
           </button>
         </div>
         <nav className="flex flex-wrap gap-1">
