@@ -72,13 +72,12 @@ export default function WorkspaceLanding() {
     <div className="min-h-screen bg-white">
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6">
-          <div className="text-lg font-bold text-black">UX팀 성과평가 시스템</div>
+          <h1 className="text-lg font-bold text-black">성과관리</h1>
         </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-12 sm:px-6">
-        <h1 className="text-2xl font-bold text-black">성과관리</h1>
-        <p className="mt-1 text-center text-sm text-gray-600">팀과 평가 기간을 선택하거나 새로 시작하세요.</p>
+        <p className="text-center text-sm text-gray-600">팀과 평가 기간을 선택하거나 새로 시작하세요.</p>
 
         <section className="mt-8 w-full rounded-lg border border-gray-200 p-5">
           <h2 className="text-sm font-semibold text-gray-500">기존 평가 열기</h2>
