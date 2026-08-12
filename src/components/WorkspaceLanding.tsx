@@ -30,6 +30,7 @@ export default function WorkspaceLanding() {
   const [createError, setCreateError] = useState('')
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId) ?? null
+  const existingTeamNames = Array.from(new Set(workspaces.map((w) => w.teamName)))
 
   function handleOpen() {
     if (selectedWorkspace) selectWorkspace(selectedWorkspace.id)
@@ -142,10 +143,19 @@ export default function WorkspaceLanding() {
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
                 placeholder="예: UX팀"
+                list="existing-team-names"
                 className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
                   createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'
                 }`}
               />
+              <datalist id="existing-team-names">
+                {existingTeamNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              {existingTeamNames.includes(newTeamName.trim()) && (
+                <p className="mt-1 text-xs text-gray-500">기존 '{newTeamName.trim()}' 팀에 새 기간으로 추가돼요.</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-black">평가 기간</label>
