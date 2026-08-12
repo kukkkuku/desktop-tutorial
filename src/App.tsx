@@ -6,6 +6,7 @@ import TeamManagement from './components/TeamManagement'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import CriteriaConfiguration from './components/CriteriaConfiguration'
 import EvaluationResults from './components/EvaluationResults'
+import MeetingNotes from './components/MeetingNotes'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('tasks')
@@ -25,6 +26,7 @@ export default function App() {
           {activeTab === 'matrix' && <EvaluationMatrix />}
           {activeTab === 'criteria' && <CriteriaConfiguration />}
           {activeTab === 'results' && <EvaluationResults />}
+          {activeTab === 'notes' && <MeetingNotes />}
         </main>
       </div>
     </AppProvider>
