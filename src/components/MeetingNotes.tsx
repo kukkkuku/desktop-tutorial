@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { MeetingNote, TeamMember } from '../types'
+import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import ConfirmDialog from './ConfirmDialog'
 
 function todayString() {
@@ -10,7 +11,9 @@ function todayString() {
 
 export default function MeetingNotes() {
   const { state, dispatch } = useAppState()
-  const { members, meetingNotes } = state
+  const { members, meetingNotes, tasks, contributions, criteria } = state
+
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria)
 
   const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id ?? '')
   const [newDate, setNewDate] = useState(todayString())
@@ -23,6 +26,8 @@ export default function MeetingNotes() {
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
 
   const selectedMember: TeamMember | undefined = members.find((m) => m.id === selectedMemberId)
+  const selectedMemberRank = memberResults.findIndex((r) => r.member.id === selectedMemberId)
+  const selectedMemberResult = selectedMemberRank >= 0 ? memberResults[selectedMemberRank] : undefined
   const notesForMember = meetingNotes
     .filter((n) => n.memberId === selectedMemberId)
     .sort((a, b) => b.date.localeCompare(a.date))
@@ -91,6 +96,34 @@ export default function MeetingNotes() {
               </span>
             )}
           </div>
+
+          {selectedMember && (
+            <div className="mt-4 rounded-lg bg-gray-50 px-4 py-3">
+              {selectedMemberResult ? (
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                  <span className="font-semibold text-black">순위 {selectedMemberRank + 1}위</span>
+                  <span className="text-gray-700">
+                    종합 점수(가중평균) <span className="font-semibold text-black">{selectedMemberResult.weightedAverageScore.toFixed(1)}</span>
+                  </span>
+                  <span className="text-gray-700">
+                    누적 점수 <span className="font-semibold text-black">{selectedMemberResult.cumulativeScore.toFixed(1)}</span>
+                  </span>
+                  <span className="text-gray-700">
+                    참여 과제 <span className="font-semibold text-black">{selectedMemberResult.participatedTaskCount}건</span>
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${GRADE_COLORS[selectedMemberResult.grade]}`}
+                  >
+                    평가등급 {selectedMemberResult.grade}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap items-start gap-2 border-t border-gray-200 pt-4">
             <input
