@@ -6,10 +6,10 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function EvaluationResults() {
   const { state } = useAppState()
-  const { tasks, members, contributions, criteria, meetingNotes } = state
+  const { tasks, members, contributions, criteria, meetingNotes, peerReviews } = state
 
   const taskScores = calcAllTaskScores(tasks, criteria)
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria)
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const maxScore = Math.max(1, ...memberResults.map((r) => r.weightedAverageScore))
 
   return (
@@ -17,7 +17,7 @@ export default function EvaluationResults() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-black">평가 결과</h2>
         <button
-          onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes)}
+          onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
           disabled={memberResults.length === 0}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -161,6 +161,7 @@ export default function EvaluationResults() {
         <CriteriaBadge label="과제등급" active={criteria.useImportance} />
         <CriteriaBadge label="업무량" active={criteria.useWorkload} />
         <CriteriaBadge label="개인수행등급" active={criteria.usePersonalPerformanceGrade} />
+        <CriteriaBadge label="피어리뷰" active={criteria.usePeerReview} />
         <CriteriaBadge label="기여도" active />
       </div>
     </div>

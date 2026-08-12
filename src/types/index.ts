@@ -42,11 +42,19 @@ export interface MeetingNote {
   comment: string
 }
 
+export interface PeerReview {
+  id: string
+  reviewerName: string
+  targetMemberId: string
+  grade: PerformanceGrade
+}
+
 export interface Criteria {
   usePerformanceGrade: boolean
   useImportance: boolean
   useWorkload: boolean
   usePersonalPerformanceGrade: boolean
+  usePeerReview: boolean
 }
 
 export interface AppState {
@@ -55,6 +63,7 @@ export interface AppState {
   contributions: Contribution[]
   criteria: Criteria
   meetingNotes: MeetingNote[]
+  peerReviews: PeerReview[]
 }
 
 export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']

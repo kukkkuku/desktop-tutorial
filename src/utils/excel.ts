@@ -6,6 +6,7 @@ import type {
   Importance,
   Level,
   MeetingNote,
+  PeerReview,
   PerformanceGrade,
   Position,
   Task,
@@ -268,6 +269,84 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
   return { members: Array.from(byName.values()), errors, importedCount, addedCount, updatedCount, addedIds }
 }
 
+// ---------- Peer review template / import ----------
+
+const PEER_REVIEW_HEADERS = ['리뷰어', '대상팀원', '등급'] as const
+
+export async function downloadPeerReviewTemplate(members: TeamMember[]) {
+  const rows: (string | number)[][] = [[...PEER_REVIEW_HEADERS]]
+  for (const member of members) {
+    rows.push(['', member.name, ''])
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows)
+  ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 8 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '피어리뷰양식')
+  await downloadWorkbook(wb, '피어리뷰_업로드_양식.xlsx')
+}
+
+export interface PeerReviewImportResult {
+  peerReviews: PeerReview[]
+  errors: string[]
+  importedCount: number
+  addedCount: number
+  updatedCount: number
+}
+
+export function parsePeerReviewWorkbook(
+  buffer: ArrayBuffer,
+  members: TeamMember[],
+  existingPeerReviews: PeerReview[],
+): PeerReviewImportResult {
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+  const errors: string[] = []
+  const byKey = new Map(existingPeerReviews.map((r) => [`${r.reviewerName}::${r.targetMemberId}`, r]))
+  const memberByName = new Map(members.map((m) => [m.name, m]))
+  let importedCount = 0
+  let addedCount = 0
+  let updatedCount = 0
+
+  rows.forEach((row, index) => {
+    const rowNum = index + 2
+    const reviewerName = String(row['리뷰어'] ?? '').trim()
+    const targetName = String(row['대상팀원'] ?? '').trim()
+    const gradeRaw = String(row['등급'] ?? '').trim().toUpperCase()
+
+    if (!reviewerName || !targetName || !gradeRaw) return
+
+    const targetMember = memberByName.get(targetName)
+    if (!targetMember) {
+      errors.push(`${rowNum}행: 대상팀원 '${targetName}'을(를) 찾을 수 없습니다.`)
+      return
+    }
+    if (!PERFORMANCE_GRADE_OPTIONS.includes(gradeRaw as PerformanceGrade)) {
+      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 등급 '${row['등급']}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
+      return
+    }
+
+    const key = `${reviewerName}::${targetMember.id}`
+    const existing = byKey.get(key)
+    const review: PeerReview = {
+      id: existing?.id ?? uuidv4(),
+      reviewerName,
+      targetMemberId: targetMember.id,
+      grade: gradeRaw as PerformanceGrade,
+    }
+    byKey.set(key, review)
+    importedCount += 1
+    if (existing) {
+      updatedCount += 1
+    } else {
+      addedCount += 1
+    }
+  })
+
+  return { peerReviews: Array.from(byKey.values()), errors, importedCount, addedCount, updatedCount }
+}
+
 // ---------- Results report export ----------
 
 export async function downloadResultsReport(
@@ -276,8 +355,9 @@ export async function downloadResultsReport(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[] = [],
+  peerReviews: PeerReview[] = [],
 ) {
-  const results = calcMemberResults(members, tasks, contributions, criteria)
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
 
@@ -363,9 +443,24 @@ export async function downloadResultsReport(
   const notesSheet = XLSX.utils.aoa_to_sheet(notesRows)
   notesSheet['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 50 }]
 
+  const peerReviewRows: (string | number)[][] = [['대상팀원', '리뷰어', '등급']]
+  const sortedReviews = [...peerReviews].sort((a, b) => {
+    const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
+    const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
+    return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
+  })
+  for (const review of sortedReviews) {
+    const target = members.find((m) => m.id === review.targetMemberId)
+    if (!target) continue
+    peerReviewRows.push([target.name, review.reviewerName, review.grade])
+  }
+  const peerReviewSheet = XLSX.utils.aoa_to_sheet(peerReviewRows)
+  peerReviewSheet['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 8 }]
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, rankSheet, '순위표')
   XLSX.utils.book_append_sheet(wb, detailSheet, '과제별상세')
   XLSX.utils.book_append_sheet(wb, notesSheet, '면담기록')
+  XLSX.utils.book_append_sheet(wb, peerReviewSheet, '피어리뷰')
   await downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }

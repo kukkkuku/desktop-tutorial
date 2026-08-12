@@ -1,4 +1,4 @@
-import type { AppState, Contribution, Criteria, MeetingNote, PerformanceGrade, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
@@ -17,6 +17,8 @@ export type AppAction =
   | { type: 'ADD_MEETING_NOTE'; payload: MeetingNote }
   | { type: 'UPDATE_MEETING_NOTE'; payload: MeetingNote }
   | { type: 'DELETE_MEETING_NOTE'; payload: { id: string } }
+  | { type: 'IMPORT_PEER_REVIEWS'; payload: PeerReview[] }
+  | { type: 'DELETE_PEER_REVIEW'; payload: { id: string } }
 
 function upsertContribution(
   contributions: Contribution[],
@@ -133,7 +135,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const members = state.members.filter((m) => m.id !== action.payload.id)
       const contributions = state.contributions.filter((c) => c.memberId !== action.payload.id)
       const meetingNotes = state.meetingNotes.filter((n) => n.memberId !== action.payload.id)
-      return { ...state, members, meetingNotes, contributions: syncAutoDistribution(state.tasks, members, contributions) }
+      const peerReviews = state.peerReviews.filter((r) => r.targetMemberId !== action.payload.id)
+      return {
+        ...state,
+        members,
+        meetingNotes,
+        peerReviews,
+        contributions: syncAutoDistribution(state.tasks, members, contributions),
+      }
     }
 
     case 'IMPORT_MEMBERS':
@@ -171,11 +180,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         members: [],
         contributions: [],
         meetingNotes: [],
+        peerReviews: [],
         criteria: {
           usePerformanceGrade: true,
           useImportance: true,
           useWorkload: true,
           usePersonalPerformanceGrade: false,
+          usePeerReview: false,
         },
       }
 
@@ -192,6 +203,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         meetingNotes: state.meetingNotes.filter((n) => n.id !== action.payload.id),
+      }
+
+    case 'IMPORT_PEER_REVIEWS':
+      return { ...state, peerReviews: action.payload }
+
+    case 'DELETE_PEER_REVIEW':
+      return {
+        ...state,
+        peerReviews: state.peerReviews.filter((r) => r.id !== action.payload.id),
       }
 
     default:
