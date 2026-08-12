@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react'
 import type { AppState } from '../types'
-import { appReducer, syncAutoDistribution, type AppAction } from './appReducer'
-import { createSampleData } from '../utils/sampleData'
+import { appReducer, createEmptyState, syncAutoDistribution, type AppAction } from './appReducer'
 import { migrateAppState } from '../utils/migrate'
 
 const STORAGE_KEY = 'ux-performance-evaluation-state'
@@ -18,9 +17,9 @@ function loadInitialState(): AppState {
       if (migrated) return withAutoDistribution(migrated)
     }
   } catch {
-    // fall through to sample data
+    // fall through to empty state
   }
-  return createSampleData()
+  return createEmptyState()
 }
 
 interface AppContextValue {
