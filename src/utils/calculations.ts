@@ -103,10 +103,18 @@ export interface MemberResultRow {
   grade: EvaluationGrade
 }
 
-export function calcExpectedScore(taskScores: TaskScoreRow[]): number {
-  if (taskScores.length === 0) return 0
-  const total = taskScores.reduce((sum, row) => sum + row.score, 0)
-  return total / taskScores.length
+// The evaluation ratio is peer-relative: "expected" means "what an average
+// teammate scored," not a fixed single-task solo-completion baseline. A
+// fixed baseline breaks down as soon as a task's 100% is split across
+// multiple people (the normal case here) -- everyone's ratio then caps out
+// well under 1.0 regardless of how well they actually did, because no one
+// individually earns a whole task's score. Comparing to the team's own
+// average keeps ratio 1.0 meaning "average performer" no matter the team
+// size or how many tasks exist.
+export function calcExpectedScore(cumulativeScores: number[]): number {
+  if (cumulativeScores.length === 0) return 0
+  const total = cumulativeScores.reduce((sum, score) => sum + score, 0)
+  return total / cumulativeScores.length
 }
 
 export function calcPersonalGradeFactor(
@@ -176,27 +184,32 @@ export function calcMemberResults(
   peerReviews: PeerReview[] = [],
 ): MemberResultRow[] {
   const taskScores = calcAllTaskScores(tasks, criteria)
-  const expectedScore = calcExpectedScore(taskScores)
 
-  const rows = members
+  const withCumulativeScore = members
     .filter((m) => m.active)
     .map((member) => {
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
       const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
       const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
-      const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
-      const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
-      return {
-        member,
-        participatedTaskCount: count,
-        cumulativeScore,
-        weightedAverageScore,
-        expectedScore,
-        ratio,
-        grade: calcEvaluationGrade(ratio),
-      }
+      return { member, cumulativeScore, participatedTaskCount: count, totalShare }
     })
+
+  const expectedScore = calcExpectedScore(withCumulativeScore.map((r) => r.cumulativeScore))
+
+  const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount, totalShare }) => {
+    const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
+    const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
+    return {
+      member,
+      participatedTaskCount,
+      cumulativeScore,
+      weightedAverageScore,
+      expectedScore,
+      ratio,
+      grade: calcEvaluationGrade(ratio),
+    }
+  })
 
   return rows.sort((a, b) => b.weightedAverageScore - a.weightedAverageScore)
 }
