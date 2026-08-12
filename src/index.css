@@ -4,6 +4,7 @@
 
 html,
 body {
+  color-scheme: light;
   background-color: #ffffff;
   color: #000000;
   overflow-x: hidden;
