@@ -194,25 +194,26 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">평가 기준 현황</h3>
       <div className="mt-2 flex flex-wrap gap-2">
-        <CriteriaBadge label="성과등급" active={criteria.usePerformanceGrade} />
-        <CriteriaBadge label="과제등급" active={criteria.useImportance} />
-        <CriteriaBadge label="업무량" active={criteria.useWorkload} />
-        <CriteriaBadge label="개인수행등급" active={criteria.usePersonalPerformanceGrade} />
-        <CriteriaBadge label="피어리뷰" active={criteria.usePeerReview} />
-        <CriteriaBadge label="기여도" active />
+        <CriteriaBadge label="성과등급" weight={criteria.performanceGradeWeight} />
+        <CriteriaBadge label="과제등급" weight={criteria.taskGradeWeight} />
+        <CriteriaBadge label="업무량" weight={criteria.workloadWeight} />
+        <CriteriaBadge label="개인수행등급" weight={criteria.personalGradeWeight} />
+        <CriteriaBadge label="피어리뷰" weight={criteria.peerReviewWeight} />
+        <CriteriaBadge label="기여도" weight={100} />
       </div>
     </div>
   )
 }
 
-function CriteriaBadge({ label, active }: { label: string; active: boolean }) {
+function CriteriaBadge({ label, weight }: { label: string; weight: number }) {
+  const active = weight > 0
   return (
     <span
       className={`rounded-full px-3 py-1.5 text-sm font-medium ${
         active ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-400'
       }`}
     >
-      {active ? '✓' : '✕'} {label}
+      {label} {weight}%
     </span>
   )
 }

@@ -433,9 +433,7 @@ export async function downloadResultsReport(
     for (const c of taskContributions) {
       const member = members.find((m) => m.id === c.memberId)
       if (!member) continue
-      const personalFactor = criteria.usePersonalPerformanceGrade
-        ? c.personalPerformanceGrade
-        : '미사용'
+      const personalFactor = criteria.personalGradeWeight > 0 ? c.personalPerformanceGrade : '미사용'
       const weighted = taskScore * (c.contributionPercent / 100)
       detailRows.push([
         member.name,

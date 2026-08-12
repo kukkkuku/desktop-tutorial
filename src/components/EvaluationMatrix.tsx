@@ -125,10 +125,10 @@ export default function EvaluationMatrix() {
                             <td className="px-3 py-2">
                               <select
                                 value={grade}
-                                disabled={!criteria.usePersonalPerformanceGrade}
+                                disabled={criteria.personalGradeWeight === 0}
                                 onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
                                 className={`w-16 rounded-md border px-2 py-1 text-sm ${
-                                  criteria.usePersonalPerformanceGrade
+                                  criteria.personalGradeWeight > 0
                                     ? 'border-gray-300 text-black'
                                     : 'border-gray-200 bg-gray-100 text-gray-400'
                                 }`}

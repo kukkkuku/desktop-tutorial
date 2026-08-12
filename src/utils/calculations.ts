@@ -41,12 +41,22 @@ export const PERSONAL_GRADE_FACTOR: Record<PerformanceGrade, number> = {
 
 export const CONTRIBUTION_TOLERANCE = 0.01
 
+// Blends a criterion's actual effect toward its neutral (no-effect) value by
+// (100 - weightPercent)%, so a 0-100 "반영 비율" slider can dial a factor's
+// influence down smoothly instead of only being fully on or fully off.
+export function blendByWeight(neutral: number, actual: number, weightPercent: number): number {
+  const ratio = Math.max(0, Math.min(100, weightPercent)) / 100
+  return neutral + (actual - neutral) * ratio
+}
+
 export function calcTaskScore(task: Task, criteria: Criteria): number {
-  const performanceScore = criteria.usePerformanceGrade
-    ? PERFORMANCE_SCORE[task.performanceGrade]
-    : PERFORMANCE_SCORE.S
-  const importanceWeight = criteria.useImportance ? IMPORTANCE_WEIGHT[task.importance] : 1.0
-  const workloadFactor = criteria.useWorkload ? WORKLOAD_FACTOR[task.workload] : 1.0
+  const performanceScore = blendByWeight(
+    PERFORMANCE_SCORE.S,
+    PERFORMANCE_SCORE[task.performanceGrade],
+    criteria.performanceGradeWeight,
+  )
+  const importanceWeight = blendByWeight(1.0, IMPORTANCE_WEIGHT[task.importance], criteria.taskGradeWeight)
+  const workloadFactor = blendByWeight(1.0, WORKLOAD_FACTOR[task.workload], criteria.workloadWeight)
   return performanceScore * importanceWeight * workloadFactor
 }
 
@@ -121,8 +131,8 @@ export function calcPersonalGradeFactor(
   contribution: Contribution | undefined,
   criteria: Criteria,
 ): number {
-  if (!criteria.usePersonalPerformanceGrade || !contribution) return 1.0
-  return PERSONAL_GRADE_FACTOR[contribution.personalPerformanceGrade]
+  if (!contribution) return 1.0
+  return blendByWeight(1.0, PERSONAL_GRADE_FACTOR[contribution.personalPerformanceGrade], criteria.personalGradeWeight)
 }
 
 export function calcMemberCumulativeScore(
@@ -144,11 +154,10 @@ export function calcPeerReviewFactor(
   memberId: string,
   criteria: Criteria,
 ): number {
-  if (!criteria.usePeerReview) return 1.0
   const received = peerReviews.filter((r) => r.targetMemberId === memberId)
   if (received.length === 0) return 1.0
   const avgScore = received.reduce((sum, r) => sum + PERFORMANCE_SCORE[r.grade], 0) / received.length
-  return avgScore / 100
+  return blendByWeight(1.0, avgScore / 100, criteria.peerReviewWeight)
 }
 
 export function calcMemberParticipation(
