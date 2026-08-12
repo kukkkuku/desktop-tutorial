@@ -122,26 +122,29 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
   rows.forEach((row, index) => {
     const rowNum = index + 2
     const name = String(row['과제명'] ?? '').trim()
-    const importance = String(row['과제등급'] ?? '').trim() as Importance
-    const workload = String(row['업무량'] ?? '').trim() as Workload
+    const importanceRaw = String(row['과제등급'] ?? '').trim()
+    const workloadRaw = String(row['업무량'] ?? '').trim()
     const objective = String(row['목표'] ?? '').trim()
     const achievement = String(row['성과'] ?? '').trim()
     const performanceGradeRaw = String(row['성과등급'] ?? '').trim().toUpperCase()
+
+    const importance = (importanceRaw || '일반') as Importance
+    const workload = (workloadRaw || '중') as Workload
     const performanceGrade = (performanceGradeRaw || 'B') as PerformanceGrade
 
     if (!name) {
       errors.push(`${rowNum}행: 과제명이 비어 있어 건너뛰었습니다.`)
       return
     }
-    if (!IMPORTANCE_OPTIONS.includes(importance)) {
+    if (importanceRaw && !IMPORTANCE_OPTIONS.includes(importance)) {
       errors.push(`${rowNum}행 '${name}': 과제등급 '${row['과제등급']}'은(는) 유효하지 않습니다. (중점/핵심/일반/지원)`)
       return
     }
-    if (!WORKLOAD_OPTIONS.includes(workload)) {
+    if (workloadRaw && !WORKLOAD_OPTIONS.includes(workload)) {
       errors.push(`${rowNum}행 '${name}': 업무량 '${row['업무량']}'은(는) 유효하지 않습니다. (대/중/소)`)
       return
     }
-    if (!PERFORMANCE_GRADE_OPTIONS.includes(performanceGrade)) {
+    if (performanceGradeRaw && !PERFORMANCE_GRADE_OPTIONS.includes(performanceGrade)) {
       errors.push(`${rowNum}행 '${name}': 성과등급 '${row['성과등급']}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
       return
     }
