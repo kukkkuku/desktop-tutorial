@@ -11,6 +11,12 @@ export default function EvaluationResults() {
   const taskScores = calcAllTaskScores(tasks, criteria)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const maxScore = Math.max(1, ...memberResults.map((r) => r.weightedAverageScore))
+  const CHART_HEIGHT = 180
+  const avgWeightedScore =
+    memberResults.length > 0
+      ? memberResults.reduce((sum, r) => sum + r.weightedAverageScore, 0) / memberResults.length
+      : 0
+  const avgLineTop = CHART_HEIGHT - Math.min(CHART_HEIGHT, (avgWeightedScore / maxScore) * CHART_HEIGHT)
 
   return (
     <div>
@@ -30,18 +36,49 @@ export default function EvaluationResults() {
 
       {memberResults.length > 0 && (
         <div className="mt-6 rounded-lg border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-500">팀원별 종합 점수(가중평균)</h3>
-          <div className="mt-4 flex items-end gap-4 overflow-x-auto pb-2" style={{ minHeight: 200 }}>
-            {memberResults.map((row) => (
-              <div key={row.member.id} className="flex flex-col items-center gap-2">
-                <span className="text-xs font-semibold text-black">{row.weightedAverageScore.toFixed(1)}</span>
-                <div
-                  className="w-12 rounded-t-md bg-accent"
-                  style={{ height: `${Math.max(4, (row.weightedAverageScore / maxScore) * 180)}px` }}
-                />
-                <span className="text-xs text-gray-600">{row.member.name}</span>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-gray-500">팀원별 종합 점수(가중평균)</h3>
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />
+              팀 평균 {avgWeightedScore.toFixed(1)}
+            </span>
+          </div>
+          <div className="mt-4 overflow-x-auto pb-2">
+            <div className="relative flex items-start gap-4">
+              <div
+                className="pointer-events-none absolute left-0 right-0 border-t-2 border-dashed border-gray-400"
+                style={{ top: `${avgLineTop}px` }}
+              />
+              {memberResults.map((row) => {
+                const aboveAverage = row.weightedAverageScore >= avgWeightedScore
+                const barHeightPx = Math.max(4, (row.weightedAverageScore / maxScore) * CHART_HEIGHT)
+                return (
+                  <div key={row.member.id} className="flex flex-col items-center gap-2">
+                    <div className="relative flex w-12 items-end justify-center" style={{ height: CHART_HEIGHT }}>
+                      <span
+                        className="absolute text-xs font-semibold text-black"
+                        style={{ bottom: `${barHeightPx + 4}px` }}
+                      >
+                        {row.weightedAverageScore.toFixed(1)}
+                      </span>
+                      <div
+                        className={`w-12 rounded-t-md ${aboveAverage ? 'bg-accent' : 'bg-gray-300'}`}
+                        style={{ height: `${barHeightPx}px` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600">{row.member.name}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-accent" /> 평균 이상
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-gray-300" /> 평균 미만
+            </span>
           </div>
         </div>
       )}
