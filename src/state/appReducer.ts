@@ -182,11 +182,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         meetingNotes: [],
         peerReviews: [],
         criteria: {
-          usePerformanceGrade: true,
-          useImportance: true,
-          useWorkload: true,
-          usePersonalPerformanceGrade: false,
-          usePeerReview: false,
+          performanceGradeWeight: 100,
+          taskGradeWeight: 100,
+          workloadWeight: 100,
+          personalGradeWeight: 0,
+          peerReviewWeight: 0,
         },
       }
 

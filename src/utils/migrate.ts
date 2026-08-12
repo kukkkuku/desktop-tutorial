@@ -70,15 +70,24 @@ function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {
   return { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
 }
 
+// Criteria used to be plain on/off booleans; now each is a 0-100 reflection
+// ratio. Reads the new numeric field if present, else falls back to the old
+// boolean (true/false -> 100/0) so existing saved data keeps working, else
+// the given default.
+function resolveWeight(newValue: unknown, oldValue: unknown, defaultWeight: number): number {
+  if (typeof newValue === 'number') return Math.max(0, Math.min(100, newValue))
+  if (typeof oldValue === 'boolean') return oldValue ? 100 : 0
+  return defaultWeight
+}
+
 function migrateCriteria(raw: unknown): Criteria {
   const r = (raw ?? {}) as Record<string, unknown>
   return {
-    usePerformanceGrade: typeof r.usePerformanceGrade === 'boolean' ? r.usePerformanceGrade : true,
-    useImportance: typeof r.useImportance === 'boolean' ? r.useImportance : true,
-    useWorkload: typeof r.useWorkload === 'boolean' ? r.useWorkload : true,
-    usePersonalPerformanceGrade:
-      typeof r.usePersonalPerformanceGrade === 'boolean' ? r.usePersonalPerformanceGrade : false,
-    usePeerReview: typeof r.usePeerReview === 'boolean' ? r.usePeerReview : false,
+    performanceGradeWeight: resolveWeight(r.performanceGradeWeight, r.usePerformanceGrade, 100),
+    taskGradeWeight: resolveWeight(r.taskGradeWeight, r.useImportance, 100),
+    workloadWeight: resolveWeight(r.workloadWeight, r.useWorkload, 100),
+    personalGradeWeight: resolveWeight(r.personalGradeWeight, r.usePersonalPerformanceGrade, 0),
+    peerReviewWeight: resolveWeight(r.peerReviewWeight, r.usePeerReview, 0),
   }
 }
 

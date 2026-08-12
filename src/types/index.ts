@@ -50,11 +50,12 @@ export interface PeerReview {
 }
 
 export interface Criteria {
-  usePerformanceGrade: boolean
-  useImportance: boolean
-  useWorkload: boolean
-  usePersonalPerformanceGrade: boolean
-  usePeerReview: boolean
+  // Each is a 0-100 reflection ratio: 0 = no effect (neutral baseline), 100 = full effect.
+  performanceGradeWeight: number
+  taskGradeWeight: number
+  workloadWeight: number
+  personalGradeWeight: number
+  peerReviewWeight: number
 }
 
 export interface AppState {
