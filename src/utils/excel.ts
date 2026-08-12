@@ -293,6 +293,18 @@ export interface PeerReviewImportResult {
   updatedCount: number
 }
 
+const REVIEWER_HEADER_ALIASES = ['리뷰어', '평가자', '리뷰자']
+const TARGET_HEADER_ALIASES = ['대상팀원', '평가대상', '평가 대상', '대상자', '피평가자']
+const GRADE_HEADER_ALIASES = ['등급', '평가등급', '점수']
+
+function pickColumn(row: Record<string, unknown>, aliases: string[]): string {
+  for (const alias of aliases) {
+    const value = row[alias]
+    if (value !== undefined && String(value).trim() !== '') return String(value).trim()
+  }
+  return ''
+}
+
 export function parsePeerReviewWorkbook(
   buffer: ArrayBuffer,
   members: TeamMember[],
@@ -308,14 +320,24 @@ export function parsePeerReviewWorkbook(
   let importedCount = 0
   let addedCount = 0
   let updatedCount = 0
+  let contentRowCount = 0
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
-    const reviewerName = String(row['리뷰어'] ?? '').trim()
-    const targetName = String(row['대상팀원'] ?? '').trim()
-    const gradeRaw = String(row['등급'] ?? '').trim().toUpperCase()
+    const hasAnyContent = Object.values(row).some((v) => String(v ?? '').trim() !== '')
+    if (!hasAnyContent) return
+    contentRowCount += 1
 
-    if (!reviewerName || !targetName || !gradeRaw) return
+    const reviewerName = pickColumn(row, REVIEWER_HEADER_ALIASES)
+    const targetName = pickColumn(row, TARGET_HEADER_ALIASES)
+    const gradeRaw = pickColumn(row, GRADE_HEADER_ALIASES).toUpperCase()
+
+    if (!reviewerName || !targetName || !gradeRaw) {
+      errors.push(
+        `${rowNum}행: 리뷰어/대상팀원/등급 컬럼을 찾지 못했습니다. 엑셀 헤더가 '리뷰어', '대상팀원', '등급'인지 확인해주세요.`,
+      )
+      return
+    }
 
     const targetMember = memberByName.get(targetName)
     if (!targetMember) {
@@ -323,7 +345,7 @@ export function parsePeerReviewWorkbook(
       return
     }
     if (!PERFORMANCE_GRADE_OPTIONS.includes(gradeRaw as PerformanceGrade)) {
-      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 등급 '${row['등급']}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
+      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 등급 '${gradeRaw}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
       return
     }
 
@@ -343,6 +365,10 @@ export function parsePeerReviewWorkbook(
       addedCount += 1
     }
   })
+
+  if (contentRowCount === 0) {
+    errors.push('업로드한 파일에 내용이 없습니다. 다운로드한 양식에 리뷰어/대상팀원/등급을 채워 업로드해주세요.')
+  }
 
   return { peerReviews: Array.from(byKey.values()), errors, importedCount, addedCount, updatedCount }
 }
