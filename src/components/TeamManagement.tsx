@@ -106,6 +106,13 @@ export default function TeamManagement() {
         />
       )}
 
+      {state.members.length === 0 ? (
+        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
+          등록된 팀원이 없습니다.
+          <br />
+          '+ 팀원 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
+        </p>
+      ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
@@ -121,13 +128,6 @@ export default function TeamManagement() {
             </tr>
           </thead>
           <tbody>
-            {state.members.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-gray-500">
-                  등록된 팀원이 없습니다. '+ 팀원 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
-                </td>
-              </tr>
-            )}
             {state.members.map((member) => {
               const { count } = calcMemberParticipation(member, state.tasks, state.contributions)
               return (
@@ -178,6 +178,7 @@ export default function TeamManagement() {
           </tbody>
         </table>
       </div>
+      )}
 
       {modalOpen && (
         <MemberModal
