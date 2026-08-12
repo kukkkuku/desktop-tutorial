@@ -12,6 +12,7 @@ export default function TaskManagement() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [importResult, setImportResult] = useState<TaskImportResult | null>(null)
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openAddModal() {
@@ -49,6 +50,7 @@ export default function TaskManagement() {
     const result = parseTaskWorkbook(buffer, state.tasks)
     dispatch({ type: 'IMPORT_TASKS', payload: result.tasks })
     setImportResult(result)
+    setRecentlyAddedIds(new Set(result.addedIds))
   }
 
   return (
@@ -93,9 +95,13 @@ export default function TaskManagement() {
 
       {importResult && (
         <ImportFeedback
-          importedCount={importResult.importedCount}
+          addedCount={importResult.addedCount}
+          updatedCount={importResult.updatedCount}
           errors={importResult.errors}
-          onDismiss={() => setImportResult(null)}
+          onDismiss={() => {
+            setImportResult(null)
+            setRecentlyAddedIds(new Set())
+          }}
         />
       )}
 
@@ -122,7 +128,16 @@ export default function TaskManagement() {
             )}
             {state.tasks.map((task) => (
               <tr key={task.id} className="border-t border-gray-200 text-black">
-                <td className="px-4 py-3 font-medium">{task.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <span className="inline-flex items-center gap-1.5">
+                    {task.name}
+                    {recentlyAddedIds.has(task.id) && (
+                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                        N
+                      </span>
+                    )}
+                  </span>
+                </td>
                 <td className="px-4 py-3">{task.importance}</td>
                 <td className="px-4 py-3">{task.performanceGrade}</td>
                 <td className="px-4 py-3">{task.workload}</td>

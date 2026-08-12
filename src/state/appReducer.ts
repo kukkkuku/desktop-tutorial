@@ -19,7 +19,7 @@ function upsertContribution(
   contributions: Contribution[],
   taskId: string,
   memberId: string,
-  patch: Partial<Pick<Contribution, 'contributionPercent' | 'personalPerformanceGrade'>>,
+  patch: Partial<Pick<Contribution, 'contributionPercent' | 'personalPerformanceGrade' | 'isAutoDistributed'>>,
 ): Contribution[] {
   const exists = contributions.some((c) => c.taskId === taskId && c.memberId === memberId)
   if (exists) {
@@ -39,13 +39,65 @@ function upsertContribution(
   ]
 }
 
+function distributeEqually(count: number): number[] {
+  if (count <= 0) return []
+  const base = Math.floor(100 / count)
+  const remainder = 100 - base * count
+  return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
+}
+
+function autoDistributeForNewTask(taskId: string, members: TeamMember[]): Contribution[] {
+  const shares = distributeEqually(members.length)
+  return members.map((member, i) => ({
+    taskId,
+    memberId: member.id,
+    contributionPercent: shares[i],
+    personalPerformanceGrade: 'B' as PerformanceGrade,
+    isAutoDistributed: true,
+  }))
+}
+
+function redistributeForNewMember(
+  tasks: Task[],
+  members: TeamMember[],
+  contributions: Contribution[],
+): Contribution[] {
+  let result = contributions
+  for (const task of tasks) {
+    const taskContributions = result.filter((c) => c.taskId === task.id)
+    const isFullyAuto = taskContributions.every((c) => c.isAutoDistributed)
+    if (!isFullyAuto) continue
+
+    const shares = distributeEqually(members.length)
+    const redistributed = members.map((member, i) => ({
+      taskId: task.id,
+      memberId: member.id,
+      contributionPercent: shares[i],
+      personalPerformanceGrade:
+        taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? ('B' as PerformanceGrade),
+      isAutoDistributed: true,
+    }))
+    result = [...result.filter((c) => c.taskId !== task.id), ...redistributed]
+  }
+  return result
+}
+
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'LOAD_STATE':
       return action.payload
 
-    case 'ADD_TASK':
-      return { ...state, tasks: [...state.tasks, action.payload] }
+    case 'ADD_TASK': {
+      const tasks = [...state.tasks, action.payload]
+      if (state.members.length === 0) {
+        return { ...state, tasks }
+      }
+      return {
+        ...state,
+        tasks,
+        contributions: [...state.contributions, ...autoDistributeForNewTask(action.payload.id, state.members)],
+      }
+    }
 
     case 'UPDATE_TASK':
       return {
@@ -63,8 +115,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'IMPORT_TASKS':
       return { ...state, tasks: action.payload }
 
-    case 'ADD_MEMBER':
-      return { ...state, members: [...state.members, action.payload] }
+    case 'ADD_MEMBER': {
+      const members = [...state.members, action.payload]
+      if (state.tasks.length === 0) {
+        return { ...state, members }
+      }
+      return {
+        ...state,
+        members,
+        contributions: redistributeForNewMember(state.tasks, members, state.contributions),
+      }
+    }
 
     case 'UPDATE_MEMBER':
       return {
@@ -86,7 +147,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const { taskId, memberId, contributionPercent } = action.payload
       return {
         ...state,
-        contributions: upsertContribution(state.contributions, taskId, memberId, { contributionPercent }),
+        contributions: upsertContribution(state.contributions, taskId, memberId, {
+          contributionPercent,
+          isAutoDistributed: false,
+        }),
       }
     }
 

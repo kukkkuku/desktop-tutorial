@@ -13,6 +13,7 @@ export default function TeamManagement() {
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [importResult, setImportResult] = useState<MemberImportResult | null>(null)
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openAddModal() {
@@ -50,6 +51,7 @@ export default function TeamManagement() {
     const result = parseMemberWorkbook(buffer, state.members)
     dispatch({ type: 'IMPORT_MEMBERS', payload: result.members })
     setImportResult(result)
+    setRecentlyAddedIds(new Set(result.addedIds))
   }
 
   return (
@@ -94,9 +96,13 @@ export default function TeamManagement() {
 
       {importResult && (
         <ImportFeedback
-          importedCount={importResult.importedCount}
+          addedCount={importResult.addedCount}
+          updatedCount={importResult.updatedCount}
           errors={importResult.errors}
-          onDismiss={() => setImportResult(null)}
+          onDismiss={() => {
+            setImportResult(null)
+            setRecentlyAddedIds(new Set())
+          }}
         />
       )}
 
@@ -126,7 +132,16 @@ export default function TeamManagement() {
               const { count } = calcMemberParticipation(member, state.tasks, state.contributions)
               return (
                 <tr key={member.id} className="border-t border-gray-200 text-black">
-                  <td className="px-4 py-3 font-medium">{member.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      {member.name}
+                      {recentlyAddedIds.has(member.id) && (
+                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                          N
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{member.position || '-'}</td>
                   <td className="px-4 py-3">{member.level || '-'}</td>
                   <td className="px-4 py-3">{member.yearsOfService ?? '-'}</td>

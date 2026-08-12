@@ -108,6 +108,9 @@ export interface TaskImportResult {
   tasks: Task[]
   errors: string[]
   importedCount: number
+  addedCount: number
+  updatedCount: number
+  addedIds: string[]
 }
 
 export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): TaskImportResult {
@@ -118,6 +121,9 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
   const errors: string[] = []
   const byName = new Map(existingTasks.map((t) => [t.name, t]))
   let importedCount = 0
+  let addedCount = 0
+  let updatedCount = 0
+  const addedIds: string[] = []
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
@@ -161,9 +167,15 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
     }
     byName.set(name, task)
     importedCount += 1
+    if (existing) {
+      updatedCount += 1
+    } else {
+      addedCount += 1
+      addedIds.push(task.id)
+    }
   })
 
-  return { tasks: Array.from(byName.values()), errors, importedCount }
+  return { tasks: Array.from(byName.values()), errors, importedCount, addedCount, updatedCount, addedIds }
 }
 
 // ---------- Team member template / import ----------
@@ -187,6 +199,9 @@ export interface MemberImportResult {
   members: TeamMember[]
   errors: string[]
   importedCount: number
+  addedCount: number
+  updatedCount: number
+  addedIds: string[]
 }
 
 export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMember[]): MemberImportResult {
@@ -197,6 +212,9 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
   const errors: string[] = []
   const byName = new Map(existingMembers.map((m) => [m.name, m]))
   let importedCount = 0
+  let addedCount = 0
+  let updatedCount = 0
+  const addedIds: string[] = []
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
@@ -238,9 +256,15 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
     }
     byName.set(name, member)
     importedCount += 1
+    if (existing) {
+      updatedCount += 1
+    } else {
+      addedCount += 1
+      addedIds.push(member.id)
+    }
   })
 
-  return { members: Array.from(byName.values()), errors, importedCount }
+  return { members: Array.from(byName.values()), errors, importedCount, addedCount, updatedCount, addedIds }
 }
 
 // ---------- Results report export ----------

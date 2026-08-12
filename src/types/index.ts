@@ -31,6 +31,8 @@ export interface Contribution {
   memberId: string
   contributionPercent: number
   personalPerformanceGrade: PerformanceGrade
+  // true = still an auto equal-split value, safe to redistribute on the next ADD_MEMBER
+  isAutoDistributed?: boolean
 }
 
 export interface Criteria {
