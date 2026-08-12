@@ -5,13 +5,15 @@ import ConfirmDialog from './ConfirmDialog'
 
 interface ToggleRowProps {
   label: string
-  description: string
+  onDescription: string
+  offDescription?: string
   checked: boolean
   disabled?: boolean
   onChange: (checked: boolean) => void
 }
 
-function ToggleRow({ label, description, checked, disabled, onChange }: ToggleRowProps) {
+function ToggleRow({ label, onDescription, offDescription, checked, disabled, onChange }: ToggleRowProps) {
+  const description = checked || !offDescription ? onDescription : offDescription
   return (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-4 py-4">
       <div className="min-w-0 flex-1">
@@ -63,19 +65,22 @@ export default function CriteriaConfiguration() {
         <div className="mt-2 space-y-2">
           <ToggleRow
             label="성과등급 사용"
-            description="사용 시 과제별 성과등급(S 100 / A 90 / B 80 / C 70 / D 60점)이 점수에 반영됩니다. 사용 안 함 시 모든 과제를 S(100점)로 간주합니다."
+            onDescription="과제별 성과등급(S 100 / A 90 / B 80 / C 70 / D 60점)이 점수에 반영됩니다."
+            offDescription="모든 과제의 성과등급을 S(100점)로 간주합니다."
             checked={criteria.usePerformanceGrade}
             onChange={(checked) => update({ usePerformanceGrade: checked })}
           />
           <ToggleRow
             label="중요도 사용"
-            description="사용 시 중요도(중점 1.3 / 핵심 1.15 / 일반 1.0 / 지원 0.88)에 따라 가중치가 곱해집니다. 사용 안 함 시 가중치를 1.0으로 간주합니다."
+            onDescription="과제 중요도(중점 1.3 / 핵심 1.15 / 일반 1.0 / 지원 0.88)에 따라 가중치가 곱해집니다."
+            offDescription="모든 과제의 중요도 가중치를 1.0으로 간주합니다."
             checked={criteria.useImportance}
             onChange={(checked) => update({ useImportance: checked })}
           />
           <ToggleRow
             label="업무량 사용"
-            description="사용 시 업무량(대 1.2 / 중 1.0 / 소 0.8)에 따라 계수가 곱해집니다. 사용 안 함 시 계수를 1.0으로 간주합니다."
+            onDescription="업무량(대 1.2 / 중 1.0 / 소 0.8)에 따라 계수가 곱해집니다."
+            offDescription="모든 과제의 업무량 계수를 1.0으로 간주합니다."
             checked={criteria.useWorkload}
             onChange={(checked) => update({ useWorkload: checked })}
           />
@@ -87,13 +92,14 @@ export default function CriteriaConfiguration() {
         <div className="mt-2 space-y-2">
           <ToggleRow
             label="개인수행등급 사용"
-            description="사용 시 팀원별 개인수행등급(S 1.5 / A 1.2 / B 1.0 / C 0.8 / D 0.6배)이 점수에 곱해집니다. 사용 안 함 시 배율을 1.0으로 간주합니다. (현재 버전 준비 중)"
+            onDescription="팀원별 개인수행등급(S 1.5 / A 1.2 / B 1.0 / C 0.8 / D 0.6배)이 점수에 곱해집니다. (현재 버전 준비 중)"
+            offDescription="모든 팀원의 개인수행등급 배율을 1.0으로 간주합니다."
             checked={criteria.usePersonalPerformanceGrade}
             onChange={(checked) => update({ usePersonalPerformanceGrade: checked })}
           />
           <ToggleRow
             label="기여도"
-            description="기여도는 항상 필수 기준으로 사용됩니다."
+            onDescription="기여도는 항상 필수 기준으로 사용됩니다."
             checked
             disabled
             onChange={() => {}}
