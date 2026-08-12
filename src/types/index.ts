@@ -35,6 +35,13 @@ export interface Contribution {
   isAutoDistributed?: boolean
 }
 
+export interface MeetingNote {
+  id: string
+  memberId: string
+  date: string
+  comment: string
+}
+
 export interface Criteria {
   usePerformanceGrade: boolean
   useImportance: boolean
@@ -47,6 +54,7 @@ export interface AppState {
   members: TeamMember[]
   contributions: Contribution[]
   criteria: Criteria
+  meetingNotes: MeetingNote[]
 }
 
 export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']

@@ -91,5 +91,6 @@ export function createSampleData(): AppState {
       useWorkload: true,
       usePersonalPerformanceGrade: false,
     },
+    meetingNotes: [],
   }
 }

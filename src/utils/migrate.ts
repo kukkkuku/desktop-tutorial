@@ -1,4 +1,4 @@
-import type { AppState, Contribution, Criteria, PerformanceGrade, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, MeetingNote, PerformanceGrade, Task, TeamMember } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 
 function isPerformanceGrade(value: unknown): value is PerformanceGrade {
@@ -58,6 +58,12 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
   }
 }
 
+function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
+  if (typeof raw.id !== 'string' || typeof raw.memberId !== 'string') return null
+  if (typeof raw.date !== 'string' || typeof raw.comment !== 'string') return null
+  return { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
+}
+
 function migrateCriteria(raw: unknown): Criteria {
   const r = (raw ?? {}) as Record<string, unknown>
   return {
@@ -86,6 +92,11 @@ export function migrateAppState(raw: unknown): AppState | null {
         .filter((c): c is Contribution => c !== null)
     : []
   const criteria = migrateCriteria(r.criteria)
+  const meetingNotes = Array.isArray(r.meetingNotes)
+    ? (r.meetingNotes as Record<string, unknown>[])
+        .map(migrateMeetingNote)
+        .filter((n): n is MeetingNote => n !== null)
+    : []
 
-  return { tasks, members, contributions, criteria }
+  return { tasks, members, contributions, criteria, meetingNotes }
 }

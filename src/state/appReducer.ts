@@ -1,4 +1,4 @@
-import type { AppState, Contribution, Criteria, PerformanceGrade, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, MeetingNote, PerformanceGrade, Task, TeamMember } from '../types'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
@@ -14,6 +14,9 @@ export type AppAction =
   | { type: 'SET_CONTRIBUTION_GRADE'; payload: { taskId: string; memberId: string; personalPerformanceGrade: PerformanceGrade } }
   | { type: 'SET_CRITERIA'; payload: Partial<Criteria> }
   | { type: 'RESET_ALL' }
+  | { type: 'ADD_MEETING_NOTE'; payload: MeetingNote }
+  | { type: 'UPDATE_MEETING_NOTE'; payload: MeetingNote }
+  | { type: 'DELETE_MEETING_NOTE'; payload: { id: string } }
 
 function upsertContribution(
   contributions: Contribution[],
@@ -129,7 +132,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'DELETE_MEMBER': {
       const members = state.members.filter((m) => m.id !== action.payload.id)
       const contributions = state.contributions.filter((c) => c.memberId !== action.payload.id)
-      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, contributions) }
+      const meetingNotes = state.meetingNotes.filter((n) => n.memberId !== action.payload.id)
+      return { ...state, members, meetingNotes, contributions: syncAutoDistribution(state.tasks, members, contributions) }
     }
 
     case 'IMPORT_MEMBERS':
@@ -166,12 +170,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tasks: [],
         members: [],
         contributions: [],
+        meetingNotes: [],
         criteria: {
           usePerformanceGrade: true,
           useImportance: true,
           useWorkload: true,
           usePersonalPerformanceGrade: false,
         },
+      }
+
+    case 'ADD_MEETING_NOTE':
+      return { ...state, meetingNotes: [...state.meetingNotes, action.payload] }
+
+    case 'UPDATE_MEETING_NOTE':
+      return {
+        ...state,
+        meetingNotes: state.meetingNotes.map((n) => (n.id === action.payload.id ? action.payload : n)),
+      }
+
+    case 'DELETE_MEETING_NOTE':
+      return {
+        ...state,
+        meetingNotes: state.meetingNotes.filter((n) => n.id !== action.payload.id),
       }
 
     default:

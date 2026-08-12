@@ -1,6 +1,7 @@
 import { useAppState } from '../state/AppContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { downloadResultsReport } from '../utils/excel'
+import MeetingNotes from './MeetingNotes'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -154,6 +155,8 @@ export default function EvaluationResults() {
           </tbody>
         </table>
       </div>
+
+      <MeetingNotes />
 
       <h3 className="mt-8 text-lg font-semibold text-black">평가 기준 현황</h3>
       <div className="mt-2 flex flex-wrap gap-2">
