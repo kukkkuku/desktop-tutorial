@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
-import WorkspaceModal from './WorkspaceModal'
 import ConfirmDialog from './ConfirmDialog'
 
 function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number } {
@@ -20,36 +19,53 @@ function readWorkspaceCounts(id: string): { taskCount: number; memberCount: numb
 
 export default function WorkspaceLanding() {
   const { workspaces, createWorkspace, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingWorkspace, setEditingWorkspace] = useState<WorkspaceMeta | null>(null)
+  const [selectedId, setSelectedId] = useState(workspaces[0]?.id ?? '')
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
+  const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
+  const [renameTeamName, setRenameTeamName] = useState('')
+  const [renamePeriodName, setRenamePeriodName] = useState('')
 
-  function openCreateModal() {
-    setEditingWorkspace(null)
-    setModalOpen(true)
+  const [newTeamName, setNewTeamName] = useState('')
+  const [newPeriodName, setNewPeriodName] = useState('')
+  const [createError, setCreateError] = useState('')
+
+  const selectedWorkspace = workspaces.find((w) => w.id === selectedId) ?? null
+
+  function handleOpen() {
+    if (selectedWorkspace) selectWorkspace(selectedWorkspace.id)
   }
 
-  function openEditModal(e: React.MouseEvent, workspace: WorkspaceMeta) {
-    e.stopPropagation()
-    setEditingWorkspace(workspace)
-    setModalOpen(true)
+  function openRename(workspace: WorkspaceMeta) {
+    setRenamingWorkspace(workspace)
+    setRenameTeamName(workspace.teamName)
+    setRenamePeriodName(workspace.periodName)
   }
 
-  function handleSave(teamName: string, periodName: string) {
-    if (editingWorkspace) {
-      renameWorkspace(editingWorkspace.id, teamName, periodName)
-    } else {
-      createWorkspace(teamName, periodName)
-    }
-    setModalOpen(false)
-    setEditingWorkspace(null)
+  function handleRenameSave() {
+    if (!renamingWorkspace) return
+    if (!renameTeamName.trim() || !renamePeriodName.trim()) return
+    renameWorkspace(renamingWorkspace.id, renameTeamName, renamePeriodName)
+    setRenamingWorkspace(null)
   }
 
   function handleDeleteConfirm() {
     if (deletingWorkspace) {
       deleteWorkspace(deletingWorkspace.id)
+      if (selectedId === deletingWorkspace.id) setSelectedId('')
       setDeletingWorkspace(null)
     }
+  }
+
+  function handleCreate() {
+    if (!newTeamName.trim()) {
+      setCreateError('팀 이름을 입력하세요.')
+      return
+    }
+    if (!newPeriodName.trim()) {
+      setCreateError('평가 기간을 입력하세요.')
+      return
+    }
+    createWorkspace(newTeamName, newPeriodName)
   }
 
   return (
@@ -60,78 +76,141 @@ export default function WorkspaceLanding() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-black">평가 선택</h1>
-            <p className="mt-1 text-sm text-gray-600">팀과 평가 기간별로 데이터를 나눠서 관리할 수 있습니다.</p>
-          </div>
-          <button
-            onClick={openCreateModal}
-            className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            + 새 평가 만들기
-          </button>
+      <main className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-12 sm:px-6">
+        <h1 className="text-2xl font-bold text-black">성과관리</h1>
+        <p className="mt-1 text-center text-sm text-gray-600">팀과 평가 기간을 선택하거나 새로 시작하세요.</p>
+
+        <section className="mt-8 w-full rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-500">기존 평가 열기</h2>
+          {workspaces.length === 0 ? (
+            <p className="mt-3 text-sm text-gray-500">아직 만들어진 평가가 없습니다.</p>
+          ) : (
+            <>
+              <select
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              >
+                {workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.teamName} · {w.periodName}
+                  </option>
+                ))}
+              </select>
+              {selectedWorkspace && (
+                <p className="mt-2 text-xs text-gray-500">
+                  과제 {readWorkspaceCounts(selectedWorkspace.id).taskCount}건 · 팀원{' '}
+                  {readWorkspaceCounts(selectedWorkspace.id).memberCount}명
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={handleOpen}
+                  className="flex-1 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  열기
+                </button>
+                <button
+                  onClick={() => selectedWorkspace && openRename(selectedWorkspace)}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                >
+                  수정
+                </button>
+                <button
+                  onClick={() => selectedWorkspace && setDeletingWorkspace(selectedWorkspace)}
+                  className="rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger hover:bg-red-50"
+                >
+                  삭제
+                </button>
+              </div>
+            </>
+          )}
+        </section>
+
+        <div className="my-6 flex w-full items-center gap-3 text-xs text-gray-400">
+          <span className="h-px flex-1 bg-gray-200" />
+          또는
+          <span className="h-px flex-1 bg-gray-200" />
         </div>
 
-        {workspaces.length === 0 ? (
-          <p className="mt-8 rounded-md bg-gray-50 px-4 py-10 text-center text-sm leading-relaxed text-gray-500">
-            아직 만들어진 평가가 없습니다.
-            <br />
-            '+ 새 평가 만들기' 버튼을 눌러 팀 이름과 평가 기간을 입력하고 시작하세요.
-          </p>
-        ) : (
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {workspaces.map((workspace) => {
-              const { taskCount, memberCount } = readWorkspaceCounts(workspace.id)
-              return (
-                <div
-                  key={workspace.id}
-                  onClick={() => selectWorkspace(workspace.id)}
-                  className="cursor-pointer rounded-lg border border-gray-200 px-4 py-4 text-left hover:border-accent hover:shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="truncate font-semibold text-black">{workspace.teamName}</p>
-                      <p className="mt-0.5 text-sm text-gray-600">{workspace.periodName}</p>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        onClick={(e) => openEditModal(e, workspace)}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-black hover:bg-gray-100"
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeletingWorkspace(workspace)
-                        }}
-                        className="rounded-md border border-danger px-2 py-1 text-xs font-medium text-danger hover:bg-red-50"
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-xs text-gray-500">
-                    과제 {taskCount}건 · 팀원 {memberCount}명
-                  </p>
-                </div>
-              )
-            })}
+        <section className="w-full rounded-lg border border-gray-200 p-5">
+          <h2 className="text-sm font-semibold text-gray-500">새 평가 시작하기</h2>
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-black">팀 이름</label>
+              <input
+                type="text"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="예: UX팀"
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+                  createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'
+                }`}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-black">평가 기간</label>
+              <input
+                type="text"
+                value={newPeriodName}
+                onChange={(e) => setNewPeriodName(e.target.value)}
+                placeholder="예: 2026 상반기"
+                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+                  createError && !newPeriodName.trim() ? 'border-danger' : 'border-gray-300'
+                }`}
+              />
+            </div>
+            {createError && <p className="text-xs text-danger">{createError}</p>}
+            <button
+              onClick={handleCreate}
+              className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              시작하기
+            </button>
           </div>
-        )}
+        </section>
       </main>
 
-      {modalOpen && (
-        <WorkspaceModal
-          initialWorkspace={editingWorkspace}
-          onSave={handleSave}
-          onClose={() => {
-            setModalOpen(false)
-            setEditingWorkspace(null)
-          }}
-        />
+      {renamingWorkspace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-black">평가 정보 수정</h3>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-black">팀 이름</label>
+                <input
+                  type="text"
+                  value={renameTeamName}
+                  onChange={(e) => setRenameTeamName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black">평가 기간</label>
+                <input
+                  type="text"
+                  value={renamePeriodName}
+                  onChange={(e) => setRenamePeriodName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setRenamingWorkspace(null)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleRenameSave}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

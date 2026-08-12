@@ -1,3 +1,5 @@
+import type { WorkspaceMeta } from '../types'
+
 export type TabKey = 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -9,27 +11,59 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'notes', label: '팀원면담' },
 ]
 
+const ADD_PERIOD_VALUE = '__add_period__'
+
 interface NavigationProps {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
   teamName: string
-  periodName: string
+  currentWorkspaceId: string
+  periods: WorkspaceMeta[]
+  onSelectPeriod: (id: string) => void
+  onAddPeriod: () => void
   onExit: () => void
 }
 
-export default function Navigation({ activeTab, onTabChange, teamName, periodName, onExit }: NavigationProps) {
+export default function Navigation({
+  activeTab,
+  onTabChange,
+  teamName,
+  currentWorkspaceId,
+  periods,
+  onSelectPeriod,
+  onAddPeriod,
+  onExit,
+}: NavigationProps) {
+  function handlePeriodChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    if (e.target.value === ADD_PERIOD_VALUE) {
+      onAddPeriod()
+      return
+    }
+    onSelectPeriod(e.target.value)
+  }
+
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <div className="whitespace-nowrap text-lg font-bold text-black">UX팀 성과평가 시스템</div>
-          <span className="hidden text-gray-300 sm:inline">|</span>
+          <div className="whitespace-nowrap text-lg font-bold text-black">{teamName} 성과관리</div>
+          <select
+            value={currentWorkspaceId}
+            onChange={handlePeriodChange}
+            className="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+          >
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.periodName}
+              </option>
+            ))}
+            <option value={ADD_PERIOD_VALUE}>+ 새 기간 추가</option>
+          </select>
           <button
             onClick={onExit}
-            className="whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
-            title="다른 평가로 전환"
+            className="whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-gray-500 hover:bg-gray-100"
           >
-            {teamName} · {periodName} <span className="text-gray-400">전환</span>
+            다른 팀 열기
           </button>
         </div>
         <nav className="flex flex-wrap gap-1">
