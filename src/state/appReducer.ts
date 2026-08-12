@@ -46,22 +46,18 @@ function distributeEqually(count: number): number[] {
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
 }
 
-function autoDistributeForNewTask(taskId: string, members: TeamMember[]): Contribution[] {
-  const shares = distributeEqually(members.length)
-  return members.map((member, i) => ({
-    taskId,
-    memberId: member.id,
-    contributionPercent: shares[i],
-    personalPerformanceGrade: 'B' as PerformanceGrade,
-    isAutoDistributed: true,
-  }))
-}
-
-function redistributeForNewMember(
+// For every task whose contributions are untouched by hand (none recorded yet, or all
+// still auto), (re)split its 100% evenly across the current members. Runs after any
+// action that can change the task/member count, and once on app load, so this stays
+// true regardless of whether a task or a member was added first, and also repairs
+// data that already existed before this behavior shipped.
+export function syncAutoDistribution(
   tasks: Task[],
   members: TeamMember[],
   contributions: Contribution[],
 ): Contribution[] {
+  if (members.length === 0) return contributions
+
   let result = contributions
   for (const task of tasks) {
     const taskContributions = result.filter((c) => c.taskId === task.id)
@@ -69,7 +65,7 @@ function redistributeForNewMember(
     if (!isFullyAuto) continue
 
     const shares = distributeEqually(members.length)
-    const redistributed = members.map((member, i) => ({
+    const desired: Contribution[] = members.map((member, i) => ({
       taskId: task.id,
       memberId: member.id,
       contributionPercent: shares[i],
@@ -77,7 +73,15 @@ function redistributeForNewMember(
         taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? ('B' as PerformanceGrade),
       isAutoDistributed: true,
     }))
-    result = [...result.filter((c) => c.taskId !== task.id), ...redistributed]
+
+    const alreadyCorrect =
+      taskContributions.length === desired.length &&
+      desired.every((d) =>
+        taskContributions.some((c) => c.memberId === d.memberId && c.contributionPercent === d.contributionPercent),
+      )
+    if (alreadyCorrect) continue
+
+    result = [...result.filter((c) => c.taskId !== task.id), ...desired]
   }
   return result
 }
@@ -89,14 +93,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_TASK': {
       const tasks = [...state.tasks, action.payload]
-      if (state.members.length === 0) {
-        return { ...state, tasks }
-      }
-      return {
-        ...state,
-        tasks,
-        contributions: [...state.contributions, ...autoDistributeForNewTask(action.payload.id, state.members)],
-      }
+      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, state.contributions) }
     }
 
     case 'UPDATE_TASK':
@@ -105,26 +102,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tasks: state.tasks.map((t) => (t.id === action.payload.id ? action.payload : t)),
       }
 
-    case 'DELETE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.filter((t) => t.id !== action.payload.id),
-        contributions: state.contributions.filter((c) => c.taskId !== action.payload.id),
-      }
+    case 'DELETE_TASK': {
+      const tasks = state.tasks.filter((t) => t.id !== action.payload.id)
+      const contributions = state.contributions.filter((c) => c.taskId !== action.payload.id)
+      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions) }
+    }
 
     case 'IMPORT_TASKS':
-      return { ...state, tasks: action.payload }
+      return {
+        ...state,
+        tasks: action.payload,
+        contributions: syncAutoDistribution(action.payload, state.members, state.contributions),
+      }
 
     case 'ADD_MEMBER': {
       const members = [...state.members, action.payload]
-      if (state.tasks.length === 0) {
-        return { ...state, members }
-      }
-      return {
-        ...state,
-        members,
-        contributions: redistributeForNewMember(state.tasks, members, state.contributions),
-      }
+      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, state.contributions) }
     }
 
     case 'UPDATE_MEMBER':
@@ -133,15 +126,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         members: state.members.map((m) => (m.id === action.payload.id ? action.payload : m)),
       }
 
-    case 'DELETE_MEMBER':
-      return {
-        ...state,
-        members: state.members.filter((m) => m.id !== action.payload.id),
-        contributions: state.contributions.filter((c) => c.memberId !== action.payload.id),
-      }
+    case 'DELETE_MEMBER': {
+      const members = state.members.filter((m) => m.id !== action.payload.id)
+      const contributions = state.contributions.filter((c) => c.memberId !== action.payload.id)
+      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, contributions) }
+    }
 
     case 'IMPORT_MEMBERS':
-      return { ...state, members: action.payload }
+      return {
+        ...state,
+        members: action.payload,
+        contributions: syncAutoDistribution(state.tasks, action.payload, state.contributions),
+      }
 
     case 'SET_CONTRIBUTION_PERCENT': {
       const { taskId, memberId, contributionPercent } = action.payload
