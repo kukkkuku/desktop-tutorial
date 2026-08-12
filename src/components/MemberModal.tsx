@@ -61,7 +61,7 @@ export default function MemberModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 김기정"
+              placeholder="예: 홍길동"
               className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
                 error ? 'border-danger' : 'border-gray-300'
               }`}

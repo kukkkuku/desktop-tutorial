@@ -20,6 +20,23 @@ export type AppAction =
   | { type: 'IMPORT_PEER_REVIEWS'; payload: PeerReview[] }
   | { type: 'DELETE_PEER_REVIEW'; payload: { id: string } }
 
+export function createEmptyState(): AppState {
+  return {
+    tasks: [],
+    members: [],
+    contributions: [],
+    meetingNotes: [],
+    peerReviews: [],
+    criteria: {
+      performanceGradeWeight: 100,
+      taskGradeWeight: 100,
+      workloadWeight: 100,
+      personalGradeWeight: 0,
+      peerReviewWeight: 0,
+    },
+  }
+}
+
 function upsertContribution(
   contributions: Contribution[],
   taskId: string,
@@ -175,20 +192,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, criteria: { ...state.criteria, ...action.payload } }
 
     case 'RESET_ALL':
-      return {
-        tasks: [],
-        members: [],
-        contributions: [],
-        meetingNotes: [],
-        peerReviews: [],
-        criteria: {
-          performanceGradeWeight: 100,
-          taskGradeWeight: 100,
-          workloadWeight: 100,
-          personalGradeWeight: 0,
-          peerReviewWeight: 0,
-        },
-      }
+      return createEmptyState()
 
     case 'ADD_MEETING_NOTE':
       return { ...state, meetingNotes: [...state.meetingNotes, action.payload] }
