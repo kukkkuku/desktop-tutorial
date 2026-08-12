@@ -54,6 +54,7 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
     memberId: raw.memberId,
     contributionPercent,
     personalPerformanceGrade,
+    isAutoDistributed: raw.isAutoDistributed === true,
   }
 }
 
