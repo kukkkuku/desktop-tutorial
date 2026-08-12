@@ -25,7 +25,7 @@ export default function WorkspaceLanding() {
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
 
-  const [newTeamName, setNewTeamName] = useState('')
+  const [newTeamName, setNewTeamName] = useState(workspaces[0]?.teamName ?? '')
   const [newPeriodName, setNewPeriodName] = useState('')
   const [createError, setCreateError] = useState('')
   const [teamNameFocused, setTeamNameFocused] = useState(false)
@@ -146,18 +146,33 @@ export default function WorkspaceLanding() {
           <div className="mt-3 space-y-3">
             <div className="relative">
               <label className="block text-sm font-medium text-black">팀 이름</label>
-              <input
-                type="text"
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-                onFocus={() => setTeamNameFocused(true)}
-                onBlur={() => setTeamNameFocused(false)}
-                placeholder="예: UX팀"
-                autoComplete="off"
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
-                  createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'
-                }`}
-              />
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  onFocus={() => setTeamNameFocused(true)}
+                  onBlur={() => setTeamNameFocused(false)}
+                  placeholder="예: UX팀"
+                  autoComplete="off"
+                  className={`w-full rounded-md border px-3 py-2 text-sm text-black ${
+                    newTeamName ? 'pr-9' : ''
+                  } ${createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'}`}
+                />
+                {newTeamName && (
+                  <button
+                    type="button"
+                    onClick={() => setNewTeamName('')}
+                    aria-label="팀 이름 지우기"
+                    className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-4 w-4">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
               {teamNameFocused && teamNameSuggestions.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-gray-200 bg-white shadow-md">
                   {teamNameSuggestions.map((name) => (
