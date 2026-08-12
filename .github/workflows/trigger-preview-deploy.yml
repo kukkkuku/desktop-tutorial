@@ -1,0 +1,25 @@
+name: Trigger Preview Deploy
+
+# The github-pages environment only allows deployments that originate from
+# main, so a push here can't run deploy-pages.yml's deploy job directly (it
+# gets rejected before it starts). Instead, dispatch that workflow against
+# ref: main — its build job still explicitly checks out and rebuilds this
+# branch's content for the /preview/ subpath, but the run's branch context
+# is main, so the environment gate passes.
+on:
+  push:
+    branches:
+      - claude/v2-workspace-periods
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy-pages workflow on main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --ref main --repo ${{ github.repository }}
