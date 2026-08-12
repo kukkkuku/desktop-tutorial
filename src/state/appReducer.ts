@@ -13,6 +13,7 @@ export type AppAction =
   | { type: 'SET_CONTRIBUTION_PERCENT'; payload: { taskId: string; memberId: string; contributionPercent: number } }
   | { type: 'SET_CONTRIBUTION_GRADE'; payload: { taskId: string; memberId: string; personalPerformanceGrade: PerformanceGrade } }
   | { type: 'SET_CRITERIA'; payload: Partial<Criteria> }
+  | { type: 'RESET_ALL' }
 
 function upsertContribution(
   contributions: Contribution[],
@@ -99,6 +100,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_CRITERIA':
       return { ...state, criteria: { ...state.criteria, ...action.payload } }
+
+    case 'RESET_ALL':
+      return {
+        tasks: [],
+        members: [],
+        contributions: [],
+        criteria: {
+          usePerformanceGrade: true,
+          useImportance: true,
+          useWorkload: true,
+          usePersonalPerformanceGrade: false,
+        },
+      }
 
     default:
       return state
