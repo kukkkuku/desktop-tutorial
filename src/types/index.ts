@@ -67,6 +67,13 @@ export interface AppState {
   peerReviews: PeerReview[]
 }
 
+export interface WorkspaceMeta {
+  id: string
+  teamName: string
+  periodName: string
+  createdAt: string
+}
+
 export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']
 export const PERFORMANCE_GRADE_OPTIONS: PerformanceGrade[] = ['S', 'A', 'B', 'C', 'D']
 export const WORKLOAD_OPTIONS: Workload[] = ['대', '중', '소']

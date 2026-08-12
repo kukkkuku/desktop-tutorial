@@ -12,13 +12,26 @@ const TABS: { key: TabKey; label: string }[] = [
 interface NavigationProps {
   activeTab: TabKey
   onTabChange: (tab: TabKey) => void
+  teamName: string
+  periodName: string
+  onExit: () => void
 }
 
-export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
+export default function Navigation({ activeTab, onTabChange, teamName, periodName, onExit }: NavigationProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <div className="text-lg font-bold text-black">UX팀 성과평가 시스템</div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="whitespace-nowrap text-lg font-bold text-black">UX팀 성과평가 시스템</div>
+          <span className="hidden text-gray-300 sm:inline">|</span>
+          <button
+            onClick={onExit}
+            className="whitespace-nowrap rounded-md px-2 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
+            title="다른 평가로 전환"
+          >
+            {teamName} · {periodName} <span className="text-gray-400">전환</span>
+          </button>
+        </div>
         <nav className="flex flex-wrap gap-1">
           {TABS.map((tab) => (
             <button

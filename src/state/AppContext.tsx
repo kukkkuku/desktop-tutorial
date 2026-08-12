@@ -2,16 +2,15 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode } from
 import type { AppState } from '../types'
 import { appReducer, createEmptyState, syncAutoDistribution, type AppAction } from './appReducer'
 import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
-
-const STORAGE_KEY = 'ux-performance-evaluation-state'
+import { workspaceStateKey } from './WorkspaceContext'
 
 function withAutoDistribution(state: AppState): AppState {
   return { ...state, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions) }
 }
 
-function loadInitialState(): AppState {
+function loadInitialState(storageKey: string): AppState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(storageKey)
     if (raw) {
       const migrated = migrateAppState(JSON.parse(raw))
       if (migrated) return isUntouchedLegacySample(migrated) ? createEmptyState() : withAutoDistribution(migrated)
@@ -29,17 +28,18 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, undefined, loadInitialState)
+export function AppProvider({ workspaceId, children }: { workspaceId: string; children: ReactNode }) {
+  const storageKey = workspaceStateKey(workspaceId)
+  const [state, dispatch] = useReducer(appReducer, storageKey, loadInitialState)
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      localStorage.setItem(storageKey, JSON.stringify(state))
     } catch {
       // Storage may be unavailable (private browsing, sandboxed embed, quota exceeded).
       // Keep running in-memory; nothing else depends on persistence succeeding.
     }
-  }, [state])
+  }, [state, storageKey])
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>
 }
