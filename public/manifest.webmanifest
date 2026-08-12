@@ -1,0 +1,16 @@
+{
+  "name": "UX팀 성과평가 시스템",
+  "short_name": "UX성과평가",
+  "description": "UX팀 과제/팀원 기여도 기반 성과 평가 및 면담 기록 도구",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#EB6100",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
