@@ -77,7 +77,7 @@ export default function TaskManagement() {
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
         >
           엑셀로 업로드
         </button>
@@ -122,7 +122,7 @@ export default function TaskManagement() {
             {state.tasks.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
-                  등록된 과제가 없습니다. '+ 과제 추가' 버튼을 눌러 과제를 등록하세요.
+                  등록된 과제가 없습니다. '+ 과제 추가' 버튼으로 직접 등록하거나, 위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
                 </td>
               </tr>
             )}
