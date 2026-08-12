@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - claude/ux-performance-evaluation-app-zfczzk
+      - claude/v2-workspace-periods
   workflow_dispatch:
 
 permissions:
@@ -20,17 +21,51 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout production (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site-main
+
+      - name: Checkout preview (claude/v2-workspace-periods)
+        uses: actions/checkout@v4
+        with:
+          ref: claude/v2-workspace-periods
+          path: site-preview
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache-dependency-path: |
+            site-main/package-lock.json
+            site-preview/package-lock.json
+
+      - name: Build production
+        working-directory: site-main
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build preview
+        working-directory: site-preview
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_BASE_PATH: /desktop-tutorial/preview/
+
+      - name: Combine into one Pages artifact (production at /, preview at /preview/)
+        run: |
+          mkdir -p combined
+          cp -r site-main/dist/. combined/
+          mkdir -p combined/preview
+          cp -r site-preview/dist/. combined/preview/
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: combined
 
   deploy:
     needs: build
