@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
+import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   Contribution,
@@ -126,14 +127,18 @@ const TASK_COLUMNS: StyledColumn[] = [
   { header: '성과등급', width: 10, role: 'category' },
 ]
 
-export async function downloadTaskTemplate() {
+function buildTaskTemplateWorkbook(): ExcelJS.Workbook {
   const rows: (string | number)[][] = [
     ['신규 랜딩페이지 제작', '핵심', '대', '전환율 15% 개선', '전환율 18% 달성', 'A'],
     ['내부 협업툴 정비', '일반', '소', '', '', ''],
   ]
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '과제양식', TASK_COLUMNS, rows)
-  await downloadStyledWorkbook(wb, '과제_업로드_양식.xlsx')
+  return wb
+}
+
+export async function downloadTaskTemplate() {
+  await downloadStyledWorkbook(buildTaskTemplateWorkbook(), '과제_업로드_양식.xlsx')
 }
 
 export interface TaskImportResult {
@@ -221,14 +226,18 @@ const MEMBER_COLUMNS: StyledColumn[] = [
   { header: '코멘트', width: 30, role: 'freetext' },
 ]
 
-export async function downloadMemberTemplate() {
+function buildMemberTemplateWorkbook(): ExcelJS.Workbook {
   const rows: (string | number)[][] = [
     ['김민준', '팀장', '과장', 7, '기획', ''],
     ['이서연', '', '대리', 3, '디자인', ''],
   ]
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '팀원양식', MEMBER_COLUMNS, rows)
-  await downloadStyledWorkbook(wb, '팀원_업로드_양식.xlsx')
+  return wb
+}
+
+export async function downloadMemberTemplate() {
+  await downloadStyledWorkbook(buildMemberTemplateWorkbook(), '팀원_업로드_양식.xlsx')
 }
 
 export interface MemberImportResult {
@@ -311,11 +320,15 @@ const PEER_REVIEW_COLUMNS: StyledColumn[] = [
   { header: '등급', width: 8, role: 'category' },
 ]
 
-export async function downloadPeerReviewTemplate(members: TeamMember[]) {
+function buildPeerReviewTemplateWorkbook(members: TeamMember[]): ExcelJS.Workbook {
   const rows: (string | number)[][] = members.map((member) => ['', member.name, ''])
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '피어리뷰양식', PEER_REVIEW_COLUMNS, rows)
-  await downloadStyledWorkbook(wb, '피어리뷰_업로드_양식.xlsx')
+  return wb
+}
+
+export async function downloadPeerReviewTemplate(members: TeamMember[]) {
+  await downloadStyledWorkbook(buildPeerReviewTemplateWorkbook(members), '피어리뷰_업로드_양식.xlsx')
 }
 
 export interface PeerReviewImportResult {
@@ -414,6 +427,49 @@ export function parsePeerReviewWorkbook(
     updatedCount,
     affectedTargetNames: Array.from(affectedTargetNames),
   }
+}
+
+// ---------- Unified data management (all three templates + content-based upload routing) ----------
+
+export type WorkbookKind = 'task' | 'member' | 'peer'
+
+// Classifies an uploaded file by its header row instead of its filename, so
+// renamed downloads (or files re-saved by email/chat apps) still route to
+// the right parser.
+export function detectWorkbookKind(buffer: ArrayBuffer): WorkbookKind | null {
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
+  const headers = new Set(headerRow.map((h) => String(h ?? '').trim()))
+
+  if (headers.has('과제명')) return 'task'
+  const hasPeerHeaders =
+    REVIEWER_HEADER_ALIASES.some((h) => headers.has(h)) && TARGET_HEADER_ALIASES.some((h) => headers.has(h))
+  if (hasPeerHeaders) return 'peer'
+  if (headers.has('이름')) return 'member'
+  return null
+}
+
+export async function downloadAllTemplatesZip(members: TeamMember[]) {
+  const zip = new JSZip()
+  const [taskBuf, memberBuf, peerBuf] = await Promise.all([
+    buildTaskTemplateWorkbook().xlsx.writeBuffer(),
+    buildMemberTemplateWorkbook().xlsx.writeBuffer(),
+    buildPeerReviewTemplateWorkbook(members).xlsx.writeBuffer(),
+  ])
+  zip.file('과제_업로드_양식.xlsx', taskBuf)
+  zip.file('팀원_업로드_양식.xlsx', memberBuf)
+  zip.file('피어리뷰_업로드_양식.xlsx', peerBuf)
+
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '전체_업로드_양식.zip'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 // ---------- Results report export ----------

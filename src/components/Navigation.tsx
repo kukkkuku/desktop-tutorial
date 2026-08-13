@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import type { WorkspaceMeta } from '../types'
+import DataManagementPanel from './DataManagementPanel'
 
 export type TabKey = 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
 
@@ -38,6 +40,8 @@ export default function Navigation({
   onAddPeriod,
   onExit,
 }: NavigationProps) {
+  const [dataPanelOpen, setDataPanelOpen] = useState(false)
+
   function handlePeriodChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (e.target.value === ADD_PERIOD_VALUE) {
       onAddPeriod()
@@ -84,7 +88,28 @@ export default function Navigation({
             </svg>
           </button>
         </div>
-        <nav className="flex flex-wrap items-center gap-1">
+        <button
+          onClick={() => setDataPanelOpen((v) => !v)}
+          aria-expanded={dataPanelOpen}
+          className={`flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+            dataPanelOpen
+              ? 'border-accent bg-orange-50 text-accent'
+              : 'border-gray-300 text-black hover:bg-gray-100'
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            <ellipse cx="12" cy="5" rx="8" ry="3" />
+            <path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+            <path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6" />
+          </svg>
+          데이터 관리
+        </button>
+      </div>
+
+      {dataPanelOpen && <DataManagementPanel onClose={() => setDataPanelOpen(false)} />}
+
+      <div className="border-t border-gray-200">
+        <nav className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center gap-1 px-4 sm:px-6">
           {TAB_GROUPS.map((group, groupIndex) => (
             <div key={groupIndex} className="flex flex-wrap items-center gap-1">
               {groupIndex > 0 && <span className="mx-1 hidden h-5 w-px bg-gray-200 sm:inline-block" />}
@@ -92,10 +117,10 @@ export default function Navigation({
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+                  className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
                     activeTab === tab.key
-                      ? 'bg-accent text-white'
-                      : 'text-black hover:bg-gray-100'
+                      ? 'border-accent text-accent font-semibold'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-black'
                   }`}
                 >
                   {tab.label}

@@ -4,7 +4,10 @@ import type { Task } from '../types'
 import TaskModal from './TaskModal'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
+import Spinner from './Spinner'
 import { downloadTaskTemplate, parseTaskWorkbook, type TaskImportResult } from '../utils/excel'
+import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
+import { GRADE_COLORS } from '../utils/calculations'
 
 export default function TaskManagement() {
   const { state, dispatch } = useAppState()
@@ -13,6 +16,7 @@ export default function TaskManagement() {
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [importResult, setImportResult] = useState<TaskImportResult | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openAddModal() {
@@ -47,6 +51,7 @@ export default function TaskManagement() {
     e.target.value = ''
     if (files.length === 0) return
 
+    setIsUploading(true)
     let tasks = state.tasks
     let addedCount = 0
     let updatedCount = 0
@@ -66,6 +71,7 @@ export default function TaskManagement() {
     dispatch({ type: 'IMPORT_TASKS', payload: tasks })
     setImportResult({ tasks, errors, importedCount: addedCount + updatedCount, addedCount, updatedCount, addedIds })
     setRecentlyAddedIds(new Set(addedIds))
+    setIsUploading(false)
   }
 
   return (
@@ -92,9 +98,11 @@ export default function TaskManagement() {
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
+          disabled={isUploading}
+          className="flex items-center gap-2 rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          엑셀로 업로드
+          {isUploading && <Spinner />}
+          {isUploading ? '업로드 중...' : '엑셀로 업로드'}
         </button>
         <input
           ref={fileInputRef}
@@ -156,9 +164,21 @@ export default function TaskManagement() {
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-3">{task.importance}</td>
-                <td className="px-4 py-3">{task.performanceGrade}</td>
-                <td className="px-4 py-3">{task.workload}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${IMPORTANCE_COLORS[task.importance]}`}>
+                    {task.importance}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-full px-2 py-1 text-xs font-bold ${GRADE_COLORS[task.performanceGrade]}`}>
+                    {task.performanceGrade}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${WORKLOAD_COLORS[task.workload]}`}>
+                    {task.workload}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{task.objective || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">

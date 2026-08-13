@@ -6,6 +6,7 @@ import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { downloadPeerReviewTemplate, parsePeerReviewWorkbook, type PeerReviewImportResult } from '../utils/excel'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
+import Spinner from './Spinner'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -29,6 +30,7 @@ export default function MeetingNotes() {
 
   const [peerReviewResult, setPeerReviewResult] = useState<PeerReviewImportResult | null>(null)
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
+  const [isUploadingPeerReview, setIsUploadingPeerReview] = useState(false)
   const peerReviewFileInputRef = useRef<HTMLInputElement>(null)
 
   const selectedMember: TeamMember | undefined = members.find((m) => m.id === selectedMemberId)
@@ -76,6 +78,7 @@ export default function MeetingNotes() {
     e.target.value = ''
     if (files.length === 0) return
 
+    setIsUploadingPeerReview(true)
     let reviews = peerReviews
     let addedCount = 0
     let updatedCount = 0
@@ -101,6 +104,7 @@ export default function MeetingNotes() {
       updatedCount,
       affectedTargetNames: Array.from(affectedTargetNames),
     })
+    setIsUploadingPeerReview(false)
   }
 
   function handleDeletePeerReviewConfirm() {
@@ -278,9 +282,11 @@ export default function MeetingNotes() {
               </button>
               <button
                 onClick={() => peerReviewFileInputRef.current?.click()}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                disabled={isUploadingPeerReview}
+                className="flex items-center gap-2 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                엑셀로 업로드
+                {isUploadingPeerReview && <Spinner />}
+                {isUploadingPeerReview ? '업로드 중...' : '엑셀로 업로드'}
               </button>
               <input
                 ref={peerReviewFileInputRef}

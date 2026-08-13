@@ -6,6 +6,7 @@ import { downloadMemberTemplate, parseMemberWorkbook, type MemberImportResult } 
 import MemberModal from './MemberModal'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
+import Spinner from './Spinner'
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
@@ -14,6 +15,7 @@ export default function TeamManagement() {
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [importResult, setImportResult] = useState<MemberImportResult | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
+  const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openAddModal() {
@@ -48,6 +50,7 @@ export default function TeamManagement() {
     e.target.value = ''
     if (files.length === 0) return
 
+    setIsUploading(true)
     let members = state.members
     let addedCount = 0
     let updatedCount = 0
@@ -67,6 +70,7 @@ export default function TeamManagement() {
     dispatch({ type: 'IMPORT_MEMBERS', payload: members })
     setImportResult({ members, errors, importedCount: addedCount + updatedCount, addedCount, updatedCount, addedIds })
     setRecentlyAddedIds(new Set(addedIds))
+    setIsUploading(false)
   }
 
   return (
@@ -93,9 +97,11 @@ export default function TeamManagement() {
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
+          disabled={isUploading}
+          className="flex items-center gap-2 rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          엑셀로 업로드
+          {isUploading && <Spinner />}
+          {isUploading ? '업로드 중...' : '엑셀로 업로드'}
         </button>
         <input
           ref={fileInputRef}
