@@ -2,13 +2,17 @@ import type { WorkspaceMeta } from '../types'
 
 export type TabKey = 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'tasks', label: '과제관리' },
-  { key: 'members', label: '팀원관리' },
-  { key: 'matrix', label: '평가매트릭스' },
-  { key: 'criteria', label: '기준설정' },
-  { key: 'results', label: '평가결과' },
-  { key: 'notes', label: '팀원면담' },
+const TAB_GROUPS: { key: TabKey; label: string }[][] = [
+  [
+    { key: 'tasks', label: '과제관리' },
+    { key: 'members', label: '팀원관리' },
+  ],
+  [
+    { key: 'matrix', label: '평가매트릭스' },
+    { key: 'results', label: '평가결과' },
+    { key: 'notes', label: '팀원면담' },
+  ],
+  [{ key: 'criteria', label: '기준설정' }],
 ]
 
 const ADD_PERIOD_VALUE = '__add_period__'
@@ -80,19 +84,24 @@ export default function Navigation({
             </svg>
           </button>
         </div>
-        <nav className="flex flex-wrap gap-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => onTabChange(tab.key)}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
-                activeTab === tab.key
-                  ? 'bg-accent text-white'
-                  : 'text-black hover:bg-gray-100'
-              }`}
-            >
-              {tab.label}
-            </button>
+        <nav className="flex flex-wrap items-center gap-1">
+          {TAB_GROUPS.map((group, groupIndex) => (
+            <div key={groupIndex} className="flex flex-wrap items-center gap-1">
+              {groupIndex > 0 && <span className="mx-1 hidden h-5 w-px bg-gray-200 sm:inline-block" />}
+              {group.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => onTabChange(tab.key)}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors sm:px-4 ${
+                    activeTab === tab.key
+                      ? 'bg-accent text-white'
+                      : 'text-black hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </div>

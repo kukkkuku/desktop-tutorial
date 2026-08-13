@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { WorkspaceMeta } from '../types'
+import { createEmptyState } from './appReducer'
 import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
 
 const WORKSPACES_KEY = 'ux-performance-evaluation-workspaces'
@@ -111,12 +112,37 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, [currentWorkspaceId])
 
   function createWorkspace(teamName: string, periodName: string) {
+    const trimmedTeamName = teamName.trim()
     const meta: WorkspaceMeta = {
       id: uuidv4(),
-      teamName: teamName.trim(),
+      teamName: trimmedTeamName,
       periodName: periodName.trim(),
       createdAt: new Date().toISOString(),
     }
+
+    // A new period for a team that already exists starts with that team's
+    // roster and criteria carried over (those tend to stay stable across
+    // periods), but empty tasks/contributions/peerReviews/meetingNotes
+    // (those are specific to each period and shouldn't leak between them).
+    const sameTeamWorkspaces = workspaces.filter((w) => w.teamName === trimmedTeamName)
+    const mostRecentSameTeam = sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
+    if (mostRecentSameTeam) {
+      try {
+        const raw = localStorage.getItem(workspaceStateKey(mostRecentSameTeam.id))
+        if (raw) {
+          const prevState = JSON.parse(raw)
+          const carriedOverState = {
+            ...createEmptyState(),
+            members: Array.isArray(prevState.members) ? prevState.members : [],
+            criteria: prevState.criteria ?? createEmptyState().criteria,
+          }
+          localStorage.setItem(workspaceStateKey(meta.id), JSON.stringify(carriedOverState))
+        }
+      } catch {
+        // Fall through — the new workspace just starts fully empty.
+      }
+    }
+
     setWorkspaces((prev) => [...prev, meta])
     setCurrentWorkspaceId(meta.id)
   }
