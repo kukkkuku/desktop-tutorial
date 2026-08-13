@@ -90,16 +90,13 @@ export default function WorkspaceLanding() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto w-full max-w-[1920px] px-4 py-3 sm:px-6">
-          <h1 className="text-lg font-bold text-black">성과관리</h1>
-        </div>
-      </header>
+      <main className="mx-auto flex w-full max-w-xl flex-col items-center px-4 py-16 sm:px-6">
+        <h1 className="text-center text-3xl font-black text-black">성과관리</h1>
+        <p className="mt-2 text-center text-sm text-gray-500">
+          팀 성과 평가를 시작하거나 기존 평가를 이어서 작업하세요.
+        </p>
 
-      <main className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-12 sm:px-6">
-        <p className="text-center text-sm text-gray-600">팀과 평가 기간을 선택하거나 새로 시작하세요.</p>
-
-        <section className="mt-8 w-full rounded-lg border border-gray-200 p-5">
+        <section className="mt-10 w-full rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500">기존 평가 열기</h2>
           {workspaces.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">아직 만들어진 평가가 없습니다.</p>
@@ -108,7 +105,7 @@ export default function WorkspaceLanding() {
               <select
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
-                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="mt-3 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-black"
               >
                 {workspaces.map((w) => (
                   <option key={w.id} value={w.id}>
@@ -117,27 +114,32 @@ export default function WorkspaceLanding() {
                 ))}
               </select>
               {selectedWorkspace && (
-                <p className="mt-2 text-xs text-gray-500">
-                  과제 {readWorkspaceCounts(selectedWorkspace.id).taskCount}건 · 팀원{' '}
-                  {readWorkspaceCounts(selectedWorkspace.id).memberCount}명
-                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-gray-50 px-4 py-3 text-sm">
+                  <span className="font-medium text-black">
+                    {selectedWorkspace.teamName} · {selectedWorkspace.periodName}
+                  </span>
+                  <span className="text-gray-500">
+                    과제 {readWorkspaceCounts(selectedWorkspace.id).taskCount}개 &nbsp; 팀원{' '}
+                    {readWorkspaceCounts(selectedWorkspace.id).memberCount}명
+                  </span>
+                </div>
               )}
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={handleOpen}
-                  className="flex-1 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                  className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
                 >
                   열기
                 </button>
                 <button
                   onClick={() => selectedWorkspace && openRename(selectedWorkspace)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                  className="rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-black hover:bg-gray-100"
                 >
                   수정
                 </button>
                 <button
                   onClick={() => selectedWorkspace && setDeletingWorkspace(selectedWorkspace)}
-                  className="rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger hover:bg-red-50"
+                  className="rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-black hover:bg-gray-100"
                 >
                   삭제
                 </button>
@@ -146,15 +148,15 @@ export default function WorkspaceLanding() {
           )}
         </section>
 
-        <div className="my-6 flex w-full items-center gap-3 text-xs text-gray-400">
+        <div className="my-8 flex w-full items-center gap-3 text-xs text-gray-400">
           <span className="h-px flex-1 bg-gray-200" />
           또는
           <span className="h-px flex-1 bg-gray-200" />
         </div>
 
-        <section className="w-full rounded-lg border border-gray-200 p-5">
+        <section className="w-full rounded-xl border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-500">새 평가 시작하기</h2>
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="relative">
               <label className="block text-sm font-medium text-black">팀 이름</label>
               <div className="relative mt-1">
@@ -166,7 +168,7 @@ export default function WorkspaceLanding() {
                   onBlur={() => setTeamNameFocused(false)}
                   placeholder="예: UX팀"
                   autoComplete="off"
-                  className={`w-full rounded-md border px-3 py-2 text-sm text-black ${
+                  className={`w-full rounded-md border px-3 py-2.5 text-sm text-black ${
                     newTeamName ? 'pr-9' : ''
                   } ${createError && !newTeamName.trim() ? 'border-danger' : 'border-gray-300'}`}
                 />
@@ -210,19 +212,19 @@ export default function WorkspaceLanding() {
                 value={newPeriodName}
                 onChange={(e) => setNewPeriodName(e.target.value)}
                 placeholder="예: 2026 상반기"
-                className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+                className={`mt-1 w-full rounded-md border px-3 py-2.5 text-sm text-black ${
                   createError && !newPeriodName.trim() ? 'border-danger' : 'border-gray-300'
                 }`}
               />
             </div>
-            {createError && <p className="text-xs text-danger">{createError}</p>}
-            <button
-              onClick={handleCreate}
-              className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              시작하기
-            </button>
           </div>
+          {createError && <p className="mt-3 text-xs text-danger">{createError}</p>}
+          <button
+            onClick={handleCreate}
+            className="mt-4 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+          >
+            새 평가 시작하기 →
+          </button>
         </section>
       </main>
 
