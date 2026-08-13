@@ -44,14 +44,29 @@ export default function TeamManagement() {
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file) return
-    const buffer = await file.arrayBuffer()
-    const result = parseMemberWorkbook(buffer, state.members)
-    dispatch({ type: 'IMPORT_MEMBERS', payload: result.members })
-    setImportResult(result)
-    setRecentlyAddedIds(new Set(result.addedIds))
+    if (files.length === 0) return
+
+    let members = state.members
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    const addedIds: string[] = []
+
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parseMemberWorkbook(buffer, members)
+      members = result.members
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      addedIds.push(...result.addedIds)
+      errors.push(...result.errors.map((msg) => (files.length > 1 ? `[${file.name}] ${msg}` : msg)))
+    }
+
+    dispatch({ type: 'IMPORT_MEMBERS', payload: members })
+    setImportResult({ members, errors, importedCount: addedCount + updatedCount, addedCount, updatedCount, addedIds })
+    setRecentlyAddedIds(new Set(addedIds))
   }
 
   return (
@@ -86,11 +101,12 @@ export default function TeamManagement() {
           ref={fileInputRef}
           type="file"
           accept=".xlsx,.xls"
+          multiple
           className="hidden"
           onChange={handleFileSelected}
         />
         <span className="text-sm text-gray-500">
-          이름, 직책(팀장/PM/PL), 직급(사원/대리/과장/차장), 연차, 역할, 코멘트 컬럼을 포함한 엑셀 파일을 업로드하세요.
+          이름, 직책(팀장/PM/PL), 직급(사원/대리/과장/차장), 연차, 역할, 코멘트 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
         </span>
       </div>
 

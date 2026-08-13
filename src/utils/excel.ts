@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { v4 as uuidv4 } from 'uuid'
 import type {
   Contribution,
@@ -15,32 +16,43 @@ import type {
 } from '../types'
 import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, POSITION_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberResults } from './calculations'
+import { applySheetStyle, type StyledColumn } from './excelStyle'
 
-// Claude's Artifact preview blocks raw browser downloads and only allows
-// files to leave the frame through window.claude.downloads.save(), which
-// does not support the .xlsx extension -- so inside that preview we fall
-// back to a CSV rendering of the same workbook. The real deployed app
-// (no window.claude present) always gets the full .xlsx file.
-function workbookToCsvText(wb: XLSX.WorkBook): string {
-  return wb.SheetNames.map((name) => `# ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`).join(
-    '\n\n',
-  )
+// ---------- Styled workbook download (exceljs) ----------
+// exceljs is used for every file the app *writes* because it can actually
+// carry cell styling (fills, fonts, borders) into the .xlsx output -- the
+// SheetJS Community Edition build used for *reading* uploads silently drops
+// style information when writing, so it can't produce the styled templates.
+
+function csvEscape(value: string): string {
+  return /[",\n]/.test(value) ? '"' + value.replace(/"/g, '""') + '"' : value
 }
 
-async function saveViaClaudeDownloads(wb: XLSX.WorkBook, filename: string): Promise<boolean> {
+function styledWorkbookToCsvText(wb: ExcelJS.Workbook): string {
+  return wb.worksheets
+    .map((ws) => {
+      const lines: string[] = []
+      ws.eachRow({ includeEmpty: false }, (row) => {
+        const values = (row.values as unknown[]).slice(1)
+        lines.push(values.map((v) => csvEscape(v == null ? '' : String(v))).join(','))
+      })
+      return `# ${ws.name}\n${lines.join('\n')}`
+    })
+    .join('\n\n')
+}
+
+async function saveStyledViaClaudeDownloads(wb: ExcelJS.Workbook, filename: string): Promise<boolean> {
   const downloads = window.claude?.downloads
   if (!downloads) return false
 
-  const text = '﻿' + workbookToCsvText(wb) // U+FEFF BOM so Excel reads Korean text correctly
+  const text = '﻿' + styledWorkbookToCsvText(wb) // U+FEFF BOM so Excel reads Korean text correctly
 
-  // .csv is in the "extended" allowlist, which may not be enabled for this
-  // view -- if so, retry with .txt, which is always in the base allowlist.
   try {
     await downloads.save({ filename: filename.replace(/\.xlsx$/i, '.csv'), data: text })
     return true
   } catch (err) {
     const code = (err as ClaudeDownloadsError | undefined)?.code
-    if (code === 'declined') return false // user dismissed the prompt, nothing to report
+    if (code === 'declined') return false
     if (code !== 'extension_not_enabled' && code !== 'rejected_extension') {
       console.error('다운로드 실패:', err)
       alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
@@ -60,10 +72,11 @@ async function saveViaClaudeDownloads(wb: XLSX.WorkBook, filename: string): Prom
   }
 }
 
-function downloadWorkbookAsFile(wb: XLSX.WorkBook, filename: string): boolean {
+async function downloadStyledWorkbook(wb: ExcelJS.Workbook, filename: string): Promise<boolean> {
+  if (window.claude?.downloads) return saveStyledViaClaudeDownloads(wb, filename)
   try {
-    const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-    const blob = new Blob([wbArray], {
+    const buffer = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
     const url = URL.createObjectURL(blob)
@@ -84,26 +97,43 @@ function downloadWorkbookAsFile(wb: XLSX.WorkBook, filename: string): boolean {
   }
 }
 
-async function downloadWorkbook(wb: XLSX.WorkBook, filename: string): Promise<boolean> {
-  if (window.claude?.downloads) return saveViaClaudeDownloads(wb, filename)
-  return downloadWorkbookAsFile(wb, filename)
+function addStyledSheet(
+  wb: ExcelJS.Workbook,
+  sheetName: string,
+  columns: StyledColumn[],
+  rows: (string | number)[][],
+  emptyRowCount = 300,
+): ExcelJS.Worksheet {
+  const ws = wb.addWorksheet(sheetName)
+  applySheetStyle(ws, columns, emptyRowCount)
+  rows.forEach((rowValues, i) => {
+    const row = ws.getRow(i + 2)
+    rowValues.forEach((value, colIndex) => {
+      row.getCell(colIndex + 1).value = value
+    })
+  })
+  return ws
 }
 
 // ---------- Task template / import ----------
 
-const TASK_HEADERS = ['과제명', '과제등급', '업무량', '목표', '성과', '성과등급'] as const
+const TASK_COLUMNS: StyledColumn[] = [
+  { header: '과제명', width: 24, role: 'freetext' },
+  { header: '과제등급', width: 10, role: 'category' },
+  { header: '업무량', width: 8, role: 'category' },
+  { header: '목표', width: 28, role: 'freetext' },
+  { header: '성과', width: 28, role: 'freetext' },
+  { header: '성과등급', width: 10, role: 'category' },
+]
 
 export async function downloadTaskTemplate() {
-  const rows = [
-    [...TASK_HEADERS],
+  const rows: (string | number)[][] = [
     ['신규 랜딩페이지 제작', '핵심', '대', '전환율 15% 개선', '전환율 18% 달성', 'A'],
     ['내부 협업툴 정비', '일반', '소', '', '', ''],
   ]
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 8 }, { wch: 28 }, { wch: 28 }, { wch: 10 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '과제양식')
-  await downloadWorkbook(wb, '과제_업로드_양식.xlsx')
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '과제양식', TASK_COLUMNS, rows)
+  await downloadStyledWorkbook(wb, '과제_업로드_양식.xlsx')
 }
 
 export interface TaskImportResult {
@@ -182,19 +212,23 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
 
 // ---------- Team member template / import ----------
 
-const MEMBER_HEADERS = ['이름', '직책', '직급', '연차', '역할', '코멘트'] as const
+const MEMBER_COLUMNS: StyledColumn[] = [
+  { header: '이름', width: 12, role: 'freetext' },
+  { header: '직책', width: 10, role: 'category' },
+  { header: '직급', width: 10, role: 'category' },
+  { header: '연차', width: 8, role: 'freetext' },
+  { header: '역할', width: 16, role: 'freetext' },
+  { header: '코멘트', width: 30, role: 'freetext' },
+]
 
 export async function downloadMemberTemplate() {
-  const rows = [
-    [...MEMBER_HEADERS],
+  const rows: (string | number)[][] = [
     ['김민준', '팀장', '과장', 7, '기획', ''],
     ['이서연', '', '대리', 3, '디자인', ''],
   ]
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 30 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '팀원양식')
-  await downloadWorkbook(wb, '팀원_업로드_양식.xlsx')
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '팀원양식', MEMBER_COLUMNS, rows)
+  await downloadStyledWorkbook(wb, '팀원_업로드_양식.xlsx')
 }
 
 export interface MemberImportResult {
@@ -271,18 +305,17 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
 
 // ---------- Peer review template / import ----------
 
-const PEER_REVIEW_HEADERS = ['리뷰어', '대상팀원', '등급'] as const
+const PEER_REVIEW_COLUMNS: StyledColumn[] = [
+  { header: '리뷰어', width: 12, role: 'metric' },
+  { header: '대상팀원', width: 12, role: 'metric' },
+  { header: '등급', width: 8, role: 'category' },
+]
 
 export async function downloadPeerReviewTemplate(members: TeamMember[]) {
-  const rows: (string | number)[][] = [[...PEER_REVIEW_HEADERS]]
-  for (const member of members) {
-    rows.push(['', member.name, ''])
-  }
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 8 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '피어리뷰양식')
-  await downloadWorkbook(wb, '피어리뷰_업로드_양식.xlsx')
+  const rows: (string | number)[][] = members.map((member) => ['', member.name, ''])
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '피어리뷰양식', PEER_REVIEW_COLUMNS, rows)
+  await downloadStyledWorkbook(wb, '피어리뷰_업로드_양식.xlsx')
 }
 
 export interface PeerReviewImportResult {
@@ -385,6 +418,42 @@ export function parsePeerReviewWorkbook(
 
 // ---------- Results report export ----------
 
+const RANK_COLUMNS: StyledColumn[] = [
+  { header: '순위', width: 6, role: 'category' },
+  { header: '이름', width: 12, role: 'freetext' },
+  { header: '역할', width: 14, role: 'freetext' },
+  { header: '직책', width: 10, role: 'freetext' },
+  { header: '직급', width: 10, role: 'freetext' },
+  { header: '참여 과제 수', width: 12, role: 'metric' },
+  { header: '종합 점수(가중평균)', width: 16, role: 'metric' },
+  { header: '누적 점수(단순합)', width: 16, role: 'metric' },
+]
+
+const DETAIL_COLUMNS: StyledColumn[] = [
+  { header: '팀원', width: 12, role: 'freetext' },
+  { header: '과제명', width: 20, role: 'freetext' },
+  { header: '과제점수', width: 10, role: 'metric' },
+  { header: '기여도(%)', width: 10, role: 'metric' },
+  { header: '개인수행등급', width: 12, role: 'metric' },
+  { header: '목표', width: 24, role: 'freetext' },
+  { header: '성과', width: 24, role: 'freetext' },
+  { header: '성과등급', width: 10, role: 'metric' },
+  { header: '가중점수', width: 10, role: 'metric' },
+  { header: '기여도합계 100% 여부', width: 16, role: 'metric' },
+]
+
+const NOTES_COLUMNS: StyledColumn[] = [
+  { header: '팀원', width: 12, role: 'freetext' },
+  { header: '날짜', width: 12, role: 'metric' },
+  { header: '면담 코멘트', width: 50, role: 'freetext' },
+]
+
+const REPORT_PEER_REVIEW_COLUMNS: StyledColumn[] = [
+  { header: '대상팀원', width: 12, role: 'freetext' },
+  { header: '리뷰어', width: 12, role: 'freetext' },
+  { header: '등급', width: 8, role: 'category' },
+]
+
 export async function downloadResultsReport(
   members: TeamMember[],
   tasks: Task[],
@@ -397,34 +466,18 @@ export async function downloadResultsReport(
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
 
-  const rankRows = [
-    ['순위', '이름', '역할', '직책', '직급', '참여 과제 수', '종합 점수(가중평균)', '누적 점수(단순합)'],
-    ...results.map((row, index) => [
-      index + 1,
-      row.member.name,
-      row.member.role || '-',
-      row.member.position || '-',
-      row.member.level || '-',
-      row.participatedTaskCount,
-      Number(row.weightedAverageScore.toFixed(1)),
-      Number(row.cumulativeScore.toFixed(1)),
-    ]),
-  ]
-  const rankSheet = XLSX.utils.aoa_to_sheet(rankRows)
-  rankSheet['!cols'] = [
-    { wch: 6 },
-    { wch: 12 },
-    { wch: 14 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 12 },
-    { wch: 16 },
-    { wch: 16 },
-  ]
+  const rankRows: (string | number)[][] = results.map((row, index) => [
+    index + 1,
+    row.member.name,
+    row.member.role || '-',
+    row.member.position || '-',
+    row.member.level || '-',
+    row.participatedTaskCount,
+    Number(row.weightedAverageScore.toFixed(1)),
+    Number(row.cumulativeScore.toFixed(1)),
+  ])
 
-  const detailRows: (string | number)[][] = [
-    ['팀원', '과제명', '과제점수', '기여도(%)', '개인수행등급', '목표', '성과', '성과등급', '가중점수', '기여도합계 100% 여부'],
-  ]
+  const detailRows: (string | number)[][] = []
   for (const task of tasks) {
     const taskScore = taskScoreMap.get(task.id) ?? 0
     const taskContributions = contributions.filter((c) => c.taskId === task.id && c.contributionPercent > 0)
@@ -449,59 +502,61 @@ export async function downloadResultsReport(
       ])
     }
   }
-  const detailSheet = XLSX.utils.aoa_to_sheet(detailRows)
-  detailSheet['!cols'] = [
-    { wch: 12 },
-    { wch: 20 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 12 },
-    { wch: 24 },
-    { wch: 24 },
-    { wch: 10 },
-    { wch: 10 },
-    { wch: 16 },
-  ]
 
-  const notesRows: (string | number)[][] = [['팀원', '날짜', '면담 코멘트']]
   const sortedNotes = [...meetingNotes].sort((a, b) => {
     const memberA = members.find((m) => m.id === a.memberId)?.name ?? ''
     const memberB = members.find((m) => m.id === b.memberId)?.name ?? ''
     return memberA.localeCompare(memberB) || a.date.localeCompare(b.date)
   })
+  const notesRows: (string | number)[][] = []
   for (const note of sortedNotes) {
     const member = members.find((m) => m.id === note.memberId)
     if (!member) continue
     notesRows.push([member.name, note.date, note.comment])
   }
-  const notesSheet = XLSX.utils.aoa_to_sheet(notesRows)
-  notesSheet['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 50 }]
 
-  const peerReviewRows: (string | number)[][] = [['대상팀원', '리뷰어', '등급']]
   const sortedReviews = [...peerReviews].sort((a, b) => {
     const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
     const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
     return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
   })
+  const peerReviewRows: (string | number)[][] = []
   for (const review of sortedReviews) {
     const target = members.find((m) => m.id === review.targetMemberId)
     if (!target) continue
     peerReviewRows.push([target.name, review.reviewerName, review.grade])
   }
-  const peerReviewSheet = XLSX.utils.aoa_to_sheet(peerReviewRows)
-  peerReviewSheet['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 8 }]
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, rankSheet, '순위표')
-  XLSX.utils.book_append_sheet(wb, detailSheet, '과제별상세')
-  XLSX.utils.book_append_sheet(wb, notesSheet, '면담기록')
-  XLSX.utils.book_append_sheet(wb, peerReviewSheet, '피어리뷰')
-  await downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '순위표', RANK_COLUMNS, rankRows)
+  addStyledSheet(wb, '과제별상세', DETAIL_COLUMNS, detailRows)
+  addStyledSheet(wb, '면담기록', NOTES_COLUMNS, notesRows)
+  addStyledSheet(wb, '피어리뷰', REPORT_PEER_REVIEW_COLUMNS, peerReviewRows)
+  await downloadStyledWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 // Per-member result files, meant to be handed to each person individually
 // instead of giving everyone access to the full team results (which would
 // expose the whole ranking and everyone else's scores).
+
+const SUMMARY_COLUMNS: StyledColumn[] = [
+  { header: '항목', width: 18, role: 'category' },
+  { header: '값', width: 20, role: 'freetext' },
+]
+
+const INDIVIDUAL_TASK_COLUMNS: StyledColumn[] = [
+  { header: '과제명', width: 24, role: 'freetext' },
+  { header: '기여도(%)', width: 12, role: 'metric' },
+  { header: '개인수행등급', width: 14, role: 'metric' },
+  { header: '과제점수', width: 10, role: 'metric' },
+  { header: '가중점수', width: 10, role: 'metric' },
+]
+
+const INDIVIDUAL_NOTES_COLUMNS: StyledColumn[] = [
+  { header: '날짜', width: 12, role: 'metric' },
+  { header: '면담 코멘트', width: 50, role: 'freetext' },
+]
+
 export async function downloadIndividualResultReports(
   members: TeamMember[],
   tasks: Task[],
@@ -528,10 +583,8 @@ export async function downloadIndividualResultReports(
       ['누적 점수(단순합)', Number(row.cumulativeScore.toFixed(1))],
       ['평가등급', row.grade],
     ]
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
-    summarySheet['!cols'] = [{ wch: 18 }, { wch: 20 }]
 
-    const taskRows: (string | number)[][] = [['과제명', '기여도(%)', '개인수행등급', '과제점수', '가중점수']]
+    const taskRows: (string | number)[][] = []
     for (const task of tasks) {
       const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
       if (!contribution || contribution.contributionPercent <= 0) continue
@@ -545,24 +598,17 @@ export async function downloadIndividualResultReports(
         Number(weighted.toFixed(1)),
       ])
     }
-    const taskSheet = XLSX.utils.aoa_to_sheet(taskRows)
-    taskSheet['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 10 }]
 
-    const notesRows: (string | number)[][] = [['날짜', '면담 코멘트']]
     const memberNotes = meetingNotes
       .filter((n) => n.memberId === member.id)
       .sort((a, b) => a.date.localeCompare(b.date))
-    for (const note of memberNotes) {
-      notesRows.push([note.date, note.comment])
-    }
-    const notesSheet = XLSX.utils.aoa_to_sheet(notesRows)
-    notesSheet['!cols'] = [{ wch: 12 }, { wch: 50 }]
+    const notesRows: (string | number)[][] = memberNotes.map((note) => [note.date, note.comment])
 
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, summarySheet, '요약')
-    XLSX.utils.book_append_sheet(wb, taskSheet, '참여 과제')
-    XLSX.utils.book_append_sheet(wb, notesSheet, '면담기록')
+    const wb = new ExcelJS.Workbook()
+    addStyledSheet(wb, '요약', SUMMARY_COLUMNS, summaryRows, summaryRows.length)
+    addStyledSheet(wb, '참여 과제', INDIVIDUAL_TASK_COLUMNS, taskRows)
+    addStyledSheet(wb, '면담기록', INDIVIDUAL_NOTES_COLUMNS, notesRows)
 
-    await downloadWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
+    await downloadStyledWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
   }
 }

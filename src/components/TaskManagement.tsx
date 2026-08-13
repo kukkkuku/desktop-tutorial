@@ -43,14 +43,29 @@ export default function TaskManagement() {
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file) return
-    const buffer = await file.arrayBuffer()
-    const result = parseTaskWorkbook(buffer, state.tasks)
-    dispatch({ type: 'IMPORT_TASKS', payload: result.tasks })
-    setImportResult(result)
-    setRecentlyAddedIds(new Set(result.addedIds))
+    if (files.length === 0) return
+
+    let tasks = state.tasks
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    const addedIds: string[] = []
+
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parseTaskWorkbook(buffer, tasks)
+      tasks = result.tasks
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      addedIds.push(...result.addedIds)
+      errors.push(...result.errors.map((msg) => (files.length > 1 ? `[${file.name}] ${msg}` : msg)))
+    }
+
+    dispatch({ type: 'IMPORT_TASKS', payload: tasks })
+    setImportResult({ tasks, errors, importedCount: addedCount + updatedCount, addedCount, updatedCount, addedIds })
+    setRecentlyAddedIds(new Set(addedIds))
   }
 
   return (
@@ -85,11 +100,12 @@ export default function TaskManagement() {
           ref={fileInputRef}
           type="file"
           accept=".xlsx,.xls"
+          multiple
           className="hidden"
           onChange={handleFileSelected}
         />
         <span className="text-sm text-gray-500">
-          과제명, 과제등급(중점/핵심/일반/지원), 업무량(대/중/소), 목표, 성과, 성과등급(S/A/B/C/D) 컬럼을 포함한 엑셀 파일을 업로드하세요.
+          과제명, 과제등급(중점/핵심/일반/지원), 업무량(대/중/소), 목표, 성과, 성과등급(S/A/B/C/D) 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
         </span>
       </div>
 

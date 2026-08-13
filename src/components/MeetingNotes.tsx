@@ -72,13 +72,35 @@ export default function MeetingNotes() {
   }
 
   async function handlePeerReviewFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file) return
-    const buffer = await file.arrayBuffer()
-    const result = parsePeerReviewWorkbook(buffer, members, peerReviews)
-    dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: result.peerReviews })
-    setPeerReviewResult(result)
+    if (files.length === 0) return
+
+    let reviews = peerReviews
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    const affectedTargetNames = new Set<string>()
+
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parsePeerReviewWorkbook(buffer, members, reviews)
+      reviews = result.peerReviews
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      result.affectedTargetNames.forEach((name) => affectedTargetNames.add(name))
+      errors.push(...result.errors.map((msg) => (files.length > 1 ? `[${file.name}] ${msg}` : msg)))
+    }
+
+    dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: reviews })
+    setPeerReviewResult({
+      peerReviews: reviews,
+      errors,
+      importedCount: addedCount + updatedCount,
+      addedCount,
+      updatedCount,
+      affectedTargetNames: Array.from(affectedTargetNames),
+    })
   }
 
   function handleDeletePeerReviewConfirm() {
@@ -264,9 +286,11 @@ export default function MeetingNotes() {
                 ref={peerReviewFileInputRef}
                 type="file"
                 accept=".xlsx,.xls"
+                multiple
                 className="hidden"
                 onChange={handlePeerReviewFileSelected}
               />
+              <span className="text-sm text-gray-500">여러 명의 파일을 한 번에 선택할 수 있습니다.</span>
             </div>
 
             {peerReviewResult && (
