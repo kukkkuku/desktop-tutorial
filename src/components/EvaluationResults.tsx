@@ -1,6 +1,6 @@
 import { useAppState } from '../state/AppContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
-import { downloadResultsReport } from '../utils/excel'
+import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -22,16 +22,26 @@ export default function EvaluationResults() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-black">평가 결과</h2>
-        <button
-          onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
-          disabled={memberResults.length === 0}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          결과 리포트 엑셀 다운로드
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+            disabled={memberResults.length === 0}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            결과 리포트 엑셀 다운로드
+          </button>
+          <button
+            onClick={() => downloadIndividualResultReports(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+            disabled={memberResults.length === 0}
+            className="rounded-md border-2 border-accent px-4 py-2 text-sm font-medium text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            팀원별 결과 개별 다운로드
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
-        설정한 기준에 따라 계산된 팀원별 종합 점수와 순위입니다.
+        설정한 기준에 따라 계산된 팀원별 종합 점수와 순위입니다. '팀원별 결과 개별 다운로드'는 전체 순위 없이 본인
+        점수만 담긴 파일을 팀원별로 각각 만들어줍니다 — 개인에게 결과만 따로 전달할 때 사용하세요.
       </p>
 
       {memberResults.length > 0 && (

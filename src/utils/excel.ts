@@ -498,3 +498,71 @@ export async function downloadResultsReport(
   XLSX.utils.book_append_sheet(wb, peerReviewSheet, '피어리뷰')
   await downloadWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
+
+// Per-member result files, meant to be handed to each person individually
+// instead of giving everyone access to the full team results (which would
+// expose the whole ranking and everyone else's scores).
+export async function downloadIndividualResultReports(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[] = [],
+  peerReviews: PeerReview[] = [],
+) {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const dateStr = new Date().toISOString().slice(0, 10)
+
+  for (const row of results) {
+    const member = row.member
+
+    const summaryRows: (string | number)[][] = [
+      ['이름', member.name],
+      ['역할', member.role || '-'],
+      ['직책', member.position || '-'],
+      ['직급', member.level || '-'],
+      ['참여 과제 수', row.participatedTaskCount],
+      ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],
+      ['누적 점수(단순합)', Number(row.cumulativeScore.toFixed(1))],
+      ['평가등급', row.grade],
+    ]
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
+    summarySheet['!cols'] = [{ wch: 18 }, { wch: 20 }]
+
+    const taskRows: (string | number)[][] = [['과제명', '기여도(%)', '개인수행등급', '과제점수', '가중점수']]
+    for (const task of tasks) {
+      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+      if (!contribution || contribution.contributionPercent <= 0) continue
+      const taskScore = taskScoreMap.get(task.id) ?? 0
+      const weighted = taskScore * (contribution.contributionPercent / 100)
+      taskRows.push([
+        task.name,
+        contribution.contributionPercent,
+        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+        Number(taskScore.toFixed(1)),
+        Number(weighted.toFixed(1)),
+      ])
+    }
+    const taskSheet = XLSX.utils.aoa_to_sheet(taskRows)
+    taskSheet['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 10 }]
+
+    const notesRows: (string | number)[][] = [['날짜', '면담 코멘트']]
+    const memberNotes = meetingNotes
+      .filter((n) => n.memberId === member.id)
+      .sort((a, b) => a.date.localeCompare(b.date))
+    for (const note of memberNotes) {
+      notesRows.push([note.date, note.comment])
+    }
+    const notesSheet = XLSX.utils.aoa_to_sheet(notesRows)
+    notesSheet['!cols'] = [{ wch: 12 }, { wch: 50 }]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, summarySheet, '요약')
+    XLSX.utils.book_append_sheet(wb, taskSheet, '참여 과제')
+    XLSX.utils.book_append_sheet(wb, notesSheet, '면담기록')
+
+    await downloadWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
+  }
+}
