@@ -7,7 +7,7 @@ export const EXCEL_STYLE = {
   headerBg: 'FF343A40',
   headerText: 'FFFFFFFF',
   headerBorder: 'FF202428',
-  categoryBg: 'FFF2F3F5', // primary category/select columns (등급, 직책 등)
+  categoryBg: 'FFF2F3F5', // primary category/select columns (등급, 직급 등)
   metricBg: 'FFF7F8F9', // computed/secondary numeric columns
   freetextBg: 'FFFFFFFF', // identity + free-text columns
   border: 'FFD6DADF',

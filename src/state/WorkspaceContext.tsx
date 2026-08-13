@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { WorkspaceMeta } from '../types'
+import type { Task, WorkspaceMeta } from '../types'
 import { createEmptyState } from './appReducer'
 import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
 
@@ -76,11 +76,16 @@ function loadInitialWorkspaceState(): { workspaces: WorkspaceMeta[]; currentId: 
   return { workspaces, currentId: loadCurrentId(workspaces) }
 }
 
+export interface CreateWorkspaceOptions {
+  copyMembers?: boolean
+  copyTaskNames?: boolean
+}
+
 interface WorkspaceContextValue {
   workspaces: WorkspaceMeta[]
   currentWorkspaceId: string | null
   currentWorkspace: WorkspaceMeta | null
-  createWorkspace: (teamName: string, periodName: string) => void
+  createWorkspace: (teamName: string, periodName: string, options?: CreateWorkspaceOptions) => void
   selectWorkspace: (id: string) => void
   exitToLanding: () => void
   deleteWorkspace: (id: string) => void
@@ -111,7 +116,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   }, [currentWorkspaceId])
 
-  function createWorkspace(teamName: string, periodName: string) {
+  function createWorkspace(teamName: string, periodName: string, options: CreateWorkspaceOptions = {}) {
+    const { copyMembers = true, copyTaskNames = false } = options
     const trimmedTeamName = teamName.trim()
     const meta: WorkspaceMeta = {
       id: uuidv4(),
@@ -120,10 +126,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     }
 
-    // A new period for a team that already exists starts with that team's
-    // roster and criteria carried over (those tend to stay stable across
-    // periods), but empty tasks/contributions/peerReviews/meetingNotes
-    // (those are specific to each period and shouldn't leak between them).
+    // A new period for a team that already exists can optionally carry over
+    // that team's roster (stable across periods) and/or just the previous
+    // period's task names (a fresh start for grades/objectives/achievements,
+    // since those are period-specific and copying them over would be
+    // misleading). Criteria always carries over -- those are a team setting,
+    // not a period-specific one.
     const sameTeamWorkspaces = workspaces.filter((w) => w.teamName === trimmedTeamName)
     const mostRecentSameTeam = sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
     if (mostRecentSameTeam) {
@@ -133,8 +141,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           const prevState = JSON.parse(raw)
           const carriedOverState = {
             ...createEmptyState(),
-            members: Array.isArray(prevState.members) ? prevState.members : [],
+            members: copyMembers && Array.isArray(prevState.members) ? prevState.members : [],
             criteria: prevState.criteria ?? createEmptyState().criteria,
+            tasks:
+              copyTaskNames && Array.isArray(prevState.tasks)
+                ? prevState.tasks.map(
+                    (t: Task): Task => ({
+                      id: uuidv4(),
+                      name: t.name,
+                      importance: '일반',
+                      workload: '중',
+                      objective: '',
+                      achievement: '',
+                      performanceGrade: 'B',
+                    }),
+                  )
+                : [],
           }
           localStorage.setItem(workspaceStateKey(meta.id), JSON.stringify(carriedOverState))
         }

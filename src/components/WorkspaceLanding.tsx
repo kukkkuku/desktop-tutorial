@@ -32,6 +32,8 @@ export default function WorkspaceLanding() {
   const [newPeriodName, setNewPeriodName] = useState('')
   const [createError, setCreateError] = useState('')
   const [teamNameFocused, setTeamNameFocused] = useState(false)
+  const [copyMembers, setCopyMembers] = useState(true)
+  const [copyTaskNames, setCopyTaskNames] = useState(false)
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedId) ?? null
 
@@ -85,7 +87,9 @@ export default function WorkspaceLanding() {
       setCreateError('평가 기간을 입력하세요.')
       return
     }
-    createWorkspace(newTeamName, newPeriodName)
+    // These flags only have any effect when trimmedNewTeamName matches an
+    // existing team (createWorkspace has nothing to copy from otherwise).
+    createWorkspace(newTeamName, newPeriodName, { copyMembers, copyTaskNames })
   }
 
   return (
@@ -202,7 +206,29 @@ export default function WorkspaceLanding() {
                 </div>
               )}
               {isExactExistingTeam && (
-                <p className="mt-1 text-xs text-gray-500">기존 '{trimmedNewTeamName}' 팀에 새 기간으로 추가돼요.</p>
+                <div className="mt-1">
+                  <p className="text-xs text-gray-500">기존 '{trimmedNewTeamName}' 팀에 새 기간으로 추가돼요.</p>
+                  <div className="mt-2 space-y-1.5">
+                    <label className="flex items-center gap-2 text-xs text-black">
+                      <input
+                        type="checkbox"
+                        checked={copyMembers}
+                        onChange={(e) => setCopyMembers(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                      />
+                      팀원 정보 복사
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-black">
+                      <input
+                        type="checkbox"
+                        checked={copyTaskNames}
+                        onChange={(e) => setCopyTaskNames(e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                      />
+                      과제명 복사 (등급·목표·성과는 새로 입력)
+                    </label>
+                  </div>
+                </div>
               )}
             </div>
             <div>

@@ -10,12 +10,11 @@ import type {
   MeetingNote,
   PeerReview,
   PerformanceGrade,
-  Position,
   Task,
   TeamMember,
   Workload,
 } from '../types'
-import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, POSITION_OPTIONS, WORKLOAD_OPTIONS } from '../types'
+import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberResults } from './calculations'
 import { applySheetStyle, type StyledColumn } from './excelStyle'
 
@@ -219,7 +218,6 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
 
 const MEMBER_COLUMNS: StyledColumn[] = [
   { header: '이름', width: 12, role: 'freetext' },
-  { header: '직책', width: 10, role: 'category' },
   { header: '직급', width: 10, role: 'category' },
   { header: '연차', width: 8, role: 'freetext' },
   { header: '역할', width: 16, role: 'freetext' },
@@ -228,8 +226,8 @@ const MEMBER_COLUMNS: StyledColumn[] = [
 
 function buildMemberTemplateWorkbook(): ExcelJS.Workbook {
   const rows: (string | number)[][] = [
-    ['김민준', '팀장', '과장', 7, '기획', ''],
-    ['이서연', '', '대리', 3, '디자인', ''],
+    ['김민준', '과장', 7, '리드', ''],
+    ['이서연', '대리', 3, '디자인', ''],
   ]
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '팀원양식', MEMBER_COLUMNS, rows)
@@ -264,7 +262,6 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
   rows.forEach((row, index) => {
     const rowNum = index + 2
     const name = String(row['이름'] ?? '').trim()
-    const positionRaw = String(row['직책'] ?? '').trim()
     const levelRaw = String(row['직급'] ?? '').trim()
     const yearsRaw = row['연차']
     const role = String(row['역할'] ?? '').trim()
@@ -272,10 +269,6 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
 
     if (!name) {
       errors.push(`${rowNum}행: 이름이 비어 있어 건너뛰었습니다.`)
-      return
-    }
-    if (positionRaw && !POSITION_OPTIONS.includes(positionRaw as Position)) {
-      errors.push(`${rowNum}행 '${name}': 직책 '${positionRaw}'은(는) 유효하지 않습니다. (팀장/PM/PL/팀원)`)
       return
     }
     if (levelRaw && !LEVEL_OPTIONS.includes(levelRaw as Level)) {
@@ -293,7 +286,6 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
       id: existing?.id ?? uuidv4(),
       name,
       active: existing?.active ?? true,
-      position: (positionRaw as Position) || '',
       level: (levelRaw as Level) || '',
       yearsOfService,
       role,
@@ -478,7 +470,6 @@ const RANK_COLUMNS: StyledColumn[] = [
   { header: '순위', width: 6, role: 'category' },
   { header: '이름', width: 12, role: 'freetext' },
   { header: '역할', width: 14, role: 'freetext' },
-  { header: '직책', width: 10, role: 'freetext' },
   { header: '직급', width: 10, role: 'freetext' },
   { header: '참여 과제 수', width: 12, role: 'metric' },
   { header: '종합 점수(가중평균)', width: 16, role: 'metric' },
@@ -526,7 +517,6 @@ export async function downloadResultsReport(
     index + 1,
     row.member.name,
     row.member.role || '-',
-    row.member.position || '-',
     row.member.level || '-',
     row.participatedTaskCount,
     Number(row.weightedAverageScore.toFixed(1)),
@@ -632,7 +622,6 @@ export async function downloadIndividualResultReports(
     const summaryRows: (string | number)[][] = [
       ['이름', member.name],
       ['역할', member.role || '-'],
-      ['직책', member.position || '-'],
       ['직급', member.level || '-'],
       ['참여 과제 수', row.participatedTaskCount],
       ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],

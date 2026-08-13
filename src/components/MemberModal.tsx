@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { Level, Position, TeamMember } from '../types'
-import { LEVEL_OPTIONS, POSITION_OPTIONS } from '../types'
+import type { Level, TeamMember } from '../types'
+import { LEVEL_OPTIONS } from '../types'
 
 interface MemberModalProps {
   initialMember: TeamMember | null
@@ -18,7 +18,6 @@ export default function MemberModal({
 }: MemberModalProps) {
   const [name, setName] = useState(initialMember?.name ?? '')
   const [active, setActive] = useState(initialMember?.active ?? true)
-  const [position, setPosition] = useState<Position | ''>(initialMember?.position ?? '')
   const [level, setLevel] = useState<Level | ''>(initialMember?.level ?? '')
   const [yearsOfService, setYearsOfService] = useState(
     initialMember?.yearsOfService != null ? String(initialMember.yearsOfService) : '',
@@ -41,7 +40,6 @@ export default function MemberModal({
       id: initialMember?.id ?? uuidv4(),
       name: trimmedName,
       active,
-      position,
       level,
       yearsOfService: yearsOfService.trim() === '' ? null : Number(yearsOfService),
       role: role.trim(),
@@ -71,21 +69,6 @@ export default function MemberModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-black">직책</label>
-              <select
-                value={position}
-                onChange={(e) => setPosition(e.target.value as Position | '')}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-              >
-                <option value="">-</option>
-                {POSITION_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="block text-sm font-medium text-black">직급</label>
               <select
                 value={level}
@@ -100,9 +83,6 @@ export default function MemberModal({
                 ))}
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-black">연차</label>
               <input
@@ -114,16 +94,17 @@ export default function MemberModal({
                 className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-black">역할</label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="예: 기획, 디자인, 개발"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-              />
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-black">역할</label>
+            <input
+              type="text"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              placeholder="예: 리드, 기획, 디자인"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
           </div>
 
           <div>

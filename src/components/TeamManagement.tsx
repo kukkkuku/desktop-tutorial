@@ -112,7 +112,7 @@ export default function TeamManagement() {
           onChange={handleFileSelected}
         />
         <span className="text-sm text-gray-500">
-          이름, 직책(팀장/PM/PL), 직급(사원/대리/과장/차장), 연차, 역할, 코멘트 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
+          이름, 직급(사원/대리/과장/차장), 연차, 역할, 코멘트 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
         </span>
       </div>
 
@@ -142,7 +142,6 @@ export default function TeamManagement() {
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               <th className="px-4 py-3 font-semibold">이름</th>
-              <th className="px-4 py-3 font-semibold">직책</th>
               <th className="px-4 py-3 font-semibold">직급</th>
               <th className="px-4 py-3 font-semibold">연차</th>
               <th className="px-4 py-3 font-semibold">역할</th>
@@ -166,7 +165,6 @@ export default function TeamManagement() {
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3">{member.position || '-'}</td>
                   <td className="px-4 py-3">{member.level || '-'}</td>
                   <td className="px-4 py-3">{member.yearsOfService ?? '-'}</td>
                   <td className="px-4 py-3">{member.role || '-'}</td>

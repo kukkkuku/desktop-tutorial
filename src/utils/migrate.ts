@@ -24,7 +24,6 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
     id: raw.id,
     name: raw.name,
     active: typeof raw.active === 'boolean' ? raw.active : true,
-    position: typeof raw.position === 'string' ? (raw.position as TeamMember['position']) : '',
     level: typeof raw.level === 'string' ? (raw.level as TeamMember['level']) : '',
     yearsOfService: typeof raw.yearsOfService === 'number' ? raw.yearsOfService : null,
     role: typeof raw.role === 'string' ? raw.role : '',
@@ -104,9 +103,9 @@ const LEGACY_SAMPLE_TASKS = [
   { name: 'OneClick', importance: '일반', performanceGrade: 'B', workload: '소' },
 ]
 const LEGACY_SAMPLE_MEMBERS = [
-  { name: '김기정', position: '팀장', level: '과장', yearsOfService: 7, role: '기획' },
-  { name: '이혜원', position: 'PL', level: '대리', yearsOfService: 4, role: '디자인' },
-  { name: '서승우', position: '팀원', level: '사원', yearsOfService: 2, role: '개발' },
+  { name: '김기정', level: '과장', yearsOfService: 7, role: '기획' },
+  { name: '이혜원', level: '대리', yearsOfService: 4, role: '디자인' },
+  { name: '서승우', level: '사원', yearsOfService: 2, role: '개발' },
 ]
 const LEGACY_SAMPLE_CONTRIBUTIONS: Record<string, [number, PerformanceGrade]> = {
   'CloudX|김기정': [50, 'A'],
@@ -141,7 +140,6 @@ export function isUntouchedLegacySample(state: AppState): boolean {
     state.members.some(
       (m) =>
         m.name === fixture.name &&
-        m.position === fixture.position &&
         m.level === fixture.level &&
         m.yearsOfService === fixture.yearsOfService &&
         m.role === fixture.role,
