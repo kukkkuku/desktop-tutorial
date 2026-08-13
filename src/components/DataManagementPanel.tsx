@@ -41,37 +41,64 @@ export default function DataManagementPanel({ onClose }: DataManagementPanelProp
 
   async function handleTaskFiles(files: File[]) {
     if (files.length === 0) return
+    setBulkSummary(null)
     setLoadingLabel('과제 업로드 중...')
     let list = tasks
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
     for (const file of files) {
       const buffer = await file.arrayBuffer()
-      list = parseTaskWorkbook(buffer, list).tasks
+      const result = parseTaskWorkbook(buffer, list)
+      list = result.tasks
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_TASKS', payload: list })
+    setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
 
   async function handleMemberFiles(files: File[]) {
     if (files.length === 0) return
+    setBulkSummary(null)
     setLoadingLabel('팀원 업로드 중...')
     let list = members
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
     for (const file of files) {
       const buffer = await file.arrayBuffer()
-      list = parseMemberWorkbook(buffer, list).members
+      const result = parseMemberWorkbook(buffer, list)
+      list = result.members
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_MEMBERS', payload: list })
+    setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
 
   async function handlePeerFiles(files: File[]) {
     if (files.length === 0) return
+    setBulkSummary(null)
     setLoadingLabel('피어리뷰 업로드 중...')
     let list = peerReviews
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
     for (const file of files) {
       const buffer = await file.arrayBuffer()
-      list = parsePeerReviewWorkbook(buffer, members, list).peerReviews
+      const result = parsePeerReviewWorkbook(buffer, members, list)
+      list = result.peerReviews
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: list })
+    setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
 
