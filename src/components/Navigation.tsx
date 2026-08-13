@@ -1,10 +1,25 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { WorkspaceMeta } from '../types'
 import DataManagementPanel from './DataManagementPanel'
 
 export type TabKey = 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
 
-const TAB_GROUPS: { key: TabKey; label: string }[][] = [
+const SlidersIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+    <line x1="4" y1="21" x2="4" y2="14" />
+    <line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" />
+    <line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" />
+    <line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
+  </svg>
+)
+
+const TAB_GROUPS: { key: TabKey; label: string; icon?: ReactNode }[][] = [
+  [{ key: 'criteria', label: '기준설정', icon: <SlidersIcon /> }],
   [
     { key: 'tasks', label: '과제관리' },
     { key: 'members', label: '팀원관리' },
@@ -14,7 +29,6 @@ const TAB_GROUPS: { key: TabKey; label: string }[][] = [
     { key: 'results', label: '평가결과' },
     { key: 'notes', label: '팀원면담' },
   ],
-  [{ key: 'criteria', label: '기준설정' }],
 ]
 
 const ADD_PERIOD_VALUE = '__add_period__'
@@ -117,12 +131,13 @@ export default function Navigation({
                 <button
                   key={tab.key}
                   onClick={() => onTabChange(tab.key)}
-                  className={`border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
+                  className={`flex items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
                     activeTab === tab.key
                       ? 'border-accent text-accent font-semibold'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-black'
                   }`}
                 >
+                  {tab.icon}
                   {tab.label}
                 </button>
               ))}

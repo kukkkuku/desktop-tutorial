@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import type { Task } from '../types'
+import type { Importance, PerformanceGrade, Task, Workload } from '../types'
+import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import TaskModal from './TaskModal'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
 import Spinner from './Spinner'
 import { downloadTaskTemplate, parseTaskWorkbook, type TaskImportResult } from '../utils/excel'
 import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
-import { GRADE_COLORS } from '../utils/calculations'
+import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
 
 export default function TaskManagement() {
   const { state, dispatch } = useAppState()
@@ -19,10 +21,26 @@ export default function TaskManagement() {
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  function openAddModal() {
-    setEditingTask(null)
-    setModalOpen(true)
-  }
+  const [newName, setNewName] = useState('')
+  const [newImportance, setNewImportance] = useState<Importance>('일반')
+  const [newWorkload, setNewWorkload] = useState<Workload>('중')
+  const [newPerformanceGrade, setNewPerformanceGrade] = useState<PerformanceGrade>('B')
+  const [newObjective, setNewObjective] = useState('')
+  const [newAchievement, setNewAchievement] = useState('')
+  const [newFormError, setNewFormError] = useState('')
+
+  const isImportanceUsed = state.criteria.taskGradeWeight > 0
+  const isWorkloadUsed = state.criteria.workloadWeight > 0
+  const isPerformanceGradeUsed = state.criteria.performanceGradeWeight > 0
+
+  const taskScores = calcAllTaskScores(state.tasks, state.criteria)
+  const scoreByTaskId = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const participantCountByTaskId = new Map(
+    state.tasks.map((t) => [
+      t.id,
+      state.contributions.filter((c) => c.taskId === t.id && c.contributionPercent > 0).length,
+    ]),
+  )
 
   function openEditModal(task: Task) {
     setEditingTask(task)
@@ -30,11 +48,7 @@ export default function TaskManagement() {
   }
 
   function handleSave(task: Task) {
-    if (editingTask) {
-      dispatch({ type: 'UPDATE_TASK', payload: task })
-    } else {
-      dispatch({ type: 'ADD_TASK', payload: task })
-    }
+    dispatch({ type: 'UPDATE_TASK', payload: task })
     setModalOpen(false)
     setEditingTask(null)
   }
@@ -44,6 +58,35 @@ export default function TaskManagement() {
       dispatch({ type: 'DELETE_TASK', payload: { id: deletingTask.id } })
       setDeletingTask(null)
     }
+  }
+
+  function handleQuickAdd() {
+    const trimmedName = newName.trim()
+    if (!trimmedName) {
+      setNewFormError('과제명을 입력하세요.')
+      return
+    }
+    if (state.tasks.some((t) => t.name === trimmedName)) {
+      setNewFormError(`과제명 '${trimmedName}'은(는) 이미 존재합니다.`)
+      return
+    }
+    const task: Task = {
+      id: uuidv4(),
+      name: trimmedName,
+      importance: newImportance,
+      performanceGrade: newPerformanceGrade,
+      workload: newWorkload,
+      objective: newObjective.trim(),
+      achievement: newAchievement.trim(),
+    }
+    dispatch({ type: 'ADD_TASK', payload: task })
+    setNewName('')
+    setNewImportance('일반')
+    setNewWorkload('중')
+    setNewPerformanceGrade('B')
+    setNewObjective('')
+    setNewAchievement('')
+    setNewFormError('')
   }
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -76,15 +119,7 @@ export default function TaskManagement() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black">과제 관리</h2>
-        <button
-          onClick={openAddModal}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          + 과제 추가
-        </button>
-      </div>
+      <h2 className="text-xl font-bold text-black">과제 관리</h2>
       <p className="mt-1 text-sm text-gray-600">
         과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
       </p>
@@ -115,6 +150,104 @@ export default function TaskManagement() {
         <span className="text-sm text-gray-500">
           과제명, 과제등급(중점/핵심/일반/지원), 업무량(대/중/소), 목표, 성과, 성과등급(S/A/B/C/D) 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
         </span>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-gray-200 p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr]">
+          <div>
+            <label className="block text-sm font-medium text-black">
+              과제명 <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="예: 신규 랜딩페이지 제작"
+              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+                newFormError ? 'border-danger' : 'border-gray-300'
+              }`}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">과제등급</label>
+            <select
+              value={newImportance}
+              onChange={(e) => setNewImportance(e.target.value as Importance)}
+              disabled={!isImportanceUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {IMPORTANCE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">업무량</label>
+            <select
+              value={newWorkload}
+              onChange={(e) => setNewWorkload(e.target.value as Workload)}
+              disabled={!isWorkloadUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {WORKLOAD_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">성과등급</label>
+            <select
+              value={newPerformanceGrade}
+              onChange={(e) => setNewPerformanceGrade(e.target.value as PerformanceGrade)}
+              disabled={!isPerformanceGradeUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-black">목표</label>
+            <input
+              type="text"
+              value={newObjective}
+              onChange={(e) => setNewObjective(e.target.value)}
+              placeholder="예: 전환율 15% 개선"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">성과</label>
+            <input
+              type="text"
+              value={newAchievement}
+              onChange={(e) => setNewAchievement(e.target.value)}
+              placeholder="예: 전환율 18% 달성 (선택)"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+        </div>
+
+        {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
+
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={handleQuickAdd}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            + 과제 추가
+          </button>
+        </div>
       </div>
 
       {importResult && (
@@ -155,27 +288,45 @@ export default function TaskManagement() {
             {state.tasks.map((task) => (
               <tr key={task.id} className="border-t border-gray-200 text-black">
                 <td className="px-4 py-3 font-medium">
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
                     {recentlyAddedIds.has(task.id) && (
                       <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                         N
                       </span>
                     )}
+                    <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                      {(scoreByTaskId.get(task.id) ?? 0).toFixed(1)}점
+                    </span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      {participantCountByTaskId.get(task.id) ?? 0}명
+                    </span>
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${IMPORTANCE_COLORS[task.importance]}`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
                     {task.importance}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-1 text-xs font-bold ${GRADE_COLORS[task.performanceGrade]}`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-bold ${
+                      isPerformanceGradeUsed ? GRADE_COLORS[task.performanceGrade] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
                     {task.performanceGrade}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${WORKLOAD_COLORS[task.workload]}`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      isWorkloadUsed ? WORKLOAD_COLORS[task.workload] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
                     {task.workload}
                   </span>
                 </td>
@@ -185,15 +336,28 @@ export default function TaskManagement() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEditModal(task)}
-                      className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                      title="수정"
+                      aria-label="수정"
+                      className="rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-100"
                     >
-                      수정
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
                     </button>
                     <button
                       onClick={() => setDeletingTask(task)}
-                      className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                      title="삭제"
+                      aria-label="삭제"
+                      className="rounded-md border border-gray-300 p-1.5 text-danger hover:bg-red-50"
                     >
-                      삭제
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
                     </button>
                   </div>
                 </td>
