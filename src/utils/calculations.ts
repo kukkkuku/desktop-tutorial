@@ -10,11 +10,14 @@ import type {
   Workload,
 } from '../types'
 
-export const IMPORTANCE_WEIGHT: Record<Importance, number> = {
-  중점: 1.3,
-  핵심: 1.1,
-  일반: 1.0,
-  지원: 0.8,
+// Task-grade score, on the same 0-100+ point scale as PERFORMANCE_SCORE
+// (100 = neutral/no-effect), rather than a raw multiplier — easier to read
+// at a glance than a "1.3배" style factor.
+export const IMPORTANCE_SCORE: Record<Importance, number> = {
+  중점: 130,
+  핵심: 110,
+  일반: 100,
+  지원: 80,
 }
 
 export const PERFORMANCE_SCORE: Record<PerformanceGrade, number> = {
@@ -55,7 +58,7 @@ export function calcTaskScore(task: Task, criteria: Criteria): number {
     PERFORMANCE_SCORE[task.performanceGrade],
     criteria.performanceGradeWeight,
   )
-  const importanceWeight = blendByWeight(1.0, IMPORTANCE_WEIGHT[task.importance], criteria.taskGradeWeight)
+  const importanceWeight = blendByWeight(100, IMPORTANCE_SCORE[task.importance], criteria.taskGradeWeight) / 100
   const workloadFactor = blendByWeight(1.0, WORKLOAD_FACTOR[task.workload], criteria.workloadWeight)
   return performanceScore * importanceWeight * workloadFactor
 }

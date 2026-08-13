@@ -89,8 +89,8 @@ export default function CriteriaConfiguration() {
   const tw = criteria.taskGradeWeight
   const taskGradeDescription =
     tw === 0
-      ? '사용 안 함 — 모든 과제의 과제등급 가중치를 항상 1.0배로 간주합니다.'
-      : `사용 시 과제등급(중점/핵심/일반/지원) 가중치가 1.0 기준에서 실제 값 쪽으로 섞입니다. 지금 비율 기준: 중점 ${fmt(blendByWeight(1, 1.3, tw))} / 핵심 ${fmt(blendByWeight(1, 1.1, tw))} / 일반 ${fmt(blendByWeight(1, 1.0, tw))} / 지원 ${fmt(blendByWeight(1, 0.8, tw))}배.`
+      ? '사용 안 함 — 모든 과제의 과제등급 점수를 항상 100점으로 간주합니다.'
+      : `사용 시 과제등급(중점/핵심/일반/지원) 점수가 100점 기준에서 실제 값 쪽으로 섞입니다. 지금 비율 기준: 중점 ${fmt(blendByWeight(100, 130, tw))} / 핵심 ${fmt(blendByWeight(100, 110, tw))} / 일반 ${fmt(blendByWeight(100, 100, tw))} / 지원 ${fmt(blendByWeight(100, 80, tw))}점.`
 
   const ww = criteria.workloadWeight
   const workloadDescription =
