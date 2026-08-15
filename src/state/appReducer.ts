@@ -35,6 +35,7 @@ export function createEmptyState(): AppState {
       workloadWeight: 100,
       personalGradeWeight: 0,
       peerReviewWeight: 0,
+      contributionWeight: 100,
     },
   }
 }

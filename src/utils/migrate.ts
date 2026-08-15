@@ -87,6 +87,7 @@ function migrateCriteria(raw: unknown): Criteria {
     workloadWeight: resolveWeight(r.workloadWeight, r.useWorkload, 100),
     personalGradeWeight: resolveWeight(r.personalGradeWeight, r.usePersonalPerformanceGrade, 0),
     peerReviewWeight: resolveWeight(r.peerReviewWeight, r.usePeerReview, 0),
+    contributionWeight: resolveWeight(r.contributionWeight, undefined, 100),
   }
 }
 

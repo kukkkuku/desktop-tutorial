@@ -88,6 +88,24 @@ export function getContributionPercent(
   return getContribution(contributions, taskId, memberId)?.contributionPercent ?? 0
 }
 
+// The contribution % entered per task/member always has to sum to 100 across
+// that task's participants (enforced in the matrix), so blending each
+// participant's share toward an equal split preserves that sum exactly:
+// blend(equalShare, actual, w) summed over participants = 100 regardless of
+// w, since sum(actual) = 100 and sum(equalShare) = participantCount*equalShare = 100.
+export function getEffectiveContributionPercent(
+  contributions: Contribution[],
+  taskId: string,
+  memberId: string,
+  contributionWeight: number,
+): number {
+  const actual = getContributionPercent(contributions, taskId, memberId)
+  if (actual <= 0) return 0
+  const participantCount = contributions.filter((c) => c.taskId === taskId && c.contributionPercent > 0).length
+  const equalShare = participantCount > 0 ? 100 / participantCount : 0
+  return blendByWeight(equalShare, actual, contributionWeight)
+}
+
 export function getPersonalPerformanceGrade(
   contributions: Contribution[],
   taskId: string,
@@ -150,7 +168,7 @@ export function calcMemberCumulativeScore(
 ): number {
   return taskScores.reduce((sum, row) => {
     const contribution = getContribution(contributions, row.task.id, member.id)
-    const percent = contribution?.contributionPercent ?? 0
+    const percent = getEffectiveContributionPercent(contributions, row.task.id, member.id, criteria.contributionWeight)
     const personalFactor = calcPersonalGradeFactor(contribution, criteria)
     return sum + row.score * (percent / 100) * personalFactor
   }, 0)
@@ -184,6 +202,28 @@ export function calcMemberParticipation(
   return { count, totalShare }
 }
 
+// Same as calcMemberParticipation but sums effective (contribution-weight-
+// blended) share instead of raw entered %, so weightedAverageScore divides
+// by the same basis calcMemberCumulativeScore was built on.
+function calcMemberEffectiveParticipation(
+  member: TeamMember,
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+): { count: number; totalShare: number } {
+  let count = 0
+  let totalShare = 0
+  for (const task of tasks) {
+    const percent = getContributionPercent(contributions, task.id, member.id)
+    if (percent > 0) {
+      count += 1
+      const effective = getEffectiveContributionPercent(contributions, task.id, member.id, criteria.contributionWeight)
+      totalShare += effective / 100
+    }
+  }
+  return { count, totalShare }
+}
+
 export function calcEvaluationGrade(ratio: number): EvaluationGrade {
   if (ratio >= 1.2) return 'S'
   if (ratio >= 1.0) return 'A'
@@ -207,7 +247,7 @@ export function calcMemberResults(
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
       const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
-      const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
+      const { count, totalShare } = calcMemberEffectiveParticipation(member, tasks, contributions, criteria)
       return { member, cumulativeScore, participatedTaskCount: count, totalShare }
     })
 

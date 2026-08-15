@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
@@ -98,19 +98,15 @@ function PinIcon({ className }: IconProps) {
 interface ToggleProps {
   on: boolean
   onChange: (v: boolean) => void
-  disabled?: boolean
 }
 
-function Toggle({ on, onChange, disabled }: ToggleProps) {
+function Toggle({ on, onChange }: ToggleProps) {
   return (
     <button
       role="switch"
       aria-checked={on}
-      disabled={disabled}
       onClick={() => onChange(!on)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${on ? 'bg-accent' : 'bg-gray-300'} ${
-        disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
-      }`}
+      className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${on ? 'bg-accent' : 'bg-gray-300'}`}
     >
       <span
         className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
@@ -125,7 +121,7 @@ function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
 }
 
-type ItemKey = keyof Criteria | 'contribution'
+type ItemKey = keyof Criteria
 
 interface ItemDef {
   key: ItemKey
@@ -140,146 +136,89 @@ const GROUP_1: ItemDef[] = [
   { key: 'performanceGradeWeight', label: '성과등급', Icon: StarIcon },
 ]
 const GROUP_2: ItemDef[] = [
-  { key: 'contribution', label: '기여도', Icon: PercentIcon },
+  { key: 'contributionWeight', label: '기여도', Icon: PercentIcon },
   { key: 'personalGradeWeight', label: '개인수행등급', Icon: UserCheckIcon },
   { key: 'peerReviewWeight', label: '피어리뷰', Icon: UsersIcon },
 ]
 
-type PanelSize = 'icon' | 'chip' | 'full'
-type Dock = 'left' | 'right' | 'bottom' | null
+export type PanelSize = 'icon' | 'chip' | 'full'
+export type PanelDock = 'left' | 'right' | null
 
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
-const DEFAULT_POS = { x: 24, y: 84 }
-const EDGE_INSET = 8
+export const DEFAULT_FLOAT_X = 24
+export const FLOAT_Y = 84
 
-// Floating palette (like a pen-tool panel) rather than a fixed rail, so it
-// can be moved out of the way on any tab/screen size. Three sizes step
-// progressively: icon-only -> chip list -> full toggle+slider panel.
-// Dragging only works while collapsed to icon-only -- chip/full stay put
-// wherever the panel last was, so expanding to read/adjust criteria never
-// yanks the panel out from under a drag. In icon size, a pin button snaps
-// the panel to the nearest screen edge (left/right/bottom); while pinned,
-// dragging slides it along that edge instead of freely.
-export default function CriteriaPanel() {
+interface CriteriaPanelProps {
+  dock: PanelDock
+  size: PanelSize
+  floatX: number
+  onDock: (dock: PanelDock) => void
+  onSize: (size: PanelSize) => void
+  onFloatX: (x: number) => void
+}
+
+// Undocked: a small floating icon-only strip that can be dragged left/right
+// and pinned to the nearest screen edge. Docked (left/right): a real sidebar
+// column in the page layout (not floating) that reserves width and pushes
+// the main content over, exactly like a normal app rail -- while docked it
+// can still be resized icon -> chip -> full without leaving the dock, and an
+// unpin control returns it to the floating icon.
+export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFloatX }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
-  const [size, setSize] = useState<PanelSize>('icon')
-  const [pos, setPos] = useState(DEFAULT_POS)
-  const [dock, setDock] = useState<Dock>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
+  const dragRef = useRef<{ startX: number; origX: number } | null>(null)
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
   }
 
-  function isAlwaysOn(key: ItemKey): key is 'contribution' {
-    return key === 'contribution'
-  }
-
-  function valueFor(key: ItemKey): number {
-    return isAlwaysOn(key) ? 100 : (criteria[key] as number)
-  }
-
   function toggleActive(key: ItemKey) {
-    if (isAlwaysOn(key)) return
-    const current = criteria[key] as number
+    const current = criteria[key]
     set(key, current > 0 ? 0 : 100)
   }
 
-  function currentDims() {
-    return {
-      width: panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon,
-      height: panelRef.current?.offsetHeight ?? 56,
-    }
-  }
-
-  // Re-align/re-clamp after every size OR dock change, using the panel's
-  // just-rendered dimensions (not the pre-toggle ones) -- this runs after
-  // the icon strip has already reflowed to a horizontal bar for a bottom
-  // dock, so the snap lands flush instead of using stale tall-panel math.
-  useEffect(() => {
-    const el = panelRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    if (size === 'icon' && dock) {
-      setPos((p) => ({
-        x: dock === 'left' ? EDGE_INSET : dock === 'right' ? window.innerWidth - rect.width - EDGE_INSET : p.x,
-        y: dock === 'bottom' ? window.innerHeight - rect.height - EDGE_INSET : p.y,
-      }))
-      return
-    }
-    const maxX = Math.max(window.innerWidth - rect.width, 0)
-    const maxY = Math.max(window.innerHeight - rect.height, 0)
-    setPos((p) => ({ x: Math.min(Math.max(p.x, 0), maxX), y: Math.min(Math.max(p.y, 0), maxY) }))
-    // pos is intentionally excluded (read via the updater form) so this
-    // doesn't loop on its own setPos call.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size, dock])
-
   function onDragPointerDown(e: React.PointerEvent) {
-    if (size !== 'icon') return
     e.preventDefault()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y }
+    dragRef.current = { startX: e.clientX, origX: floatX }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   function onDragPointerMove(e: React.PointerEvent) {
-    if (!dragRef.current || size !== 'icon') return
+    if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.startX
-    const dy = e.clientY - dragRef.current.startY
-    const { width, height } = currentDims()
+    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon
     const maxX = Math.max(window.innerWidth - width, 0)
-    const maxY = Math.max(window.innerHeight - height, 0)
-    let nextX = Math.min(Math.max(dragRef.current.origX + dx, 0), maxX)
-    let nextY = Math.min(Math.max(dragRef.current.origY + dy, 0), maxY)
-    if (dock === 'left') nextX = EDGE_INSET
-    else if (dock === 'right') nextX = window.innerWidth - width - EDGE_INSET
-    if (dock === 'bottom') nextY = window.innerHeight - height - EDGE_INSET
-    setPos({ x: nextX, y: nextY })
+    onFloatX(Math.min(Math.max(dragRef.current.origX + dx, 0), maxX))
   }
 
   function onDragPointerUp() {
     dragRef.current = null
   }
 
-  const dragHandleProps = {
-    onPointerDown: onDragPointerDown,
-    onPointerMove: onDragPointerMove,
-    onPointerUp: onDragPointerUp,
-    onPointerCancel: onDragPointerUp,
-    style: { touchAction: 'none' as const },
+  function handlePin() {
+    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon
+    const distLeft = floatX
+    const distRight = window.innerWidth - (floatX + width)
+    onDock(distLeft <= distRight ? 'left' : 'right')
   }
 
-  function togglePin() {
-    if (dock) {
-      setDock(null)
-      return
-    }
-    // Only decides WHICH edge is nearest -- the alignment effect (keyed on
-    // dock) snaps to it precisely once the icon strip has reflowed.
-    const { width, height } = currentDims()
-    const distLeft = pos.x
-    const distRight = window.innerWidth - (pos.x + width)
-    const distBottom = window.innerHeight - (pos.y + height)
-    const nearest: Dock =
-      distLeft <= distRight && distLeft <= distBottom ? 'left' : distRight <= distBottom ? 'right' : 'bottom'
-    setDock(nearest)
+  function handleUnpin() {
+    onDock(null)
+    onSize('icon')
   }
 
   function IconButton({ item }: { item: ItemDef }) {
-    const value = valueFor(item.key)
+    const value = criteria[item.key]
     const active = value > 0
-    const alwaysOn = isAlwaysOn(item.key)
     return (
       <button
         onClick={() => toggleActive(item.key)}
-        disabled={alwaysOn}
-        title={alwaysOn ? `${item.label} — 항상 사용` : `${item.label} — ${active ? value + '%' : '사용 안 함'} (클릭해서 전환)`}
+        title={`${item.label} — ${active ? value + '%' : '사용 안 함'} (클릭해서 전환)`}
         aria-label={item.label}
-        className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-          active ? 'bg-orange-50 text-accent' : 'text-gray-300'
-        } ${alwaysOn ? 'cursor-default' : 'cursor-pointer hover:bg-orange-100'} ${!active && !alwaysOn ? 'hover:bg-gray-100' : ''}`}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${
+          active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'text-gray-300 hover:bg-gray-100'
+        }`}
       >
         <item.Icon className="h-4 w-4" />
       </button>
@@ -287,20 +226,18 @@ export default function CriteriaPanel() {
   }
 
   function Chip({ item }: { item: ItemDef }) {
-    const value = valueFor(item.key)
+    const value = criteria[item.key]
     const active = value > 0
-    const alwaysOn = isAlwaysOn(item.key)
     return (
       <button
         onClick={() => toggleActive(item.key)}
-        disabled={alwaysOn}
-        title={alwaysOn ? `${item.label} — 항상 사용` : '클릭해서 사용 여부 전환'}
-        className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-          active ? 'border-orange-200 bg-orange-50 text-accent' : 'border-gray-200 bg-gray-50 text-gray-400'
-        } ${alwaysOn ? 'cursor-default' : 'cursor-pointer hover:border-orange-300'}`}
+        title="클릭해서 사용 여부 전환"
+        className={`inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+          active ? 'border-orange-200 bg-orange-50 text-accent hover:border-orange-300' : 'border-gray-200 bg-gray-50 text-gray-400'
+        }`}
       >
         {item.label}
-        <span className="font-mono">{alwaysOn ? '필수' : active ? `${value}%` : '0%'}</span>
+        <span className="font-mono">{active ? `${value}%` : '0%'}</span>
       </button>
     )
   }
@@ -335,81 +272,126 @@ export default function CriteriaPanel() {
       ? '사용 안 함 — 켜면 점수에 반영됩니다.'
       : `평균 등급 S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배로 반영됩니다.`
 
+  const cw = criteria.contributionWeight
+  const contributionDescription =
+    cw === 0
+      ? '사용 안 함 — 매트릭스에 입력한 값 대신 참여 팀원에게 과제 점수를 균등하게 나눠줍니다.'
+      : cw === 100
+        ? '매트릭스에 입력한 기여도(%)를 그대로 반영합니다.'
+        : `매트릭스 입력값과 균등분배를 ${cw}:${100 - cw} 비율로 섞어 반영합니다.`
+
   const TASK_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
     { key: 'taskGradeWeight', label: '과제등급 사용', desc: taskGradeDescription },
     { key: 'workloadWeight', label: '업무량 사용', desc: workloadDescription },
     { key: 'performanceGradeWeight', label: '성과등급 사용', desc: performanceGradeDescription },
   ]
   const MEMBER_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
+    { key: 'contributionWeight', label: '기여도 사용', desc: contributionDescription },
     { key: 'personalGradeWeight', label: '개인수행등급', desc: personalGradeDescription },
     { key: 'peerReviewWeight', label: '피어리뷰', desc: peerReviewDescription },
   ]
 
-  const isIconBottomDock = size === 'icon' && dock === 'bottom'
+  if (dock === null) {
+    return (
+      <div
+        ref={panelRef}
+        className="fixed z-40 flex flex-col items-center gap-1.5 overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
+        style={{ left: floatX, top: FLOAT_Y }}
+      >
+        <button
+          onPointerDown={onDragPointerDown}
+          onPointerMove={onDragPointerMove}
+          onPointerUp={onDragPointerUp}
+          onPointerCancel={onDragPointerUp}
+          style={{ touchAction: 'none' }}
+          title="이동 (좌우로 드래그)"
+          aria-label="패널 이동"
+          className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
+        >
+          <MoveIcon className="h-4 w-4" />
+        </button>
+        <button
+          onClick={handlePin}
+          title="가까운 가장자리(왼쪽/오른쪽)에 고정"
+          aria-label="가장자리에 고정"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+        >
+          <PinIcon className="h-4 w-4" />
+        </button>
+        <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
+        {GROUP_1.map((item) => (
+          <IconButton key={item.key} item={item} />
+        ))}
+        <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
+        {GROUP_2.map((item) => (
+          <IconButton key={item.key} item={item} />
+        ))}
+      </div>
+    )
+  }
+
+  const expandRotate = dock === 'right' ? 'rotate-180' : ''
+  const collapseRotate = dock === 'right' ? '' : 'rotate-180'
 
   return (
     <div
-      ref={panelRef}
-      className="fixed z-40 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl transition-[width] duration-200"
-      style={{
-        left: pos.x,
-        top: pos.y,
-        width: isIconBottomDock ? undefined : PANEL_WIDTH[size],
-        maxHeight: isIconBottomDock ? undefined : 'calc(100vh - 32px)',
-      }}
+      className={`sticky top-[3.25rem] shrink-0 self-start overflow-y-auto bg-white transition-[width] duration-200 ${
+        dock === 'left' ? 'border-r' : 'border-l'
+      } border-gray-200`}
+      style={{ width: PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
     >
       {size === 'icon' && (
-        <div className={`flex items-center gap-1.5 overflow-auto p-3 ${isIconBottomDock ? 'flex-row' : 'flex-col'}`}>
+        <div className="flex flex-col items-center gap-1.5 p-3">
           <button
-            {...dragHandleProps}
-            title="이동 (아이콘 상태에서만 가능)"
-            aria-label="패널 이동"
-            className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
-          >
-            <MoveIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={togglePin}
-            title={dock ? `고정됨 (${dock === 'left' ? '왼쪽' : dock === 'right' ? '오른쪽' : '하단'}) — 클릭해서 해제` : '클릭해서 가까운 가장자리(왼쪽/오른쪽/하단)에 고정'}
-            aria-label="가장자리에 고정"
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
-              dock ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-100'
-            }`}
+            onClick={handleUnpin}
+            title="고정 해제"
+            aria-label="고정 해제"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-white"
           >
             <PinIcon className="h-4 w-4" />
           </button>
-          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
+          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
           {GROUP_1.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
+          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
           {GROUP_2.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
+          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
           <button
-            onClick={() => setSize('chip')}
+            onClick={() => onSize('chip')}
             title="펼치기"
             aria-label="기준 설정 펼치기"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
           >
-            <ChevronRightIcon className={`h-4 w-4 ${isIconBottomDock ? '-rotate-90' : ''}`} />
+            <ChevronRightIcon className={`h-4 w-4 ${expandRotate}`} />
           </button>
         </div>
       )}
 
       {size === 'chip' && (
-        <div className="flex flex-col gap-2 overflow-y-auto px-4 py-4">
+        <div className="flex flex-col gap-2 px-4 py-4">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
-            <button
-              onClick={() => setSize('icon')}
-              title="아이콘으로 접기"
-              aria-label="아이콘으로 접기"
-              className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-100 hover:text-gray-500"
-            >
-              <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleUnpin}
+                title="고정 해제"
+                aria-label="고정 해제"
+                className="flex h-5 w-5 items-center justify-center rounded text-accent hover:bg-orange-50"
+              >
+                <PinIcon className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onSize('icon')}
+                title="아이콘으로 접기"
+                aria-label="아이콘으로 접기"
+                className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+              >
+                <ChevronRightIcon className={`h-3.5 w-3.5 ${collapseRotate}`} />
+              </button>
+            </div>
           </div>
           {GROUP_1.map((item) => (
             <Chip key={item.key} item={item} />
@@ -419,7 +401,7 @@ export default function CriteriaPanel() {
             <Chip key={item.key} item={item} />
           ))}
           <button
-            onClick={() => setSize('full')}
+            onClick={() => onSize('full')}
             className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-xs font-medium text-accent transition-colors hover:bg-orange-50"
           >
             설정 변경 →
@@ -431,13 +413,18 @@ export default function CriteriaPanel() {
         <div className="flex h-full flex-col overflow-hidden">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3">
             <span className="text-sm font-semibold text-black">기준 설정</span>
-            <button
-              onClick={() => setSize('chip')}
-              aria-label="기준 설정 접기"
-              className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
-            >
-              ∧
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button onClick={handleUnpin} title="고정 해제" aria-label="고정 해제" className="text-accent hover:opacity-80">
+                <PinIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onSize('chip')}
+                aria-label="기준 설정 접기"
+                className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
+              >
+                ∧
+              </button>
+            </div>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
             <p className="text-xs leading-relaxed text-gray-500">
@@ -448,7 +435,7 @@ export default function CriteriaPanel() {
               <p className="mb-2 text-xs font-semibold text-gray-400">과제 평가 기준</p>
               <div className="space-y-2">
                 {TASK_ITEMS.map(({ key, label, desc }) => {
-                  const value = criteria[key] as number
+                  const value = criteria[key]
                   const checked = value > 0
                   return (
                     <div key={key} className="rounded-md border border-gray-200 p-3">
@@ -485,17 +472,8 @@ export default function CriteriaPanel() {
             <div>
               <p className="mb-2 text-xs font-semibold text-gray-400">팀원 평가 기준</p>
               <div className="space-y-2">
-                <div className="rounded-md border border-gray-200 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold text-black">기여도</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-gray-400">항상 필수 기준으로 사용됩니다.</p>
-                    </div>
-                    <Toggle on disabled onChange={() => {}} />
-                  </div>
-                </div>
                 {MEMBER_ITEMS.map(({ key, label, desc }) => {
-                  const value = criteria[key] as number
+                  const value = criteria[key]
                   const checked = value > 0
                   return (
                     <div key={key} className="rounded-md border border-gray-200 p-3">

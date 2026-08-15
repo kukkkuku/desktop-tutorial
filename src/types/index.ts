@@ -54,6 +54,9 @@ export interface Criteria {
   workloadWeight: number
   personalGradeWeight: number
   peerReviewWeight: number
+  // 0 = ignore each member's entered contribution % and split a task's score
+  // equally among its participants; 100 = use the entered % as-is.
+  contributionWeight: number
 }
 
 export interface AppState {
