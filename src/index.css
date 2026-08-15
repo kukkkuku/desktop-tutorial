@@ -7,6 +7,13 @@ body {
   color-scheme: light;
   background-color: #ffffff;
   color: #000000;
-  overflow-x: hidden;
+}
+
+/* overflow-x: clip (not hidden) so this only clips visual overflow without
+   turning #root into a scroll container -- any ancestor with overflow other
+   than visible/clip breaks position: sticky descendants, since sticky sticks
+   relative to the nearest actual scroll container instead of the viewport. */
+#root {
+  overflow-x: clip;
   max-width: 100%;
 }

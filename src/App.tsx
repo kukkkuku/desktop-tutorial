@@ -4,8 +4,9 @@ import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import StageTabs, { type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import AddPeriodModal from './components/AddPeriodModal'
+import CriteriaPanel from './components/CriteriaPanel'
 import DataStage from './components/DataStage'
-import EvaluateTab from './components/EvaluateTab'
+import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import MeetingNotes from './components/MeetingNotes'
 
@@ -40,12 +41,15 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           onAddPeriod={() => setAddPeriodOpen(true)}
           onExit={exitToLanding}
         />
-        <main className={stage === 'evaluate' ? '' : 'mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-6'}>
-          {stage === 'data' && <DataStage />}
-          {stage === 'evaluate' && <EvaluateTab />}
-          {stage === 'results' && <EvaluationResults />}
-          {stage === 'notes' && <MeetingNotes />}
-        </main>
+        <div className="flex min-h-0">
+          <CriteriaPanel />
+          <main className="mx-auto w-full min-w-0 max-w-[1920px] flex-1 px-4 py-6 sm:px-6">
+            {stage === 'data' && <DataStage />}
+            {stage === 'evaluate' && <EvaluationMatrix />}
+            {stage === 'results' && <EvaluationResults />}
+            {stage === 'notes' && <MeetingNotes />}
+          </main>
+        </div>
       </div>
       {addPeriodOpen && (
         <AddPeriodModal teamName={teamName} onSave={handleAddPeriod} onClose={() => setAddPeriodOpen(false)} />

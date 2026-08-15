@@ -3,6 +3,82 @@ import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
 
+interface IconProps {
+  className?: string
+}
+
+function SlidersIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="4" y1="21" x2="4" y2="14" />
+      <line x1="4" y1="10" x2="4" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12" y2="3" />
+      <line x1="20" y1="21" x2="20" y2="16" />
+      <line x1="20" y1="12" x2="20" y2="3" />
+      <line x1="1" y1="14" x2="7" y2="14" />
+      <line x1="9" y1="8" x2="15" y2="8" />
+      <line x1="17" y1="16" x2="23" y2="16" />
+    </svg>
+  )
+}
+
+function StarIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  )
+}
+
+function FlagIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  )
+}
+
+function BarsIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  )
+}
+
+function UserCheckIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="8.5" cy="7" r="4" />
+      <polyline points="17 11 19 13 23 9" />
+    </svg>
+  )
+}
+
+function UsersIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
 interface ToggleProps {
   on: boolean
   onChange: (v: boolean) => void
@@ -33,21 +109,26 @@ function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
 }
 
-const CHIP_DEFS: { key: keyof Criteria; label: string }[] = [
-  { key: 'performanceGradeWeight', label: '성과등급' },
-  { key: 'taskGradeWeight', label: '과제등급' },
-  { key: 'workloadWeight', label: '업무량' },
-  { key: 'personalGradeWeight', label: '개인수행등급' },
-  { key: 'peerReviewWeight', label: '피어리뷰' },
+const CHIP_DEFS: { key: keyof Criteria; label: string; Icon: (p: IconProps) => JSX.Element }[] = [
+  { key: 'performanceGradeWeight', label: '성과등급', Icon: StarIcon },
+  { key: 'taskGradeWeight', label: '과제등급', Icon: FlagIcon },
+  { key: 'workloadWeight', label: '업무량', Icon: BarsIcon },
+  { key: 'personalGradeWeight', label: '개인수행등급', Icon: UserCheckIcon },
+  { key: 'peerReviewWeight', label: '피어리뷰', Icon: UsersIcon },
 ]
 
-// Sticky left rail within the 평가하기 tab: collapsed shows a compact chip
-// list of current weights, expanded shows the full toggle+slider panel --
-// so criteria can be checked/adjusted without leaving the matrix/results.
+type PanelSize = 'icon' | 'chip' | 'full'
+
+const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 176, full: 320 }
+
+// App-wide sticky left rail, visible on every tab (데이터/평가하기/결과/면담) so
+// criteria can always be checked/adjusted without losing your place. Three
+// sizes step progressively: icon-only (narrowest) -> chip list -> full
+// toggle+slider panel.
 export default function CriteriaPanel() {
   const { state, dispatch } = useAppState()
   const { criteria } = state
-  const [expanded, setExpanded] = useState(false)
+  const [size, setSize] = useState<PanelSize>('chip')
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
@@ -95,12 +176,53 @@ export default function CriteriaPanel() {
 
   return (
     <div
-      className="shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300"
-      style={{ width: expanded ? 320 : 176, height: 'calc(100vh - 3.25rem)' }}
+      className="sticky top-[3.25rem] shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300"
+      style={{ width: PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
     >
-      {!expanded && (
+      {size === 'icon' && (
+        <div className="flex flex-col items-center gap-2.5 py-5">
+          <button
+            onClick={() => setSize('chip')}
+            title="기준 설정 펼치기"
+            aria-label="기준 설정 펼치기"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
+          >
+            <SlidersIcon className="h-5 w-5" />
+          </button>
+          <span className="h-px w-6 bg-gray-200" />
+          {CHIP_DEFS.map(({ key, label, Icon }) => {
+            const value = criteria[key] as number
+            const active = value > 0
+            return (
+              <button
+                key={key}
+                onClick={() => setSize('chip')}
+                title={`${label} — ${active ? value + '%' : '사용 안 함'}`}
+                aria-label={label}
+                className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+                  active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'text-gray-300 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {size === 'chip' && (
         <div className="flex flex-col gap-2 px-4 py-5">
-          <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</p>
+          <div className="mb-1 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</p>
+            <button
+              onClick={() => setSize('icon')}
+              title="아이콘으로 접기"
+              aria-label="아이콘으로 접기"
+              className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-100 hover:text-gray-500"
+            >
+              <ChevronLeftIcon className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {CHIP_DEFS.map(({ key, label }) => {
             const value = criteria[key] as number
             const active = value > 0
@@ -117,7 +239,7 @@ export default function CriteriaPanel() {
             )
           })}
           <button
-            onClick={() => setExpanded(true)}
+            onClick={() => setSize('full')}
             className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-xs font-medium text-accent transition-colors hover:bg-orange-50"
           >
             설정 변경 →
@@ -125,12 +247,12 @@ export default function CriteriaPanel() {
         </div>
       )}
 
-      {expanded && (
+      {size === 'full' && (
         <div className="flex h-full flex-col">
           <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3">
             <span className="text-sm font-semibold text-black">기준 설정</span>
             <button
-              onClick={() => setExpanded(false)}
+              onClick={() => setSize('chip')}
               aria-label="기준 설정 접기"
               className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
             >
