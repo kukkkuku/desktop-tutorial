@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
@@ -86,6 +86,14 @@ function ChevronRightIcon({ className }: IconProps) {
   )
 }
 
+function ChevronUpIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m18 15-6-6-6 6" />
+    </svg>
+  )
+}
+
 function PinIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -147,6 +155,8 @@ export type PanelDock = 'left' | 'right' | null
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
 export const DEFAULT_FLOAT_X = 24
 export const FLOAT_Y = 84
+const MIN_FULL_WIDTH = 260
+const MAX_FULL_WIDTH = 480
 
 interface CriteriaPanelProps {
   dock: PanelDock
@@ -168,6 +178,9 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   const { criteria } = state
   const panelRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startX: number; origX: number } | null>(null)
+  const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  const [customFullWidth, setCustomFullWidth] = useState(PANEL_WIDTH.full)
+  const [isResizing, setIsResizing] = useState(false)
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
@@ -206,6 +219,28 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   function handleUnpin() {
     onDock(null)
     onSize('icon')
+  }
+
+  // Splitter: drag the docked full panel's inner edge to freely resize it,
+  // on top of the icon/chip/full presets. Direction flips with dock side so
+  // dragging always feels like "pull the edge toward the content."
+  function onResizePointerDown(e: React.PointerEvent) {
+    e.preventDefault()
+    resizeRef.current = { startX: e.clientX, startWidth: customFullWidth }
+    setIsResizing(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onResizePointerMove(e: React.PointerEvent) {
+    if (!resizeRef.current) return
+    const dx = e.clientX - resizeRef.current.startX
+    const delta = dock === 'left' ? dx : -dx
+    setCustomFullWidth(Math.min(MAX_FULL_WIDTH, Math.max(MIN_FULL_WIDTH, resizeRef.current.startWidth + delta)))
+  }
+
+  function onResizePointerUp() {
+    resizeRef.current = null
+    setIsResizing(false)
   }
 
   function IconButton({ item }: { item: ItemDef }) {
@@ -335,11 +370,24 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
 
   return (
     <div
-      className={`sticky top-[3.25rem] shrink-0 self-start overflow-y-auto bg-white transition-[width] duration-200 ${
-        dock === 'left' ? 'border-r' : 'border-l'
-      } border-gray-200`}
-      style={{ width: PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
+      className={`sticky top-[3.25rem] relative shrink-0 self-start overflow-y-auto bg-white ${
+        isResizing ? '' : 'transition-[width] duration-200'
+      } ${dock === 'left' ? 'border-r' : 'border-l'} border-gray-200`}
+      style={{ width: size === 'full' ? customFullWidth : PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
     >
+      {size === 'full' && (
+        <div
+          onPointerDown={onResizePointerDown}
+          onPointerMove={onResizePointerMove}
+          onPointerUp={onResizePointerUp}
+          onPointerCancel={onResizePointerUp}
+          style={{ touchAction: 'none', [dock === 'left' ? 'right' : 'left']: 0 }}
+          title="드래그해서 너비 조절"
+          aria-label="패널 너비 조절"
+          className="absolute inset-y-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-accent/40 active:bg-accent/60"
+        />
+      )}
+
       {size === 'icon' && (
         <div className="flex flex-col items-center gap-1.5 p-3">
           <button
@@ -419,10 +467,11 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
               </button>
               <button
                 onClick={() => onSize('chip')}
+                title="접기"
                 aria-label="기준 설정 접기"
-                className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
+                className="flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               >
-                ∧
+                <ChevronUpIcon className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -459,7 +508,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
                             step={5}
                             value={value}
                             onChange={(e) => set(key, Number(e.target.value))}
-                            className="w-full accent-accent"
+                            className="criteria-slider w-full"
                           />
                         </div>
                       )}
@@ -497,7 +546,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
                             step={5}
                             value={value}
                             onChange={(e) => set(key, Number(e.target.value))}
-                            className="w-full accent-accent"
+                            className="criteria-slider w-full"
                           />
                         </div>
                       )}
