@@ -3,15 +3,21 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
 import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
-import TaskModal from './TaskModal'
 import ConfirmDialog from './ConfirmDialog'
 import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
 import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
 
+interface TaskFormValues {
+  name: string
+  importance: Importance
+  workload: Workload
+  performanceGrade: PerformanceGrade
+  objective: string
+  achievement: string
+}
+
 export default function TaskManagement() {
   const { state, dispatch } = useAppState()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
 
@@ -22,6 +28,17 @@ export default function TaskManagement() {
   const [newObjective, setNewObjective] = useState('')
   const [newAchievement, setNewAchievement] = useState('')
   const [newFormError, setNewFormError] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<TaskFormValues>({
+    name: '',
+    importance: '일반',
+    workload: '중',
+    performanceGrade: 'B',
+    objective: '',
+    achievement: '',
+  })
+  const [editFormError, setEditFormError] = useState('')
 
   const isImportanceUsed = state.criteria.taskGradeWeight > 0
   const isWorkloadUsed = state.criteria.workloadWeight > 0
@@ -36,15 +53,47 @@ export default function TaskManagement() {
     ]),
   )
 
-  function openEditModal(task: Task) {
-    setEditingTask(task)
-    setModalOpen(true)
+  function startEdit(task: Task) {
+    setEditingId(task.id)
+    setEditForm({
+      name: task.name,
+      importance: task.importance,
+      workload: task.workload,
+      performanceGrade: task.performanceGrade,
+      objective: task.objective,
+      achievement: task.achievement,
+    })
+    setEditFormError('')
   }
 
-  function handleSave(task: Task) {
-    dispatch({ type: 'UPDATE_TASK', payload: task })
-    setModalOpen(false)
-    setEditingTask(null)
+  function cancelEdit() {
+    setEditingId(null)
+    setEditFormError('')
+  }
+
+  function saveEdit(task: Task) {
+    const trimmedName = editForm.name.trim()
+    if (!trimmedName) {
+      setEditFormError('과제명을 입력하세요.')
+      return
+    }
+    if (state.tasks.some((t) => t.name === trimmedName && t.id !== task.id)) {
+      setEditFormError(`과제명 '${trimmedName}'은(는) 이미 존재합니다.`)
+      return
+    }
+    dispatch({
+      type: 'UPDATE_TASK',
+      payload: {
+        ...task,
+        name: trimmedName,
+        importance: editForm.importance,
+        workload: editForm.workload,
+        performanceGrade: editForm.performanceGrade,
+        objective: editForm.objective.trim(),
+        achievement: editForm.achievement.trim(),
+      },
+    })
+    setEditingId(null)
   }
 
   function handleDeleteConfirm() {
@@ -212,7 +261,104 @@ export default function TaskManagement() {
             </tr>
           </thead>
           <tbody>
-            {state.tasks.map((task) => (
+            {state.tasks.map((task) => {
+              const isEditing = editingId === task.id
+
+              if (isEditing) {
+                return (
+                  <tr key={task.id} className="border-t border-gray-200 bg-orange-50/40 text-black">
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        className={`w-full rounded-md border px-2 py-1.5 text-sm text-black ${
+                          editFormError ? 'border-danger' : 'border-gray-300'
+                        }`}
+                      />
+                      {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.importance}
+                        onChange={(e) => setEditForm((f) => ({ ...f, importance: e.target.value as Importance }))}
+                        disabled={!isImportanceUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {IMPORTANCE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.performanceGrade}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, performanceGrade: e.target.value as PerformanceGrade }))
+                        }
+                        disabled={!isPerformanceGradeUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.workload}
+                        onChange={(e) => setEditForm((f) => ({ ...f, workload: e.target.value as Workload }))}
+                        disabled={!isWorkloadUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {WORKLOAD_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.objective}
+                        onChange={(e) => setEditForm((f) => ({ ...f, objective: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.achievement}
+                        onChange={(e) => setEditForm((f) => ({ ...f, achievement: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveEdit(task)}
+                          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              }
+
+              return (
               <tr key={task.id} className="border-t border-gray-200 text-black">
                 <td className="px-4 py-3 font-medium">
                   <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -262,7 +408,7 @@ export default function TaskManagement() {
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => openEditModal(task)}
+                      onClick={() => startEdit(task)}
                       title="수정"
                       aria-label="수정"
                       className="rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-100"
@@ -289,22 +435,11 @@ export default function TaskManagement() {
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
-      )}
-
-      {modalOpen && (
-        <TaskModal
-          initialTask={editingTask}
-          existingNames={state.tasks.map((t) => t.name)}
-          onSave={handleSave}
-          onClose={() => {
-            setModalOpen(false)
-            setEditingTask(null)
-          }}
-        />
       )}
 
       <ConfirmDialog

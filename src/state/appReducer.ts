@@ -18,6 +18,8 @@ export type AppAction =
   | { type: 'UPDATE_MEETING_NOTE'; payload: MeetingNote }
   | { type: 'DELETE_MEETING_NOTE'; payload: { id: string } }
   | { type: 'IMPORT_PEER_REVIEWS'; payload: PeerReview[] }
+  | { type: 'ADD_PEER_REVIEW'; payload: PeerReview }
+  | { type: 'UPDATE_PEER_REVIEW'; payload: PeerReview }
   | { type: 'DELETE_PEER_REVIEW'; payload: { id: string } }
 
 export function createEmptyState(): AppState {
@@ -211,6 +213,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'IMPORT_PEER_REVIEWS':
       return { ...state, peerReviews: action.payload }
+
+    case 'ADD_PEER_REVIEW':
+      return { ...state, peerReviews: [...state.peerReviews, action.payload] }
+
+    case 'UPDATE_PEER_REVIEW':
+      return {
+        ...state,
+        peerReviews: state.peerReviews.map((r) => (r.id === action.payload.id ? action.payload : r)),
+      }
 
     case 'DELETE_PEER_REVIEW':
       return {

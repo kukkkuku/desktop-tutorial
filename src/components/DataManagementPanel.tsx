@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import Spinner from './Spinner'
 import ConfirmDialog from './ConfirmDialog'
+import { loadUploadsLog, saveUploadsLog, todayLabel, type UploadsLog } from '../utils/uploadLog'
 import {
   downloadTaskTemplate,
   downloadMemberTemplate,
@@ -22,7 +23,7 @@ interface BulkSummary {
 const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 
 export default function DataManagementPanel() {
-  const { state, dispatch } = useAppState()
+  const { state, dispatch, workspaceId } = useAppState()
   const { tasks, members, peerReviews } = state
 
   const hasData = tasks.length > 0 || members.length > 0 || peerReviews.length > 0
@@ -31,6 +32,17 @@ export default function DataManagementPanel() {
   const [bulkSummary, setBulkSummary] = useState<BulkSummary | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [uploadsLog, setUploadsLog] = useState<UploadsLog>(() => loadUploadsLog(workspaceId))
+
+  function recordUpload(kind: keyof UploadsLog, files: File[]) {
+    if (files.length === 0) return
+    const name = files.length === 1 ? files[0].name : `${files[0].name} 외 ${files.length - 1}개`
+    setUploadsLog((prev) => {
+      const next = { ...prev, [kind]: { name, date: todayLabel() } }
+      saveUploadsLog(workspaceId, next)
+      return next
+    })
+  }
 
   const taskInputRef = useRef<HTMLInputElement>(null)
   const memberInputRef = useRef<HTMLInputElement>(null)
@@ -56,6 +68,7 @@ export default function DataManagementPanel() {
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_TASKS', payload: list })
+    recordUpload('task', files)
     setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
@@ -77,6 +90,7 @@ export default function DataManagementPanel() {
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_MEMBERS', payload: list })
+    recordUpload('member', files)
     setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
@@ -98,6 +112,7 @@ export default function DataManagementPanel() {
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: list })
+    recordUpload('peer', files)
     setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
   }
@@ -113,9 +128,9 @@ export default function DataManagementPanel() {
     let addedCount = 0
     let updatedCount = 0
     const errors: string[] = []
-    let touchedTask = false
-    let touchedMember = false
-    let touchedPeer = false
+    const taskFiles: File[] = []
+    const memberFiles: File[] = []
+    const peerFiles: File[] = []
 
     for (const file of files) {
       const buffer = await file.arrayBuffer()
@@ -126,29 +141,38 @@ export default function DataManagementPanel() {
         addedCount += result.addedCount
         updatedCount += result.updatedCount
         errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        touchedTask = true
+        taskFiles.push(file)
       } else if (kind === 'member') {
         const result = parseMemberWorkbook(buffer, memberList)
         memberList = result.members
         addedCount += result.addedCount
         updatedCount += result.updatedCount
         errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        touchedMember = true
+        memberFiles.push(file)
       } else if (kind === 'peer') {
         const result = parsePeerReviewWorkbook(buffer, memberList, peerList)
         peerList = result.peerReviews
         addedCount += result.addedCount
         updatedCount += result.updatedCount
         errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        touchedPeer = true
+        peerFiles.push(file)
       } else {
         errors.push(`[${file.name}] 과제·팀원·피어리뷰 양식 중 어떤 것인지 인식하지 못했습니다.`)
       }
     }
 
-    if (touchedTask) dispatch({ type: 'IMPORT_TASKS', payload: taskList })
-    if (touchedMember) dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
-    if (touchedPeer) dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
+    if (taskFiles.length > 0) {
+      dispatch({ type: 'IMPORT_TASKS', payload: taskList })
+      recordUpload('task', taskFiles)
+    }
+    if (memberFiles.length > 0) {
+      dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
+      recordUpload('member', memberFiles)
+    }
+    if (peerFiles.length > 0) {
+      dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
+      recordUpload('peer', peerFiles)
+    }
 
     setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
@@ -184,17 +208,49 @@ export default function DataManagementPanel() {
     <div className="overflow-hidden rounded-md border border-gray-200">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-3 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
+        className="flex w-full flex-wrap items-center gap-2 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
       >
         {hasData ? (
           <>
             <span className="shrink-0 text-xs font-medium text-gray-500">데이터 :</span>
-            <span className="text-sm font-medium text-black">
-              과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
-            </span>
-            <span className="ml-auto rounded border border-gray-300 bg-white px-2 py-0.5 text-xs font-semibold text-gray-500">
-              {expanded ? '△' : '▽'}
-            </span>
+            {(
+              [
+                { key: 'task' as const, count: tasks.length, fallback: `과제 ${tasks.length}건` },
+                { key: 'member' as const, count: members.length, fallback: `팀원 ${members.length}명` },
+                { key: 'peer' as const, count: peerReviews.length, fallback: `피어리뷰 ${peerReviews.length}건` },
+              ] as { key: keyof UploadsLog; count: number; fallback: string }[]
+            )
+              .filter((item) => item.count > 0)
+              .map((item) => {
+                const record = uploadsLog[item.key]
+                return (
+                  <span
+                    key={item.key}
+                    className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-black"
+                  >
+                    {record ? (
+                      <>
+                        <span>{record.name}</span>
+                        <span className="text-gray-400">{record.date}</span>
+                      </>
+                    ) : (
+                      <span>{item.fallback}</span>
+                    )}
+                  </span>
+                )
+              })}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
           </>
         ) : (
           <>

@@ -2,12 +2,14 @@ import { useState } from 'react'
 import DataManagementPanel from './DataManagementPanel'
 import TaskManagement from './TaskManagement'
 import TeamManagement from './TeamManagement'
+import PeerReviewManagement from './PeerReviewManagement'
 
-type DataSubTab = 'tasks' | 'members'
+type DataSubTab = 'tasks' | 'members' | 'peer'
 
 const SUB_TABS: { key: DataSubTab; label: string }[] = [
   { key: 'tasks', label: '과제' },
   { key: 'members', label: '팀원' },
+  { key: 'peer', label: '피어리뷰' },
 ]
 
 export default function DataStage() {
@@ -34,6 +36,7 @@ export default function DataStage() {
       <div className="mt-5">
         {sub === 'tasks' && <TaskManagement />}
         {sub === 'members' && <TeamManagement />}
+        {sub === 'peer' && <PeerReviewManagement />}
       </div>
     </div>
   )

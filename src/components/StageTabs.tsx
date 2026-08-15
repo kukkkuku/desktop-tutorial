@@ -4,11 +4,13 @@ export type Stage = 'data' | 'evaluate' | 'results' | 'notes'
 
 const ADD_PERIOD_VALUE = '__add_period__'
 
-const TABS: { key: Stage; label: string }[] = [
-  { key: 'data', label: '데이터' },
-  { key: 'evaluate', label: '평가하기' },
-  { key: 'results', label: '결과' },
-  { key: 'notes', label: '면담' },
+const TAB_GROUPS: { key: Stage; label: string }[][] = [
+  [{ key: 'data', label: '데이터' }],
+  [
+    { key: 'evaluate', label: '평가하기' },
+    { key: 'results', label: '결과' },
+  ],
+  [{ key: 'notes', label: '면담' }],
 ]
 
 interface StageTabsProps {
@@ -80,19 +82,24 @@ export default function StageTabs({
           <option value={ADD_PERIOD_VALUE}>+ 새 기간 추가</option>
         </select>
 
-        <nav className="ml-auto flex flex-wrap items-center gap-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => onStageChange(t.key)}
-              className={`rounded-md border px-4 py-1.5 text-sm font-medium transition-colors ${
-                stage === t.key
-                  ? 'border-accent bg-orange-50 text-accent'
-                  : 'border-gray-300 text-gray-500 hover:border-gray-400 hover:text-black'
-              }`}
-            >
-              {t.label}
-            </button>
+        <nav className="ml-auto flex flex-wrap items-center gap-1.5">
+          {TAB_GROUPS.map((group, groupIndex) => (
+            <div key={groupIndex} className="flex flex-wrap items-center gap-1.5">
+              {groupIndex > 0 && <span className="mx-1 hidden h-6 w-px bg-gray-300 sm:inline-block" />}
+              {group.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => onStageChange(t.key)}
+                  className={`rounded-md border-2 px-5 py-2 text-base font-bold transition-colors ${
+                    stage === t.key
+                      ? 'border-accent bg-orange-50 text-accent'
+                      : 'border-gray-300 text-gray-600 hover:border-gray-400 hover:text-black'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </div>

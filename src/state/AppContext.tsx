@@ -24,6 +24,7 @@ function loadInitialState(storageKey: string): AppState {
 interface AppContextValue {
   state: AppState
   dispatch: React.Dispatch<AppAction>
+  workspaceId: string
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
@@ -41,7 +42,7 @@ export function AppProvider({ workspaceId, children }: { workspaceId: string; ch
     }
   }, [state, storageKey])
 
-  return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>
+  return <AppContext.Provider value={{ state, dispatch, workspaceId }}>{children}</AppContext.Provider>
 }
 
 export function useAppState() {
