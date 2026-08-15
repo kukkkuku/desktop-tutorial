@@ -139,7 +139,7 @@ const GROUP_2: ItemDef[] = [
 type PanelSize = 'icon' | 'chip' | 'full'
 
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
-const DEFAULT_POS = { x: 16, y: 76 }
+const DEFAULT_POS = { x: 24, y: 84 }
 
 // Floating, draggable palette (like a pen-tool panel) rather than a fixed
 // rail, so it can be moved out of the way on any tab/screen size. Three
