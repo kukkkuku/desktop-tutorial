@@ -21,7 +21,7 @@ export default function EvaluationResults() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-black">평가 결과</h3>
+        <h2 className="text-xl font-bold text-black">평가 결과</h2>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}

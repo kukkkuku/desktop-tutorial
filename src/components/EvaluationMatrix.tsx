@@ -3,16 +3,21 @@ import { useAppState } from '../state/AppContext'
 import type { PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 import {
+  calcMemberResults,
   calcTaskScore,
   getContributionPercent,
   getPersonalPerformanceGrade,
   getTaskContributionSum,
   isContributionSumValid,
+  GRADE_COLORS,
 } from '../utils/calculations'
+
+const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
-  const { tasks, members, contributions, criteria } = state
+  const { tasks, members, contributions, criteria, peerReviews } = state
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
 
   function handlePercentChange(taskId: string, memberId: string, value: string) {
     const parsed = value === '' ? 0 : parseFloat(value)
@@ -172,6 +177,43 @@ export default function EvaluationMatrix() {
               })}
             </div>
           )}
+
+          <h3 className="mt-8 text-lg font-semibold text-black">팀원 평가 결과</h3>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full min-w-[420px] text-left text-sm">
+              <thead className="bg-[#F3F4F6] text-black">
+                <tr>
+                  <th className="px-4 py-2.5 w-12 text-center font-semibold">순위</th>
+                  <th className="px-4 py-2.5 font-semibold">팀원명</th>
+                  <th className="px-4 py-2.5 text-center font-semibold">등급</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {memberResults.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-gray-500">
+                      활성화된 팀원이 없습니다.
+                    </td>
+                  </tr>
+                )}
+                {memberResults.map((row, index) => (
+                  <tr key={row.member.id} className="border-t border-gray-200 text-black">
+                    <td className="px-4 py-2.5 text-center font-semibold">{MEDALS[index] ?? index + 1}</td>
+                    <td className="px-4 py-2.5 font-medium">{row.member.name}</td>
+                    <td className="px-4 py-2.5 text-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${GRADE_COLORS[row.grade]}`}>
+                        {row.grade}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono font-semibold">
+                      {row.weightedAverageScore.toFixed(1)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
