@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
@@ -86,6 +86,15 @@ function ChevronRightIcon({ className }: IconProps) {
   )
 }
 
+function PinIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="12" y1="17" x2="12" y2="22" />
+      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+    </svg>
+  )
+}
+
 interface ToggleProps {
   on: boolean
   onChange: (v: boolean) => void
@@ -137,21 +146,26 @@ const GROUP_2: ItemDef[] = [
 ]
 
 type PanelSize = 'icon' | 'chip' | 'full'
+type Dock = 'left' | 'right' | 'bottom' | null
 
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
 const DEFAULT_POS = { x: 24, y: 84 }
+const EDGE_INSET = 8
 
-// Floating, draggable palette (like a pen-tool panel) rather than a fixed
-// rail, so it can be moved out of the way on any tab/screen size. Three
-// sizes step progressively: icon-only -> chip list -> full toggle+slider
-// panel. Clicking an icon/chip toggles that criterion on/off directly;
-// resizing is a separate control (the move handle / explicit expand button)
-// so drag and toggle never fight over the same click.
+// Floating palette (like a pen-tool panel) rather than a fixed rail, so it
+// can be moved out of the way on any tab/screen size. Three sizes step
+// progressively: icon-only -> chip list -> full toggle+slider panel.
+// Dragging only works while collapsed to icon-only -- chip/full stay put
+// wherever the panel last was, so expanding to read/adjust criteria never
+// yanks the panel out from under a drag. In icon size, a pin button snaps
+// the panel to the nearest screen edge (left/right/bottom); while pinned,
+// dragging slides it along that edge instead of freely.
 export default function CriteriaPanel() {
   const { state, dispatch } = useAppState()
   const { criteria } = state
-  const [size, setSize] = useState<PanelSize>('chip')
+  const [size, setSize] = useState<PanelSize>('icon')
   const [pos, setPos] = useState(DEFAULT_POS)
+  const [dock, setDock] = useState<Dock>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
 
@@ -173,24 +187,56 @@ export default function CriteriaPanel() {
     set(key, current > 0 ? 0 : 100)
   }
 
+  function currentDims() {
+    return {
+      width: panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon,
+      height: panelRef.current?.offsetHeight ?? 56,
+    }
+  }
+
+  // Re-align/re-clamp after every size OR dock change, using the panel's
+  // just-rendered dimensions (not the pre-toggle ones) -- this runs after
+  // the icon strip has already reflowed to a horizontal bar for a bottom
+  // dock, so the snap lands flush instead of using stale tall-panel math.
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (size === 'icon' && dock) {
+      setPos((p) => ({
+        x: dock === 'left' ? EDGE_INSET : dock === 'right' ? window.innerWidth - rect.width - EDGE_INSET : p.x,
+        y: dock === 'bottom' ? window.innerHeight - rect.height - EDGE_INSET : p.y,
+      }))
+      return
+    }
+    const maxX = Math.max(window.innerWidth - rect.width, 0)
+    const maxY = Math.max(window.innerHeight - rect.height, 0)
+    setPos((p) => ({ x: Math.min(Math.max(p.x, 0), maxX), y: Math.min(Math.max(p.y, 0), maxY) }))
+    // pos is intentionally excluded (read via the updater form) so this
+    // doesn't loop on its own setPos call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size, dock])
+
   function onDragPointerDown(e: React.PointerEvent) {
+    if (size !== 'icon') return
     e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
   function onDragPointerMove(e: React.PointerEvent) {
-    if (!dragRef.current) return
+    if (!dragRef.current || size !== 'icon') return
     const dx = e.clientX - dragRef.current.startX
     const dy = e.clientY - dragRef.current.startY
-    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH[size]
-    const height = panelRef.current?.offsetHeight ?? 200
+    const { width, height } = currentDims()
     const maxX = Math.max(window.innerWidth - width, 0)
     const maxY = Math.max(window.innerHeight - height, 0)
-    setPos({
-      x: Math.min(Math.max(dragRef.current.origX + dx, 0), maxX),
-      y: Math.min(Math.max(dragRef.current.origY + dy, 0), maxY),
-    })
+    let nextX = Math.min(Math.max(dragRef.current.origX + dx, 0), maxX)
+    let nextY = Math.min(Math.max(dragRef.current.origY + dy, 0), maxY)
+    if (dock === 'left') nextX = EDGE_INSET
+    else if (dock === 'right') nextX = window.innerWidth - width - EDGE_INSET
+    if (dock === 'bottom') nextY = window.innerHeight - height - EDGE_INSET
+    setPos({ x: nextX, y: nextY })
   }
 
   function onDragPointerUp() {
@@ -203,6 +249,22 @@ export default function CriteriaPanel() {
     onPointerUp: onDragPointerUp,
     onPointerCancel: onDragPointerUp,
     style: { touchAction: 'none' as const },
+  }
+
+  function togglePin() {
+    if (dock) {
+      setDock(null)
+      return
+    }
+    // Only decides WHICH edge is nearest -- the alignment effect (keyed on
+    // dock) snaps to it precisely once the icon strip has reflowed.
+    const { width, height } = currentDims()
+    const distLeft = pos.x
+    const distRight = window.innerWidth - (pos.x + width)
+    const distBottom = window.innerHeight - (pos.y + height)
+    const nearest: Dock =
+      distLeft <= distRight && distLeft <= distBottom ? 'left' : distRight <= distBottom ? 'right' : 'bottom'
+    setDock(nearest)
   }
 
   function IconButton({ item }: { item: ItemDef }) {
@@ -283,38 +345,55 @@ export default function CriteriaPanel() {
     { key: 'peerReviewWeight', label: '피어리뷰', desc: peerReviewDescription },
   ]
 
+  const isIconBottomDock = size === 'icon' && dock === 'bottom'
+
   return (
     <div
       ref={panelRef}
       className="fixed z-40 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl transition-[width] duration-200"
-      style={{ left: pos.x, top: pos.y, width: PANEL_WIDTH[size], maxHeight: 'calc(100vh - 32px)' }}
+      style={{
+        left: pos.x,
+        top: pos.y,
+        width: isIconBottomDock ? undefined : PANEL_WIDTH[size],
+        maxHeight: isIconBottomDock ? undefined : 'calc(100vh - 32px)',
+      }}
     >
       {size === 'icon' && (
-        <div className="flex flex-col items-center gap-1.5 overflow-y-auto py-3">
+        <div className={`flex items-center gap-1.5 overflow-auto p-3 ${isIconBottomDock ? 'flex-row' : 'flex-col'}`}>
           <button
             {...dragHandleProps}
-            title="이동"
+            title="이동 (아이콘 상태에서만 가능)"
             aria-label="패널 이동"
-            className="flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
+            className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
           >
             <MoveIcon className="h-4 w-4" />
           </button>
-          <span className="my-1 h-px w-6 bg-gray-200" />
+          <button
+            onClick={togglePin}
+            title={dock ? `고정됨 (${dock === 'left' ? '왼쪽' : dock === 'right' ? '오른쪽' : '하단'}) — 클릭해서 해제` : '클릭해서 가까운 가장자리(왼쪽/오른쪽/하단)에 고정'}
+            aria-label="가장자리에 고정"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+              dock ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-100'
+            }`}
+          >
+            <PinIcon className="h-4 w-4" />
+          </button>
+          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
           {GROUP_1.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <span className="my-1 h-px w-6 bg-gray-200" />
+          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
           {GROUP_2.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <span className="my-1 h-px w-6 bg-gray-200" />
+          <span className={isIconBottomDock ? 'mx-1 h-6 w-px shrink-0 bg-gray-200' : 'my-1 h-px w-6 shrink-0 bg-gray-200'} />
           <button
             onClick={() => setSize('chip')}
             title="펼치기"
             aria-label="기준 설정 펼치기"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
           >
-            <ChevronRightIcon className="h-4 w-4" />
+            <ChevronRightIcon className={`h-4 w-4 ${isIconBottomDock ? '-rotate-90' : ''}`} />
           </button>
         </div>
       )}
@@ -322,15 +401,7 @@ export default function CriteriaPanel() {
       {size === 'chip' && (
         <div className="flex flex-col gap-2 overflow-y-auto px-4 py-4">
           <div className="mb-1 flex items-center justify-between">
-            <button
-              {...dragHandleProps}
-              title="이동"
-              aria-label="패널 이동"
-              className="flex h-6 items-center gap-1.5 rounded-md px-1 text-xs font-bold uppercase tracking-widest text-gray-400 hover:bg-gray-100"
-            >
-              <MoveIcon className="h-3.5 w-3.5 cursor-grab active:cursor-grabbing" />
-              기준 설정
-            </button>
+            <span className="text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
             <button
               onClick={() => setSize('icon')}
               title="아이콘으로 접기"
@@ -358,20 +429,10 @@ export default function CriteriaPanel() {
 
       {size === 'full' && (
         <div className="flex h-full flex-col overflow-hidden">
-          <div
-            {...dragHandleProps}
-            className="flex shrink-0 cursor-grab items-center justify-between border-b border-gray-200 px-5 py-3 active:cursor-grabbing"
-          >
-            <span className="flex items-center gap-2 text-sm font-semibold text-black">
-              <MoveIcon className="h-4 w-4 text-gray-400" />
-              기준 설정
-            </span>
+          <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3">
+            <span className="text-sm font-semibold text-black">기준 설정</span>
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setSize('chip')
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => setSize('chip')}
               aria-label="기준 설정 접기"
               className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
             >

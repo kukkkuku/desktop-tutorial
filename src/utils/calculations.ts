@@ -96,9 +96,13 @@ export function getPersonalPerformanceGrade(
   return getContribution(contributions, taskId, memberId)?.personalPerformanceGrade ?? 'B'
 }
 
-export function getTaskContributionSum(contributions: Contribution[], taskId: string): number {
+export function getTaskContributionSum(
+  contributions: Contribution[],
+  taskId: string,
+  activeMemberIds?: Set<string>,
+): number {
   return contributions
-    .filter((c) => c.taskId === taskId)
+    .filter((c) => c.taskId === taskId && (!activeMemberIds || activeMemberIds.has(c.memberId)))
     .reduce((sum, c) => sum + c.contributionPercent, 0)
 }
 

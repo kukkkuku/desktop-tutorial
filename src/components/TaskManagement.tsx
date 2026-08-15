@@ -141,7 +141,7 @@ export default function TaskManagement() {
       </p>
 
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               과제명 <span className="text-danger">*</span>
@@ -201,9 +201,6 @@ export default function TaskManagement() {
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-black">목표</label>
             <input
@@ -224,18 +221,17 @@ export default function TaskManagement() {
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
             />
           </div>
+          <div className="flex items-end">
+            <button
+              onClick={handleQuickAdd}
+              className="w-full whitespace-nowrap rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
+            >
+              + 과제 추가
+            </button>
+          </div>
         </div>
 
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
-
-        <div className="mt-3 flex justify-end">
-          <button
-            onClick={handleQuickAdd}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            + 과제 추가
-          </button>
-        </div>
       </div>
 
       {state.tasks.length === 0 ? (

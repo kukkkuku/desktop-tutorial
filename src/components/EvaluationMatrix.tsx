@@ -18,6 +18,8 @@ export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
   const { tasks, members, contributions, criteria, peerReviews } = state
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const activeMembers = members.filter((m) => m.active)
+  const activeMemberIds = new Set(activeMembers.map((m) => m.id))
 
   function handlePercentChange(taskId: string, memberId: string, value: string) {
     const parsed = value === '' ? 0 : parseFloat(value)
@@ -34,7 +36,7 @@ export default function EvaluationMatrix() {
   }
 
   const invalidTasks = tasks
-    .map((task) => ({ task, sum: getTaskContributionSum(contributions, task.id) }))
+    .map((task) => ({ task, sum: getTaskContributionSum(contributions, task.id, activeMemberIds) }))
     .filter(({ sum }) => sum > 0 && !isContributionSumValid(sum))
 
   return (
@@ -44,12 +46,15 @@ export default function EvaluationMatrix() {
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은
         항상 표시되며, 개인수행등급을 사용하지 않도록 설정하면 회색으로 비활성화됩니다(입력값은 보존).{' '}
-        각 과제의 기여도 합계는 반드시 100이 되어야 합니다. 기여도 합계 열은 좌측에 고정되어 스크롤해도 항상 보입니다.
+        각 과제의 기여도 합계는 반드시 100이 되어야 합니다. 기여도 합계 열은 좌측에 고정되어 스크롤해도 항상 보입니다.{' '}
+        비활성 팀원은 매트릭스에서 제외되며 기여도 합계에도 포함되지 않습니다.
       </p>
 
-      {tasks.length === 0 || members.length === 0 ? (
+      {tasks.length === 0 || activeMembers.length === 0 ? (
         <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
-          평가 매트릭스를 입력하려면 먼저 과제와 팀원을 등록하세요.
+          {tasks.length === 0
+            ? '평가 매트릭스를 입력하려면 먼저 과제를 등록하세요.'
+            : '활성화된 팀원이 없습니다. 팀원 관리에서 팀원을 활성화하세요.'}
         </p>
       ) : (
         <>
@@ -69,7 +74,7 @@ export default function EvaluationMatrix() {
                   >
                     기여도 합계
                   </th>
-                  {members.map((member) => (
+                  {activeMembers.map((member) => (
                     <th
                       key={member.id}
                       colSpan={2}
@@ -80,7 +85,7 @@ export default function EvaluationMatrix() {
                   ))}
                 </tr>
                 <tr>
-                  {members.map((member) => (
+                  {activeMembers.map((member) => (
                     <Fragment key={member.id}>
                       <th className="border-l border-gray-200 px-3 py-2 text-center text-xs font-medium">
                         기여도(%)
@@ -92,7 +97,7 @@ export default function EvaluationMatrix() {
               </thead>
               <tbody>
                 {tasks.map((task) => {
-                  const sum = getTaskContributionSum(contributions, task.id)
+                  const sum = getTaskContributionSum(contributions, task.id, activeMemberIds)
                   const valid = sum === 0 || isContributionSumValid(sum)
                   const taskScore = calcTaskScore(task, criteria)
                   return (
@@ -110,7 +115,7 @@ export default function EvaluationMatrix() {
                       >
                         {sum.toFixed(0)}%
                       </td>
-                      {members.map((member) => {
+                      {activeMembers.map((member) => {
                         const percent = getContributionPercent(contributions, task.id, member.id)
                         const grade = getPersonalPerformanceGrade(contributions, task.id, member.id)
                         return (

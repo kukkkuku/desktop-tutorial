@@ -41,7 +41,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           onAddPeriod={() => setAddPeriodOpen(true)}
           onExit={exitToLanding}
         />
-        <main className="mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-6 md:pl-64">
+        <main className="mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-6 md:px-[100px]">
           {stage === 'data' && <DataStage />}
           {stage === 'evaluate' && <EvaluationMatrix />}
           {stage === 'results' && <EvaluationResults />}

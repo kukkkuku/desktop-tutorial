@@ -71,16 +71,22 @@ function distributeEqually(count: number): number[] {
 }
 
 // For every task whose contributions are untouched by hand (none recorded yet, or all
-// still auto), (re)split its 100% evenly across the current members. Runs after any
-// action that can change the task/member count, and once on app load, so this stays
-// true regardless of whether a task or a member was added first, and also repairs
-// data that already existed before this behavior shipped.
+// still auto), (re)split its 100% evenly across the currently *active* members --
+// inactive members don't hold a contribution share, so the matrix's 100% total is
+// reachable using only the members still shown there. Runs after any action that can
+// change the task/member count or a member's active flag, and once on app load, so
+// this stays true regardless of order, and also repairs data that predates this
+// behavior. Tasks someone has already hand-edited (isFullyAuto false) are left alone,
+// including a stale share left behind by a member who was just deactivated -- the
+// matrix's contribution-sum validation (active-member-only) surfaces that as a
+// shortfall for the user to redistribute themselves rather than silently reassigning it.
 export function syncAutoDistribution(
   tasks: Task[],
   members: TeamMember[],
   contributions: Contribution[],
 ): Contribution[] {
-  if (members.length === 0) return contributions
+  const activeMembers = members.filter((m) => m.active)
+  if (activeMembers.length === 0) return contributions
 
   let result = contributions
   for (const task of tasks) {
@@ -88,8 +94,8 @@ export function syncAutoDistribution(
     const isFullyAuto = taskContributions.every((c) => c.isAutoDistributed)
     if (!isFullyAuto) continue
 
-    const shares = distributeEqually(members.length)
-    const desired: Contribution[] = members.map((member, i) => ({
+    const shares = distributeEqually(activeMembers.length)
+    const desired: Contribution[] = activeMembers.map((member, i) => ({
       taskId: task.id,
       memberId: member.id,
       contributionPercent: shares[i],
@@ -144,11 +150,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, state.contributions) }
     }
 
-    case 'UPDATE_MEMBER':
-      return {
-        ...state,
-        members: state.members.map((m) => (m.id === action.payload.id ? action.payload : m)),
-      }
+    case 'UPDATE_MEMBER': {
+      const members = state.members.map((m) => (m.id === action.payload.id ? action.payload : m))
+      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, state.contributions) }
+    }
 
     case 'DELETE_MEMBER': {
       const members = state.members.filter((m) => m.id !== action.payload.id)
