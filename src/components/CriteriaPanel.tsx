@@ -400,8 +400,10 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
         style={{ touchAction: 'none', [dock === 'left' ? 'right' : 'left']: 0 }}
         title="드래그해서 너비 조절 (아이콘 ↔ 칩 ↔ 상세설정)"
         aria-label="패널 너비 조절"
-        className="absolute inset-y-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-accent/40 active:bg-accent/60"
-      />
+        className="group absolute inset-y-0 z-10 flex w-3 cursor-col-resize items-center justify-center"
+      >
+        <span className="h-10 w-1 shrink-0 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+      </div>
 
       {size === 'icon' && (
         <div className="flex flex-col items-center gap-1.5 p-3">
