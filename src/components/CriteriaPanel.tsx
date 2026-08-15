@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
@@ -7,18 +7,15 @@ interface IconProps {
   className?: string
 }
 
-function SlidersIcon({ className }: IconProps) {
+function MoveIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="4" y1="21" x2="4" y2="14" />
-      <line x1="4" y1="10" x2="4" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12" y2="3" />
-      <line x1="20" y1="21" x2="20" y2="16" />
-      <line x1="20" y1="12" x2="20" y2="3" />
-      <line x1="1" y1="14" x2="7" y2="14" />
-      <line x1="9" y1="8" x2="15" y2="8" />
-      <line x1="17" y1="16" x2="23" y2="16" />
+      <polyline points="5 9 2 12 5 15" />
+      <polyline points="9 5 12 2 15 5" />
+      <polyline points="15 19 12 22 9 19" />
+      <polyline points="19 9 22 12 19 15" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <line x1="12" y1="2" x2="12" y2="22" />
     </svg>
   )
 }
@@ -50,6 +47,16 @@ function BarsIcon({ className }: IconProps) {
   )
 }
 
+function PercentIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </svg>
+  )
+}
+
 function UserCheckIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -71,10 +78,10 @@ function UsersIcon({ className }: IconProps) {
   )
 }
 
-function ChevronLeftIcon({ className }: IconProps) {
+function ChevronRightIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m15 18-6-6 6-6" />
+      <path d="m9 18 6-6-6-6" />
     </svg>
   )
 }
@@ -109,29 +116,131 @@ function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
 }
 
-const CHIP_DEFS: { key: keyof Criteria; label: string; Icon: (p: IconProps) => JSX.Element }[] = [
-  { key: 'performanceGradeWeight', label: '성과등급', Icon: StarIcon },
+type ItemKey = keyof Criteria | 'contribution'
+
+interface ItemDef {
+  key: ItemKey
+  label: string
+  Icon: (p: IconProps) => JSX.Element
+}
+
+// Two groups, task-side then member-side, matching the divider the user asked for.
+const GROUP_1: ItemDef[] = [
   { key: 'taskGradeWeight', label: '과제등급', Icon: FlagIcon },
   { key: 'workloadWeight', label: '업무량', Icon: BarsIcon },
+  { key: 'performanceGradeWeight', label: '성과등급', Icon: StarIcon },
+]
+const GROUP_2: ItemDef[] = [
+  { key: 'contribution', label: '기여도', Icon: PercentIcon },
   { key: 'personalGradeWeight', label: '개인수행등급', Icon: UserCheckIcon },
   { key: 'peerReviewWeight', label: '피어리뷰', Icon: UsersIcon },
 ]
 
 type PanelSize = 'icon' | 'chip' | 'full'
 
-const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 176, full: 320 }
+const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
+const DEFAULT_POS = { x: 16, y: 76 }
 
-// App-wide sticky left rail, visible on every tab (데이터/평가하기/결과/면담) so
-// criteria can always be checked/adjusted without losing your place. Three
-// sizes step progressively: icon-only (narrowest) -> chip list -> full
-// toggle+slider panel.
+// Floating, draggable palette (like a pen-tool panel) rather than a fixed
+// rail, so it can be moved out of the way on any tab/screen size. Three
+// sizes step progressively: icon-only -> chip list -> full toggle+slider
+// panel. Clicking an icon/chip toggles that criterion on/off directly;
+// resizing is a separate control (the move handle / explicit expand button)
+// so drag and toggle never fight over the same click.
 export default function CriteriaPanel() {
   const { state, dispatch } = useAppState()
   const { criteria } = state
   const [size, setSize] = useState<PanelSize>('chip')
+  const [pos, setPos] = useState(DEFAULT_POS)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
+  }
+
+  function isAlwaysOn(key: ItemKey): key is 'contribution' {
+    return key === 'contribution'
+  }
+
+  function valueFor(key: ItemKey): number {
+    return isAlwaysOn(key) ? 100 : (criteria[key] as number)
+  }
+
+  function toggleActive(key: ItemKey) {
+    if (isAlwaysOn(key)) return
+    const current = criteria[key] as number
+    set(key, current > 0 ? 0 : 100)
+  }
+
+  function onDragPointerDown(e: React.PointerEvent) {
+    e.preventDefault()
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function onDragPointerMove(e: React.PointerEvent) {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH[size]
+    const height = panelRef.current?.offsetHeight ?? 200
+    const maxX = Math.max(window.innerWidth - width, 0)
+    const maxY = Math.max(window.innerHeight - height, 0)
+    setPos({
+      x: Math.min(Math.max(dragRef.current.origX + dx, 0), maxX),
+      y: Math.min(Math.max(dragRef.current.origY + dy, 0), maxY),
+    })
+  }
+
+  function onDragPointerUp() {
+    dragRef.current = null
+  }
+
+  const dragHandleProps = {
+    onPointerDown: onDragPointerDown,
+    onPointerMove: onDragPointerMove,
+    onPointerUp: onDragPointerUp,
+    onPointerCancel: onDragPointerUp,
+    style: { touchAction: 'none' as const },
+  }
+
+  function IconButton({ item }: { item: ItemDef }) {
+    const value = valueFor(item.key)
+    const active = value > 0
+    const alwaysOn = isAlwaysOn(item.key)
+    return (
+      <button
+        onClick={() => toggleActive(item.key)}
+        disabled={alwaysOn}
+        title={alwaysOn ? `${item.label} — 항상 사용` : `${item.label} — ${active ? value + '%' : '사용 안 함'} (클릭해서 전환)`}
+        aria-label={item.label}
+        className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
+          active ? 'bg-orange-50 text-accent' : 'text-gray-300'
+        } ${alwaysOn ? 'cursor-default' : 'cursor-pointer hover:bg-orange-100'} ${!active && !alwaysOn ? 'hover:bg-gray-100' : ''}`}
+      >
+        <item.Icon className="h-4 w-4" />
+      </button>
+    )
+  }
+
+  function Chip({ item }: { item: ItemDef }) {
+    const value = valueFor(item.key)
+    const active = value > 0
+    const alwaysOn = isAlwaysOn(item.key)
+    return (
+      <button
+        onClick={() => toggleActive(item.key)}
+        disabled={alwaysOn}
+        title={alwaysOn ? `${item.label} — 항상 사용` : '클릭해서 사용 여부 전환'}
+        className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+          active ? 'border-orange-200 bg-orange-50 text-accent' : 'border-gray-200 bg-gray-50 text-gray-400'
+        } ${alwaysOn ? 'cursor-default' : 'cursor-pointer hover:border-orange-300'}`}
+      >
+        {item.label}
+        <span className="font-mono">{alwaysOn ? '필수' : active ? `${value}%` : '0%'}</span>
+      </button>
+    )
   }
 
   const w = criteria.performanceGradeWeight
@@ -165,9 +274,9 @@ export default function CriteriaPanel() {
       : `평균 등급 S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배로 반영됩니다.`
 
   const TASK_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
-    { key: 'performanceGradeWeight', label: '성과등급 사용', desc: performanceGradeDescription },
     { key: 'taskGradeWeight', label: '과제등급 사용', desc: taskGradeDescription },
     { key: 'workloadWeight', label: '업무량 사용', desc: workloadDescription },
+    { key: 'performanceGradeWeight', label: '성과등급 사용', desc: performanceGradeDescription },
   ]
   const MEMBER_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
     { key: 'personalGradeWeight', label: '개인수행등급', desc: personalGradeDescription },
@@ -176,68 +285,68 @@ export default function CriteriaPanel() {
 
   return (
     <div
-      className="sticky top-[3.25rem] shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white transition-all duration-300"
-      style={{ width: PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
+      ref={panelRef}
+      className="fixed z-40 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl transition-[width] duration-200"
+      style={{ left: pos.x, top: pos.y, width: PANEL_WIDTH[size], maxHeight: 'calc(100vh - 32px)' }}
     >
       {size === 'icon' && (
-        <div className="flex flex-col items-center gap-2.5 py-5">
+        <div className="flex flex-col items-center gap-1.5 overflow-y-auto py-3">
+          <button
+            {...dragHandleProps}
+            title="이동"
+            aria-label="패널 이동"
+            className="flex h-8 w-8 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
+          >
+            <MoveIcon className="h-4 w-4" />
+          </button>
+          <span className="my-1 h-px w-6 bg-gray-200" />
+          {GROUP_1.map((item) => (
+            <IconButton key={item.key} item={item} />
+          ))}
+          <span className="my-1 h-px w-6 bg-gray-200" />
+          {GROUP_2.map((item) => (
+            <IconButton key={item.key} item={item} />
+          ))}
+          <span className="my-1 h-px w-6 bg-gray-200" />
           <button
             onClick={() => setSize('chip')}
-            title="기준 설정 펼치기"
+            title="펼치기"
             aria-label="기준 설정 펼치기"
-            className="flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
           >
-            <SlidersIcon className="h-5 w-5" />
+            <ChevronRightIcon className="h-4 w-4" />
           </button>
-          <span className="h-px w-6 bg-gray-200" />
-          {CHIP_DEFS.map(({ key, label, Icon }) => {
-            const value = criteria[key] as number
-            const active = value > 0
-            return (
-              <button
-                key={key}
-                onClick={() => setSize('chip')}
-                title={`${label} — ${active ? value + '%' : '사용 안 함'}`}
-                aria-label={label}
-                className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-                  active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'text-gray-300 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            )
-          })}
         </div>
       )}
 
       {size === 'chip' && (
-        <div className="flex flex-col gap-2 px-4 py-5">
+        <div className="flex flex-col gap-2 overflow-y-auto px-4 py-4">
           <div className="mb-1 flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</p>
+            <button
+              {...dragHandleProps}
+              title="이동"
+              aria-label="패널 이동"
+              className="flex h-6 items-center gap-1.5 rounded-md px-1 text-xs font-bold uppercase tracking-widest text-gray-400 hover:bg-gray-100"
+            >
+              <MoveIcon className="h-3.5 w-3.5 cursor-grab active:cursor-grabbing" />
+              기준 설정
+            </button>
             <button
               onClick={() => setSize('icon')}
               title="아이콘으로 접기"
               aria-label="아이콘으로 접기"
               className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-100 hover:text-gray-500"
             >
-              <ChevronLeftIcon className="h-3.5 w-3.5" />
+              <ChevronRightIcon className="h-3.5 w-3.5 rotate-180" />
             </button>
           </div>
-          {CHIP_DEFS.map(({ key, label }) => {
-            const value = criteria[key] as number
-            const active = value > 0
-            return (
-              <span
-                key={key}
-                className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium ${
-                  active ? 'border-orange-200 bg-orange-50 text-accent' : 'border-gray-200 bg-gray-50 text-gray-400'
-                }`}
-              >
-                {label}
-                <span className="font-mono">{active ? `${value}%` : '0%'}</span>
-              </span>
-            )
-          })}
+          {GROUP_1.map((item) => (
+            <Chip key={item.key} item={item} />
+          ))}
+          <span className="my-0.5 h-px w-full bg-gray-100" />
+          {GROUP_2.map((item) => (
+            <Chip key={item.key} item={item} />
+          ))}
           <button
             onClick={() => setSize('full')}
             className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-xs font-medium text-accent transition-colors hover:bg-orange-50"
@@ -248,11 +357,21 @@ export default function CriteriaPanel() {
       )}
 
       {size === 'full' && (
-        <div className="flex h-full flex-col">
-          <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3">
-            <span className="text-sm font-semibold text-black">기준 설정</span>
+        <div className="flex h-full flex-col overflow-hidden">
+          <div
+            {...dragHandleProps}
+            className="flex shrink-0 cursor-grab items-center justify-between border-b border-gray-200 px-5 py-3 active:cursor-grabbing"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-black">
+              <MoveIcon className="h-4 w-4 text-gray-400" />
+              기준 설정
+            </span>
             <button
-              onClick={() => setSize('chip')}
+              onClick={(e) => {
+                e.stopPropagation()
+                setSize('chip')
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
               aria-label="기준 설정 접기"
               className="text-base leading-none text-gray-400 transition-colors hover:text-gray-600"
             >
@@ -305,6 +424,15 @@ export default function CriteriaPanel() {
             <div>
               <p className="mb-2 text-xs font-semibold text-gray-400">팀원 평가 기준</p>
               <div className="space-y-2">
+                <div className="rounded-md border border-gray-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-semibold text-black">기여도</p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-gray-400">항상 필수 기준으로 사용됩니다.</p>
+                    </div>
+                    <Toggle on disabled onChange={() => {}} />
+                  </div>
+                </div>
                 {MEMBER_ITEMS.map(({ key, label, desc }) => {
                   const value = criteria[key] as number
                   const checked = value > 0
@@ -337,15 +465,6 @@ export default function CriteriaPanel() {
                     </div>
                   )
                 })}
-                <div className="rounded-md border border-gray-200 p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-semibold text-black">기여도</p>
-                      <p className="mt-0.5 text-xs leading-relaxed text-gray-400">항상 필수 기준으로 사용됩니다.</p>
-                    </div>
-                    <Toggle on disabled onChange={() => {}} />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
