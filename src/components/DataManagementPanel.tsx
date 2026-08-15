@@ -13,7 +13,7 @@ import {
 } from '../utils/excel'
 
 interface DataManagementPanelProps {
-  onClose: () => void
+  onClose?: () => void
 }
 
 interface BulkSummary {
@@ -175,23 +175,24 @@ export default function DataManagementPanel({ onClose }: DataManagementPanelProp
   }
 
   return (
-    <div className="border-t border-gray-200 bg-gray-50">
-      <div className="mx-auto w-full max-w-[1920px] px-4 py-4 sm:px-6">
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-sm font-semibold text-black">통합 데이터 관리</h2>
             <p className="mt-0.5 text-xs text-gray-500">과제·팀원·피어리뷰를 한 번에 처리합니다.</p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="데이터 관리 닫기"
-            className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
-              <path d="M18 6 6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
-          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="데이터 관리 닫기"
+              className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
+                <path d="M18 6 6 18" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -332,7 +333,6 @@ export default function DataManagementPanel({ onClose }: DataManagementPanelProp
             </div>
           </div>
         )}
-      </div>
     </div>
   )
 }

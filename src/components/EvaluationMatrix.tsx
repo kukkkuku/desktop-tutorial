@@ -34,7 +34,7 @@ export default function EvaluationMatrix() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-black">평가 매트릭스</h2>
+      <h3 className="text-lg font-semibold text-black">평가 매트릭스</h3>
       <p className="mt-1 text-sm text-gray-600">
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은

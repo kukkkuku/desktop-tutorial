@@ -1,22 +1,17 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useAppState } from '../state/AppContext'
-import type { TeamMember } from '../types'
-import { calcMemberParticipation } from '../utils/calculations'
-import { downloadMemberTemplate, parseMemberWorkbook, type MemberImportResult } from '../utils/excel'
+import type { PeerReview, TeamMember } from '../types'
+import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import MemberModal from './MemberModal'
 import ConfirmDialog from './ConfirmDialog'
-import ImportFeedback from './ImportFeedback'
-import Spinner from './Spinner'
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
-  const [importResult, setImportResult] = useState<MemberImportResult | null>(null)
-  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
+  const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
 
   function openAddModal() {
     setEditingMember(null)
@@ -45,38 +40,21 @@ export default function TeamManagement() {
     }
   }
 
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    if (files.length === 0) return
-
-    setIsUploading(true)
-    let members = state.members
-    let addedCount = 0
-    let updatedCount = 0
-    const errors: string[] = []
-    const addedIds: string[] = []
-
-    for (const file of files) {
-      const buffer = await file.arrayBuffer()
-      const result = parseMemberWorkbook(buffer, members)
-      members = result.members
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      addedIds.push(...result.addedIds)
-      errors.push(...result.errors.map((msg) => (files.length > 1 ? `[${file.name}] ${msg}` : msg)))
+  function handleDeletePeerReviewConfirm() {
+    if (deletingPeerReview) {
+      dispatch({ type: 'DELETE_PEER_REVIEW', payload: { id: deletingPeerReview.id } })
+      setDeletingPeerReview(null)
     }
-
-    dispatch({ type: 'IMPORT_MEMBERS', payload: members })
-    setImportResult({ members, errors, importedCount: addedCount + updatedCount, addedCount, updatedCount, addedIds })
-    setRecentlyAddedIds(new Set(addedIds))
-    setIsUploading(false)
   }
+
+  const peerReviewsForViewing = viewingPeerReviewsFor
+    ? state.peerReviews.filter((r) => r.targetMemberId === viewingPeerReviewsFor.id)
+    : []
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black">팀원 관리</h2>
+        <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
         <button
           onClick={openAddModal}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
@@ -88,53 +66,13 @@ export default function TeamManagement() {
         팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
-        <button
-          onClick={downloadMemberTemplate}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
-        >
-          엑셀 양식 다운로드
-        </button>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          className="flex items-center gap-2 rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isUploading && <Spinner />}
-          {isUploading ? '업로드 중...' : '엑셀로 업로드'}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls"
-          multiple
-          className="hidden"
-          onChange={handleFileSelected}
-        />
-        <span className="text-sm text-gray-500">
-          이름, 직급(사원/대리/과장/차장), 연차, 역할, 코멘트 컬럼을 포함한 엑셀 파일을 업로드하세요. 여러 파일을 한 번에 선택할 수 있습니다.
-        </span>
-      </div>
-
-      {importResult && (
-        <ImportFeedback
-          addedCount={importResult.addedCount}
-          updatedCount={importResult.updatedCount}
-          errors={importResult.errors}
-          onDismiss={() => {
-            setImportResult(null)
-            setRecentlyAddedIds(new Set())
-          }}
-        />
-      )}
-
       {state.members.length === 0 ? (
         <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
           등록된 팀원이 없습니다.
           <br />
-          '+ 팀원 추가' 버튼으로 직접 등록하거나,
+          위의 '+ 팀원 추가' 버튼으로 직접 등록하거나,
           <br />
-          위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
+          위쪽 통합 데이터 관리에서 엑셀로 여러 팀원을 한 번에 등록할 수 있습니다.
         </p>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
@@ -146,6 +84,7 @@ export default function TeamManagement() {
               <th className="px-4 py-3 font-semibold">연차</th>
               <th className="px-4 py-3 font-semibold">역할</th>
               <th className="px-4 py-3 font-semibold">참여 과제 수</th>
+              <th className="px-4 py-3 font-semibold">받은 피어리뷰</th>
               <th className="px-4 py-3 font-semibold">활성여부</th>
               <th className="px-4 py-3 font-semibold">관리</th>
             </tr>
@@ -153,22 +92,22 @@ export default function TeamManagement() {
           <tbody>
             {state.members.map((member) => {
               const { count } = calcMemberParticipation(member, state.tasks, state.contributions)
+              const peerReviewCount = state.peerReviews.filter((r) => r.targetMemberId === member.id).length
               return (
                 <tr key={member.id} className="border-t border-gray-200 text-black">
-                  <td className="px-4 py-3 font-medium">
-                    <span className="inline-flex items-center gap-1.5">
-                      {member.name}
-                      {recentlyAddedIds.has(member.id) && (
-                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-                          N
-                        </span>
-                      )}
-                    </span>
-                  </td>
+                  <td className="px-4 py-3 font-medium">{member.name}</td>
                   <td className="px-4 py-3">{member.level || '-'}</td>
                   <td className="px-4 py-3">{member.yearsOfService ?? '-'}</td>
                   <td className="px-4 py-3">{member.role || '-'}</td>
                   <td className="px-4 py-3">{count}건</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => setViewingPeerReviewsFor(member)}
+                      className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+                    >
+                      {peerReviewCount}건 확인
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -182,15 +121,28 @@ export default function TeamManagement() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEditModal(member)}
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                        title="수정"
+                        aria-label="수정"
+                        className="rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-100"
                       >
-                        수정
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                        </svg>
                       </button>
                       <button
                         onClick={() => setDeletingMember(member)}
-                        className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                        title="삭제"
+                        aria-label="삭제"
+                        className="rounded-md border border-gray-300 p-1.5 text-danger hover:bg-red-50"
                       >
-                        삭제
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                          <path d="M3 6h18" />
+                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6" />
+                          <path d="M14 11v6" />
+                        </svg>
                       </button>
                     </div>
                   </td>
@@ -220,6 +172,61 @@ export default function TeamManagement() {
         message={`'${deletingMember?.name}' 팀원을 삭제하시겠습니까? 관련된 기여도 데이터도 함께 삭제됩니다.`}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeletingMember(null)}
+      />
+
+      {viewingPeerReviewsFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-lg font-bold text-black">{viewingPeerReviewsFor.name}님이 받은 피어리뷰</h3>
+              <button
+                onClick={() => setViewingPeerReviewsFor(null)}
+                aria-label="닫기"
+                className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto">
+              {peerReviewsForViewing.length === 0 ? (
+                <p className="rounded-md bg-gray-50 px-4 py-4 text-center text-sm text-gray-500">
+                  아직 받은 피어리뷰가 없습니다.
+                </p>
+              ) : (
+                peerReviewsForViewing.map((review) => (
+                  <div
+                    key={review.id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-gray-200 px-4 py-2"
+                  >
+                    <span className="text-sm font-medium text-black">{review.reviewerName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${GRADE_COLORS[review.grade]}`}>
+                        {review.grade}
+                      </span>
+                      <button
+                        onClick={() => setDeletingPeerReview(review)}
+                        className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deletingPeerReview !== null}
+        title="피어리뷰 삭제"
+        message={`${deletingPeerReview?.reviewerName}님이 남긴 피어리뷰를 삭제하시겠습니까?`}
+        onConfirm={handleDeletePeerReviewConfirm}
+        onCancel={() => setDeletingPeerReview(null)}
       />
     </div>
   )

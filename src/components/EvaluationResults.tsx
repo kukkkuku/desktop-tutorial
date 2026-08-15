@@ -21,7 +21,7 @@ export default function EvaluationResults() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-black">평가 결과</h2>
+        <h3 className="text-lg font-semibold text-black">평가 결과</h3>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
@@ -201,29 +201,6 @@ export default function EvaluationResults() {
           </tbody>
         </table>
       </div>
-
-      <h3 className="mt-8 text-lg font-semibold text-black">평가 기준 현황</h3>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <CriteriaBadge label="성과등급" weight={criteria.performanceGradeWeight} />
-        <CriteriaBadge label="과제등급" weight={criteria.taskGradeWeight} />
-        <CriteriaBadge label="업무량" weight={criteria.workloadWeight} />
-        <CriteriaBadge label="개인수행등급" weight={criteria.personalGradeWeight} />
-        <CriteriaBadge label="피어리뷰" weight={criteria.peerReviewWeight} />
-        <CriteriaBadge label="기여도" weight={100} />
-      </div>
     </div>
-  )
-}
-
-function CriteriaBadge({ label, weight }: { label: string; weight: number }) {
-  const active = weight > 0
-  return (
-    <span
-      className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-        active ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-400'
-      }`}
-    >
-      {label} {weight}%
-    </span>
   )
 }
