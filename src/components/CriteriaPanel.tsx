@@ -155,8 +155,18 @@ export type PanelDock = 'left' | 'right' | null
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
 export const DEFAULT_FLOAT_X = 24
 export const FLOAT_Y = 84
-const MIN_FULL_WIDTH = 260
-const MAX_FULL_WIDTH = 480
+const MIN_WIDTH = PANEL_WIDTH.icon
+const MAX_WIDTH = 480
+// Crossing a midpoint while dragging the splitter switches which content
+// renders, so widening sweeps icon -> chip -> full and narrowing reverses it.
+const ICON_CHIP_THRESHOLD = (PANEL_WIDTH.icon + PANEL_WIDTH.chip) / 2
+const CHIP_FULL_THRESHOLD = (PANEL_WIDTH.chip + PANEL_WIDTH.full) / 2
+
+function widthToSize(width: number): PanelSize {
+  if (width < ICON_CHIP_THRESHOLD) return 'icon'
+  if (width < CHIP_FULL_THRESHOLD) return 'chip'
+  return 'full'
+}
 
 interface CriteriaPanelProps {
   dock: PanelDock
@@ -179,8 +189,10 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   const panelRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ startX: number; origX: number } | null>(null)
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
-  const [customFullWidth, setCustomFullWidth] = useState(PANEL_WIDTH.full)
-  const [isResizing, setIsResizing] = useState(false)
+  // Non-null only while the splitter is actively being dragged -- the width
+  // it tracks is continuous, but releases back to the exact preset width for
+  // whichever size the drag landed on (icon/chip/full), not left in-between.
+  const [dragWidth, setDragWidth] = useState<number | null>(null)
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
@@ -221,13 +233,15 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
     onSize('icon')
   }
 
-  // Splitter: drag the docked full panel's inner edge to freely resize it,
-  // on top of the icon/chip/full presets. Direction flips with dock side so
+  // Splitter: drag the docked panel's inner edge to sweep continuously
+  // through icon -> chip -> full (or back) instead of only jumping between
+  // the three presets via buttons. Direction flips with dock side so
   // dragging always feels like "pull the edge toward the content."
   function onResizePointerDown(e: React.PointerEvent) {
     e.preventDefault()
-    resizeRef.current = { startX: e.clientX, startWidth: customFullWidth }
-    setIsResizing(true)
+    const startWidth = dragWidth ?? PANEL_WIDTH[size]
+    resizeRef.current = { startX: e.clientX, startWidth }
+    setDragWidth(startWidth)
     e.currentTarget.setPointerCapture(e.pointerId)
   }
 
@@ -235,12 +249,15 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
     if (!resizeRef.current) return
     const dx = e.clientX - resizeRef.current.startX
     const delta = dock === 'left' ? dx : -dx
-    setCustomFullWidth(Math.min(MAX_FULL_WIDTH, Math.max(MIN_FULL_WIDTH, resizeRef.current.startWidth + delta)))
+    const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, resizeRef.current.startWidth + delta))
+    setDragWidth(next)
+    const derivedSize = widthToSize(next)
+    if (derivedSize !== size) onSize(derivedSize)
   }
 
   function onResizePointerUp() {
     resizeRef.current = null
-    setIsResizing(false)
+    setDragWidth(null)
   }
 
   function IconButton({ item }: { item: ItemDef }) {
@@ -371,22 +388,20 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   return (
     <div
       className={`sticky top-[3.25rem] relative shrink-0 self-start overflow-y-auto bg-white ${
-        isResizing ? '' : 'transition-[width] duration-200'
+        dragWidth === null ? 'transition-[width] duration-200' : ''
       } ${dock === 'left' ? 'border-r' : 'border-l'} border-gray-200`}
-      style={{ width: size === 'full' ? customFullWidth : PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
+      style={{ width: dragWidth ?? PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
     >
-      {size === 'full' && (
-        <div
-          onPointerDown={onResizePointerDown}
-          onPointerMove={onResizePointerMove}
-          onPointerUp={onResizePointerUp}
-          onPointerCancel={onResizePointerUp}
-          style={{ touchAction: 'none', [dock === 'left' ? 'right' : 'left']: 0 }}
-          title="드래그해서 너비 조절"
-          aria-label="패널 너비 조절"
-          className="absolute inset-y-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-accent/40 active:bg-accent/60"
-        />
-      )}
+      <div
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerCancel={onResizePointerUp}
+        style={{ touchAction: 'none', [dock === 'left' ? 'right' : 'left']: 0 }}
+        title="드래그해서 너비 조절 (아이콘 ↔ 칩 ↔ 상세설정)"
+        aria-label="패널 너비 조절"
+        className="absolute inset-y-0 z-10 w-1.5 cursor-col-resize bg-transparent hover:bg-accent/40 active:bg-accent/60"
+      />
 
       {size === 'icon' && (
         <div className="flex flex-col items-center gap-1.5 p-3">
