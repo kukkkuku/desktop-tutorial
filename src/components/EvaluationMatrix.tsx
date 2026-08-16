@@ -99,6 +99,8 @@ export default function EvaluationMatrix() {
                 {tasks.map((task) => {
                   const sum = getTaskContributionSum(contributions, task.id, activeMemberIds)
                   const valid = sum === 0 || isContributionSumValid(sum)
+                  const delta = sum - 100
+                  const sumLabel = sum === 0 ? '0%' : valid ? '100%' : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`
                   const taskScore = calcTaskScore(task, criteria)
                   return (
                     <tr key={task.id} className="border-t border-gray-200 text-black">
@@ -112,8 +114,9 @@ export default function EvaluationMatrix() {
                         className={`sticky left-40 z-10 border-l border-gray-200 bg-white px-4 py-3 font-semibold ${
                           valid ? 'text-success' : 'text-danger'
                         }`}
+                        title={valid ? '기여도 합계 100%' : `100% 기준 ${sumLabel} (${delta > 0 ? '초과' : '부족'})`}
                       >
-                        {sum.toFixed(0)}%
+                        {sumLabel}
                       </td>
                       {activeMembers.map((member) => {
                         const percent = getContributionPercent(contributions, task.id, member.id)

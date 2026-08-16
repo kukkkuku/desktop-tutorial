@@ -64,37 +64,11 @@ function upsertContribution(
   ]
 }
 
-function distributeEqually(count: number, total = 100): number[] {
+function distributeEqually(count: number): number[] {
   if (count <= 0) return []
-  const clamped = Math.max(0, total)
-  const base = Math.floor(clamped / count)
-  const remainder = Math.round(clamped - base * count)
+  const base = Math.floor(100 / count)
+  const remainder = 100 - base * count
   return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
-}
-
-// After a manual percent edit, re-split the leftover across the task's still-
-// auto members (not the one just edited, and not any others the lead already
-// hand-set) so a single edit doesn't leave everyone else's numbers stale.
-// Any member's value the lead has explicitly typed stays exactly as set --
-// to route the leftover to one specific person instead of splitting it
-// evenly, the lead just edits that person's cell too, which locks it the
-// same way.
-function rebalanceTaskRemainder(contributions: Contribution[], taskId: string, members: TeamMember[]): Contribution[] {
-  const activeMemberIds = new Set(members.filter((m) => m.active).map((m) => m.id))
-  const taskContributions = contributions.filter((c) => c.taskId === taskId && activeMemberIds.has(c.memberId))
-  const locked = taskContributions.filter((c) => !c.isAutoDistributed)
-  const auto = taskContributions.filter((c) => c.isAutoDistributed)
-  if (auto.length === 0) return contributions
-
-  const lockedSum = locked.reduce((sum, c) => sum + c.contributionPercent, 0)
-  const shares = distributeEqually(auto.length, 100 - lockedSum)
-  const shareByMemberId = new Map(auto.map((c, i) => [c.memberId, shares[i]]))
-
-  return contributions.map((c) =>
-    c.taskId === taskId && shareByMemberId.has(c.memberId)
-      ? { ...c, contributionPercent: shareByMemberId.get(c.memberId)! }
-      : c,
-  )
 }
 
 // For every task whose contributions are untouched by hand (none recorded yet, or all
@@ -205,13 +179,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_CONTRIBUTION_PERCENT': {
       const { taskId, memberId, contributionPercent } = action.payload
-      const withEdit = upsertContribution(state.contributions, taskId, memberId, {
-        contributionPercent,
-        isAutoDistributed: false,
-      })
       return {
         ...state,
-        contributions: rebalanceTaskRemainder(withEdit, taskId, state.members),
+        contributions: upsertContribution(state.contributions, taskId, memberId, {
+          contributionPercent,
+          isAutoDistributed: false,
+        }),
       }
     }
 
