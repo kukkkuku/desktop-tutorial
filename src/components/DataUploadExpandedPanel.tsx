@@ -133,41 +133,42 @@ export default function DataUploadExpandedPanel({ onClose, recordUpload }: DataU
 
   return (
     <div className="mb-3 space-y-3 rounded-md border border-gray-200 bg-white px-4 py-4 shadow-sm">
-      <div>
-        <p className="text-sm font-semibold text-black">통합 업로드</p>
-        <p className="text-xs text-gray-400">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리거나 전체 데이터를 초기화합니다.</p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={handleZipDownload}
-          disabled={isBusy}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          전체 양식 ZIP 다운로드
-        </button>
-        <button
-          onClick={() => bulkInputRef.current?.click()}
-          disabled={isBusy}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          전체 일괄 업로드
-        </button>
-        <input
-          ref={bulkInputRef}
-          id="data-mgmt-bulk-input"
-          type="file"
-          accept=".xlsx,.xls"
-          multiple
-          className="hidden"
-          onChange={onBulkInputChange}
-        />
-        {isBusy && (
-          <span className="flex items-center gap-2 text-sm text-gray-500">
-            <Spinner className="h-4 w-4 text-accent" />
-            {loadingLabel}
-          </span>
-        )}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-black">통합 업로드</p>
+          <p className="text-xs text-gray-400">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리거나 전체 데이터를 초기화합니다.</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isBusy && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Spinner className="h-3.5 w-3.5 text-accent" />
+              {loadingLabel}
+            </span>
+          )}
+          <button
+            onClick={handleZipDownload}
+            disabled={isBusy}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            전체 양식 ZIP 다운로드
+          </button>
+          <button
+            onClick={() => bulkInputRef.current?.click()}
+            disabled={isBusy}
+            className="rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            전체 일괄 업로드
+          </button>
+          <input
+            ref={bulkInputRef}
+            id="data-mgmt-bulk-input"
+            type="file"
+            accept=".xlsx,.xls"
+            multiple
+            className="hidden"
+            onChange={onBulkInputChange}
+          />
+        </div>
       </div>
 
       <div
@@ -222,19 +223,21 @@ export default function DataUploadExpandedPanel({ onClose, recordUpload }: DataU
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-        <span className="text-xs text-gray-400">과제·팀원·피어리뷰·평가 데이터를 모두 삭제하고 빈 상태로 되돌립니다.</span>
+      <div className="flex flex-wrap items-center gap-3 rounded-md border border-danger/30 bg-red-50 px-4 py-3">
         <button
           onClick={() => setResetDialogOpen(true)}
           disabled={!hasData}
-          className="flex shrink-0 items-center gap-1 rounded-md border border-danger px-2 py-1 text-xs font-medium text-danger transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex shrink-0 items-center gap-1.5 rounded-md border-2 border-danger bg-white px-3 py-1.5 text-sm font-semibold text-danger transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
             <polyline points="23 4 23 10 17 10" />
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
           </svg>
           데이터 초기화
         </button>
+        <p className="text-xs text-danger">
+          전체 초기화가 필요하면 사용하세요. 과제·팀원·피어리뷰 및 평가 <span className="font-semibold">데이터를 모두 삭제</span>하고 빈 상태로 되돌립니다.
+        </p>
       </div>
 
       <ConfirmDialog
