@@ -77,14 +77,17 @@ function distributeEqually(count: number): number[] {
 // reachable using only the members still shown there. Runs after any action that can
 // change the task/member count or a member's active flag, and once on app load, so
 // this stays true regardless of order, and also repairs data that predates this
-// behavior. Tasks someone has already hand-edited (isFullyAuto false) are left alone,
-// including a stale share left behind by a member who was just deactivated -- the
-// matrix's contribution-sum validation (active-member-only) surfaces that as a
-// shortfall for the user to redistribute themselves rather than silently reassigning it.
+// behavior. Tasks someone has already hand-edited (isFullyAuto false) are normally
+// left alone -- except tasks in `forceTaskIds`, which are re-split to equal shares
+// even if hand-edited. UPDATE_MEMBER passes the set of tasks the member being
+// (de)activated actually has a contribution row for, so toggling someone's active
+// flag always re-equalizes the tasks that toggle affects, instead of leaving a
+// stale share behind on any task the lead had already hand-tuned.
 export function syncAutoDistribution(
   tasks: Task[],
   members: TeamMember[],
   contributions: Contribution[],
+  forceTaskIds?: Set<string>,
 ): Contribution[] {
   const activeMembers = members.filter((m) => m.active)
   if (activeMembers.length === 0) return contributions
@@ -93,7 +96,7 @@ export function syncAutoDistribution(
   for (const task of tasks) {
     const taskContributions = result.filter((c) => c.taskId === task.id)
     const isFullyAuto = taskContributions.every((c) => c.isAutoDistributed)
-    if (!isFullyAuto) continue
+    if (!isFullyAuto && !forceTaskIds?.has(task.id)) continue
 
     const shares = distributeEqually(activeMembers.length)
     const desired: Contribution[] = activeMembers.map((member, i) => ({
@@ -152,8 +155,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'UPDATE_MEMBER': {
+      const prev = state.members.find((m) => m.id === action.payload.id)
       const members = state.members.map((m) => (m.id === action.payload.id ? action.payload : m))
-      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, state.contributions) }
+      const forceTaskIds =
+        prev !== undefined && prev.active !== action.payload.active
+          ? new Set(state.contributions.filter((c) => c.memberId === action.payload.id).map((c) => c.taskId))
+          : undefined
+      return {
+        ...state,
+        members,
+        contributions: syncAutoDistribution(state.tasks, members, state.contributions, forceTaskIds),
+      }
     }
 
     case 'DELETE_MEMBER': {
