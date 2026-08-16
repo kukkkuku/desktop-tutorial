@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import { useTeamProfile } from '../state/TeamContext'
 import type { MeetingActionItem, MeetingNote } from '../types'
-import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
-import { calcPromotionReadiness } from '../utils/promotion'
 import { colorForIndex } from '../utils/memberColors'
 import ConfirmDialog from './ConfirmDialog'
 import InterviewPrepAccordion from './InterviewPrepAccordion'
@@ -59,12 +56,8 @@ interface MeetingNotesProps {
 
 export default function MeetingNotes({ selectedMemberId, onSelectMember, prepRequest }: MeetingNotesProps) {
   const { state, dispatch } = useAppState()
-  const { profile } = useTeamProfile()
-  const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
+  const { members, meetingNotes } = state
   const todayStr = todayString()
-
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
-  const memberResultById = new Map(memberResults.map((r, i) => [r.member.id, { ...r, rank: i + 1 }]))
 
   const [calendarOpen, setCalendarOpen] = useState(true)
   const [viewDate, setViewDate] = useState(() => {
@@ -249,19 +242,7 @@ export default function MeetingNotes({ selectedMemberId, onSelectMember, prepReq
     nextDay += 1
   }
 
-  const activeResult = activeMemberId ? memberResultById.get(activeMemberId) : undefined
   const activeAll = activeMemberId ? memberSchedule(activeMemberId).all : []
-  const activeAppraisals = activeMember
-    ? profile.hrAppraisals.filter((r) => r.memberId === activeMember.id).sort((a, b) => a.year - b.year)
-    : []
-  const activeReadiness = activeMember
-    ? calcPromotionReadiness(activeMember.level, activeAppraisals, profile.promotionCriteria, profile.gradeScores)
-    : null
-  const activeLastMeetingDate = activeMember
-    ? [...meetingNotes]
-        .filter((n) => n.memberId === activeMember.id && n.date <= todayStr)
-        .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
-    : null
 
   return (
     <div>
@@ -269,51 +250,8 @@ export default function MeetingNotes({ selectedMemberId, onSelectMember, prepReq
           <div className="min-w-0 flex-1">
             {activeMember && (
               <div className="space-y-3 rounded-lg border border-gray-200 px-4 py-4">
-                <div>
-                  <p className="text-lg font-bold text-black">{activeMember.name}</p>
-                  {activeMember.role && <p className="text-xs text-gray-400">{activeMember.role}</p>}
-                </div>
-
-                {activeResult ? (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px]">
-                    <span className="font-semibold text-black">순위 {activeResult.rank}위</span>
-                    <span className="text-gray-600">
-                      누적 점수 <span className="font-semibold text-black">{activeResult.cumulativeScore.toFixed(1)}</span>
-                    </span>
-                    <span className="text-gray-600">
-                      종합 점수(가중평균){' '}
-                      <span className="font-semibold text-black">{activeResult.weightedAverageScore.toFixed(1)}</span>
-                    </span>
-                    <span className="text-gray-600">
-                      참여 과제 <span className="font-semibold text-black">{activeResult.participatedTaskCount}건</span>
-                    </span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${GRADE_COLORS[activeResult.grade]}`}>
-                      평가등급 {activeResult.grade}
-                    </span>
-                  </div>
-                ) : (
-                  <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-gray-400">
-                    비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
-                  </p>
-                )}
-
-                {activeReadiness && (
-                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px]">
-                    <span className="font-semibold text-promo">승진 준비</span>{' '}
-                    <span className="text-gray-600">
-                      {activeMember.level} → {activeReadiness.criteria.toLevel} ·{' '}
-                      <span className="font-semibold text-black">
-                        {activeReadiness.weightedScore.toFixed(1)} / {activeReadiness.criteria.requiredScore}
-                      </span>{' '}
-                      · {activeReadiness.progressPercent}%
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 px-3 py-2.5 text-[13px]">
-                  <span className="text-gray-600">
-                    최근 면담 <span className="font-semibold text-black">{activeLastMeetingDate ?? '기록 없음'}</span>
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-black">면담 준비</p>
                   <button
                     onClick={() => setPrepOpenMemberId((prev) => (prev === activeMember.id ? null : activeMember.id))}
                     className="rounded-md border border-accent px-3 py-1.5 text-xs font-semibold text-accent hover:bg-orange-50"

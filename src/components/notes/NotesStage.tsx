@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { colorForIndex } from '../../utils/memberColors'
 import MeetingNotes from '../MeetingNotes'
+import MemberGrowthSummaryCard from './MemberGrowthSummaryCard'
 import MemberHistoryStage from './MemberHistoryStage'
 import MemberPromotionStage from './MemberPromotionStage'
 
@@ -54,26 +55,37 @@ export default function NotesStage({ notesRequest }: NotesStageProps) {
         </p>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap gap-2 px-1">
+          <div className="flex flex-wrap gap-2 px-1">
             {members.map((member, idx) => {
               const isActive = member.id === activeMemberId
               return (
                 <button
                   key={member.id}
                   onClick={() => setSelectedMemberId(member.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                  className={`flex items-center gap-2 rounded-full py-1.5 pl-1.5 pr-4 text-sm font-semibold transition-colors ${
                     isActive ? 'bg-accent text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <span
-                    className="h-1.5 w-1.5 rounded-full"
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                      isActive ? 'text-accent' : 'text-white'
+                    }`}
                     style={{ background: isActive ? '#fff' : colorForIndex(idx) }}
-                  />
+                  >
+                    {member.name.slice(0, 1)}
+                  </span>
                   {member.name}
                 </button>
               )
             })}
           </div>
+
+          {activeMemberId && (
+            <MemberGrowthSummaryCard
+              memberId={activeMemberId}
+              colorIndex={members.findIndex((m) => m.id === activeMemberId)}
+            />
+          )}
 
           <div className="mt-4 flex border-b border-gray-200">
             {SUB_TABS.map((tab) => (
