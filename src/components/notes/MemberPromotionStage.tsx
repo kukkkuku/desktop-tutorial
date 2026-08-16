@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import MemberAppraisalPromotionPanel from '../member-detail/MemberAppraisalPromotionPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
+import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 
 export default function MemberPromotionStage({ selectedMemberId }: { selectedMemberId: string | null }) {
   const { state } = useAppState()
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const member = state.members.find((m) => m.id === selectedMemberId)
 
   return (
@@ -20,12 +22,20 @@ export default function MemberPromotionStage({ selectedMemberId }: { selectedMem
             별개입니다.
           </p>
         </div>
-        <button
-          onClick={() => setCriteriaManagerOpen(true)}
-          className="shrink-0 rounded-md border border-promo/30 px-3 py-2 text-sm font-medium text-promo hover:bg-promo/5"
-        >
-          승진 기준 관리
-        </button>
+        <div className="flex shrink-0 gap-2">
+          <button
+            onClick={() => setImportOpen(true)}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50"
+          >
+            엑셀로 가져오기
+          </button>
+          <button
+            onClick={() => setCriteriaManagerOpen(true)}
+            className="rounded-md border border-promo/30 px-3 py-2 text-sm font-medium text-promo hover:bg-promo/5"
+          >
+            승진 기준 관리
+          </button>
+        </div>
       </div>
 
       {!member ? (
@@ -37,6 +47,7 @@ export default function MemberPromotionStage({ selectedMemberId }: { selectedMem
       )}
 
       {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
+      {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}
     </div>
   )
 }
