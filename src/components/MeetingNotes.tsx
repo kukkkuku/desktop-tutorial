@@ -75,6 +75,7 @@ export default function MeetingNotes() {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
+  const [selectedDate, setSelectedDate] = useState(todayStr)
 
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
   const [newDate, setNewDate] = useState(todayStr)
@@ -123,6 +124,17 @@ export default function MeetingNotes() {
     setExpandedMemberId((cur) => (cur === memberId ? null : memberId))
     setNewDate(todayStr)
     setNewComment('')
+  }
+
+  // Jumps from a calendar day's detail list straight to that member's record
+  // (always opens, doesn't toggle closed) and scrolls it into view.
+  function openMember(memberId: string) {
+    setExpandedMemberId(memberId)
+    setNewDate(todayStr)
+    setNewComment('')
+    requestAnimationFrame(() => {
+      document.getElementById(`member-row-${memberId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
   }
 
   function startEdit(note: MeetingNote) {
@@ -217,7 +229,7 @@ export default function MeetingNotes() {
                 const expanded = expandedMemberId === member.id
                 const result = memberResultById.get(member.id)
                 return (
-                  <div key={member.id} className="border-t border-gray-100">
+                  <div key={member.id} id={`member-row-${member.id}`} className="border-t border-gray-100">
                     <button
                       onClick={() => toggleExpand(member.id)}
                       className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
@@ -423,23 +435,35 @@ export default function MeetingNotes() {
                   {cells.map((cell) => {
                     const dotIdxs = notesByDate.get(cell.date) ?? []
                     const isToday = cell.date === todayStr
+                    const isSelected = cell.date === selectedDate
                     return (
-                      <div
+                      <button
                         key={cell.date}
+                        onClick={() => setSelectedDate(cell.date)}
                         title={cell.date}
-                        className={`flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-[13px] ${
-                          !cell.inMonth ? 'text-gray-300' : isToday ? 'bg-orange-50 font-semibold text-accent' : 'text-black'
+                        className={`flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-[13px] transition-colors ${
+                          !cell.inMonth
+                            ? 'text-gray-300 hover:bg-gray-50'
+                            : isSelected
+                              ? 'bg-accent font-semibold text-white'
+                              : isToday
+                                ? 'bg-orange-50 font-semibold text-accent'
+                                : 'text-black hover:bg-gray-100'
                         }`}
                       >
                         {cell.day}
                         {dotIdxs.length > 0 && (
                           <span className="flex items-center gap-0.5">
                             {dotIdxs.slice(0, 3).map((idx) => (
-                              <span key={idx} className="h-1 w-1 rounded-full" style={{ background: colorForIndex(idx) }} />
+                              <span
+                                key={idx}
+                                className="h-1 w-1 rounded-full"
+                                style={{ background: isSelected ? '#fff' : colorForIndex(idx) }}
+                              />
                             ))}
                           </span>
                         )}
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -451,6 +475,33 @@ export default function MeetingNotes() {
                       {m.name}
                     </span>
                   ))}
+                </div>
+
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <p className="text-[13px] font-semibold text-black">{fmtShort(selectedDate)} 면담</p>
+                  {(() => {
+                    const dayNotes = members
+                      .map((member, idx) => ({ member, idx, note: meetingNotes.find((n) => n.memberId === member.id && n.date === selectedDate) }))
+                      .filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.note)
+                    if (dayNotes.length === 0) {
+                      return <p className="mt-1.5 text-[13px] text-gray-400">이 날짜에 등록된 면담이 없습니다. 왼쪽 팀원을 펼쳐서 추가하세요.</p>
+                    }
+                    return (
+                      <div className="mt-1.5 space-y-0.5">
+                        {dayNotes.map(({ member, idx, note }) => (
+                          <button
+                            key={note.id}
+                            onClick={() => openMember(member.id)}
+                            className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-gray-100"
+                          >
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
+                            <span className="shrink-0 font-medium text-black">{member.name}</span>
+                            <span className="truncate text-gray-500">{note.comment}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
               </div>
             </div>
