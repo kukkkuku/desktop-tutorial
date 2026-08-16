@@ -8,10 +8,10 @@ interface DataUploadBarProps {
 }
 
 // Always a single collapsed line, docked at the bottom of the 데이터 stage.
-// Clicking it doesn't expand in place -- DataStage renders the actual upload
-// panel at the top of the page instead, so the chevron points up while
-// collapsed (opens upward, toward the top) and down once expanded (collapse
-// it back down).
+// DataStage renders the actual upload panel directly below this bar when
+// expanded (a plain accordion), so the chevron points down while collapsed
+// (more below, click to reveal) and flips up once expanded (click to
+// collapse it back).
 export default function DataUploadBar({ expanded, onToggle, uploadsLog }: DataUploadBarProps) {
   const { state } = useAppState()
   const { tasks, members, peerReviews } = state
@@ -59,7 +59,7 @@ export default function DataUploadBar({ expanded, onToggle, uploadsLog }: DataUp
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? '' : 'rotate-180'}`}
+            className={`ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>
@@ -81,7 +81,7 @@ export default function DataUploadBar({ expanded, onToggle, uploadsLog }: DataUp
             strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
-            className={`ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? '' : 'rotate-180'}`}
+            className={`ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
           >
             <path d="m6 9 6 6 6-6" />
           </svg>

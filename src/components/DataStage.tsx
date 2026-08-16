@@ -23,8 +23,6 @@ export default function DataStage() {
 
   return (
     <div>
-      {expanded && <DataUploadExpandedPanel onClose={() => setExpanded(false)} recordUpload={recordUpload} />}
-
       <div className="flex border-b border-gray-200">
         {SUB_TABS.map((tab) => (
           <button
@@ -46,6 +44,7 @@ export default function DataStage() {
       </div>
 
       <DataUploadBar expanded={expanded} onToggle={() => setExpanded((v) => !v)} uploadsLog={uploadsLog} />
+      {expanded && <DataUploadExpandedPanel onClose={() => setExpanded(false)} recordUpload={recordUpload} />}
     </div>
   )
 }
