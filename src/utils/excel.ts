@@ -271,9 +271,9 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
       errors.push(`${rowNum}행: 이름이 비어 있어 건너뛰었습니다.`)
       return
     }
-    if (levelRaw && !LEVEL_OPTIONS.includes(levelRaw as Level)) {
-      errors.push(`${rowNum}행 '${name}': 직급 '${levelRaw}'은(는) 유효하지 않습니다. (사원/대리/과장/차장)`)
-      return
+    const levelValid = !levelRaw || LEVEL_OPTIONS.includes(levelRaw as Level)
+    if (!levelValid) {
+      errors.push(`${rowNum}행 '${name}': 직급 '${levelRaw}'은(는) 유효하지 않아 비워두고 등록했습니다. (사원/대리/과장/차장)`)
     }
     const yearsOfService = yearsRaw === '' || yearsRaw === undefined ? null : Number(yearsRaw)
     if (yearsOfService !== null && Number.isNaN(yearsOfService)) {
@@ -286,7 +286,7 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
       id: existing?.id ?? uuidv4(),
       name,
       active: existing?.active ?? true,
-      level: (levelRaw as Level) || '',
+      level: levelValid ? (levelRaw as Level) || '' : '',
       yearsOfService,
       role,
       comment,
