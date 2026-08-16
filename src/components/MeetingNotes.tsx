@@ -500,65 +500,113 @@ export default function MeetingNotes() {
               </div>
             </div>
             ) : (
-              <button
-                onClick={() => setCalendarOpen(true)}
-                className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50 lg:flex-col lg:gap-1"
-                title="펼치기"
-                aria-label="면담 일정 캘린더 펼치기"
-              >
-                <CalendarIcon className="h-4 w-4" />
-                면담 일정
-              </button>
-            )}
-
-            <div className="rounded-lg border border-gray-200 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[13px] font-semibold text-black">오늘 {todayStr}</span>
-                {todayMembers.length > 0 && (
-                  <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원 — 바로 진행 가능</span>
-                )}
-              </div>
-              {todayMembers.length > 0 ? (
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {todayMembers.map(({ member, idx }) => (
-                    <button
-                      key={member.id}
-                      onClick={() => selectMember(member.id)}
-                      className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                      {member.name}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-1.5 text-[13px] text-gray-400">오늘 예정된 면담이 없습니다.</p>
-              )}
-            </div>
-
-            {upcomingDates
-              .filter(({ date }) => date !== todayStr)
-              .map(({ date, idxs }) => (
-                <div key={date} className="rounded-lg border border-gray-200 px-4 py-3">
-                  <span className="text-[13px] font-semibold text-black">{date}</span>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {idxs.map((idx) => {
-                      const member = members[idx]
-                      if (!member) return null
-                      return (
+              <div className="rounded-lg border border-gray-200">
+                <button
+                  onClick={() => setCalendarOpen(true)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-black hover:bg-gray-50"
+                  title="펼치기"
+                  aria-label="면담 일정 캘린더 펼치기"
+                >
+                  <span className="flex items-center gap-2">
+                    <CalendarIcon className="h-4 w-4 text-gray-400" /> 면담 일정
+                  </span>
+                  <ChevronIcon direction="right" className="h-4 w-4 text-gray-400" />
+                </button>
+                <div className="divide-y divide-gray-100 border-t border-gray-200">
+                  <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[13px]">
+                    <span className="shrink-0 font-medium text-gray-500">오늘</span>
+                    {todayMembers.length > 0 ? (
+                      todayMembers.map(({ member, idx }) => (
                         <button
-                          key={idx}
+                          key={member.id}
                           onClick={() => selectMember(member.id)}
-                          className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
+                          className="flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 font-semibold text-accent hover:bg-orange-100"
                         >
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                           {member.name}
                         </button>
-                      )
-                    })}
+                      ))
+                    ) : (
+                      <span className="text-gray-400">예정 없음</span>
+                    )}
                   </div>
+                  {upcomingDates
+                    .filter(({ date }) => date !== todayStr)
+                    .map(({ date, idxs }) => (
+                      <div key={date} className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[13px]">
+                        <span className="shrink-0 font-medium text-gray-500">{fmtShort(date)}</span>
+                        {idxs.map((idx) => {
+                          const member = members[idx]
+                          if (!member) return null
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => selectMember(member.id)}
+                              className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-gray-600 hover:bg-gray-200"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                              {member.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ))}
                 </div>
-              ))}
+              </div>
+            )}
+
+            {calendarOpen && (
+              <>
+                <div className="rounded-lg border border-gray-200 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-black">오늘 {todayStr}</span>
+                    {todayMembers.length > 0 && (
+                      <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원 — 바로 진행 가능</span>
+                    )}
+                  </div>
+                  {todayMembers.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {todayMembers.map(({ member, idx }) => (
+                        <button
+                          key={member.id}
+                          onClick={() => selectMember(member.id)}
+                          className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-[13px] text-gray-400">오늘 예정된 면담이 없습니다.</p>
+                  )}
+                </div>
+
+                {upcomingDates
+                  .filter(({ date }) => date !== todayStr)
+                  .map(({ date, idxs }) => (
+                    <div key={date} className="rounded-lg border border-gray-200 px-4 py-3">
+                      <span className="text-[13px] font-semibold text-black">{date}</span>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {idxs.map((idx) => {
+                          const member = members[idx]
+                          if (!member) return null
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => selectMember(member.id)}
+                              className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                              {member.name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
         </div>
       )}
