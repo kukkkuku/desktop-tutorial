@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import Spinner from './Spinner'
 import ConfirmDialog from './ConfirmDialog'
@@ -36,6 +36,37 @@ export default function DataUploadPanel({ uploadsLog, recordUpload }: DataUpload
   const [isDragOver, setIsDragOver] = useState(false)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const bulkInputRef = useRef<HTMLInputElement>(null)
+
+  // position:fixed is always relative to the real viewport (never a
+  // transformed ancestor) so the sheet stays pinned to the bottom of the
+  // screen no matter how tall the table gets or how far the page is
+  // scrolled -- a transformed ancestor would turn "fixed" into effectively
+  // "absolute to that box", which breaks the moment content grows past one
+  // viewport tall. That means it can't inherit the main content column's
+  // left/width from CSS alone (it would run full viewport width, under the
+  // sidebar). Instead this invisible zero-height anchor sits in normal flow
+  // at the exact spot DataUploadPanel is rendered -- inside <main>, after
+  // its padding -- so its measured rect always matches the content column,
+  // live, whatever the sidebar's current width is (icon/full/dragged).
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const [bounds, setBounds] = useState<{ left: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      setBounds({ left: rect.left, width: rect.width })
+    }
+    update()
+    const resizeObserver = new ResizeObserver(update)
+    resizeObserver.observe(el)
+    window.addEventListener('resize', update)
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', update)
+    }
+  }, [])
 
   const isBusy = loadingLabel !== null
 
@@ -136,9 +167,19 @@ export default function DataUploadPanel({ uploadsLog, recordUpload }: DataUpload
   }
 
   return (
-    // BottomSheet -- 뷰포트 기준 fixed, 문서 흐름 밖. 항상 최하단에 붙어
-    // 있고, 펼쳐도 이 박스 자체 높이만 위로 늘어날 뿐 페이지는 밀리지 않는다.
-    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4 sm:px-6 lg:px-8">
+    <>
+      {/* 문서 흐름 안의 투명한 높이 0 앵커 -- <main> 패딩 안쪽, 사이드바를
+          제외한 콘텐츠 컬럼과 정확히 같은 left/width를 갖는다. */}
+      <div ref={anchorRef} aria-hidden="true" className="h-0" />
+
+      {/* BottomSheet -- 뷰포트 기준 fixed, 문서 흐름 밖. 항상 최하단에 붙어
+          있고, 펼쳐도 이 박스 자체 높이만 위로 늘어날 뿐 페이지는 밀리지
+          않는다. left/width는 위 앵커에서 측정한 값을 그대로 사용해
+          사이드바 폭(아이콘/펼침/드래그)이 바뀌어도 실시간으로 따라간다. */}
+      <div
+        className="fixed bottom-0 z-30 pb-4"
+        style={bounds ? { left: bounds.left, width: bounds.width } : { left: 0, right: 0 }}
+      >
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
         {/* ExpandedContent -- BottomBar와 같은 부모 안의 형제. 접히면
             max-height:0으로 완전히 사라진다 (별도 section이 아니다). */}
@@ -332,6 +373,7 @@ export default function DataUploadPanel({ uploadsLog, recordUpload }: DataUpload
           )}
         </button>
       </div>
+      </div>
 
       <ConfirmDialog
         open={resetDialogOpen}
@@ -340,6 +382,6 @@ export default function DataUploadPanel({ uploadsLog, recordUpload }: DataUpload
         onConfirm={handleResetConfirm}
         onCancel={() => setResetDialogOpen(false)}
       />
-    </div>
+    </>
   )
 }
