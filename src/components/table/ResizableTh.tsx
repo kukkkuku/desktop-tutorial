@@ -14,6 +14,11 @@ interface ResizableThProps {
 // 목록 순서가 아니라 생성된 스타일시트 순서로 우선순위가 정해지므로, 두 개의
 // px/py 유틸리티를 이어붙이면(px-4 py-3 + px-3 py-2) 어느 쪽이 이길지 예측할 수
 // 없다. 테이블마다 패딩이 달라 각 호출부가 자신의 전체 클래스를 넘긴다.
+//
+// 드래그 손잡이는 th 경계 밖으로 절대 삐져나오지 않는다(right-0, th 안쪽에만
+// 위치) — 예전에는 경계에 걸치도록 -right-1.5로 바깥까지 나갔는데, 좁은
+// 컨테이너(모달, Drawer)에서는 마지막 컬럼의 그 몇 px가 테이블 전체 너비를
+// 넘겨서 항상 불필요한 가로 스크롤이 생기는 원인이었다.
 export default function ResizableTh({
   width,
   onResizeStart,
@@ -33,7 +38,7 @@ export default function ResizableTh({
         style={{ touchAction: 'none' }}
         title="드래그해서 열 너비 조절"
         aria-hidden="true"
-        className="group absolute inset-y-0 -right-1.5 z-10 flex w-3 cursor-col-resize select-none items-center justify-center"
+        className="group absolute inset-y-0 right-0 z-10 flex w-2 cursor-col-resize select-none items-center justify-end"
       >
         <span className="h-4 w-px bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
       </div>
