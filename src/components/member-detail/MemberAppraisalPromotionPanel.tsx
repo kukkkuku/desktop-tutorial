@@ -68,6 +68,34 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const tenureMet = criteria ? levelTenureYears !== null && levelTenureYears >= criteria.tenureYears : null
 
+  // 승진 시뮬레이션 — 첨부 Excel의 "육성 시뮬레이션" 블록과 동일하게, 실제 기록에는
+  // 저장하지 않고 가상의 다음 평가 등급을 넣어 승진 점수가 어떻게 바뀌는지만 미리 계산한다.
+  const nextSimYear = (records[records.length - 1]?.year ?? new Date().getFullYear() - 1) + 1
+  const [simYear, setSimYear] = useState(String(nextSimYear))
+  const [simFirst, setSimFirst] = useState<EvaluationGrade | ''>('')
+  const [simSecond, setSimSecond] = useState<EvaluationGrade | ''>('')
+  const [simCompetency, setSimCompetency] = useState<EvaluationGrade | ''>('')
+
+  const simYearNum = Number(simYear)
+  const simHasInput = simFirst !== '' || simSecond !== '' || simCompetency !== ''
+  const simRecords =
+    simHasInput && Number.isFinite(simYearNum)
+      ? [
+          ...records.filter((r) => r.year !== simYearNum),
+          {
+            id: 'sim',
+            memberId: member.id,
+            year: simYearNum,
+            firstHalfGrade: simFirst,
+            secondHalfGrade: simSecond,
+            competencyGrade: simCompetency,
+          },
+        ]
+      : records
+  const simReadiness = simHasInput
+    ? calcPromotionReadiness(member.level, simRecords, profile.promotionCriteria, profile.gradeScores)
+    : null
+
   function resetForm() {
     setForm(EMPTY_FORM)
     setFormError('')
@@ -233,6 +261,62 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
           <p className="mt-1 text-sm text-gray-400">이 직급에 대한 승진 기준이 없습니다.</p>
         )}
       </div>
+
+      {criteria && (
+        <div className="rounded-lg border border-dashed border-slate-300 p-4">
+          <p className="text-xs font-semibold text-promo">승진 시뮬레이션</p>
+          <p className="mt-0.5 text-[13px] text-gray-500">
+            다음 평가에서 어떤 등급을 받으면 승진 점수가 어떻게 바뀌는지 미리 확인합니다. 실제 기록에는 저장되지 않습니다.
+          </p>
+
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:items-end">
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400">연도</label>
+              <input
+                type="number"
+                value={simYear}
+                onChange={(e) => setSimYear(e.target.value)}
+                className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+              />
+            </div>
+            <GradeSelect label="업적(상)" value={simFirst} onChange={setSimFirst} />
+            <GradeSelect label="업적(하)" value={simSecond} onChange={setSimSecond} />
+            <GradeSelect label="역량" value={simCompetency} onChange={setSimCompetency} />
+          </div>
+
+          {simReadiness ? (
+            <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-200 pt-3">
+              <div>
+                <p className="text-[11px] font-medium text-gray-400">현재</p>
+                <p className="mt-0.5 text-lg font-bold text-black">
+                  {readiness?.weightedScore.toFixed(1) ?? '0.0'} <span className="text-sm font-medium text-gray-400">/ {criteria.requiredScore}</span>
+                </p>
+                <p className="text-[13px] text-gray-500">{readiness?.progressPercent ?? 0}%</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-medium text-promo">{simYear}년 {simFirst || simSecond || simCompetency ? '적용 시' : ''}</p>
+                <p className="mt-0.5 text-lg font-bold text-promo">
+                  {simReadiness.weightedScore.toFixed(1)} <span className="text-sm font-medium text-gray-400">/ {criteria.requiredScore}</span>
+                </p>
+                <p className="text-[13px] text-gray-500">
+                  {simReadiness.progressPercent}%
+                  {readiness && (
+                    <span className={simReadiness.weightedScore >= readiness.weightedScore ? 'ml-1 text-success' : 'ml-1 text-danger'}>
+                      ({simReadiness.weightedScore >= readiness.weightedScore ? '+' : ''}
+                      {(simReadiness.weightedScore - readiness.weightedScore).toFixed(1)})
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-[13px] font-semibold text-black">
+                  {simReadiness.gap > 0 ? `${simReadiness.gap}점 부족` : '자격점수 충족'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-3 text-[13px] text-gray-400">등급을 하나 이상 선택하면 결과가 표시됩니다.</p>
+          )}
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleting !== null}
