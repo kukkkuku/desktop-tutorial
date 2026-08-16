@@ -284,13 +284,47 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
       <button
         onClick={() => toggleActive(item.key)}
         title="클릭해서 사용 여부 전환"
-        className={`inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+        className={`inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
           active ? 'border-orange-200 bg-orange-50 text-accent hover:border-orange-300' : 'border-gray-200 bg-gray-50 text-gray-400'
         }`}
       >
         {item.label}
         <span className="font-mono">{active ? `${value}%` : '0%'}</span>
       </button>
+    )
+  }
+
+  function sliderBackground(value: number): string {
+    const percent = ((value - 5) / 95) * 100
+    return `linear-gradient(to right, #eb6100 ${percent}%, #e5e7eb ${percent}%)`
+  }
+
+  function CriteriaItem({ itemKey, label, desc }: { itemKey: keyof Criteria; label: string; desc: string }) {
+    const value = criteria[itemKey]
+    const checked = value > 0
+    return (
+      <div className="rounded-md border border-gray-200 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] font-semibold text-black">
+            {label}
+            {checked && <span className="ml-2 font-mono text-[13px] font-bold text-accent">{value}%</span>}
+          </p>
+          <Toggle on={checked} onChange={(v) => set(itemKey, v ? 100 : 0)} />
+        </div>
+        {checked && (
+          <input
+            type="range"
+            min={5}
+            max={100}
+            step={5}
+            value={value}
+            onChange={(e) => set(itemKey, Number(e.target.value))}
+            style={{ background: sliderBackground(value) }}
+            className="criteria-slider mt-2.5 w-full"
+          />
+        )}
+        <p className="mt-2 text-[13px] leading-relaxed text-gray-400">{desc}</p>
+      </div>
     )
   }
 
@@ -438,7 +472,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
       {size === 'chip' && (
         <div className="flex flex-col gap-2 px-4 py-4">
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
+            <span className="text-[13px] font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
             <div className="flex items-center gap-1">
               <button
                 onClick={handleUnpin}
@@ -467,7 +501,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
           ))}
           <button
             onClick={() => onSize('full')}
-            className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-xs font-medium text-accent transition-colors hover:bg-orange-50"
+            className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-[13px] font-medium text-accent transition-colors hover:bg-orange-50"
           >
             설정 변경 →
           </button>
@@ -493,83 +527,25 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
             </div>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            <p className="text-xs leading-relaxed text-gray-500">
+            <p className="text-[13px] leading-relaxed text-gray-500">
               켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.
             </p>
 
             <div>
-              <p className="mb-2 text-xs font-semibold text-gray-400">과제 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-gray-400">과제 평가 기준</p>
               <div className="space-y-2">
-                {TASK_ITEMS.map(({ key, label, desc }) => {
-                  const value = criteria[key]
-                  const checked = value > 0
-                  return (
-                    <div key={key} className="rounded-md border border-gray-200 p-3">
-                      <div className="mb-1 flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-semibold text-black">{label}</p>
-                          <p className="mt-0.5 text-xs leading-relaxed text-gray-400">{desc}</p>
-                        </div>
-                        <Toggle on={checked} onChange={(v) => set(key, v ? 100 : 0)} />
-                      </div>
-                      {checked && (
-                        <div className="mt-2">
-                          <div className="mb-1 flex justify-between">
-                            <span className="text-xs text-gray-400">반영 비율</span>
-                            <span className="font-mono text-xs font-bold text-accent">{value}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={5}
-                            max={100}
-                            step={5}
-                            value={value}
-                            onChange={(e) => set(key, Number(e.target.value))}
-                            className="criteria-slider w-full"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                {TASK_ITEMS.map(({ key, label, desc }) => (
+                  <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
+                ))}
               </div>
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-semibold text-gray-400">팀원 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-gray-400">팀원 평가 기준</p>
               <div className="space-y-2">
-                {MEMBER_ITEMS.map(({ key, label, desc }) => {
-                  const value = criteria[key]
-                  const checked = value > 0
-                  return (
-                    <div key={key} className="rounded-md border border-gray-200 p-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-semibold text-black">{label}</p>
-                          <p className="mt-0.5 text-xs leading-relaxed text-gray-400">{desc}</p>
-                        </div>
-                        <Toggle on={checked} onChange={(v) => set(key, v ? 100 : 0)} />
-                      </div>
-                      {checked && (
-                        <div className="mt-2">
-                          <div className="mb-1 flex justify-between">
-                            <span className="text-xs text-gray-400">반영 비율</span>
-                            <span className="font-mono text-xs font-bold text-accent">{value}%</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={5}
-                            max={100}
-                            step={5}
-                            value={value}
-                            onChange={(e) => set(key, Number(e.target.value))}
-                            className="criteria-slider w-full"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                {MEMBER_ITEMS.map(({ key, label, desc }) => (
+                  <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
+                ))}
               </div>
             </div>
           </div>

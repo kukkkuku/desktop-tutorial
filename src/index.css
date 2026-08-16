@@ -18,40 +18,41 @@ body {
   max-width: 100%;
 }
 
-/* Thin gray track + accent-colored thumb for the criteria weight sliders --
-   overridden explicitly since the default range track renders thick and
-   dark in most browsers regardless of the accent-color property. */
+/* Filled-progress track + accent thumb for the criteria weight sliders. The
+   input's own `background` (set inline per-value as a two-stop gradient) is
+   what actually paints the orange/gray split -- the track pseudo-elements
+   are left transparent so that gradient shows through underneath them. */
 .criteria-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 4px;
-  background: transparent;
+  height: 6px;
+  border-radius: 9999px;
   cursor: pointer;
 }
 .criteria-slider::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 6px;
   border-radius: 9999px;
-  background: #d1d5db;
+  background: transparent;
 }
 .criteria-slider::-moz-range-track {
-  height: 4px;
+  height: 6px;
   border-radius: 9999px;
-  background: #d1d5db;
+  background: transparent;
 }
 .criteria-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  margin-top: -5px;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
   border-radius: 9999px;
   background: #eb6100;
   cursor: pointer;
 }
 .criteria-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border: none;
   border-radius: 9999px;
   background: #eb6100;
