@@ -264,7 +264,7 @@ export default function TeamManagement() {
                       <button
                         onClick={() => toggleActive(member)}
                         className={`rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                          member.active ? 'bg-green-50 text-success hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                          member.active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
                         {member.active ? '사용' : '미사용'}
@@ -310,7 +310,7 @@ export default function TeamManagement() {
                       onClick={() => toggleActive(member)}
                       title="클릭해서 활성/비활성 전환"
                       className={`rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                        member.active ? 'bg-green-50 text-success hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        member.active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
                     >
                       {member.active ? '사용' : '미사용'}
