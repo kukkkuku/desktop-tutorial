@@ -7,11 +7,13 @@ interface DataUploadBarProps {
   uploadsLog: UploadsLog
 }
 
-// Always a single collapsed line, docked at the bottom of the 데이터 stage.
-// DataStage renders the actual upload panel directly below this bar when
-// expanded (a plain accordion), so the chevron points down while collapsed
-// (more below, click to reveal) and flips up once expanded (click to
-// collapse it back).
+// Always a single collapsed line. DataStage wraps this together with the
+// upload panel in a `sticky bottom-0` container, so once the page scrolls
+// past it this bar floats pinned to the bottom of the viewport, sitting on
+// top of the table. Expanding it grows the panel above this bar via a
+// max-height transition -- reads as sliding up out of the floating bar. The
+// chevron points down while collapsed (more above once opened) and flips up
+// once expanded (click to collapse it back).
 export default function DataUploadBar({ expanded, onToggle, uploadsLog }: DataUploadBarProps) {
   const { state } = useAppState()
   const { tasks, members, peerReviews } = state
@@ -20,7 +22,7 @@ export default function DataUploadBar({ expanded, onToggle, uploadsLog }: DataUp
   return (
     <button
       onClick={onToggle}
-      className="mt-5 flex w-full flex-wrap items-center gap-2 overflow-hidden rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
+      className="flex w-full flex-wrap items-center gap-2 overflow-hidden rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
     >
       {hasData ? (
         <>

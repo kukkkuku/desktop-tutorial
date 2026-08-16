@@ -43,8 +43,18 @@ export default function DataStage() {
         {sub === 'peer' && <PeerReviewManagement onUploaded={(files) => recordUpload('peer', files)} />}
       </div>
 
-      <DataUploadBar expanded={expanded} onToggle={() => setExpanded((v) => !v)} uploadsLog={uploadsLog} />
-      {expanded && <DataUploadExpandedPanel onClose={() => setExpanded(false)} recordUpload={recordUpload} />}
+      {/* 스크롤이 길어지면 뷰포트 하단에 붙어 떠 있다가, 펼치면 그 자리에서
+          위로 자라나며 테이블 위를 덮는다 -- 문서 흐름을 밀어내지 않는다. */}
+      <div className="sticky bottom-0 z-20 mt-5 bg-white">
+        <div
+          className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+            expanded ? 'max-h-[70vh]' : 'max-h-0'
+          }`}
+        >
+          <DataUploadExpandedPanel onClose={() => setExpanded(false)} recordUpload={recordUpload} />
+        </div>
+        <DataUploadBar expanded={expanded} onToggle={() => setExpanded((v) => !v)} uploadsLog={uploadsLog} />
+      </div>
     </div>
   )
 }

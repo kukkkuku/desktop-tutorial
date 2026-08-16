@@ -20,8 +20,8 @@ const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 
 // 과제/팀원/피어리뷰 개별 양식 업로드는 각 탭의 타이틀 옆으로 옮겨졌으므로,
 // 이 패널은 여러 종류가 섞인 파일을 한 번에 올리는 통합 업로드와 전체
-// 초기화만 담당한다. DataStage가 expanded일 때만 하단 바 바로 아래에
-// 아코디언처럼 펼쳐진다.
+// 초기화만 담당한다. DataStage가 하단 바 위에 max-height 트랜지션으로
+// 감싸서 펼칠 때 위로 자라나는 것처럼 보이게 한다.
 export default function DataUploadExpandedPanel({ onClose, recordUpload }: DataUploadExpandedPanelProps) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews } = state
@@ -132,7 +132,7 @@ export default function DataUploadExpandedPanel({ onClose, recordUpload }: DataU
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-md border border-gray-200 bg-white px-4 py-4 shadow-sm">
+    <div className="mb-3 space-y-3 rounded-md border border-gray-200 bg-white px-4 py-4 shadow-sm">
       <div>
         <p className="text-sm font-semibold text-black">통합 업로드</p>
         <p className="text-xs text-gray-400">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리거나 전체 데이터를 초기화합니다.</p>
