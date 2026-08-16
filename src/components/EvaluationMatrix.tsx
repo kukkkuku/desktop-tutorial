@@ -169,6 +169,7 @@ export default function EvaluationMatrix() {
                               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[result.grade]}`}>
                                 {result.grade}
                               </span>
+                              <span className="text-xs font-normal text-gray-500">{resultIdx + 1}위</span>
                               <span className="text-xs font-normal text-gray-500">{result.cumulativeScore.toFixed(1)}점</span>
                             </>
                           ) : (
