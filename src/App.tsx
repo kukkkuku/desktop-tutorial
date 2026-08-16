@@ -13,7 +13,7 @@ import MeetingNotes from './components/MeetingNotes'
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
-  const [panelSize, setPanelSize] = useState<PanelSize>('icon')
+  const [panelSize, setPanelSize] = useState<PanelSize>('chip')
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
 
   function handleStageChange(next: Stage) {

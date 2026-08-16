@@ -7,64 +7,6 @@ interface IconProps {
   className?: string
 }
 
-function StarIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  )
-}
-
-function FlagIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-      <line x1="4" y1="22" x2="4" y2="15" />
-    </svg>
-  )
-}
-
-function BarsIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  )
-}
-
-function PercentIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="19" y1="5" x2="5" y2="19" />
-      <circle cx="6.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="17.5" r="2.5" />
-    </svg>
-  )
-}
-
-function UserCheckIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="8.5" cy="7" r="4" />
-      <polyline points="17 11 19 13 23 9" />
-    </svg>
-  )
-}
-
-function UsersIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
 // "Adjustment sliders" glyph -- reads as tuning/criteria controls rather
 // than a generic settings gear, matching what this button actually opens.
 function AdjustIcon({ className }: IconProps) {
@@ -100,35 +42,31 @@ type ItemKey = keyof Criteria
 interface ItemDef {
   key: ItemKey
   label: string
-  Icon: (p: IconProps) => JSX.Element
 }
 
 // Two groups, task-side then member-side, matching the divider the user asked for.
 const GROUP_1: ItemDef[] = [
-  { key: 'taskGradeWeight', label: '과제등급', Icon: FlagIcon },
-  { key: 'workloadWeight', label: '업무량', Icon: BarsIcon },
-  { key: 'performanceGradeWeight', label: '성과등급', Icon: StarIcon },
+  { key: 'taskGradeWeight', label: '과제등급' },
+  { key: 'workloadWeight', label: '업무량' },
+  { key: 'performanceGradeWeight', label: '성과등급' },
 ]
 const GROUP_2: ItemDef[] = [
-  { key: 'contributionWeight', label: '기여도', Icon: PercentIcon },
-  { key: 'personalGradeWeight', label: '개인수행등급', Icon: UserCheckIcon },
-  { key: 'peerReviewWeight', label: '피어리뷰', Icon: UsersIcon },
+  { key: 'contributionWeight', label: '기여도' },
+  { key: 'personalGradeWeight', label: '개인수행등급' },
+  { key: 'peerReviewWeight', label: '피어리뷰' },
 ]
 
-export type PanelSize = 'icon' | 'chip' | 'full'
+export type PanelSize = 'chip' | 'full'
 
-const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
-const MIN_WIDTH = PANEL_WIDTH.icon
+const PANEL_WIDTH: Record<PanelSize, number> = { chip: 112, full: 320 }
+const MIN_WIDTH = PANEL_WIDTH.chip
 const MAX_WIDTH = 480
-// Crossing a midpoint while dragging the splitter switches which content
-// renders, so widening sweeps icon -> chip -> full and narrowing reverses it.
-const ICON_CHIP_THRESHOLD = (PANEL_WIDTH.icon + PANEL_WIDTH.chip) / 2
+// Crossing the midpoint while dragging the splitter switches which content
+// renders, so widening sweeps chip -> full and narrowing reverses it.
 const CHIP_FULL_THRESHOLD = (PANEL_WIDTH.chip + PANEL_WIDTH.full) / 2
 
 function widthToSize(width: number): PanelSize {
-  if (width < ICON_CHIP_THRESHOLD) return 'icon'
-  if (width < CHIP_FULL_THRESHOLD) return 'chip'
-  return 'full'
+  return width < CHIP_FULL_THRESHOLD ? 'chip' : 'full'
 }
 
 interface CriteriaPanelProps {
@@ -138,16 +76,17 @@ interface CriteriaPanelProps {
 
 // Always docked to the left as a normal in-flow sidebar column that reserves
 // width and pushes the main content over -- no floating, no dragging to
-// reposition. The only interaction besides toggling/tuning criteria is
-// resizing via the splitter, which sweeps continuously through
-// icon -> chip -> full and snaps to the nearest preset on release.
+// reposition. Two states only: a compact chip list (label + reflection %,
+// stacked) and the full detailed settings. The only interaction besides
+// toggling/tuning criteria is resizing via the splitter, which sweeps
+// continuously between the two and snaps to the nearest preset on release.
 export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
   // Non-null only while the splitter is actively being dragged -- the width
   // it tracks is continuous, but releases back to the exact preset width for
-  // whichever size the drag landed on (icon/chip/full), not left in-between.
+  // whichever size the drag landed on (chip/full), not left in-between.
   const [dragWidth, setDragWidth] = useState<number | null>(null)
 
   function set(key: keyof Criteria, weight: number) {
@@ -159,9 +98,8 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     set(key, current > 0 ? 0 : 100)
   }
 
-  // Splitter: drag the panel's right edge to sweep continuously through
-  // icon -> chip -> full (or back) instead of only jumping between the
-  // three presets via buttons.
+  // Splitter: drag the panel's right edge to sweep continuously between
+  // chip and full width (or back) instead of only jumping via buttons.
   function onResizePointerDown(e: React.PointerEvent) {
     e.preventDefault()
     const startWidth = dragWidth ?? PANEL_WIDTH[size]
@@ -184,27 +122,15 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     setDragWidth(null)
   }
 
-  // Icon-only trigger for the narrowest (icon) width -- opens full settings.
-  function ExpandIconButton() {
-    return (
-      <button
-        onClick={() => onSize('full')}
-        title="기준 설정 열기"
-        aria-label="기준 설정"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent"
-      >
-        <AdjustIcon className="h-4 w-4" />
-      </button>
-    )
-  }
-
-  // Icon + label trigger once there's room (chip width) -- same action, more context.
+  // Icon + label trigger at the top of the chip list -- opens full settings.
+  // Stacked (not side-by-side) so it stays legible at chip width instead of
+  // wrapping the label awkwardly next to the icon.
   function ExpandLabelButton() {
     return (
       <button
         onClick={() => onSize('full')}
         title="기준 설정 열기"
-        className="flex w-full shrink-0 items-center gap-2 rounded-md px-2 py-2 text-[13px] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent"
+        className="flex w-full shrink-0 flex-col items-center gap-1 whitespace-nowrap rounded-md px-1 py-2 text-[13px] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent"
       >
         <AdjustIcon className="h-4 w-4 shrink-0" />
         상세 설정
@@ -213,11 +139,11 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
   }
 
   // Once settings are already open, the icon+label trigger is redundant --
-  // a plain collapse arrow closes it back down to the icon-only width.
+  // a plain collapse arrow closes it back down to the chip width.
   function CollapseButton() {
     return (
       <button
-        onClick={() => onSize('icon')}
+        onClick={() => onSize('chip')}
         title="접기"
         aria-label="기준 설정 접기"
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent"
@@ -227,23 +153,8 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     )
   }
 
-  function IconButton({ item }: { item: ItemDef }) {
-    const value = criteria[item.key]
-    const active = value > 0
-    return (
-      <button
-        onClick={() => toggleActive(item.key)}
-        title={`${item.label} — ${active ? value + '%' : '사용 안 함'} (클릭해서 전환)`}
-        aria-label={item.label}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${
-          active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'text-gray-300 hover:bg-gray-100'
-        }`}
-      >
-        <item.Icon className="h-4 w-4" />
-      </button>
-    )
-  }
-
+  // Compact stacked chip -- label on one line, reflection % below it -- so
+  // the collapsed list stays narrow while still showing what's on and how much.
   function Chip({ item }: { item: ItemDef }) {
     const value = criteria[item.key]
     const active = value > 0
@@ -251,11 +162,11 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
       <button
         onClick={() => toggleActive(item.key)}
         title="클릭해서 사용 여부 전환"
-        className={`inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+        className={`flex w-full flex-col items-center gap-0.5 rounded-md border px-1 py-2 text-center text-[13px] font-medium leading-tight transition-colors ${
           active ? 'border-orange-200 bg-orange-50 text-accent hover:border-orange-300' : 'border-gray-200 bg-gray-50 text-gray-400'
         }`}
       >
-        {item.label}
+        <span>{item.label}</span>
         <span className="font-mono">{active ? `${value}%` : '0%'}</span>
       </button>
     )
@@ -365,29 +276,15 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
         onPointerUp={onResizePointerUp}
         onPointerCancel={onResizePointerUp}
         style={{ touchAction: 'none', right: 0 }}
-        title="드래그해서 너비 조절 (아이콘 ↔ 칩 ↔ 상세설정)"
+        title="드래그해서 너비 조절 (칩 ↔ 상세설정)"
         aria-label="패널 너비 조절"
         className="group absolute inset-y-0 z-10 flex w-3 cursor-col-resize items-center justify-center"
       >
         <span className="h-10 w-1 shrink-0 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
       </div>
 
-      {size === 'icon' && (
-        <div className="flex h-full flex-col items-center gap-1.5 p-3">
-          <ExpandIconButton />
-          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
-          {GROUP_1.map((item) => (
-            <IconButton key={item.key} item={item} />
-          ))}
-          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
-          {GROUP_2.map((item) => (
-            <IconButton key={item.key} item={item} />
-          ))}
-        </div>
-      )}
-
       {size === 'chip' && (
-        <div className="flex h-full flex-col gap-2 px-4 py-4">
+        <div className="flex h-full flex-col gap-1.5 px-2 py-3">
           <ExpandLabelButton />
           <span className="my-0.5 h-px w-full bg-gray-100" />
           {GROUP_1.map((item) => (
