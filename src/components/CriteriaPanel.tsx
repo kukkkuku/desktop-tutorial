@@ -7,19 +7,6 @@ interface IconProps {
   className?: string
 }
 
-function MoveIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polyline points="5 9 2 12 5 15" />
-      <polyline points="9 5 12 2 15 5" />
-      <polyline points="15 19 12 22 9 19" />
-      <polyline points="19 9 22 12 19 15" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <line x1="12" y1="2" x2="12" y2="22" />
-    </svg>
-  )
-}
-
 function StarIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -78,27 +65,11 @@ function UsersIcon({ className }: IconProps) {
   )
 }
 
-function ChevronRightIcon({ className }: IconProps) {
+function GearIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  )
-}
-
-function ChevronUpIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m18 15-6-6-6 6" />
-    </svg>
-  )
-}
-
-function PinIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="12" y1="17" x2="12" y2="22" />
-      <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a1 1 0 0 0 0-2H8a1 1 0 0 0 0 2h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   )
 }
@@ -150,11 +121,8 @@ const GROUP_2: ItemDef[] = [
 ]
 
 export type PanelSize = 'icon' | 'chip' | 'full'
-export type PanelDock = 'left' | 'right' | null
 
 const PANEL_WIDTH: Record<PanelSize, number> = { icon: 56, chip: 188, full: 320 }
-export const DEFAULT_FLOAT_X = 24
-export const FLOAT_Y = 84
 const MIN_WIDTH = PANEL_WIDTH.icon
 const MAX_WIDTH = 480
 // Crossing a midpoint while dragging the splitter switches which content
@@ -169,25 +137,18 @@ function widthToSize(width: number): PanelSize {
 }
 
 interface CriteriaPanelProps {
-  dock: PanelDock
   size: PanelSize
-  floatX: number
-  onDock: (dock: PanelDock) => void
   onSize: (size: PanelSize) => void
-  onFloatX: (x: number) => void
 }
 
-// Undocked: a small floating icon-only strip that can be dragged left/right
-// and pinned to the nearest screen edge. Docked (left/right): a real sidebar
-// column in the page layout (not floating) that reserves width and pushes
-// the main content over, exactly like a normal app rail -- while docked it
-// can still be resized icon -> chip -> full without leaving the dock, and an
-// unpin control returns it to the floating icon.
-export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFloatX }: CriteriaPanelProps) {
+// Always docked to the left as a normal in-flow sidebar column that reserves
+// width and pushes the main content over -- no floating, no dragging to
+// reposition. The only interaction besides toggling/tuning criteria is
+// resizing via the splitter, which sweeps continuously through
+// icon -> chip -> full and snaps to the nearest preset on release.
+export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
-  const panelRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ startX: number; origX: number } | null>(null)
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
   // Non-null only while the splitter is actively being dragged -- the width
   // it tracks is continuous, but releases back to the exact preset width for
@@ -203,40 +164,13 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
     set(key, current > 0 ? 0 : 100)
   }
 
-  function onDragPointerDown(e: React.PointerEvent) {
-    e.preventDefault()
-    dragRef.current = { startX: e.clientX, origX: floatX }
-    e.currentTarget.setPointerCapture(e.pointerId)
+  function toggleSettings() {
+    onSize(size === 'full' ? 'icon' : 'full')
   }
 
-  function onDragPointerMove(e: React.PointerEvent) {
-    if (!dragRef.current) return
-    const dx = e.clientX - dragRef.current.startX
-    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon
-    const maxX = Math.max(window.innerWidth - width, 0)
-    onFloatX(Math.min(Math.max(dragRef.current.origX + dx, 0), maxX))
-  }
-
-  function onDragPointerUp() {
-    dragRef.current = null
-  }
-
-  function handlePin() {
-    const width = panelRef.current?.offsetWidth ?? PANEL_WIDTH.icon
-    const distLeft = floatX
-    const distRight = window.innerWidth - (floatX + width)
-    onDock(distLeft <= distRight ? 'left' : 'right')
-  }
-
-  function handleUnpin() {
-    onDock(null)
-    onSize('icon')
-  }
-
-  // Splitter: drag the docked panel's inner edge to sweep continuously
-  // through icon -> chip -> full (or back) instead of only jumping between
-  // the three presets via buttons. Direction flips with dock side so
-  // dragging always feels like "pull the edge toward the content."
+  // Splitter: drag the panel's right edge to sweep continuously through
+  // icon -> chip -> full (or back) instead of only jumping between the
+  // three presets via buttons.
   function onResizePointerDown(e: React.PointerEvent) {
     e.preventDefault()
     const startWidth = dragWidth ?? PANEL_WIDTH[size]
@@ -248,8 +182,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   function onResizePointerMove(e: React.PointerEvent) {
     if (!resizeRef.current) return
     const dx = e.clientX - resizeRef.current.startX
-    const delta = dock === 'left' ? dx : -dx
-    const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, resizeRef.current.startWidth + delta))
+    const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, resizeRef.current.startWidth + dx))
     setDragWidth(next)
     const derivedSize = widthToSize(next)
     if (derivedSize !== size) onSize(derivedSize)
@@ -258,6 +191,22 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
   function onResizePointerUp() {
     resizeRef.current = null
     setDragWidth(null)
+  }
+
+  function SettingsButton({ className }: { className?: string }) {
+    const isFull = size === 'full'
+    return (
+      <button
+        onClick={toggleSettings}
+        title={isFull ? '설정 닫기' : '기준 설정 열기'}
+        aria-label="기준 설정"
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${
+          isFull ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-100'
+        } ${className ?? ''}`}
+      >
+        <GearIcon className="h-4 w-4" />
+      </button>
+    )
   }
 
   function IconButton({ item }: { item: ItemDef }) {
@@ -377,53 +326,11 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
     { key: 'peerReviewWeight', label: '피어리뷰', desc: peerReviewDescription },
   ]
 
-  if (dock === null) {
-    return (
-      <div
-        ref={panelRef}
-        className="fixed z-40 flex flex-col items-center gap-1.5 overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
-        style={{ left: floatX, top: FLOAT_Y }}
-      >
-        <button
-          onPointerDown={onDragPointerDown}
-          onPointerMove={onDragPointerMove}
-          onPointerUp={onDragPointerUp}
-          onPointerCancel={onDragPointerUp}
-          style={{ touchAction: 'none' }}
-          title="이동 (좌우로 드래그)"
-          aria-label="패널 이동"
-          className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 active:cursor-grabbing"
-        >
-          <MoveIcon className="h-4 w-4" />
-        </button>
-        <button
-          onClick={handlePin}
-          title="가까운 가장자리(왼쪽/오른쪽)에 고정"
-          aria-label="가장자리에 고정"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
-        >
-          <PinIcon className="h-4 w-4" />
-        </button>
-        <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
-        {GROUP_1.map((item) => (
-          <IconButton key={item.key} item={item} />
-        ))}
-        <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
-        {GROUP_2.map((item) => (
-          <IconButton key={item.key} item={item} />
-        ))}
-      </div>
-    )
-  }
-
-  const expandRotate = dock === 'right' ? 'rotate-180' : ''
-  const collapseRotate = dock === 'right' ? '' : 'rotate-180'
-
   return (
     <div
-      className={`sticky top-[3.25rem] relative shrink-0 self-start overflow-y-auto bg-white ${
+      className={`sticky top-[3.25rem] relative shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white ${
         dragWidth === null ? 'transition-[width] duration-200' : ''
-      } ${dock === 'left' ? 'border-r' : 'border-l'} border-gray-200`}
+      }`}
       style={{ width: dragWidth ?? PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
     >
       <div
@@ -431,7 +338,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
         onPointerMove={onResizePointerMove}
         onPointerUp={onResizePointerUp}
         onPointerCancel={onResizePointerUp}
-        style={{ touchAction: 'none', [dock === 'left' ? 'right' : 'left']: 0 }}
+        style={{ touchAction: 'none', right: 0 }}
         title="드래그해서 너비 조절 (아이콘 ↔ 칩 ↔ 상세설정)"
         aria-label="패널 너비 조절"
         className="group absolute inset-y-0 z-10 flex w-3 cursor-col-resize items-center justify-center"
@@ -440,16 +347,7 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
       </div>
 
       {size === 'icon' && (
-        <div className="flex flex-col items-center gap-1.5 p-3">
-          <button
-            onClick={handleUnpin}
-            title="고정 해제"
-            aria-label="고정 해제"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-white"
-          >
-            <PinIcon className="h-4 w-4" />
-          </button>
-          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
+        <div className="flex h-full flex-col items-center gap-1.5 p-3">
           {GROUP_1.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
@@ -457,41 +355,13 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
           {GROUP_2.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
-          <button
-            onClick={() => onSize('chip')}
-            title="펼치기"
-            aria-label="기준 설정 펼치기"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
-          >
-            <ChevronRightIcon className={`h-4 w-4 ${expandRotate}`} />
-          </button>
+          <SettingsButton className="mt-auto" />
         </div>
       )}
 
       {size === 'chip' && (
-        <div className="flex flex-col gap-2 px-4 py-4">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-[13px] font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleUnpin}
-                title="고정 해제"
-                aria-label="고정 해제"
-                className="flex h-5 w-5 items-center justify-center rounded text-accent hover:bg-orange-50"
-              >
-                <PinIcon className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => onSize('icon')}
-                title="아이콘으로 접기"
-                aria-label="아이콘으로 접기"
-                className="flex h-5 w-5 items-center justify-center rounded text-gray-300 hover:bg-gray-100 hover:text-gray-500"
-              >
-                <ChevronRightIcon className={`h-3.5 w-3.5 ${collapseRotate}`} />
-              </button>
-            </div>
-          </div>
+        <div className="flex h-full flex-col gap-2 px-4 py-4">
+          <span className="mb-1 text-[13px] font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
           {GROUP_1.map((item) => (
             <Chip key={item.key} item={item} />
           ))}
@@ -499,32 +369,16 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
           {GROUP_2.map((item) => (
             <Chip key={item.key} item={item} />
           ))}
-          <button
-            onClick={() => onSize('full')}
-            className="mt-2 w-full rounded-md border border-accent py-1.5 text-center text-[13px] font-medium text-accent transition-colors hover:bg-orange-50"
-          >
-            설정 변경 →
-          </button>
+          <div className="mt-auto flex justify-center pt-2">
+            <SettingsButton />
+          </div>
         </div>
       )}
 
       {size === 'full' && (
         <div className="flex h-full flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3">
+          <div className="shrink-0 border-b border-gray-200 px-5 py-3">
             <span className="text-sm font-semibold text-black">기준 설정</span>
-            <div className="flex items-center gap-2.5">
-              <button onClick={handleUnpin} title="고정 해제" aria-label="고정 해제" className="text-accent hover:opacity-80">
-                <PinIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onSize('chip')}
-                title="접기"
-                aria-label="기준 설정 접기"
-                className="flex h-5 w-5 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-              >
-                <ChevronUpIcon className="h-4 w-4" />
-              </button>
-            </div>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
             <p className="text-[13px] leading-relaxed text-gray-500">
@@ -548,6 +402,9 @@ export default function CriteriaPanel({ dock, size, floatX, onDock, onSize, onFl
                 ))}
               </div>
             </div>
+          </div>
+          <div className="flex shrink-0 justify-center border-t border-gray-200 py-2.5">
+            <SettingsButton />
           </div>
         </div>
       )}

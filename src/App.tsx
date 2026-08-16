@@ -4,7 +4,7 @@ import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import StageTabs, { type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import AddPeriodModal from './components/AddPeriodModal'
-import CriteriaPanel, { DEFAULT_FLOAT_X, type PanelDock, type PanelSize } from './components/CriteriaPanel'
+import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
 import DataStage from './components/DataStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
@@ -13,9 +13,7 @@ import MeetingNotes from './components/MeetingNotes'
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
-  const [panelDock, setPanelDock] = useState<PanelDock>(null)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
-  const [panelFloatX, setPanelFloatX] = useState(DEFAULT_FLOAT_X)
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
 
   function handleStageChange(next: Stage) {
@@ -29,15 +27,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   function handleAddPeriod(periodName: string) {
     createWorkspace(teamName, periodName)
     setAddPeriodOpen(false)
-  }
-
-  const panelProps = {
-    dock: panelDock,
-    size: panelSize,
-    floatX: panelFloatX,
-    onDock: setPanelDock,
-    onSize: setPanelSize,
-    onFloatX: setPanelFloatX,
   }
 
   return (
@@ -54,17 +43,15 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           onExit={exitToLanding}
         />
         <div className="flex min-h-0">
-          {panelDock === 'left' && <CriteriaPanel {...panelProps} />}
+          <CriteriaPanel size={panelSize} onSize={setPanelSize} />
           <main className="mx-auto w-full min-w-0 max-w-[1920px] flex-1 px-4 py-6 sm:px-6 md:px-[100px]">
             {stage === 'data' && <DataStage />}
             {stage === 'evaluate' && <EvaluationMatrix />}
             {stage === 'results' && <EvaluationResults />}
             {stage === 'notes' && <MeetingNotes />}
           </main>
-          {panelDock === 'right' && <CriteriaPanel {...panelProps} />}
         </div>
       </div>
-      {panelDock === null && <CriteriaPanel {...panelProps} />}
       {addPeriodOpen && (
         <AddPeriodModal teamName={teamName} onSave={handleAddPeriod} onClose={() => setAddPeriodOpen(false)} />
       )}
