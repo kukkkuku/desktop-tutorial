@@ -11,11 +11,21 @@ import {
   isContributionSumValid,
   GRADE_COLORS,
 } from '../utils/calculations'
+import { useResizableColumns } from '../hooks/useResizableColumns'
+import ResizableTh from './table/ResizableTh'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
+const RESULT_COLUMNS = {
+  rank: 70,
+  name: 160,
+  grade: 90,
+  score: 100,
+}
+
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
+  const resultCols = useResizableColumns(RESULT_COLUMNS)
   const { tasks, members, contributions, criteria, peerReviews } = state
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const activeMembers = members.filter((m) => m.active)
@@ -189,13 +199,28 @@ export default function EvaluationMatrix() {
 
           <h3 className="mt-8 text-lg font-semibold text-black">팀원 평가 결과</h3>
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[420px] text-left text-sm">
+            <table className="w-full table-fixed text-left text-sm">
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
-                  <th className="px-4 py-2.5 w-12 text-center font-semibold">순위</th>
-                  <th className="px-4 py-2.5 font-semibold">팀원명</th>
-                  <th className="px-4 py-2.5 text-center font-semibold">등급</th>
-                  <th className="px-4 py-2.5 text-right font-semibold">점수</th>
+                  {(
+                    [
+                      ['rank', '순위', 'text-center'],
+                      ['name', '팀원명', ''],
+                      ['grade', '등급', 'text-center'],
+                      ['score', '점수', 'text-right'],
+                    ] as const
+                  ).map(([key, label, align]) => (
+                    <ResizableTh
+                      key={key}
+                      width={resultCols.widths[key]}
+                      onResizeStart={resultCols.startResize(key)}
+                      onResizeMove={resultCols.onResizeMove}
+                      onResizeEnd={resultCols.onResizeEnd}
+                      className={`px-4 py-2.5 font-semibold ${align}`}
+                    >
+                      {label}
+                    </ResizableTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>

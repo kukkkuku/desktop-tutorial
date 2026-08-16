@@ -6,7 +6,21 @@ import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcYearsSince, formatLevelTenureLabel } from '../utils/tenure'
+import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
+import ResizableTh from './table/ResizableTh'
+
+const TEAM_COLUMNS = {
+  name: 140,
+  level: 90,
+  service: 90,
+  levelTenure: 110,
+  role: 140,
+  tasks: 110,
+  peer: 130,
+  active: 100,
+  manage: 100,
+}
 
 interface MemberFormValues {
   name: string
@@ -28,6 +42,7 @@ function displayServiceYears(member: TeamMember): string {
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
+  const cols = useResizableColumns(TEAM_COLUMNS)
   const { openMemberDetail } = useMemberDetail()
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
@@ -219,18 +234,26 @@ export default function TeamManagement() {
         </p>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
-              <th className="px-4 py-3 font-semibold">이름</th>
-              <th className="px-4 py-3 font-semibold">직급</th>
-              <th className="px-4 py-3 font-semibold">근속</th>
-              <th className="px-4 py-3 font-semibold">직급 연차</th>
-              <th className="px-4 py-3 font-semibold">역할</th>
-              <th className="px-4 py-3 font-semibold">참여 과제 수</th>
-              <th className="px-4 py-3 font-semibold">받은 피어리뷰</th>
-              <th className="px-4 py-3 font-semibold">활성여부</th>
-              <th className="px-4 py-3 font-semibold">관리</th>
+              {(
+                [
+                  ['name', '이름'],
+                  ['level', '직급'],
+                  ['service', '근속'],
+                  ['levelTenure', '직급 연차'],
+                  ['role', '역할'],
+                  ['tasks', '참여 과제 수'],
+                  ['peer', '받은 피어리뷰'],
+                  ['active', '활성여부'],
+                  ['manage', '관리'],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd}>
+                  {label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>

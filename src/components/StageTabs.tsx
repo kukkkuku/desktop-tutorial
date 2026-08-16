@@ -34,7 +34,7 @@ export default function StageTabs({
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex w-full max-w-[1920px] flex-wrap items-center gap-4 px-4 py-3.5 sm:px-6">
+      <div className="flex w-full flex-wrap items-center gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
         <button
           onClick={onExit}
           title="홈으로"

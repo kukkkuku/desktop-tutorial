@@ -5,7 +5,17 @@ import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcPromotionReadiness, findPromotionCriteria, trendArrow } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
+import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ConfirmDialog from '../ConfirmDialog'
+import ResizableTh from '../table/ResizableTh'
+
+const APPRAISAL_COLUMNS = {
+  year: 90,
+  first: 100,
+  second: 100,
+  competency: 90,
+  manage: 130,
+}
 
 const GRADE_BADGE: Record<EvaluationGrade, string> = {
   S: 'text-blue-600 bg-blue-50',
@@ -54,6 +64,7 @@ function GradeSelect({
 
 export default function MemberAppraisalPromotionPanel({ member }: { member: TeamMember }) {
   const { profile, upsertAppraisal, deleteAppraisal } = useTeamProfile()
+  const cols = useResizableColumns(APPRAISAL_COLUMNS)
   const records = profile.hrAppraisals
     .filter((r) => r.memberId === member.id)
     .sort((a, b) => a.year - b.year)
@@ -151,14 +162,22 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[380px] text-left text-sm">
+            <table className="w-full table-fixed text-left text-sm">
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">연도</th>
-                  <th className="px-3 py-2 font-semibold">업적(상)</th>
-                  <th className="px-3 py-2 font-semibold">업적(하)</th>
-                  <th className="px-3 py-2 font-semibold">역량</th>
-                  <th className="px-3 py-2 font-semibold" />
+                  {(
+                    [
+                      ['year', '연도'],
+                      ['first', '업적(상)'],
+                      ['second', '업적(하)'],
+                      ['competency', '역량'],
+                      ['manage', ''],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd} className="px-3 py-2 font-semibold">
+                      {label}
+                    </ResizableTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>

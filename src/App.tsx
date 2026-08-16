@@ -57,7 +57,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             />
             <div className="flex min-h-0">
               <CriteriaPanel size={panelSize} onSize={setPanelSize} />
-              <main className="mx-auto w-full min-w-0 max-w-[1920px] flex-1 px-4 py-6 sm:px-6 md:px-[100px]">
+              <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {stage === 'data' && <DataStage />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}

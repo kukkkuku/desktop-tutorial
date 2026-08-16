@@ -4,14 +4,38 @@ import { useTeamProfile } from '../state/TeamContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { calcPromotionReadiness } from '../utils/promotion'
 import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { useResizableColumns } from '../hooks/useResizableColumns'
 import PromotionBadge from './PromotionBadge'
+import ResizableTh from './table/ResizableTh'
 
 const MEDALS = ['🥇', '🥈', '🥉']
+
+const RANKING_COLUMNS = {
+  rank: 80,
+  name: 180,
+  role: 140,
+  tasks: 120,
+  weighted: 170,
+  cumulative: 120,
+  grade: 110,
+}
+
+const TASK_COLUMNS = {
+  name: 180,
+  performanceGrade: 100,
+  taskGrade: 100,
+  workload: 90,
+  achievement: 180,
+  score: 90,
+  contributors: 200,
+}
 
 export default function EvaluationResults() {
   const { state } = useAppState()
   const { openMemberDetail } = useMemberDetail()
   const { profile } = useTeamProfile()
+  const rankingCols = useResizableColumns(RANKING_COLUMNS)
+  const taskCols = useResizableColumns(TASK_COLUMNS)
   const { tasks, members, contributions, criteria, meetingNotes, peerReviews } = state
 
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -123,16 +147,24 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">팀원별 순위</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
-              <th className="px-4 py-3 font-semibold">순위</th>
-              <th className="px-4 py-3 font-semibold">이름</th>
-              <th className="px-4 py-3 font-semibold">역할</th>
-              <th className="px-4 py-3 font-semibold">참여 과제 수</th>
-              <th className="px-4 py-3 font-semibold">종합 점수(가중평균)</th>
-              <th className="px-4 py-3 font-semibold">누적 점수</th>
-              <th className="px-4 py-3 font-semibold">평가등급</th>
+              {(
+                [
+                  ['rank', '순위'],
+                  ['name', '이름'],
+                  ['role', '역할'],
+                  ['tasks', '참여 과제 수'],
+                  ['weighted', '종합 점수(가중평균)'],
+                  ['cumulative', '누적 점수'],
+                  ['grade', '평가등급'],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh key={key} width={rankingCols.widths[key]} onResizeStart={rankingCols.startResize(key)} onResizeMove={rankingCols.onResizeMove} onResizeEnd={rankingCols.onResizeEnd}>
+                  {label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -172,16 +204,24 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">과제별 현황</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
-              <th className="px-4 py-3 font-semibold">과제명</th>
-              <th className="px-4 py-3 font-semibold">성과등급</th>
-              <th className="px-4 py-3 font-semibold">과제등급</th>
-              <th className="px-4 py-3 font-semibold">업무량</th>
-              <th className="px-4 py-3 font-semibold">성과</th>
-              <th className="px-4 py-3 font-semibold">점수</th>
-              <th className="px-4 py-3 font-semibold">팀원별 기여도</th>
+              {(
+                [
+                  ['name', '과제명'],
+                  ['performanceGrade', '성과등급'],
+                  ['taskGrade', '과제등급'],
+                  ['workload', '업무량'],
+                  ['achievement', '성과'],
+                  ['score', '점수'],
+                  ['contributors', '팀원별 기여도'],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh key={key} width={taskCols.widths[key]} onResizeStart={taskCols.startResize(key)} onResizeMove={taskCols.onResizeMove} onResizeEnd={taskCols.onResizeEnd}>
+                  {label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>

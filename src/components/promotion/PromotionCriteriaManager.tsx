@@ -2,6 +2,15 @@ import { useState } from 'react'
 import type { EvaluationGrade } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
+import { useResizableColumns } from '../../hooks/useResizableColumns'
+import ResizableTh from '../table/ResizableTh'
+
+const CRITERIA_COLUMNS = {
+  fromLevel: 100,
+  toLevel: 100,
+  tenure: 110,
+  requiredScore: 130,
+}
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -16,6 +25,7 @@ function CloseIcon({ className }: { className?: string }) {
 // 데이터>팀원 서브탭에서 진입한다 — 새로운 상위 메뉴를 만들지 않기 위함.
 export default function PromotionCriteriaManager({ onClose }: { onClose: () => void }) {
   const { profile, setPromotionCriteria, setGradeScores } = useTeamProfile()
+  const cols = useResizableColumns(CRITERIA_COLUMNS)
   const [criteria, setCriteria] = useState(profile.promotionCriteria)
   const [gradeScores, setLocalGradeScores] = useState(profile.gradeScores)
 
@@ -47,13 +57,21 @@ export default function PromotionCriteriaManager({ onClose }: { onClose: () => v
         <div className="mt-5">
           <h4 className="text-sm font-semibold text-black">직급별 승진자격기준</h4>
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full min-w-[420px] text-left text-sm">
+            <table className="w-full table-fixed text-left text-sm">
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
-                  <th className="px-3 py-2 font-semibold">현재직급</th>
-                  <th className="px-3 py-2 font-semibold">다음직급</th>
-                  <th className="px-3 py-2 font-semibold">체류연한</th>
-                  <th className="px-3 py-2 font-semibold">승진자격점수</th>
+                  {(
+                    [
+                      ['fromLevel', '현재직급'],
+                      ['toLevel', '다음직급'],
+                      ['tenure', '체류연한'],
+                      ['requiredScore', '승진자격점수'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd} className="px-3 py-2 font-semibold">
+                      {label}
+                    </ResizableTh>
+                  ))}
                 </tr>
               </thead>
               <tbody>

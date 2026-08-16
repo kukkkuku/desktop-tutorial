@@ -6,6 +6,18 @@ import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from 
 import ConfirmDialog from './ConfirmDialog'
 import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
 import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
+import { useResizableColumns } from '../hooks/useResizableColumns'
+import ResizableTh from './table/ResizableTh'
+
+const TASK_COLUMNS = {
+  name: 200,
+  taskGrade: 110,
+  performanceGrade: 110,
+  workload: 100,
+  objective: 180,
+  achievement: 180,
+  manage: 100,
+}
 
 interface TaskFormValues {
   name: string
@@ -18,6 +30,7 @@ interface TaskFormValues {
 
 export default function TaskManagement() {
   const { state, dispatch } = useAppState()
+  const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
 
@@ -244,16 +257,24 @@ export default function TaskManagement() {
         </p>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
-              <th className="px-4 py-3 font-semibold">과제명</th>
-              <th className="px-4 py-3 font-semibold">과제등급</th>
-              <th className="px-4 py-3 font-semibold">성과등급</th>
-              <th className="px-4 py-3 font-semibold">업무량</th>
-              <th className="px-4 py-3 font-semibold">목표</th>
-              <th className="px-4 py-3 font-semibold">성과</th>
-              <th className="px-4 py-3 font-semibold">관리</th>
+              {(
+                [
+                  ['name', '과제명'],
+                  ['taskGrade', '과제등급'],
+                  ['performanceGrade', '성과등급'],
+                  ['workload', '업무량'],
+                  ['objective', '목표'],
+                  ['achievement', '성과'],
+                  ['manage', '관리'],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd}>
+                  {label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>

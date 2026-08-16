@@ -4,10 +4,20 @@ import { useAppState } from '../state/AppContext'
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 import { GRADE_COLORS } from '../utils/calculations'
+import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
+import ResizableTh from './table/ResizableTh'
+
+const PEER_REVIEW_COLUMNS = {
+  reviewer: 160,
+  target: 160,
+  grade: 100,
+  manage: 100,
+}
 
 export default function PeerReviewManagement() {
   const { state, dispatch } = useAppState()
+  const cols = useResizableColumns(PEER_REVIEW_COLUMNS)
   const [deletingReview, setDeletingReview] = useState<PeerReview | null>(null)
 
   const [newReviewerName, setNewReviewerName] = useState('')
@@ -123,13 +133,21 @@ export default function PeerReviewManagement() {
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full table-fixed text-left text-sm">
             <thead className="bg-[#F3F4F6] text-black">
               <tr>
-                <th className="px-4 py-3 font-semibold">작성자</th>
-                <th className="px-4 py-3 font-semibold">대상 팀원</th>
-                <th className="px-4 py-3 font-semibold">등급</th>
-                <th className="px-4 py-3 font-semibold">관리</th>
+                {(
+                  [
+                    ['reviewer', '작성자'],
+                    ['target', '대상 팀원'],
+                    ['grade', '등급'],
+                    ['manage', '관리'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd}>
+                    {label}
+                  </ResizableTh>
+                ))}
               </tr>
             </thead>
             <tbody>

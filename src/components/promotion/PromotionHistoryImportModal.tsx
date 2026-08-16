@@ -3,7 +3,16 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../../utils/promotionImport'
+import { useResizableColumns } from '../../hooks/useResizableColumns'
 import Spinner from '../Spinner'
+import ResizableTh from '../table/ResizableTh'
+
+const PREVIEW_COLUMNS = {
+  sheet: 100,
+  name: 110,
+  match: 150,
+  years: 100,
+}
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -26,6 +35,7 @@ interface AppliedSummary {
 export default function PromotionHistoryImportModal({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = useAppState()
   const { profile, upsertAppraisal } = useTeamProfile()
+  const cols = useResizableColumns(PREVIEW_COLUMNS)
   const [matches, setMatches] = useState<PromotionImportMatch[] | null>(null)
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -144,13 +154,21 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
             </div>
 
             <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-              <table className="w-full min-w-[420px] text-left text-sm">
+              <table className="w-full table-fixed text-left text-sm">
                 <thead className="bg-[#F3F4F6] text-black">
                   <tr>
-                    <th className="px-3 py-2 font-semibold">시트</th>
-                    <th className="px-3 py-2 font-semibold">이름</th>
-                    <th className="px-3 py-2 font-semibold">매칭</th>
-                    <th className="px-3 py-2 font-semibold">연도 수</th>
+                    {(
+                      [
+                        ['sheet', '시트'],
+                        ['name', '이름'],
+                        ['match', '매칭'],
+                        ['years', '연도 수'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd} className="px-3 py-2 font-semibold">
+                        {label}
+                      </ResizableTh>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
