@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
@@ -18,6 +18,24 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
+
+  // CriteriaPanel pins itself right below the header and fills the rest of
+  // the viewport, so it needs the header's real rendered height -- a
+  // hardcoded guess (the old `3.25rem`) drifted from the header's actual
+  // height and left a permanent few-pixel page overflow (a scrollbar that
+  // never goes away) on every stage that shows the panel.
+  const headerRef = useRef<HTMLDivElement>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
+
+  useLayoutEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const update = () => setHeaderHeight(el.getBoundingClientRect().height)
+    update()
+    const resizeObserver = new ResizeObserver(update)
+    resizeObserver.observe(el)
+    return () => resizeObserver.disconnect()
+  }, [])
 
   function handleStageChange(next: Stage) {
     setStage(next)
@@ -45,18 +63,20 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <div className="min-h-screen bg-white">
-            <StageTabs
-              stage={stage}
-              onStageChange={handleStageChange}
-              teamName={teamName}
-              currentWorkspaceId={workspaceId}
-              periods={periods}
-              onSelectPeriod={selectWorkspace}
-              onAddPeriod={() => setAddPeriodOpen(true)}
-              onExit={exitToLanding}
-            />
+            <div ref={headerRef}>
+              <StageTabs
+                stage={stage}
+                onStageChange={handleStageChange}
+                teamName={teamName}
+                currentWorkspaceId={workspaceId}
+                periods={periods}
+                onSelectPeriod={selectWorkspace}
+                onAddPeriod={() => setAddPeriodOpen(true)}
+                onExit={exitToLanding}
+              />
+            </div>
             <div className="flex min-h-0">
-              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} />}
+              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {stage === 'data' && <DataStage />}
                 {stage === 'evaluate' && <EvaluationMatrix />}

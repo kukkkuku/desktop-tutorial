@@ -129,6 +129,11 @@ const ICON_GROUP_2: CriterionIconItem[] = [
 interface CriteriaPanelProps {
   size: PanelSize
   onSize: (size: PanelSize) => void
+  // App's actual measured header height in px -- used instead of a
+  // hardcoded rem guess so `top`/`height` always match the real header,
+  // whatever it renders as, instead of drifting and leaving a permanent
+  // few-pixel page overflow.
+  headerHeight: number
 }
 
 // Always docked to the left as a normal in-flow sidebar column that reserves
@@ -137,7 +142,7 @@ interface CriteriaPanelProps {
 // buttons (title attribute doubles as a tooltip, click toggles on/off) and
 // the full detailed settings. Resizing via the splitter sweeps continuously
 // between the two and snaps to the nearest preset on release.
-export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
+export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
@@ -320,10 +325,10 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
 
   return (
     <div
-      className={`sticky top-[3.25rem] relative shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white ${
+      className={`sticky relative shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white ${
         dragWidth === null ? 'transition-[width] duration-200' : ''
       }`}
-      style={{ width: dragWidth ?? PANEL_WIDTH[size], height: 'calc(100vh - 3.25rem)' }}
+      style={{ width: dragWidth ?? PANEL_WIDTH[size], top: headerHeight, height: `calc(100vh - ${headerHeight}px)` }}
     >
       <div
         onPointerDown={onResizePointerDown}
