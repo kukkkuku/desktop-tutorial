@@ -1,4 +1,14 @@
-import type { AppState, Contribution, Criteria, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
+import type {
+  AppState,
+  Contribution,
+  Criteria,
+  MeetingActionItem,
+  MeetingNote,
+  PeerReview,
+  PerformanceGrade,
+  Task,
+  TeamMember,
+} from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 
 function isPerformanceGrade(value: unknown): value is PerformanceGrade {
@@ -28,6 +38,8 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
     yearsOfService: typeof raw.yearsOfService === 'number' ? raw.yearsOfService : null,
     role: typeof raw.role === 'string' ? raw.role : '',
     comment: typeof raw.comment === 'string' ? raw.comment : '',
+    hireDate: typeof raw.hireDate === 'string' ? raw.hireDate : null,
+    currentLevelSince: typeof raw.currentLevelSince === 'string' ? raw.currentLevelSince : null,
   }
 }
 
@@ -57,10 +69,31 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
   }
 }
 
+function migrateMeetingAction(raw: Record<string, unknown>): MeetingActionItem | null {
+  if (typeof raw.id !== 'string' || typeof raw.content !== 'string') return null
+  return {
+    id: raw.id,
+    content: raw.content,
+    dueDate: typeof raw.dueDate === 'string' ? raw.dueDate : '',
+    done: raw.done === true,
+  }
+}
+
 function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
   if (typeof raw.id !== 'string' || typeof raw.memberId !== 'string') return null
   if (typeof raw.date !== 'string' || typeof raw.comment !== 'string') return null
-  return { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
+  const note: MeetingNote = { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
+  if (typeof raw.strengths === 'string' && raw.strengths) note.strengths = raw.strengths
+  if (typeof raw.improvements === 'string' && raw.improvements) note.improvements = raw.improvements
+  if (typeof raw.nextExperience === 'string' && raw.nextExperience) note.nextExperience = raw.nextExperience
+  if (typeof raw.careerInterest === 'string' && raw.careerInterest) note.careerInterest = raw.careerInterest
+  if (Array.isArray(raw.actions)) {
+    const actions = (raw.actions as Record<string, unknown>[])
+      .map(migrateMeetingAction)
+      .filter((a): a is MeetingActionItem => a !== null)
+    if (actions.length > 0) note.actions = actions
+  }
+  return note
 }
 
 function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {

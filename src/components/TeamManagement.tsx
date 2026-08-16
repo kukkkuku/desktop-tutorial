@@ -1,25 +1,39 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
+import { useMemberDetail } from '../state/MemberDetailContext'
 import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
+import { calcYearsSince, formatLevelTenureLabel } from '../utils/tenure'
 import ConfirmDialog from './ConfirmDialog'
+import PromotionCriteriaManager from './promotion/PromotionCriteriaManager'
 
 interface MemberFormValues {
   name: string
   level: Level | ''
-  yearsOfService: string
   role: string
+  hireDate: string
+  currentLevelSince: string
 }
 
-const EMPTY_FORM: MemberFormValues = { name: '', level: '', yearsOfService: '', role: '' }
+const EMPTY_FORM: MemberFormValues = { name: '', level: '', role: '', hireDate: '', currentLevelSince: '' }
+
+// 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
+// yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
+function displayServiceYears(member: TeamMember): string {
+  const auto = calcYearsSince(member.hireDate)
+  if (auto !== null) return `${auto}년`
+  return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
+}
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
+  const { openMemberDetail } = useMemberDetail()
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
+  const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
 
   const [newForm, setNewForm] = useState<MemberFormValues>(EMPTY_FORM)
   const [newFormError, setNewFormError] = useState('')
@@ -43,9 +57,11 @@ export default function TeamManagement() {
       name: trimmedName,
       active: true,
       level: newForm.level,
-      yearsOfService: newForm.yearsOfService.trim() === '' ? null : Number(newForm.yearsOfService),
+      yearsOfService: null,
       role: newForm.role.trim(),
       comment: '',
+      hireDate: newForm.hireDate || null,
+      currentLevelSince: newForm.currentLevelSince || null,
     }
     dispatch({ type: 'ADD_MEMBER', payload: member })
     setNewForm(EMPTY_FORM)
@@ -57,8 +73,9 @@ export default function TeamManagement() {
     setEditForm({
       name: member.name,
       level: member.level,
-      yearsOfService: member.yearsOfService != null ? String(member.yearsOfService) : '',
       role: member.role,
+      hireDate: member.hireDate ?? '',
+      currentLevelSince: member.currentLevelSince ?? '',
     })
     setEditFormError('')
   }
@@ -84,8 +101,9 @@ export default function TeamManagement() {
         ...member,
         name: trimmedName,
         level: editForm.level,
-        yearsOfService: editForm.yearsOfService.trim() === '' ? null : Number(editForm.yearsOfService),
         role: editForm.role.trim(),
+        hireDate: editForm.hireDate || null,
+        currentLevelSince: editForm.currentLevelSince || null,
       },
     })
     setEditingId(null)
@@ -115,13 +133,23 @@ export default function TeamManagement() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
-      <p className="mt-1 text-sm text-gray-600">
-        팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
+          <p className="mt-1 text-sm text-gray-600">
+            팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
+          </p>
+        </div>
+        <button
+          onClick={() => setCriteriaManagerOpen(true)}
+          className="shrink-0 rounded-md border border-promo/30 px-3 py-2 text-sm font-medium text-promo hover:bg-promo/5"
+        >
+          승진 기준 관리
+        </button>
+      </div>
 
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_2fr_auto]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_2fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               이름 <span className="text-danger">*</span>
@@ -152,17 +180,6 @@ export default function TeamManagement() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-black">연차</label>
-            <input
-              type="number"
-              min={0}
-              value={newForm.yearsOfService}
-              onChange={(e) => setNewForm((f) => ({ ...f, yearsOfService: e.target.value }))}
-              placeholder="예: 3"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            />
-          </div>
-          <div>
             <label className="block text-sm font-medium text-black">역할</label>
             <input
               type="text"
@@ -179,6 +196,26 @@ export default function TeamManagement() {
             >
               + 팀원 추가
             </button>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-black">입사일</label>
+            <input
+              type="date"
+              value={newForm.hireDate}
+              onChange={(e) => setNewForm((f) => ({ ...f, hireDate: e.target.value }))}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">현 직급 발령일</label>
+            <input
+              type="date"
+              value={newForm.currentLevelSince}
+              onChange={(e) => setNewForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
           </div>
         </div>
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
@@ -199,7 +236,8 @@ export default function TeamManagement() {
             <tr>
               <th className="px-4 py-3 font-semibold">이름</th>
               <th className="px-4 py-3 font-semibold">직급</th>
-              <th className="px-4 py-3 font-semibold">연차</th>
+              <th className="px-4 py-3 font-semibold">근속</th>
+              <th className="px-4 py-3 font-semibold">직급 연차</th>
               <th className="px-4 py-3 font-semibold">역할</th>
               <th className="px-4 py-3 font-semibold">참여 과제 수</th>
               <th className="px-4 py-3 font-semibold">받은 피어리뷰</th>
@@ -242,11 +280,20 @@ export default function TeamManagement() {
                       </select>
                     </td>
                     <td className="px-4 py-2 align-top">
+                      <label className="block text-[11px] text-gray-400">입사일</label>
                       <input
-                        type="number"
-                        min={0}
-                        value={editForm.yearsOfService}
-                        onChange={(e) => setEditForm((f) => ({ ...f, yearsOfService: e.target.value }))}
+                        type="date"
+                        value={editForm.hireDate}
+                        onChange={(e) => setEditForm((f) => ({ ...f, hireDate: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <label className="block text-[11px] text-gray-400">현 직급 발령일</label>
+                      <input
+                        type="date"
+                        value={editForm.currentLevelSince}
+                        onChange={(e) => setEditForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
                         className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
                       />
                     </td>
@@ -291,11 +338,17 @@ export default function TeamManagement() {
                 )
               }
 
+              const levelTenureYears = calcYearsSince(member.currentLevelSince)
               return (
                 <tr key={member.id} className="border-t border-gray-200 text-black">
-                  <td className="px-4 py-3 font-medium">{member.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <button onClick={() => openMemberDetail(member.id)} className="text-left hover:text-accent hover:underline">
+                      {member.name}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">{member.level || '-'}</td>
-                  <td className="px-4 py-3">{member.yearsOfService ?? '-'}</td>
+                  <td className="px-4 py-3">{displayServiceYears(member)}</td>
+                  <td className="px-4 py-3">{formatLevelTenureLabel(member.level, levelTenureYears)}</td>
                   <td className="px-4 py-3">{member.role || '-'}</td>
                   <td className="px-4 py-3">{count}건</td>
                   <td className="px-4 py-3">
@@ -417,6 +470,8 @@ export default function TeamManagement() {
         onConfirm={handleDeletePeerReviewConfirm}
         onCancel={() => setDeletingPeerReview(null)}
       />
+
+      {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
     </div>
   )
 }

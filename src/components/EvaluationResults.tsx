@@ -1,16 +1,29 @@
 import { useAppState } from '../state/AppContext'
+import { useMemberDetail } from '../state/MemberDetailContext'
+import { useTeamProfile } from '../state/TeamContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
+import { calcPromotionReadiness } from '../utils/promotion'
 import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import PromotionBadge from './PromotionBadge'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function EvaluationResults() {
   const { state } = useAppState()
+  const { openMemberDetail } = useMemberDetail()
+  const { profile } = useTeamProfile()
   const { tasks, members, contributions, criteria, meetingNotes, peerReviews } = state
 
   const taskScores = calcAllTaskScores(tasks, criteria)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const activeMemberNameById = new Map(members.filter((m) => m.active).map((m) => [m.id, m.name]))
+
+  function readinessFor(memberId: string) {
+    const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
+    const member = members.find((m) => m.id === memberId)
+    if (!member) return null
+    return calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores)
+  }
 
   function taskContributors(taskId: string) {
     return contributions
@@ -133,7 +146,15 @@ export default function EvaluationResults() {
             {memberResults.map((row, index) => (
               <tr key={row.member.id} className="border-t border-gray-200 text-black">
                 <td className="px-4 py-3 font-semibold">{MEDALS[index] ?? index + 1}</td>
-                <td className="px-4 py-3 font-medium">{row.member.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  <button
+                    onClick={() => openMemberDetail(row.member.id)}
+                    className="flex items-center gap-1.5 text-left hover:text-accent hover:underline"
+                  >
+                    {row.member.name}
+                    <PromotionBadge readiness={readinessFor(row.member.id)} />
+                  </button>
+                </td>
                 <td className="px-4 py-3">{row.member.role || '-'}</td>
                 <td className="px-4 py-3">{row.participatedTaskCount}건</td>
                 <td className="px-4 py-3">{row.weightedAverageScore.toFixed(1)}</td>

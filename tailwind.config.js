@@ -7,6 +7,7 @@ export default {
         accent: '#EB6100',
         success: '#10B981',
         danger: '#EF4444',
+        promo: '#2F3B63',
       },
     },
   },

@@ -2,7 +2,7 @@ export type Importance = '중점' | '핵심' | '일반' | '지원'
 export type PerformanceGrade = 'S' | 'A' | 'B' | 'C' | 'D'
 export type Workload = '대' | '중' | '소'
 export type EvaluationGrade = 'S' | 'A' | 'B' | 'C' | 'D'
-export type Level = '사원' | '대리' | '과장' | '차장'
+export type Level = '사원' | '대리' | '과장' | '차장' | '부장'
 
 export interface Task {
   id: string
@@ -22,6 +22,10 @@ export interface TeamMember {
   yearsOfService: number | null
   role: string
   comment: string
+  // 입사일 / 현 직급 발령일 — present, 근속연차·직급체류연차를 자동 계산하는 데 쓰인다.
+  // 기존 데이터와의 호환을 위해 없으면 null, yearsOfService 수동값으로 대체 표시.
+  hireDate?: string | null
+  currentLevelSince?: string | null
 }
 
 export interface Contribution {
@@ -33,11 +37,24 @@ export interface Contribution {
   isAutoDistributed?: boolean
 }
 
+export interface MeetingActionItem {
+  id: string
+  content: string
+  dueDate: string
+  done: boolean
+}
+
 export interface MeetingNote {
   id: string
   memberId: string
   date: string
   comment: string
+  // 선택 입력(육성 포인트) — 기본 면담 기록은 date+comment만으로 완결된다.
+  strengths?: string
+  improvements?: string
+  nextExperience?: string
+  careerInterest?: string
+  actions?: MeetingActionItem[]
 }
 
 export interface PeerReview {
@@ -75,7 +92,36 @@ export interface WorkspaceMeta {
   createdAt: string
 }
 
+// 공식 인사평가 이력 — 앱이 계산하는 성과평가 점수와는 별도로 팀장이 직접 기록하는
+// 회사 인사평가 결과(업적 상/하반기, 역량평가 등급). 팀 단위로 저장되어 평가기간(워크스페이스)이
+// 바뀌어도 유지된다.
+export interface HRAppraisalRecord {
+  id: string
+  memberId: string
+  year: number
+  firstHalfGrade: EvaluationGrade | ''
+  secondHalfGrade: EvaluationGrade | ''
+  competencyGrade: EvaluationGrade | ''
+}
+
+// 승진 기준 — 성과평가 기준(Criteria)과는 완전히 분리된 별도 개념.
+// 현재직급 → 다음직급 승진에 필요한 직급체류연한과 승진자격점수.
+export interface PromotionCriteriaRow {
+  fromLevel: Level
+  toLevel: Level
+  tenureYears: number
+  requiredScore: number
+}
+
+// 팀 단위(워크스페이스/평가기간을 넘나드는) 저장소 — 인사평가 이력과 승진 기준은
+// 특정 평가기간에 종속되지 않는 데이터라 팀 이름 단위로 별도 보관한다.
+export interface TeamProfile {
+  hrAppraisals: HRAppraisalRecord[]
+  promotionCriteria: PromotionCriteriaRow[]
+  gradeScores: Record<EvaluationGrade, number>
+}
+
 export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']
 export const PERFORMANCE_GRADE_OPTIONS: PerformanceGrade[] = ['S', 'A', 'B', 'C', 'D']
 export const WORKLOAD_OPTIONS: Workload[] = ['대', '중', '소']
-export const LEVEL_OPTIONS: Level[] = ['사원', '대리', '과장', '차장']
+export const LEVEL_OPTIONS: Level[] = ['사원', '대리', '과장', '차장', '부장']

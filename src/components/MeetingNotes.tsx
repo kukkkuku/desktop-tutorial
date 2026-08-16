@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import type { MeetingNote } from '../types'
+import { useTeamProfile } from '../state/TeamContext'
+import type { MeetingActionItem, MeetingNote } from '../types'
 import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
+import { calcPromotionReadiness } from '../utils/promotion'
 import ConfirmDialog from './ConfirmDialog'
+import InterviewPrepAccordion from './InterviewPrepAccordion'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -54,8 +57,13 @@ function CloseIcon({ className }: { className?: string }) {
   )
 }
 
-export default function MeetingNotes() {
+interface MeetingNotesProps {
+  prepRequest?: { memberId: string; token: number } | null
+}
+
+export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
   const { state, dispatch } = useAppState()
+  const { profile } = useTeamProfile()
   const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
   const todayStr = todayString()
 
@@ -77,10 +85,32 @@ export default function MeetingNotes() {
   const [editComment, setEditComment] = useState('')
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
   const [dayAddMemberId, setDayAddMemberId] = useState<string | null>(null)
+  const [prepOpenMemberId, setPrepOpenMemberId] = useState<string | null>(null)
+
+  const [showDevForm, setShowDevForm] = useState(false)
+  const [devStrengths, setDevStrengths] = useState('')
+  const [devImprovements, setDevImprovements] = useState('')
+  const [devNextExperience, setDevNextExperience] = useState('')
+  const [devCareerInterest, setDevCareerInterest] = useState('')
+  const [showActionForm, setShowActionForm] = useState(false)
+  const [actionDrafts, setActionDrafts] = useState<{ id: string; content: string; dueDate: string }[]>([])
+  const [actionContent, setActionContent] = useState('')
+  const [actionDueDate, setActionDueDate] = useState('')
 
   const activeMemberId = selectedMemberId ?? members[0]?.id ?? null
   const activeMemberIdx = members.findIndex((m) => m.id === activeMemberId)
   const activeMember = activeMemberIdx >= 0 ? members[activeMemberIdx] : null
+
+  // 팀원 상세 Drawer의 [면담 준비] 버튼으로 진입한 경우 — 같은 화면 안에서 해당
+  // 팀원을 선택하고 면담 준비 아코디언을 자동으로 펼친다.
+  useEffect(() => {
+    if (!prepRequest) return
+    setSelectedMemberId(prepRequest.memberId)
+    setNewDate(todayStr)
+    setNewComment('')
+    setPrepOpenMemberId(prepRequest.memberId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prepRequest?.token])
 
   function memberSchedule(memberId: string) {
     const notes = meetingNotes.filter((n) => n.memberId === memberId)
@@ -111,19 +141,57 @@ export default function MeetingNotes() {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([date, idxs]) => ({ date, idxs }))
 
+  function resetDevAndActionForm() {
+    setShowDevForm(false)
+    setDevStrengths('')
+    setDevImprovements('')
+    setDevNextExperience('')
+    setDevCareerInterest('')
+    setShowActionForm(false)
+    setActionDrafts([])
+    setActionContent('')
+    setActionDueDate('')
+  }
+
+  function addActionDraft() {
+    if (!actionContent.trim()) return
+    setActionDrafts((prev) => [...prev, { id: uuidv4(), content: actionContent.trim(), dueDate: actionDueDate }])
+    setActionContent('')
+    setActionDueDate('')
+  }
+
+  function removeActionDraft(id: string) {
+    setActionDrafts((prev) => prev.filter((a) => a.id !== id))
+  }
+
   function handleAdd(memberId: string) {
     if (!memberId || !newDate || !newComment.trim()) return
-    dispatch({
-      type: 'ADD_MEETING_NOTE',
-      payload: { id: uuidv4(), memberId, date: newDate, comment: newComment.trim() },
-    })
+    const note: MeetingNote = { id: uuidv4(), memberId, date: newDate, comment: newComment.trim() }
+    if (devStrengths.trim()) note.strengths = devStrengths.trim()
+    if (devImprovements.trim()) note.improvements = devImprovements.trim()
+    if (devNextExperience.trim()) note.nextExperience = devNextExperience.trim()
+    if (devCareerInterest.trim()) note.careerInterest = devCareerInterest.trim()
+    if (actionDrafts.length > 0) {
+      note.actions = actionDrafts.map((a): MeetingActionItem => ({ id: a.id, content: a.content, dueDate: a.dueDate, done: false }))
+    }
+    dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
     setNewComment('')
+    resetDevAndActionForm()
+  }
+
+  function toggleActionDone(note: MeetingNote, actionId: string) {
+    if (!note.actions) return
+    dispatch({
+      type: 'UPDATE_MEETING_NOTE',
+      payload: { ...note, actions: note.actions.map((a) => (a.id === actionId ? { ...a, done: !a.done } : a)) },
+    })
   }
 
   function selectMember(memberId: string) {
     setSelectedMemberId(memberId)
     setNewDate(todayStr)
     setNewComment('')
+    resetDevAndActionForm()
   }
 
   function selectDate(date: string) {
@@ -189,6 +257,17 @@ export default function MeetingNotes() {
 
   const activeResult = activeMemberId ? memberResultById.get(activeMemberId) : undefined
   const activeAll = activeMemberId ? memberSchedule(activeMemberId).all : []
+  const activeAppraisals = activeMember
+    ? profile.hrAppraisals.filter((r) => r.memberId === activeMember.id).sort((a, b) => a.year - b.year)
+    : []
+  const activeReadiness = activeMember
+    ? calcPromotionReadiness(activeMember.level, activeAppraisals, profile.promotionCriteria, profile.gradeScores)
+    : null
+  const activeLastMeetingDate = activeMember
+    ? [...meetingNotes]
+        .filter((n) => n.memberId === activeMember.id && n.date <= todayStr)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
+    : null
 
   return (
     <div>
@@ -256,27 +335,146 @@ export default function MeetingNotes() {
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-3">
-                  <input
-                    type="date"
-                    value={newDate}
-                    onChange={(e) => setNewDate(e.target.value)}
-                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                  />
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="면담 코멘트를 입력하세요"
-                    rows={2}
-                    className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                  />
+                {activeReadiness && (
+                  <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px]">
+                    <span className="font-semibold text-promo">승진 준비</span>{' '}
+                    <span className="text-gray-600">
+                      {activeMember.level} → {activeReadiness.criteria.toLevel} ·{' '}
+                      <span className="font-semibold text-black">
+                        {activeReadiness.weightedScore.toFixed(1)} / {activeReadiness.criteria.requiredScore}
+                      </span>{' '}
+                      · {activeReadiness.progressPercent}%
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 px-3 py-2.5 text-[13px]">
+                  <span className="text-gray-600">
+                    최근 면담 <span className="font-semibold text-black">{activeLastMeetingDate ?? '기록 없음'}</span>
+                  </span>
                   <button
-                    onClick={() => handleAdd(activeMember.id)}
-                    disabled={!newComment.trim()}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setPrepOpenMemberId((prev) => (prev === activeMember.id ? null : activeMember.id))}
+                    className="rounded-md border border-accent px-3 py-1.5 text-xs font-semibold text-accent hover:bg-orange-50"
                   >
-                    기록 추가
+                    {prepOpenMemberId === activeMember.id ? '면담 준비 접기' : '면담 준비 보기'}
                   </button>
+                </div>
+
+                {prepOpenMemberId === activeMember.id && <InterviewPrepAccordion memberId={activeMember.id} />}
+
+                <div className="rounded-md border border-gray-200 bg-white px-3 py-3">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <input
+                      type="date"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                    />
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="면담 코멘트를 입력하세요"
+                      rows={2}
+                      className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                    />
+                    <button
+                      onClick={() => handleAdd(activeMember.id)}
+                      disabled={!newComment.trim()}
+                      className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      기록 추가
+                    </button>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setShowDevForm((v) => !v)}
+                      className="text-xs font-medium text-gray-500 hover:text-accent"
+                    >
+                      {showDevForm ? '− 육성 포인트' : '+ 육성 포인트'}
+                    </button>
+                    <button
+                      onClick={() => setShowActionForm((v) => !v)}
+                      className="text-xs font-medium text-gray-500 hover:text-accent"
+                    >
+                      {showActionForm ? '− Action' : '+ Action'}
+                    </button>
+                  </div>
+
+                  {showDevForm && (
+                    <div className="mt-2 grid grid-cols-1 gap-2 border-t border-gray-100 pt-2 sm:grid-cols-2">
+                      <input
+                        type="text"
+                        value={devStrengths}
+                        onChange={(e) => setDevStrengths(e.target.value)}
+                        placeholder="강점"
+                        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                      />
+                      <input
+                        type="text"
+                        value={devImprovements}
+                        onChange={(e) => setDevImprovements(e.target.value)}
+                        placeholder="보완 필요"
+                        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                      />
+                      <input
+                        type="text"
+                        value={devNextExperience}
+                        onChange={(e) => setDevNextExperience(e.target.value)}
+                        placeholder="다음 경험"
+                        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                      />
+                      <input
+                        type="text"
+                        value={devCareerInterest}
+                        onChange={(e) => setDevCareerInterest(e.target.value)}
+                        placeholder="Career 관심"
+                        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                      />
+                    </div>
+                  )}
+
+                  {showActionForm && (
+                    <div className="mt-2 border-t border-gray-100 pt-2">
+                      {actionDrafts.length > 0 && (
+                        <ul className="mb-2 space-y-1">
+                          {actionDrafts.map((a) => (
+                            <li key={a.id} className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-2.5 py-1.5 text-[13px] text-black">
+                              <span>
+                                ○ {a.content}
+                                {a.dueDate && <span className="text-gray-400"> ({a.dueDate})</span>}
+                              </span>
+                              <button onClick={() => removeActionDraft(a.id)} className="text-xs text-gray-400 hover:text-danger">
+                                삭제
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          type="text"
+                          value={actionContent}
+                          onChange={(e) => setActionContent(e.target.value)}
+                          placeholder="Action 내용"
+                          className="min-w-[160px] flex-1 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                        />
+                        <input
+                          type="date"
+                          value={actionDueDate}
+                          onChange={(e) => setActionDueDate(e.target.value)}
+                          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
+                        />
+                        <button
+                          onClick={addActionDraft}
+                          disabled={!actionContent.trim()}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Action 추가
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {activeAll.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
@@ -326,6 +524,30 @@ export default function MeetingNotes() {
                           )}
                         </p>
                         <p className="mt-1 whitespace-pre-wrap text-sm text-black">{note.comment}</p>
+                        {(note.strengths || note.improvements || note.nextExperience || note.careerInterest) && (
+                          <div className="mt-1.5 space-y-0.5 text-[13px] text-gray-600">
+                            {note.strengths && <p>강점: {note.strengths}</p>}
+                            {note.improvements && <p>보완 필요: {note.improvements}</p>}
+                            {note.nextExperience && <p>다음 경험: {note.nextExperience}</p>}
+                            {note.careerInterest && <p>Career 관심: {note.careerInterest}</p>}
+                          </div>
+                        )}
+                        {note.actions && note.actions.length > 0 && (
+                          <ul className="mt-1.5 space-y-1 text-[13px] text-black">
+                            {note.actions.map((a) => (
+                              <li key={a.id}>
+                                <button
+                                  onClick={() => toggleActionDone(note, a.id)}
+                                  className="hover:underline"
+                                  title="완료 여부 전환"
+                                >
+                                  {a.done ? '✓' : '○'} {a.content}
+                                  {a.dueDate && <span className="text-gray-400"> ({a.dueDate})</span>}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                       <div className="flex shrink-0 gap-2">
                         <button
