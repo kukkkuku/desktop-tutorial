@@ -147,7 +147,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">팀원별 순위</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full table-fixed text-left text-sm">
+        <table className="table-fixed text-left text-sm" style={{ width: rankingCols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -204,7 +204,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">과제별 현황</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full table-fixed text-left text-sm">
+        <table className="table-fixed text-left text-sm" style={{ width: taskCols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(

@@ -57,7 +57,7 @@ export default function PromotionCriteriaManager({ onClose }: { onClose: () => v
         <div className="mt-5">
           <h4 className="text-sm font-semibold text-black">직급별 승진자격기준</h4>
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full table-fixed text-left text-sm">
+            <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
                   {(

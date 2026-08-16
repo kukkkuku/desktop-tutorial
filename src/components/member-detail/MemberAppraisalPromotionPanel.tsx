@@ -162,7 +162,7 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="w-full table-fixed text-left text-sm">
+            <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
                   {(

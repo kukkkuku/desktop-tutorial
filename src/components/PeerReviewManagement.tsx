@@ -133,7 +133,7 @@ export default function PeerReviewManagement() {
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full table-fixed text-left text-sm">
+          <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
             <thead className="bg-[#F3F4F6] text-black">
               <tr>
                 {(
