@@ -502,9 +502,9 @@ export default function MeetingNotes() {
 
             {!calendarOpen && (
               <>
-                <div className="rounded-lg border border-gray-200 px-3 py-2 text-[13px]">
+                <div className="px-1 py-1.5 text-[13px]">
                   <span className="font-medium text-gray-500">오늘</span>
-                  <div className="mt-1 flex flex-wrap gap-1">
+                  <div className="mt-1 flex flex-col items-start gap-1">
                     {todayMembers.length > 0 ? (
                       todayMembers.map(({ member, idx }) => (
                         <button
@@ -524,9 +524,9 @@ export default function MeetingNotes() {
                 {upcomingDates
                   .filter(({ date }) => date !== todayStr)
                   .map(({ date, idxs }) => (
-                    <div key={date} className="rounded-lg border border-gray-200 px-3 py-2 text-[13px]">
+                    <div key={date} className="px-1 py-1.5 text-[13px]">
                       <span className="font-medium text-gray-500">{fmtShort(date)}</span>
-                      <div className="mt-1 flex flex-wrap gap-1">
+                      <div className="mt-1 flex flex-col items-start gap-1">
                         {idxs.map((idx) => {
                           const member = members[idx]
                           if (!member) return null
