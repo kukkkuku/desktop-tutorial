@@ -298,7 +298,7 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
             className="criteria-slider mt-2.5 w-full"
           />
         )}
-        <p className="mt-2 text-[13px] leading-relaxed text-gray-400">{desc}</p>
+        <p className="mt-2 text-[13px] font-medium leading-relaxed text-gray-600">{desc}</p>
       </div>
     )
   }
@@ -407,7 +407,7 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
             <span className="text-sm font-semibold text-black">기준 설정</span>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            <p className="text-[13px] leading-relaxed text-gray-500">
+            <p className="text-[13px] leading-relaxed text-gray-400">
               켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.
             </p>
 
