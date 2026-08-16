@@ -207,8 +207,8 @@ export default function MeetingNotes() {
         </p>
       ) : (
         <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
-          <div className="min-w-0 flex-1 rounded-lg border border-gray-200">
-            <div className="flex flex-wrap gap-2 border-b border-gray-200 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap gap-2 px-1 pb-3">
               {members.map((member, idx) => {
                 const isActive = member.id === activeMemberId
                 return (
@@ -230,7 +230,7 @@ export default function MeetingNotes() {
             </div>
 
             {activeMember && (
-              <div className="space-y-3 px-4 py-4">
+              <div className="space-y-3 rounded-lg border border-gray-200 px-4 py-4">
                 <div>
                   <p className="text-lg font-bold text-black">{activeMember.name}</p>
                   {activeMember.role && <p className="text-xs text-gray-400">{activeMember.role}</p>}
