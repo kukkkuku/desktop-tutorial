@@ -77,7 +77,6 @@ export default function MeetingNotes() {
   const [editComment, setEditComment] = useState('')
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
   const [dayAddMemberId, setDayAddMemberId] = useState<string | null>(null)
-  const [dayAddComment, setDayAddComment] = useState('')
 
   const activeMemberId = selectedMemberId ?? members[0]?.id ?? null
   const activeMemberIdx = members.findIndex((m) => m.id === activeMemberId)
@@ -129,17 +128,15 @@ export default function MeetingNotes() {
 
   function selectDate(date: string) {
     setSelectedDate(date)
-    setDayAddComment('')
   }
 
   function handleDayAdd() {
     const memberId = dayAddMemberId ?? activeMemberId
-    if (!memberId || !dayAddComment.trim()) return
+    if (!memberId) return
     dispatch({
       type: 'ADD_MEETING_NOTE',
-      payload: { id: uuidv4(), memberId, date: selectedDate, comment: dayAddComment.trim() },
+      payload: { id: uuidv4(), memberId, date: selectedDate, comment: '' },
     })
-    setDayAddComment('')
   }
 
   function startEdit(note: MeetingNote) {
@@ -351,7 +348,7 @@ export default function MeetingNotes() {
             )}
           </div>
 
-          <div className={`flex w-full shrink-0 flex-col gap-2 self-start ${calendarOpen ? 'lg:w-80' : 'lg:w-56'}`}>
+          <div className={`flex w-full shrink-0 flex-col gap-2 self-start ${calendarOpen ? 'lg:w-80' : 'lg:w-44'}`}>
             {calendarOpen ? (
             <div className="rounded-lg border border-gray-200">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -462,17 +459,9 @@ export default function MeetingNotes() {
                                 </option>
                               ))}
                             </select>
-                            <textarea
-                              value={dayAddComment}
-                              onChange={(e) => setDayAddComment(e.target.value)}
-                              placeholder="면담 코멘트를 입력하세요"
-                              rows={2}
-                              className="rounded-md border border-gray-300 px-2 py-1.5 text-[13px] text-black"
-                            />
                             <button
                               onClick={handleDayAdd}
-                              disabled={!dayAddComment.trim()}
-                              className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
                             >
                               {fmtShort(selectedDate)}에 면담 추가
                             </button>
@@ -500,19 +489,22 @@ export default function MeetingNotes() {
               </div>
             </div>
             ) : (
-              <div className="rounded-lg border border-gray-200">
-                <button
-                  onClick={() => setCalendarOpen(true)}
-                  className="flex shrink-0 items-center gap-2 self-start px-3 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50"
-                  title="펼치기"
-                  aria-label="면담 일정 캘린더 펼치기"
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  면담 일정
-                </button>
-                <div className="divide-y divide-gray-100 border-t border-gray-200">
-                  <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[13px]">
-                    <span className="shrink-0 font-medium text-gray-500">오늘</span>
+              <button
+                onClick={() => setCalendarOpen(true)}
+                className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50"
+                title="펼치기"
+                aria-label="면담 일정 캘린더 펼치기"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                면담 일정
+              </button>
+            )}
+
+            {!calendarOpen && (
+              <>
+                <div className="rounded-lg border border-gray-200 px-3 py-2 text-[13px]">
+                  <span className="font-medium text-gray-500">오늘</span>
+                  <div className="mt-1 flex flex-wrap gap-1">
                     {todayMembers.length > 0 ? (
                       todayMembers.map(({ member, idx }) => (
                         <button
@@ -528,11 +520,13 @@ export default function MeetingNotes() {
                       <span className="text-gray-400">예정 없음</span>
                     )}
                   </div>
-                  {upcomingDates
-                    .filter(({ date }) => date !== todayStr)
-                    .map(({ date, idxs }) => (
-                      <div key={date} className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[13px]">
-                        <span className="shrink-0 font-medium text-gray-500">{fmtShort(date)}</span>
+                </div>
+                {upcomingDates
+                  .filter(({ date }) => date !== todayStr)
+                  .map(({ date, idxs }) => (
+                    <div key={date} className="rounded-lg border border-gray-200 px-3 py-2 text-[13px]">
+                      <span className="font-medium text-gray-500">{fmtShort(date)}</span>
+                      <div className="mt-1 flex flex-wrap gap-1">
                         {idxs.map((idx) => {
                           const member = members[idx]
                           if (!member) return null
@@ -548,9 +542,9 @@ export default function MeetingNotes() {
                           )
                         })}
                       </div>
-                    ))}
-                </div>
-              </div>
+                    </div>
+                  ))}
+              </>
             )}
 
             {calendarOpen && (
