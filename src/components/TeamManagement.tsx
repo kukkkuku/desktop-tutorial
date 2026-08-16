@@ -234,7 +234,7 @@ export default function TeamManagement() {
         </p>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
+        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.role }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -250,7 +250,14 @@ export default function TeamManagement() {
                   ['manage', '관리'],
                 ] as const
               ).map(([key, label]) => (
-                <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd}>
+                <ResizableTh
+                  key={key}
+                  width={key === 'role' ? undefined : cols.widths[key]}
+                  resizable={key !== 'manage'}
+                  onResizeStart={cols.startResize(key)}
+                  onResizeMove={cols.onResizeMove}
+                  onResizeEnd={cols.onResizeEnd}
+                >
                   {label}
                 </ResizableTh>
               ))}

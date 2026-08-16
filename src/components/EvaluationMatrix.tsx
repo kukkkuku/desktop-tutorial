@@ -199,7 +199,7 @@ export default function EvaluationMatrix() {
 
           <h3 className="mt-8 text-lg font-semibold text-black">팀원 평가 결과</h3>
           <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="table-fixed text-left text-sm" style={{ width: resultCols.totalWidth }}>
+            <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: resultCols.totalWidth - resultCols.widths.name }}>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
                   {(
@@ -212,7 +212,8 @@ export default function EvaluationMatrix() {
                   ).map(([key, label, align]) => (
                     <ResizableTh
                       key={key}
-                      width={resultCols.widths[key]}
+                      width={key === 'name' ? undefined : resultCols.widths[key]}
+                      resizable={key !== 'score'}
                       onResizeStart={resultCols.startResize(key)}
                       onResizeMove={resultCols.onResizeMove}
                       onResizeEnd={resultCols.onResizeEnd}

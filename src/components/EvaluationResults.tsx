@@ -147,7 +147,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">팀원별 순위</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: rankingCols.totalWidth }}>
+        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: rankingCols.totalWidth - rankingCols.widths.role }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -161,7 +161,14 @@ export default function EvaluationResults() {
                   ['grade', '평가등급'],
                 ] as const
               ).map(([key, label]) => (
-                <ResizableTh key={key} width={rankingCols.widths[key]} onResizeStart={rankingCols.startResize(key)} onResizeMove={rankingCols.onResizeMove} onResizeEnd={rankingCols.onResizeEnd}>
+                <ResizableTh
+                  key={key}
+                  width={key === 'role' ? undefined : rankingCols.widths[key]}
+                  resizable={key !== 'grade'}
+                  onResizeStart={rankingCols.startResize(key)}
+                  onResizeMove={rankingCols.onResizeMove}
+                  onResizeEnd={rankingCols.onResizeEnd}
+                >
                   {label}
                 </ResizableTh>
               ))}
@@ -204,7 +211,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">과제별 현황</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: taskCols.totalWidth }}>
+        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: taskCols.totalWidth - taskCols.widths.contributors }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -218,7 +225,13 @@ export default function EvaluationResults() {
                   ['contributors', '팀원별 기여도'],
                 ] as const
               ).map(([key, label]) => (
-                <ResizableTh key={key} width={taskCols.widths[key]} onResizeStart={taskCols.startResize(key)} onResizeMove={taskCols.onResizeMove} onResizeEnd={taskCols.onResizeEnd}>
+                <ResizableTh
+                  key={key}
+                  width={key === 'contributors' ? undefined : taskCols.widths[key]}
+                  onResizeStart={taskCols.startResize(key)}
+                  onResizeMove={taskCols.onResizeMove}
+                  onResizeEnd={taskCols.onResizeEnd}
+                >
                   {label}
                 </ResizableTh>
               ))}

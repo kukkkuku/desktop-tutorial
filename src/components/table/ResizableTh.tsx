@@ -1,5 +1,10 @@
 interface ResizableThProps {
-  width: number
+  // width를 생략하면(필러 컬럼) 이 셀은 고정폭을 갖지 않고 테이블의 나머지
+  // 여유 공간을 전부 흡수한다 — 드래그 손잡이도 그려지지 않는다.
+  width?: number
+  // 마지막(맨 오른쪽) 컬럼처럼 오른쪽에 더 조절할 게 없는 경우 폭은 고정하되
+  // 손잡이만 숨기고 싶을 때 false로 넘긴다. 기본값 true.
+  resizable?: boolean
   onResizeStart: (e: React.PointerEvent<HTMLDivElement>) => void
   onResizeMove: (e: React.PointerEvent<HTMLDivElement>) => void
   onResizeEnd: () => void
@@ -21,6 +26,7 @@ interface ResizableThProps {
 // 넘겨서 항상 불필요한 가로 스크롤이 생기는 원인이었다.
 export default function ResizableTh({
   width,
+  resizable = true,
   onResizeStart,
   onResizeMove,
   onResizeEnd,
@@ -28,20 +34,22 @@ export default function ResizableTh({
   children,
 }: ResizableThProps) {
   return (
-    <th style={{ width }} className={`relative ${className}`}>
+    <th style={width === undefined ? undefined : { width }} className={`relative ${className}`}>
       {children}
-      <div
-        onPointerDown={onResizeStart}
-        onPointerMove={onResizeMove}
-        onPointerUp={onResizeEnd}
-        onPointerCancel={onResizeEnd}
-        style={{ touchAction: 'none' }}
-        title="드래그해서 열 너비 조절"
-        aria-hidden="true"
-        className="group absolute inset-y-0 right-0 z-10 flex w-2 cursor-col-resize select-none items-center justify-end"
-      >
-        <span className="h-4 w-px bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
-      </div>
+      {width !== undefined && resizable && (
+        <div
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          onPointerCancel={onResizeEnd}
+          style={{ touchAction: 'none' }}
+          title="드래그해서 열 너비 조절"
+          aria-hidden="true"
+          className="group absolute inset-y-0 right-0 z-10 flex w-2 cursor-col-resize select-none items-center justify-end"
+        >
+          <span className="h-4 w-px bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+        </div>
+      )}
     </th>
   )
 }

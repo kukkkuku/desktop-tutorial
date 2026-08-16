@@ -162,7 +162,7 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
           </p>
         ) : (
           <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
+            <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.competency }}>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
                   {(
@@ -174,7 +174,15 @@ export default function MemberAppraisalPromotionPanel({ member }: { member: Team
                       ['manage', ''],
                     ] as const
                   ).map(([key, label]) => (
-                    <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd} className="px-3 py-2 font-semibold">
+                    <ResizableTh
+                      key={key}
+                      width={key === 'competency' ? undefined : cols.widths[key]}
+                      resizable={key !== 'manage'}
+                      onResizeStart={cols.startResize(key)}
+                      onResizeMove={cols.onResizeMove}
+                      onResizeEnd={cols.onResizeEnd}
+                      className="px-3 py-2 font-semibold"
+                    >
                       {label}
                     </ResizableTh>
                   ))}

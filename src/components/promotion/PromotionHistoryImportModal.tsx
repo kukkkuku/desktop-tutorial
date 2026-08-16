@@ -154,7 +154,7 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
             </div>
 
             <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-              <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
+              <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.match }}>
                 <thead className="bg-[#F3F4F6] text-black">
                   <tr>
                     {(
@@ -165,7 +165,15 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
                         ['years', '연도 수'],
                       ] as const
                     ).map(([key, label]) => (
-                      <ResizableTh key={key} width={cols.widths[key]} onResizeStart={cols.startResize(key)} onResizeMove={cols.onResizeMove} onResizeEnd={cols.onResizeEnd} className="px-3 py-2 font-semibold">
+                      <ResizableTh
+                        key={key}
+                        width={key === 'match' ? undefined : cols.widths[key]}
+                        resizable={key !== 'years'}
+                        onResizeStart={cols.startResize(key)}
+                        onResizeMove={cols.onResizeMove}
+                        onResizeEnd={cols.onResizeEnd}
+                        className="px-3 py-2 font-semibold"
+                      >
                         {label}
                       </ResizableTh>
                     ))}
