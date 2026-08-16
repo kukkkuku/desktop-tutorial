@@ -351,7 +351,7 @@ export default function MeetingNotes() {
             )}
           </div>
 
-          <div className="flex w-full shrink-0 flex-col gap-2 self-start lg:w-80">
+          <div className={`flex w-full shrink-0 flex-col gap-2 self-start ${calendarOpen ? 'lg:w-80' : 'lg:w-56'}`}>
             {calendarOpen ? (
             <div className="rounded-lg border border-gray-200">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -503,14 +503,12 @@ export default function MeetingNotes() {
               <div className="rounded-lg border border-gray-200">
                 <button
                   onClick={() => setCalendarOpen(true)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-black hover:bg-gray-50"
+                  className="flex shrink-0 items-center gap-2 self-start px-3 py-2.5 text-sm font-semibold text-gray-500 hover:bg-gray-50"
                   title="펼치기"
                   aria-label="면담 일정 캘린더 펼치기"
                 >
-                  <span className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-gray-400" /> 면담 일정
-                  </span>
-                  <ChevronIcon direction="right" className="h-4 w-4 text-gray-400" />
+                  <CalendarIcon className="h-4 w-4" />
+                  면담 일정
                 </button>
                 <div className="divide-y divide-gray-100 border-t border-gray-200">
                   <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 text-[13px]">
