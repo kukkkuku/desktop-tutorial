@@ -1,14 +1,26 @@
+import type { WorkspaceMeta } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
 import { calcPromotionReadiness } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
+import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { colorForIndex } from '../../utils/memberColors'
+import TrendSparkline from './TrendSparkline'
 
-// 면담 기록/성과 히스토리/인사평가·승진 관리 세 서브탭을 오가도 이 팀원이 지금
-// 어떤 상태인지 매번 다시 찾아보지 않도록, 선택된 팀원의 핵심 요약을 한 곳에
-// 고정해서 보여준다. 성과점수(오렌지)와 승진준비(남색)는 계속 분리된 색으로 표시한다.
-export default function MemberGrowthSummaryCard({ memberId, colorIndex }: { memberId: string; colorIndex: number }) {
+// 팀장 대시보드(팀원 현황 표)와 팀원 상세 화면 헤더가 함께 쓰는 요약 카드 --
+// 팀원을 오가도 이 팀원이 지금 어떤 상태인지 매번 다시 찾아보지 않도록 핵심
+// 지표를 한 곳에 고정한다. 성과점수(오렌지)와 승진준비(남색)는 계속 분리된
+// 색으로, 고과 추이는 TrendSparkline을 그대로 재사용한다.
+export default function MemberGrowthSummaryCard({
+  memberId,
+  colorIndex,
+  periods,
+}: {
+  memberId: string
+  colorIndex: number
+  periods: WorkspaceMeta[]
+}) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
   const member = state.members.find((m) => m.id === memberId)
@@ -22,6 +34,11 @@ export default function MemberGrowthSummaryCard({ memberId, colorIndex }: { memb
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
+
+  const trendPoints = [...getMemberPerformanceHistory(memberId, periods)]
+    .reverse()
+    .filter((h) => h.grade !== null)
+    .map((h) => ({ period: h.workspace.periodName, grade: h.grade! }))
 
   const todayStr = new Date().toISOString().slice(0, 10)
   const lastMeetingDate = state.meetingNotes
@@ -49,7 +66,7 @@ export default function MemberGrowthSummaryCard({ memberId, colorIndex }: { memb
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="rounded-lg bg-orange-50/70 px-3 py-1.5">
-          <p className="text-[10px] font-semibold text-accent">현재 성과</p>
+          <p className="text-[10px] font-semibold text-accent">현재 성과 · 팀내 순위</p>
           {memberResult ? (
             <p className="mt-0.5 flex items-center gap-1 text-sm font-bold text-black">
               {rank ? `${rank}위 · ` : ''}
@@ -61,6 +78,11 @@ export default function MemberGrowthSummaryCard({ memberId, colorIndex }: { memb
           ) : (
             <p className="mt-0.5 text-sm text-gray-400">데이터 없음</p>
           )}
+        </div>
+
+        <div className="rounded-lg bg-gray-50 px-3 py-1.5">
+          <p className="text-[10px] font-semibold text-gray-400">고과 추이</p>
+          <TrendSparkline points={trendPoints} className="mt-0.5" />
         </div>
 
         <div className="rounded-lg bg-slate-50 px-3 py-1.5">

@@ -110,7 +110,7 @@ export function calcPromotionReadiness(
   return { criteria, rawScore, weightedScore, eligible, progressPercent, gap }
 }
 
-const GRADE_ORDER: EvaluationGrade[] = ['D', 'C', 'B', 'A', 'S']
+export const GRADE_ORDER: EvaluationGrade[] = ['D', 'C', 'B', 'A', 'S']
 
 // "B → A → A ↑" 형태의 간단한 추이 문자열. grades는 과거→최근 순으로 전달한다.
 export function trendArrow(grades: (EvaluationGrade | '')[]): string {
