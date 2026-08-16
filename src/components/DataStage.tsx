@@ -43,6 +43,16 @@ export default function DataStage() {
         {sub === 'peer' && <PeerReviewManagement onUploaded={(files) => recordUpload('peer', files)} />}
       </div>
 
+      {/* 펼치면 뒤의 페이지 전체를 어둡게 눌러 이 패널이 위에 떠 있는
+          레이어라는 걸 분명히 보여준다. 클릭하면 바로 닫힌다. */}
+      <div
+        onClick={() => setExpanded(false)}
+        aria-hidden="true"
+        className={`fixed inset-0 z-10 bg-black/40 transition-opacity duration-300 ${
+          expanded ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
+
       {/* 스크롤이 길어지면 뷰포트 하단에 붙어 떠 있다가, 펼치면 그 자리에서
           위로 자라나며 테이블 위를 덮는다 -- 문서 흐름을 밀어내지 않는다. */}
       <div className="sticky bottom-0 z-20 mt-5 bg-white">
