@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import type { MeetingNote, TeamMember } from '../types'
-import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
+import type { MeetingNote } from '../types'
 import ConfirmDialog from './ConfirmDialog'
 
 function todayString() {
@@ -13,7 +12,26 @@ function fmtDate(y: number, m: number, d: number): string {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+function fmtShort(date: string): string {
+  return date.slice(5).replace('-', '/')
+}
+
+const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
+
+// Cycled per member (by list order) so both the calendar dots and the
+// legend stay stable and consistent for a given roster.
+const MEMBER_DOT_COLORS = ['#EB6100', '#22C55E', '#3B82F6', '#A855F7', '#EAB308', '#EC4899', '#14B8A6', '#F97316']
+function colorForIndex(index: number): string {
+  return MEMBER_DOT_COLORS[index % MEMBER_DOT_COLORS.length]
+}
+
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  )
+}
 
 function ChevronIcon({ direction, className }: { direction: 'left' | 'right'; className?: string }) {
   return (
@@ -23,138 +41,79 @@ function ChevronIcon({ direction, className }: { direction: 'left' | 'right'; cl
   )
 }
 
-// Month-grid calendar for picking/scheduling a meeting date. Days that already
-// have a note for the selected member get a small dot marker, so it doubles
-// as an at-a-glance view of that member's past and upcoming meetings.
-function MeetingCalendar({
-  noteDates,
-  selectedDate,
-  onSelectDate,
-}: {
-  noteDates: Set<string>
-  selectedDate: string
-  onSelectDate: (date: string) => void
-}) {
-  const [viewDate, setViewDate] = useState(() => {
-    const d = selectedDate ? new Date(selectedDate) : new Date()
-    return new Date(d.getFullYear(), d.getMonth(), 1)
-  })
-
-  const year = viewDate.getFullYear()
-  const month = viewDate.getMonth()
-  const startWeekday = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const daysInPrevMonth = new Date(year, month, 0).getDate()
-  const todayStr = todayString()
-
-  const cells: { date: string; day: number; inMonth: boolean }[] = []
-  for (let i = 0; i < startWeekday; i++) {
-    const day = daysInPrevMonth - startWeekday + 1 + i
-    const y = month === 0 ? year - 1 : year
-    const m = month === 0 ? 11 : month - 1
-    cells.push({ date: fmtDate(y, m, day), day, inMonth: false })
-  }
-  for (let day = 1; day <= daysInMonth; day++) {
-    cells.push({ date: fmtDate(year, month, day), day, inMonth: true })
-  }
-  let nextDay = 1
-  while (cells.length < 42) {
-    const y = month === 11 ? year + 1 : year
-    const m = month === 11 ? 0 : month + 1
-    cells.push({ date: fmtDate(y, m, nextDay), day: nextDay, inMonth: false })
-    nextDay += 1
-  }
-
+function CalendarIcon({ className }: { className?: string }) {
   return (
-    <div className="w-full shrink-0 rounded-lg border border-gray-200 p-3 sm:w-72">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setViewDate(new Date(year, month - 1, 1))}
-          aria-label="이전 달"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
-        >
-          <ChevronIcon direction="left" className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-semibold text-black">
-          {year}년 {month + 1}월
-        </span>
-        <button
-          onClick={() => setViewDate(new Date(year, month + 1, 1))}
-          aria-label="다음 달"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
-        >
-          <ChevronIcon direction="right" className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[13px] text-gray-400">
-        {WEEKDAY_LABELS.map((w) => (
-          <span key={w}>{w}</span>
-        ))}
-      </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
-        {cells.map((cell) => {
-          const hasNote = noteDates.has(cell.date)
-          const isToday = cell.date === todayStr
-          const isSelected = cell.date === selectedDate
-          return (
-            <button
-              key={cell.date}
-              onClick={() => onSelectDate(cell.date)}
-              title={cell.date}
-              className={`relative flex h-8 items-center justify-center rounded-md text-[13px] transition-colors ${
-                !cell.inMonth
-                  ? 'text-gray-300 hover:bg-gray-50'
-                  : isSelected
-                    ? 'bg-accent font-semibold text-white'
-                    : isToday
-                      ? 'bg-orange-50 font-semibold text-accent'
-                      : 'text-black hover:bg-gray-100'
-              }`}
-            >
-              {cell.day}
-              {hasNote && (
-                <span
-                  className={`absolute bottom-1 h-1 w-1 rounded-full ${isSelected ? 'bg-white' : 'bg-accent'}`}
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
   )
 }
 
 export default function MeetingNotes() {
   const { state, dispatch } = useAppState()
-  const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
+  const { members, meetingNotes } = state
+  const todayStr = todayString()
 
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const [calendarOpen, setCalendarOpen] = useState(true)
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+  const [selectedDate, setSelectedDate] = useState(todayStr)
+  const [quickMemberId, setQuickMemberId] = useState(members[0]?.id ?? '')
+  const [quickComment, setQuickComment] = useState('')
+  const effectiveQuickMemberId = members.some((m) => m.id === quickMemberId) ? quickMemberId : (members[0]?.id ?? '')
 
-  const [selectedMemberId, setSelectedMemberId] = useState(members[0]?.id ?? '')
-  const [newDate, setNewDate] = useState(todayString())
-  const [newComment, setNewComment] = useState('')
-
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
   const [editComment, setEditComment] = useState('')
-
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
 
-  const selectedMember: TeamMember | undefined = members.find((m) => m.id === selectedMemberId)
-  const selectedMemberRank = memberResults.findIndex((r) => r.member.id === selectedMemberId)
-  const selectedMemberResult = selectedMemberRank >= 0 ? memberResults[selectedMemberRank] : undefined
-  const notesForMember = meetingNotes
-    .filter((n) => n.memberId === selectedMemberId)
-    .sort((a, b) => b.date.localeCompare(a.date))
+  function memberSchedule(memberId: string) {
+    const notes = meetingNotes.filter((n) => n.memberId === memberId)
+    const past = notes.filter((n) => n.date < todayStr).sort((a, b) => b.date.localeCompare(a.date))
+    const upcoming = notes.filter((n) => n.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))
+    const all = [...notes].sort((a, b) => b.date.localeCompare(a.date))
+    return { latest: past[0], next: upcoming[0], all }
+  }
 
-  function handleAdd() {
-    if (!selectedMemberId || !newDate || !newComment.trim()) return
+  const notesByDate = useMemo(() => {
+    const map = new Map<string, number[]>()
+    meetingNotes.forEach((n) => {
+      const idx = members.findIndex((m) => m.id === n.memberId)
+      if (idx === -1) return
+      const list = map.get(n.date) ?? []
+      if (!list.includes(idx)) list.push(idx)
+      map.set(n.date, list)
+    })
+    return map
+  }, [meetingNotes, members])
+
+  function handleQuickAdd() {
+    if (!effectiveQuickMemberId || !quickComment.trim()) return
     dispatch({
       type: 'ADD_MEETING_NOTE',
-      payload: { id: uuidv4(), memberId: selectedMemberId, date: newDate, comment: newComment.trim() },
+      payload: { id: uuidv4(), memberId: effectiveQuickMemberId, date: selectedDate, comment: quickComment.trim() },
     })
-    setNewComment('')
+    setQuickComment('')
+  }
+
+  function toggleExpand(memberId: string) {
+    setExpandedMemberId((cur) => (cur === memberId ? null : memberId))
+    setQuickMemberId(memberId)
   }
 
   function startEdit(note: MeetingNote) {
@@ -180,12 +139,39 @@ export default function MeetingNotes() {
     }
   }
 
+  const year = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+  // Monday-first grid, matching the reference layout (월 화 수 목 금 토 일).
+  const startWeekday = (new Date(year, month, 1).getDay() + 6) % 7
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const daysInPrevMonth = new Date(year, month, 0).getDate()
+
+  const cells: { date: string; day: number; inMonth: boolean }[] = []
+  for (let i = 0; i < startWeekday; i++) {
+    const day = daysInPrevMonth - startWeekday + 1 + i
+    const y = month === 0 ? year - 1 : year
+    const m = month === 0 ? 11 : month - 1
+    cells.push({ date: fmtDate(y, m, day), day, inMonth: false })
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ date: fmtDate(year, month, day), day, inMonth: true })
+  }
+  let nextDay = 1
+  while (cells.length < 42) {
+    const y = month === 11 ? year + 1 : year
+    const m = month === 11 ? 0 : month + 1
+    cells.push({ date: fmtDate(y, m, nextDay), day: nextDay, inMonth: false })
+    nextDay += 1
+  }
+
+  const [, selMonth, selDay] = selectedDate.split('-').map(Number)
+
   return (
     <div>
       <h2 className="text-xl font-bold text-black">팀원 면담</h2>
       <p className="mt-1 text-sm text-gray-600">
-        팀원을 선택해 캘린더에서 날짜를 고르고 면담 코멘트를 기록·수정·삭제할 수 있습니다. 오늘보다 이후 날짜는
-        예정된 면담으로 표시됩니다.
+        오른쪽 캘린더에서 날짜를 고르고 팀원 면담 일정을 등록하세요. 왼쪽에서 팀원별로 다음 면담 예정일과 이전
+        면담 기록을 한눈에 볼 수 있습니다.
       </p>
 
       {members.length === 0 ? (
@@ -193,165 +179,259 @@ export default function MeetingNotes() {
           등록된 팀원이 없습니다. 팀원 관리에서 먼저 팀원을 등록하세요.
         </p>
       ) : (
-        <div className="mt-2 rounded-lg border border-gray-200 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-black">팀원</span>
-            <div className="flex flex-wrap gap-1.5">
-              {members.map((member) => (
-                <button
-                  key={member.id}
-                  onClick={() => setSelectedMemberId(member.id)}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    member.id === selectedMemberId
-                      ? 'bg-accent text-white'
-                      : 'bg-gray-100 text-black hover:bg-gray-200'
-                  }`}
-                >
-                  {member.name}
-                </button>
-              ))}
+        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+          <div className="min-w-0 flex-1 rounded-lg border border-gray-200">
+            <div className="border-b border-gray-200 px-4 py-3">
+              <span className="text-sm font-semibold text-black">오늘 {todayStr}</span>
             </div>
-            {selectedMember && (
-              <span className="text-sm text-gray-500">
-                {notesForMember.length}건의 면담 기록
-              </span>
-            )}
-          </div>
-
-          {selectedMember && (
-            <div className="mt-4 rounded-lg bg-gray-50 px-4 py-3">
-              {selectedMemberResult ? (
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                  <span className="font-semibold text-black">순위 {selectedMemberRank + 1}위</span>
-                  <span className="text-gray-700">
-                    누적 점수 <span className="font-semibold text-black">{selectedMemberResult.cumulativeScore.toFixed(1)}</span>
-                  </span>
-                  <span className="text-gray-700">
-                    종합 점수(가중평균){' '}
-                    <span className="font-semibold text-black">{selectedMemberResult.weightedAverageScore.toFixed(1)}</span>
-                  </span>
-                  <span className="text-gray-700">
-                    참여 과제 <span className="font-semibold text-black">{selectedMemberResult.participatedTaskCount}건</span>
-                  </span>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold ${GRADE_COLORS[selectedMemberResult.grade]}`}
-                  >
-                    평가등급 {selectedMemberResult.grade}
-                  </span>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">
-                  비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4 flex flex-col gap-4 border-t border-gray-200 pt-4 sm:flex-row">
-            <MeetingCalendar
-              key={selectedMemberId}
-              noteDates={new Set(notesForMember.map((n) => n.date))}
-              selectedDate={newDate}
-              onSelectDate={setNewDate}
-            />
-
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-start gap-2">
-                <input
-                  type="date"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                />
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="면담 코멘트를 입력하세요 (예정된 면담이면 '면담 예정'처럼 짧게 남겨도 됩니다)"
-                  rows={2}
-                  className="min-w-[240px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                />
-                <button
-                  onClick={handleAdd}
-                  disabled={!newComment.trim()}
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  기록 추가
-                </button>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {notesForMember.length === 0 && (
-                  <p className="rounded-md bg-gray-50 px-4 py-4 text-center text-sm text-gray-500">
-                    아직 면담 기록이 없습니다. 캘린더에서 날짜를 선택하고 기록을 추가해보세요.
-                  </p>
-                )}
-                {notesForMember.map((note) =>
-                  editingNoteId === note.id ? (
-                    <div key={note.id} className="flex flex-wrap items-start gap-2 rounded-md border border-gray-300 px-3 py-3">
-                      <input
-                        type="date"
-                        value={editDate}
-                        onChange={(e) => setEditDate(e.target.value)}
-                        className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                      />
-                      <textarea
-                        value={editComment}
-                        onChange={(e) => setEditComment(e.target.value)}
-                        rows={2}
-                        className="min-w-[240px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(note)}
-                          disabled={!editComment.trim()}
-                          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          저장
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
-                        >
-                          취소
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      key={note.id}
-                      className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-gray-200 px-4 py-3"
+            <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-400">팀원 현황</div>
+            <div>
+              {members.map((member, idx) => {
+                const { latest, next, all } = memberSchedule(member.id)
+                const expanded = expandedMemberId === member.id
+                return (
+                  <div key={member.id} className="border-t border-gray-100">
+                    <button
+                      onClick={() => toggleExpand(member.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: colorForIndex(idx) }}
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-gray-500">
-                          {note.date}
-                          {note.date > todayString() && (
-                            <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[13px] font-bold text-accent">
-                              예정
-                            </span>
-                          )}
+                        <p className="font-semibold text-black">
+                          {member.name}
+                          {member.role && <span className="ml-2 text-xs font-normal text-gray-400">{member.role}</span>}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-black">{note.comment}</p>
+                        {latest ? (
+                          <p className="mt-0.5 truncate text-[13px] text-gray-500">
+                            {latest.date} — {latest.comment}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-[13px] text-gray-400">기록 없음</p>
+                        )}
                       </div>
-                      <div className="flex shrink-0 gap-2">
-                        <button
-                          onClick={() => startEdit(note)}
-                          className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
-                        >
-                          수정
-                        </button>
-                        <button
-                          onClick={() => setDeletingNote(note)}
-                          className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
+                      {next && (
+                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent">
+                          <CalendarIcon className="h-3 w-3" /> {fmtShort(next.date)}
+                        </span>
+                      )}
+                      <ChevronRightIcon
+                        className={`h-4 w-4 shrink-0 text-gray-300 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      />
+                    </button>
+
+                    {expanded && (
+                      <div className="space-y-2 bg-gray-50 px-4 py-3">
+                        {all.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
+                        {all.map((note) =>
+                          editingNoteId === note.id ? (
+                            <div key={note.id} className="flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
+                              <input
+                                type="date"
+                                value={editDate}
+                                onChange={(e) => setEditDate(e.target.value)}
+                                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                              />
+                              <textarea
+                                value={editComment}
+                                onChange={(e) => setEditComment(e.target.value)}
+                                rows={2}
+                                className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveEdit(note)}
+                                  disabled={!editComment.trim()}
+                                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  저장
+                                </button>
+                                <button
+                                  onClick={cancelEdit}
+                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
+                                >
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              key={note.id}
+                              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-gray-500">
+                                  {note.date}
+                                  {note.date >= todayStr && (
+                                    <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[13px] font-bold text-accent">
+                                      예정
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="mt-1 whitespace-pre-wrap text-sm text-black">{note.comment}</p>
+                              </div>
+                              <div className="flex shrink-0 gap-2">
+                                <button
+                                  onClick={() => startEdit(note)}
+                                  className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                                >
+                                  수정
+                                </button>
+                                <button
+                                  onClick={() => setDeletingNote(note)}
+                                  className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                                >
+                                  삭제
+                                </button>
+                              </div>
+                            </div>
+                          ),
+                        )}
                       </div>
-                    </div>
-                  ),
-                )}
-              </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
+
+          {calendarOpen ? (
+            <div className="w-full shrink-0 self-start rounded-lg border border-gray-200 lg:w-80">
+              <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+                <span className="flex items-center gap-2 text-sm font-semibold text-black">
+                  <CalendarIcon className="h-4 w-4 text-gray-400" /> 면담 일정
+                </span>
+                <button
+                  onClick={() => setCalendarOpen(false)}
+                  title="접기"
+                  aria-label="캘린더 접기"
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                >
+                  <CloseIcon className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                    aria-label="이전 달"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                  >
+                    <ChevronIcon direction="left" className="h-4 w-4" />
+                  </button>
+                  <span className="text-sm font-semibold text-black">
+                    {year}년 {month + 1}월
+                  </span>
+                  <button
+                    onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                    aria-label="다음 달"
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100"
+                  >
+                    <ChevronIcon direction="right" className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[13px] text-gray-400">
+                  {WEEKDAY_LABELS.map((w) => (
+                    <span key={w}>{w}</span>
+                  ))}
+                </div>
+                <div className="mt-1 grid grid-cols-7 gap-1">
+                  {cells.map((cell) => {
+                    const dotIdxs = notesByDate.get(cell.date) ?? []
+                    const isToday = cell.date === todayStr
+                    const isSelected = cell.date === selectedDate
+                    return (
+                      <button
+                        key={cell.date}
+                        onClick={() => setSelectedDate(cell.date)}
+                        title={cell.date}
+                        className={`relative flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-[13px] transition-colors ${
+                          !cell.inMonth
+                            ? 'text-gray-300 hover:bg-gray-50'
+                            : isSelected
+                              ? 'bg-accent font-semibold text-white'
+                              : isToday
+                                ? 'bg-orange-50 font-semibold text-accent'
+                                : 'text-black hover:bg-gray-100'
+                        }`}
+                      >
+                        {cell.day}
+                        {dotIdxs.length > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            {dotIdxs.slice(0, 3).map((idx) => (
+                              <span
+                                key={idx}
+                                className="h-1 w-1 rounded-full"
+                                style={{ background: isSelected ? '#fff' : colorForIndex(idx) }}
+                              />
+                            ))}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                  {members.map((m, idx) => (
+                    <span key={m.id} className="flex items-center gap-1 text-[13px] text-gray-500">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                      {m.name}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-4 border-t border-gray-200 pt-3">
+                  <p className="text-[13px] font-semibold text-accent">
+                    {selMonth}월 {selDay}일 일정 추가
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <select
+                      value={effectiveQuickMemberId}
+                      onChange={(e) => setQuickMemberId(e.target.value)}
+                      className="rounded-md border border-gray-300 px-2 py-2 text-sm text-black"
+                    >
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={quickComment}
+                      onChange={(e) => setQuickComment(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleQuickAdd()
+                      }}
+                      placeholder="일정 메모 입력 후 Enter..."
+                      className="min-w-[140px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                    />
+                    <button
+                      onClick={handleQuickAdd}
+                      disabled={!quickComment.trim()}
+                      className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      추가
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setCalendarOpen(true)}
+              className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50 lg:flex-col lg:gap-1"
+              title="펼치기"
+              aria-label="면담 일정 캘린더 펼치기"
+            >
+              <CalendarIcon className="h-4 w-4" />
+              면담 일정
+            </button>
+          )}
         </div>
       )}
 
