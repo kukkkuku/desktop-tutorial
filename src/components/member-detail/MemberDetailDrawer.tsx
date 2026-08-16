@@ -1,23 +1,11 @@
 import { useEffect } from 'react'
-import type { WorkspaceMeta } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults } from '../../utils/calculations'
 import { calcPromotionReadiness, trendArrow } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
+import type { NotesSubTab } from '../notes/NotesStage'
 import MemberOverviewPanel from './MemberOverviewPanel'
-import MemberPerformanceHistoryPanel from './MemberPerformanceHistoryPanel'
-import MemberAppraisalPromotionPanel from './MemberAppraisalPromotionPanel'
-import MemberInterviewPanel from './MemberInterviewPanel'
-
-export type DetailTab = 'overview' | 'performance' | 'promotion' | 'meeting'
-
-const TABS: { key: DetailTab; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'performance', label: '성과 히스토리' },
-  { key: 'promotion', label: '인사평가·승진' },
-  { key: 'meeting', label: '면담·육성' },
-]
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -30,16 +18,15 @@ function CloseIcon({ className }: { className?: string }) {
 
 interface MemberDetailDrawerProps {
   memberId: string
-  tab: DetailTab
-  onTabChange: (tab: DetailTab) => void
   onClose: () => void
-  periods: WorkspaceMeta[]
-  onOpenMeetingPrep: (memberId: string) => void
+  onNavigateToNotes: (subTab: NotesSubTab) => void
 }
 
 // Desktop에서는 우측 Drawer, 모바일/PWA 좁은 화면에서는 반응형 클래스만으로
-// 자연스럽게 Full Screen Sheet가 된다 — 내부 4개 패널 컴포넌트는 완전히 동일하게 재사용한다.
-export default function MemberDetailDrawer({ memberId, tab, onTabChange, onClose, periods, onOpenMeetingPrep }: MemberDetailDrawerProps) {
+// 자연스럽게 Full Screen Sheet가 된다. 면담 전에 필요한 핵심 요약만 보여주고,
+// 성과 히스토리·인사평가·승진 관리·면담 기록의 실제 내용은 모두 면담 탭의
+// 서브탭에 있다 — 여기서는 그곳으로 바로 이동하는 진입점 역할만 한다.
+export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNotes }: MemberDetailDrawerProps) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
   const member = state.members.find((m) => m.id === memberId)
@@ -69,14 +56,10 @@ export default function MemberDetailDrawer({ memberId, tab, onTabChange, onClose
     .filter((n) => n.memberId === memberId && n.date <= new Date().toISOString().slice(0, 10))
     .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
 
-  function goToMeetingPrep() {
-    onOpenMeetingPrep(memberId)
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex h-full w-full flex-col bg-white shadow-xl sm:w-[440px] md:w-[480px]">
+      <div className="relative flex h-full w-full flex-col bg-white shadow-xl sm:w-[400px] md:w-[420px]">
         <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-black">{member.name}</p>
@@ -91,38 +74,18 @@ export default function MemberDetailDrawer({ memberId, tab, onTabChange, onClose
           </button>
         </div>
 
-        <div className="flex overflow-x-auto border-b border-gray-200 px-2">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => onTabChange(t.key)}
-              className={`shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-                tab === t.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === 'overview' && (
-            <MemberOverviewPanel
-              member={member}
-              rank={rank}
-              memberResult={memberResult}
-              levelTenureYears={levelTenureYears}
-              readiness={readiness}
-              achievementTrend={achievementTrend}
-              competencyTrend={competencyTrend}
-              lastMeetingDate={lastMeetingDate}
-              onNavigate={onTabChange}
-              onOpenMeetingPrep={goToMeetingPrep}
-            />
-          )}
-          {tab === 'performance' && <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />}
-          {tab === 'promotion' && <MemberAppraisalPromotionPanel member={member} />}
-          {tab === 'meeting' && <MemberInterviewPanel member={member} onOpenMeetingPrep={goToMeetingPrep} />}
+          <MemberOverviewPanel
+            member={member}
+            rank={rank}
+            memberResult={memberResult}
+            levelTenureYears={levelTenureYears}
+            readiness={readiness}
+            achievementTrend={achievementTrend}
+            competencyTrend={competencyTrend}
+            lastMeetingDate={lastMeetingDate}
+            onNavigateToNotes={onNavigateToNotes}
+          />
         </div>
       </div>
     </div>

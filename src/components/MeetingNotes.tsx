@@ -5,6 +5,7 @@ import { useTeamProfile } from '../state/TeamContext'
 import type { MeetingActionItem, MeetingNote } from '../types'
 import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { calcPromotionReadiness } from '../utils/promotion'
+import { colorForIndex } from '../utils/memberColors'
 import ConfirmDialog from './ConfirmDialog'
 import InterviewPrepAccordion from './InterviewPrepAccordion'
 
@@ -21,13 +22,6 @@ function fmtShort(date: string): string {
 }
 
 const WEEKDAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
-
-// Cycled per member (by list order) so both the calendar dots and the
-// legend stay stable and consistent for a given roster.
-const MEMBER_DOT_COLORS = ['#EB6100', '#22C55E', '#3B82F6', '#A855F7', '#EAB308', '#EC4899', '#14B8A6', '#F97316']
-function colorForIndex(index: number): string {
-  return MEMBER_DOT_COLORS[index % MEMBER_DOT_COLORS.length]
-}
 
 function ChevronIcon({ direction, className }: { direction: 'left' | 'right'; className?: string }) {
   return (
@@ -58,10 +52,12 @@ function CloseIcon({ className }: { className?: string }) {
 }
 
 interface MeetingNotesProps {
+  selectedMemberId: string | null
+  onSelectMember: (memberId: string) => void
   prepRequest?: { memberId: string; token: number } | null
 }
 
-export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
+export default function MeetingNotes({ selectedMemberId, onSelectMember, prepRequest }: MeetingNotesProps) {
   const { state, dispatch } = useAppState()
   const { profile } = useTeamProfile()
   const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
@@ -77,7 +73,6 @@ export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
   })
   const [selectedDate, setSelectedDate] = useState(todayStr)
 
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [newDate, setNewDate] = useState(todayStr)
   const [newComment, setNewComment] = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -101,11 +96,10 @@ export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
   const activeMemberIdx = members.findIndex((m) => m.id === activeMemberId)
   const activeMember = activeMemberIdx >= 0 ? members[activeMemberIdx] : null
 
-  // 팀원 상세 Drawer의 [면담 준비] 버튼으로 진입한 경우 — 같은 화면 안에서 해당
-  // 팀원을 선택하고 면담 준비 아코디언을 자동으로 펼친다.
+  // 팀원 상세 Drawer의 [면담 준비] 버튼으로 진입한 경우 — 면담 준비 아코디언을
+  // 자동으로 펼친다. 팀원 선택 자체는 상위(NotesStage)에서 이미 처리한다.
   useEffect(() => {
     if (!prepRequest) return
-    setSelectedMemberId(prepRequest.memberId)
     setNewDate(todayStr)
     setNewComment('')
     setPrepOpenMemberId(prepRequest.memberId)
@@ -188,7 +182,7 @@ export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
   }
 
   function selectMember(memberId: string) {
-    setSelectedMemberId(memberId)
+    onSelectMember(memberId)
     setNewDate(todayStr)
     setNewComment('')
     resetDevAndActionForm()
@@ -271,40 +265,8 @@ export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-black">팀원 면담</h2>
-      <p className="mt-1 text-sm text-gray-600">
-        팀원을 선택하면 성과 요약과 면담 기록을 볼 수 있습니다. 오른쪽 캘린더에서는 팀 전체의 면담 일정을
-        한눈에 확인할 수 있습니다.
-      </p>
-
-      {members.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
-          등록된 팀원이 없습니다. 팀원 관리에서 먼저 팀원을 등록하세요.
-        </p>
-      ) : (
-        <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap gap-2 px-1 pb-3">
-              {members.map((member, idx) => {
-                const isActive = member.id === activeMemberId
-                return (
-                  <button
-                    key={member.id}
-                    onClick={() => selectMember(member.id)}
-                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                      isActive ? 'bg-accent text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: isActive ? '#fff' : colorForIndex(idx) }}
-                    />
-                    {member.name}
-                  </button>
-                )
-              })}
-            </div>
-
             {activeMember && (
               <div className="space-y-3 rounded-lg border border-gray-200 px-4 py-4">
                 <div>
@@ -797,7 +759,6 @@ export default function MeetingNotes({ prepRequest }: MeetingNotesProps) {
 
           </div>
         </div>
-      )}
 
       <ConfirmDialog
         open={deletingNote !== null}

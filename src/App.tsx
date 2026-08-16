@@ -10,13 +10,13 @@ import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
 import DataStage from './components/DataStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
-import MeetingNotes from './components/MeetingNotes'
+import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('chip')
-  const [meetingPrepRequest, setMeetingPrepRequest] = useState<{ memberId: string; token: number } | null>(null)
+  const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
 
   function handleStageChange(next: Stage) {
@@ -32,18 +32,18 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
     setAddPeriodOpen(false)
   }
 
-  // 팀원 상세 Drawer의 [면담 준비] 버튼 → 새 페이지가 아니라 기존 면담 화면으로
-  // 이동해 해당 팀원을 선택하고 면담 준비 아코디언을 펼친다.
-  function goToMeetingPrep(memberId: string) {
+  // 팀원 상세 Drawer의 카드/버튼 → 새 페이지가 아니라 면담 탭의 해당 서브탭(면담
+  // 기록/성과 히스토리/인사평가·승진 관리)으로 이동해 그 팀원을 선택해둔다.
+  function goToNotes(memberId: string, subTab: NotesSubTab) {
     setStage('notes')
-    setMeetingPrepRequest({ memberId, token: Date.now() })
+    setNotesRequest({ memberId, subTab, token: Date.now() })
     window.scrollTo(0, 0)
   }
 
   return (
     <AppProvider workspaceId={workspaceId}>
       <TeamProvider teamName={teamName}>
-        <MemberDetailProvider periods={periods} onGoToMeetingPrep={goToMeetingPrep}>
+        <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <div className="min-h-screen bg-white">
             <StageTabs
               stage={stage}
@@ -61,7 +61,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 {stage === 'data' && <DataStage />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}
-                {stage === 'notes' && <MeetingNotes prepRequest={meetingPrepRequest} />}
+                {stage === 'notes' && <NotesStage notesRequest={notesRequest} />}
               </main>
             </div>
           </div>

@@ -3,7 +3,7 @@ import type { MemberResultRow } from '../../utils/calculations'
 import { GRADE_COLORS } from '../../utils/calculations'
 import type { PromotionReadiness } from '../../utils/promotion'
 import { formatLevelTenureLabel } from '../../utils/tenure'
-import type { DetailTab } from './MemberDetailDrawer'
+import type { NotesSubTab } from '../notes/NotesStage'
 
 interface MemberOverviewPanelProps {
   member: TeamMember
@@ -14,10 +14,12 @@ interface MemberOverviewPanelProps {
   achievementTrend: string
   competencyTrend: string
   lastMeetingDate: string | null
-  onNavigate: (tab: DetailTab) => void
-  onOpenMeetingPrep: () => void
+  onNavigateToNotes: (subTab: NotesSubTab) => void
 }
 
+// 팀원 상세는 이제 딥다이브 탭을 자체적으로 갖지 않는다 — 빠른 요약만 보여주고,
+// 각 카드는 면담 탭의 해당 서브탭(성과 히스토리/인사평가·승진 관리/면담 기록)으로
+// 바로 이동하는 진입점 역할만 한다.
 export default function MemberOverviewPanel({
   member,
   rank,
@@ -27,14 +29,13 @@ export default function MemberOverviewPanel({
   achievementTrend,
   competencyTrend,
   lastMeetingDate,
-  onNavigate,
-  onOpenMeetingPrep,
+  onNavigateToNotes,
 }: MemberOverviewPanelProps) {
   return (
     <div className="space-y-4">
       {/* 현재 성과 — 오렌지, 성과평가 결과 (기존 결과 화면과 동일 계산) */}
       <button
-        onClick={() => onNavigate('performance')}
+        onClick={() => onNavigateToNotes('history')}
         className="w-full rounded-lg border border-orange-100 bg-orange-50/60 px-4 py-3 text-left transition-colors hover:bg-orange-50"
       >
         <p className="text-xs font-semibold text-accent">현재 성과</p>
@@ -49,11 +50,12 @@ export default function MemberOverviewPanel({
         ) : (
           <p className="mt-1 text-sm text-gray-400">이번 기간 평가 데이터가 없습니다.</p>
         )}
+        <p className="mt-1 text-[11px] text-accent/70">성과 히스토리 보기 →</p>
       </button>
 
       {/* 승진 준비 — 남색, 성과점수와 완전히 다른 카드/색/단위로 분리 */}
       <button
-        onClick={() => onNavigate('promotion')}
+        onClick={() => onNavigateToNotes('promotion')}
         className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:bg-slate-100"
       >
         <p className="text-xs font-semibold text-promo">승진 준비 (승진제도 기준)</p>
@@ -69,6 +71,7 @@ export default function MemberOverviewPanel({
         ) : (
           <p className="mt-1 text-sm text-gray-400">다음 직급 승진 기준이 설정되지 않았습니다.</p>
         )}
+        <p className="mt-1 text-[11px] text-promo/70">인사평가·승진 관리 보기 →</p>
       </button>
 
       <div className="grid grid-cols-2 gap-3">
@@ -85,7 +88,7 @@ export default function MemberOverviewPanel({
       </div>
 
       <button
-        onClick={() => onNavigate('promotion')}
+        onClick={() => onNavigateToNotes('promotion')}
         className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-left hover:bg-gray-50"
       >
         <p className="text-[11px] font-medium text-gray-400">최근 평가 (공식 인사평가)</p>
@@ -99,7 +102,7 @@ export default function MemberOverviewPanel({
       </div>
 
       <button
-        onClick={onOpenMeetingPrep}
+        onClick={() => onNavigateToNotes('record')}
         className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
       >
         면담 준비

@@ -7,7 +7,6 @@ import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcYearsSince, formatLevelTenureLabel } from '../utils/tenure'
 import ConfirmDialog from './ConfirmDialog'
-import PromotionCriteriaManager from './promotion/PromotionCriteriaManager'
 
 interface MemberFormValues {
   name: string
@@ -33,7 +32,6 @@ export default function TeamManagement() {
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
-  const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
 
   const [newForm, setNewForm] = useState<MemberFormValues>(EMPTY_FORM)
   const [newFormError, setNewFormError] = useState('')
@@ -133,20 +131,10 @@ export default function TeamManagement() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
-          <p className="mt-1 text-sm text-gray-600">
-            팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
-          </p>
-        </div>
-        <button
-          onClick={() => setCriteriaManagerOpen(true)}
-          className="shrink-0 rounded-md border border-promo/30 px-3 py-2 text-sm font-medium text-promo hover:bg-promo/5"
-        >
-          승진 기준 관리
-        </button>
-      </div>
+      <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
+      <p className="mt-1 text-sm text-gray-600">
+        팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
+      </p>
 
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_2fr_auto]">
@@ -471,7 +459,6 @@ export default function TeamManagement() {
         onCancel={() => setDeletingPeerReview(null)}
       />
 
-      {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
     </div>
   )
 }
