@@ -35,7 +35,10 @@ export default function DataStage() {
         ))}
       </div>
 
-      <div className="mt-5">
+      {/* DataUploadPanel은 position:fixed라 문서 흐름에서 공간을 차지하지
+          않으므로, 접힌 바에 마지막 행이 항상 가려지지 않도록 여기서
+          여유 공간을 직접 확보한다. */}
+      <div className="mt-5 pb-20">
         {sub === 'tasks' && <TaskManagement onUploaded={(files) => recordUpload('task', files)} />}
         {sub === 'members' && <TeamManagement onUploaded={(files) => recordUpload('member', files)} />}
         {sub === 'peer' && <PeerReviewManagement onUploaded={(files) => recordUpload('peer', files)} />}
