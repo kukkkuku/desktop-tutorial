@@ -263,11 +263,12 @@ export default function TeamManagement() {
                     <td className="px-4 py-3 align-top">
                       <button
                         onClick={() => toggleActive(member)}
-                        className={`rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                          member.active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                          member.active ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                         }`}
                       >
-                        {member.active ? '사용' : '미사용'}
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${member.active ? 'bg-success' : 'bg-gray-400'}`} />
+                        {member.active ? '활성' : '비활성'}
                       </button>
                     </td>
                     <td className="px-4 py-2 align-top">
@@ -309,11 +310,12 @@ export default function TeamManagement() {
                     <button
                       onClick={() => toggleActive(member)}
                       title="클릭해서 활성/비활성 전환"
-                      className={`rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-                        member.active ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                        member.active ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                       }`}
                     >
-                      {member.active ? '사용' : '미사용'}
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${member.active ? 'bg-success' : 'bg-gray-400'}`} />
+                      {member.active ? '활성' : '비활성'}
                     </button>
                   </td>
                   <td className="px-4 py-3">
