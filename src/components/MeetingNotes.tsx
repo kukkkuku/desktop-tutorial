@@ -95,18 +95,6 @@ export default function MeetingNotes() {
     .map((member, idx) => ({ member, idx }))
     .filter(({ member }) => meetingNotes.some((n) => n.memberId === member.id && n.date === todayStr))
 
-  // Members with a meeting scheduled on a future (non-today) date -- shown
-  // alongside todayMembers so upcoming meetings aren't hidden.
-  const otherUpcomingMembers = members
-    .map((member, idx) => {
-      const note = meetingNotes
-        .filter((n) => n.memberId === member.id && n.date > todayStr)
-        .sort((a, b) => a.date.localeCompare(b.date))[0]
-      return { member, idx, note }
-    })
-    .filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.note)
-    .sort((a, b) => a.note.date.localeCompare(b.note.date))
-
   const notesByDate = useMemo(() => {
     const map = new Map<string, number[]>()
     meetingNotes.forEach((n) => {
@@ -364,15 +352,6 @@ export default function MeetingNotes() {
           </div>
 
           <div className="flex w-full shrink-0 flex-col gap-2 self-start lg:w-80">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
-              {members.map((m, idx) => (
-                <span key={m.id} className="flex items-center gap-1 text-[13px] text-gray-500">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                  {m.name}
-                </span>
-              ))}
-            </div>
-
             {calendarOpen ? (
             <div className="rounded-lg border border-gray-200">
               <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -452,49 +431,14 @@ export default function MeetingNotes() {
                   })}
                 </div>
 
-                <div className="mt-4 border-t border-gray-200 pt-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] font-semibold text-black">오늘 {todayStr}</span>
-                    {todayMembers.length > 0 && (
-                      <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원</span>
-                    )}
-                  </div>
-                  {todayMembers.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {todayMembers.map(({ member, idx }) => (
-                        <button
-                          key={member.id}
-                          onClick={() => selectMember(member.id)}
-                          className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                          {member.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-1.5 text-[13px] text-gray-400">오늘 예정된 면담이 없습니다.</p>
-                  )}
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+                  {members.map((m, idx) => (
+                    <span key={m.id} className="flex items-center gap-1 text-[13px] text-gray-500">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                      {m.name}
+                    </span>
+                  ))}
                 </div>
-
-                {otherUpcomingMembers.length > 0 && (
-                  <div className="mt-3 border-t border-gray-200 pt-3">
-                    <span className="text-[13px] font-semibold text-black">다른 날짜 예정 면담</span>
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {otherUpcomingMembers.map(({ member, idx, note }) => (
-                        <button
-                          key={member.id}
-                          onClick={() => selectMember(member.id)}
-                          className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                          {member.name}
-                          <span className="text-gray-400">{fmtShort(note.date)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div className="mt-3 border-t border-gray-200 pt-3">
                   <p className="text-[13px] font-semibold text-black">{fmtShort(selectedDate)} 면담</p>
@@ -556,57 +500,65 @@ export default function MeetingNotes() {
               </div>
             </div>
             ) : (
-              <div className="rounded-lg border border-gray-200">
-                <button
-                  onClick={() => setCalendarOpen(true)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-black hover:bg-gray-50"
-                  title="펼치기"
-                  aria-label="면담 일정 캘린더 펼치기"
-                >
-                  <span className="flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-gray-400" /> 면담 일정
-                  </span>
-                  <ChevronIcon direction="right" className="h-4 w-4 text-gray-400" />
-                </button>
-                <div className="max-h-72 divide-y divide-gray-100 overflow-y-auto border-t border-gray-200">
-                  {upcomingDates.length === 0 && (
-                    <p className="px-4 py-3 text-[13px] text-gray-400">예정된 면담이 없습니다.</p>
-                  )}
-                  {upcomingDates.map(({ date, idxs }) => (
-                    <div
-                      key={date}
-                      onClick={() => {
-                        selectDate(date)
-                        setCalendarOpen(true)
-                      }}
-                      className="flex cursor-pointer flex-wrap items-center gap-2 px-4 py-2 text-[13px] hover:bg-gray-50"
+              <button
+                onClick={() => setCalendarOpen(true)}
+                className="flex shrink-0 items-center gap-2 self-start rounded-lg border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50 lg:flex-col lg:gap-1"
+                title="펼치기"
+                aria-label="면담 일정 캘린더 펼치기"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                면담 일정
+              </button>
+            )}
+
+            <div className="rounded-lg border border-gray-200 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[13px] font-semibold text-black">오늘 {todayStr}</span>
+                {todayMembers.length > 0 && (
+                  <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원 — 바로 진행 가능</span>
+                )}
+              </div>
+              {todayMembers.length > 0 ? (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {todayMembers.map(({ member, idx }) => (
+                    <button
+                      key={member.id}
+                      onClick={() => selectMember(member.id)}
+                      className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
                     >
-                      <span className="shrink-0 font-medium text-gray-500">{fmtShort(date)}</span>
-                      <div className="flex flex-wrap gap-1">
-                        {idxs.map((idx) => {
-                          const member = members[idx]
-                          if (!member) return null
-                          return (
-                            <button
-                              key={idx}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                selectMember(member.id)
-                                setCalendarOpen(true)
-                              }}
-                              className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-gray-700 hover:bg-gray-200"
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                              {member.name}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </div>
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                      {member.name}
+                    </button>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="mt-1.5 text-[13px] text-gray-400">오늘 예정된 면담이 없습니다.</p>
+              )}
+            </div>
+
+            {upcomingDates
+              .filter(({ date }) => date !== todayStr)
+              .map(({ date, idxs }) => (
+                <div key={date} className="rounded-lg border border-gray-200 px-4 py-3">
+                  <span className="text-[13px] font-semibold text-black">{date}</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {idxs.map((idx) => {
+                      const member = members[idx]
+                      if (!member) return null
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => selectMember(member.id)}
+                          className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          {member.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}
