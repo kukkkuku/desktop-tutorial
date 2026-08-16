@@ -26,14 +26,6 @@ function colorForIndex(index: number): string {
   return MEMBER_DOT_COLORS[index % MEMBER_DOT_COLORS.length]
 }
 
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  )
-}
-
 function ChevronIcon({ direction, className }: { direction: 'left' | 'right'; className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -77,7 +69,7 @@ export default function MeetingNotes() {
   })
   const [selectedDate, setSelectedDate] = useState(todayStr)
 
-  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
   const [newDate, setNewDate] = useState(todayStr)
   const [newComment, setNewComment] = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -85,22 +77,24 @@ export default function MeetingNotes() {
   const [editComment, setEditComment] = useState('')
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
 
+  const activeMemberId = selectedMemberId ?? members[0]?.id ?? null
+  const activeMemberIdx = members.findIndex((m) => m.id === activeMemberId)
+  const activeMember = activeMemberIdx >= 0 ? members[activeMemberIdx] : null
+
   function memberSchedule(memberId: string) {
     const notes = meetingNotes.filter((n) => n.memberId === memberId)
-    const past = notes.filter((n) => n.date < todayStr).sort((a, b) => b.date.localeCompare(a.date))
-    const upcoming = notes.filter((n) => n.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))
     const all = [...notes].sort((a, b) => b.date.localeCompare(a.date))
-    return { latest: past[0], upcoming, all }
+    return { all }
   }
 
-  // Members with a meeting logged for today -- surfaced right next to the
-  // "오늘" header so it's obvious at a glance who's up for a meeting right now.
+  // Members with a meeting logged for today -- surfaced in the calendar panel
+  // so it's obvious at a glance who's up for a meeting right now.
   const todayMembers = members
     .map((member, idx) => ({ member, idx }))
     .filter(({ member }) => meetingNotes.some((n) => n.memberId === member.id && n.date === todayStr))
 
   // Members with a meeting scheduled on a future (non-today) date -- shown
-  // alongside todayMembers so upcoming meetings aren't hidden inside each row.
+  // alongside todayMembers so upcoming meetings aren't hidden.
   const otherUpcomingMembers = members
     .map((member, idx) => {
       const note = meetingNotes
@@ -132,21 +126,10 @@ export default function MeetingNotes() {
     setNewComment('')
   }
 
-  function toggleExpand(memberId: string) {
-    setExpandedMemberId((cur) => (cur === memberId ? null : memberId))
+  function selectMember(memberId: string) {
+    setSelectedMemberId(memberId)
     setNewDate(todayStr)
     setNewComment('')
-  }
-
-  // Jumps from a calendar day's detail list straight to that member's record
-  // (always opens, doesn't toggle closed) and scrolls it into view.
-  function openMember(memberId: string) {
-    setExpandedMemberId(memberId)
-    setNewDate(todayStr)
-    setNewComment('')
-    requestAnimationFrame(() => {
-      document.getElementById(`member-row-${memberId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    })
   }
 
   function startEdit(note: MeetingNote) {
@@ -197,12 +180,15 @@ export default function MeetingNotes() {
     nextDay += 1
   }
 
+  const activeResult = activeMemberId ? memberResultById.get(activeMemberId) : undefined
+  const activeAll = activeMemberId ? memberSchedule(activeMemberId).all : []
+
   return (
     <div>
       <h2 className="text-xl font-bold text-black">팀원 면담</h2>
       <p className="mt-1 text-sm text-gray-600">
-        팀원을 눌러 펼치면 면담 기록을 남길 수 있습니다. 오른쪽 캘린더에서는 팀 전체의 면담 일정을 한눈에
-        확인할 수 있습니다.
+        팀원을 선택하면 성과 요약과 면담 기록을 볼 수 있습니다. 오른쪽 캘린더에서는 팀 전체의 면담 일정을
+        한눈에 확인할 수 있습니다.
       </p>
 
       {members.length === 0 ? (
@@ -212,211 +198,147 @@ export default function MeetingNotes() {
       ) : (
         <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="min-w-0 flex-1 rounded-lg border border-gray-200">
-            <div className="border-b border-gray-200 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-semibold text-black">오늘 {todayStr}</span>
-                {todayMembers.length > 0 && (
-                  <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원 — 바로 진행 가능</span>
-                )}
-              </div>
-              {todayMembers.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {todayMembers.map(({ member, idx }) => (
-                    <button
-                      key={member.id}
-                      onClick={() => toggleExpand(member.id)}
-                      className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                      {member.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {otherUpcomingMembers.length > 0 && (
-                <div className="mt-3 border-t border-gray-100 pt-2">
-                  <span className="text-[13px] text-gray-400">다른 날짜 예정 면담</span>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {otherUpcomingMembers.map(({ member, idx, note }) => (
-                      <button
-                        key={member.id}
-                        onClick={() => openMember(member.id)}
-                        className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                        {member.name}
-                        <span className="text-gray-400">{fmtShort(note.date)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-400">팀원 현황</div>
-            <div>
+            <div className="flex flex-wrap gap-2 border-b border-gray-200 px-4 py-3">
               {members.map((member, idx) => {
-                const { latest, upcoming, all } = memberSchedule(member.id)
-                const expanded = expandedMemberId === member.id
-                const result = memberResultById.get(member.id)
+                const isActive = member.id === activeMemberId
                 return (
-                  <div key={member.id} id={`member-row-${member.id}`} className="border-t border-gray-100">
-                    <button
-                      onClick={() => toggleExpand(member.id)}
-                      className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: colorForIndex(idx) }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-black">
-                          {member.name}
-                          {member.role && <span className="ml-2 text-xs font-normal text-gray-400">{member.role}</span>}
-                        </p>
-                        {latest ? (
-                          <p className="mt-0.5 truncate text-[13px] text-gray-500">
-                            {latest.date} — {latest.comment}
-                          </p>
-                        ) : (
-                          <p className="mt-0.5 text-[13px] text-gray-400">기록 없음</p>
-                        )}
-                      </div>
-                      {upcoming.length > 0 && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-1">
-                          {upcoming.map((note) => (
-                            <span
-                              key={note.id}
-                              className="flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent"
-                            >
-                              <CalendarIcon className="h-3 w-3" /> {fmtShort(note.date)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <ChevronRightIcon
-                        className={`h-4 w-4 shrink-0 text-gray-300 transition-transform ${expanded ? 'rotate-90' : ''}`}
-                      />
-                    </button>
-
-                    {expanded && (
-                      <div className="space-y-2 bg-gray-50 px-4 py-3">
-                        {result ? (
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px]">
-                            <span className="font-semibold text-black">순위 {result.rank}위</span>
-                            <span className="text-gray-600">
-                              누적 점수 <span className="font-semibold text-black">{result.cumulativeScore.toFixed(1)}</span>
-                            </span>
-                            <span className="text-gray-600">
-                              종합 점수(가중평균){' '}
-                              <span className="font-semibold text-black">{result.weightedAverageScore.toFixed(1)}</span>
-                            </span>
-                            <span className="text-gray-600">
-                              참여 과제 <span className="font-semibold text-black">{result.participatedTaskCount}건</span>
-                            </span>
-                            <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${GRADE_COLORS[result.grade]}`}>
-                              평가등급 {result.grade}
-                            </span>
-                          </div>
-                        ) : (
-                          <p className="rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px] text-gray-400">
-                            비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
-                          </p>
-                        )}
-
-                        <div className="flex flex-wrap items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-3">
-                          <input
-                            type="date"
-                            value={newDate}
-                            onChange={(e) => setNewDate(e.target.value)}
-                            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                          />
-                          <textarea
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            placeholder="면담 코멘트를 입력하세요"
-                            rows={2}
-                            className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                          />
-                          <button
-                            onClick={() => handleAdd(member.id)}
-                            disabled={!newComment.trim()}
-                            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            기록 추가
-                          </button>
-                        </div>
-
-                        {all.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
-                        {all.map((note) =>
-                          editingNoteId === note.id ? (
-                            <div key={note.id} className="flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
-                              <input
-                                type="date"
-                                value={editDate}
-                                onChange={(e) => setEditDate(e.target.value)}
-                                className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                              />
-                              <textarea
-                                value={editComment}
-                                onChange={(e) => setEditComment(e.target.value)}
-                                rows={2}
-                                className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                              />
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => saveEdit(note)}
-                                  disabled={!editComment.trim()}
-                                  className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  저장
-                                </button>
-                                <button
-                                  onClick={cancelEdit}
-                                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
-                                >
-                                  취소
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div
-                              key={note.id}
-                              className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-gray-500">
-                                  {note.date}
-                                  {note.date >= todayStr && (
-                                    <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[13px] font-bold text-accent">
-                                      예정
-                                    </span>
-                                  )}
-                                </p>
-                                <p className="mt-1 whitespace-pre-wrap text-sm text-black">{note.comment}</p>
-                              </div>
-                              <div className="flex shrink-0 gap-2">
-                                <button
-                                  onClick={() => startEdit(note)}
-                                  className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
-                                >
-                                  수정
-                                </button>
-                                <button
-                                  onClick={() => setDeletingNote(note)}
-                                  className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
-                                >
-                                  삭제
-                                </button>
-                              </div>
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    key={member.id}
+                    onClick={() => selectMember(member.id)}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                      isActive ? 'bg-accent text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: isActive ? '#fff' : colorForIndex(idx) }}
+                    />
+                    {member.name}
+                  </button>
                 )
               })}
             </div>
+
+            {activeMember && (
+              <div className="space-y-3 px-4 py-4">
+                <div>
+                  <p className="text-lg font-bold text-black">{activeMember.name}</p>
+                  {activeMember.role && <p className="text-xs text-gray-400">{activeMember.role}</p>}
+                </div>
+
+                {activeResult ? (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px]">
+                    <span className="font-semibold text-black">순위 {activeResult.rank}위</span>
+                    <span className="text-gray-600">
+                      누적 점수 <span className="font-semibold text-black">{activeResult.cumulativeScore.toFixed(1)}</span>
+                    </span>
+                    <span className="text-gray-600">
+                      종합 점수(가중평균){' '}
+                      <span className="font-semibold text-black">{activeResult.weightedAverageScore.toFixed(1)}</span>
+                    </span>
+                    <span className="text-gray-600">
+                      참여 과제 <span className="font-semibold text-black">{activeResult.participatedTaskCount}건</span>
+                    </span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${GRADE_COLORS[activeResult.grade]}`}>
+                      평가등급 {activeResult.grade}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-[13px] text-gray-400">
+                    비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-3">
+                  <input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                  />
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="면담 코멘트를 입력하세요"
+                    rows={2}
+                    className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                  />
+                  <button
+                    onClick={() => handleAdd(activeMember.id)}
+                    disabled={!newComment.trim()}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    기록 추가
+                  </button>
+                </div>
+
+                {activeAll.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
+                {activeAll.map((note) =>
+                  editingNoteId === note.id ? (
+                    <div key={note.id} className="flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                      />
+                      <textarea
+                        value={editComment}
+                        onChange={(e) => setEditComment(e.target.value)}
+                        rows={2}
+                        className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => saveEdit(note)}
+                          disabled={!editComment.trim()}
+                          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          저장
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      key={note.id}
+                      className="flex flex-wrap items-start justify-between gap-3 rounded-md border border-gray-200 bg-white px-4 py-3"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-gray-500">
+                          {note.date}
+                          {note.date >= todayStr && (
+                            <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[13px] font-bold text-accent">
+                              예정
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-black">{note.comment}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          onClick={() => startEdit(note)}
+                          className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => setDeletingNote(note)}
+                          className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
           </div>
 
           {calendarOpen ? (
@@ -508,20 +430,64 @@ export default function MeetingNotes() {
                 </div>
 
                 <div className="mt-4 border-t border-gray-200 pt-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-black">오늘 {todayStr}</span>
+                    {todayMembers.length > 0 && (
+                      <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원</span>
+                    )}
+                  </div>
+                  {todayMembers.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {todayMembers.map(({ member, idx }) => (
+                        <button
+                          key={member.id}
+                          onClick={() => selectMember(member.id)}
+                          className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          {member.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1.5 text-[13px] text-gray-400">오늘 예정된 면담이 없습니다.</p>
+                  )}
+                </div>
+
+                {otherUpcomingMembers.length > 0 && (
+                  <div className="mt-3 border-t border-gray-200 pt-3">
+                    <span className="text-[13px] font-semibold text-black">다른 날짜 예정 면담</span>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {otherUpcomingMembers.map(({ member, idx, note }) => (
+                        <button
+                          key={member.id}
+                          onClick={() => selectMember(member.id)}
+                          className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          {member.name}
+                          <span className="text-gray-400">{fmtShort(note.date)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-3 border-t border-gray-200 pt-3">
                   <p className="text-[13px] font-semibold text-black">{fmtShort(selectedDate)} 면담</p>
                   {(() => {
                     const dayNotes = members
                       .map((member, idx) => ({ member, idx, note: meetingNotes.find((n) => n.memberId === member.id && n.date === selectedDate) }))
                       .filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.note)
                     if (dayNotes.length === 0) {
-                      return <p className="mt-1.5 text-[13px] text-gray-400">이 날짜에 등록된 면담이 없습니다. 왼쪽 팀원을 펼쳐서 추가하세요.</p>
+                      return <p className="mt-1.5 text-[13px] text-gray-400">이 날짜에 등록된 면담이 없습니다.</p>
                     }
                     return (
                       <div className="mt-1.5 space-y-0.5">
                         {dayNotes.map(({ member, idx, note }) => (
                           <button
                             key={note.id}
-                            onClick={() => openMember(member.id)}
+                            onClick={() => selectMember(member.id)}
                             className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-gray-100"
                           >
                             <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
