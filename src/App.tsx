@@ -15,7 +15,7 @@ import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './com
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
-  const [panelSize, setPanelSize] = useState<PanelSize>('chip')
+  const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
 
@@ -56,7 +56,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               onExit={exitToLanding}
             />
             <div className="flex min-h-0">
-              <CriteriaPanel size={panelSize} onSize={setPanelSize} />
+              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {stage === 'data' && <DataStage />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
