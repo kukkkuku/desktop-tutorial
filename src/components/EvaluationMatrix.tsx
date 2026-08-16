@@ -12,15 +12,15 @@ import {
   GRADE_COLORS,
 } from '../utils/calculations'
 
-const MEDALS = ['🥇', '🥈', '🥉']
 const MIN_COL_WIDTH = 56
 
 // "글로벌 사용자 설정 UX 신규 설계 2차" 같은 과제명이 줄바꿈 없이 한 줄로 보이는 폭.
+// 과제명 컬럼만 사용자가 드래그로 늘였다 줄였다 할 수 있다.
 const DEFAULT_TASK_COL_WIDTH = 320
-// 헤더 "기여도 / 합계" 두 줄 중 더 긴 글자에 딱 맞는 폭.
-const DEFAULT_SUM_COL_WIDTH = 84
-const DEFAULT_PCT_COL_WIDTH = 104
-const DEFAULT_GRADE_COL_WIDTH = 120
+// "기여도" 타이틀 한 줄에 딱 맞는 고정 폭 -- 조절 불가.
+const SUM_COL_WIDTH = 72
+const PCT_COL_WIDTH = 104
+const GRADE_COL_WIDTH = 120
 
 function ResizeHandle({
   onStart,
@@ -54,31 +54,27 @@ export default function EvaluationMatrix() {
   const activeMembers = members.filter((m) => m.active)
   const activeMemberIds = new Set(activeMembers.map((m) => m.id))
 
-  // 과제명/기여도합계/팀원별 기여도·개인수행등급 컬럼 너비 -- 팀원 목록에 따라
-  // 컬럼 키가 동적으로 생기므로 useResizableColumns(고정 키 전용)를 쓰지 않고
-  // 여기서 직접 문자열 키 기반으로 관리한다.
-  const [colWidths, setColWidths] = useState<Record<string, number>>({})
-  const dragRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null)
+  // 과제명 컬럼 하나만 너비 조절이 가능하다 -- 나머지(기여도 합계, 팀원별
+  // 기여도·개인수행등급)는 타이틀에 맞춘 고정 폭을 쓴다.
+  const [taskWidth, setTaskWidth] = useState(DEFAULT_TASK_COL_WIDTH)
+  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
 
-  const getWidth = useCallback((key: string, fallback: number) => colWidths[key] ?? fallback, [colWidths])
-
-  const startResize = useCallback(
-    (key: string, fallback: number) => (e: React.PointerEvent<HTMLDivElement>) => {
+  const startTaskResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
-      dragRef.current = { key, startX: e.clientX, startWidth: colWidths[key] ?? fallback }
+      dragRef.current = { startX: e.clientX, startWidth: taskWidth }
       e.currentTarget.setPointerCapture(e.pointerId)
     },
-    [colWidths],
+    [taskWidth],
   )
 
-  const onResizeMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onTaskResizeMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag) return
-    const next = Math.max(MIN_COL_WIDTH, drag.startWidth + (e.clientX - drag.startX))
-    setColWidths((prev) => ({ ...prev, [drag.key]: next }))
+    setTaskWidth(Math.max(MIN_COL_WIDTH, drag.startWidth + (e.clientX - drag.startX)))
   }, [])
 
-  const onResizeEnd = useCallback(() => {
+  const onTaskResizeEnd = useCallback(() => {
     dragRef.current = null
   }, [])
 
@@ -100,13 +96,7 @@ export default function EvaluationMatrix() {
     .map((task) => ({ task, sum: getTaskContributionSum(contributions, task.id, activeMemberIds) }))
     .filter(({ sum }) => sum > 0 && !isContributionSumValid(sum))
 
-  const taskWidth = getWidth('task', DEFAULT_TASK_COL_WIDTH)
-  const sumWidth = getWidth('sum', DEFAULT_SUM_COL_WIDTH)
-  const memberColTotal = activeMembers.reduce(
-    (total, m) => total + getWidth(`${m.id}_pct`, DEFAULT_PCT_COL_WIDTH) + getWidth(`${m.id}_grade`, DEFAULT_GRADE_COL_WIDTH),
-    0,
-  )
-  const tableWidth = taskWidth + sumWidth + memberColTotal
+  const tableWidth = taskWidth + SUM_COL_WIDTH + activeMembers.length * (PCT_COL_WIDTH + GRADE_COL_WIDTH)
 
   return (
     <div>
@@ -117,7 +107,7 @@ export default function EvaluationMatrix() {
         항상 표시되며, 개인수행등급을 사용하지 않도록 설정했거나 해당 칸의 기여도가 0이면 회색으로
         비활성화됩니다(입력값은 보존).{' '}
         각 과제의 기여도 합계는 반드시 100이 되어야 합니다. 기여도 합계 열은 좌측에 고정되어 스크롤해도 항상 보입니다.{' '}
-        비활성 팀원은 매트릭스에서 제외되며 기여도 합계에도 포함되지 않습니다. 컬럼 경계를 드래그하면 너비를 조절할 수 있습니다.
+        비활성 팀원은 매트릭스에서 제외되며 기여도 합계에도 포함되지 않습니다. 과제명 컬럼 경계를 드래그하면 너비를 조절할 수 있습니다.
       </p>
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
@@ -129,16 +119,19 @@ export default function EvaluationMatrix() {
       ) : (
         <>
           <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="table-fixed border-collapse text-left text-sm" style={{ width: tableWidth }}>
+            <table className="table-fixed border-collapse text-left text-sm" style={{ width: '100%', minWidth: tableWidth }}>
               <colgroup>
                 <col style={{ width: taskWidth }} />
-                <col style={{ width: sumWidth }} />
+                <col style={{ width: SUM_COL_WIDTH }} />
                 {activeMembers.map((member) => (
                   <Fragment key={member.id}>
-                    <col style={{ width: getWidth(`${member.id}_pct`, DEFAULT_PCT_COL_WIDTH) }} />
-                    <col style={{ width: getWidth(`${member.id}_grade`, DEFAULT_GRADE_COL_WIDTH) }} />
+                    <col style={{ width: PCT_COL_WIDTH }} />
+                    <col style={{ width: GRADE_COL_WIDTH }} />
                   </Fragment>
                 ))}
+                {/* 실제 데이터가 있는 컬럼은 전부 지정폭을 가지므로, 화면이 더 넓으면
+                    이 빈 컬럼이 남는 폭을 전부 흡수한다(table-fixed의 auto 컬럼 규칙) */}
+                <col />
               </colgroup>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
@@ -149,20 +142,15 @@ export default function EvaluationMatrix() {
                   >
                     <div className="relative pr-2">
                       과제명
-                      <ResizeHandle onStart={startResize('task', DEFAULT_TASK_COL_WIDTH)} onMove={onResizeMove} onEnd={onResizeEnd} />
+                      <ResizeHandle onStart={startTaskResize} onMove={onTaskResizeMove} onEnd={onTaskResizeEnd} />
                     </div>
                   </th>
                   <th
                     rowSpan={2}
-                    className="sticky z-20 border-b border-l border-gray-200 bg-[#F3F4F6] px-3 py-3 align-bottom font-semibold leading-tight"
+                    className="sticky z-20 border-b border-l border-gray-200 bg-[#F3F4F6] px-3 py-3 align-bottom font-semibold"
                     style={{ left: taskWidth }}
                   >
-                    <div className="relative whitespace-nowrap pr-2">
-                      기여도
-                      <br />
-                      합계
-                      <ResizeHandle onStart={startResize('sum', DEFAULT_SUM_COL_WIDTH)} onMove={onResizeMove} onEnd={onResizeEnd} />
-                    </div>
+                    기여도
                   </th>
                   {activeMembers.map((member) => {
                     const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
@@ -173,41 +161,29 @@ export default function EvaluationMatrix() {
                         colSpan={2}
                         className="border-b border-l border-gray-200 px-3 py-2 text-center font-semibold"
                       >
-                        <div className="text-black">{member.name}</div>
-                        {result ? (
-                          <div className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-normal text-gray-500">
-                            <span>{resultIdx < 3 ? MEDALS[resultIdx] : `${resultIdx + 1}위`}</span>
-                            <span>{result.cumulativeScore.toFixed(1)}점</span>
-                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[result.grade]}`}>
-                              {result.grade}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="mt-0.5 text-[11px] text-gray-300">-</div>
-                        )}
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-black">{member.name}</span>
+                          {result ? (
+                            <>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[result.grade]}`}>
+                                {result.grade}
+                              </span>
+                              <span className="text-xs font-normal text-gray-500">{result.cumulativeScore.toFixed(1)}점</span>
+                            </>
+                          ) : (
+                            <span className="text-xs font-normal text-gray-300">-</span>
+                          )}
+                        </div>
                       </th>
                     )
                   })}
+                  <th rowSpan={2} aria-hidden="true" className="border-b border-l border-gray-200" />
                 </tr>
                 <tr>
                   {activeMembers.map((member) => (
                     <Fragment key={member.id}>
-                      <th className="relative border-l border-gray-200 px-3 py-2 text-center text-xs font-medium">
-                        기여도(%)
-                        <ResizeHandle
-                          onStart={startResize(`${member.id}_pct`, DEFAULT_PCT_COL_WIDTH)}
-                          onMove={onResizeMove}
-                          onEnd={onResizeEnd}
-                        />
-                      </th>
-                      <th className="relative px-3 py-2 text-center text-xs font-medium">
-                        개인수행등급
-                        <ResizeHandle
-                          onStart={startResize(`${member.id}_grade`, DEFAULT_GRADE_COL_WIDTH)}
-                          onMove={onResizeMove}
-                          onEnd={onResizeEnd}
-                        />
-                      </th>
+                      <th className="border-l border-gray-200 px-3 py-2 text-center text-xs font-medium">기여도(%)</th>
+                      <th className="px-3 py-2 text-center text-xs font-medium">개인수행등급</th>
                     </Fragment>
                   ))}
                 </tr>
@@ -274,6 +250,7 @@ export default function EvaluationMatrix() {
                           </Fragment>
                         )
                       })}
+                      <td aria-hidden="true" className="border-l border-gray-200" />
                     </tr>
                   )
                 })}
