@@ -122,52 +122,61 @@ export default function DataManagementPanel() {
     setBulkSummary(null)
     setLoadingLabel(`파일 ${files.length}개 확인 중...`)
 
-    let taskList = tasks
-    let memberList = members
-    let peerList = peerReviews
-    let addedCount = 0
-    let updatedCount = 0
-    const errors: string[] = []
+    // Sort into buckets by kind first, then always parse task -> member -> peer
+    // regardless of drop/selection order -- peer review rows look up members
+    // by name, so if a peer file happened to be processed before the member
+    // file it was uploaded alongside, every lookup would fail against the
+    // not-yet-updated member list.
     const taskFiles: File[] = []
     const memberFiles: File[] = []
     const peerFiles: File[] = []
+    const errors: string[] = []
 
     for (const file of files) {
       const buffer = await file.arrayBuffer()
       const kind = detectWorkbookKind(buffer)
-      if (kind === 'task') {
-        const result = parseTaskWorkbook(buffer, taskList)
-        taskList = result.tasks
-        addedCount += result.addedCount
-        updatedCount += result.updatedCount
-        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        taskFiles.push(file)
-      } else if (kind === 'member') {
-        const result = parseMemberWorkbook(buffer, memberList)
-        memberList = result.members
-        addedCount += result.addedCount
-        updatedCount += result.updatedCount
-        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        memberFiles.push(file)
-      } else if (kind === 'peer') {
-        const result = parsePeerReviewWorkbook(buffer, memberList, peerList)
-        peerList = result.peerReviews
-        addedCount += result.addedCount
-        updatedCount += result.updatedCount
-        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-        peerFiles.push(file)
-      } else {
-        errors.push(`[${file.name}] 과제·팀원·피어리뷰 양식 중 어떤 것인지 인식하지 못했습니다.`)
-      }
+      if (kind === 'task') taskFiles.push(file)
+      else if (kind === 'member') memberFiles.push(file)
+      else if (kind === 'peer') peerFiles.push(file)
+      else errors.push(`[${file.name}] 과제·팀원·피어리뷰 양식 중 어떤 것인지 인식하지 못했습니다.`)
     }
 
+    let addedCount = 0
+    let updatedCount = 0
+
+    let taskList = tasks
+    for (const file of taskFiles) {
+      const result = parseTaskWorkbook(await file.arrayBuffer(), taskList)
+      taskList = result.tasks
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+    }
     if (taskFiles.length > 0) {
       dispatch({ type: 'IMPORT_TASKS', payload: taskList })
       recordUpload('task', taskFiles)
     }
+
+    let memberList = members
+    for (const file of memberFiles) {
+      const result = parseMemberWorkbook(await file.arrayBuffer(), memberList)
+      memberList = result.members
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+    }
     if (memberFiles.length > 0) {
       dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
       recordUpload('member', memberFiles)
+    }
+
+    let peerList = peerReviews
+    for (const file of peerFiles) {
+      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), memberList, peerList)
+      peerList = result.peerReviews
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
     }
     if (peerFiles.length > 0) {
       dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
