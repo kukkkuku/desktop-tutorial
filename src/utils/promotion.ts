@@ -81,6 +81,7 @@ export interface PromotionReadiness {
   rawScore: number
   weightedScore: number
   eligible: boolean
+  tenureMet: boolean
   progressPercent: number
   gap: number
 }
@@ -92,25 +93,47 @@ export function findPromotionCriteria(
   return criteriaList.find((c) => c.fromLevel === level) ?? null
 }
 
+// tenureYearsCompleted: 현재 직급에서 지난 연차(calcYearsSince). 호출부가 아직
+// 넘기지 않으면(null) 재직기간 조건은 "미확인"으로 보고 준비도 계산에서는 충족한
+// 것으로 취급한다(기존 호출부 호환용 기본값).
 export function calcPromotionReadiness(
   level: Level | '',
   records: HRAppraisalRecord[],
   criteriaList: PromotionCriteriaRow[],
   gradeScores: Record<EvaluationGrade, number>,
   auxScore = 0,
+  tenureYearsCompleted: number | null = null,
 ): PromotionReadiness | null {
   const criteria = findPromotionCriteria(level, criteriaList)
   if (!criteria) return null
   const rawScore = calcPromotionRawScore(records, gradeScores)
   const weightedScore = calcPromotionWeightedScore(records, gradeScores, criteria.tenureYears, auxScore)
   const eligible = rawScore >= criteria.requiredScore
-  const progressPercent =
-    criteria.requiredScore > 0 ? Math.min(100, Math.round((weightedScore / criteria.requiredScore) * 1000) / 10) : 0
+  const tenureMet = tenureYearsCompleted === null || tenureYearsCompleted >= criteria.tenureYears
+
+  // 준비도(%)는 가중점수 비율 하나만으로 계산하면 안 된다 -- 최근 연도에 가중치가
+  // 실려 있어서, 실제 승진자격점수(raw)나 재직기간을 채우지 못했는데도 가중점수
+  // 비율만 100%를 넘는 경우가 생길 수 있다. 세 비율(가중점수/자격점수/재직기간) 중
+  // 가장 낮은 값을 준비도로 써서, 어느 조건 하나라도 미충족이면 100%에 닿지 않게 한다.
+  const scoreRatio = criteria.requiredScore > 0 ? (weightedScore / criteria.requiredScore) * 100 : 100
+  const rawRatio = criteria.requiredScore > 0 ? (rawScore / criteria.requiredScore) * 100 : 100
+  const tenureRatio = tenureMet
+    ? 100
+    : criteria.tenureYears > 0
+      ? ((tenureYearsCompleted ?? 0) / criteria.tenureYears) * 100
+      : 100
+  const progressPercent = Math.max(0, Math.min(100, Math.round(Math.min(scoreRatio, rawRatio, tenureRatio) * 10) / 10))
   const gap = Math.max(0, Math.round((criteria.requiredScore - weightedScore) * 10) / 10)
-  return { criteria, rawScore, weightedScore, eligible, progressPercent, gap }
+  return { criteria, rawScore, weightedScore, eligible, tenureMet, progressPercent, gap }
 }
 
 export const GRADE_ORDER: EvaluationGrade[] = ['D', 'C', 'B', 'A', 'S']
+
+// GRADE_ORDER 상에서 한 단계 위 등급. 이미 최고 등급(S)이면 null.
+export function nextGradeUp(grade: EvaluationGrade): EvaluationGrade | null {
+  const idx = GRADE_ORDER.indexOf(grade)
+  return idx >= 0 && idx < GRADE_ORDER.length - 1 ? GRADE_ORDER[idx + 1] : null
+}
 
 // "B → A → A ↑" 형태의 간단한 추이 문자열. grades는 과거→최근 순으로 전달한다.
 export function trendArrow(grades: (EvaluationGrade | '')[]): string {

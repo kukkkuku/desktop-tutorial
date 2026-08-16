@@ -47,8 +47,8 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
   const rank = resultIdx >= 0 ? resultIdx + 1 : null
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
-  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
+  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
   const achievementTrend = trendArrow(appraisals.slice(-3).flatMap((r) => [r.firstHalfGrade, r.secondHalfGrade]))
   const competencyTrend = trendArrow(appraisals.slice(-3).map((r) => r.competencyGrade))
 

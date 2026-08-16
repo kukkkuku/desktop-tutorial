@@ -1,15 +1,26 @@
 import { useState } from 'react'
 import { useAppState } from '../../state/AppContext'
+import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import { calcAllTaskScores, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
+import {
+  calcAllTaskScores,
+  calcMemberResults,
+  getContribution,
+  getEffectiveContributionPercent,
+  GRADE_COLORS,
+} from '../../utils/calculations'
+import { calcPromotionReadiness } from '../../utils/promotion'
+import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
+import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
-import MemberGrowthSummaryCard from './MemberGrowthSummaryCard'
+import { colorForIndex } from '../../utils/memberColors'
+import TrendSparkline from './TrendSparkline'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
-import MeetingNotes from '../MeetingNotes'
+import TodayMeetingPanel from './TodayMeetingPanel'
 
 function BackIcon({ className }: { className?: string }) {
   return (
@@ -19,19 +30,23 @@ function BackIcon({ className }: { className?: string }) {
   )
 }
 
+function Divider() {
+  return <span className="h-3 w-px bg-gray-300" aria-hidden="true" />
+}
+
 interface MemberGrowthDetailProps {
   memberId: string
   onBack: () => void
-  onSelectMember: (memberId: string) => void
   prepRequest?: { memberId: string; token: number } | null
 }
 
-// 팀원 성장 관리의 두 번째 화면 -- 면담 기록/성과 히스토리/인사평가·승진 관리로
-// 나뉘어 있던 탭을 없애고, 한 화면에서 현재 성과와 승진 시뮬레이션을 나란히
-// 보면서 바로 면담을 진행할 수 있게 통합했다. 과거 인사평가 원장은 "과거 성과
-// 보기"로 접어 보조 기능으로 내렸다.
-export default function MemberGrowthDetail({ memberId, onBack, onSelectMember, prepRequest }: MemberGrowthDetailProps) {
+// 팀원 성장 관리의 두 번째 화면 -- 팀장이 실제로 확인/시뮬레이션/기록하는
+// 업무 흐름 그대로: 상단에 압축된 현재 상태 요약 한 줄, 그 아래 현재 성과(60%)
+// ↔ 성장·승진 시뮬레이션(40%)을 나란히 보면서, 바로 아래 면담 기록까지 한
+// 화면에서 끝낸다. 탭 전환도, 별도 페이지 이동도 없다.
+export default function MemberGrowthDetail({ memberId, onBack, prepRequest }: MemberGrowthDetailProps) {
   const { state } = useAppState()
+  const { profile } = useTeamProfile()
   const { workspaces, currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periods = workspaces.filter((w) => w.teamName === teamName)
@@ -46,6 +61,26 @@ export default function MemberGrowthDetail({ memberId, onBack, onSelectMember, p
   }
 
   const colorIndex = state.members.findIndex((m) => m.id === memberId)
+
+  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+  const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
+  const memberResult = resultIdx >= 0 ? memberResults[resultIdx] : undefined
+  const rank = resultIdx >= 0 ? resultIdx + 1 : null
+
+  const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
+  const levelTenureYears = calcYearsSince(member.currentLevelSince)
+  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
+
+  const trendPoints = [...getMemberPerformanceHistory(memberId, periods)]
+    .reverse()
+    .filter((h) => h.grade !== null)
+    .map((h) => ({ period: h.workspace.periodName, grade: h.grade! }))
+
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const lastMeetingDate =
+    state.meetingNotes
+      .filter((n) => n.memberId === memberId && n.date <= todayStr)
+      .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
 
   const taskScores = calcAllTaskScores(state.tasks, state.criteria)
   const currentTasks = taskScores
@@ -69,18 +104,59 @@ export default function MemberGrowthDetail({ memberId, onBack, onSelectMember, p
         <BackIcon className="h-4 w-4" />팀 현황으로
       </button>
 
-      <MemberGrowthSummaryCard memberId={memberId} colorIndex={colorIndex} periods={periods} />
+      <div className="mt-3 flex items-start gap-3">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+          style={{ background: colorForIndex(colorIndex) }}
+        >
+          {member.name.slice(0, 1)}
+        </div>
+        <div className="min-w-0">
+          <p className="text-lg font-bold text-black">
+            {member.name}
+            <span className="ml-2 text-sm font-normal text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </span>
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-gray-600">
+            <span>
+              현재 성과{' '}
+              {memberResult ? (
+                <b className="font-bold text-black">
+                  {memberResult.cumulativeScore.toFixed(1)}{' '}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+                </b>
+              ) : (
+                <span className="text-gray-400">데이터 없음</span>
+              )}
+            </span>
+            <Divider />
+            <span>
+              팀내 <b className="font-bold text-black">{rank ? `${rank}위` : '-'}</b>
+            </span>
+            <Divider />
+            <span className="flex items-center gap-1.5">
+              고과 추이 <TrendSparkline points={trendPoints} width={110} />
+            </span>
+            <Divider />
+            <span>
+              승진 준비도 <b className="font-bold text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</b>
+            </span>
+            <Divider />
+            <span>
+              최근 면담 <b className="font-bold text-black">{lastMeetingDate ?? '없음'}</b>
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
         <div className="lg:col-span-3">
           <div className="rounded-lg border border-gray-200 p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-black">현재 성과</h3>
-              <button
-                onClick={() => setShowPastPerformance((v) => !v)}
-                className="text-xs font-medium text-gray-500 hover:text-accent"
-              >
-                {showPastPerformance ? '− 과거 성과 접기' : '+ 과거 성과 보기'}
+              <button onClick={() => setShowPastPerformance((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
+                {showPastPerformance ? '− 과거 성과 접기' : '과거 성과 보기'}
               </button>
             </div>
 
@@ -92,9 +168,7 @@ export default function MemberGrowthDetail({ memberId, onBack, onSelectMember, p
                   <div key={task.id} className="rounded-md bg-gray-50 px-3 py-2.5">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-sm font-semibold text-black">{task.name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
-                        {task.importance}
-                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-gray-500">
                       <span>기여도 {contributionPercent}%</span>
@@ -135,10 +209,7 @@ export default function MemberGrowthDetail({ memberId, onBack, onSelectMember, p
       </div>
 
       <div className="mt-6">
-        <h3 className="text-sm font-bold text-black">면담 기록</h3>
-        <div className="mt-2">
-          <MeetingNotes selectedMemberId={memberId} onSelectMember={onSelectMember} prepRequest={prepRequest} />
-        </div>
+        <TodayMeetingPanel member={member} focusToken={prepRequest?.token ?? null} />
       </div>
 
       {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}

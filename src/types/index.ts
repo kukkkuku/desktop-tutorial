@@ -49,12 +49,16 @@ export interface MeetingNote {
   memberId: string
   date: string
   comment: string
-  // 선택 입력(육성 포인트) — 기본 면담 기록은 date+comment만으로 완결된다.
+  // 선택 입력 — 기본 면담 기록은 date+comment만으로 완결된다.
+  keyPoints?: string
+  nextCheckDate?: string
+  actions?: MeetingActionItem[]
+  // 구버전 필드(육성 포인트) — 새 화면에는 입력 UI가 없지만, 과거에 저장된
+  // 데이터를 읽을 때 깨지지 않도록 타입만 유지한다.
   strengths?: string
   improvements?: string
   nextExperience?: string
   careerInterest?: string
-  actions?: MeetingActionItem[]
 }
 
 export interface PeerReview {

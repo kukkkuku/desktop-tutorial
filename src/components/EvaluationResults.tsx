@@ -3,6 +3,7 @@ import { useMemberDetail } from '../state/MemberDetailContext'
 import { useTeamProfile } from '../state/TeamContext'
 import { calcAllTaskScores, calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import { calcPromotionReadiness } from '../utils/promotion'
+import { calcYearsSince } from '../utils/tenure'
 import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import PromotionBadge from './PromotionBadge'
@@ -46,7 +47,14 @@ export default function EvaluationResults() {
     const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
     const member = members.find((m) => m.id === memberId)
     if (!member) return null
-    return calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores)
+    return calcPromotionReadiness(
+      member.level,
+      appraisals,
+      profile.promotionCriteria,
+      profile.gradeScores,
+      0,
+      calcYearsSince(member.currentLevelSince),
+    )
   }
 
   function taskContributors(taskId: string) {

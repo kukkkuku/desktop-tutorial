@@ -28,15 +28,20 @@ export interface MemberGrowthRow {
   memberResult: MemberResultRow | undefined
   trendPoints: TrendPoint[]
   readiness: PromotionReadiness | null
+  levelTenureYears: number | null
   lastMeetingDate: string | null
   daysSinceMeeting: number | null
   flags: GrowthFlag[]
+  // "관리 필요 팀원" 한 줄 리스트에 쓰는 결합 텍스트 -- flags를 사람이 읽는
+  // 한 줄로 압축한 것. flags가 비어 있으면 null.
+  manageLabel: string | null
 }
 
 export interface TeamGrowthSummary {
   memberCount: number
   avgScore: number | null
   gradeDistribution: Record<EvaluationGrade, number>
+  gradeUpCount: number // A 이상(S+A) 인원
   promotionReadyCount: number
   needsMeetingCount: number
   rows: MemberGrowthRow[]
@@ -68,7 +73,15 @@ export function calcTeamGrowthSummary(state: AppState, profile: TeamProfile, per
       .map((h) => ({ period: h.workspace.periodName, grade: h.grade }))
 
     const appraisals = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
-    const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores)
+    const levelTenureYears = calcYearsSince(member.currentLevelSince)
+    const readiness = calcPromotionReadiness(
+      member.level,
+      appraisals,
+      profile.promotionCriteria,
+      profile.gradeScores,
+      0,
+      levelTenureYears,
+    )
 
     const lastMeetingDate =
       state.meetingNotes
@@ -85,17 +98,37 @@ export function calcTeamGrowthSummary(state: AppState, profile: TeamProfile, per
       const prev = GRADE_ORDER.indexOf(trendPoints[trendPoints.length - 2].grade)
       if (last < prev) flags.push({ key: 'performance_drop', label: '성과 하락' })
     }
-    const levelTenureYears = calcYearsSince(member.currentLevelSince)
-    const tenureMet = readiness ? levelTenureYears !== null && levelTenureYears >= readiness.criteria.tenureYears : false
-    if (readiness && tenureMet && !readiness.eligible) {
-      // 재직기간 조건은 충족했는데 승진 점수만 부족한 경우 -- 팀장이 바로 조치할 수 있는 신호.
-      flags.push({ key: 'promotion_blocked', label: '승진 조건 미충족' })
+    let unmetPromotionConditions = 0
+    if (readiness) {
+      if (!readiness.tenureMet) unmetPromotionConditions += 1
+      if (!readiness.eligible) unmetPromotionConditions += 1
+    }
+    if (unmetPromotionConditions > 0) {
+      flags.push({ key: 'promotion_blocked', label: `승진 조건 ${unmetPromotionConditions}개 부족` })
     }
     if (!memberResult || memberResult.participatedTaskCount === 0) {
       flags.push({ key: 'no_tasks', label: '참여 과제 없음' })
     }
 
-    return { member, rank, memberResult, trendPoints, readiness, lastMeetingDate, daysSinceMeeting, flags }
+    const manageLabel =
+      flags.length === 0
+        ? null
+        : flags
+            .map((f) => (f.key === 'no_recent_meeting' ? '면담 미진행' : f.key === 'no_tasks' ? '참여 과제 없음' : f.label))
+            .join(' · ')
+
+    return {
+      member,
+      rank,
+      memberResult,
+      trendPoints,
+      readiness,
+      levelTenureYears,
+      lastMeetingDate,
+      daysSinceMeeting,
+      flags,
+      manageLabel,
+    }
   })
 
   const scored = rows.map((r) => r.memberResult?.cumulativeScore).filter((s): s is number => s !== undefined)
@@ -105,6 +138,7 @@ export function calcTeamGrowthSummary(state: AppState, profile: TeamProfile, per
     memberCount: activeMembers.length,
     avgScore,
     gradeDistribution,
+    gradeUpCount: gradeDistribution.S + gradeDistribution.A,
     promotionReadyCount: rows.filter((r) => (r.readiness?.progressPercent ?? 0) >= PROMOTION_READY_THRESHOLD).length,
     needsMeetingCount: rows.filter((r) => r.flags.some((f) => f.key === 'no_recent_meeting')).length,
     rows,
