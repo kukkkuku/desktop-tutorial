@@ -447,11 +447,11 @@ export default function MeetingNotes() {
                       return (
                         <div className="mt-1.5 space-y-1.5">
                           <p className="text-[13px] text-gray-400">이 날짜에 등록된 면담이 없습니다.</p>
-                          <div className="flex flex-col gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2">
+                          <div className="flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2">
                             <select
                               value={dayAddMemberId ?? activeMemberId ?? ''}
                               onChange={(e) => setDayAddMemberId(e.target.value)}
-                              className="rounded-md border border-gray-300 px-2 py-1.5 text-[13px] text-black"
+                              className="min-w-0 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-[13px] text-black"
                             >
                               {members.map((m) => (
                                 <option key={m.id} value={m.id}>
@@ -461,9 +461,9 @@ export default function MeetingNotes() {
                             </select>
                             <button
                               onClick={handleDayAdd}
-                              className="rounded-md bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
+                              className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
                             >
-                              {fmtShort(selectedDate)}에 면담 추가
+                              추가
                             </button>
                           </div>
                         </div>
