@@ -7,20 +7,17 @@ interface IconProps {
   className?: string
 }
 
-// "Adjustment sliders" glyph -- reads as tuning/criteria controls rather
-// than a generic settings gear, matching what this button actually opens.
-function AdjustIcon({ className }: IconProps) {
+// Simple horizontal "sliders" glyph -- three tracks with a handle each --
+// reads as tuning/criteria controls rather than a generic settings gear.
+function SlidersIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="4" y1="21" x2="4" y2="14" />
-      <line x1="4" y1="10" x2="4" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12" y2="3" />
-      <line x1="20" y1="21" x2="20" y2="16" />
-      <line x1="20" y1="12" x2="20" y2="3" />
-      <line x1="1" y1="14" x2="7" y2="14" />
-      <line x1="9" y1="8" x2="15" y2="8" />
-      <line x1="17" y1="16" x2="23" y2="16" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <circle cx="9" cy="6" r="2" fill="white" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <circle cx="15" cy="12" r="2" fill="white" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+      <circle cx="11" cy="18" r="2" fill="white" />
     </svg>
   )
 }
@@ -29,6 +26,66 @@ function ChevronLeftIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
       <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
+// Per-criterion glyphs shown on the collapsed icon rail -- each button's
+// native title attribute carries the label + current %, standing in for a
+// tooltip without a custom tooltip component.
+function TaskGradeIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </svg>
+  )
+}
+
+function WorkloadIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="6" y1="20" x2="6" y2="14" />
+      <line x1="12" y1="20" x2="12" y2="8" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+    </svg>
+  )
+}
+
+function PerformanceGradeIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  )
+}
+
+function ContributionIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" />
+      <circle cx="17.5" cy="17.5" r="2.5" />
+    </svg>
+  )
+}
+
+function PersonalGradeIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+    </svg>
+  )
+}
+
+function PeerReviewIcon({ className }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   )
 }
@@ -50,6 +107,25 @@ function widthToSize(width: number): PanelSize {
   return width < ICON_FULL_THRESHOLD ? 'icon' : 'full'
 }
 
+interface CriterionIconItem {
+  key: keyof Criteria
+  label: string
+  Icon: (props: IconProps) => JSX.Element
+}
+
+// Two groups, task-side then member-side, matching the divider on the
+// collapsed icon rail and the section split in the full settings view.
+const ICON_GROUP_1: CriterionIconItem[] = [
+  { key: 'taskGradeWeight', label: '과제등급', Icon: TaskGradeIcon },
+  { key: 'workloadWeight', label: '업무량', Icon: WorkloadIcon },
+  { key: 'performanceGradeWeight', label: '성과등급', Icon: PerformanceGradeIcon },
+]
+const ICON_GROUP_2: CriterionIconItem[] = [
+  { key: 'contributionWeight', label: '기여도', Icon: ContributionIcon },
+  { key: 'personalGradeWeight', label: '개인수행등급', Icon: PersonalGradeIcon },
+  { key: 'peerReviewWeight', label: '피어리뷰', Icon: PeerReviewIcon },
+]
+
 interface CriteriaPanelProps {
   size: PanelSize
   onSize: (size: PanelSize) => void
@@ -57,10 +133,10 @@ interface CriteriaPanelProps {
 
 // Always docked to the left as a normal in-flow sidebar column that reserves
 // width and pushes the main content over -- no floating, no dragging to
-// reposition. Two states only: an icon-only rail and the full detailed
-// settings. The only interaction besides toggling/tuning criteria is
-// resizing via the splitter, which sweeps continuously between the two and
-// snaps to the nearest preset on release.
+// reposition. Two states only: a collapsed rail of per-criterion icon
+// buttons (title attribute doubles as a tooltip, click toggles on/off) and
+// the full detailed settings. Resizing via the splitter sweeps continuously
+// between the two and snaps to the nearest preset on release.
 export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
@@ -72,6 +148,11 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
 
   function set(key: keyof Criteria, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
+  }
+
+  function toggleActive(key: keyof Criteria) {
+    const current = criteria[key]
+    set(key, current > 0 ? 0 : 100)
   }
 
   // Splitter: drag the panel's right edge to sweep continuously between
@@ -103,11 +184,30 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     return (
       <button
         onClick={() => onSize('full')}
-        title="기준 설정 열기"
-        aria-label="기준 설정 열기"
+        title="상세 설정 열기"
+        aria-label="상세 설정 열기"
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent"
       >
-        <AdjustIcon className="h-5 w-5 shrink-0" />
+        <SlidersIcon className="h-5 w-5 shrink-0" />
+      </button>
+    )
+  }
+
+  // One glyph per criterion on the collapsed rail -- click toggles it on/off,
+  // and the native title attribute doubles as a tooltip for the label + %.
+  function CriteriaIconButton({ item }: { item: CriterionIconItem }) {
+    const value = criteria[item.key]
+    const active = value > 0
+    const Icon = item.Icon
+    return (
+      <button
+        onClick={() => toggleActive(item.key)}
+        title={`${item.label} — ${active ? `${value}%` : '미사용'} (클릭해서 전환)`}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${
+          active ? 'border-orange-200 bg-orange-50 text-accent hover:border-orange-300' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
+        }`}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
       </button>
     )
   }
@@ -241,6 +341,14 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
       {size === 'icon' && (
         <div className="flex h-full flex-col items-center gap-1.5 px-2 py-3">
           <ExpandIconButton />
+          <span className="my-0.5 h-px w-full bg-gray-100" />
+          {ICON_GROUP_1.map((item) => (
+            <CriteriaIconButton key={item.key} item={item} />
+          ))}
+          <span className="my-0.5 h-px w-full bg-gray-100" />
+          {ICON_GROUP_2.map((item) => (
+            <CriteriaIconButton key={item.key} item={item} />
+          ))}
         </div>
       )}
 
