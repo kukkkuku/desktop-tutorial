@@ -75,12 +75,10 @@ export default function MeetingNotes() {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
-  const [selectedDate, setSelectedDate] = useState(todayStr)
-  const [quickMemberId, setQuickMemberId] = useState(members[0]?.id ?? '')
-  const [quickComment, setQuickComment] = useState('')
-  const effectiveQuickMemberId = members.some((m) => m.id === quickMemberId) ? quickMemberId : (members[0]?.id ?? '')
 
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
+  const [newDate, setNewDate] = useState(todayStr)
+  const [newComment, setNewComment] = useState('')
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
   const [editComment, setEditComment] = useState('')
@@ -112,18 +110,19 @@ export default function MeetingNotes() {
     return map
   }, [meetingNotes, members])
 
-  function handleQuickAdd() {
-    if (!effectiveQuickMemberId || !quickComment.trim()) return
+  function handleAdd(memberId: string) {
+    if (!memberId || !newDate || !newComment.trim()) return
     dispatch({
       type: 'ADD_MEETING_NOTE',
-      payload: { id: uuidv4(), memberId: effectiveQuickMemberId, date: selectedDate, comment: quickComment.trim() },
+      payload: { id: uuidv4(), memberId, date: newDate, comment: newComment.trim() },
     })
-    setQuickComment('')
+    setNewComment('')
   }
 
   function toggleExpand(memberId: string) {
     setExpandedMemberId((cur) => (cur === memberId ? null : memberId))
-    setQuickMemberId(memberId)
+    setNewDate(todayStr)
+    setNewComment('')
   }
 
   function startEdit(note: MeetingNote) {
@@ -174,14 +173,12 @@ export default function MeetingNotes() {
     nextDay += 1
   }
 
-  const [, selMonth, selDay] = selectedDate.split('-').map(Number)
-
   return (
     <div>
       <h2 className="text-xl font-bold text-black">팀원 면담</h2>
       <p className="mt-1 text-sm text-gray-600">
-        오른쪽 캘린더에서 날짜를 고르고 팀원 면담 일정을 등록하세요. 왼쪽에서 팀원별로 다음 면담 예정일과 이전
-        면담 기록을 한눈에 볼 수 있습니다.
+        팀원을 눌러 펼치면 면담 기록을 남길 수 있습니다. 오른쪽 캘린더에서는 팀 전체의 면담 일정을 한눈에
+        확인할 수 있습니다.
       </p>
 
       {members.length === 0 ? (
@@ -283,6 +280,30 @@ export default function MeetingNotes() {
                             비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
                           </p>
                         )}
+
+                        <div className="flex flex-wrap items-start gap-2 rounded-md border border-gray-200 bg-white px-3 py-3">
+                          <input
+                            type="date"
+                            value={newDate}
+                            onChange={(e) => setNewDate(e.target.value)}
+                            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                          />
+                          <textarea
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            placeholder="면담 코멘트를 입력하세요"
+                            rows={2}
+                            className="min-w-[200px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                          />
+                          <button
+                            onClick={() => handleAdd(member.id)}
+                            disabled={!newComment.trim()}
+                            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            기록 추가
+                          </button>
+                        </div>
+
                         {all.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
                         {all.map((note) =>
                           editingNoteId === note.id ? (
@@ -402,35 +423,23 @@ export default function MeetingNotes() {
                   {cells.map((cell) => {
                     const dotIdxs = notesByDate.get(cell.date) ?? []
                     const isToday = cell.date === todayStr
-                    const isSelected = cell.date === selectedDate
                     return (
-                      <button
+                      <div
                         key={cell.date}
-                        onClick={() => setSelectedDate(cell.date)}
                         title={cell.date}
-                        className={`relative flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-[13px] transition-colors ${
-                          !cell.inMonth
-                            ? 'text-gray-300 hover:bg-gray-50'
-                            : isSelected
-                              ? 'bg-accent font-semibold text-white'
-                              : isToday
-                                ? 'bg-orange-50 font-semibold text-accent'
-                                : 'text-black hover:bg-gray-100'
+                        className={`flex h-9 flex-col items-center justify-center gap-0.5 rounded-md text-[13px] ${
+                          !cell.inMonth ? 'text-gray-300' : isToday ? 'bg-orange-50 font-semibold text-accent' : 'text-black'
                         }`}
                       >
                         {cell.day}
                         {dotIdxs.length > 0 && (
                           <span className="flex items-center gap-0.5">
                             {dotIdxs.slice(0, 3).map((idx) => (
-                              <span
-                                key={idx}
-                                className="h-1 w-1 rounded-full"
-                                style={{ background: isSelected ? '#fff' : colorForIndex(idx) }}
-                              />
+                              <span key={idx} className="h-1 w-1 rounded-full" style={{ background: colorForIndex(idx) }} />
                             ))}
                           </span>
                         )}
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -442,41 +451,6 @@ export default function MeetingNotes() {
                       {m.name}
                     </span>
                   ))}
-                </div>
-
-                <div className="mt-4 border-t border-gray-200 pt-3">
-                  <p className="text-[13px] font-semibold text-accent">
-                    {selMonth}월 {selDay}일 일정 추가
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <select
-                      value={effectiveQuickMemberId}
-                      onChange={(e) => setQuickMemberId(e.target.value)}
-                      className="rounded-md border border-gray-300 px-2 py-2 text-sm text-black"
-                    >
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={quickComment}
-                      onChange={(e) => setQuickComment(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleQuickAdd()
-                      }}
-                      placeholder="일정 메모 입력 후 Enter..."
-                      className="min-w-[140px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-                    />
-                    <button
-                      onClick={handleQuickAdd}
-                      disabled={!quickComment.trim()}
-                      className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      추가
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

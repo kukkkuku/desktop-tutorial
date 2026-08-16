@@ -45,7 +45,8 @@ export default function EvaluationMatrix() {
       <p className="mt-1 text-sm text-gray-600">
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은
-        항상 표시되며, 개인수행등급을 사용하지 않도록 설정하면 회색으로 비활성화됩니다(입력값은 보존).{' '}
+        항상 표시되며, 개인수행등급을 사용하지 않도록 설정했거나 해당 칸의 기여도가 0이면 회색으로
+        비활성화됩니다(입력값은 보존).{' '}
         각 과제의 기여도 합계는 반드시 100이 되어야 합니다. 기여도 합계 열은 좌측에 고정되어 스크롤해도 항상 보입니다.{' '}
         비활성 팀원은 매트릭스에서 제외되며 기여도 합계에도 포함되지 않습니다.
       </p>
@@ -121,6 +122,7 @@ export default function EvaluationMatrix() {
                       {activeMembers.map((member) => {
                         const percent = getContributionPercent(contributions, task.id, member.id)
                         const grade = getPersonalPerformanceGrade(contributions, task.id, member.id)
+                        const gradeEnabled = criteria.personalGradeWeight > 0 && percent > 0
                         return (
                           <Fragment key={member.id}>
                             <td className="border-l border-gray-200 px-3 py-2">
@@ -138,12 +140,11 @@ export default function EvaluationMatrix() {
                             <td className="px-3 py-2">
                               <select
                                 value={grade}
-                                disabled={criteria.personalGradeWeight === 0}
+                                disabled={!gradeEnabled}
+                                title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
                                 onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
                                 className={`w-16 rounded-md border px-2 py-1 text-sm ${
-                                  criteria.personalGradeWeight > 0
-                                    ? 'border-gray-300 text-black'
-                                    : 'border-gray-200 bg-gray-100 text-gray-400'
+                                  gradeEnabled ? 'border-gray-300 text-black' : 'border-gray-200 bg-gray-100 text-gray-400'
                                 }`}
                               >
                                 {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
