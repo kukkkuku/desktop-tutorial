@@ -8,7 +8,7 @@ const TAB_GROUPS: { key: Stage; label: string }[][] = [
     { key: 'evaluate', label: '평가하기' },
     { key: 'results', label: '결과' },
   ],
-  [{ key: 'notes', label: '면담' }],
+  [{ key: 'notes', label: '성장 관리' }],
 ]
 
 interface StageTabsProps {

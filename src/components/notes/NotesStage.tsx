@@ -43,7 +43,7 @@ export default function NotesStage({ notesRequest }: NotesStageProps) {
 
   return (
     <div>
-      <h2 className="text-xl font-bold text-black">팀원 면담</h2>
+      <h2 className="text-xl font-bold text-black">팀원 성장 관리</h2>
       <p className="mt-1 text-sm text-gray-600">
         팀원을 선택한 뒤, 아래에서 면담 기록·성과 히스토리·인사평가와 승진 준비 상태를 확인하세요.
       </p>
