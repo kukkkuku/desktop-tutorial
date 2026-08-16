@@ -472,6 +472,7 @@ const RANK_COLUMNS: StyledColumn[] = [
   { header: '역할', width: 14, role: 'freetext' },
   { header: '직급', width: 10, role: 'freetext' },
   { header: '참여 과제 수', width: 12, role: 'metric' },
+  { header: '종합 점수(가중평균)', width: 16, role: 'metric' },
   { header: '누적 점수', width: 16, role: 'metric' },
   { header: '평가등급', width: 10, role: 'category' },
 ]
@@ -519,6 +520,7 @@ export async function downloadResultsReport(
     row.member.role || '-',
     row.member.level || '-',
     row.participatedTaskCount,
+    Number(row.weightedAverageScore.toFixed(1)),
     Number(row.cumulativeScore.toFixed(1)),
     row.grade,
   ])
@@ -624,6 +626,7 @@ export async function downloadIndividualResultReports(
       ['역할', member.role || '-'],
       ['직급', member.level || '-'],
       ['참여 과제 수', row.participatedTaskCount],
+      ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],
       ['누적 점수', Number(row.cumulativeScore.toFixed(1))],
       ['평가등급', row.grade],
     ]

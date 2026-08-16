@@ -110,6 +110,10 @@ export default function MeetingNotes() {
                     누적 점수 <span className="font-semibold text-black">{selectedMemberResult.cumulativeScore.toFixed(1)}</span>
                   </span>
                   <span className="text-gray-700">
+                    종합 점수(가중평균){' '}
+                    <span className="font-semibold text-black">{selectedMemberResult.weightedAverageScore.toFixed(1)}</span>
+                  </span>
+                  <span className="text-gray-700">
                     참여 과제 <span className="font-semibold text-black">{selectedMemberResult.participatedTaskCount}건</span>
                   </span>
                   <span

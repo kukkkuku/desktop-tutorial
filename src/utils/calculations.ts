@@ -132,6 +132,7 @@ export interface MemberResultRow {
   member: TeamMember
   participatedTaskCount: number
   cumulativeScore: number
+  weightedAverageScore: number
   expectedScore: number
   ratio: number
   grade: EvaluationGrade
@@ -201,6 +202,28 @@ export function calcMemberParticipation(
   return { count, totalShare }
 }
 
+// Same as calcMemberParticipation but sums effective (contribution-weight-
+// blended) share instead of raw entered %, so weightedAverageScore divides
+// by the same basis calcMemberCumulativeScore was built on.
+function calcMemberEffectiveParticipation(
+  member: TeamMember,
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+): { count: number; totalShare: number } {
+  let count = 0
+  let totalShare = 0
+  for (const task of tasks) {
+    const percent = getContributionPercent(contributions, task.id, member.id)
+    if (percent > 0) {
+      count += 1
+      const effective = getEffectiveContributionPercent(contributions, task.id, member.id, criteria.contributionWeight)
+      totalShare += effective / 100
+    }
+  }
+  return { count, totalShare }
+}
+
 export function calcEvaluationGrade(ratio: number): EvaluationGrade {
   if (ratio >= 1.2) return 'S'
   if (ratio >= 1.0) return 'A'
@@ -224,27 +247,30 @@ export function calcMemberResults(
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
       const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
-      const { count } = calcMemberParticipation(member, tasks, contributions)
-      return { member, cumulativeScore, participatedTaskCount: count }
+      const { count, totalShare } = calcMemberEffectiveParticipation(member, tasks, contributions, criteria)
+      return { member, cumulativeScore, participatedTaskCount: count, totalShare }
     })
 
   const expectedScore = calcExpectedScore(withCumulativeScore.map((r) => r.cumulativeScore))
 
-  const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount }) => {
+  const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount, totalShare }) => {
+    const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
     const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
     return {
       member,
       participatedTaskCount,
       cumulativeScore,
+      weightedAverageScore,
       expectedScore,
       ratio,
       grade: calcEvaluationGrade(ratio),
     }
   })
 
-  // ratio is cumulativeScore divided by the same expectedScore for everyone,
-  // so sorting by cumulativeScore also sorts by ratio/grade -- one metric
-  // drives both the ranking and the grade, instead of two different bases.
+  // ratio (and therefore grade) is cumulativeScore divided by the same
+  // expectedScore for everyone, so sorting by cumulativeScore keeps rank
+  // order consistent with grade order. weightedAverageScore is kept as a
+  // supplementary, workload-normalized figure but does not drive the sort.
   return rows.sort((a, b) => b.cumulativeScore - a.cumulativeScore)
 }
 

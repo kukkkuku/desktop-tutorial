@@ -18,13 +18,13 @@ export default function EvaluationResults() {
       .sort((a, b) => b.contributionPercent - a.contributionPercent)
       .map((c) => ({ name: activeMemberNameById.get(c.memberId)!, percent: c.contributionPercent }))
   }
-  const maxScore = Math.max(1, ...memberResults.map((r) => r.cumulativeScore))
+  const maxScore = Math.max(1, ...memberResults.map((r) => r.weightedAverageScore))
   const CHART_HEIGHT = 180
-  const avgCumulativeScore =
+  const avgWeightedScore =
     memberResults.length > 0
-      ? memberResults.reduce((sum, r) => sum + r.cumulativeScore, 0) / memberResults.length
+      ? memberResults.reduce((sum, r) => sum + r.weightedAverageScore, 0) / memberResults.length
       : 0
-  const avgLineTop = CHART_HEIGHT - Math.min(CHART_HEIGHT, (avgCumulativeScore / maxScore) * CHART_HEIGHT)
+  const avgLineTop = CHART_HEIGHT - Math.min(CHART_HEIGHT, (avgWeightedScore / maxScore) * CHART_HEIGHT)
 
   return (
     <div>
@@ -55,15 +55,18 @@ export default function EvaluationResults() {
       {memberResults.length > 0 && (
         <div className="mt-6 rounded-lg border border-gray-200 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-gray-500">팀원별 누적 점수</h3>
+            <h3 className="text-sm font-semibold text-gray-500">팀원별 종합 점수(가중평균)</h3>
             <span className="flex items-center gap-1.5 text-xs text-gray-500">
               <span className="h-0 w-4 border-t-2 border-dashed border-gray-400" />
-              팀 평균 {avgCumulativeScore.toFixed(1)}
+              팀 평균 {avgWeightedScore.toFixed(1)}
             </span>
           </div>
           <p className="mt-1 text-[13px] text-gray-500">
-            누적 점수는 참여한 모든 과제의 점수에 기여도(%)를 반영해 합산한 값입니다. 평가등급은 이 점수가 팀 평균 대비
-            어느 정도인지(비율)로 매겨지며, 순위 또한 누적 점수 기준으로 정렬되어 평가등급과 항상 일치합니다.
+            <strong className="text-black">누적 점수</strong>는 참여한 모든 과제의 점수에 기여도(%)를 반영해 합산한
+            값이고, <strong className="text-black">종합 점수(가중평균)</strong>는 이를 참여 비중(기여도 합)으로 나눠
+            업무량이 달라도 서로 비교할 수 있게 만든 값입니다.{' '}
+            <strong className="text-black">평가등급</strong>과 <strong className="text-black">순위</strong>는 누적
+            점수가 팀 평균 대비 어느 정도인지(비율)를 기준으로 정해집니다.
           </p>
           <div className="mt-4 overflow-x-auto pb-2">
             <div className="relative flex items-start gap-4">
@@ -72,8 +75,8 @@ export default function EvaluationResults() {
                 style={{ top: `${avgLineTop}px` }}
               />
               {memberResults.map((row) => {
-                const aboveAverage = row.cumulativeScore >= avgCumulativeScore
-                const barHeightPx = Math.max(4, (row.cumulativeScore / maxScore) * CHART_HEIGHT)
+                const aboveAverage = row.weightedAverageScore >= avgWeightedScore
+                const barHeightPx = Math.max(4, (row.weightedAverageScore / maxScore) * CHART_HEIGHT)
                 return (
                   <div key={row.member.id} className="flex flex-col items-center gap-2">
                     <div className="relative flex w-12 items-end justify-center" style={{ height: CHART_HEIGHT }}>
@@ -81,7 +84,7 @@ export default function EvaluationResults() {
                         className="absolute text-xs font-semibold text-black"
                         style={{ bottom: `${barHeightPx + 4}px` }}
                       >
-                        {row.cumulativeScore.toFixed(1)}
+                        {row.weightedAverageScore.toFixed(1)}
                       </span>
                       <div
                         className={`w-12 rounded-t-md ${aboveAverage ? 'bg-accent' : 'bg-gray-300'}`}
@@ -114,6 +117,7 @@ export default function EvaluationResults() {
               <th className="px-4 py-3 font-semibold">이름</th>
               <th className="px-4 py-3 font-semibold">역할</th>
               <th className="px-4 py-3 font-semibold">참여 과제 수</th>
+              <th className="px-4 py-3 font-semibold">종합 점수(가중평균)</th>
               <th className="px-4 py-3 font-semibold">누적 점수</th>
               <th className="px-4 py-3 font-semibold">평가등급</th>
             </tr>
@@ -121,7 +125,7 @@ export default function EvaluationResults() {
           <tbody>
             {memberResults.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                   활성화된 팀원이 없습니다.
                 </td>
               </tr>
@@ -132,6 +136,7 @@ export default function EvaluationResults() {
                 <td className="px-4 py-3 font-medium">{row.member.name}</td>
                 <td className="px-4 py-3">{row.member.role || '-'}</td>
                 <td className="px-4 py-3">{row.participatedTaskCount}건</td>
+                <td className="px-4 py-3">{row.weightedAverageScore.toFixed(1)}</td>
                 <td className="px-4 py-3 font-semibold">{row.cumulativeScore.toFixed(1)}</td>
                 <td className="px-4 py-3">
                   <span className={`rounded-full px-3 py-1 text-xs font-bold ${GRADE_COLORS[row.grade]}`}>
