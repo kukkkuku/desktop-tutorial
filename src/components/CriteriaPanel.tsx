@@ -249,8 +249,8 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     cw === 0
       ? '사용 안 함 — 매트릭스에 입력한 값 대신 참여 팀원에게 과제 점수를 균등하게 나눠줍니다.'
       : cw === 100
-        ? '매트릭스에 입력한 기여도(%)를 그대로 반영합니다.'
-        : `매트릭스 입력값과 균등분배를 ${cw}:${100 - cw} 비율로 섞어 반영합니다.`
+        ? '매트릭스 입력값 기여도 100% 반영'
+        : `매트릭스 입력값과 균등분배를 ${cw}:${100 - cw} 비율로 반영`
 
   const TASK_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
     { key: 'taskGradeWeight', label: '과제등급 사용', desc: taskGradeDescription },
