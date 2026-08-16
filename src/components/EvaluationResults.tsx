@@ -10,6 +10,14 @@ export default function EvaluationResults() {
 
   const taskScores = calcAllTaskScores(tasks, criteria)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const activeMemberNameById = new Map(members.filter((m) => m.active).map((m) => [m.id, m.name]))
+
+  function taskContributors(taskId: string) {
+    return contributions
+      .filter((c) => c.taskId === taskId && c.contributionPercent > 0 && activeMemberNameById.has(c.memberId))
+      .sort((a, b) => b.contributionPercent - a.contributionPercent)
+      .map((c) => ({ name: activeMemberNameById.get(c.memberId)!, percent: c.contributionPercent }))
+  }
   const maxScore = Math.max(1, ...memberResults.map((r) => r.weightedAverageScore))
   const CHART_HEIGHT = 180
   const avgWeightedScore =
@@ -95,7 +103,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">팀원별 순위</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               <th className="px-4 py-3 font-semibold">순위</th>
@@ -104,12 +112,13 @@ export default function EvaluationResults() {
               <th className="px-4 py-3 font-semibold">참여 과제 수</th>
               <th className="px-4 py-3 font-semibold">종합 점수(가중평균)</th>
               <th className="px-4 py-3 font-semibold">누적 점수(단순합)</th>
+              <th className="px-4 py-3 font-semibold">평가등급</th>
             </tr>
           </thead>
           <tbody>
             {memberResults.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                   활성화된 팀원이 없습니다.
                 </td>
               </tr>
@@ -122,6 +131,11 @@ export default function EvaluationResults() {
                 <td className="px-4 py-3">{row.participatedTaskCount}건</td>
                 <td className="px-4 py-3 font-semibold">{row.weightedAverageScore.toFixed(1)}</td>
                 <td className="px-4 py-3">{row.cumulativeScore.toFixed(1)}</td>
+                <td className="px-4 py-3">
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${GRADE_COLORS[row.grade]}`}>
+                    {row.grade}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -130,7 +144,7 @@ export default function EvaluationResults() {
 
       <h3 className="mt-8 text-lg font-semibold text-black">과제별 현황</h3>
       <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               <th className="px-4 py-3 font-semibold">과제명</th>
@@ -139,65 +153,46 @@ export default function EvaluationResults() {
               <th className="px-4 py-3 font-semibold">업무량</th>
               <th className="px-4 py-3 font-semibold">성과</th>
               <th className="px-4 py-3 font-semibold">점수</th>
+              <th className="px-4 py-3 font-semibold">팀원별 기여도</th>
             </tr>
           </thead>
           <tbody>
             {taskScores.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
                   등록된 과제가 없습니다.
                 </td>
               </tr>
             )}
-            {taskScores.map(({ task, score }) => (
-              <tr key={task.id} className="border-t border-gray-200 text-black">
-                <td className="px-4 py-3 font-medium">{task.name}</td>
-                <td className="px-4 py-3">{task.performanceGrade}</td>
-                <td className="px-4 py-3">{task.importance}</td>
-                <td className="px-4 py-3">{task.workload}</td>
-                <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
-                <td className="px-4 py-3 font-semibold">{score.toFixed(1)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 className="mt-8 text-lg font-semibold text-black">팀원별 평가등급</h3>
-      <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="bg-[#F3F4F6] text-black">
-            <tr>
-              <th className="px-4 py-3 font-semibold">팀원명</th>
-              <th className="px-4 py-3 font-semibold">누적점수</th>
-              <th className="px-4 py-3 font-semibold">기대점수</th>
-              <th className="px-4 py-3 font-semibold">비율</th>
-              <th className="px-4 py-3 font-semibold">평가등급</th>
-            </tr>
-          </thead>
-          <tbody>
-            {memberResults.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                  활성화된 팀원이 없습니다.
-                </td>
-              </tr>
-            )}
-            {memberResults.map((row) => (
-              <tr key={row.member.id} className="border-t border-gray-200 text-black">
-                <td className="px-4 py-3 font-medium">{row.member.name}</td>
-                <td className="px-4 py-3">{row.cumulativeScore.toFixed(1)}</td>
-                <td className="px-4 py-3">{row.expectedScore.toFixed(1)}</td>
-                <td className="px-4 py-3">{(row.ratio * 100).toFixed(1)}%</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold ${GRADE_COLORS[row.grade]}`}
-                  >
-                    {row.grade}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {taskScores.map(({ task, score }) => {
+              const contributors = taskContributors(task.id)
+              return (
+                <tr key={task.id} className="border-t border-gray-200 text-black">
+                  <td className="px-4 py-3 font-medium">{task.name}</td>
+                  <td className="px-4 py-3">{task.performanceGrade}</td>
+                  <td className="px-4 py-3">{task.importance}</td>
+                  <td className="px-4 py-3">{task.workload}</td>
+                  <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
+                  <td className="px-4 py-3 font-semibold">{score.toFixed(1)}</td>
+                  <td className="px-4 py-3">
+                    {contributors.length === 0 ? (
+                      <span className="text-gray-400">-</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {contributors.map((c) => (
+                          <span
+                            key={c.name}
+                            className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                          >
+                            {c.name} {c.percent}%
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
