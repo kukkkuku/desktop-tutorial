@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { MeetingNote } from '../types'
+import { calcMemberResults, GRADE_COLORS } from '../utils/calculations'
 import ConfirmDialog from './ConfirmDialog'
 
 function todayString() {
@@ -63,8 +64,11 @@ function CloseIcon({ className }: { className?: string }) {
 
 export default function MeetingNotes() {
   const { state, dispatch } = useAppState()
-  const { members, meetingNotes } = state
+  const { members, meetingNotes, tasks, contributions, criteria, peerReviews } = state
   const todayStr = todayString()
+
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const memberResultById = new Map(memberResults.map((r, i) => [r.member.id, { ...r, rank: i + 1 }]))
 
   const [calendarOpen, setCalendarOpen] = useState(true)
   const [viewDate, setViewDate] = useState(() => {
@@ -87,8 +91,14 @@ export default function MeetingNotes() {
     const past = notes.filter((n) => n.date < todayStr).sort((a, b) => b.date.localeCompare(a.date))
     const upcoming = notes.filter((n) => n.date >= todayStr).sort((a, b) => a.date.localeCompare(b.date))
     const all = [...notes].sort((a, b) => b.date.localeCompare(a.date))
-    return { latest: past[0], next: upcoming[0], all }
+    return { latest: past[0], upcoming, all }
   }
+
+  // Members with a meeting logged for today -- surfaced right next to the
+  // "오늘" header so it's obvious at a glance who's up for a meeting right now.
+  const todayMembers = members
+    .map((member, idx) => ({ member, idx }))
+    .filter(({ member }) => meetingNotes.some((n) => n.memberId === member.id && n.date === todayStr))
 
   const notesByDate = useMemo(() => {
     const map = new Map<string, number[]>()
@@ -182,18 +192,38 @@ export default function MeetingNotes() {
         <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start">
           <div className="min-w-0 flex-1 rounded-lg border border-gray-200">
             <div className="border-b border-gray-200 px-4 py-3">
-              <span className="text-sm font-semibold text-black">오늘 {todayStr}</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-black">오늘 {todayStr}</span>
+                {todayMembers.length > 0 && (
+                  <span className="text-[13px] text-gray-400">오늘 면담 예정인 팀원 — 바로 진행 가능</span>
+                )}
+              </div>
+              {todayMembers.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {todayMembers.map(({ member, idx }) => (
+                    <button
+                      key={member.id}
+                      onClick={() => toggleExpand(member.id)}
+                      className="flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent hover:bg-orange-100"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                      {member.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest text-gray-400">팀원 현황</div>
             <div>
               {members.map((member, idx) => {
-                const { latest, next, all } = memberSchedule(member.id)
+                const { latest, upcoming, all } = memberSchedule(member.id)
                 const expanded = expandedMemberId === member.id
+                const result = memberResultById.get(member.id)
                 return (
                   <div key={member.id} className="border-t border-gray-100">
                     <button
                       onClick={() => toggleExpand(member.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
+                      className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-gray-50"
                     >
                       <span
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -212,10 +242,17 @@ export default function MeetingNotes() {
                           <p className="mt-0.5 text-[13px] text-gray-400">기록 없음</p>
                         )}
                       </div>
-                      {next && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent">
-                          <CalendarIcon className="h-3 w-3" /> {fmtShort(next.date)}
-                        </span>
+                      {upcoming.length > 0 && (
+                        <div className="flex shrink-0 flex-wrap items-center gap-1">
+                          {upcoming.map((note) => (
+                            <span
+                              key={note.id}
+                              className="flex items-center gap-1 rounded-full bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-accent"
+                            >
+                              <CalendarIcon className="h-3 w-3" /> {fmtShort(note.date)}
+                            </span>
+                          ))}
+                        </div>
                       )}
                       <ChevronRightIcon
                         className={`h-4 w-4 shrink-0 text-gray-300 transition-transform ${expanded ? 'rotate-90' : ''}`}
@@ -224,6 +261,28 @@ export default function MeetingNotes() {
 
                     {expanded && (
                       <div className="space-y-2 bg-gray-50 px-4 py-3">
+                        {result ? (
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px]">
+                            <span className="font-semibold text-black">순위 {result.rank}위</span>
+                            <span className="text-gray-600">
+                              누적 점수 <span className="font-semibold text-black">{result.cumulativeScore.toFixed(1)}</span>
+                            </span>
+                            <span className="text-gray-600">
+                              종합 점수(가중평균){' '}
+                              <span className="font-semibold text-black">{result.weightedAverageScore.toFixed(1)}</span>
+                            </span>
+                            <span className="text-gray-600">
+                              참여 과제 <span className="font-semibold text-black">{result.participatedTaskCount}건</span>
+                            </span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${GRADE_COLORS[result.grade]}`}>
+                              평가등급 {result.grade}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="rounded-md border border-gray-200 bg-white px-3 py-2.5 text-[13px] text-gray-400">
+                            비활성 팀원이거나 아직 평가 데이터가 없어 성과를 표시할 수 없습니다.
+                          </p>
+                        )}
                         {all.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
                         {all.map((note) =>
                           editingNoteId === note.id ? (
