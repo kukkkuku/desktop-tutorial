@@ -65,34 +65,29 @@ function UsersIcon({ className }: IconProps) {
   )
 }
 
-function GearIcon({ className }: IconProps) {
+// "Adjustment sliders" glyph -- reads as tuning/criteria controls rather
+// than a generic settings gear, matching what this button actually opens.
+function AdjustIcon({ className }: IconProps) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <line x1="4" y1="21" x2="4" y2="14" />
+      <line x1="4" y1="10" x2="4" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12" y2="3" />
+      <line x1="20" y1="21" x2="20" y2="16" />
+      <line x1="20" y1="12" x2="20" y2="3" />
+      <line x1="1" y1="14" x2="7" y2="14" />
+      <line x1="9" y1="8" x2="15" y2="8" />
+      <line x1="17" y1="16" x2="23" y2="16" />
     </svg>
   )
 }
 
-interface ToggleProps {
-  on: boolean
-  onChange: (v: boolean) => void
-}
-
-function Toggle({ on, onChange }: ToggleProps) {
+function ChevronLeftIcon({ className }: IconProps) {
   return (
-    <button
-      role="switch"
-      aria-checked={on}
-      onClick={() => onChange(!on)}
-      className={`relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors ${on ? 'bg-accent' : 'bg-gray-300'}`}
-    >
-      <span
-        className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          on ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m15 18-6-6 6-6" />
+    </svg>
   )
 }
 
@@ -164,10 +159,6 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     set(key, current > 0 ? 0 : 100)
   }
 
-  function toggleSettings() {
-    onSize(size === 'full' ? 'icon' : 'full')
-  }
-
   // Splitter: drag the panel's right edge to sweep continuously through
   // icon -> chip -> full (or back) instead of only jumping between the
   // three presets via buttons.
@@ -193,18 +184,45 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
     setDragWidth(null)
   }
 
-  function SettingsButton({ className }: { className?: string }) {
-    const isFull = size === 'full'
+  // Icon-only trigger for the narrowest (icon) width -- opens full settings.
+  function ExpandIconButton() {
     return (
       <button
-        onClick={toggleSettings}
-        title={isFull ? '설정 닫기' : '기준 설정 열기'}
+        onClick={() => onSize('full')}
+        title="기준 설정 열기"
         aria-label="기준 설정"
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors ${
-          isFull ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-100'
-        } ${className ?? ''}`}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent"
       >
-        <GearIcon className="h-4 w-4" />
+        <AdjustIcon className="h-4 w-4" />
+      </button>
+    )
+  }
+
+  // Icon + label trigger once there's room (chip width) -- same action, more context.
+  function ExpandLabelButton() {
+    return (
+      <button
+        onClick={() => onSize('full')}
+        title="기준 설정 열기"
+        className="flex w-full shrink-0 items-center gap-2 rounded-md px-2 py-2 text-[13px] font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent"
+      >
+        <AdjustIcon className="h-4 w-4 shrink-0" />
+        상세 설정
+      </button>
+    )
+  }
+
+  // Once settings are already open, the icon+label trigger is redundant --
+  // a plain collapse arrow closes it back down to the icon-only width.
+  function CollapseButton() {
+    return (
+      <button
+        onClick={() => onSize('icon')}
+        title="접기"
+        aria-label="기준 설정 접기"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent"
+      >
+        <ChevronLeftIcon className="h-4 w-4" />
       </button>
     )
   }
@@ -258,7 +276,15 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
             {label}
             {checked && <span className="ml-2 font-mono text-[13px] font-bold text-accent">{value}%</span>}
           </p>
-          <Toggle on={checked} onChange={(v) => set(itemKey, v ? 100 : 0)} />
+          <button
+            onClick={() => set(itemKey, checked ? 0 : 100)}
+            title="클릭해서 사용 여부 전환"
+            className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium transition-colors ${
+              checked ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {checked ? '사용' : '미사용'}
+          </button>
         </div>
         {checked && (
           <input
@@ -348,6 +374,8 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
 
       {size === 'icon' && (
         <div className="flex h-full flex-col items-center gap-1.5 p-3">
+          <ExpandIconButton />
+          <span className="my-1 h-px w-6 shrink-0 bg-gray-200" />
           {GROUP_1.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
@@ -355,13 +383,13 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
           {GROUP_2.map((item) => (
             <IconButton key={item.key} item={item} />
           ))}
-          <SettingsButton className="mt-auto" />
         </div>
       )}
 
       {size === 'chip' && (
         <div className="flex h-full flex-col gap-2 px-4 py-4">
-          <span className="mb-1 text-[13px] font-bold uppercase tracking-widest text-gray-400">기준 설정</span>
+          <ExpandLabelButton />
+          <span className="my-0.5 h-px w-full bg-gray-100" />
           {GROUP_1.map((item) => (
             <Chip key={item.key} item={item} />
           ))}
@@ -369,15 +397,13 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
           {GROUP_2.map((item) => (
             <Chip key={item.key} item={item} />
           ))}
-          <div className="mt-auto flex justify-center pt-2">
-            <SettingsButton />
-          </div>
         </div>
       )}
 
       {size === 'full' && (
         <div className="flex h-full flex-col overflow-hidden">
-          <div className="shrink-0 border-b border-gray-200 px-5 py-3">
+          <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-3">
+            <CollapseButton />
             <span className="text-sm font-semibold text-black">기준 설정</span>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
@@ -402,9 +428,6 @@ export default function CriteriaPanel({ size, onSize }: CriteriaPanelProps) {
                 ))}
               </div>
             </div>
-          </div>
-          <div className="flex shrink-0 justify-center border-t border-gray-200 py-2.5">
-            <SettingsButton />
           </div>
         </div>
       )}
