@@ -9,6 +9,8 @@ import { calcYearsSince, formatLevelTenureLabel } from '../utils/tenure'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
+import TitleUploadControls from './TitleUploadControls'
+import { downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 
 const TEAM_COLUMNS = {
   name: 140,
@@ -40,7 +42,11 @@ function displayServiceYears(member: TeamMember): string {
   return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
 }
 
-export default function TeamManagement() {
+interface TeamManagementProps {
+  onUploaded?: (files: File[]) => void
+}
+
+export default function TeamManagement({ onUploaded }: TeamManagementProps) {
   const { state, dispatch } = useAppState()
   const cols = useResizableColumns(TEAM_COLUMNS)
   const { openMemberDetail } = useMemberDetail()
@@ -144,9 +150,30 @@ export default function TeamManagement() {
     ? state.peerReviews.filter((r) => r.targetMemberId === viewingPeerReviewsFor.id)
     : []
 
+  async function handleUploadFiles(files: File[]) {
+    let list = state.members
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parseMemberWorkbook(buffer, list)
+      list = result.members
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
+    }
+    dispatch({ type: 'IMPORT_MEMBERS', payload: list })
+    onUploaded?.(files)
+    return { addedCount, updatedCount, errors }
+  }
+
   return (
     <div>
-      <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
+        <TitleUploadControls busyLabel="팀원 업로드 중..." onDownload={downloadMemberTemplate} onFiles={handleUploadFiles} />
+      </div>
       <p className="mt-1 text-sm text-gray-600">
         팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
       </p>

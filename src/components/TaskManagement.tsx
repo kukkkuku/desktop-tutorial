@@ -8,6 +8,8 @@ import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
 import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ResizableTh from './table/ResizableTh'
+import TitleUploadControls from './TitleUploadControls'
+import { downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
 
 const TASK_COLUMNS = {
   name: 200,
@@ -28,7 +30,11 @@ interface TaskFormValues {
   achievement: string
 }
 
-export default function TaskManagement() {
+interface TaskManagementProps {
+  onUploaded?: (files: File[]) => void
+}
+
+export default function TaskManagement({ onUploaded }: TaskManagementProps) {
   const { state, dispatch } = useAppState()
   const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
@@ -146,9 +152,30 @@ export default function TaskManagement() {
     setNewFormError('')
   }
 
+  async function handleUploadFiles(files: File[]) {
+    let list = state.tasks
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parseTaskWorkbook(buffer, list)
+      list = result.tasks
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
+    }
+    dispatch({ type: 'IMPORT_TASKS', payload: list })
+    onUploaded?.(files)
+    return { addedCount, updatedCount, errors }
+  }
+
   return (
     <div>
-      <h3 className="text-lg font-semibold text-black">과제 관리</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-black">과제 관리</h3>
+        <TitleUploadControls busyLabel="과제 업로드 중..." onDownload={downloadTaskTemplate} onFiles={handleUploadFiles} />
+      </div>
       <p className="mt-1 text-sm text-gray-600">
         과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
       </p>

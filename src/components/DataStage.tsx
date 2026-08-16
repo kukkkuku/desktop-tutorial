@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import DataManagementPanel from './DataManagementPanel'
+import { useAppState } from '../state/AppContext'
+import { useUploadsLog } from '../hooks/useUploadsLog'
+import DataUploadBar from './DataUploadBar'
+import DataUploadExpandedPanel from './DataUploadExpandedPanel'
 import TaskManagement from './TaskManagement'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
@@ -14,12 +17,15 @@ const SUB_TABS: { key: DataSubTab; label: string }[] = [
 
 export default function DataStage() {
   const [sub, setSub] = useState<DataSubTab>('tasks')
+  const [expanded, setExpanded] = useState(false)
+  const { workspaceId } = useAppState()
+  const { uploadsLog, recordUpload } = useUploadsLog(workspaceId)
 
   return (
     <div>
-      <DataManagementPanel />
+      {expanded && <DataUploadExpandedPanel onClose={() => setExpanded(false)} recordUpload={recordUpload} />}
 
-      <div className="mt-5 flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200">
         {SUB_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -34,10 +40,12 @@ export default function DataStage() {
       </div>
 
       <div className="mt-5">
-        {sub === 'tasks' && <TaskManagement />}
-        {sub === 'members' && <TeamManagement />}
-        {sub === 'peer' && <PeerReviewManagement />}
+        {sub === 'tasks' && <TaskManagement onUploaded={(files) => recordUpload('task', files)} />}
+        {sub === 'members' && <TeamManagement onUploaded={(files) => recordUpload('member', files)} />}
+        {sub === 'peer' && <PeerReviewManagement onUploaded={(files) => recordUpload('peer', files)} />}
       </div>
+
+      <DataUploadBar expanded={expanded} onToggle={() => setExpanded((v) => !v)} uploadsLog={uploadsLog} />
     </div>
   )
 }

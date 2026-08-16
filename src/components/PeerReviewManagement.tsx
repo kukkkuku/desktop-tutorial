@@ -7,6 +7,8 @@ import { GRADE_COLORS } from '../utils/calculations'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
+import TitleUploadControls from './TitleUploadControls'
+import { downloadPeerReviewTemplate, parsePeerReviewWorkbook } from '../utils/excel'
 
 const PEER_REVIEW_COLUMNS = {
   reviewer: 160,
@@ -15,7 +17,11 @@ const PEER_REVIEW_COLUMNS = {
   manage: 100,
 }
 
-export default function PeerReviewManagement() {
+interface PeerReviewManagementProps {
+  onUploaded?: (files: File[]) => void
+}
+
+export default function PeerReviewManagement({ onUploaded }: PeerReviewManagementProps) {
   const { state, dispatch } = useAppState()
   const cols = useResizableColumns(PEER_REVIEW_COLUMNS)
   const [deletingReview, setDeletingReview] = useState<PeerReview | null>(null)
@@ -57,9 +63,34 @@ export default function PeerReviewManagement() {
     }
   }
 
+  async function handleUploadFiles(files: File[]) {
+    let list = state.peerReviews
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parsePeerReviewWorkbook(buffer, state.members, list)
+      list = result.peerReviews
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
+    }
+    dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: list })
+    onUploaded?.(files)
+    return { addedCount, updatedCount, errors }
+  }
+
   return (
     <div>
-      <h3 className="text-lg font-semibold text-black">피어리뷰 관리</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-black">피어리뷰 관리</h3>
+        <TitleUploadControls
+          busyLabel="피어리뷰 업로드 중..."
+          onDownload={() => downloadPeerReviewTemplate(state.members)}
+          onFiles={handleUploadFiles}
+        />
+      </div>
       <p className="mt-1 text-sm text-gray-600">
         팀원이 서로에게 남긴 피어리뷰 등급입니다. 평가 기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에 반영됩니다.
       </p>
