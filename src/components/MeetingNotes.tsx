@@ -107,9 +107,6 @@ export default function MeetingNotes() {
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                   <span className="font-semibold text-black">순위 {selectedMemberRank + 1}위</span>
                   <span className="text-gray-700">
-                    종합 점수(가중평균) <span className="font-semibold text-black">{selectedMemberResult.weightedAverageScore.toFixed(1)}</span>
-                  </span>
-                  <span className="text-gray-700">
                     누적 점수 <span className="font-semibold text-black">{selectedMemberResult.cumulativeScore.toFixed(1)}</span>
                   </span>
                   <span className="text-gray-700">

@@ -212,7 +212,7 @@ export default function EvaluationMatrix() {
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono font-semibold">
-                      {row.weightedAverageScore.toFixed(1)}
+                      {row.cumulativeScore.toFixed(1)}
                     </td>
                   </tr>
                 ))}
