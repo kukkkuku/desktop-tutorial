@@ -132,22 +132,9 @@ export default function DataUploadExpandedPanel({ onClose, recordUpload }: DataU
 
   return (
     <div className="mb-5 space-y-3 rounded-md border border-gray-200 bg-white px-4 py-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-black">통합 업로드</p>
-          <p className="text-xs text-gray-400">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리거나 전체 데이터를 초기화합니다.</p>
-        </div>
-        <button
-          onClick={onClose}
-          title="닫기"
-          aria-label="닫기"
-          className="shrink-0 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-black"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
+      <div>
+        <p className="text-sm font-semibold text-black">통합 업로드</p>
+        <p className="text-xs text-gray-400">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리거나 전체 데이터를 초기화합니다.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

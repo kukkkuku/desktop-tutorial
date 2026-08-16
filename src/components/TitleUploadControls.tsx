@@ -13,7 +13,7 @@ interface TitleUploadControlsProps {
   onFiles: (files: File[]) => Promise<UploadSummary>
 }
 
-// Compact 양식 다운로드 / 데이터 업로드 pair for a section title row. Each
+// Compact 엑셀양식 다운로드 / 엑셀양식 업로드 pair for a section title row. Each
 // management tab (과제/팀원/피어리뷰) owns its own instance -- upload results
 // surface as a small dropdown right under the buttons instead of a shared
 // panel elsewhere on the page.
@@ -50,14 +50,14 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
         disabled={busy}
         className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        양식 다운로드
+        엑셀양식 다운로드
       </button>
       <button
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         className="rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        데이터 업로드
+        엑셀양식 업로드
       </button>
       <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onInputChange} />
 
