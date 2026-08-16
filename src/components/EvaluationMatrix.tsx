@@ -96,7 +96,13 @@ export default function EvaluationMatrix() {
     .map((task) => ({ task, sum: getTaskContributionSum(contributions, task.id, activeMemberIds) }))
     .filter(({ sum }) => sum > 0 && !isContributionSumValid(sum))
 
-  const tableWidth = taskWidth + SUM_COL_WIDTH + activeMembers.length * (PCT_COL_WIDTH + GRADE_COL_WIDTH)
+  const memberCount = activeMembers.length
+  const tableWidth = taskWidth + SUM_COL_WIDTH + memberCount * (PCT_COL_WIDTH + GRADE_COL_WIDTH)
+  // 과제명·기여도를 제외한 나머지 폭을 팀원 수만큼 균등하게 나누고, 그 안에서
+  // 기여도(%)와 개인수행등급 폭 비율은 기본값 비율(PCT_COL_WIDTH:GRADE_COL_WIDTH)을 유지한다.
+  const memberBlockShare = memberCount > 0 ? `((100% - ${taskWidth}px - ${SUM_COL_WIDTH}px) / ${memberCount})` : '0px'
+  const pctColWidth = `calc(${memberBlockShare} * ${PCT_COL_WIDTH / (PCT_COL_WIDTH + GRADE_COL_WIDTH)})`
+  const gradeColWidth = `calc(${memberBlockShare} * ${GRADE_COL_WIDTH / (PCT_COL_WIDTH + GRADE_COL_WIDTH)})`
 
   return (
     <div>
@@ -125,13 +131,10 @@ export default function EvaluationMatrix() {
                 <col style={{ width: SUM_COL_WIDTH }} />
                 {activeMembers.map((member) => (
                   <Fragment key={member.id}>
-                    <col style={{ width: PCT_COL_WIDTH }} />
-                    <col style={{ width: GRADE_COL_WIDTH }} />
+                    <col style={{ width: pctColWidth }} />
+                    <col style={{ width: gradeColWidth }} />
                   </Fragment>
                 ))}
-                {/* 실제 데이터가 있는 컬럼은 전부 지정폭을 가지므로, 화면이 더 넓으면
-                    이 빈 컬럼이 남는 폭을 전부 흡수한다(table-fixed의 auto 컬럼 규칙) */}
-                <col />
               </colgroup>
               <thead className="bg-[#F3F4F6] text-black">
                 <tr>
@@ -140,10 +143,8 @@ export default function EvaluationMatrix() {
                     className="sticky left-0 z-20 border-b border-gray-200 bg-[#F3F4F6] px-4 py-3 align-bottom font-semibold"
                     style={{ position: 'sticky', left: 0 }}
                   >
-                    <div className="relative pr-2">
-                      과제명
-                      <ResizeHandle onStart={startTaskResize} onMove={onTaskResizeMove} onEnd={onTaskResizeEnd} />
-                    </div>
+                    과제명
+                    <ResizeHandle onStart={startTaskResize} onMove={onTaskResizeMove} onEnd={onTaskResizeEnd} />
                   </th>
                   <th
                     rowSpan={2}
@@ -177,7 +178,6 @@ export default function EvaluationMatrix() {
                       </th>
                     )
                   })}
-                  <th rowSpan={2} aria-hidden="true" className="border-b border-l border-gray-200" />
                 </tr>
                 <tr>
                   {activeMembers.map((member) => (
@@ -250,7 +250,6 @@ export default function EvaluationMatrix() {
                           </Fragment>
                         )
                       })}
-                      <td aria-hidden="true" className="border-l border-gray-200" />
                     </tr>
                   )
                 })}
