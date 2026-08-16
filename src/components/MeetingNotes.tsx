@@ -99,6 +99,18 @@ export default function MeetingNotes() {
     .map((member, idx) => ({ member, idx }))
     .filter(({ member }) => meetingNotes.some((n) => n.memberId === member.id && n.date === todayStr))
 
+  // Members with a meeting scheduled on a future (non-today) date -- shown
+  // alongside todayMembers so upcoming meetings aren't hidden inside each row.
+  const otherUpcomingMembers = members
+    .map((member, idx) => {
+      const note = meetingNotes
+        .filter((n) => n.memberId === member.id && n.date > todayStr)
+        .sort((a, b) => a.date.localeCompare(b.date))[0]
+      return { member, idx, note }
+    })
+    .filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.note)
+    .sort((a, b) => a.note.date.localeCompare(b.note.date))
+
   const notesByDate = useMemo(() => {
     const map = new Map<string, number[]>()
     meetingNotes.forEach((n) => {
@@ -219,6 +231,24 @@ export default function MeetingNotes() {
                       {member.name}
                     </button>
                   ))}
+                </div>
+              )}
+              {otherUpcomingMembers.length > 0 && (
+                <div className="mt-3 border-t border-gray-100 pt-2">
+                  <span className="text-[13px] text-gray-400">다른 날짜 예정 면담</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {otherUpcomingMembers.map(({ member, idx, note }) => (
+                      <button
+                        key={member.id}
+                        onClick={() => openMember(member.id)}
+                        className="flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-[13px] font-medium text-gray-600 hover:bg-gray-200"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                        {member.name}
+                        <span className="text-gray-400">{fmtShort(note.date)}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
