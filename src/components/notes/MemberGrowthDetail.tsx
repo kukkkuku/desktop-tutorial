@@ -214,7 +214,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </HeaderStat>
         </div>
 
-        <div className="-my-4 -mr-5 ml-auto flex flex-wrap items-center gap-x-6 gap-y-3 self-stretch border-l border-gray-200 bg-gray-50 px-5 py-3">
+        <div className="-my-4 -mr-5 flex flex-1 flex-wrap items-center justify-end gap-x-6 gap-y-3 self-stretch border-l border-gray-200 bg-gray-50 px-5 py-3">
           <HeaderStat label="승급일">
             <div className="flex items-center gap-1">
               <input
