@@ -9,7 +9,7 @@ import {
   getContribution,
   getEffectiveContributionPercent,
 } from '../../utils/calculations'
-import { appraisalRecordGrade, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
+import { appraisalRecordGrade, auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import TrendSparkline from './TrendSparkline'
@@ -125,7 +125,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
-  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
+  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, auxScoreSum(member.auxScores), levelTenureYears)
 
   // Summary Bar의 승진 관련 항목(현재 점수/승진 기준/필요 점수 갭) --
   // PromotionSimulationPanel과 같은 계산을 여기서 독립적으로 다시 구해 쓴다

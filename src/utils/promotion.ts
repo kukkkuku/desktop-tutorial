@@ -11,7 +11,13 @@
 //   - "승진대상점수"(L8, 대상/미대상 판정용) = Σ(연도별 등급점수합), 가중치 미적용 raw 합계
 //   - 대상 판정: raw 합계(L8) ≥ 목표직급 승진자격점수
 //   - 준비도 표시(예: 58.8/66, 89%)는 가중 점수(X3)를 기준자격점수와 비교
-import type { EvaluationGrade, HRAppraisalRecord, Level, PromotionCriteriaRow } from '../types'
+import type { EvaluationGrade, HRAppraisalRecord, Level, PromotionCriteriaRow, TeamMember } from '../types'
+
+// 보조지표(직책/상벌/체류/교육) 합계 — 승진서열화점수에 그대로 더해진다.
+export function auxScoreSum(auxScores: TeamMember['auxScores']): number {
+  if (!auxScores) return 0
+  return (auxScores.position ?? 0) + (auxScores.reward ?? 0) + (auxScores.tenure ?? 0) + (auxScores.education ?? 0)
+}
 
 export const DEFAULT_GRADE_SCORES: Record<EvaluationGrade, number> = {
   S: 5,

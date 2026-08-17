@@ -8,6 +8,13 @@ export interface ParsedAppraisalYear {
   competencyGrade: EvaluationGrade | ''
 }
 
+export interface ParsedAuxScores {
+  position: number
+  reward: number
+  tenure: number
+  education: number
+}
+
 export interface ParsedEmployeeSheet {
   sheetName: string
   name: string
@@ -15,6 +22,7 @@ export interface ParsedEmployeeSheet {
   promotionReviewDate: string | null
   currentLevel: Level | null
   years: ParsedAppraisalYear[]
+  auxScores: ParsedAuxScores | null
 }
 
 export interface PromotionImportMatch {
@@ -72,8 +80,34 @@ function parsePromotionReviewDateCell(value: unknown): string | null {
   return parsed ? parsed.slice(0, 7) : null
 }
 
+// "육성 시뮬레이션" 블록의 승급심사 셀(C24)은 입사일(C3)과 다른 숫자 인코딩을
+// 쓴다 -- "연도.월"(예: 2033.04 = 2033년 4월) 그대로다. C3의 "연도월.일"
+// 인코딩(parseHireDateCell)과 헷갈리면 안 된다.
+function parseYearDotMonthCell(value: unknown): string | null {
+  if (typeof value !== 'number') return null
+  const year = Math.floor(value)
+  const month = Math.round((value - year) * 100)
+  if (year < 1990 || year > 2100 || month < 1 || month > 12) return null
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
 function cellVal(ws: XLSX.WorkSheet, ref: string): unknown {
   return ws[ref]?.v
+}
+
+function readAuxScores(ws: XLSX.WorkSheet, positionRow: number, rewardRow: number, tenureRow: number, educationRow: number): ParsedAuxScores | null {
+  const num = (row: number) => {
+    const v = cellVal(ws, `O${row}`)
+    return typeof v === 'number' ? v : 0
+  }
+  const scores: ParsedAuxScores = {
+    position: num(positionRow),
+    reward: num(rewardRow),
+    tenure: num(tenureRow),
+    education: num(educationRow),
+  }
+  const hasAny = scores.position || scores.reward || scores.tenure || scores.education
+  return hasAny ? scores : null
 }
 
 // 시트마다 "평가등급" 표가 두 곳에 있다: 상단 고정 블록(2행=연도헤더,
@@ -109,7 +143,11 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
     if (!name) continue
 
     const hireDate = parseHireDateCell(cellVal(ws, 'C3'))
-    const promotionReviewDate = parsePromotionReviewDateCell(cellVal(ws, 'D3'))
+    // "승급심사예정일"이라는 이름은 D3에도 있지만, 실제 승급일로 쓰이는 값은
+    // "육성 시뮬레이션" 블록의 C24(라벨 "승급심사")다 -- 이 값이 그 블록의
+    // 연도 앵커(최근 5개년 창)와 실제로 맞물려 있다. D3는 그 값이 비어있을
+    // 때만 대체로 쓴다.
+    const promotionReviewDate = parseYearDotMonthCell(cellVal(ws, 'C24')) ?? parsePromotionReviewDateCell(cellVal(ws, 'D3'))
     const currentLevel = levelFromSheetName(sheetName)
 
     const byYear = new Map<number, ParsedAppraisalYear>()
@@ -117,7 +155,12 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
     for (const y of readYearBlock(ws, 26, 27, 28, 29)) byYear.set(y.year, y)
     const years = Array.from(byYear.values()).sort((a, b) => a.year - b.year)
 
-    results.push({ sheetName, name, hireDate, promotionReviewDate, currentLevel, years })
+    // 보조지표도 상단(현재)/하단(육성 시뮬레이션) 두 블록에 각각 있을 수 있다.
+    // 우리 앱은 보조지표를 팀원당 하나로 통합해서 쓰므로, 값이 있는 쪽을 쓴다
+    // (실제로 한 사람에게 두 블록 모두 값이 들어있는 경우는 못 봤다).
+    const auxScores = readAuxScores(ws, 4, 5, 6, 7) ?? readAuxScores(ws, 28, 29, 30, 31)
+
+    results.push({ sheetName, name, hireDate, promotionReviewDate, currentLevel, years, auxScores })
   }
 
   return results

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults } from '../../utils/calculations'
-import { calcPromotionReadiness, trendArrow } from '../../utils/promotion'
+import { auxScoreSum, calcPromotionReadiness, trendArrow } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
 import MemberOverviewPanel from './MemberOverviewPanel'
@@ -48,7 +48,7 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
-  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
+  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, auxScoreSum(member.auxScores), levelTenureYears)
   const achievementTrend = trendArrow(appraisals.slice(-3).flatMap((r) => [r.firstHalfGrade, r.secondHalfGrade]))
   const competencyTrend = trendArrow(appraisals.slice(-3).map((r) => r.competencyGrade))
 

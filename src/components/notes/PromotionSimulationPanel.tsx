@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { EvaluationGrade, PromotionCriteriaRow, TeamMember } from '../../types'
+import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import {
+  auxScoreSum,
   calcProjectedPromotionScore,
   calcPromotionWeightedScore,
   findPromotionCriteria,
@@ -11,8 +13,9 @@ import {
 import { calcYearsSince } from '../../utils/tenure'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 
-// 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 승급심사 예정년도까지의
-// 예상 점수(시뮬레이션 가산)에만 반영된다.
+// 보조지표 -- 승진서열화점수에 그대로 합산되는 입력값(직책/상벌/체류/교육).
+// 팀원 데이터에 저장되므로 엑셀로 가져오거나 여기서 직접 입력해도 현재
+// 점수·시뮬레이션 점수 양쪽에 똑같이 반영된다.
 const AUX_KEYS = [
   { key: 'position', label: '직책' },
   { key: 'reward', label: '상벌' },
@@ -86,20 +89,26 @@ function CriteriaReferenceModal({
 // 인사평가 히스토리(입력 소스)와 보조지표 입력을 한 화면에 붙여 둔다.
 // 가중치 기준표만 상시 노출 대신 별도 팝업으로 확인한다.
 export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
+  const { dispatch } = useAppState()
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
   const [criteriaModalOpen, setCriteriaModalOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(true)
-  const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
-  const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
+  const auxSum = auxScoreSum(member.auxScores)
+
+  function setAux(key: AuxKey, value: string) {
+    const n = value === '' ? 0 : Number(value)
+    if (!Number.isFinite(n)) return
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, auxScores: { ...member.auxScores, [key]: n } } })
+  }
 
   if (!criteria) {
     return <p className="text-sm text-gray-400">{member.level || '이 직급'}에 대한 승진 기준이 설정되지 않았습니다.</p>
   }
 
-  const currentScore = calcPromotionWeightedScore(records, profile.gradeScores, criteria.tenureYears, 0)
+  const currentScore = calcPromotionWeightedScore(records, profile.gradeScores, criteria.tenureYears, auxSum)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const reviewYear = resolveReviewYear(member.promotionReviewDate, criteria, levelTenureYears)
   const { projectedTotal, projectedGap } = calcProjectedPromotionScore(records, profile.gradeScores, criteria, reviewYear, auxSum)
@@ -119,7 +128,9 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
           +
         </span>
         <div>
-          <p className="text-[11px] text-gray-500">시뮬레이션 가산</p>
+          <p className="text-[11px] text-gray-500" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
+            시뮬레이션 가산 ⓘ
+          </p>
           <p className="mt-1 text-2xl font-bold text-accent">
             {simDelta >= 0 ? '+' : ''}
             {simDelta.toFixed(1)}점
@@ -159,8 +170,8 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
                   {label}
                   <input
                     type="number"
-                    value={aux[key]}
-                    onChange={(e) => setAux((prev) => ({ ...prev, [key]: e.target.value }))}
+                    value={member.auxScores?.[key] ?? ''}
+                    onChange={(e) => setAux(key, e.target.value)}
                     placeholder="0"
                     className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
                   />

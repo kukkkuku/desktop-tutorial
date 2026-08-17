@@ -89,6 +89,7 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
         const patch: Partial<TeamMember> = {}
         if (sheet.hireDate && !member.hireDate) patch.hireDate = sheet.hireDate
         if (sheet.promotionReviewDate && !member.promotionReviewDate) patch.promotionReviewDate = sheet.promotionReviewDate
+        if (sheet.auxScores && !member.auxScores) patch.auxScores = sheet.auxScores
         if (Object.keys(patch).length > 0) dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, ...patch } })
       }
     }
@@ -104,8 +105,8 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
           <div>
             <h3 className="text-lg font-bold text-black">인사평가 이력 엑셀로 가져오기</h3>
             <p className="mt-1 text-[13px] text-gray-500">
-              승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사예정일을 읽어, 이름이
-              일치하는 현재 팀원에게 바로 적용합니다.
+              승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
+              이름이 일치하는 현재 팀원에게 바로 적용합니다.
             </p>
           </div>
           <button
@@ -208,7 +209,7 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
                 checked={applyHireDate}
                 onChange={(e) => setApplyHireDate(e.target.checked)}
               />
-              입사일 · 승급일도 함께 적용 (팀원 상세정보에 해당 값이 비어있는 경우만)
+              입사일 · 승급일 · 보조지표도 함께 적용 (팀원 상세정보에 해당 값이 비어있는 경우만)
             </label>
 
             {matchedCount === 0 ? (

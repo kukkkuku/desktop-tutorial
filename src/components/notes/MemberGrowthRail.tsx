@@ -1,7 +1,7 @@
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults } from '../../utils/calculations'
-import { calcPromotionReadiness } from '../../utils/promotion'
+import { auxScoreSum, calcPromotionReadiness } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 
 const PROMOTION_CANDIDATE_THRESHOLD = 70
@@ -42,7 +42,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
               appraisals,
               profile.promotionCriteria,
               profile.gradeScores,
-              0,
+              auxScoreSum(member.auxScores),
               calcYearsSince(member.currentLevelSince),
             )
             const isCandidate = (readiness?.progressPercent ?? 0) >= PROMOTION_CANDIDATE_THRESHOLD
