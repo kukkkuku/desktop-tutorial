@@ -134,6 +134,21 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const currentWeightedScore = readiness?.weightedScore ?? 0
   const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
 
+  // 승급일 -- 네이티브 <input type="month">의 브라우저별 달력 팝업이 복잡해
+  // 보인다는 피드백이 있어, 연도 입력칸 + 월 드롭다운으로 직접 구성한다.
+  const [reviewDateYear, reviewDateMonth = '01'] = (member.promotionReviewDate ?? '').split('-')
+  const updatePromotionReviewYear = (value: string) => {
+    if (!value) {
+      dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: null } })
+      return
+    }
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${value}-${reviewDateMonth || '01'}` } })
+  }
+  const updatePromotionReviewMonth = (value: string) => {
+    const year = reviewDateYear || String(new Date().getFullYear())
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${value}` } })
+  }
+
   // 고과 추이는 워크스페이스별 계산 성과가 아니라 공식 인사평가 이력(연도별
   // 업적/역량 등급)이 이전 성과 기준이다 -- 승진심사/승진자격 기준과 같은
   // 데이터 소스를 쓴다.
@@ -196,12 +211,27 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 px-5 py-3">
           <HeaderStat label="승급일">
-            <input
-              type="month"
-              value={member.promotionReviewDate ?? ''}
-              onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })}
-              className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-            />
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                value={reviewDateYear}
+                onChange={(e) => updatePromotionReviewYear(e.target.value)}
+                placeholder="연도"
+                className="w-14 rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <span className="text-xs font-normal text-gray-400">년</span>
+              <select
+                value={reviewDateMonth}
+                onChange={(e) => updatePromotionReviewMonth(e.target.value)}
+                className="rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                  <option key={m} value={m}>
+                    {Number(m)}월
+                  </option>
+                ))}
+              </select>
+            </div>
           </HeaderStat>
           <HeaderStat label="직급 기준">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
           <HeaderStat label="평가 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>

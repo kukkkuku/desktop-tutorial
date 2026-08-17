@@ -152,14 +152,13 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     <div>
       <h4 className="text-sm font-bold text-black">인사평가 히스토리</h4>
       <p className="mt-0.5 text-[13px] text-gray-500">
-        승급심사 예정년도(
         <input
           type="number"
           value={reviewYear}
           onChange={(e) => changeReviewYear(Number(e.target.value))}
           className="mx-0.5 w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-[13px] text-black"
         />
-        년) 기준 최근 5개년을 보여줍니다.
+        년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 데이터를 보여줍니다.
       </p>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
