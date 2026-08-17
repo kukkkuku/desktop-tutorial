@@ -61,6 +61,12 @@ export function calcPromotionRawScore(
 // 승진서열화점수(주점수, 가중치 적용) — 준비도 표시(예: 58.8/66)에 쓰인다.
 // auxScore(보조점수: 직책/상벌/체류/교육)는 첨부자료에 세부 산정식이 없어 팀장이
 // 직접 입력하지 않는 한 0으로 둔다.
+//
+// 연차 가중치는 "기록이 몇 번째로 최근인가"가 아니라 "올해 기준 몇 년 전
+// 연도인가"로 매겨야 한다(엑셀 원본도 항상 올해-1, 올해-2... 고정 연도열에
+// 가중치를 매기고, 그 해에 기록이 없으면 0으로 비워둔다). 기록을 최신순
+// 정렬 후 인덱스로 가중치를 매기면, 올해 기록이 없는 해가 있어도 그 다음
+// 기록이 앞당겨져 더 큰 가중치를 받는 오류가 생긴다(엑셀과 달라짐).
 export function calcPromotionWeightedScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
@@ -68,11 +74,13 @@ export function calcPromotionWeightedScore(
   auxScore = 0,
 ): number {
   const weights = YEAR_WEIGHTS_BY_TENURE[tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5]
-  const sortedDesc = [...records].sort((a, b) => b.year - a.year)
-  const weighted = sortedDesc.reduce((sum, record, i) => {
-    const weight = weights[i] ?? 0
-    return sum + weight * yearGradeSum(record, gradeScores)
-  }, 0)
+  const anchorYear = new Date().getFullYear()
+  const byYear = new Map(records.map((r) => [r.year, r]))
+  let weighted = 0
+  for (let i = 0; i < weights.length; i++) {
+    const record = byYear.get(anchorYear - 1 - i)
+    if (record) weighted += weights[i] * yearGradeSum(record, gradeScores)
+  }
   return weighted + auxScore
 }
 

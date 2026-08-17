@@ -83,7 +83,7 @@ function CriteriaReferenceModal({
 }
 
 // 성장 시뮬레이션 -- 현재→예상 점수 결과를 최우선으로 보여주고, 그 아래
-// 공식 인사평가 이력(입력 소스)과 보조지표 입력을 한 화면에 붙여 둔다.
+// 인사평가 히스토리(입력 소스)와 보조지표 입력을 한 화면에 붙여 둔다.
 // 가중치 기준표만 상시 노출 대신 별도 팝업으로 확인한다.
 export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
   const { profile } = useTeamProfile()
@@ -138,13 +138,13 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         {projectedGap.toFixed(1)}점
       </p>
 
-      {/* 공식 인사평가 이력 -- 접고 펼 수 있음, 기본 노출. 이력 입력 바로
+      {/* 인사평가 히스토리 -- 접고 펼 수 있음, 기본 노출. 이력 입력 바로
           위에 보조지표 입력과 기준 보기 버튼을 나란히 둬서, 숨겨진 별도
           섹션을 열지 않아도 바로 보이고 바로 입력할 수 있게 한다. */}
       <div>
         <div className="flex items-center justify-between gap-2">
           <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
-            {historyOpen ? '− 공식 인사평가 이력 접기' : '공식 인사평가 이력 보기 →'}
+            {historyOpen ? '− 인사평가 히스토리 접기' : '인사평가 히스토리 보기 →'}
           </button>
           <button onClick={() => setCriteriaModalOpen(true)} className="shrink-0 text-[11px] font-medium text-gray-400 hover:text-accent">
             ⓘ 기준 보기

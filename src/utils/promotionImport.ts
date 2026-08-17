@@ -76,6 +76,27 @@ function cellVal(ws: XLSX.WorkSheet, ref: string): unknown {
   return ws[ref]?.v
 }
 
+// 시트마다 "평가등급" 표가 두 곳에 있다: 상단 고정 블록(2행=연도헤더,
+// 3~5행=업적상/업적하/역량, 항상 최근 5개년 고정폭)과, 하단 "육성 시뮬레이션"
+// 블록(26행=연도헤더, 27~29행=업적상/업적하/역량, 팀원 개인의 승급심사예정일
+// 기준으로 연도가 앵커링됨). 두 블록은 겹치는 연도는 같은 값을 담고 있지만,
+// 하단 블록에만 더 최신 연도(예: 승급심사예정일에 가까운 해)가 추가로 들어있는
+// 경우가 많다 — 상단만 읽으면 그 최신 연도가 통째로 누락된다.
+function readYearBlock(ws: XLSX.WorkSheet, headerRow: number, firstRow: number, secondRow: number, competencyRow: number): ParsedAppraisalYear[] {
+  const years: ParsedAppraisalYear[] = []
+  for (const col of YEAR_COLS) {
+    const yearVal = cellVal(ws, `${col}${headerRow}`)
+    const year = typeof yearVal === 'number' ? yearVal : Number(yearVal)
+    if (!Number.isFinite(year)) continue
+    const firstHalfGrade = toGrade(cellVal(ws, `${col}${firstRow}`))
+    const secondHalfGrade = toGrade(cellVal(ws, `${col}${secondRow}`))
+    const competencyGrade = toGrade(cellVal(ws, `${col}${competencyRow}`))
+    if (!firstHalfGrade && !secondHalfGrade && !competencyGrade) continue
+    years.push({ year, firstHalfGrade, secondHalfGrade, competencyGrade })
+  }
+  return years
+}
+
 export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmployeeSheet[] {
   const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
   const results: ParsedEmployeeSheet[] = []
@@ -91,17 +112,10 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
     const promotionReviewDate = parsePromotionReviewDateCell(cellVal(ws, 'D3'))
     const currentLevel = levelFromSheetName(sheetName)
 
-    const years: ParsedAppraisalYear[] = []
-    for (const col of YEAR_COLS) {
-      const yearVal = cellVal(ws, `${col}2`)
-      const year = typeof yearVal === 'number' ? yearVal : Number(yearVal)
-      if (!Number.isFinite(year)) continue
-      const firstHalfGrade = toGrade(cellVal(ws, `${col}3`))
-      const secondHalfGrade = toGrade(cellVal(ws, `${col}4`))
-      const competencyGrade = toGrade(cellVal(ws, `${col}5`))
-      if (!firstHalfGrade && !secondHalfGrade && !competencyGrade) continue
-      years.push({ year, firstHalfGrade, secondHalfGrade, competencyGrade })
-    }
+    const byYear = new Map<number, ParsedAppraisalYear>()
+    for (const y of readYearBlock(ws, 2, 3, 4, 5)) byYear.set(y.year, y)
+    for (const y of readYearBlock(ws, 26, 27, 28, 29)) byYear.set(y.year, y)
+    const years = Array.from(byYear.values()).sort((a, b) => a.year - b.year)
 
     results.push({ sheetName, name, hireDate, promotionReviewDate, currentLevel, years })
   }

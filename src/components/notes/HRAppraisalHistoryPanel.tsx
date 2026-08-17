@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
+import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { findPromotionCriteria, gradeScore, resolveReviewYear, trendArrow, yearGradeSum } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
@@ -82,6 +83,7 @@ function InlineGradeSelect({
 // 범위 밖의) 기록은 "더보기"를 눌러야 나온다. 수정/입력 모두 그 행에서
 // 바로 인풋이 열리는 인라인 편집이다(다른 테이블 메뉴와 같은 방식).
 export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember }) {
+  const { dispatch } = useAppState()
   const { profile, upsertAppraisal, deleteAppraisal } = useTeamProfile()
   const cols = useResizableColumns(APPRAISAL_COLUMNS)
   const records = profile.hrAppraisals
@@ -101,6 +103,20 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   const [showAll, setShowAll] = useState(false)
 
   const displayYears = [...recentYears, ...(showAll ? extraYears : [])]
+  const windowTotal = recentYears.reduce((sum, y) => {
+    const r = records.find((rec) => rec.year === y)
+    return sum + (r ? yearGradeSum(r, profile.gradeScores) : 0)
+  }, 0)
+
+  // 승급심사 예정년도를 이 설명 문구에서 바로 수정할 수 있게 한다 -- 상단
+  // 요약바의 "승급일"(월 단위)과 같은 member.promotionReviewDate를 쓰므로
+  // 어느 쪽에서 바꾸든 서로 반영된다. 월 값은 기존 값을 유지하고(없으면 1월)
+  // 연도만 바꾼다.
+  function changeReviewYear(year: number) {
+    if (!Number.isFinite(year)) return
+    const month = member.promotionReviewDate?.slice(5, 7) || '01'
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${month}` } })
+  }
 
   function startEdit(year: number, record?: HRAppraisalRecord) {
     setEditingYear(year)
@@ -134,9 +150,16 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   return (
     <div>
-      <h4 className="text-sm font-bold text-black">공식 인사평가 이력</h4>
+      <h4 className="text-sm font-bold text-black">인사평가 히스토리</h4>
       <p className="mt-0.5 text-[13px] text-gray-500">
-        앱이 계산하는 성과평가 결과와는 별개인, 회사 공식 인사평가 기록입니다. 승급심사 예정년도({reviewYear}년) 기준 최근 5개년을 보여줍니다.
+        승급심사 예정년도(
+        <input
+          type="number"
+          value={reviewYear}
+          onChange={(e) => changeReviewYear(Number(e.target.value))}
+          className="mx-0.5 w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-[13px] text-black"
+        />
+        년) 기준 최근 5개년을 보여줍니다.
       </p>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
@@ -261,6 +284,15 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
               )
             })}
           </tbody>
+          <tfoot>
+            <tr className="border-t border-gray-200 bg-gray-50 text-black">
+              <td className="px-3 py-2 font-semibold" colSpan={4}>
+                최근 5개년 총합
+              </td>
+              <td className="px-3 py-2 font-mono font-bold">{windowTotal.toFixed(1)}</td>
+              <td className="px-3 py-2" />
+            </tr>
+          </tfoot>
         </table>
       </div>
 
