@@ -7,7 +7,7 @@ import StageTabs, { type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import AddPeriodModal from './components/AddPeriodModal'
 import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
-import DataStage from './components/DataStage'
+import DataStage, { type DataSubTabRequest } from './components/DataStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
@@ -17,6 +17,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
+  const [dataSubTabRequest, setDataSubTabRequest] = useState<DataSubTabRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
 
   // CriteriaPanel pins itself right below the header and fills the rest of
@@ -58,6 +59,15 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
     window.scrollTo(0, 0)
   }
 
+  // 성장 관리 좌측 팀원 카드 하단의 "팀원 관리" 버튼 → 데이터 탭의 팀원
+  // 서브탭으로 이동한다(과제 서브탭이 기본으로 뜨는 걸 피하려고 토큰으로
+  // 요청해서 DataStage가 그 서브탭을 열게 한다).
+  function goToTeamManagement() {
+    setDataSubTabRequest({ subTab: 'members', token: Date.now() })
+    setStage('data')
+    window.scrollTo(0, 0)
+  }
+
   return (
     <AppProvider workspaceId={workspaceId}>
       <TeamProvider teamName={teamName}>
@@ -78,10 +88,10 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             <div className="flex min-h-0 flex-1">
               {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                {stage === 'data' && <DataStage />}
+                {stage === 'data' && <DataStage subTabRequest={dataSubTabRequest} />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}
-                {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={() => setStage('data')} />}
+                {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={goToTeamManagement} />}
               </main>
             </div>
           </div>

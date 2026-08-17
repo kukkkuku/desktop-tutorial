@@ -81,7 +81,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   }
 
   return (
-    <div className="border-l border-gray-200 p-6">
+    <div className="border-l border-gray-200 px-6 pb-6">
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="shrink-0 text-base font-bold text-black">면담일지</h3>
         <input

@@ -10,7 +10,7 @@ import {
   getEffectiveContributionPercent,
 } from '../../utils/calculations'
 import { appraisalRecordGrade, auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
-import { calcYearsSince } from '../../utils/tenure'
+import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import TrendSparkline from './TrendSparkline'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -199,7 +199,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         <div className="flex min-w-0 flex-[1_1_0%] flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
           <div className="min-w-0">
             <p className="truncate text-lg font-bold text-black">{member.name}</p>
-            <p className="mt-0.5 truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
+            <p className="mt-0.5 truncate text-xs text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
@@ -252,12 +254,19 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      <div className="space-y-5 p-6">
+      <div className="space-y-5 px-6 pb-6">
         {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
             (면담하기) -- 스플리터로 폭 조절. 좌측 팀원 레일 + 우측 면담 일정
             레일이 이미 폭을 상당히 가져가므로, 2xl(≥1536px) 미만에서는 두 열
-            다 찌그러지지 않도록 위아래로 쌓는다. */}
-        <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
+            다 찌그러지지 않도록 위아래로 쌓는다. 위쪽 여백(pt)은 요약 바
+            바로 아래에 붙도록 없앴다 -- 좁은 폭에서 위아래로 쌓일 때만
+            gap-5로 두 열 사이 간격을 두고, 2xl 이상 좌우 배치에서는 스플리터
+            선이 양쪽 컬럼에 바짝 붙도록 gap을 없앤다(선 자체의 클릭 여백은
+            선 좌우로 균등하게 남는 스플리터 박스 폭(w-3)만으로 충분하다). */}
+        <div
+          className="flex flex-col gap-5 2xl:flex-row 2xl:items-start 2xl:gap-0"
+          style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}
+        >
           <div className="w-full min-w-0 space-y-5 2xl:w-[var(--left-w)] 2xl:shrink-0">
             <AccordionSection
               title="최근 성과"
