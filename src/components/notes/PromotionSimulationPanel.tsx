@@ -6,15 +6,14 @@ import { calcSimulatedPromotionTotal, findPromotionCriteria, YEAR_WEIGHTS_BY_TEN
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 
 // 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 세션 단위 시뮬레이션 입력이며
-// 예상 총점에 즉시 반영된다. 상단 Summary Bar의 "예상 총점"과 값을 공유해야 하므로
-// 이 state는 MemberGrowthDetail이 들고 있고(controlled), 이 패널은 props로 받는다.
-export const AUX_KEYS = [
+// 예상 총점에 즉시 반영된다.
+const AUX_KEYS = [
   { key: 'position', label: '직책' },
   { key: 'reward', label: '상벌' },
   { key: 'tenure', label: '체류' },
   { key: 'education', label: '교육' },
 ] as const
-export type AuxKey = (typeof AUX_KEYS)[number]['key']
+type AuxKey = (typeof AUX_KEYS)[number]['key']
 
 function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; onChange: (v: EvaluationGrade | '') => void; label: string }) {
   return (
@@ -36,41 +35,23 @@ function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; 
   )
 }
 
-interface PromotionSimulationPanelProps {
-  member: TeamMember
-  aux: Record<AuxKey, string>
-  onAuxChange: (updater: (prev: Record<AuxKey, string>) => Record<AuxKey, string>) => void
-  simFirst: EvaluationGrade | ''
-  simSecond: EvaluationGrade | ''
-  simCompetency: EvaluationGrade | ''
-  onSimFirstChange: (v: EvaluationGrade | '') => void
-  onSimSecondChange: (v: EvaluationGrade | '') => void
-  onSimCompetencyChange: (v: EvaluationGrade | '') => void
-}
-
-// 성장 시뮬레이션 -- 목표 승진 연도/현재 점수/승진 기준/예상 총점은 상단 Summary
-// Bar에서 이미 보여주므로 여기서 반복하지 않는다. 공식 인사평가 이력은 항상
-// 노출, 가중치 기준·연차별 가중치·승진자격 점수 같은 참고 자료는 "보기"를
-// 눌러야만 펼쳐짐. 보조지표 입력(항상 노출, 즉시 반영) + 예상 평가 입력 +
-// 예상 승진점수 결과. 보조지표/예상 등급 state는 MemberGrowthDetail이 소유하고
-// (Summary Bar의 "예상 총점"과 값을 공유해야 하므로) 이 컴포넌트는 controlled로 받는다.
-export default function PromotionSimulationPanel({
-  member,
-  aux,
-  onAuxChange,
-  simFirst,
-  simSecond,
-  simCompetency,
-  onSimFirstChange,
-  onSimSecondChange,
-  onSimCompetencyChange,
-}: PromotionSimulationPanelProps) {
+// 성장 시뮬레이션 -- 현재 점수/승진 기준/필요 점수 갭은 상단 Summary Bar에서
+// 이미 보여주므로 여기서 반복하지 않는다. 공식 인사평가 이력은 항상 노출,
+// 가중치 기준·연차별 가중치·승진자격 점수 같은 참고 자료는 "보기"를 눌러야만
+// 펼쳐짐. 보조지표 입력(항상 노출, 즉시 반영) + 예상 평가 입력 + 예상 승진점수
+// 결과는 이 패널만의 시뮬레이션 입력이라 여기서 로컬로 관리한다.
+export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
   const [criteriaOpen, setCriteriaOpen] = useState(false)
+  const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
   const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
+
+  const [simFirst, setSimFirst] = useState<EvaluationGrade | ''>('')
+  const [simSecond, setSimSecond] = useState<EvaluationGrade | ''>('')
+  const [simCompetency, setSimCompetency] = useState<EvaluationGrade | ''>('')
 
   if (!criteria) {
     return (
@@ -160,7 +141,7 @@ export default function PromotionSimulationPanel({
               <input
                 type="number"
                 value={aux[key]}
-                onChange={(e) => onAuxChange((prev) => ({ ...prev, [key]: e.target.value }))}
+                onChange={(e) => setAux((prev) => ({ ...prev, [key]: e.target.value }))}
                 placeholder="0"
                 className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
               />
@@ -174,9 +155,9 @@ export default function PromotionSimulationPanel({
         <p className="text-xs font-bold text-black">{nextYear}년(예상) 평가 입력</p>
         <p className="mt-0.5 text-[11px] text-gray-400">등급을 입력하면 아래 결과가 자동 계산됩니다.</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          <GradeSelect label="업적(상)" value={simFirst} onChange={onSimFirstChange} />
-          <GradeSelect label="업적(하)" value={simSecond} onChange={onSimSecondChange} />
-          <GradeSelect label="역량" value={simCompetency} onChange={onSimCompetencyChange} />
+          <GradeSelect label="업적(상)" value={simFirst} onChange={setSimFirst} />
+          <GradeSelect label="업적(하)" value={simSecond} onChange={setSimSecond} />
+          <GradeSelect label="역량" value={simCompetency} onChange={setSimCompetency} />
         </div>
       </div>
 

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import type { EvaluationGrade } from '../../types'
 import {
   calcAllTaskScores,
   calcMemberResults,
@@ -10,26 +9,23 @@ import {
   getEffectiveContributionPercent,
   GRADE_COLORS,
 } from '../../utils/calculations'
-import { calcPromotionReadiness, calcSimulatedPromotionTotal, findPromotionCriteria } from '../../utils/promotion'
+import { calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import TrendSparkline from './TrendSparkline'
-import PromotionSimulationPanel, { AUX_KEYS } from './PromotionSimulationPanel'
-import type { AuxKey } from './PromotionSimulationPanel'
+import PromotionSimulationPanel from './PromotionSimulationPanel'
 import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
 
-// 상단 Summary Bar의 통계 카드 -- 라벨은 작게 위, 값은 크게 아래. 그룹(현재 성과 /
-// 승진 시뮬레이션) 단위로 grid에 담기 때문에 화면이 좁아지면 열 수가 줄면서
-// 자동으로 다음 줄로 재배치된다(가로 스크롤 없이).
+// 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래.
 function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 px-4 py-3">
       <p className="truncate text-[11px] text-gray-400">{label}</p>
-      <div className="mt-0.5 flex items-center gap-1 text-[15px] font-bold text-black">{children}</div>
+      <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[15px] font-bold text-black">{children}</div>
     </div>
   )
 }
@@ -56,13 +52,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
-  // 보조지표/예상 등급 -- 성장 시뮬레이션 패널과 상단 Summary Bar의 "예상 총점"이
-  // 같은 값을 보여줘야 하므로 여기서 소유하고 패널에는 controlled로 내려준다.
-  const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
-  const [simFirst, setSimFirst] = useState<EvaluationGrade | ''>('')
-  const [simSecond, setSimSecond] = useState<EvaluationGrade | ''>('')
-  const [simCompetency, setSimCompetency] = useState<EvaluationGrade | ''>('')
-
   if (!member) {
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
   }
@@ -78,21 +67,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
 
-  // Summary Bar의 승진 관련 항목(목표 승진 연도/목표 직급/현재 점수/승진 기준) --
+  // Summary Bar의 승진 관련 항목(현재 점수/승진 기준/필요 점수 갭) --
   // PromotionSimulationPanel과 같은 계산을 여기서 독립적으로 다시 구해 쓴다
   // (코드베이스 컨벤션: prop으로 내려받지 않고 각자 재계산).
   const promotionCriteria = findPromotionCriteria(member.level, profile.promotionCriteria)
   const currentWeightedScore = readiness?.weightedScore ?? 0
-  const targetYear = promotionCriteria
-    ? new Date().getFullYear() + Math.max(0, promotionCriteria.tenureYears - (levelTenureYears ?? 0))
-    : null
-
-  // 예상 총점 -- 성장 시뮬레이션 패널과 동일한 입력(보조지표/예상 등급)을 공유해
-  // 계산하므로 Summary Bar와 패널의 숫자가 항상 일치한다.
-  const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
-  const sim = promotionCriteria
-    ? calcSimulatedPromotionTotal(appraisals, profile.gradeScores, promotionCriteria, auxSum, simFirst, simSecond, simCompetency)
-    : null
+  const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
 
   const trendPoints = [...getMemberPerformanceHistory(memberId, periods)]
     .reverse()
@@ -126,18 +106,18 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   return (
     <div className="space-y-5">
       {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별한다.
-          박스/배경 없이 두 줄로만 구분하고, 그 사이에 얇은 구분선 하나만 둔다.
-          각 줄은 grid(auto-fit)라서 화면이 좁아지면 열 수가 줄며 다음 줄로
-          재배치된다(가로 스크롤 없이). */}
-      <div>
-        <div className="grid grid-cols-[minmax(160px,auto)_repeat(auto-fit,minmax(130px,1fr))] gap-x-8 gap-y-3 border-b border-gray-200 pb-4">
-          <div className="min-w-0">
+          일반 성과 정보(흰 배경 박스)와 승진 관련 정보(연한 회색 배경 박스)를
+          나란히 배치하고, 화면이 넓으면 한 줄, 좁아지면 승진 정보 박스가
+          통째로 다음 줄로 내려가 두 줄이 된다(고정폭이 아닌 flex-wrap). */}
+      <div className="flex flex-wrap items-stretch gap-3">
+        <div className="flex min-w-fit flex-1 flex-wrap items-stretch divide-x divide-gray-200 rounded-lg border border-gray-200 bg-white">
+          <div className="min-w-0 px-4 py-3">
             <p className="truncate text-base font-bold text-black">{member.name}</p>
             <p className="mt-0.5 truncate text-[13px] text-gray-400">
               {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
             </p>
           </div>
-          <HeaderStat label="현재 성과">
+          <HeaderStat label="해당 년도 성과">
             {memberResult ? (
               <>
                 {memberResult.cumulativeScore.toFixed(1)}점{' '}
@@ -149,7 +129,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </HeaderStat>
           <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
           <HeaderStat label="고과 추이 (5년)">
-            <TrendSparkline points={trendPoints} width={130} />
+            <TrendSparkline points={trendPoints} width={110} />
           </HeaderStat>
           <HeaderStat label="준비도">
             <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
@@ -157,13 +137,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(115px,1fr))] gap-x-8 gap-y-3 pt-4">
-          <HeaderStat label="목표 승진 연도">{targetYear ?? '-'}</HeaderStat>
-          <HeaderStat label="현재 직급/연차">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</HeaderStat>
-          <HeaderStat label="목표 승진 직급">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
+        <div className="flex shrink-0 flex-wrap items-stretch divide-x divide-gray-300/70 rounded-lg border border-gray-200 bg-gray-50">
           <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
           <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
-          <HeaderStat label="예상 총점">{sim ? `${sim.simTotal.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="필요 점수 갭">
+            <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
+              {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
+            </span>
+          </HeaderStat>
           <HeaderStat label="승급심사">
             <input
               type="month"
@@ -174,11 +155,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </HeaderStat>
-          {promotionCriteria && (
-            <HeaderStat label="최종 판단">
-              <span className={sim?.simEligible ? 'text-accent' : 'text-gray-400'}>{sim?.simEligible ? '승진 가능' : '기준 미달'}</span>
-            </HeaderStat>
-          )}
         </div>
       </div>
 
@@ -238,17 +214,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </div>
 
           {/* 성장 시뮬레이션 */}
-          <PromotionSimulationPanel
-            member={member}
-            aux={aux}
-            onAuxChange={setAux}
-            simFirst={simFirst}
-            simSecond={simSecond}
-            simCompetency={simCompetency}
-            onSimFirstChange={setSimFirst}
-            onSimSecondChange={setSimSecond}
-            onSimCompetencyChange={setSimCompetency}
-          />
+          <PromotionSimulationPanel member={member} />
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
               엑셀로 가져오기
