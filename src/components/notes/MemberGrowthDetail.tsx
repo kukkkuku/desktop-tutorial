@@ -185,11 +185,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="space-y-5">
-      {/* 상단 프로필 요약 -- Figma 디자인 기준: 이름/직무 다음에 일반 성과
-          지표(합계 점수/등급 순위/준비도/최근 면담/고과 추이)가 박스 없이
-          이어지고, 승진 관련 지표(승급일/직급 기준/평가 점수/승격 기준/
-          승격 점수 갭)만 연한 회색 박스로 따로 묶는다. */}
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-lg border border-gray-200 bg-white px-5 py-4">
+      {/* 상단 프로필 요약 -- Figma 디자인 그대로: 카드처럼 사방이 둥글게 닫힌
+          박스가 아니라, 아래쪽 구분선 하나로만 다음 섹션과 나뉘는 얇은 바.
+          이름/직무 다음에 일반 성과 지표(합계 점수/등급 순위/준비도/최근
+          면담/고과 추이)가 박스 없이 이어지고, 승진 관련 지표(승급일/직급
+          기준/평가 점수/승격 기준/승격 점수 갭)만 왼쪽 구분선 + 옅은 회색
+          배경으로 구분하되, 별도 박스로 띄우지 않고 바 오른쪽 끝까지
+          이어서 채운다. */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-gray-200 bg-white px-5 py-4">
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-black">{member.name}</p>
           <p className="mt-0.5 truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
@@ -209,7 +212,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </HeaderStat>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 px-5 py-3">
+        <div className="-my-4 -mr-5 flex flex-wrap items-center gap-x-6 gap-y-3 self-stretch border-l border-gray-200 bg-gray-50 px-5 py-3">
           <HeaderStat label="승급일">
             <div className="flex items-center gap-1">
               <input
