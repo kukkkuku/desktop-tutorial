@@ -74,6 +74,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   const [formError, setFormError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<HRAppraisalRecord | null>(null)
+  const [view, setView] = useState<'grade' | 'score'>('grade')
+
+  // 등급 보기: 등급 배지. 점수 보기: 승진 계산에 쓰는 등급점수(S=5..D=1) 숫자.
+  function renderCell(grade: EvaluationGrade | '') {
+    if (!grade) return <span className="text-gray-300">-</span>
+    if (view === 'score') return <span className="font-mono font-semibold text-gray-700">{profile.gradeScores[grade].toFixed(1)}</span>
+    return <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
+  }
 
   function resetForm() {
     setForm(EMPTY_FORM)
@@ -118,7 +126,23 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   return (
     <div>
-      <h4 className="text-sm font-bold text-black">공식 인사평가 이력</h4>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-bold text-black">공식 인사평가 이력</h4>
+        <div className="inline-flex overflow-hidden rounded-md border border-gray-300 text-xs">
+          <button
+            onClick={() => setView('grade')}
+            className={`px-2.5 py-1 font-medium ${view === 'grade' ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+          >
+            등급 보기
+          </button>
+          <button
+            onClick={() => setView('score')}
+            className={`px-2.5 py-1 font-medium ${view === 'score' ? 'bg-gray-800 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+          >
+            점수 보기
+          </button>
+        </div>
+      </div>
       <p className="mt-0.5 text-[13px] text-gray-500">앱이 계산하는 성과평가 결과와는 별개인, 회사 공식 인사평가 기록입니다.</p>
 
       {records.length === 0 ? (
@@ -155,15 +179,9 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
               {[...records].reverse().map((r) => (
                 <tr key={r.id} className="border-t border-gray-200 text-black">
                   <td className="px-3 py-2 font-medium">{r.year}</td>
-                  <td className="px-3 py-2">
-                    {r.firstHalfGrade ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[r.firstHalfGrade]}`}>{r.firstHalfGrade}</span> : '-'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.secondHalfGrade ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[r.secondHalfGrade]}`}>{r.secondHalfGrade}</span> : '-'}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.competencyGrade ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[r.competencyGrade]}`}>{r.competencyGrade}</span> : '-'}
-                  </td>
+                  <td className="px-3 py-2">{renderCell(r.firstHalfGrade)}</td>
+                  <td className="px-3 py-2">{renderCell(r.secondHalfGrade)}</td>
+                  <td className="px-3 py-2">{renderCell(r.competencyGrade)}</td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1.5">
                       <button onClick={() => startEdit(r)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">

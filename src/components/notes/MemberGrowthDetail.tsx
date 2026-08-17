@@ -16,35 +16,29 @@ import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import { colorForIndex } from '../../utils/memberColors'
 import TrendSparkline from './TrendSparkline'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
-import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
-import TodayMeetingPanel from './TodayMeetingPanel'
+import MeetingForm from './MeetingForm'
 
-function BackIcon({ className }: { className?: string }) {
+function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m15 18-6-6 6-6" />
-    </svg>
+    <div className="min-w-0 px-3 text-center">
+      <p className="text-[11px] text-gray-400">{label}</p>
+      <div className="mt-1 flex items-center justify-center text-sm font-bold text-black">{children}</div>
+    </div>
   )
-}
-
-function Divider() {
-  return <span className="h-3 w-px bg-gray-300" aria-hidden="true" />
 }
 
 interface MemberGrowthDetailProps {
   memberId: string
-  onBack: () => void
   prepRequest?: { memberId: string; token: number } | null
 }
 
-// 팀원 성장 관리의 두 번째 화면 -- 팀장이 실제로 확인/시뮬레이션/기록하는
-// 업무 흐름 그대로: 상단에 압축된 현재 상태 요약 한 줄, 그 아래 현재 성과(60%)
-// ↔ 성장·승진 시뮬레이션(40%)을 나란히 보면서, 바로 아래 면담 기록까지 한
-// 화면에서 끝낸다. 탭 전환도, 별도 페이지 이동도 없다.
-export default function MemberGrowthDetail({ memberId, onBack, prepRequest }: MemberGrowthDetailProps) {
+// 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
+// 상단 요약 → 최근 성과(더보기) → 성장 시뮬레이션(인사평가 이력·보조지표·예상
+// 입력·결과 포함) → 면담하기. 탭 전환 없이 세로로 이어진다.
+export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
   const { workspaces, currentWorkspace } = useWorkspaces()
@@ -52,7 +46,8 @@ export default function MemberGrowthDetail({ memberId, onBack, prepRequest }: Me
   const periods = workspaces.filter((w) => w.teamName === teamName)
   const member = state.members.find((m) => m.id === memberId)
 
-  const [showPastPerformance, setShowPastPerformance] = useState(false)
+  const [recentExpanded, setRecentExpanded] = useState(false)
+  const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
 
@@ -61,6 +56,7 @@ export default function MemberGrowthDetail({ memberId, onBack, prepRequest }: Me
   }
 
   const colorIndex = state.members.findIndex((m) => m.id === memberId)
+  const activeCount = state.members.filter((m) => m.active).length
 
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
   const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
@@ -98,119 +94,114 @@ export default function MemberGrowthDetail({ memberId, onBack, prepRequest }: Me
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => b.personalScore - a.personalScore)
 
-  return (
-    <div>
-      <button onClick={onBack} className="flex items-center gap-1 text-sm font-semibold text-gray-500 hover:text-black">
-        <BackIcon className="h-4 w-4" />팀 현황으로
-      </button>
+  const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
 
-      <div className="mt-3 flex items-start gap-3">
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-          style={{ background: colorForIndex(colorIndex) }}
-        >
-          {member.name.slice(0, 1)}
-        </div>
-        <div className="min-w-0">
-          <p className="text-lg font-bold text-black">
-            {member.name}
-            <span className="ml-2 text-sm font-normal text-gray-400">
-              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-            </span>
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-gray-600">
-            <span>
-              현재 성과{' '}
-              {memberResult ? (
-                <b className="font-bold text-black">
-                  {memberResult.cumulativeScore.toFixed(1)}{' '}
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
-                </b>
-              ) : (
-                <span className="text-gray-400">데이터 없음</span>
-              )}
-            </span>
-            <Divider />
-            <span>
-              팀내 <b className="font-bold text-black">{rank ? `${rank}위` : '-'}</b>
-            </span>
-            <Divider />
-            <span className="flex items-center gap-1.5">
-              고과 추이 <TrendSparkline points={trendPoints} width={110} />
-            </span>
-            <Divider />
-            <span>
-              승진 준비도 <b className="font-bold text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</b>
-            </span>
-            <Divider />
-            <span>
-              최근 면담 <b className="font-bold text-black">{lastMeetingDate ?? '없음'}</b>
-            </span>
+  return (
+    <div className="space-y-5">
+      {/* 상단 선택 팀원 요약 */}
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
+            style={{ background: colorForIndex(colorIndex) }}
+          >
+            {member.name.slice(0, 1)}
           </div>
+          <div className="min-w-0">
+            <p className="truncate text-lg font-bold text-black">{member.name}</p>
+            <p className="truncate text-xs text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </p>
+          </div>
+        </div>
+
+        <div className="ml-auto flex flex-wrap items-center divide-x divide-gray-200">
+          <HeaderStat label="현재 성과">
+            {memberResult ? (
+              <>
+                {memberResult.cumulativeScore.toFixed(1)}점
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+              </>
+            ) : (
+              <span className="font-normal text-gray-300">-</span>
+            )}
+          </HeaderStat>
+          <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
+          <HeaderStat label="등급 추이">
+            <TrendSparkline points={trendPoints} width={100} />
+          </HeaderStat>
+          <HeaderStat label="준비도">
+            <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
+          </HeaderStat>
+          <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <div className="rounded-lg border border-gray-200 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-bold text-black">현재 성과</h3>
-              <button onClick={() => setShowPastPerformance((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
-                {showPastPerformance ? '− 과거 성과 접기' : '과거 성과 보기'}
-              </button>
-            </div>
-
-            {currentTasks.length === 0 ? (
-              <p className="mt-3 text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
-            ) : (
-              <div className="mt-3 space-y-2">
-                {currentTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
-                  <div key={task.id} className="rounded-md bg-gray-50 px-3 py-2.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-sm font-semibold text-black">{task.name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-gray-500">
-                      <span>기여도 {contributionPercent}%</span>
-                      <span>개인 수행등급 {personalGrade}</span>
-                      <span>개인 성과 {personalScore.toFixed(1)}점</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {showPastPerformance && (
-            <div className="mt-4 space-y-4 rounded-lg border border-dashed border-gray-300 p-4">
-              <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
-              <HRAppraisalHistoryPanel member={member} />
-            </div>
+      {/* 최근 성과 */}
+      <div className="rounded-lg border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-black">최근 성과</h3>
+          {currentTasks.length > 2 && (
+            <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
+              {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
+            </button>
           )}
         </div>
 
-        <div className="lg:col-span-2">
-          <PromotionSimulationPanel member={member} />
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              onClick={() => setImportOpen(true)}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50"
-            >
-              엑셀로 가져오기
-            </button>
-            <button
-              onClick={() => setCriteriaManagerOpen(true)}
-              className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5"
-            >
-              승진 기준 관리
-            </button>
+        {currentTasks.length === 0 ? (
+          <p className="mt-3 text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs text-gray-400">
+                  <th className="py-2 pr-3 font-semibold">프로젝트</th>
+                  <th className="px-3 py-2 font-semibold">중요도</th>
+                  <th className="px-3 py-2 font-semibold">기여도</th>
+                  <th className="px-3 py-2 font-semibold">개인 등급</th>
+                  <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
+                  <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
+                    <td className="py-2.5 pr-3 font-medium">{task.name}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
+                    <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
+                    <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
+
+        <button onClick={() => setPastPeriodsOpen((v) => !v)} className="mt-3 text-xs font-medium text-gray-400 hover:text-accent">
+          {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
+        </button>
+        {pastPeriodsOpen && (
+          <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
+            <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
+          </div>
+        )}
       </div>
 
-      <div className="mt-6">
-        <TodayMeetingPanel member={member} focusToken={prepRequest?.token ?? null} />
+      {/* 성장 시뮬레이션 */}
+      <PromotionSimulationPanel member={member} />
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
+          엑셀로 가져오기
+        </button>
+        <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
+          승진 기준 관리
+        </button>
       </div>
+
+      {/* 면담하기 */}
+      <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
 
       {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
       {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}

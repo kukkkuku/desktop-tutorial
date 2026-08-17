@@ -30,7 +30,7 @@ export const DEFAULT_PROMOTION_CRITERIA: PromotionCriteriaRow[] = [
 ]
 
 // 승진기준 시트 D4:I6 (체류년수별 연도가중치, 최근연도 → 과거연도 순).
-const YEAR_WEIGHTS_BY_TENURE: Record<number, number[]> = {
+export const YEAR_WEIGHTS_BY_TENURE: Record<number, number[]> = {
   3: [1.5, 1.0, 0.5],
   4: [1.5, 1.15, 0.85, 0.5],
   5: [1.5, 1.25, 1.0, 0.75, 0.5],

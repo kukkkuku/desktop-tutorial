@@ -81,7 +81,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 {stage === 'data' && <DataStage />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}
-                {stage === 'notes' && <NotesStage notesRequest={notesRequest} />}
+                {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={() => setStage('data')} />}
               </main>
             </div>
           </div>

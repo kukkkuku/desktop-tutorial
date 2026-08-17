@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import TeamGrowthDashboard from './TeamGrowthDashboard'
+import { useAppState } from '../../state/AppContext'
+import MemberGrowthRail from './MemberGrowthRail'
 import MemberGrowthDetail from './MemberGrowthDetail'
-import MeetingScheduleDrawer from './MeetingScheduleDrawer'
+import MeetingSchedulePanel from './MeetingSchedulePanel'
 
 // NotesSubTab/NotesNavigationRequest는 다른 화면(팀원 상세 Drawer 등)이
 // "이 팀원의 성장 관리 화면으로 이동"을 요청할 때 쓰는 진입점 계약이다.
@@ -18,26 +19,17 @@ export interface NotesNavigationRequest {
 
 interface NotesStageProps {
   notesRequest?: NotesNavigationRequest | null
+  onManageTeam: () => void
 }
 
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  )
-}
-
-// 팀원 성장 관리 = 팀장용 대시보드(팀 전체 상태) → 팀원별 통합 Growth
-// Workspace(현재 성과·승진 시뮬레이션·면담 기록을 한 화면에서). 초고해상도에서
-// 콘텐츠가 좌우로 끝없이 늘어나지 않도록 최대 폭을 두고 중앙 정렬한다. 면담
-// 일정 캘린더는 상시 노출하지 않고, 상단 버튼으로 여는 Drawer로 뺐다.
-export default function NotesStage({ notesRequest }: NotesStageProps) {
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
-  const [scheduleOpen, setScheduleOpen] = useState(false)
+// 팀원 성장 관리 = 좌측 팀원 카드 레일 + 중앙 통합 상세(요약·최근 성과·성장
+// 시뮬레이션·면담하기) + 우측 면담 일정. 팀원을 클릭하면 중앙이 그 팀원으로
+// 바뀐다.
+export default function NotesStage({ notesRequest, onManageTeam }: NotesStageProps) {
+  const { state } = useAppState()
+  const activeMembers = state.members.filter((m) => m.active)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(activeMembers[0]?.id ?? null)
+  const [scheduleOpen, setScheduleOpen] = useState(true)
 
   useEffect(() => {
     if (!notesRequest) return
@@ -45,43 +37,35 @@ export default function NotesStage({ notesRequest }: NotesStageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notesRequest?.token])
 
+  // 팀원 목록이 로드된 뒤에도 아직 아무도 선택되지 않았거나, 선택된 팀원이
+  // 더 이상 활성 목록에 없으면 첫 번째 활성 팀원으로 맞춘다.
+  useEffect(() => {
+    if (activeMembers.length === 0) return
+    if (selectedMemberId && activeMembers.some((m) => m.id === selectedMemberId)) return
+    setSelectedMemberId(activeMembers[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMembers.map((m) => m.id).join(',')])
+
   return (
-    <div className="mx-auto max-w-[1600px]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-black">팀원 성장 관리</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            {selectedMemberId
-              ? '이 팀원의 현재 성과, 승진 준비 상태와 면담 기록을 한 화면에서 관리하세요.'
-              : '팀 전체 현황을 먼저 확인하고, 관리가 필요한 팀원부터 살펴보세요.'}
-          </p>
-        </div>
-        <button
-          onClick={() => setScheduleOpen(true)}
-          className="flex shrink-0 items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-        >
-          <CalendarIcon className="h-4 w-4" />
-          면담 일정
-        </button>
+    <div className="mx-auto flex max-w-[1600px] items-start gap-5">
+      <div className="w-64 shrink-0 rounded-lg border border-gray-200 p-3">
+        <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
 
-      <div className="mt-4">
+      <div className="min-w-0 flex-1">
         {selectedMemberId ? (
           <MemberGrowthDetail
             memberId={selectedMemberId}
-            onBack={() => setSelectedMemberId(null)}
             prepRequest={notesRequest?.subTab === 'record' ? { memberId: notesRequest.memberId, token: notesRequest.token } : null}
           />
         ) : (
-          <TeamGrowthDashboard onSelectMember={setSelectedMemberId} />
+          <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
+            좌측에서 팀원을 선택하세요.
+          </p>
         )}
       </div>
 
-      <MeetingScheduleDrawer
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        onSelectMember={(memberId) => setSelectedMemberId(memberId)}
-      />
+      <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
     </div>
   )
 }

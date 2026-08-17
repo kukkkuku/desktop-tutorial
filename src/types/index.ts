@@ -42,6 +42,8 @@ export interface MeetingActionItem {
   content: string
   dueDate: string
   done: boolean
+  // 담당자(선택) — 면담하기 화면에서 Action에 함께 지정할 수 있다.
+  assignee?: string
 }
 
 export interface MeetingNote {
