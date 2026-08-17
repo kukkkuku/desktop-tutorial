@@ -156,7 +156,10 @@ export default function PromotionCriteriaManager({
 
         <div className="mt-5">
           <h4 className="text-sm font-semibold text-black">평가 등급 점수</h4>
-          <p className="mt-0.5 text-[13px] text-gray-500">인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다.</p>
+          <p className="mt-0.5 text-[13px] text-gray-500">
+            인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다. <strong className="text-black">역량 등급은 이 점수의 2배</strong>로
+            반영됩니다(업적(상)·업적(하)는 그대로, 역량만 ×2 — 인사평가 히스토리의 "역량 (×2)" 컬럼과 같은 계산입니다).
+          </p>
           {isEdit ? (
             <div className="mt-2 grid grid-cols-5 gap-2">
               {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
@@ -175,12 +178,37 @@ export default function PromotionCriteriaManager({
               ))}
             </div>
           ) : (
-            <div className="mt-2 flex flex-wrap gap-1.5 text-[13px]">
-              {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
-                <span key={grade} className="rounded bg-gray-100 px-2 py-1 font-mono text-gray-600">
-                  {grade} {gradeScores[grade]}
-                </span>
-              ))}
+            <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-left text-[13px]">
+                <thead className="bg-[#F3F4F6] text-black">
+                  <tr>
+                    <th className="px-3 py-2 font-semibold">구분</th>
+                    {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
+                      <th key={grade} className="px-3 py-2 text-center font-semibold">
+                        {grade}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-gray-200 text-black">
+                    <td className="px-3 py-2 font-medium">업적(상/하)</td>
+                    {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
+                      <td key={grade} className="px-3 py-2 text-center font-mono text-gray-600">
+                        {gradeScores[grade].toFixed(1)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-t border-gray-200 text-black">
+                    <td className="px-3 py-2 font-medium">역량 (×2)</td>
+                    {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
+                      <td key={grade} className="px-3 py-2 text-center font-mono font-semibold text-accent">
+                        {(gradeScores[grade] * 2).toFixed(1)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
         </div>

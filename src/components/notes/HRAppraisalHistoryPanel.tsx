@@ -37,12 +37,24 @@ const EMPTY_DRAFT: DraftGrades = { firstHalfGrade: '', secondHalfGrade: '', comp
 
 // 등급 + 환산 점수를 한 칸에 같이 보여준다 -- 등급 보기/점수 보기를 오갈 필요
 // 없이 항상 둘 다 눈에 들어오게 한다.
-function GradeScoreCell({ grade, gradeScores }: { grade: EvaluationGrade | ''; gradeScores: Record<EvaluationGrade, number> }) {
+// multiplier -- 역량 등급은 승진점수 산정 시 2배로 가중된다(promotion.ts의
+// yearGradeSum 그대로). 옆 숫자를 원점수 그대로 보여주면 실제 합계 계산에
+//쓰이는 값과 달라 보여서 혼란스러웠다 -- 역량 컬럼만 multiplier={2}로
+// 넘겨서 실제로 합계에 반영되는 점수를 그대로 보여준다.
+function GradeScoreCell({
+  grade,
+  gradeScores,
+  multiplier = 1,
+}: {
+  grade: EvaluationGrade | ''
+  gradeScores: Record<EvaluationGrade, number>
+  multiplier?: number
+}) {
   if (!grade) return <span className="text-gray-300">-</span>
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
-      <span className="font-mono text-xs text-gray-500">{gradeScores[grade].toFixed(1)}</span>
+      <span className="font-mono text-xs text-gray-500">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
     </span>
   )
 }
@@ -53,10 +65,12 @@ function InlineGradeSelect({
   value,
   onChange,
   gradeScores,
+  multiplier = 1,
 }: {
   value: EvaluationGrade | ''
   onChange: (v: EvaluationGrade | '') => void
   gradeScores: Record<EvaluationGrade, number>
+  multiplier?: number
 }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -72,7 +86,7 @@ function InlineGradeSelect({
           </option>
         ))}
       </select>
-      <span className="font-mono text-xs text-gray-500">{value ? gradeScores[value].toFixed(1) : '-'}</span>
+      <span className="font-mono text-xs text-gray-500">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
     </div>
   )
 }
@@ -170,7 +184,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   ['year', '연도'],
                   ['first', '업적(상)'],
                   ['second', '업적(하)'],
-                  ['competency', '역량'],
+                  ['competency', '역량 (×2)'],
                   ['total', '합계'],
                   ['manage', ''],
                 ] as const
@@ -217,6 +231,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                         value={draft.competencyGrade}
                         onChange={(v) => setDraft((d) => ({ ...d, competencyGrade: v }))}
                         gradeScores={profile.gradeScores}
+                        multiplier={2}
                       />
                     </td>
                     <td className="px-3 py-2 font-mono font-semibold">{hasDraftGrade ? draftTotal.toFixed(1) : '-'}</td>
@@ -266,7 +281,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <GradeScoreCell grade={r.secondHalfGrade} gradeScores={profile.gradeScores} />
                   </td>
                   <td className="px-3 py-2">
-                    <GradeScoreCell grade={r.competencyGrade} gradeScores={profile.gradeScores} />
+                    <GradeScoreCell grade={r.competencyGrade} gradeScores={profile.gradeScores} multiplier={2} />
                   </td>
                   <td className="px-3 py-2 font-mono font-semibold">{yearGradeSum(r, profile.gradeScores).toFixed(1)}</td>
                   <td className="px-3 py-2">
