@@ -71,9 +71,11 @@ interface MemberGrowthDetailProps {
   prepRequest?: { memberId: string; token: number } | null
 }
 
-const DEFAULT_LEFT_WIDTH = 560
-const MIN_LEFT_WIDTH = 380
-const MAX_LEFT_WIDTH = 760
+// 좌(최근 성과)/우(면담일지) 폭 비율 -- 픽셀 고정폭이 아니라 요약 바의
+// 좌우 flex-[1_1_0%] 분할과 같은 방식으로 비율로 나눈다. 기본 6.5:3.5.
+const DEFAULT_LEFT_RATIO = 0.65
+const MIN_LEFT_RATIO = 0.35
+const MAX_LEFT_RATIO = 0.8
 
 // 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
 // 상단 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
@@ -95,19 +97,23 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [importOpen, setImportOpen] = useState(false)
 
   // 좌(최근 성과 + 성장 시뮬레이션) / 우(면담하기) 스플리터 -- lg 이상에서만
-  // 동작하고, 그 아래 폭에서는 위/아래로 쌓인다(고정폭 없이).
-  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH)
-  const splitRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  // 동작하고, 그 아래 폭에서는 위/아래로 쌓인다(고정폭 없이). 드래그 중에는
+  // 시작 시점의 실제 렌더 폭(rowRef)을 기준으로 이동 거리를 비율로 환산한다.
+  const [leftRatio, setLeftRatio] = useState(DEFAULT_LEFT_RATIO)
+  const rowRef = useRef<HTMLDivElement>(null)
+  const splitRef = useRef<{ startX: number; startRatio: number; containerWidth: number } | null>(null)
 
   function onSplitterPointerDown(e: React.PointerEvent) {
     e.preventDefault()
-    splitRef.current = { startX: e.clientX, startWidth: leftWidth }
+    const containerWidth = rowRef.current?.getBoundingClientRect().width || 1
+    splitRef.current = { startX: e.clientX, startRatio: leftRatio, containerWidth }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   function onSplitterPointerMove(e: React.PointerEvent) {
     if (!splitRef.current) return
-    const next = splitRef.current.startWidth + (e.clientX - splitRef.current.startX)
-    setLeftWidth(Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, next)))
+    const { startX, startRatio, containerWidth } = splitRef.current
+    const nextRatio = startRatio + (e.clientX - startX) / containerWidth
+    setLeftRatio(Math.min(MAX_LEFT_RATIO, Math.max(MIN_LEFT_RATIO, nextRatio)))
   }
   function onSplitterPointerUp() {
     splitRef.current = null
@@ -186,7 +192,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       {/* 상단 프로필 요약 -- Figma 디자인 그대로: 카드처럼 사방이 둥글게 닫힌
           박스가 아니라, 아래쪽 구분선 하나로만 다음 섹션과 나뉘는 얇은 바.
           바 전체를 flex-[1_1_0%] 반반으로 나눠서(왼쪽: 이름+일반 지표, 오른쪽:
@@ -254,18 +260,22 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      <div className="space-y-5 px-6 pb-6">
+      <div className="flex flex-1 flex-col p-5">
         {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
-            (면담하기) -- 스플리터로 폭 조절. 좌측 팀원 레일 + 우측 면담 일정
-            레일이 이미 폭을 상당히 가져가므로, 2xl(≥1536px) 미만에서는 두 열
-            다 찌그러지지 않도록 위아래로 쌓는다. 위쪽 여백(pt)은 요약 바
-            바로 아래에 붙도록 없앴다 -- 좁은 폭에서 위아래로 쌓일 때만
-            gap-5로 두 열 사이 간격을 두고, 2xl 이상 좌우 배치에서는 스플리터
-            선이 양쪽 컬럼에 바짝 붙도록 gap을 없앤다(선 자체의 클릭 여백은
-            선 좌우로 균등하게 남는 스플리터 박스 폭(w-3)만으로 충분하다). */}
+            (면담하기) -- 스플리터로 폭 비율 조절(기본 6.5:3.5). 좌측 팀원
+            레일 + 우측 면담 일정 레일이 이미 폭을 상당히 가져가므로,
+            2xl(≥1536px) 미만에서는 두 열 다 찌그러지지 않도록 위아래로
+            쌓는다. flex-1 + min-h-full(위 루트)로 이 행이 화면 하단까지
+            늘어나고, 2xl 이상에서는 기본 정렬(stretch)이라 스플리터 선이
+            그 늘어난 높이만큼 위아래 끝까지 이어진다 -- 컬럼 내용 높이에만
+            맞추면 내용이 짧을 때 선이 중간에서 끊겨 보이는 문제가 있었다.
+            좁은 폭에서 위아래로 쌓일 때만 gap-5로 두 열 사이 간격을 두고,
+            2xl 이상 좌우 배치에서는 스플리터 선이 양쪽 컬럼에 바짝 붙도록
+            gap을 없앤다. */}
         <div
-          className="flex flex-col gap-5 2xl:flex-row 2xl:items-start 2xl:gap-0"
-          style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}
+          ref={rowRef}
+          className="flex flex-1 flex-col gap-5 2xl:flex-row 2xl:gap-0"
+          style={{ '--left-w': `${(leftRatio * 100).toFixed(2)}%` } as React.CSSProperties}
         >
           <div className="w-full min-w-0 space-y-5 2xl:w-[var(--left-w)] 2xl:shrink-0">
             <AccordionSection
