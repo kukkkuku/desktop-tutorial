@@ -1,4 +1,4 @@
-import type { Contribution, Criteria, PeerReview, Task, TeamMember } from '../types'
+import type { Contribution, Criteria, MeetingNote, PeerReview, Task, TeamMember } from '../types'
 import { calcAllTaskScores, calcMemberResults, calcTaskScore } from './calculations'
 import { calcYearsSince } from './tenure'
 import { downloadPdfReport, type ReportSection } from './pdfReport'
@@ -232,4 +232,71 @@ export async function downloadResultsPdf(
     sections: [rankSection, detailSection],
     fileName: `평가결과_${new Date().toISOString().slice(0, 10)}.pdf`,
   })
+}
+
+// 팀원 개개인에게 따로 전달할 개인별 리포트 -- 전체 순위/다른 사람 점수는 빼고
+// 본인 참여 과제와 면담 기록만 담는다. excel.ts의 downloadIndividualResultReports와
+// 짝을 이루며, 팀원 한 명당 PDF 한 개씩 순차로 내려받는다.
+export async function downloadIndividualResultsPdf(
+  teamName: string,
+  periodName: string,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[] = [],
+  peerReviews: PeerReview[] = [],
+) {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const dateStr = new Date().toISOString().slice(0, 10)
+
+  for (const row of results) {
+    const member = row.member
+
+    const taskRows: (string | number)[][] = []
+    for (const task of tasks) {
+      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+      if (!contribution || contribution.contributionPercent <= 0) continue
+      const taskScore = taskScoreMap.get(task.id) ?? 0
+      const weighted = taskScore * (contribution.contributionPercent / 100)
+      taskRows.push([
+        task.name,
+        contribution.contributionPercent,
+        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+        taskScore.toFixed(1),
+        weighted.toFixed(1),
+      ])
+    }
+    const taskSection: ReportSection = {
+      title: '참여 과제',
+      countLabel: `${taskRows.length}건`,
+      columns: ['과제명', '기여도(%)', '개인수행등급', '과제 점수', '가중 점수'],
+      rows: taskRows,
+      emptyLabel: '참여한 과제가 없습니다.',
+    }
+
+    const memberNotes = meetingNotes.filter((n) => n.memberId === member.id).sort((a, b) => a.date.localeCompare(b.date))
+    const notesSection: ReportSection = {
+      title: '면담 기록',
+      countLabel: `${memberNotes.length}건`,
+      columns: ['날짜', '면담 코멘트'],
+      rows: memberNotes.map((n) => [n.date, n.comment]),
+      emptyLabel: '면담 기록이 없습니다.',
+    }
+
+    await downloadPdfReport({
+      teamName,
+      periodName,
+      title: `${member.name} 개인 평가결과`,
+      stats: [
+        { label: '참여 과제 수', value: `${row.participatedTaskCount}건` },
+        { label: '누적 점수', value: row.cumulativeScore.toFixed(1) },
+        { label: '평가등급', value: row.grade, emphasize: true },
+      ],
+      sections: [taskSection, notesSection],
+      fileName: `${member.name}_평가결과_${dateStr}.pdf`,
+    })
+  }
 }

@@ -9,19 +9,10 @@ import {
   getContributionPercent,
 } from '../utils/calculations'
 import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
-import { downloadResultsPdf } from '../utils/pdfReports'
+import { downloadIndividualResultsPdf, downloadResultsPdf } from '../utils/pdfReports'
 import { colorForIndex, pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import { IMPORTANCE_COLORS } from '../utils/badgeColors'
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 
 // 등급을 색상 있는 글자로만 표시(배지 아님) -- 참고 디자인의 순위/과제 등급 표기.
 function gradeTextColor(grade: EvaluationGrade): string {
@@ -180,28 +171,17 @@ export default function EvaluationResults() {
           <h2 className="text-xl font-bold text-black">평가결과</h2>
           <p className="mt-1 text-sm text-gray-600">기준설정 가중치가 실시간으로 반영됩니다.</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
-            disabled={noData}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <DownloadIcon className="h-4 w-4" /> 결과 리포트
-          </button>
-          <button
-            onClick={() => downloadIndividualResultReports(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
-            disabled={noData}
-            className="flex items-center gap-1.5 rounded-md border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <DownloadIcon className="h-4 w-4" /> 팀원별 개별
-          </button>
-          <button
-            onClick={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
-            disabled={noData}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <DownloadIcon className="h-4 w-4" /> PDF 다운로드
-          </button>
+        <div className={`flex gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
+          <CurrentDataDownloadControls
+            label="통합 결과 리포트"
+            onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+            onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
+          />
+          <CurrentDataDownloadControls
+            label="팀원별 리포트"
+            onExcelDownload={() => downloadIndividualResultReports(members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+            onPdfDownload={() => downloadIndividualResultsPdf(teamName, periodName, members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+          />
         </div>
       </div>
 
