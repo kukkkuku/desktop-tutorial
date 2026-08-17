@@ -23,9 +23,9 @@ import MeetingForm from './MeetingForm'
 
 function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 px-3 text-center">
-      <p className="text-[11px] text-gray-400">{label}</p>
-      <div className="mt-1 flex items-center justify-center text-sm font-bold text-black">{children}</div>
+    <div className="min-w-0 flex-1 px-4 py-2 text-center">
+      <p className="truncate text-[11px] text-gray-400">{label}</p>
+      <div className="mt-1 flex items-center justify-center gap-1 text-base font-bold text-black">{children}</div>
     </div>
   )
 }
@@ -100,8 +100,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   return (
     <div className="space-y-5">
       {/* 상단 선택 팀원 요약 */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 p-4">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex min-w-0 shrink-0 items-center gap-3">
           <div
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
             style={{ background: colorForIndex(colorIndex) }}
@@ -116,12 +116,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </div>
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center divide-x divide-gray-200">
+        <div className="flex flex-1 flex-wrap items-stretch divide-x divide-gray-200 rounded-lg border border-gray-200 bg-gray-50">
           <HeaderStat label="현재 성과">
             {memberResult ? (
               <>
                 {memberResult.cumulativeScore.toFixed(1)}점
-                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
               </>
             ) : (
               <span className="font-normal text-gray-300">-</span>
@@ -129,7 +129,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           </HeaderStat>
           <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
           <HeaderStat label="등급 추이">
-            <TrendSparkline points={trendPoints} width={100} />
+            <TrendSparkline points={trendPoints} width={110} />
           </HeaderStat>
           <HeaderStat label="준비도">
             <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
