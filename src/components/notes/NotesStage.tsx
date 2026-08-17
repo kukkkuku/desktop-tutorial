@@ -48,7 +48,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
 
   return (
     <div className="flex items-start gap-5">
-      <div className="w-64 shrink-0 rounded-lg border border-gray-200 p-3">
+      <div className="w-64 shrink-0">
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
 

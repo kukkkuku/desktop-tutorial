@@ -1,11 +1,8 @@
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
-import { useWorkspaces } from '../../state/WorkspaceContext'
-import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
+import { calcMemberResults } from '../../utils/calculations'
 import { calcPromotionReadiness } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
-import { getMemberPerformanceHistory } from '../../utils/memberHistory'
-import TrendSparkline from './TrendSparkline'
 
 const PROMOTION_CANDIDATE_THRESHOLD = 70
 
@@ -21,9 +18,6 @@ interface MemberGrowthRailProps {
 export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam }: MemberGrowthRailProps) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
-  const { workspaces, currentWorkspace } = useWorkspaces()
-  const teamName = currentWorkspace?.teamName ?? ''
-  const periods = workspaces.filter((w) => w.teamName === teamName)
   const activeMembers = state.members.filter((m) => m.active)
   const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
 
@@ -53,40 +47,32 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
             )
             const isCandidate = (readiness?.progressPercent ?? 0) >= PROMOTION_CANDIDATE_THRESHOLD
             const isSelected = selectedMemberId === member.id
-            const trendPoints = [...getMemberPerformanceHistory(member.id, periods)]
-              .reverse()
-              .filter((h) => h.grade !== null)
-              .map((h) => ({ period: h.workspace.periodName, grade: h.grade! }))
             return (
               <button
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors ${
+                className={`w-full rounded-lg border px-4 py-3.5 text-left transition-colors ${
                   isSelected ? 'border-accent bg-orange-50/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-bold text-black">{member.name}</span>
+                  <span className="truncate text-base font-bold text-black">{member.name}</span>
                   {isCandidate && (
-                    <span className="ml-auto shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-success">승진 후보</span>
+                    <span className="ml-auto shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-sm font-semibold text-success">승진 후보</span>
                   )}
                 </div>
-                <p className="mt-0.5 truncate text-xs text-gray-400">
+                <p className="mt-1.5 truncate text-sm text-gray-400">
                   {[member.role, formatLevelTenureLabel(member.level, calcYearsSince(member.currentLevelSince))].filter(Boolean).join(' · ') || '-'}
                 </p>
-                <div className="mt-1.5 flex items-center justify-between gap-2">
+                <div className="mt-2 flex items-center justify-between gap-2">
                   {result ? (
-                    <span className="flex shrink-0 items-center gap-1.5 text-sm font-bold text-black">
-                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[result.grade]}`}>{result.grade}</span>
-                      ({result.cumulativeScore.toFixed(1)}점)
+                    <span className="truncate text-base font-bold text-black">
+                      {result.grade} ({result.cumulativeScore.toFixed(1)}점)
                     </span>
                   ) : (
-                    <span className="shrink-0 text-sm text-gray-300">데이터 없음</span>
+                    <span className="text-base text-gray-300">데이터 없음</span>
                   )}
-                  <TrendSparkline points={trendPoints} width={72} className="shrink-0" />
-                </div>
-                <div className="mt-1 flex justify-end">
-                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                  <span className="shrink-0 rounded-md bg-gray-100 px-2.5 py-1 text-sm font-medium text-gray-500">
                     준비도 {readiness ? `${readiness.progressPercent}%` : '-'}
                   </span>
                 </div>
