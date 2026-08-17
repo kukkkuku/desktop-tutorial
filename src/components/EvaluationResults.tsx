@@ -315,10 +315,13 @@ export default function EvaluationResults() {
                     <tr
                       key={r.member.id}
                       onClick={() => setHighlightId(isHL ? null : r.member.id)}
-                      className="cursor-pointer border-b border-gray-200 transition-colors last:border-0 hover:bg-gray-50/70"
-                      style={isHL ? { background: pastelForIndex(idx) } : undefined}
+                      className="cursor-pointer border-b border-gray-200 transition-colors last:border-0 hover:bg-gray-50"
+                      style={isHL ? { background: '#F3F4F6' } : undefined}
                     >
-                      <td className="px-4 py-3 text-center">
+                      <td
+                        className="border-l-[3px] border-transparent px-4 py-3 text-center"
+                        style={isHL ? { borderLeftColor: colorForIndex(idx) } : undefined}
+                      >
                         <span className="font-mono text-xs text-gray-400">{i + 1}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
@@ -341,12 +344,12 @@ export default function EvaluationResults() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-gray-100">
+                          <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-gray-200">
                             <div
                               className="h-full rounded transition-all duration-500"
                               style={{ width: `${(r.cumulativeScore / maxScore) * 100}%`, background: pastelForIndex(idx) }}
                             />
-                            <div className="absolute bottom-0 top-0 z-10 w-px bg-gray-300" style={{ left: `${(avg / maxScore) * 100}%` }} />
+                            <div className="absolute bottom-0 top-0 z-10 w-px bg-gray-400" style={{ left: `${(avg / maxScore) * 100}%` }} />
                           </div>
                           <span className="shrink-0 font-mono text-sm font-bold" style={{ color: pastelTextForIndex(idx) }}>
                             {r.cumulativeScore.toFixed(1)}
