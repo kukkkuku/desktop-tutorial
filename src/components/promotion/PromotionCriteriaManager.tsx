@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { EvaluationGrade } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
+import { YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ResizableTh from '../table/ResizableTh'
 
@@ -21,11 +22,21 @@ function CloseIcon({ className }: { className?: string }) {
   )
 }
 
-// 성과평가 기준(CriteriaPanel)과는 완전히 분리된, 승진 기준 전용 관리 화면.
-// 데이터>팀원 서브탭에서 진입한다 — 새로운 상위 메뉴를 만들지 않기 위함.
-export default function PromotionCriteriaManager({ onClose }: { onClose: () => void }) {
+// 성과평가 기준(CriteriaPanel)과는 완전히 분리된, 승진 기준 전용 화면. 예전엔
+// "기준 보기"(조회 전용, 뱃지 나열)와 "승진 기준 관리"(수정용, 표)가 같은
+// 내용을 서로 다른 레이아웃으로 두 번 보여줘서 헷갈렸다 -- 하나의 모달로
+// 합치고, 보기/수정 모드 토글로 전환한다. 연차별 가중치는 고정 상수라
+// 어느 모드에서든 참고용으로만 보여준다(편집 대상 아님).
+export default function PromotionCriteriaManager({
+  onClose,
+  initialMode = 'view',
+}: {
+  onClose: () => void
+  initialMode?: 'view' | 'edit'
+}) {
   const { profile, setPromotionCriteria, setGradeScores } = useTeamProfile()
   const cols = useResizableColumns(CRITERIA_COLUMNS)
+  const [mode, setMode] = useState<'view' | 'edit'>(initialMode)
   const [criteria, setCriteria] = useState(profile.promotionCriteria)
   const [gradeScores, setLocalGradeScores] = useState(profile.gradeScores)
 
@@ -36,15 +47,23 @@ export default function PromotionCriteriaManager({ onClose }: { onClose: () => v
   function handleSave() {
     setPromotionCriteria(criteria)
     setGradeScores(gradeScores)
-    onClose()
+    setMode('view')
   }
+
+  function handleCancelEdit() {
+    setCriteria(profile.promotionCriteria)
+    setLocalGradeScores(profile.gradeScores)
+    setMode('view')
+  }
+
+  const isEdit = mode === 'edit'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-black">승진 기준 관리</h3>
+            <h3 className="text-lg font-bold text-black">승진 기준</h3>
             <p className="mt-1 text-[13px] text-gray-500">
               성과평가 기준(기준 설정)과는 별개인 승진 제도 기준입니다. 첨부된 승진 제도 자료를 기준으로 합니다.
             </p>
@@ -87,24 +106,36 @@ export default function PromotionCriteriaManager({ onClose }: { onClose: () => v
                     <td className="px-3 py-2 font-medium">{row.fromLevel}</td>
                     <td className="px-3 py-2">{row.toLevel}</td>
                     <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        value={row.tenureYears}
-                        onChange={(e) => updateCriteriaField(i, 'tenureYears', Number(e.target.value))}
-                        className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
-                      />
-                      년
+                      {isEdit ? (
+                        <>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.tenureYears}
+                            onChange={(e) => updateCriteriaField(i, 'tenureYears', Number(e.target.value))}
+                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                          />
+                          년
+                        </>
+                      ) : (
+                        `${row.tenureYears}년`
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        value={row.requiredScore}
-                        onChange={(e) => updateCriteriaField(i, 'requiredScore', Number(e.target.value))}
-                        className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
-                      />
-                      점
+                      {isEdit ? (
+                        <>
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.requiredScore}
+                            onChange={(e) => updateCriteriaField(i, 'requiredScore', Number(e.target.value))}
+                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                          />
+                          점
+                        </>
+                      ) : (
+                        `${row.requiredScore}점`
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -116,31 +147,66 @@ export default function PromotionCriteriaManager({ onClose }: { onClose: () => v
         <div className="mt-5">
           <h4 className="text-sm font-semibold text-black">평가 등급 점수</h4>
           <p className="mt-0.5 text-[13px] text-gray-500">인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다.</p>
-          <div className="mt-2 grid grid-cols-5 gap-2">
-            {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
-              <div key={grade}>
-                <label className="block text-center text-xs font-semibold text-gray-500">{grade}</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={gradeScores[grade]}
-                  onChange={(e) =>
-                    setLocalGradeScores((prev: Record<EvaluationGrade, number>) => ({ ...prev, [grade]: Number(e.target.value) }))
-                  }
-                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-center text-sm text-black"
-                />
-              </div>
+          {isEdit ? (
+            <div className="mt-2 grid grid-cols-5 gap-2">
+              {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
+                <div key={grade}>
+                  <label className="block text-center text-xs font-semibold text-gray-500">{grade}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={gradeScores[grade]}
+                    onChange={(e) =>
+                      setLocalGradeScores((prev: Record<EvaluationGrade, number>) => ({ ...prev, [grade]: Number(e.target.value) }))
+                    }
+                    className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-center text-sm text-black"
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-1.5 text-[13px]">
+              {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
+                <span key={grade} className="rounded bg-gray-100 px-2 py-1 font-mono text-gray-600">
+                  {grade} {gradeScores[grade]}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5">
+          <h4 className="text-sm font-semibold text-black">연차별 가중치</h4>
+          <p className="mt-0.5 text-[13px] text-gray-500">최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).</p>
+          <div className="mt-2 space-y-1 text-[13px] text-gray-600">
+            {Object.entries(YEAR_WEIGHTS_BY_TENURE).map(([years, weights]) => (
+              <p key={years}>
+                <span className="text-gray-400">{years}년:</span> {weights.map((w) => `${(w * 100).toFixed(0)}%`).join(' / ')}
+              </p>
             ))}
           </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100">
-            취소
-          </button>
-          <button onClick={handleSave} className="rounded-md bg-promo px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-            저장
-          </button>
+          {isEdit ? (
+            <>
+              <button onClick={handleCancelEdit} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100">
+                취소
+              </button>
+              <button onClick={handleSave} className="rounded-md bg-promo px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                저장
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100">
+                닫기
+              </button>
+              <button onClick={() => setMode('edit')} className="rounded-md bg-promo px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                수정하기
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

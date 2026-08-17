@@ -91,6 +91,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [recentExpanded, setRecentExpanded] = useState(false)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
+  const [criteriaManagerMode, setCriteriaManagerMode] = useState<'view' | 'edit'>('view')
   const [importOpen, setImportOpen] = useState(false)
 
   // 좌(최근 성과 + 성장 시뮬레이션) / 우(면담하기) 스플리터 -- lg 이상에서만
@@ -325,12 +326,24 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             }
             collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}
           >
-            <PromotionSimulationPanel member={member} />
+            <PromotionSimulationPanel
+              member={member}
+              onOpenCriteria={() => {
+                setCriteriaManagerMode('view')
+                setCriteriaManagerOpen(true)
+              }}
+            />
             <div className="mt-4 flex flex-wrap gap-2">
               <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
                 엑셀로 가져오기
               </button>
-              <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
+              <button
+                onClick={() => {
+                  setCriteriaManagerMode('edit')
+                  setCriteriaManagerOpen(true)
+                }}
+                className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5"
+              >
                 승진 기준 관리
               </button>
             </div>
@@ -360,7 +373,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
+      {criteriaManagerOpen && (
+        <PromotionCriteriaManager initialMode={criteriaManagerMode} onClose={() => setCriteriaManagerOpen(false)} />
+      )}
       {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}
     </div>
   )
