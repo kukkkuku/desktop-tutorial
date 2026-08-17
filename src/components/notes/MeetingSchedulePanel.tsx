@@ -75,11 +75,11 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
   if (!open) {
     return (
-      <div className="w-[160px] shrink-0 rounded-lg border border-gray-200 p-3">
+      <div className="w-[124px] shrink-0 rounded-lg border border-gray-200 p-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[13px] font-bold text-black">
             <CalendarIcon className="h-3.5 w-3.5 text-gray-400" />
-            면담 일정
+            면담
           </span>
           <button onClick={onToggle} title="펼치기" className="rounded-md px-1 text-gray-400 hover:bg-gray-100">
             «
@@ -92,7 +92,9 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             {collapsedEntries.map(({ date, idxs }) => (
               <div key={date}>
                 <p className="text-[11px] font-semibold text-gray-500">{date === todayStr ? '오늘' : fmtShort(date)}</p>
-                <div className="mt-1 flex flex-wrap gap-1">
+                {/* 한 날짜에 여러 명이면 옆으로 나열하지 않고 아래로 쌓아서
+                    패널 너비가 늘어나지 않게 한다. */}
+                <div className="mt-1 flex flex-col items-start gap-1">
                   {idxs.map((idx) => {
                     const member = members[idx]
                     if (!member) return null
@@ -100,10 +102,10 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                       <button
                         key={idx}
                         onClick={() => onSelectMember(member.id)}
-                        className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-gray-200"
+                        className="flex max-w-full items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-gray-200"
                       >
                         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                        {member.name}
+                        <span className="truncate">{member.name}</span>
                       </button>
                     )
                   })}
