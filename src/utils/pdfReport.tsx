@@ -175,7 +175,9 @@ async function waitForMount(container: HTMLElement): Promise<HTMLElement> {
   return container.firstElementChild as HTMLElement
 }
 
-export async function downloadPdfReport(options: ReportOptions) {
+// PDF를 Blob으로 빌드만 하고 저장은 하지 않는다 -- 단일 다운로드(downloadPdfReport)와
+// 여러 팀원분을 하나의 zip으로 묶는 경로(pdfReports.ts) 양쪽에서 재사용한다.
+export async function buildPdfBlob(options: ReportOptions): Promise<Blob> {
   const container = document.createElement('div')
   container.style.position = 'fixed'
   container.style.top = '0'
@@ -227,5 +229,17 @@ export async function downloadPdfReport(options: ReportOptions) {
     pageIndex += 1
   }
 
-  pdf.save(options.fileName)
+  return pdf.output('blob')
+}
+
+export async function downloadPdfReport(options: ReportOptions) {
+  const blob = await buildPdfBlob(options)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = options.fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

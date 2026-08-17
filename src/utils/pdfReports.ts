@@ -1,7 +1,8 @@
+import JSZip from 'jszip'
 import type { Contribution, Criteria, MeetingNote, PeerReview, Task, TeamMember } from '../types'
 import { calcAllTaskScores, calcMemberResults, calcTaskScore } from './calculations'
 import { calcYearsSince } from './tenure'
-import { downloadPdfReport, type ReportSection } from './pdfReport'
+import { buildPdfBlob, downloadPdfReport, type ReportSection } from './pdfReport'
 
 // 각 화면(과제/팀원/피어리뷰/평가 매트릭스/결과)의 "지금 입력된 데이터"를
 // pdfReport의 공용 리포트 템플릿에 맞춰 채워 넣는다 -- 엑셀(원본 데이터)과
@@ -236,7 +237,8 @@ export async function downloadResultsPdf(
 
 // 팀원 개개인에게 따로 전달할 개인별 리포트 -- 전체 순위/다른 사람 점수는 빼고
 // 본인 참여 과제와 면담 기록만 담는다. excel.ts의 downloadIndividualResultReports와
-// 짝을 이루며, 팀원 한 명당 PDF 한 개씩 순차로 내려받는다.
+// 짝을 이루며, 팀원별 PDF를 하나씩 만들어 zip 하나로 묶어 내려받는다(파일별로
+// 따로따로 다운로드 창이 뜨는 걸 피하기 위함).
 export async function downloadIndividualResultsPdf(
   teamName: string,
   periodName: string,
@@ -251,6 +253,7 @@ export async function downloadIndividualResultsPdf(
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
   const dateStr = new Date().toISOString().slice(0, 10)
+  const zip = new JSZip()
 
   for (const row of results) {
     const member = row.member
@@ -286,7 +289,7 @@ export async function downloadIndividualResultsPdf(
       emptyLabel: '면담 기록이 없습니다.',
     }
 
-    await downloadPdfReport({
+    const blob = await buildPdfBlob({
       teamName,
       periodName,
       title: `${member.name} 개인 평가결과`,
@@ -298,5 +301,16 @@ export async function downloadIndividualResultsPdf(
       sections: [taskSection, notesSection],
       fileName: `${member.name}_평가결과_${dateStr}.pdf`,
     })
+    zip.file(`${member.name}_평가결과_${dateStr}.pdf`, blob)
   }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(zipBlob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `팀원별_평가결과_${dateStr}.zip`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

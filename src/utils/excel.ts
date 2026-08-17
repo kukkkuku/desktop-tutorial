@@ -726,6 +726,7 @@ export async function downloadIndividualResultReports(
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
   const dateStr = new Date().toISOString().slice(0, 10)
+  const zip = new JSZip()
 
   for (const row of results) {
     const member = row.member
@@ -765,6 +766,17 @@ export async function downloadIndividualResultReports(
     addStyledSheet(wb, '참여 과제', INDIVIDUAL_TASK_COLUMNS, taskRows)
     addStyledSheet(wb, '면담기록', INDIVIDUAL_NOTES_COLUMNS, notesRows)
 
-    await downloadStyledWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
+    const buffer = await wb.xlsx.writeBuffer()
+    zip.file(`${member.name}_평가결과_${dateStr}.xlsx`, buffer)
   }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(zipBlob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `팀원별_평가결과_${dateStr}.zip`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
