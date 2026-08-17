@@ -75,7 +75,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
   if (!open) {
     return (
-      <div className="w-fit shrink-0 rounded-lg border border-gray-200 p-3">
+      <div className="w-fit shrink-0 rounded-lg border border-gray-200 bg-white p-3">
         <button
           onClick={onToggle}
           title="면담 일정 펼치기"
@@ -150,7 +150,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   }
 
   return (
-    <div className="w-[300px] shrink-0 rounded-lg border border-gray-200 p-4">
+    <div className="w-[300px] shrink-0 rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-bold text-black">면담 일정</h3>
         <button onClick={onToggle} title="접기" className="rounded-md px-1.5 text-gray-400 hover:bg-gray-100">

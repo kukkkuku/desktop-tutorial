@@ -23,8 +23,10 @@ interface NotesStageProps {
 }
 
 // 팀원 성장 관리 = 좌측 팀원 카드 레일 + 중앙 통합 상세(요약·최근 성과·성장
-// 시뮬레이션·면담하기) + 우측 면담 일정. 팀원을 클릭하면 중앙이 그 팀원으로
-// 바뀐다.
+// 시뮬레이션·면담하기) + 우측 면담 일정. Figma 디자인 기준으로 레일/면담
+// 일정은 옅은 회색 배경(bg-gray-50)에 담아 흰색 중앙 콘텐츠와 구분하고,
+// 컬럼 사이 여백 없이 구분선(border)만으로 붙여서 <main>의 좌우/상하 여백을
+// 상쇄한 채(-mx/-my) 화면 끝까지 채운다.
 export default function NotesStage({ notesRequest, onManageTeam }: NotesStageProps) {
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
@@ -47,12 +49,12 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   }, [activeMembers.map((m) => m.id).join(',')])
 
   return (
-    <div className="flex items-start gap-5">
-      <div className="w-64 shrink-0">
+    <div className="-mx-4 -my-6 flex items-stretch sm:-mx-6 lg:-mx-8">
+      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 p-4">
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 bg-white p-6">
         {selectedMemberId ? (
           <MemberGrowthDetail
             memberId={selectedMemberId}
@@ -65,7 +67,9 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
         )}
       </div>
 
-      <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
+      <div className="shrink-0 border-l border-gray-200 bg-gray-50 p-4">
+        <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
+      </div>
     </div>
   )
 }

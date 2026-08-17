@@ -52,7 +52,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
                 className={`w-full rounded-lg border px-4 py-3.5 text-left transition-colors ${
-                  isSelected ? 'border-accent bg-orange-50/50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  isSelected ? 'border-accent bg-orange-50/50' : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-2">
@@ -84,7 +84,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
 
       <button
         onClick={onManageTeam}
-        className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+        className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
       >
         팀원 관리
       </button>
