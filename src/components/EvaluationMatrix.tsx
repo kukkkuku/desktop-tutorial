@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 import {
@@ -13,6 +14,9 @@ import {
   GRADE_COLORS,
 } from '../utils/calculations'
 import GradeNoteButton from './GradeNoteButton'
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import { downloadCurrentMatrixExcel } from '../utils/excel'
+import { downloadMatrixPdf } from '../utils/pdfReports'
 
 const MIN_COL_WIDTH = 56
 
@@ -52,6 +56,9 @@ function ResizeHandle({
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
   const { tasks, members, contributions, criteria, peerReviews } = state
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const activeMembers = members.filter((m) => m.active)
   const activeMemberIds = new Set(activeMembers.map((m) => m.id))
@@ -115,7 +122,13 @@ export default function EvaluationMatrix() {
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-black">평가 매트릭스</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-black">평가 매트릭스</h3>
+        <CurrentDataDownloadControls
+          onExcelDownload={() => downloadCurrentMatrixExcel(tasks, members, contributions, criteria)}
+          onPdfDownload={() => downloadMatrixPdf(teamName, periodName, tasks, members, contributions, criteria)}
+        />
+      </div>
       <p className="mt-1 text-sm text-gray-600">
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은

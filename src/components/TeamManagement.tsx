@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
@@ -10,7 +11,9 @@ import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
-import { downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
+import { downloadMembersPdf } from '../utils/pdfReports'
 
 // service/levelTenure는 수정 모드에서 <input type="date">가 들어가는데,
 // 셀 자체의 px-4(32px) 패딩을 빼고도 "mm/dd/yyyy" + 달력 아이콘이 잘리지
@@ -59,6 +62,9 @@ interface TeamManagementProps {
 
 export default function TeamManagement({ onUploaded }: TeamManagementProps) {
   const { state, dispatch } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
   const cols = useResizableColumns(TEAM_COLUMNS)
   const { openMemberDetail } = useMemberDetail()
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
@@ -183,7 +189,13 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
-        <TitleUploadControls busyLabel="팀원 업로드 중..." onDownload={downloadMemberTemplate} onFiles={handleUploadFiles} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CurrentDataDownloadControls
+            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
+            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
+          />
+          <TitleUploadControls busyLabel="팀원 업로드 중..." onDownload={downloadMemberTemplate} onFiles={handleUploadFiles} />
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
         팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.

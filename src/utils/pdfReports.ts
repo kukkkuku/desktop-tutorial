@@ -1,0 +1,235 @@
+import type { Contribution, Criteria, PeerReview, Task, TeamMember } from '../types'
+import { calcAllTaskScores, calcMemberResults, calcTaskScore } from './calculations'
+import { calcYearsSince } from './tenure'
+import { downloadPdfReport, type ReportSection } from './pdfReport'
+
+// 각 화면(과제/팀원/피어리뷰/평가 매트릭스/결과)의 "지금 입력된 데이터"를
+// pdfReport의 공용 리포트 템플릿에 맞춰 채워 넣는다 -- 엑셀(원본 데이터)과
+// 달리 한눈에 훑어볼 요약 통계 + 표로 구성된 인쇄용 문서.
+
+export async function downloadTasksPdf(teamName: string, periodName: string, tasks: Task[], criteria: Criteria) {
+  const scores = tasks.map((t) => calcTaskScore(t, criteria))
+  const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+  const coreCount = tasks.filter((t) => t.importance === '핵심').length
+
+  const section: ReportSection = {
+    title: '과제 목록',
+    countLabel: `${tasks.length}건`,
+    columns: ['과제명', '과제등급', '업무량', '목표', '성과', '성과등급', '점수'],
+    rows: tasks.map((task, i) => [
+      task.name,
+      task.importance,
+      task.workload,
+      task.objective || '-',
+      task.achievement || '-',
+      task.performanceGrade,
+      scores[i].toFixed(1),
+    ]),
+    emptyLabel: '등록된 과제가 없습니다.',
+  }
+
+  await downloadPdfReport({
+    teamName,
+    periodName,
+    title: '과제 현황 리포트',
+    stats: [
+      { label: '등록 과제 수', value: `${tasks.length}건` },
+      { label: '핵심 과제 수', value: `${coreCount}건`, emphasize: coreCount > 0 },
+      { label: '평균 과제 점수', value: avg.toFixed(1) },
+    ],
+    sections: [section],
+    fileName: `과제현황_${new Date().toISOString().slice(0, 10)}.pdf`,
+  })
+}
+
+export async function downloadMembersPdf(
+  teamName: string,
+  periodName: string,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  peerReviews: PeerReview[],
+) {
+  const activeCount = members.filter((m) => m.active).length
+  const serviceYears = members.map((m) => calcYearsSince(m.hireDate)).filter((y): y is number => y !== null)
+  const avgService = serviceYears.length > 0 ? serviceYears.reduce((a, b) => a + b, 0) / serviceYears.length : null
+
+  const section: ReportSection = {
+    title: '팀원 목록',
+    countLabel: `${members.length}명`,
+    columns: ['이름', '근속', '직급', '연차', '역할', '참여 과제', '피어리뷰', '활성여부'],
+    rows: members.map((member) => {
+      const service = calcYearsSince(member.hireDate)
+      const levelTenure = calcYearsSince(member.currentLevelSince)
+      const count = tasks.filter((t) => (contributions.find((c) => c.taskId === t.id && c.memberId === member.id)?.contributionPercent ?? 0) > 0).length
+      const peerReviewCount = peerReviews.filter((r) => r.targetMemberId === member.id).length
+      return [
+        member.name,
+        service !== null ? `${service}년` : '-',
+        member.level || '-',
+        levelTenure !== null ? `${levelTenure}년차` : '-',
+        member.role || '-',
+        `${count}건`,
+        `${peerReviewCount}건`,
+        { text: member.active ? '활성' : '비활성', emphasize: !member.active },
+      ]
+    }),
+    emptyLabel: '등록된 팀원이 없습니다.',
+  }
+
+  await downloadPdfReport({
+    teamName,
+    periodName,
+    title: '팀원 현황 리포트',
+    stats: [
+      { label: '전체 팀원', value: `${members.length}명` },
+      { label: '활성 팀원', value: `${activeCount}명`, emphasize: true },
+      { label: '평균 근속', value: avgService !== null ? `${avgService.toFixed(1)}년` : '-' },
+    ],
+    sections: [section],
+    fileName: `팀원현황_${new Date().toISOString().slice(0, 10)}.pdf`,
+  })
+}
+
+export async function downloadPeerReviewsPdf(teamName: string, periodName: string, peerReviews: PeerReview[], members: TeamMember[]) {
+  const sorted = [...peerReviews].sort((a, b) => {
+    const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
+    const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
+    return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
+  })
+
+  const section: ReportSection = {
+    title: '피어리뷰 목록',
+    countLabel: `${peerReviews.length}건`,
+    columns: ['대상팀원', '리뷰어', '등급'],
+    rows: sorted
+      .map((review): (string | number)[] | null => {
+        const target = members.find((m) => m.id === review.targetMemberId)
+        if (!target) return null
+        return [target.name, review.reviewerName, review.grade]
+      })
+      .filter((row): row is (string | number)[] => row !== null),
+    emptyLabel: '등록된 피어리뷰가 없습니다.',
+  }
+
+  await downloadPdfReport({
+    teamName,
+    periodName,
+    title: '피어리뷰 현황 리포트',
+    stats: [{ label: '전체 피어리뷰', value: `${peerReviews.length}건` }],
+    sections: [section],
+    fileName: `피어리뷰현황_${new Date().toISOString().slice(0, 10)}.pdf`,
+  })
+}
+
+export async function downloadMatrixPdf(
+  teamName: string,
+  periodName: string,
+  tasks: Task[],
+  members: TeamMember[],
+  contributions: Contribution[],
+  criteria: Criteria,
+) {
+  const activeMembers = members.filter((m) => m.active)
+  const rows: (string | number)[][] = []
+  for (const task of tasks) {
+    const taskScore = calcTaskScore(task, criteria)
+    for (const member of activeMembers) {
+      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+      if (!contribution || contribution.contributionPercent <= 0) continue
+      const personalFactor = criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용'
+      rows.push([
+        task.name,
+        member.name,
+        contribution.contributionPercent,
+        personalFactor,
+        taskScore.toFixed(1),
+        (taskScore * (contribution.contributionPercent / 100)).toFixed(1),
+      ])
+    }
+  }
+
+  await downloadPdfReport({
+    teamName,
+    periodName,
+    title: '평가 매트릭스 리포트',
+    stats: [
+      { label: '과제 수', value: `${tasks.length}건` },
+      { label: '참여 조합 수', value: `${rows.length}건`, emphasize: true },
+    ],
+    sections: [
+      {
+        title: '과제 × 팀원 기여도',
+        countLabel: `${rows.length}건`,
+        columns: ['과제명', '팀원', '기여도(%)', '개인수행등급', '과제 점수', '가중 점수'],
+        rows,
+        emptyLabel: '입력된 기여도가 없습니다.',
+      },
+    ],
+    fileName: `평가매트릭스_${new Date().toISOString().slice(0, 10)}.pdf`,
+  })
+}
+
+export async function downloadResultsPdf(
+  teamName: string,
+  periodName: string,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[] = [],
+) {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const avgScore = results.length > 0 ? results.reduce((s, r) => s + r.cumulativeScore, 0) / results.length : 0
+  const topGrade = results[0]?.grade ?? '-'
+
+  const rankSection: ReportSection = {
+    title: '순위표',
+    countLabel: `${results.length}명`,
+    columns: ['순위', '이름', '역할', '직급', '참여 과제', '누적 점수', '등급'],
+    rows: results.map((row, i) => [
+      { text: `${i + 1}`, emphasize: i === 0 },
+      row.member.name,
+      row.member.role || '-',
+      row.member.level || '-',
+      `${row.participatedTaskCount}건`,
+      row.cumulativeScore.toFixed(1),
+      row.grade,
+    ]),
+    emptyLabel: '평가 결과가 없습니다.',
+  }
+
+  const detailRows: (string | number)[][] = []
+  for (const task of tasks) {
+    const taskScore = taskScoreMap.get(task.id) ?? 0
+    const taskContributions = contributions.filter((c) => c.taskId === task.id && c.contributionPercent > 0)
+    for (const c of taskContributions) {
+      const member = members.find((m) => m.id === c.memberId)
+      if (!member) continue
+      const personalFactor = criteria.personalGradeWeight > 0 ? c.personalPerformanceGrade : '미사용'
+      detailRows.push([member.name, task.name, c.contributionPercent, personalFactor, taskScore.toFixed(1), (taskScore * (c.contributionPercent / 100)).toFixed(1)])
+    }
+  }
+  const detailSection: ReportSection = {
+    title: '과제별 상세',
+    countLabel: `${detailRows.length}건`,
+    columns: ['이름', '과제명', '기여도(%)', '개인수행등급', '과제 점수', '가중 점수'],
+    rows: detailRows,
+    emptyLabel: '과제 참여 데이터가 없습니다.',
+  }
+
+  await downloadPdfReport({
+    teamName,
+    periodName,
+    title: '성과평가 결과 리포트',
+    stats: [
+      { label: '참여 팀원', value: `${results.length}명` },
+      { label: '평균 누적 점수', value: avgScore.toFixed(1) },
+      { label: '최고 등급', value: topGrade, emphasize: true },
+    ],
+    sections: [rankSection, detailSection],
+    fileName: `평가결과_${new Date().toISOString().slice(0, 10)}.pdf`,
+  })
+}

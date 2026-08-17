@@ -15,7 +15,8 @@ import type {
   Workload,
 } from '../types'
 import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
-import { calcAllTaskScores, calcMemberResults } from './calculations'
+import { calcAllTaskScores, calcMemberParticipation, calcMemberResults, calcTaskScore } from './calculations'
+import { calcYearsSince } from './tenure'
 import { applySheetStyle, type StyledColumn } from './excelStyle'
 
 // ---------- Styled workbook download (exceljs) ----------
@@ -140,6 +141,23 @@ export async function downloadTaskTemplate() {
   await downloadStyledWorkbook(buildTaskTemplateWorkbook(), '과제_업로드_양식.xlsx')
 }
 
+// 빈 양식(위 downloadTaskTemplate)과 달리 지금 등록된 과제를 그대로 내보낸다.
+export async function downloadCurrentTasksExcel(tasks: Task[], criteria: Criteria) {
+  const rows: (string | number)[][] = tasks.map((task) => [
+    task.name,
+    task.importance,
+    task.workload,
+    task.objective || '-',
+    task.achievement || '-',
+    task.performanceGrade,
+    Number(calcTaskScore(task, criteria).toFixed(1)),
+  ])
+  const columns: StyledColumn[] = [...TASK_COLUMNS, { header: '점수', width: 10, role: 'metric' }]
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '과제현황', columns, rows, 0)
+  await downloadStyledWorkbook(wb, `과제현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
 export interface TaskImportResult {
   tasks: Task[]
   errors: string[]
@@ -238,6 +256,41 @@ export async function downloadMemberTemplate() {
   await downloadStyledWorkbook(buildMemberTemplateWorkbook(), '팀원_업로드_양식.xlsx')
 }
 
+const CURRENT_MEMBER_COLUMNS: StyledColumn[] = [
+  { header: '이름', width: 14, role: 'freetext' },
+  { header: '근속', width: 8, role: 'metric' },
+  { header: '직급', width: 8, role: 'category' },
+  { header: '연차', width: 10, role: 'metric' },
+  { header: '역할', width: 16, role: 'freetext' },
+  { header: '참여 과제 수', width: 12, role: 'metric' },
+  { header: '받은 피어리뷰', width: 12, role: 'metric' },
+  { header: '활성여부', width: 10, role: 'category' },
+]
+
+// 빈 양식(위 downloadMemberTemplate)과 달리 지금 등록된 팀원을 화면(팀원
+// 관리 표)과 같은 컬럼 순서로 그대로 내보낸다.
+export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: Task[], contributions: Contribution[], peerReviews: PeerReview[]) {
+  const rows: (string | number)[][] = members.map((member) => {
+    const service = calcYearsSince(member.hireDate)
+    const levelTenure = calcYearsSince(member.currentLevelSince)
+    const { count } = calcMemberParticipation(member, tasks, contributions)
+    const peerReviewCount = peerReviews.filter((r) => r.targetMemberId === member.id).length
+    return [
+      member.name,
+      service !== null ? `${service}년` : '-',
+      member.level || '-',
+      levelTenure !== null ? `${levelTenure}년차` : '-',
+      member.role || '-',
+      count,
+      peerReviewCount,
+      member.active ? '활성' : '비활성',
+    ]
+  })
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '팀원현황', CURRENT_MEMBER_COLUMNS, rows, 0)
+  await downloadStyledWorkbook(wb, `팀원현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
 export interface MemberImportResult {
   members: TeamMember[]
   errors: string[]
@@ -321,6 +374,25 @@ function buildPeerReviewTemplateWorkbook(members: TeamMember[]): ExcelJS.Workboo
 
 export async function downloadPeerReviewTemplate(members: TeamMember[]) {
   await downloadStyledWorkbook(buildPeerReviewTemplateWorkbook(members), '피어리뷰_업로드_양식.xlsx')
+}
+
+// 빈 양식(위 downloadPeerReviewTemplate)과 달리 지금 등록된 피어리뷰를
+// 그대로 내보낸다.
+export async function downloadCurrentPeerReviewsExcel(peerReviews: PeerReview[], members: TeamMember[]) {
+  const sorted = [...peerReviews].sort((a, b) => {
+    const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
+    const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
+    return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
+  })
+  const rows: (string | number)[][] = []
+  for (const review of sorted) {
+    const target = members.find((m) => m.id === review.targetMemberId)
+    if (!target) continue
+    rows.push([review.reviewerName, target.name, review.grade])
+  }
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '피어리뷰현황', PEER_REVIEW_COLUMNS, rows, 0)
+  await downloadStyledWorkbook(wb, `피어리뷰현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 export interface PeerReviewImportResult {
@@ -419,6 +491,43 @@ export function parsePeerReviewWorkbook(
     updatedCount,
     affectedTargetNames: Array.from(affectedTargetNames),
   }
+}
+
+// ---------- Evaluation matrix current data export ----------
+
+const MATRIX_COLUMNS: StyledColumn[] = [
+  { header: '과제명', width: 24, role: 'freetext' },
+  { header: '팀원', width: 12, role: 'freetext' },
+  { header: '기여도(%)', width: 12, role: 'metric' },
+  { header: '개인수행등급', width: 14, role: 'metric' },
+  { header: '과제 점수', width: 10, role: 'metric' },
+  { header: '가중 점수', width: 10, role: 'metric' },
+]
+
+// 평가 매트릭스 화면에 입력된 과제×팀원 기여도/개인수행등급을 행 단위로
+// 풀어서 내보낸다(매트릭스 자체는 2차원 표라 그대로 시트에 옮기기보다
+// 과제별상세처럼 한 줄에 한 조합씩 나열하는 편이 읽기 쉽다).
+export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMember[], contributions: Contribution[], criteria: Criteria) {
+  const rows: (string | number)[][] = []
+  for (const task of tasks) {
+    const taskScore = calcTaskScore(task, criteria)
+    for (const member of members.filter((m) => m.active)) {
+      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+      if (!contribution || contribution.contributionPercent <= 0) continue
+      const personalFactor = criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용'
+      rows.push([
+        task.name,
+        member.name,
+        contribution.contributionPercent,
+        personalFactor,
+        Number(taskScore.toFixed(1)),
+        Number((taskScore * (contribution.contributionPercent / 100)).toFixed(1)),
+      ])
+    }
+  }
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '평가매트릭스', MATRIX_COLUMNS, rows, 0)
+  await downloadStyledWorkbook(wb, `평가매트릭스_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
 // ---------- Unified data management (all three templates + content-based upload routing) ----------

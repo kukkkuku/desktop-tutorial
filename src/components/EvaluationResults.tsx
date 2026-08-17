@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import type { EvaluationGrade, Task, Workload } from '../types'
 import {
   calcAllTaskScores,
@@ -8,6 +9,7 @@ import {
   getContributionPercent,
 } from '../utils/calculations'
 import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { downloadResultsPdf } from '../utils/pdfReports'
 import { colorForIndex, pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import { IMPORTANCE_COLORS } from '../utils/badgeColors'
 
@@ -34,6 +36,9 @@ const WORKLOAD_NUM: Record<Workload, number> = { 대: 90, 중: 60, 소: 40 }
 
 export default function EvaluationResults() {
   const { state } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
   const { openMemberDetail } = useMemberDetail()
   const { tasks, members, contributions, criteria, meetingNotes, peerReviews } = state
 
@@ -189,6 +194,13 @@ export default function EvaluationResults() {
             className="flex items-center gap-1.5 rounded-md border border-accent px-3 py-1.5 text-sm font-medium text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <DownloadIcon className="h-4 w-4" /> 팀원별 개별
+          </button>
+          <button
+            onClick={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
+            disabled={noData}
+            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <DownloadIcon className="h-4 w-4" /> PDF 다운로드
           </button>
         </div>
       </div>

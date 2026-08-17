@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
 import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import ConfirmDialog from './ConfirmDialog'
@@ -9,7 +10,9 @@ import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
-import { downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import { downloadCurrentTasksExcel, downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
+import { downloadTasksPdf } from '../utils/pdfReports'
 
 const TASK_COLUMNS = {
   name: 200,
@@ -36,6 +39,9 @@ interface TaskManagementProps {
 
 export default function TaskManagement({ onUploaded }: TaskManagementProps) {
   const { state, dispatch } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
   const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
@@ -174,7 +180,13 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-black">과제 관리</h3>
-        <TitleUploadControls busyLabel="과제 업로드 중..." onDownload={downloadTaskTemplate} onFiles={handleUploadFiles} />
+        <div className="flex flex-wrap items-center gap-2">
+          <CurrentDataDownloadControls
+            onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
+            onPdfDownload={() => downloadTasksPdf(teamName, periodName, state.tasks, state.criteria)}
+          />
+          <TitleUploadControls busyLabel="과제 업로드 중..." onDownload={downloadTaskTemplate} onFiles={handleUploadFiles} />
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
         과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 import { GRADE_COLORS } from '../utils/calculations'
@@ -8,7 +9,9 @@ import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
-import { downloadPeerReviewTemplate, parsePeerReviewWorkbook } from '../utils/excel'
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import { downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook } from '../utils/excel'
+import { downloadPeerReviewsPdf } from '../utils/pdfReports'
 
 const PEER_REVIEW_COLUMNS = {
   reviewer: 160,
@@ -23,6 +26,9 @@ interface PeerReviewManagementProps {
 
 export default function PeerReviewManagement({ onUploaded }: PeerReviewManagementProps) {
   const { state, dispatch } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
   const cols = useResizableColumns(PEER_REVIEW_COLUMNS)
   const [deletingReview, setDeletingReview] = useState<PeerReview | null>(null)
 
@@ -85,11 +91,17 @@ export default function PeerReviewManagement({ onUploaded }: PeerReviewManagemen
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-black">피어리뷰 관리</h3>
-        <TitleUploadControls
-          busyLabel="피어리뷰 업로드 중..."
-          onDownload={() => downloadPeerReviewTemplate(state.members)}
-          onFiles={handleUploadFiles}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <CurrentDataDownloadControls
+            onExcelDownload={() => downloadCurrentPeerReviewsExcel(state.peerReviews, state.members)}
+            onPdfDownload={() => downloadPeerReviewsPdf(teamName, periodName, state.peerReviews, state.members)}
+          />
+          <TitleUploadControls
+            busyLabel="피어리뷰 업로드 중..."
+            onDownload={() => downloadPeerReviewTemplate(state.members)}
+            onFiles={handleUploadFiles}
+          />
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
         팀원이 서로에게 남긴 피어리뷰 등급입니다. 평가 기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에 반영됩니다.
