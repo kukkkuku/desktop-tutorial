@@ -352,9 +352,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             aria-label="좌우 폭 조절"
             role="separator"
             aria-orientation="vertical"
-            className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch 2xl:flex 2xl:w-3"
+            className="group relative hidden shrink-0 cursor-col-resize items-center justify-center self-stretch 2xl:flex 2xl:w-3"
           >
-            <span className="w-1 shrink-0 rounded-full bg-gray-200 transition-colors group-hover:bg-accent group-active:bg-accent" />
+            <span className="h-10 w-1 shrink-0 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
           </div>
 
           {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다. 좌측 폭이

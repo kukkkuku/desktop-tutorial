@@ -13,10 +13,13 @@ interface MeetingFormProps {
   focusToken?: number | null
 }
 
-// 면담일지 -- Figma 디자인 그대로: 면담 일자 + 작성하기 버튼이 한 줄, 면담
-// 코멘트, 육성 포인트(강점·보완 필요·다음 도전 경험·Career Goal). 다음
-// 확인일과 Action 입력 영역은 Figma에 없어 제거했다. 최근 면담 기록은
-// 기본 접힘.
+// 면담일지 -- Figma 디자인(interview-log-card) 그대로: 사방이 닫힌 박스가
+// 아니라 왼쪽 구분선 하나로만 옆 컬럼과 나뉘어서 폭을 최대로 쓴다. 제목
+// 옆에 면담 일자 + 작성하기 버튼이 한 줄, 면담 코멘트, 육성 포인트(강점·
+// 보완 필요·다음 도전 경험·Career Goal). 다음 확인일과 Action 입력 영역은
+// Figma에 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
+// 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
+// 확인이 안 되는 문제가 있었다).
 export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const memberId = member.id
@@ -78,18 +81,20 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 p-6">
-      <h3 className="text-base font-bold text-black">면담일지</h3>
-
-      <div className="mt-3 flex items-end gap-3">
-        <div className="min-w-0 flex-1">
-          <label className="block text-[11px] font-medium text-gray-400">면담 일자</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-        </div>
+    <div className="border-l border-gray-200 p-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <h3 className="shrink-0 text-base font-bold text-black">면담일지</h3>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          aria-label="면담 일자"
+          className="w-40 shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+        />
         <button
           onClick={handleSave}
           disabled={!comment.trim()}
-          className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-md bg-accent px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           작성하기
         </button>
@@ -158,46 +163,33 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
                 </div>
               </div>
             ) : (
-              <div key={note.id} className="rounded-md border border-gray-200 bg-white px-3 py-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-semibold text-gray-500">
-                    {note.date}
-                    {note.date > todayStr && <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-bold text-accent">예정</span>}
-                  </p>
-                  <div className="flex shrink-0 gap-1.5">
-                    <button
-                      onClick={() => {
-                        setEditingNoteId(note.id)
-                        setEditDate(note.date)
-                        setEditComment(note.comment)
-                      }}
-                      className="rounded-md border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-100"
-                    >
-                      수정
-                    </button>
-                    <button onClick={() => setDeletingNote(note)} className="rounded-md border border-danger px-2 py-0.5 text-xs text-danger hover:bg-red-50">
-                      삭제
-                    </button>
-                  </div>
+              <div key={note.id} className="flex flex-wrap items-start gap-3 border-b border-gray-200 py-3">
+                <p className="shrink-0 text-xs font-semibold text-gray-500">
+                  {note.date}
+                  {note.date > todayStr && <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-bold text-accent">예정</span>}
+                </p>
+                <div className="min-w-[200px] flex-1 space-y-0.5 text-[13px] text-black">
+                  <p className="whitespace-pre-wrap break-words">{note.comment}</p>
+                  {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">강점 : {note.strengths}</p>}
+                  {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">보완 : {note.improvements}</p>}
+                  {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">다음도전 : {note.nextExperience}</p>}
+                  {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">Career Goal : {note.careerInterest}</p>}
                 </div>
-                {(() => {
-                  const line = [
-                    ['강점', note.strengths],
-                    ['보완 필요', note.improvements],
-                    ['다음 도전 경험', note.nextExperience],
-                    ['Career Goal', note.careerInterest],
-                    ['코멘트', note.comment],
-                  ]
-                    .filter(([, value]) => value?.trim())
-                    .map(([label, value]) => `${label}: ${value}`)
-                    .join('   ·   ')
-                  if (!line) return null
-                  return (
-                    <p className="mt-1 truncate text-[13px] text-black" title={line}>
-                      {line}
-                    </p>
-                  )
-                })()}
+                <div className="flex shrink-0 gap-1.5">
+                  <button
+                    onClick={() => {
+                      setEditingNoteId(note.id)
+                      setEditDate(note.date)
+                      setEditComment(note.comment)
+                    }}
+                    className="rounded-md border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-100"
+                  >
+                    수정
+                  </button>
+                  <button onClick={() => setDeletingNote(note)} className="rounded-md border border-danger px-2 py-0.5 text-xs text-danger hover:bg-red-50">
+                    삭제
+                  </button>
+                </div>
               </div>
             ),
           )}

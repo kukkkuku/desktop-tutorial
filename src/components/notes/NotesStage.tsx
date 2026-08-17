@@ -34,7 +34,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(activeMembers[0]?.id ?? null)
-  const [scheduleOpen, setScheduleOpen] = useState(true)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
 
   useEffect(() => {
     if (!notesRequest) return
