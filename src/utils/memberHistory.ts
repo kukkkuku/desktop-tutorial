@@ -4,7 +4,16 @@
 // 그대로 유지되므로, 각 기간의 저장된 상태를 순회하며 동일 memberId를 찾아 재사용한다.
 import type { AppState, EvaluationGrade, Importance, PerformanceGrade, WorkspaceMeta } from '../types'
 import { workspaceStateKey } from '../state/WorkspaceContext'
-import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from './calculations'
+import {
+  calcAllTaskScores,
+  calcEvaluationGrade,
+  calcExpectedScore,
+  calcMemberCumulativeScore,
+  calcMemberResults,
+  calcPeerReviewFactor,
+  getContribution,
+  getEffectiveContributionPercent,
+} from './calculations'
 
 export interface MemberPeriodTaskEntry {
   taskId: string
@@ -49,7 +58,20 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
     const taskScores = calcAllTaskScores(state.tasks, state.criteria)
     const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
     const idx = results.findIndex((r) => r.member.id === memberId)
-    const row = idx >= 0 ? results[idx] : null
+    let row: { cumulativeScore: number; grade: EvaluationGrade } | null = idx >= 0 ? results[idx] : null
+
+    // calcMemberResults는 그 기간 스냅샷에서 비활성으로 저장된 팀원은 아예
+    // 제외한다(순위표에는 맞는 동작). 하지만 고과 추이는 "그 기간에 실제로
+    // 평가됐는지"가 기준이어야 하므로, 활성 팀원 코호트로 계산한 기대점수를
+    // 그대로 써서 점수/등급을 별도로 구해 트렌드에서 누락되지 않게 한다.
+    if (!row && member.active === false) {
+      const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, state.contributions, state.criteria)
+      const peerReviewFactor = calcPeerReviewFactor(state.peerReviews, member.id, state.criteria)
+      const cumulativeScore = rawCumulativeScore * peerReviewFactor
+      const expectedScore = calcExpectedScore(results.map((r) => r.cumulativeScore))
+      const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
+      row = { cumulativeScore, grade: calcEvaluationGrade(ratio) }
+    }
 
     const tasks: MemberPeriodTaskEntry[] = []
     for (const { task, score } of taskScores) {

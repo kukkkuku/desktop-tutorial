@@ -106,18 +106,18 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   return (
     <div className="space-y-5">
       {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별한다.
-          일반 성과 정보(흰 배경 박스)와 승진 관련 정보(연한 회색 배경 박스)를
-          나란히 배치하고, 화면이 넓으면 한 줄, 좁아지면 승진 정보 박스가
-          통째로 다음 줄로 내려가 두 줄이 된다(고정폭이 아닌 flex-wrap). */}
-      <div className="flex flex-wrap items-stretch gap-3">
-        <div className="flex min-w-fit flex-1 flex-wrap items-stretch divide-x divide-gray-200 rounded-lg border border-gray-200 bg-white">
+          일반 성과 정보와 승진 관련 정보가 하나의 카드 안에 함께 들어있다(별도
+          카드로 분리하지 않음). 화면이 넓으면 좌우로, 좁아지면 위아래로
+          재배치된다(flex-col/flex-row 전환, 고정폭 없이 breakpoint 기반). */}
+      <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 lg:flex-row lg:items-stretch">
+        <div className="flex flex-1 flex-wrap items-stretch divide-x divide-gray-200 bg-white">
           <div className="min-w-0 px-4 py-3">
             <p className="truncate text-base font-bold text-black">{member.name}</p>
             <p className="mt-0.5 truncate text-[13px] text-gray-400">
               {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
             </p>
           </div>
-          <HeaderStat label="해당 년도 성과">
+          <HeaderStat label="이번에 평가한 년도 성과">
             {memberResult ? (
               <>
                 {memberResult.cumulativeScore.toFixed(1)}점{' '}
@@ -137,7 +137,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-stretch divide-x divide-gray-300/70 rounded-lg border border-gray-200 bg-gray-50">
+        <div className="flex flex-wrap items-stretch divide-x divide-gray-300/70 border-t border-gray-200 bg-gray-50 lg:border-l lg:border-t-0">
           <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
           <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
           <HeaderStat label="필요 점수 갭">
