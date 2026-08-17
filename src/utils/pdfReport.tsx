@@ -162,6 +162,19 @@ function preventBlockSplits(container: HTMLElement, pageHeightPx: number) {
   }
 }
 
+// createRoot().render()는 React 이벤트 핸들러 안에서 호출되면 커밋이
+// 비동기로 배치될 수 있어서, 고정된 rAF 횟수만 기다리면 다른 작업(예:
+// 같은 핸들러에서 먼저 실행된 엑셀 다운로드)과 겹칠 때 드물게 커밋 전에
+// 다음 단계로 넘어가 버린다. 실제로 DOM에 반영될 때까지 폴링해서 기다린다.
+async function waitForMount(container: HTMLElement): Promise<HTMLElement> {
+  const deadline = Date.now() + 5000
+  while (!container.firstElementChild) {
+    if (Date.now() > deadline) throw new Error('PDF 렌더링이 시간 내에 완료되지 않았습니다.')
+    await new Promise((resolve) => setTimeout(resolve, 16))
+  }
+  return container.firstElementChild as HTMLElement
+}
+
 export async function downloadPdfReport(options: ReportOptions) {
   const container = document.createElement('div')
   container.style.position = 'fixed'
@@ -173,11 +186,11 @@ export async function downloadPdfReport(options: ReportOptions) {
   const root = createRoot(container)
   root.render(<ReportDocument {...options} />)
 
-  // 폰트 로드 + 첫 렌더가 실제 DOM에 반영될 때까지 대기.
+  const docEl = await waitForMount(container)
+  // 폰트 로드 + 레이아웃이 안정될 때까지 한 프레임 더 대기.
   await document.fonts.ready
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 
-  const docEl = container.firstElementChild as HTMLElement
   preventBlockSplits(docEl, PAGE_HEIGHT_PX)
   // 마지막 페이지 아래 여백이 표 마지막 줄을 다음 페이지로 밀어내지 않도록
   // 한 번 더 강제 리플로우.

@@ -50,14 +50,14 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
         disabled={busy}
         className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        엑셀양식 다운로드
+        빈양식 다운로드
       </button>
       <button
         onClick={() => inputRef.current?.click()}
         disabled={busy}
         className="rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        엑셀양식 업로드
+        엑셀데이터 업로드
       </button>
       <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onInputChange} />
 
