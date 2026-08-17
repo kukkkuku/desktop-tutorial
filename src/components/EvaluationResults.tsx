@@ -468,9 +468,20 @@ export default function EvaluationResults() {
                         <div className="h-full w-px bg-gray-100 transition-colors group-hover:bg-accent/30" />
                       </div>
 
-                      {/* 3열: 기여도 stacked bar */}
+                      {/* 3열: 기여도 stacked bar -- 컬럼 헤더에 이미 "기여도"가 있으므로
+                          막대 위 라벨은 두지 않는다. 대신 팀원을 선택했을 때만 그 자리에
+                          "{팀원} {%}"를 표시한다(높이는 항상 예약해 행이 늘어나지 않게). */}
                       <div style={{ width: `${colWidths[2]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
-                        <p className="text-xs text-gray-400">기여도</p>
+                        <p className="h-4 text-xs font-bold leading-4">
+                          {highlightId !== null &&
+                            (hlPct > 0 ? (
+                              <span style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
+                                {members.find((m) => m.id === highlightId)?.name} {hlPct}%
+                              </span>
+                            ) : (
+                              <span className="font-normal text-gray-300">미참여</span>
+                            ))}
+                        </p>
                         {participants.length > 0 ? (
                           <div className="flex h-5 overflow-hidden rounded">
                             {participants.map(({ m, pct }) => {
@@ -499,14 +510,6 @@ export default function EvaluationResults() {
                             <span className="text-xs text-gray-300">미입력</span>
                           </div>
                         )}
-                        {highlightId !== null &&
-                          (hlPct > 0 ? (
-                            <p className="text-xs font-bold" style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
-                              {members.find((m) => m.id === highlightId)?.name} {hlPct}%
-                            </p>
-                          ) : (
-                            <p className="text-xs text-gray-300">미참여</p>
-                          ))}
                       </div>
                     </div>
                   )
