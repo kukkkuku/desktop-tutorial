@@ -51,7 +51,7 @@ function AccordionSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3.5">
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 text-left">
         <span className="flex shrink-0 items-center gap-2">
           <h3 className="text-sm font-bold text-black">{title}</h3>

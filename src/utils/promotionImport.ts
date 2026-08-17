@@ -12,6 +12,7 @@ export interface ParsedEmployeeSheet {
   sheetName: string
   name: string
   hireDate: string | null
+  promotionReviewDate: string | null
   currentLevel: Level | null
   years: ParsedAppraisalYear[]
 }
@@ -64,6 +65,13 @@ export function parseHireDateCell(value: unknown): string | null {
   return null
 }
 
+// 승급심사예정일(D3, YYYY-MM-DD 파싱)을 member.promotionReviewDate가 쓰는
+// "YYYY-MM"(월 단위 input[type=month]) 형식으로 잘라 반환한다.
+function parsePromotionReviewDateCell(value: unknown): string | null {
+  const parsed = parseHireDateCell(value)
+  return parsed ? parsed.slice(0, 7) : null
+}
+
 function cellVal(ws: XLSX.WorkSheet, ref: string): unknown {
   return ws[ref]?.v
 }
@@ -80,6 +88,7 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
     if (!name) continue
 
     const hireDate = parseHireDateCell(cellVal(ws, 'C3'))
+    const promotionReviewDate = parsePromotionReviewDateCell(cellVal(ws, 'D3'))
     const currentLevel = levelFromSheetName(sheetName)
 
     const years: ParsedAppraisalYear[] = []
@@ -94,7 +103,7 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
       years.push({ year, firstHalfGrade, secondHalfGrade, competencyGrade })
     }
 
-    results.push({ sheetName, name, hireDate, currentLevel, years })
+    results.push({ sheetName, name, hireDate, promotionReviewDate, currentLevel, years })
   }
 
   return results

@@ -36,13 +36,13 @@ export const YEAR_WEIGHTS_BY_TENURE: Record<number, number[]> = {
   5: [1.5, 1.25, 1.0, 0.75, 0.5],
 }
 
-function gradeScore(grade: EvaluationGrade | '', gradeScores: Record<EvaluationGrade, number>): number {
+export function gradeScore(grade: EvaluationGrade | '', gradeScores: Record<EvaluationGrade, number>): number {
   return grade ? (gradeScores[grade] ?? 0) : 0
 }
 
 // 한 연도의 등급점수 합 = 업적(상) + 업적(하) + 역량*2. 등급이 아직 입력되지 않은
 // 항목(빈 값)은 0으로 취급한다 — Excel의 중간평균 대체식은 재현하지 않는다.
-function yearGradeSum(record: HRAppraisalRecord, gradeScores: Record<EvaluationGrade, number>): number {
+export function yearGradeSum(record: HRAppraisalRecord, gradeScores: Record<EvaluationGrade, number>): number {
   return (
     gradeScore(record.firstHalfGrade, gradeScores) +
     gradeScore(record.secondHalfGrade, gradeScores) +

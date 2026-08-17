@@ -82,16 +82,15 @@ function CriteriaReferenceModal({
   )
 }
 
-// 성장 시뮬레이션 -- 현재→예상 점수 결과를 최우선으로 보여주고, 조건을 바꾸는
-// 입력(예상 평가/보조지표)은 그 아래 접힌 상태로 둔다. 공식 인사평가 이력도
-// 접고 펼 수 있고, 가중치 기준표는 상시 노출 대신 별도 팝업으로 확인한다.
+// 성장 시뮬레이션 -- 현재→예상 점수 결과를 최우선으로 보여주고, 그 아래
+// 공식 인사평가 이력(입력 소스)과 보조지표 입력을 한 화면에 붙여 둔다.
+// 가중치 기준표만 상시 노출 대신 별도 팝업으로 확인한다.
 export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
   const [criteriaModalOpen, setCriteriaModalOpen] = useState(false)
-  const [conditionsOpen, setConditionsOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(true)
   const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
   const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
@@ -139,53 +138,36 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         {projectedGap.toFixed(1)}점
       </p>
 
-      {/* 시뮬레이션 조건 변경 -- 결과 아래, 기본은 접힘 */}
-      <div className="rounded-lg border border-gray-200 p-3">
+      {/* 공식 인사평가 이력 -- 접고 펼 수 있음, 기본 노출. 이력 입력 바로
+          위에 보조지표 입력과 기준 보기 버튼을 나란히 둬서, 숨겨진 별도
+          섹션을 열지 않아도 바로 보이고 바로 입력할 수 있게 한다. */}
+      <div>
         <div className="flex items-center justify-between gap-2">
-          <button onClick={() => setConditionsOpen((v) => !v)} className="flex items-center gap-1.5 text-left">
-            <span className="text-xs font-bold text-black">시뮬레이션 조건 변경</span>
-            <span className="text-xs text-gray-400">{conditionsOpen ? '˄' : '˅'}</span>
+          <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+            {historyOpen ? '− 공식 인사평가 이력 접기' : '공식 인사평가 이력 보기 →'}
           </button>
           <button onClick={() => setCriteriaModalOpen(true)} className="shrink-0 text-[11px] font-medium text-gray-400 hover:text-accent">
             ⓘ 기준 보기
           </button>
         </div>
-        {conditionsOpen && (
-          <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
-            <div>
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold text-gray-500">보조지표</p>
-                <span className="text-[11px] text-gray-400">합계 {auxSum}점</span>
-              </div>
-              <p className="mt-1 text-[11px] text-gray-400">
-                미입력 연도는 기존 실적 평균으로 자동 예측됩니다. {reviewYear}년 승급심사 기준 최근 5개년 데이터는 아래 공식 인사평가 이력에서 입력하세요.
-              </p>
-              <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {AUX_KEYS.map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="block text-[11px] font-medium text-gray-400">{label}</label>
-                    <input
-                      type="number"
-                      value={aux[key]}
-                      onChange={(e) => setAux((prev) => ({ ...prev, [key]: e.target.value }))}
-                      placeholder="0"
-                      className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* 공식 인사평가 이력 -- 접고 펼 수 있음, 기본 노출 */}
-      <div>
-        <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
-          {historyOpen ? '− 공식 인사평가 이력 접기' : '공식 인사평가 이력 보기 →'}
-        </button>
         {historyOpen && (
-          <div className="mt-3">
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <p className="shrink-0 text-[11px] font-semibold text-gray-500">보조지표</p>
+              {AUX_KEYS.map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                  {label}
+                  <input
+                    type="number"
+                    value={aux[key]}
+                    onChange={(e) => setAux((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder="0"
+                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                  />
+                </label>
+              ))}
+              <span className="ml-auto shrink-0 text-[11px] text-gray-400">합계 {auxSum}점</span>
+            </div>
             <HRAppraisalHistoryPanel member={member} />
           </div>
         )}
