@@ -32,22 +32,27 @@ function HeaderStat({ label, children }: { label: string; children: React.ReactN
 
 // 최근 성과 / 성장 시뮬레이션 박스 공용 아코디언 -- 제목을 누르면 섹션 전체를
 // 접었다 펼 수 있다(내부 요소별 개별 접기와는 별개의, 섹션 단위 토글).
+// collapsedSummary를 주면 접혔을 때 제목 옆에 한 줄 요약이 보여서, 접어도
+// 핵심 수치는 계속 눈에 들어온다.
 function AccordionSection({
   title,
   open,
   onToggle,
+  collapsedSummary,
   children,
 }: {
   title: string
   open: boolean
   onToggle: () => void
+  collapsedSummary?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className="rounded-lg border border-gray-200 p-4">
-      <button onClick={onToggle} className="flex w-full items-center justify-between text-left">
-        <h3 className="text-sm font-bold text-black">{title}</h3>
-        <span className="text-gray-400">{open ? '˄' : '˅'}</span>
+      <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 text-left">
+        <h3 className="shrink-0 text-sm font-bold text-black">{title}</h3>
+        {!open && collapsedSummary && <span className="min-w-0 flex-1 truncate text-right text-[13px] text-gray-500">{collapsedSummary}</span>}
+        <span className="shrink-0 text-gray-400">{open ? '˄' : '˅'}</span>
       </button>
       {open && <div className="mt-3">{children}</div>}
     </div>
@@ -201,7 +206,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           (면담하기) -- 스플리터로 폭 조절, lg 미만에서는 위아래로 쌓인다. */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
         <div className="w-full min-w-0 space-y-5 lg:w-[var(--left-w)] lg:shrink-0">
-          <AccordionSection title="최근 성과" open={recentOpen} onToggle={() => setRecentOpen((v) => !v)}>
+          <AccordionSection
+            title="최근 성과"
+            open={recentOpen}
+            onToggle={() => setRecentOpen((v) => !v)}
+            collapsedSummary={
+              memberResult
+                ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade}) · 과제 ${currentTasks.length}건`
+                : '-'
+            }
+          >
             {currentTasks.length === 0 ? (
               <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
             ) : (
