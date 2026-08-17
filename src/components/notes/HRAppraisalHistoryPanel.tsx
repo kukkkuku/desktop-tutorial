@@ -70,6 +70,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     .filter((r) => r.memberId === member.id)
     .sort((a, b) => a.year - b.year)
 
+  // 연도별 업적을 최근 5년치는 항상 보여준다 -- 기록이 없는 해도 빈 행으로
+  // 표시해서 입력을 유도한다(고과 추이 그래프가 5개년을 다 보여주려면 여기
+  // 5년치가 먼저 채워져 있어야 한다). 5년보다 더 오래된 기록도 있으면 그대로
+  // 이어서 보여준다.
+  const currentYear = new Date().getFullYear()
+  const recentYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
+  const displayYears = Array.from(new Set([...recentYears, ...records.map((r) => r.year)])).sort((a, b) => b - a)
+
   const [form, setForm] = useState<FormValues>(EMPTY_FORM)
   const [formError, setFormError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -83,8 +91,8 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     return <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
   }
 
-  function resetForm() {
-    setForm(EMPTY_FORM)
+  function resetForm(year: number = currentYear) {
+    setForm({ year: String(year), firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' })
     setFormError('')
     setEditingId(null)
   }
@@ -145,38 +153,57 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
       <p className="mt-0.5 text-[13px] text-gray-500">앱이 계산하는 성과평가 결과와는 별개인, 회사 공식 인사평가 기록입니다.</p>
 
-      {records.length === 0 ? (
-        <p className="mt-3 rounded-md bg-gray-50 px-4 py-4 text-center text-[13px] text-gray-500">아직 등록된 인사평가 기록이 없습니다.</p>
-      ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-          <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.competency }}>
-            <thead className="bg-[#F3F4F6] text-black">
-              <tr>
-                {(
-                  [
-                    ['year', '연도'],
-                    ['first', '업적(상)'],
-                    ['second', '업적(하)'],
-                    ['competency', '역량'],
-                    ['manage', ''],
-                  ] as const
-                ).map(([key, label]) => (
-                  <ResizableTh
-                    key={key}
-                    width={key === 'competency' ? undefined : cols.widths[key]}
-                    resizable={key !== 'manage'}
-                    onResizeStart={cols.startResize(key)}
-                    onResizeMove={cols.onResizeMove}
-                    onResizeEnd={cols.onResizeEnd}
-                    className="px-3 py-2 font-semibold"
-                  >
-                    {label}
-                  </ResizableTh>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[...records].reverse().map((r) => (
+      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
+        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.competency }}>
+          <thead className="bg-[#F3F4F6] text-black">
+            <tr>
+              {(
+                [
+                  ['year', '연도'],
+                  ['first', '업적(상)'],
+                  ['second', '업적(하)'],
+                  ['competency', '역량'],
+                  ['manage', ''],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh
+                  key={key}
+                  width={key === 'competency' ? undefined : cols.widths[key]}
+                  resizable={key !== 'manage'}
+                  onResizeStart={cols.startResize(key)}
+                  onResizeMove={cols.onResizeMove}
+                  onResizeEnd={cols.onResizeEnd}
+                  className="px-3 py-2 font-semibold"
+                >
+                  {label}
+                </ResizableTh>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayYears.map((year) => {
+              const r = records.find((rec) => rec.year === year)
+              if (!r) {
+                return (
+                  <tr key={`empty-${year}`} className="border-t border-gray-200 text-gray-300">
+                    <td className="px-3 py-2 font-medium text-gray-400">{year}</td>
+                    <td className="px-3 py-2">-</td>
+                    <td className="px-3 py-2">-</td>
+                    <td className="px-3 py-2">-</td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => resetForm(year)}
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                        >
+                          입력
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              }
+              return (
                 <tr key={r.id} className="border-t border-gray-200 text-black">
                   <td className="px-3 py-2 font-medium">{r.year}</td>
                   <td className="px-3 py-2">{renderCell(r.firstHalfGrade)}</td>
@@ -193,11 +220,11 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {records.length > 0 && (
         <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-black">
@@ -224,7 +251,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
             {editingId ? '저장' : '추가'}
           </button>
           {editingId && (
-            <button onClick={resetForm} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-100">
+            <button onClick={() => resetForm()} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-100">
               취소
             </button>
           )}

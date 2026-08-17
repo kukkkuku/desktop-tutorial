@@ -2,15 +2,15 @@ import { useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import type { EvaluationGrade } from '../../types'
 import {
   calcAllTaskScores,
   calcMemberResults,
   getContribution,
   getEffectiveContributionPercent,
 } from '../../utils/calculations'
-import { calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
+import { appraisalRecordGrade, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
-import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import TrendSparkline from './TrendSparkline'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -74,10 +74,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const currentWeightedScore = readiness?.weightedScore ?? 0
   const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
 
-  const trendPoints = [...getMemberPerformanceHistory(memberId, periods)]
-    .reverse()
-    .filter((h) => h.grade !== null)
-    .map((h) => ({ period: h.workspace.periodName, grade: h.grade! }))
+  // 고과 추이는 워크스페이스별 계산 성과가 아니라 공식 인사평가 이력(연도별
+  // 업적/역량 등급)이 이전 성과 기준이다 -- 승진심사/승진자격 기준과 같은
+  // 데이터 소스를 쓴다.
+  const trendPoints = appraisals
+    .map((r) => {
+      const grade = appraisalRecordGrade(r, profile.gradeScores)
+      return grade ? { period: String(r.year), grade } : null
+    })
+    .filter((p): p is { period: string; grade: EvaluationGrade } => p !== null)
 
   const todayStr = new Date().toISOString().slice(0, 10)
   const lastMeetingDate =

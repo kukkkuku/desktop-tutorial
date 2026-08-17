@@ -161,6 +161,31 @@ export function calcSimulatedPromotionTotal(
   return { nextYear, simTotal, simEligible, simGap }
 }
 
+// 공식 인사평가 이력 한 해(업적 상/하반기 + 역량)를 "고과 추이" 그래프에 찍을
+// 점 하나로 대표할 등급 하나로 압축한다. 세 등급의 평균 점수에 가장 가까운
+// 등급을 고른다(동점이면 더 높은 등급). 세 항목이 모두 비어있으면 그 해는
+// 그래프에서 뺀다(null).
+export function appraisalRecordGrade(
+  record: HRAppraisalRecord,
+  gradeScores: Record<EvaluationGrade, number>,
+): EvaluationGrade | null {
+  const grades = [record.firstHalfGrade, record.secondHalfGrade, record.competencyGrade].filter(
+    (g): g is EvaluationGrade => g !== '',
+  )
+  if (grades.length === 0) return null
+  const avg = grades.reduce((sum, g) => sum + gradeScores[g], 0) / grades.length
+  let best = GRADE_ORDER[0]
+  let bestDiff = Infinity
+  for (const g of GRADE_ORDER) {
+    const diff = Math.abs(gradeScores[g] - avg)
+    if (diff < bestDiff || (diff === bestDiff && gradeScores[g] > gradeScores[best])) {
+      bestDiff = diff
+      best = g
+    }
+  }
+  return best
+}
+
 export const GRADE_ORDER: EvaluationGrade[] = ['D', 'C', 'B', 'A', 'S']
 
 // GRADE_ORDER 상에서 한 단계 위 등급. 이미 최고 등급(S)이면 null.
