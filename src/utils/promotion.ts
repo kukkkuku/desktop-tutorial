@@ -127,38 +127,80 @@ export function calcPromotionReadiness(
   return { criteria, rawScore, weightedScore, eligible, tenureMet, progressPercent, gap }
 }
 
-// 예상(시뮬레이션) 승진 점수 -- 다음 연도 예상 등급 + 보조지표 합계를 반영한
-// 가중합계. 요약 Bar와 성장 시뮬레이션 패널이 같은 입력값(보조지표/예상 등급)을
-// 공유해서 독립적으로 호출하므로 화면 두 곳의 숫자가 항상 일치한다.
-export function calcSimulatedPromotionTotal(
+// 연도별 실제 등급이 없을 때 대체할 "평년" 등급점수합 -- 원본 엑셀의
+// IFERROR(...,$L$13/$L$15) 그대로다: 업적(상)·업적(하)는 하나로 묶어 평균 내고,
+// 역량은 별도로(이미 ×2 반영) 평균 낸다. 입력된 기록이 하나도 없으면 0.
+export function calcAverageYearGradeSum(
+  records: HRAppraisalRecord[],
+  gradeScores: Record<EvaluationGrade, number>,
+): number {
+  const achievementScores: number[] = []
+  const competencyScores: number[] = []
+  for (const r of records) {
+    if (r.firstHalfGrade) achievementScores.push(gradeScores[r.firstHalfGrade] ?? 0)
+    if (r.secondHalfGrade) achievementScores.push(gradeScores[r.secondHalfGrade] ?? 0)
+    if (r.competencyGrade) competencyScores.push((gradeScores[r.competencyGrade] ?? 0) * 2)
+  }
+  const avgAchievement = achievementScores.length > 0 ? achievementScores.reduce((a, b) => a + b, 0) / achievementScores.length : 0
+  const avgCompetency = competencyScores.length > 0 ? competencyScores.reduce((a, b) => a + b, 0) / competencyScores.length : 0
+  return avgAchievement * 2 + avgCompetency
+}
+
+// 특정 연도를 기준으로 그 앞 5개년(anchorYear-1 ~ anchorYear-5)의 가중합계를
+// 구한다. 실제 기록이 있는 해는 그 등급을 쓰고, 없는 해는 평년 값(위 함수)으로
+// 채운다 -- 엑셀의 "육성 시뮬레이션" 표가 승급심사 예정년도를 기준으로 미입력
+// 연도를 자동으로 평년 실적으로 예측하는 방식 그대로다.
+export function calcAnchoredWeightedScore(
+  records: HRAppraisalRecord[],
+  gradeScores: Record<EvaluationGrade, number>,
+  tenureYears: number,
+  anchorYear: number,
+  auxScore = 0,
+): number {
+  const weights = YEAR_WEIGHTS_BY_TENURE[tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5]
+  const fallback = calcAverageYearGradeSum(records, gradeScores)
+  const byYear = new Map(records.map((r) => [r.year, r]))
+  let weighted = 0
+  for (let i = 0; i < 5; i++) {
+    const year = anchorYear - 1 - i
+    const weight = weights[i] ?? 0
+    const record = byYear.get(year)
+    const yearScore = record ? yearGradeSum(record, gradeScores) : fallback
+    weighted += weight * yearScore
+  }
+  return weighted + auxScore
+}
+
+// 승급심사 예정년도까지의 예상 승진 점수 -- 실제 입력된 연도는 그대로, 미입력
+// 연도는 평년 실적으로 채워 승급심사 시점 기준 가중합계를 예측한다.
+export function calcProjectedPromotionScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
   criteria: PromotionCriteriaRow,
-  auxSum: number,
-  simFirst: EvaluationGrade | '',
-  simSecond: EvaluationGrade | '',
-  simCompetency: EvaluationGrade | '',
-): { nextYear: number; simTotal: number; simEligible: boolean; simGap: number } {
-  const simHasInput = simFirst !== '' || simSecond !== '' || simCompetency !== ''
-  const nextYear = (records[records.length - 1]?.year ?? new Date().getFullYear() - 1) + 1
-  const simRecords = simHasInput
-    ? [
-        ...records.filter((r) => r.year !== nextYear),
-        {
-          id: 'sim',
-          memberId: records[0]?.memberId ?? '',
-          year: nextYear,
-          firstHalfGrade: simFirst,
-          secondHalfGrade: simSecond,
-          competencyGrade: simCompetency,
-        },
-      ]
-    : records
-  const simWeighted = calcPromotionWeightedScore(simRecords, gradeScores, criteria.tenureYears, 0)
-  const simTotal = Math.round((simWeighted + auxSum) * 10) / 10
-  const simEligible = simTotal >= criteria.requiredScore
-  const simGap = Math.round((simTotal - criteria.requiredScore) * 10) / 10
-  return { nextYear, simTotal, simEligible, simGap }
+  reviewYear: number,
+  auxScore = 0,
+): { projectedTotal: number; projectedEligible: boolean; projectedGap: number } {
+  const projectedTotal = Math.round(calcAnchoredWeightedScore(records, gradeScores, criteria.tenureYears, reviewYear, auxScore) * 10) / 10
+  const projectedEligible = projectedTotal >= criteria.requiredScore
+  const projectedGap = Math.round((projectedTotal - criteria.requiredScore) * 10) / 10
+  return { projectedTotal, projectedEligible, projectedGap }
+}
+
+// 승급심사 예정 연도 -- member.promotionReviewDate("YYYY-MM")가 있으면 그 연도를
+// 쓰고, 없으면 현재 직급 연차 기준으로 남은 연차만큼 올해에 더한 예상 연도를
+// 쓴다(승진 기준의 필요 연차 - 이미 채운 연차).
+export function resolveReviewYear(
+  promotionReviewDate: string | null | undefined,
+  criteria: PromotionCriteriaRow | null,
+  levelTenureYears: number | null,
+): number {
+  if (promotionReviewDate) {
+    const y = Number(promotionReviewDate.slice(0, 4))
+    if (Number.isFinite(y) && y > 0) return y
+  }
+  const currentYear = new Date().getFullYear()
+  if (!criteria) return currentYear
+  return currentYear + Math.max(0, criteria.tenureYears - (levelTenureYears ?? 0))
 }
 
 // 공식 인사평가 이력 한 해(업적 상/하반기 + 역량)를 "고과 추이" 그래프에 찍을

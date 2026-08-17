@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import type { EvaluationGrade, PromotionCriteriaRow, TeamMember } from '../../types'
-import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
-import { calcPromotionWeightedScore, calcSimulatedPromotionTotal, findPromotionCriteria, YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
+import {
+  calcProjectedPromotionScore,
+  calcPromotionWeightedScore,
+  findPromotionCriteria,
+  resolveReviewYear,
+  YEAR_WEIGHTS_BY_TENURE,
+} from '../../utils/promotion'
+import { calcYearsSince } from '../../utils/tenure'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 
-// 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 세션 단위 시뮬레이션 입력이며
-// 예상 총점에 즉시 반영된다.
+// 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 승급심사 예정년도까지의
+// 예상 점수(시뮬레이션 가산)에만 반영된다.
 const AUX_KEYS = [
   { key: 'position', label: '직책' },
   { key: 'reward', label: '상벌' },
@@ -14,26 +20,6 @@ const AUX_KEYS = [
   { key: 'education', label: '교육' },
 ] as const
 type AuxKey = (typeof AUX_KEYS)[number]['key']
-
-function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; onChange: (v: EvaluationGrade | '') => void; label: string }) {
-  return (
-    <div>
-      <label className="block text-[11px] font-medium text-gray-400">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
-        className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-      >
-        <option value="">-</option>
-        {PERFORMANCE_GRADE_OPTIONS.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </select>
-    </div>
-  )
-}
 
 // 가중치 기준표 -- 상시 노출하지 않고 "기준 보기"를 눌렀을 때만 별도 팝업으로
 // 띄운다. 평가등급별 점수/연차별 가중치/직급별 승진자격 점수는 읽기 전용 참고
@@ -110,25 +96,15 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
   const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
 
-  const [simFirst, setSimFirst] = useState<EvaluationGrade | ''>('')
-  const [simSecond, setSimSecond] = useState<EvaluationGrade | ''>('')
-  const [simCompetency, setSimCompetency] = useState<EvaluationGrade | ''>('')
-
   if (!criteria) {
     return <p className="text-sm text-gray-400">{member.level || '이 직급'}에 대한 승진 기준이 설정되지 않았습니다.</p>
   }
 
   const currentScore = calcPromotionWeightedScore(records, profile.gradeScores, criteria.tenureYears, 0)
-  const { nextYear, simTotal, simGap } = calcSimulatedPromotionTotal(
-    records,
-    profile.gradeScores,
-    criteria,
-    auxSum,
-    simFirst,
-    simSecond,
-    simCompetency,
-  )
-  const simDelta = Math.round((simTotal - currentScore) * 10) / 10
+  const levelTenureYears = calcYearsSince(member.currentLevelSince)
+  const reviewYear = resolveReviewYear(member.promotionReviewDate, criteria, levelTenureYears)
+  const { projectedTotal, projectedGap } = calcProjectedPromotionScore(records, profile.gradeScores, criteria, reviewYear, auxSum)
+  const simDelta = Math.round((projectedTotal - currentScore) * 10) / 10
 
   return (
     <div className="space-y-4">
@@ -154,13 +130,13 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
           →
         </span>
         <div>
-          <p className="text-[11px] text-gray-500">최종 시뮬레이션 점수 ({nextYear}년)</p>
-          <p className="mt-1 text-2xl font-bold text-black">{simTotal.toFixed(1)}점</p>
+          <p className="text-[11px] text-gray-500">최종 시뮬레이션 점수 ({reviewYear}년)</p>
+          <p className="mt-1 text-2xl font-bold text-black">{projectedTotal.toFixed(1)}점</p>
         </div>
       </div>
       <p className="text-[11px] text-gray-500">
-        ※ 승진 자격 기준 대비 {simGap >= 0 ? '+' : ''}
-        {simGap.toFixed(1)}점
+        ※ 승진 자격 기준 대비 {projectedGap >= 0 ? '+' : ''}
+        {projectedGap.toFixed(1)}점
       </p>
 
       {/* 시뮬레이션 조건 변경 -- 결과 아래, 기본은 접힘 */}
@@ -177,18 +153,13 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         {conditionsOpen && (
           <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
             <div>
-              <p className="text-[11px] font-semibold text-gray-500">{nextYear}년(예상) 평가</p>
-              <div className="mt-1.5 grid grid-cols-3 gap-2">
-                <GradeSelect label="업적(상)" value={simFirst} onChange={setSimFirst} />
-                <GradeSelect label="업적(하)" value={simSecond} onChange={setSimSecond} />
-                <GradeSelect label="역량" value={simCompetency} onChange={setSimCompetency} />
-              </div>
-            </div>
-            <div>
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold text-gray-500">보조지표</p>
                 <span className="text-[11px] text-gray-400">합계 {auxSum}점</span>
               </div>
+              <p className="mt-1 text-[11px] text-gray-400">
+                미입력 연도는 기존 실적 평균으로 자동 예측됩니다. {reviewYear}년 승급심사 기준 최근 5개년 데이터는 아래 공식 인사평가 이력에서 입력하세요.
+              </p>
               <div className="mt-1.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {AUX_KEYS.map(({ key, label }) => (
                   <div key={key}>

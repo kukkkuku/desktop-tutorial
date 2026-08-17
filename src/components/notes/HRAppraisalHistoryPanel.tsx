@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
-import { trendArrow } from '../../utils/promotion'
+import { findPromotionCriteria, resolveReviewYear, trendArrow } from '../../utils/promotion'
+import { calcYearsSince } from '../../utils/tenure'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ConfirmDialog from '../ConfirmDialog'
 import ResizableTh from '../table/ResizableTh'
@@ -24,45 +25,35 @@ const GRADE_BADGE: Record<EvaluationGrade, string> = {
   D: 'text-red-600 bg-red-50',
 }
 
-interface FormValues {
-  year: string
+interface DraftGrades {
   firstHalfGrade: EvaluationGrade | ''
   secondHalfGrade: EvaluationGrade | ''
   competencyGrade: EvaluationGrade | ''
 }
 
-const EMPTY_FORM: FormValues = { year: String(new Date().getFullYear()), firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' }
+const EMPTY_DRAFT: DraftGrades = { firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' }
 
-function GradeSelect({
-  value,
-  onChange,
-  label,
-}: {
-  value: EvaluationGrade | ''
-  onChange: (v: EvaluationGrade | '') => void
-  label: string
-}) {
+function InlineGradeSelect({ value, onChange }: { value: EvaluationGrade | ''; onChange: (v: EvaluationGrade | '') => void }) {
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-gray-400">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
-        className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-      >
-        <option value="">-</option>
-        {PERFORMANCE_GRADE_OPTIONS.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
+      className="w-full rounded-md border border-gray-300 px-1.5 py-1 text-sm text-black"
+    >
+      <option value="">-</option>
+      {PERFORMANCE_GRADE_OPTIONS.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+    </select>
   )
 }
 
 // 회사 공식 인사평가 원장 -- 승진 시뮬레이션(PromotionSimulationPanel)의
-// 재료가 되는 원본 기록. "과거 성과 보기"에서 보조적으로 열람/수정한다.
+// 재료가 되는 원본 기록. 승급심사 예정년도를 기준으로 최근 5개년을 항상
+// 행으로 보여준다(기록이 없는 해도 빈 행 + "입력"). 수정/입력 모두 그 행에서
+// 바로 인풋이 열리는 인라인 편집이다(다른 테이블 메뉴와 같은 방식).
 export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember }) {
   const { profile, upsertAppraisal, deleteAppraisal } = useTeamProfile()
   const cols = useResizableColumns(APPRAISAL_COLUMNS)
@@ -70,17 +61,17 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     .filter((r) => r.memberId === member.id)
     .sort((a, b) => a.year - b.year)
 
-  // 연도별 업적을 최근 5년치는 항상 보여준다 -- 기록이 없는 해도 빈 행으로
-  // 표시해서 입력을 유도한다(고과 추이 그래프가 5개년을 다 보여주려면 여기
-  // 5년치가 먼저 채워져 있어야 한다). 5년보다 더 오래된 기록도 있으면 그대로
-  // 이어서 보여준다.
-  const currentYear = new Date().getFullYear()
-  const recentYears = Array.from({ length: 5 }, (_, i) => currentYear - i)
+  // 승급심사 예정년도 기준 최근 5개년은 항상 행으로 보여준다 -- 기록이 없는 해도
+  // 빈 행 + 입력 버튼으로 표시해서 팀장이 예측 입력을 채워 넣기 쉽게 한다. 5년보다
+  // 더 오래된 기록도 있으면 그대로 이어서 보여준다.
+  const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
+  const levelTenureYears = calcYearsSince(member.currentLevelSince)
+  const reviewYear = resolveReviewYear(member.promotionReviewDate, criteria, levelTenureYears)
+  const recentYears = Array.from({ length: 5 }, (_, i) => reviewYear - 1 - i)
   const displayYears = Array.from(new Set([...recentYears, ...records.map((r) => r.year)])).sort((a, b) => b - a)
 
-  const [form, setForm] = useState<FormValues>(EMPTY_FORM)
-  const [formError, setFormError] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingYear, setEditingYear] = useState<number | null>(null)
+  const [draft, setDraft] = useState<DraftGrades>(EMPTY_DRAFT)
   const [deleting, setDeleting] = useState<HRAppraisalRecord | null>(null)
   const [view, setView] = useState<'grade' | 'score'>('grade')
 
@@ -91,42 +82,25 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     return <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
   }
 
-  function resetForm(year: number = currentYear) {
-    setForm({ year: String(year), firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' })
-    setFormError('')
-    setEditingId(null)
+  function startEdit(year: number, record?: HRAppraisalRecord) {
+    setEditingYear(year)
+    setDraft(
+      record
+        ? { firstHalfGrade: record.firstHalfGrade, secondHalfGrade: record.secondHalfGrade, competencyGrade: record.competencyGrade }
+        : EMPTY_DRAFT,
+    )
   }
 
-  function startEdit(record: HRAppraisalRecord) {
-    setEditingId(record.id)
-    setForm({
-      year: String(record.year),
-      firstHalfGrade: record.firstHalfGrade,
-      secondHalfGrade: record.secondHalfGrade,
-      competencyGrade: record.competencyGrade,
-    })
-    setFormError('')
-  }
-
-  function handleSave() {
-    const year = Number(form.year)
-    if (!Number.isFinite(year) || year < 2000) {
-      setFormError('연도를 올바르게 입력하세요.')
-      return
-    }
-    if (!editingId && records.some((r) => r.year === year)) {
-      setFormError(`${year}년 기록이 이미 있습니다. 목록에서 수정하세요.`)
-      return
-    }
+  function saveEdit(year: number, existingId?: string) {
     upsertAppraisal({
-      id: editingId ?? uuidv4(),
+      id: existingId ?? uuidv4(),
       memberId: member.id,
       year,
-      firstHalfGrade: form.firstHalfGrade,
-      secondHalfGrade: form.secondHalfGrade,
-      competencyGrade: form.competencyGrade,
+      firstHalfGrade: draft.firstHalfGrade,
+      secondHalfGrade: draft.secondHalfGrade,
+      competencyGrade: draft.competencyGrade,
     })
-    resetForm()
+    setEditingYear(null)
   }
 
   const achievementTrend = trendArrow(records.slice(-3).flatMap((r) => [r.firstHalfGrade, r.secondHalfGrade]))
@@ -151,7 +125,9 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           </button>
         </div>
       </div>
-      <p className="mt-0.5 text-[13px] text-gray-500">앱이 계산하는 성과평가 결과와는 별개인, 회사 공식 인사평가 기록입니다.</p>
+      <p className="mt-0.5 text-[13px] text-gray-500">
+        앱이 계산하는 성과평가 결과와는 별개인, 회사 공식 인사평가 기록입니다. 승급심사 예정년도({reviewYear}년) 기준 최근 5개년을 보여줍니다.
+      </p>
 
       <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.competency }}>
@@ -183,6 +159,35 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           <tbody>
             {displayYears.map((year) => {
               const r = records.find((rec) => rec.year === year)
+              const isEditing = editingYear === year
+
+              if (isEditing) {
+                return (
+                  <tr key={`edit-${year}`} className="border-t border-gray-200 bg-orange-50/30 text-black">
+                    <td className="px-3 py-2 font-medium">{year}</td>
+                    <td className="px-3 py-2">
+                      <InlineGradeSelect value={draft.firstHalfGrade} onChange={(v) => setDraft((d) => ({ ...d, firstHalfGrade: v }))} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <InlineGradeSelect value={draft.secondHalfGrade} onChange={(v) => setDraft((d) => ({ ...d, secondHalfGrade: v }))} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <InlineGradeSelect value={draft.competencyGrade} onChange={(v) => setDraft((d) => ({ ...d, competencyGrade: v }))} />
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-1.5">
+                        <button onClick={() => saveEdit(year, r?.id)} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white hover:opacity-90">
+                          저장
+                        </button>
+                        <button onClick={() => setEditingYear(null)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">
+                          취소
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              }
+
               if (!r) {
                 return (
                   <tr key={`empty-${year}`} className="border-t border-gray-200 text-gray-300">
@@ -193,7 +198,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <td className="px-3 py-2">
                       <div className="flex justify-end">
                         <button
-                          onClick={() => resetForm(year)}
+                          onClick={() => startEdit(year)}
                           className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                         >
                           입력
@@ -203,6 +208,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   </tr>
                 )
               }
+
               return (
                 <tr key={r.id} className="border-t border-gray-200 text-black">
                   <td className="px-3 py-2 font-medium">{r.year}</td>
@@ -211,7 +217,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   <td className="px-3 py-2">{renderCell(r.competencyGrade)}</td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1.5">
-                      <button onClick={() => startEdit(r)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">
+                      <button onClick={() => startEdit(year, r)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">
                         수정
                       </button>
                       <button onClick={() => setDeleting(r)} className="rounded-md border border-danger px-2 py-1 text-xs text-danger hover:bg-red-50">
@@ -232,32 +238,6 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           <span className="text-gray-500">역량</span> {competencyTrend}
         </div>
       )}
-
-      <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-gray-200 p-3 sm:grid-cols-5 sm:items-end">
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400">연도</label>
-          <input
-            type="number"
-            value={form.year}
-            onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}
-            className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-          />
-        </div>
-        <GradeSelect label="업적(상)" value={form.firstHalfGrade} onChange={(v) => setForm((f) => ({ ...f, firstHalfGrade: v }))} />
-        <GradeSelect label="업적(하)" value={form.secondHalfGrade} onChange={(v) => setForm((f) => ({ ...f, secondHalfGrade: v }))} />
-        <GradeSelect label="역량" value={form.competencyGrade} onChange={(v) => setForm((f) => ({ ...f, competencyGrade: v }))} />
-        <div className="flex gap-1.5">
-          <button onClick={handleSave} className="w-full rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90">
-            {editingId ? '저장' : '추가'}
-          </button>
-          {editingId && (
-            <button onClick={() => resetForm()} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-gray-100">
-              취소
-            </button>
-          )}
-        </div>
-      </div>
-      {formError && <p className="mt-1.5 text-xs text-danger">{formError}</p>}
 
       <ConfirmDialog
         open={deleting !== null}
