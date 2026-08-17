@@ -62,7 +62,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
     <AppProvider workspaceId={workspaceId}>
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
-          <div className="min-h-screen bg-white">
+          <div className="flex min-h-screen flex-col bg-white">
             <div ref={headerRef}>
               <StageTabs
                 stage={stage}
@@ -75,7 +75,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onExit={exitToLanding}
               />
             </div>
-            <div className="flex min-h-0">
+            <div className="flex min-h-0 flex-1">
               {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {stage === 'data' && <DataStage />}

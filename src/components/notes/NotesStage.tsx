@@ -52,7 +52,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   }, [activeMembers.map((m) => m.id).join(',')])
 
   return (
-    <div className="-mx-4 -my-6 flex items-stretch sm:-mx-6 lg:-mx-8">
+    <div className="-mx-4 -my-6 flex min-h-full items-stretch sm:-mx-6 lg:-mx-8">
       <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 p-4">
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
