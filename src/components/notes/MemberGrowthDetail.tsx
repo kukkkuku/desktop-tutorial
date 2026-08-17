@@ -264,7 +264,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             )}
           </AccordionSection>
 
-          <AccordionSection title="성장 시뮬레이션" open={simOpen} onToggle={() => setSimOpen((v) => !v)}>
+          <AccordionSection
+            title="성장 시뮬레이션"
+            open={simOpen}
+            onToggle={() => setSimOpen((v) => !v)}
+            collapsedSummary={
+              promotionCriteria
+                ? `${currentWeightedScore.toFixed(1)}점 · ${scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}`
+                : '-'
+            }
+          >
             <PromotionSimulationPanel member={member} />
             <div className="mt-4 flex flex-wrap gap-2">
               <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
