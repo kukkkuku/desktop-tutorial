@@ -70,9 +70,9 @@ interface MemberGrowthDetailProps {
   prepRequest?: { memberId: string; token: number } | null
 }
 
-const DEFAULT_LEFT_WIDTH = 760
-const MIN_LEFT_WIDTH = 420
-const MAX_LEFT_WIDTH = 1100
+const DEFAULT_LEFT_WIDTH = 560
+const MIN_LEFT_WIDTH = 380
+const MAX_LEFT_WIDTH = 760
 
 // 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
 // 상단 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
@@ -215,9 +215,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       </div>
 
       {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
-          (면담하기) -- 스플리터로 폭 조절, lg 미만에서는 위아래로 쌓인다. */}
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
-        <div className="w-full min-w-0 space-y-5 lg:w-[var(--left-w)] lg:shrink-0">
+          (면담하기) -- 스플리터로 폭 조절. 좌측 팀원 레일 + 우측 면담 일정
+          레일이 이미 폭을 상당히 가져가므로, 2xl(≥1536px) 미만에서는 두 열
+          다 찌그러지지 않도록 위아래로 쌓는다. */}
+      <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
+        <div className="w-full min-w-0 space-y-5 2xl:w-[var(--left-w)] 2xl:shrink-0">
           <AccordionSection
             title="최근 성과"
             open={recentOpen}
@@ -316,13 +318,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           aria-label="좌우 폭 조절"
           role="separator"
           aria-orientation="vertical"
-          className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch lg:flex lg:w-3"
+          className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch 2xl:flex 2xl:w-3"
         >
           <span className="w-1 shrink-0 rounded-full bg-gray-200 transition-colors group-hover:bg-accent group-active:bg-accent" />
         </div>
 
-        {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다 */}
-        <div className="w-full min-w-0 flex-1">
+        {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다. 좌측 폭이
+            넓게 당겨져도 입력칸이 찌그러지지 않도록 최소 폭을 보장한다. */}
+        <div className="w-full min-w-[320px] flex-1">
           <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
         </div>
       </div>

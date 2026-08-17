@@ -58,8 +58,7 @@ export interface MeetingNote {
   keyPoints?: string
   nextCheckDate?: string
   actions?: MeetingActionItem[]
-  // 구버전 필드(육성 포인트) — 새 화면에는 입력 UI가 없지만, 과거에 저장된
-  // 데이터를 읽을 때 깨지지 않도록 타입만 유지한다.
+  // 육성 포인트 — 면담일지의 강점/보완 필요/다음 도전 경험/Career Goal 입력값.
   strengths?: string
   improvements?: string
   nextExperience?: string

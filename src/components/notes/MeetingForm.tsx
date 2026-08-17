@@ -78,8 +78,8 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
-      <h3 className="text-sm font-bold text-black">면담일지</h3>
+    <div className="rounded-lg border border-gray-200 p-6">
+      <h3 className="text-base font-bold text-black">면담일지</h3>
 
       <div className="mt-3 flex items-end gap-3">
         <div className="min-w-0 flex-1">
@@ -96,7 +96,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
       </div>
 
       <div className="mt-3">
-        <label className="block text-[11px] font-medium text-gray-400">면담 코멘트</label>
+        <label className="block text-[11px] font-medium text-gray-400">코멘트</label>
         <textarea
           ref={commentRef}
           value={comment}
@@ -107,7 +107,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-3 flex flex-col gap-3">
         <div>
           <label className="block text-[11px] font-medium text-gray-400">강점</label>
           <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
@@ -180,7 +180,24 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
                     </button>
                   </div>
                 </div>
-                {note.comment && <p className="mt-1 whitespace-pre-wrap text-[13px] text-black">{note.comment}</p>}
+                {(() => {
+                  const line = [
+                    ['강점', note.strengths],
+                    ['보완 필요', note.improvements],
+                    ['다음 도전 경험', note.nextExperience],
+                    ['Career Goal', note.careerInterest],
+                    ['코멘트', note.comment],
+                  ]
+                    .filter(([, value]) => value?.trim())
+                    .map(([label, value]) => `${label}: ${value}`)
+                    .join('   ·   ')
+                  if (!line) return null
+                  return (
+                    <p className="mt-1 truncate text-[13px] text-black" title={line}>
+                      {line}
+                    </p>
+                  )
+                })()}
               </div>
             ),
           )}
