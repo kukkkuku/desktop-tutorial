@@ -126,18 +126,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   return (
     <div className="space-y-5">
       {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별한다.
-          현재 성과 그룹과 승진 시뮬레이션 그룹을 별도 박스로 나누고, 각 박스는
-          grid라서 화면이 좁아지면 열 수가 줄며 다음 줄로 재배치된다(가로
-          스크롤 없이). */}
-      <div className="space-y-3">
-        <p className="text-base font-bold text-black">
-          {member.name}
-          <span className="ml-2 font-normal text-gray-400">
-            {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-          </span>
-        </p>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-x-5 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          박스/배경 없이 두 줄로만 구분하고, 그 사이에 얇은 구분선 하나만 둔다.
+          각 줄은 grid(auto-fit)라서 화면이 좁아지면 열 수가 줄며 다음 줄로
+          재배치된다(가로 스크롤 없이). */}
+      <div>
+        <div className="grid grid-cols-[minmax(160px,auto)_repeat(auto-fit,minmax(130px,1fr))] gap-x-8 gap-y-3 border-b border-gray-200 pb-4">
+          <div className="min-w-0">
+            <p className="truncate text-base font-bold text-black">{member.name}</p>
+            <p className="mt-0.5 truncate text-[13px] text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </p>
+          </div>
           <HeaderStat label="현재 성과">
             {memberResult ? (
               <>
@@ -158,29 +157,27 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-          <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(115px,1fr))] gap-x-5 gap-y-3">
-            <HeaderStat label="목표 승진 연도">{targetYear ?? '-'}</HeaderStat>
-            <HeaderStat label="현재 직급/연차">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</HeaderStat>
-            <HeaderStat label="목표 승진 직급">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
-            <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
-            <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
-            <HeaderStat label="예상 총점">{sim ? `${sim.simTotal.toFixed(1)}점` : '-'}</HeaderStat>
-            <HeaderStat label="승급심사">
-              <input
-                type="month"
-                value={member.promotionReviewDate ?? ''}
-                onChange={(e) =>
-                  dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })
-                }
-                className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </HeaderStat>
-          </div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(115px,1fr))] gap-x-8 gap-y-3 pt-4">
+          <HeaderStat label="목표 승진 연도">{targetYear ?? '-'}</HeaderStat>
+          <HeaderStat label="현재 직급/연차">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</HeaderStat>
+          <HeaderStat label="목표 승진 직급">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
+          <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="예상 총점">{sim ? `${sim.simTotal.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="승급심사">
+            <input
+              type="month"
+              value={member.promotionReviewDate ?? ''}
+              onChange={(e) =>
+                dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })
+              }
+              className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </HeaderStat>
           {promotionCriteria && (
-            <span className={`shrink-0 text-sm font-bold ${sim?.simEligible ? 'text-accent' : 'text-gray-400'}`}>
-              {sim?.simEligible ? '승진 가능' : '기준 미달'}
-            </span>
+            <HeaderStat label="최종 판단">
+              <span className={sim?.simEligible ? 'text-accent' : 'text-gray-400'}>{sim?.simEligible ? '승진 가능' : '기준 미달'}</span>
+            </HeaderStat>
           )}
         </div>
       </div>
