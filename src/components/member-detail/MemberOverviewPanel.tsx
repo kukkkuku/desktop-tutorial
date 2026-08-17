@@ -64,9 +64,7 @@ export default function MemberOverviewPanel({
             <p className="mt-1 text-xl font-bold text-black">
               {readiness.weightedScore.toFixed(1)} / {readiness.criteria.requiredScore}
             </p>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {readiness.progressPercent}% · {readiness.gap > 0 ? `${readiness.gap}점 부족` : '자격점수 충족'}
-            </p>
+            <p className="mt-0.5 text-xs text-gray-500">{readiness.gap > 0 ? `${readiness.gap}점 부족` : '자격점수 충족'}</p>
           </>
         ) : (
           <p className="mt-1 text-sm text-gray-400">다음 직급 승진 기준이 설정되지 않았습니다.</p>

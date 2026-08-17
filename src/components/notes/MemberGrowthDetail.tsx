@@ -215,9 +215,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
             </HeaderStat>
             <HeaderStat label="등급 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-            <HeaderStat label="준비도">
-              <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
-            </HeaderStat>
             <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
             <HeaderStat label="고과 추이 (5년)">
               <TrendSparkline points={trendPoints} width={100} />

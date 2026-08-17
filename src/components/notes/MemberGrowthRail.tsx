@@ -64,7 +64,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 <p className="mt-1.5 truncate text-sm text-gray-400">
                   {[member.role, formatLevelTenureLabel(member.level, calcYearsSince(member.currentLevelSince))].filter(Boolean).join(' · ') || '-'}
                 </p>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="mt-2">
                   {result ? (
                     <span className="truncate text-base font-bold text-black">
                       {result.grade} ({result.cumulativeScore.toFixed(1)}점)
@@ -72,9 +72,6 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                   ) : (
                     <span className="text-base text-gray-300">데이터 없음</span>
                   )}
-                  <span className="shrink-0 rounded-md bg-gray-100 px-2.5 py-1 text-sm font-medium text-gray-500">
-                    준비도 {readiness ? `${readiness.progressPercent}%` : '-'}
-                  </span>
                 </div>
               </button>
             )
