@@ -187,34 +187,35 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     <div>
       {/* 상단 프로필 요약 -- Figma 디자인 그대로: 카드처럼 사방이 둥글게 닫힌
           박스가 아니라, 아래쪽 구분선 하나로만 다음 섹션과 나뉘는 얇은 바.
-          이름/직무 다음에 일반 성과 지표(합계 점수/등급 순위/준비도/최근
-          면담/고과 추이)가 박스 없이 이어지고, 승진 관련 지표(승급일/직급
-          기준/평가 점수/승격 기준/승격 점수 갭)만 왼쪽 구분선 + 옅은 회색
-          배경으로 구분하되, 별도 박스로 띄우지 않고 바 오른쪽 끝까지
-          이어서 채운다. 부모(NotesStage 중앙 컬럼)가 패딩을 주지 않으므로
-          이 바가 레일/면담 일정 구분선까지 여백 없이 딱 붙는다 -- 안쪽
-          내용의 여백은 이 바 자신의 px-5/py-4로만 만든다. */}
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-gray-200 bg-white px-5 py-4">
-        <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-black">{member.name}</p>
-          <p className="mt-0.5 truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
+          바 전체를 flex-[1_1_0%] 반반으로 나눠서(왼쪽: 이름+일반 지표, 오른쪽:
+          승진 관련 지표) 내용 길이와 무관하게 항상 좌우 끝까지 꽉 차게 한다.
+          화면이 좁아 오른쪽 승진 박스가 아래 줄로 넘어가도, flex-wrap 상태에서
+          혼자 남은 flex-[1_1_0%] 아이템은 그 줄 전체를 그대로 채우므로 왼쪽부터
+          오른쪽까지 회색 배경이 끊기지 않는다(내용 폭에 맞춰 밀어내는 ml-auto
+          방식은 줄바꿈되면 밀 대상이 없어져 배경이 중간에 뜨는 문제가 있었다). */}
+      <div className="flex flex-wrap items-stretch border-b border-gray-200 bg-white">
+        <div className="flex min-w-0 flex-[1_1_0%] flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
+          <div className="min-w-0">
+            <p className="truncate text-lg font-bold text-black">{member.name}</p>
+            <p className="mt-0.5 truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+            <HeaderStat label="합계 점수">
+              {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
+            </HeaderStat>
+            <HeaderStat label="등급 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
+            <HeaderStat label="준비도">
+              <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
+            </HeaderStat>
+            <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
+            <HeaderStat label="고과 추이 (5년)">
+              <TrendSparkline points={trendPoints} width={100} />
+            </HeaderStat>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-          <HeaderStat label="합계 점수">
-            {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
-          </HeaderStat>
-          <HeaderStat label="등급 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-          <HeaderStat label="준비도">
-            <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
-          </HeaderStat>
-          <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
-          <HeaderStat label="고과 추이 (5년)">
-            <TrendSparkline points={trendPoints} width={100} />
-          </HeaderStat>
-        </div>
-
-        <div className="-my-4 -mr-5 flex flex-1 flex-wrap items-center justify-end gap-x-6 gap-y-3 self-stretch border-l border-gray-200 bg-gray-50 px-5 py-3">
+        <div className="flex min-w-0 flex-[1_1_0%] flex-wrap items-center gap-x-6 gap-y-3 border-l border-gray-200 bg-gray-50 px-5 py-3">
           <HeaderStat label="승급일">
             <div className="flex items-center gap-1">
               <input
