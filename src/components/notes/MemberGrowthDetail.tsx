@@ -184,14 +184,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
 
   return (
-    <div className="space-y-5">
+    <div>
       {/* 상단 프로필 요약 -- Figma 디자인 그대로: 카드처럼 사방이 둥글게 닫힌
           박스가 아니라, 아래쪽 구분선 하나로만 다음 섹션과 나뉘는 얇은 바.
           이름/직무 다음에 일반 성과 지표(합계 점수/등급 순위/준비도/최근
           면담/고과 추이)가 박스 없이 이어지고, 승진 관련 지표(승급일/직급
           기준/평가 점수/승격 기준/승격 점수 갭)만 왼쪽 구분선 + 옅은 회색
           배경으로 구분하되, 별도 박스로 띄우지 않고 바 오른쪽 끝까지
-          이어서 채운다. */}
+          이어서 채운다. 부모(NotesStage 중앙 컬럼)가 패딩을 주지 않으므로
+          이 바가 레일/면담 일정 구분선까지 여백 없이 딱 붙는다 -- 안쪽
+          내용의 여백은 이 바 자신의 px-5/py-4로만 만든다. */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-4 border-b border-gray-200 bg-white px-5 py-4">
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-black">{member.name}</p>
@@ -247,116 +249,118 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
-          (면담하기) -- 스플리터로 폭 조절. 좌측 팀원 레일 + 우측 면담 일정
-          레일이 이미 폭을 상당히 가져가므로, 2xl(≥1536px) 미만에서는 두 열
-          다 찌그러지지 않도록 위아래로 쌓는다. */}
-      <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
-        <div className="w-full min-w-0 space-y-5 2xl:w-[var(--left-w)] 2xl:shrink-0">
-          <AccordionSection
-            title="최근 성과"
-            open={recentOpen}
-            onToggle={() => setRecentOpen((v) => !v)}
-            collapsedSummary={
-              memberResult
-                ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade}) · 과제 ${currentTasks.length}건`
-                : '-'
-            }
-          >
-            {currentTasks.length === 0 ? (
-              <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 text-xs text-gray-400">
-                      <th className="py-2 pr-3 font-semibold">프로젝트</th>
-                      <th className="px-3 py-2 font-semibold">중요도</th>
-                      <th className="px-3 py-2 font-semibold">기여도</th>
-                      <th className="px-3 py-2 font-semibold">개인 등급</th>
-                      <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
-                      <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
-                        <td className="py-2.5 pr-3 font-medium">{task.name}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
-                        <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
-                        <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
+      <div className="space-y-5 p-6">
+        {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
+            (면담하기) -- 스플리터로 폭 조절. 좌측 팀원 레일 + 우측 면담 일정
+            레일이 이미 폭을 상당히 가져가므로, 2xl(≥1536px) 미만에서는 두 열
+            다 찌그러지지 않도록 위아래로 쌓는다. */}
+        <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
+          <div className="w-full min-w-0 space-y-5 2xl:w-[var(--left-w)] 2xl:shrink-0">
+            <AccordionSection
+              title="최근 성과"
+              open={recentOpen}
+              onToggle={() => setRecentOpen((v) => !v)}
+              collapsedSummary={
+                memberResult
+                  ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade}) · 과제 ${currentTasks.length}건`
+                  : '-'
+              }
+            >
+              {currentTasks.length === 0 ? (
+                <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[520px] text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 text-xs text-gray-400">
+                        <th className="py-2 pr-3 font-semibold">프로젝트</th>
+                        <th className="px-3 py-2 font-semibold">중요도</th>
+                        <th className="px-3 py-2 font-semibold">기여도</th>
+                        <th className="px-3 py-2 font-semibold">개인 등급</th>
+                        <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="mt-3 flex items-center justify-between">
-              <button onClick={() => setPastPeriodsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
-                {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
-              </button>
-              {currentTasks.length > 2 && (
-                <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
-                  {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
-                </button>
+                    </thead>
+                    <tbody>
+                      {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
+                        <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
+                          <td className="py-2.5 pr-3 font-medium">{task.name}</td>
+                          <td className="px-3 py-2.5">
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                          </td>
+                          <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
+                          <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
+                          <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </div>
-            {pastPeriodsOpen && (
-              <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
-                <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
+
+              <div className="mt-3 flex items-center justify-between">
+                <button onClick={() => setPastPeriodsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+                  {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
+                </button>
+                {currentTasks.length > 2 && (
+                  <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
+                    {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
+                  </button>
+                )}
               </div>
-            )}
-          </AccordionSection>
+              {pastPeriodsOpen && (
+                <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
+                  <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
+                </div>
+              )}
+            </AccordionSection>
 
-          <AccordionSection
-            title="성장 시뮬레이션"
-            open={simOpen}
-            onToggle={() => setSimOpen((v) => !v)}
-            headerBadge={
-              promotionCriteria && (
-                <span
-                  className={`rounded-md px-2.5 py-1 text-xs font-bold ${
-                    scoreGap !== null && scoreGap >= 0 ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-500'
-                  }`}
-                >
-                  {scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}
-                </span>
-              )
-            }
-            collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}
+            <AccordionSection
+              title="성장 시뮬레이션"
+              open={simOpen}
+              onToggle={() => setSimOpen((v) => !v)}
+              headerBadge={
+                promotionCriteria && (
+                  <span
+                    className={`rounded-md px-2.5 py-1 text-xs font-bold ${
+                      scoreGap !== null && scoreGap >= 0 ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}
+                  </span>
+                )
+              }
+              collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}
+            >
+              <PromotionSimulationPanel member={member} onOpenCriteria={() => setCriteriaManagerOpen(true)} />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
+                  엑셀로 가져오기
+                </button>
+              </div>
+            </AccordionSection>
+          </div>
+
+          {/* 스플리터 -- lg 이상에서만 드래그로 좌측 폭 조절, 그 아래에서는 숨김 */}
+          <div
+            onPointerDown={onSplitterPointerDown}
+            onPointerMove={onSplitterPointerMove}
+            onPointerUp={onSplitterPointerUp}
+            onPointerCancel={onSplitterPointerUp}
+            style={{ touchAction: 'none' }}
+            title="드래그해서 좌우 폭 조절"
+            aria-label="좌우 폭 조절"
+            role="separator"
+            aria-orientation="vertical"
+            className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch 2xl:flex 2xl:w-3"
           >
-            <PromotionSimulationPanel member={member} onOpenCriteria={() => setCriteriaManagerOpen(true)} />
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
-                엑셀로 가져오기
-              </button>
-            </div>
-          </AccordionSection>
-        </div>
+            <span className="w-1 shrink-0 rounded-full bg-gray-200 transition-colors group-hover:bg-accent group-active:bg-accent" />
+          </div>
 
-        {/* 스플리터 -- lg 이상에서만 드래그로 좌측 폭 조절, 그 아래에서는 숨김 */}
-        <div
-          onPointerDown={onSplitterPointerDown}
-          onPointerMove={onSplitterPointerMove}
-          onPointerUp={onSplitterPointerUp}
-          onPointerCancel={onSplitterPointerUp}
-          style={{ touchAction: 'none' }}
-          title="드래그해서 좌우 폭 조절"
-          aria-label="좌우 폭 조절"
-          role="separator"
-          aria-orientation="vertical"
-          className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch 2xl:flex 2xl:w-3"
-        >
-          <span className="w-1 shrink-0 rounded-full bg-gray-200 transition-colors group-hover:bg-accent group-active:bg-accent" />
-        </div>
-
-        {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다. 좌측 폭이
-            넓게 당겨져도 입력칸이 찌그러지지 않도록 최소 폭을 보장한다. */}
-        <div className="w-full min-w-[320px] flex-1">
-          <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
+          {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다. 좌측 폭이
+              넓게 당겨져도 입력칸이 찌그러지지 않도록 최소 폭을 보장한다. */}
+          <div className="w-full min-w-[320px] flex-1">
+            <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
+          </div>
         </div>
       </div>
 

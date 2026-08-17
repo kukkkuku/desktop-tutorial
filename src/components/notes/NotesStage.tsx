@@ -26,7 +26,10 @@ interface NotesStageProps {
 // 시뮬레이션·면담하기) + 우측 면담 일정. Figma 디자인 기준으로 레일/면담
 // 일정은 옅은 회색 배경(bg-gray-50)에 담아 흰색 중앙 콘텐츠와 구분하고,
 // 컬럼 사이 여백 없이 구분선(border)만으로 붙여서 <main>의 좌우/상하 여백을
-// 상쇄한 채(-mx/-my) 화면 끝까지 채운다.
+// 상쇄한 채(-mx/-my) 화면 끝까지 채운다. 중앙 컬럼 자체에는 패딩을 주지
+// 않는다 -- 프로필 요약 바(MemberGrowthDetail 최상단)가 레일/면담 일정의
+// 구분선까지 여백 없이 이어져야 해서(Figma의 profile-summary가 바로 그
+// 모양), 패딩은 요약 바 아래쪽 콘텐츠에만 개별적으로 준다.
 export default function NotesStage({ notesRequest, onManageTeam }: NotesStageProps) {
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
@@ -54,14 +57,14 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
 
-      <div className="min-w-0 flex-1 bg-white p-6">
+      <div className="min-w-0 flex-1 bg-white">
         {selectedMemberId ? (
           <MemberGrowthDetail
             memberId={selectedMemberId}
             prepRequest={notesRequest?.subTab === 'record' ? { memberId: notesRequest.memberId, token: notesRequest.token } : null}
           />
         ) : (
-          <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500">
+          <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500 m-6">
             좌측에서 팀원을 선택하세요.
           </p>
         )}
