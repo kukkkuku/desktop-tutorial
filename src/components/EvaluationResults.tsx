@@ -316,12 +316,9 @@ export default function EvaluationResults() {
                       key={r.member.id}
                       onClick={() => setHighlightId(isHL ? null : r.member.id)}
                       className="cursor-pointer border-b border-gray-200 transition-colors last:border-0 hover:bg-gray-50"
-                      style={isHL ? { background: '#F3F4F6' } : undefined}
+                      style={isHL ? { outline: '1px solid #EB6100', outlineOffset: '-1px' } : undefined}
                     >
-                      <td
-                        className="border-l-[3px] border-transparent px-4 py-3 text-center"
-                        style={isHL ? { borderLeftColor: colorForIndex(idx) } : undefined}
-                      >
+                      <td className="px-4 py-3 text-center">
                         <span className="font-mono text-xs text-gray-400">{i + 1}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
