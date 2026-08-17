@@ -36,8 +36,9 @@ interface MemberGrowthDetailProps {
 }
 
 // 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
-// 상단 요약 → 최근 성과(더보기) → 성장 시뮬레이션(인사평가 이력·보조지표·예상
-// 입력·결과 포함) → 면담하기. 탭 전환 없이 세로로 이어진다.
+// 상단 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
+// 성장 시뮬레이션)과 오른쪽(면담하기)이 나란히 붙어 있어 면담 중에도 성과·
+// 승진 상태를 보면서 바로 기록할 수 있다. 면담하기가 아래로 밀려나지 않는다.
 export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
@@ -137,71 +138,78 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      {/* 최근 성과 */}
-      <div className="rounded-lg border border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-black">최근 성과</h3>
-          {currentTasks.length > 2 && (
-            <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
-              {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
+      {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션) / 오른쪽(면담하기) */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1 space-y-5">
+          {/* 최근 성과 */}
+          <div className="rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-black">최근 성과</h3>
+              {currentTasks.length > 2 && (
+                <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
+                  {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
+                </button>
+              )}
+            </div>
+
+            {currentTasks.length === 0 ? (
+              <p className="mt-3 text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+            ) : (
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-xs text-gray-400">
+                      <th className="py-2 pr-3 font-semibold">프로젝트</th>
+                      <th className="px-3 py-2 font-semibold">중요도</th>
+                      <th className="px-3 py-2 font-semibold">기여도</th>
+                      <th className="px-3 py-2 font-semibold">개인 등급</th>
+                      <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
+                      <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
+                        <td className="py-2.5 pr-3 font-medium">{task.name}</td>
+                        <td className="px-3 py-2.5">
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
+                        <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
+                        <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <button onClick={() => setPastPeriodsOpen((v) => !v)} className="mt-3 text-xs font-medium text-gray-400 hover:text-accent">
+              {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
             </button>
-          )}
+            {pastPeriodsOpen && (
+              <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
+                <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
+              </div>
+            )}
+          </div>
+
+          {/* 성장 시뮬레이션 */}
+          <PromotionSimulationPanel member={member} />
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
+              엑셀로 가져오기
+            </button>
+            <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
+              승진 기준 관리
+            </button>
+          </div>
         </div>
 
-        {currentTasks.length === 0 ? (
-          <p className="mt-3 text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
-        ) : (
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-xs text-gray-400">
-                  <th className="py-2 pr-3 font-semibold">프로젝트</th>
-                  <th className="px-3 py-2 font-semibold">중요도</th>
-                  <th className="px-3 py-2 font-semibold">기여도</th>
-                  <th className="px-3 py-2 font-semibold">개인 등급</th>
-                  <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
-                  <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
-                    <td className="py-2.5 pr-3 font-medium">{task.name}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
-                    </td>
-                    <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
-                    <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
-                    <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <button onClick={() => setPastPeriodsOpen((v) => !v)} className="mt-3 text-xs font-medium text-gray-400 hover:text-accent">
-          {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
-        </button>
-        {pastPeriodsOpen && (
-          <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
-            <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
-          </div>
-        )}
+        {/* 면담하기 -- 왼쪽 열과 나란한 고정 폭 컬럼, 아래로 밀려나지 않는다 */}
+        <div className="w-full shrink-0 lg:w-[380px]">
+          <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
+        </div>
       </div>
-
-      {/* 성장 시뮬레이션 */}
-      <PromotionSimulationPanel member={member} />
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
-          엑셀로 가져오기
-        </button>
-        <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
-          승진 기준 관리
-        </button>
-      </div>
-
-      {/* 면담하기 */}
-      <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
 
       {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
       {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}

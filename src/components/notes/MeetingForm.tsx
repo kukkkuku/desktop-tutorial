@@ -210,11 +210,11 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
         저장
       </button>
 
-      {/* 지난 면담 기록 -- 기본 접힘 */}
+      {/* 지난 면담 기록 -- 기본 접힘, 필요할 때만 펼침 */}
       <div className="mt-4 border-t border-gray-200 pt-3">
         <button onClick={() => setPastOpen((v) => !v)} className="flex w-full items-center justify-between text-left">
           <span className="text-xs font-bold text-gray-600">지난 면담 기록 {notes.length}건</span>
-          <span className="text-gray-400">{pastOpen ? '▴' : '▾'}</span>
+          <span className="text-xs font-medium text-gray-400">{pastOpen ? '접기 ▴' : '더보기 ▾'}</span>
         </button>
 
         {pastOpen && (

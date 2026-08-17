@@ -47,7 +47,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   }, [activeMembers.map((m) => m.id).join(',')])
 
   return (
-    <div className="mx-auto flex max-w-[1600px] items-start gap-5">
+    <div className="flex items-start gap-5">
       <div className="w-64 shrink-0 rounded-lg border border-gray-200 p-3">
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
