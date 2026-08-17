@@ -5,18 +5,21 @@ import { useMemberDetail } from '../state/MemberDetailContext'
 import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
-import { calcYearsSince, formatLevelTenureLabel } from '../utils/tenure'
+import { calcYearsSince } from '../utils/tenure'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
 import { downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 
+// service/levelTenure는 수정 모드에서 <input type="date">가 들어가는데,
+// 셀 자체의 px-4(32px) 패딩을 빼고도 "mm/dd/yyyy" + 달력 아이콘이 잘리지
+// 않을 만큼 넉넉히 잡아야 한다(150px로는 마지막 자리가 잘려 보였다).
 const TEAM_COLUMNS = {
   name: 140,
+  service: 190,
   level: 90,
-  service: 90,
-  levelTenure: 110,
+  levelTenure: 190,
   role: 140,
   tasks: 110,
   peer: 130,
@@ -40,6 +43,14 @@ function displayServiceYears(member: TeamMember): string {
   const auto = calcYearsSince(member.hireDate)
   if (auto !== null) return `${auto}년`
   return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
+}
+
+// "직급" 컬럼이 바로 옆에 따로 있으므로, 여기서는 연차만 표시하고 직급명은
+// 반복하지 않는다(formatLevelTenureLabel은 "대리 1년차"처럼 직급명을
+// 포함해서 다른 화면(성장 관리 등, 직급 컬럼이 따로 없는 곳)에서 쓴다).
+function formatTenureOnly(years: number | null): string {
+  if (years === null) return '-'
+  return years === 0 ? '1년차 미만' : `${years}년차`
 }
 
 interface TeamManagementProps {
@@ -179,7 +190,12 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
       </p>
 
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_2fr_auto]">
+        {/* 과제 관리의 빠른 추가 폼과 같은 구조: 한 줄짜리 그리드에 모든
+            필드 + 버튼을 나란히 배치한다(예전엔 입사일/현 직급 발령일이
+            둘째 줄로 밀려서 두 줄짜리 폼이었다). 필드 순서도 아래 표
+            컬럼 순서(이름-근속(입사일)-직급-연차(현 직급 발령일)-역할)와
+            맞췄다. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1.4fr_1fr_1.4fr_1.6fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               이름 <span className="text-danger">*</span>
@@ -192,6 +208,15 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
               className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
                 newFormError ? 'border-danger' : 'border-gray-300'
               }`}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">입사일</label>
+            <input
+              type="date"
+              value={newForm.hireDate}
+              onChange={(e) => setNewForm((f) => ({ ...f, hireDate: e.target.value }))}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
             />
           </div>
           <div>
@@ -210,6 +235,15 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
             </select>
           </div>
           <div>
+            <label className="block text-sm font-medium text-black">현 직급 발령일</label>
+            <input
+              type="date"
+              value={newForm.currentLevelSince}
+              onChange={(e) => setNewForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-black">역할</label>
             <input
               type="text"
@@ -226,26 +260,6 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
             >
               + 팀원 추가
             </button>
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-black">입사일</label>
-            <input
-              type="date"
-              value={newForm.hireDate}
-              onChange={(e) => setNewForm((f) => ({ ...f, hireDate: e.target.value }))}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-black">현 직급 발령일</label>
-            <input
-              type="date"
-              value={newForm.currentLevelSince}
-              onChange={(e) => setNewForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            />
           </div>
         </div>
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
@@ -267,9 +281,9 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
               {(
                 [
                   ['name', '이름'],
-                  ['level', '직급'],
                   ['service', '근속'],
-                  ['levelTenure', '직급 연차'],
+                  ['level', '직급'],
+                  ['levelTenure', '연차'],
                   ['role', '역할'],
                   ['tasks', '참여 과제 수'],
                   ['peer', '받은 피어리뷰'],
@@ -311,6 +325,15 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                       {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
                     </td>
                     <td className="px-4 py-2 align-top">
+                      <label className="block text-[11px] text-gray-400">입사일</label>
+                      <input
+                        type="date"
+                        value={editForm.hireDate}
+                        onChange={(e) => setEditForm((f) => ({ ...f, hireDate: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
                       <select
                         value={editForm.level}
                         onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value as Level | '' }))}
@@ -323,15 +346,6 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <label className="block text-[11px] text-gray-400">입사일</label>
-                      <input
-                        type="date"
-                        value={editForm.hireDate}
-                        onChange={(e) => setEditForm((f) => ({ ...f, hireDate: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-                      />
                     </td>
                     <td className="px-4 py-2 align-top">
                       <label className="block text-[11px] text-gray-400">현 직급 발령일</label>
@@ -391,9 +405,9 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                       {member.name}
                     </button>
                   </td>
-                  <td className="px-4 py-3">{member.level || '-'}</td>
                   <td className="px-4 py-3">{displayServiceYears(member)}</td>
-                  <td className="px-4 py-3">{formatLevelTenureLabel(member.level, levelTenureYears)}</td>
+                  <td className="px-4 py-3">{member.level || '-'}</td>
+                  <td className="px-4 py-3">{formatTenureOnly(levelTenureYears)}</td>
                   <td className="px-4 py-3">{member.role || '-'}</td>
                   <td className="px-4 py-3">{count}건</td>
                   <td className="px-4 py-3">
