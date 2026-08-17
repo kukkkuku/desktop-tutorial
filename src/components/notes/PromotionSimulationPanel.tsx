@@ -2,13 +2,7 @@ import { useState } from 'react'
 import type { EvaluationGrade, TeamMember } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
-import {
-  calcPromotionReadiness,
-  calcPromotionWeightedScore,
-  findPromotionCriteria,
-  YEAR_WEIGHTS_BY_TENURE,
-} from '../../utils/promotion'
-import { calcYearsSince } from '../../utils/tenure'
+import { calcPromotionWeightedScore, findPromotionCriteria, YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 
 // 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 세션 단위 시뮬레이션 입력이며
@@ -20,15 +14,6 @@ const AUX_KEYS = [
   { key: 'education', label: '교육' },
 ] as const
 type AuxKey = (typeof AUX_KEYS)[number]['key']
-
-function StripCell({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="min-w-0 flex-1 px-3 py-2 text-center">
-      <p className="truncate text-[10px] text-gray-400">{label}</p>
-      <p className={`mt-0.5 truncate text-sm font-bold ${accent ?? 'text-black'}`}>{value}</p>
-    </div>
-  )
-}
 
 function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; onChange: (v: EvaluationGrade | '') => void; label: string }) {
   return (
@@ -50,14 +35,15 @@ function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; 
   )
 }
 
-// 성장 시뮬레이션 -- 요약 스트립 + (공식 인사평가 이력은 항상 노출, 가중치
-// 기준·연차별 가중치·승진자격 점수 같은 참고 자료는 "보기"를 눌러야만 펼쳐짐)
-// + 보조지표 입력(항상 노출, 즉시 반영) + 예상 평가 입력 + 예상 승진점수 결과.
+// 성장 시뮬레이션 -- 목표 승진 연도/현재 점수/승진 기준/점수 갭은 상단 Summary
+// Bar에서 이미 보여주므로 여기서 반복하지 않는다. 공식 인사평가 이력은 항상
+// 노출, 가중치 기준·연차별 가중치·승진자격 점수 같은 참고 자료는 "보기"를
+// 눌러야만 펼쳐짐. 보조지표 입력(항상 노출, 즉시 반영) + 예상 평가 입력 +
+// 예상 승진점수 결과.
 export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
-  const levelTenureYears = calcYearsSince(member.currentLevelSince)
 
   const [criteriaOpen, setCriteriaOpen] = useState(false)
   const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
@@ -77,12 +63,6 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   }
 
   const tenureForWeights = criteria.tenureYears
-  const readiness = calcPromotionReadiness(member.level, records, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
-  const currentWeighted = readiness?.weightedScore ?? 0
-  const gap = Math.round((currentWeighted - criteria.requiredScore) * 10) / 10
-
-  const remainingYears = Math.max(0, criteria.tenureYears - (levelTenureYears ?? 0))
-  const targetYear = new Date().getFullYear() + remainingYears
 
   // 예상 시뮬레이션: 다음 해 예상 등급을 추가한 뒤 가중합계 + 보조지표.
   const simHasInput = simFirst !== '' || simSecond !== '' || simCompetency !== ''
@@ -101,16 +81,6 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   return (
     <div className="space-y-4 rounded-lg border border-gray-200 p-4">
       <h3 className="text-sm font-bold text-black">성장 시뮬레이션</h3>
-
-      {/* 요약 스트립 */}
-      <div className="flex flex-wrap divide-x divide-gray-200 rounded-lg border border-gray-200 bg-gray-50">
-        <StripCell label="목표 승진 연도" value={`${targetYear}`} />
-        <StripCell label="현재 직급/연차" value={`${member.level} / ${levelTenureYears ?? '-'}년차`} />
-        <StripCell label="목표 승진 직급" value={criteria.toLevel} />
-        <StripCell label="현재 점수" value={`${currentWeighted.toFixed(1)}점`} />
-        <StripCell label="승진자격 기준" value={`${criteria.requiredScore.toFixed(1)}점`} />
-        <StripCell label="필요 점수 갭" value={`${gap >= 0 ? '+' : ''}${gap.toFixed(1)}점`} accent={gap >= 0 ? 'text-success' : 'text-accent'} />
-      </div>
 
       {/* 공식 인사평가 이력(항상 노출) + 가중치 기준(필요할 때만 펼침) */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">

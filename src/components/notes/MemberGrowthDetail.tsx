@@ -9,11 +9,10 @@ import {
   getEffectiveContributionPercent,
   GRADE_COLORS,
 } from '../../utils/calculations'
-import { calcPromotionReadiness } from '../../utils/promotion'
+import { calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
-import { colorForIndex } from '../../utils/memberColors'
 import TrendSparkline from './TrendSparkline'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
 import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
@@ -21,13 +20,18 @@ import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
 
-function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
+// 상단 Summary Bar 한 줄에 들어가는 "라벨 값" 조각 -- 아바타/아이콘 없이
+// 텍스트만으로 구성한다.
+function Seg({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 flex-1 px-4 py-2 text-center">
-      <p className="truncate text-[11px] text-gray-400">{label}</p>
-      <div className="mt-1 flex items-center justify-center gap-1 text-base font-bold text-black">{children}</div>
-    </div>
+    <span className="whitespace-nowrap">
+      <span className="text-gray-400">{label}</span> <span className="font-bold text-black">{children}</span>
+    </span>
   )
+}
+
+function SegDivider() {
+  return <span className="h-3.5 w-px shrink-0 bg-gray-300" aria-hidden="true" />
 }
 
 interface MemberGrowthDetailProps {
@@ -56,7 +60,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
   }
 
-  const colorIndex = state.members.findIndex((m) => m.id === memberId)
   const activeCount = state.members.filter((m) => m.active).length
 
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
@@ -67,6 +70,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, 0, levelTenureYears)
+
+  // Summary Bar의 승진 관련 항목(목표 승진 연도/목표 직급/현재 점수/승진 기준/
+  // 점수 갭) -- PromotionSimulationPanel과 같은 계산을 여기서 독립적으로
+  // 다시 구해 쓴다(코드베이스 컨벤션: prop으로 내려받지 않고 각자 재계산).
+  const promotionCriteria = findPromotionCriteria(member.level, profile.promotionCriteria)
+  const currentWeightedScore = readiness?.weightedScore ?? 0
+  const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
+  const targetYear = promotionCriteria
+    ? new Date().getFullYear() + Math.max(0, promotionCriteria.tenureYears - (levelTenureYears ?? 0))
+    : null
 
   const trendPoints = [...getMemberPerformanceHistory(memberId, periods)]
     .reverse()
@@ -99,43 +112,51 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="space-y-5">
-      {/* 상단 선택 팀원 요약 */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex min-w-0 shrink-0 items-center gap-3">
-          <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
-            style={{ background: colorForIndex(colorIndex) }}
-          >
-            {member.name.slice(0, 1)}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-black">{member.name}</p>
-            <p className="truncate text-xs text-gray-400">
-              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-wrap items-stretch divide-x divide-gray-200 rounded-lg border border-gray-200 bg-gray-50">
-          <HeaderStat label="현재 성과">
-            {memberResult ? (
-              <>
-                {memberResult.cumulativeScore.toFixed(1)}점
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
-              </>
-            ) : (
-              <span className="font-normal text-gray-300">-</span>
-            )}
-          </HeaderStat>
-          <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-          <HeaderStat label="등급 추이">
-            <TrendSparkline points={trendPoints} width={110} />
-          </HeaderStat>
-          <HeaderStat label="준비도">
-            <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
-          </HeaderStat>
-          <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
-        </div>
+      {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별하고,
+          현재 성과부터 승진 시뮬레이션 핵심 지표까지 한 줄에 모아 보여준다. */}
+      <div className="flex flex-nowrap items-center gap-3 overflow-x-auto whitespace-nowrap rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+        <span className="whitespace-nowrap font-bold text-black">
+          {member.name} <span className="font-normal text-gray-400">· {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}</span>
+        </span>
+        <SegDivider />
+        <Seg label="현재 성과">
+          {memberResult ? (
+            <>
+              {memberResult.cumulativeScore.toFixed(1)}점{' '}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+            </>
+          ) : (
+            <span className="font-normal text-gray-300">-</span>
+          )}
+        </Seg>
+        <SegDivider />
+        <Seg label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</Seg>
+        <SegDivider />
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          <span className="text-gray-400">고과 추이</span>
+          <TrendSparkline points={trendPoints} width={100} />
+        </span>
+        <SegDivider />
+        <Seg label="준비도">
+          <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
+        </Seg>
+        <SegDivider />
+        <Seg label="최근 면담">{lastMeetingDate ?? '없음'}</Seg>
+        <SegDivider />
+        <Seg label="목표 승진 연도">{targetYear ?? '-'}</Seg>
+        <SegDivider />
+        <Seg label="목표 직급">{promotionCriteria?.toLevel ?? '-'}</Seg>
+        <SegDivider />
+        <Seg label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</Seg>
+        <SegDivider />
+        <Seg label="승진 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</Seg>
+        <SegDivider />
+        <span className="whitespace-nowrap">
+          <span className="text-gray-400">점수 갭</span>{' '}
+          <span className={`font-bold ${scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}`}>
+            {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
+          </span>
+        </span>
       </div>
 
       {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션) / 오른쪽(면담하기) */}
