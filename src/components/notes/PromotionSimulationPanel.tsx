@@ -119,7 +119,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   }
 
   const currentScore = calcPromotionWeightedScore(records, profile.gradeScores, criteria.tenureYears, 0)
-  const { nextYear, simTotal, simEligible, simGap } = calcSimulatedPromotionTotal(
+  const { nextYear, simTotal, simGap } = calcSimulatedPromotionTotal(
     records,
     profile.gradeScores,
     criteria,
@@ -128,36 +128,40 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
     simSecond,
     simCompetency,
   )
+  const simDelta = Math.round((simTotal - currentScore) * 10) / 10
 
   return (
     <div className="space-y-4">
-      {/* 결과 -- 조건을 바꾸기 전에도 항상 맨 위에서 바로 보인다 */}
-      <div className="rounded-lg bg-gray-50 p-4">
-        <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-          <div>
-            <p className="text-[10px] text-gray-400">현재</p>
-            <p className="font-mono text-xl font-bold text-black">{currentScore.toFixed(1)}점</p>
-          </div>
-          <span className="pb-1 text-gray-400" aria-hidden="true">
-            →
-          </span>
-          <div>
-            <p className="text-[10px] text-gray-400">예상 ({nextYear}년)</p>
-            <p className="font-mono text-xl font-bold text-accent">{simTotal.toFixed(1)}점</p>
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400">기준</p>
-            <p className="font-mono text-xl font-bold text-gray-500">{criteria.requiredScore.toFixed(1)}점</p>
-          </div>
-          <div className="ml-auto">
-            <p className={`text-sm font-bold ${simEligible ? 'text-accent' : 'text-gray-400'}`}>{simEligible ? '승진 가능' : '기준 미달'}</p>
-          </div>
+      {/* 결과 -- 조건을 바꾸기 전에도 항상 맨 위에서 바로 보인다. 승진 가능
+          여부 배지는 아코디언 헤더(MemberGrowthDetail)에 이미 있어서 여기서
+          반복하지 않는다. */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        <div>
+          <p className="text-[11px] text-gray-500">현재 점수</p>
+          <p className="mt-1 text-2xl font-bold text-black">{currentScore.toFixed(1)}점</p>
         </div>
-        <p className="mt-2 text-[11px] text-gray-500">
-          ※ 승진 자격 기준 대비 {simGap >= 0 ? '+' : ''}
-          {simGap.toFixed(1)}점
-        </p>
+        <span className="text-xl text-gray-300" aria-hidden="true">
+          +
+        </span>
+        <div>
+          <p className="text-[11px] text-gray-500">시뮬레이션 가산</p>
+          <p className="mt-1 text-2xl font-bold text-accent">
+            {simDelta >= 0 ? '+' : ''}
+            {simDelta.toFixed(1)}점
+          </p>
+        </div>
+        <span className="text-xl text-gray-300" aria-hidden="true">
+          →
+        </span>
+        <div>
+          <p className="text-[11px] text-gray-500">최종 시뮬레이션 점수 ({nextYear}년)</p>
+          <p className="mt-1 text-2xl font-bold text-black">{simTotal.toFixed(1)}점</p>
+        </div>
       </div>
+      <p className="text-[11px] text-gray-500">
+        ※ 승진 자격 기준 대비 {simGap >= 0 ? '+' : ''}
+        {simGap.toFixed(1)}점
+      </p>
 
       {/* 시뮬레이션 조건 변경 -- 결과 아래, 기본은 접힘 */}
       <div className="rounded-lg border border-gray-200 p-3">

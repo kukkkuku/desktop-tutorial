@@ -33,15 +33,18 @@ function HeaderStat({ label, children }: { label: string; children: React.ReactN
 // 최근 성과 / 성장 시뮬레이션 박스 공용 아코디언 -- 제목을 누르면 섹션 전체를
 // 접었다 펼 수 있다(내부 요소별 개별 접기와는 별개의, 섹션 단위 토글).
 // collapsedSummary를 주면 접혔을 때 제목 옆에 한 줄 요약이 보여서, 접어도
-// 핵심 수치는 계속 눈에 들어온다.
+// 핵심 수치는 계속 눈에 들어온다. headerBadge는 열림/닫힘과 무관하게 제목
+// 바로 옆에 항상 떠 있는 상태 배지(예: 승진 가능)다.
 function AccordionSection({
   title,
+  headerBadge,
   open,
   onToggle,
   collapsedSummary,
   children,
 }: {
   title: string
+  headerBadge?: React.ReactNode
   open: boolean
   onToggle: () => void
   collapsedSummary?: React.ReactNode
@@ -50,7 +53,10 @@ function AccordionSection({
   return (
     <div className="rounded-lg border border-gray-200 p-4">
       <button onClick={onToggle} className="flex w-full items-center justify-between gap-3 text-left">
-        <h3 className="shrink-0 text-sm font-bold text-black">{title}</h3>
+        <span className="flex shrink-0 items-center gap-2">
+          <h3 className="text-sm font-bold text-black">{title}</h3>
+          {headerBadge}
+        </span>
         {!open && collapsedSummary && <span className="min-w-0 flex-1 truncate text-right text-[13px] text-gray-500">{collapsedSummary}</span>}
         <span className="shrink-0 text-gray-400">{open ? '˄' : '˅'}</span>
       </button>
@@ -164,42 +170,48 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="space-y-5">
-      {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별한다.
-          구분선/배경색 구분 없이 하나의 flat한 바에 모든 정보를 담고, gap만으로
-          간격을 준다. flex-wrap이라 화면이 좁아지면 자동으로 다음 줄로
-          재배치된다(고정폭 없이). */}
-      <div className="flex flex-wrap items-start gap-x-10 gap-y-4 rounded-lg border border-gray-200 bg-white px-5 py-4">
+      {/* 상단 프로필 요약 -- Figma 디자인 기준: 이름/직무 다음에 일반 성과
+          지표(합계 점수/등급 순위/준비도/최근 면담/고과 추이)가 박스 없이
+          이어지고, 승진 관련 지표(승급일/직급 기준/평가 점수/승격 기준/
+          승격 점수 갭)만 연한 회색 박스로 따로 묶는다. */}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-4 rounded-lg border border-gray-200 bg-white px-5 py-4">
         <div className="min-w-0">
-          <p className="truncate text-base font-bold text-black">{member.name}</p>
-          <p className="mt-0.5 truncate text-[13px] text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
+          <p className="truncate text-lg font-bold text-black">{member.name}</p>
+          <p className="mt-0.5 truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
         </div>
-        <HeaderStat label="현재 성과">
-          {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
-        </HeaderStat>
-        <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-        <HeaderStat label="고과 추이 (5년)">
-          <TrendSparkline points={trendPoints} width={110} />
-        </HeaderStat>
-        <HeaderStat label="준비도">
-          <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
-        </HeaderStat>
-        <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
-        <HeaderStat label="승진심사">
-          <input
-            type="month"
-            value={member.promotionReviewDate ?? ''}
-            onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })}
-            className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </HeaderStat>
-        <HeaderStat label="목표 승진 직급">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
-        <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
-        <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
-        <HeaderStat label="필요 점수 갭">
-          <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
-            {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
-          </span>
-        </HeaderStat>
+
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <HeaderStat label="합계 점수">
+            {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
+          </HeaderStat>
+          <HeaderStat label="등급 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
+          <HeaderStat label="준비도">
+            <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
+          </HeaderStat>
+          <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
+          <HeaderStat label="고과 추이 (5년)">
+            <TrendSparkline points={trendPoints} width={100} />
+          </HeaderStat>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-gray-200 bg-gray-50 px-5 py-3">
+          <HeaderStat label="승급일">
+            <input
+              type="month"
+              value={member.promotionReviewDate ?? ''}
+              onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })}
+              className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </HeaderStat>
+          <HeaderStat label="직급 기준">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
+          <HeaderStat label="평가 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="승격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
+          <HeaderStat label="승격 점수 갭">
+            <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
+              {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
+            </span>
+          </HeaderStat>
+        </div>
       </div>
 
       {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
@@ -268,11 +280,18 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             title="성장 시뮬레이션"
             open={simOpen}
             onToggle={() => setSimOpen((v) => !v)}
-            collapsedSummary={
-              promotionCriteria
-                ? `${currentWeightedScore.toFixed(1)}점 · ${scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}`
-                : '-'
+            headerBadge={
+              promotionCriteria && (
+                <span
+                  className={`rounded-md px-2.5 py-1 text-xs font-bold ${
+                    scoreGap !== null && scoreGap >= 0 ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}
+                </span>
+              )
             }
+            collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}
           >
             <PromotionSimulationPanel member={member} />
             <div className="mt-4 flex flex-wrap gap-2">
