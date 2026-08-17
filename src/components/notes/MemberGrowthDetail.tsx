@@ -341,7 +341,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </AccordionSection>
           </div>
 
-          {/* 스플리터 -- lg 이상에서만 드래그로 좌측 폭 조절, 그 아래에서는 숨김 */}
+          {/* 스플리터 -- 기준설정(CriteriaPanel) 화면과 같은 디자인: 컬럼
+              높이만큼 꽉 차게 이어지는 얇은 세로선 위에, 드래그용 짧은
+              알약형 손잡이가 그 선 한가운데 겹쳐서 붙어 있다(선 없이
+              손잡이만 떠 있으면 위아래가 비어 보이고 손잡이도 혼자
+              떨어져 보인다). lg 이상에서만 드래그로 좌측 폭 조절, 그
+              아래에서는 숨김. */}
           <div
             onPointerDown={onSplitterPointerDown}
             onPointerMove={onSplitterPointerMove}
@@ -352,9 +357,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             aria-label="좌우 폭 조절"
             role="separator"
             aria-orientation="vertical"
-            className="group relative hidden shrink-0 cursor-col-resize items-center justify-center self-stretch 2xl:flex 2xl:w-3"
+            className="group relative hidden shrink-0 cursor-col-resize self-stretch 2xl:block 2xl:w-3"
           >
-            <span className="h-10 w-1 shrink-0 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-gray-200" />
+            <span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
           </div>
 
           {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다. 좌측 폭이
