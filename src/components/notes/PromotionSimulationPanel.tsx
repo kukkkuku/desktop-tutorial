@@ -90,7 +90,7 @@ export default function PromotionSimulationPanel({ member, onOpenCriteria }: { m
           <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
             {historyOpen ? '− 인사평가 히스토리 접기' : '인사평가 히스토리 보기 →'}
           </button>
-          <button onClick={onOpenCriteria} className="shrink-0 text-[11px] font-medium text-gray-400 hover:text-accent">
+          <button onClick={onOpenCriteria} className="shrink-0 text-sm font-bold text-promo hover:underline">
             ⓘ 기준 보기
           </button>
         </div>

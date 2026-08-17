@@ -13,6 +13,16 @@ const CRITERIA_COLUMNS = {
   requiredScore: 130,
 }
 
+// 체류년수별 가중치 표(YEAR_WEIGHTS_BY_TENURE)가 실제로 어떤 승진 트랙에
+// 쓰이는지 -- 정기승진은 그 직급의 표준 체류년수를, 발탁승진(조기승진)은
+// 한 단계 짧은 체류년수의 가중치 표를 그대로 가져다 쓴다. 첨부 자료의
+// "가중치기준" 표 비고 칸 그대로다.
+const TENURE_APPLIES_TO: Record<string, string> = {
+  '3': '사원(정기), 대리(발탁)',
+  '4': '대리(정기), 과장·차장(발탁)',
+  '5': '과장·차장(정기)',
+}
+
 function CloseIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -60,7 +70,7 @@ export default function PromotionCriteriaManager({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-lg font-bold text-black">승진 기준</h3>
@@ -177,13 +187,36 @@ export default function PromotionCriteriaManager({
 
         <div className="mt-5">
           <h4 className="text-sm font-semibold text-black">연차별 가중치</h4>
-          <p className="mt-0.5 text-[13px] text-gray-500">최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).</p>
-          <div className="mt-2 space-y-1 text-[13px] text-gray-600">
-            {Object.entries(YEAR_WEIGHTS_BY_TENURE).map(([years, weights]) => (
-              <p key={years}>
-                <span className="text-gray-400">{years}년:</span> {weights.map((w) => `${(w * 100).toFixed(0)}%`).join(' / ')}
-              </p>
-            ))}
+          <p className="mt-0.5 text-[13px] text-gray-500">
+            체류년수(정기/발탁 승진 트랙)에 따라 최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-left text-[13px]">
+              <thead className="bg-[#F3F4F6] text-black">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">체류년수</th>
+                  {['최근 1년차', '2년차', '3년차', '4년차', '5년차'].map((label) => (
+                    <th key={label} className="px-3 py-2 text-center font-semibold">
+                      {label}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 font-semibold">적용 대상</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(YEAR_WEIGHTS_BY_TENURE).map(([years, weights]) => (
+                  <tr key={years} className="border-t border-gray-200 text-black">
+                    <td className="px-3 py-2 font-medium">{years}년</td>
+                    {Array.from({ length: 5 }, (_, i) => weights[i]).map((w, i) => (
+                      <td key={i} className="px-3 py-2 text-center font-mono text-gray-600">
+                        {w !== undefined ? `${(w * 100).toFixed(0)}%` : '-'}
+                      </td>
+                    ))}
+                    <td className="px-3 py-2 text-gray-500">{TENURE_APPLIES_TO[years] ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
