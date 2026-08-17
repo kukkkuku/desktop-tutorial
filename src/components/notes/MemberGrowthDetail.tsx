@@ -7,10 +7,9 @@ import {
   calcMemberResults,
   getContribution,
   getEffectiveContributionPercent,
-  GRADE_COLORS,
 } from '../../utils/calculations'
 import { calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
-import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
+import { calcYearsSince } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import TrendSparkline from './TrendSparkline'
@@ -20,10 +19,11 @@ import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
 
-// 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래.
+// 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래. 하나의 flat한
+// 바 안에서 gap만으로 간격을 두고, 구분선/배경색 구분은 쓰지 않는다.
 function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="min-w-0 px-4 py-3">
+    <div className="min-w-0">
       <p className="truncate text-[11px] text-gray-400">{label}</p>
       <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[15px] font-bold text-black">{children}</div>
     </div>
@@ -106,56 +106,41 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   return (
     <div className="space-y-5">
       {/* 상단 Summary Bar -- 아바타/아이콘 없이 텍스트만으로 팀원을 식별한다.
-          일반 성과 정보와 승진 관련 정보가 하나의 카드 안에 함께 들어있다(별도
-          카드로 분리하지 않음). 화면이 넓으면 좌우로, 좁아지면 위아래로
-          재배치된다(flex-col/flex-row 전환, 고정폭 없이 breakpoint 기반). */}
-      <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 lg:flex-row lg:items-stretch">
-        <div className="flex flex-1 flex-wrap items-stretch divide-x divide-gray-200 bg-white">
-          <div className="min-w-0 px-4 py-3">
-            <p className="truncate text-base font-bold text-black">{member.name}</p>
-            <p className="mt-0.5 truncate text-[13px] text-gray-400">
-              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-            </p>
-          </div>
-          <HeaderStat label="이번에 평가한 년도 성과">
-            {memberResult ? (
-              <>
-                {memberResult.cumulativeScore.toFixed(1)}점{' '}
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
-              </>
-            ) : (
-              <span className="font-normal text-gray-300">-</span>
-            )}
-          </HeaderStat>
-          <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-          <HeaderStat label="고과 추이 (5년)">
-            <TrendSparkline points={trendPoints} width={110} />
-          </HeaderStat>
-          <HeaderStat label="준비도">
-            <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
-          </HeaderStat>
-          <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
+          구분선/배경색 구분 없이 하나의 flat한 바에 모든 정보를 담고, gap만으로
+          간격을 준다. flex-wrap이라 화면이 좁아지면 자동으로 다음 줄로
+          재배치된다(고정폭 없이). */}
+      <div className="flex flex-wrap items-start gap-x-10 gap-y-4 rounded-lg border border-gray-200 bg-white px-5 py-4">
+        <div className="min-w-0">
+          <p className="truncate text-base font-bold text-black">{member.name}</p>
+          <p className="mt-0.5 truncate text-[13px] text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ') || '-'}</p>
         </div>
-
-        <div className="flex flex-wrap items-stretch divide-x divide-gray-300/70 border-t border-gray-200 bg-gray-50 lg:border-l lg:border-t-0">
-          <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
-          <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
-          <HeaderStat label="필요 점수 갭">
-            <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
-              {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
-            </span>
-          </HeaderStat>
-          <HeaderStat label="승급심사">
-            <input
-              type="month"
-              value={member.promotionReviewDate ?? ''}
-              onChange={(e) =>
-                dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })
-              }
-              className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </HeaderStat>
-        </div>
+        <HeaderStat label="현재 성과">
+          {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
+        </HeaderStat>
+        <HeaderStat label="팀 내 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
+        <HeaderStat label="고과 추이 (5년)">
+          <TrendSparkline points={trendPoints} width={110} />
+        </HeaderStat>
+        <HeaderStat label="준비도">
+          <span className="text-promo">{readiness ? `${readiness.progressPercent}%` : '-'}</span>
+        </HeaderStat>
+        <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
+        <HeaderStat label="승진심사">
+          <input
+            type="month"
+            value={member.promotionReviewDate ?? ''}
+            onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: e.target.value || null } })}
+            className="w-full min-w-[100px] rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </HeaderStat>
+        <HeaderStat label="목표 승진 직급">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
+        <HeaderStat label="현재 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
+        <HeaderStat label="승진자격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
+        <HeaderStat label="필요 점수 갭">
+          <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
+            {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
+          </span>
+        </HeaderStat>
       </div>
 
       {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션) / 오른쪽(면담하기) */}
