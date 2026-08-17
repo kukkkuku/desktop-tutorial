@@ -26,6 +26,9 @@ export interface TeamMember {
   // 기존 데이터와의 호환을 위해 없으면 null, yearsOfService 수동값으로 대체 표시.
   hireDate?: string | null
   currentLevelSince?: string | null
+  // 승급심사 예정월("YYYY-MM") — 자동 계산값(목표 승진 연도)과 별개로 팀장이
+  // 직접 지정하는 실제 심사 일정. 미지정이면 null.
+  promotionReviewDate?: string | null
 }
 
 export interface Contribution {

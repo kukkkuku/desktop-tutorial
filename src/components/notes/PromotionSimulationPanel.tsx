@@ -2,18 +2,19 @@ import { useState } from 'react'
 import type { EvaluationGrade, TeamMember } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
-import { calcPromotionWeightedScore, findPromotionCriteria, YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
+import { calcSimulatedPromotionTotal, findPromotionCriteria, YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
 
 // 보조지표 -- 승진 계산의 auxScore로 합산되는 입력값. 세션 단위 시뮬레이션 입력이며
-// 예상 총점에 즉시 반영된다.
-const AUX_KEYS = [
+// 예상 총점에 즉시 반영된다. 상단 Summary Bar의 "예상 총점"과 값을 공유해야 하므로
+// 이 state는 MemberGrowthDetail이 들고 있고(controlled), 이 패널은 props로 받는다.
+export const AUX_KEYS = [
   { key: 'position', label: '직책' },
   { key: 'reward', label: '상벌' },
   { key: 'tenure', label: '체류' },
   { key: 'education', label: '교육' },
 ] as const
-type AuxKey = (typeof AUX_KEYS)[number]['key']
+export type AuxKey = (typeof AUX_KEYS)[number]['key']
 
 function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; onChange: (v: EvaluationGrade | '') => void; label: string }) {
   return (
@@ -35,23 +36,41 @@ function GradeSelect({ value, onChange, label }: { value: EvaluationGrade | ''; 
   )
 }
 
-// 성장 시뮬레이션 -- 목표 승진 연도/현재 점수/승진 기준/점수 갭은 상단 Summary
+interface PromotionSimulationPanelProps {
+  member: TeamMember
+  aux: Record<AuxKey, string>
+  onAuxChange: (updater: (prev: Record<AuxKey, string>) => Record<AuxKey, string>) => void
+  simFirst: EvaluationGrade | ''
+  simSecond: EvaluationGrade | ''
+  simCompetency: EvaluationGrade | ''
+  onSimFirstChange: (v: EvaluationGrade | '') => void
+  onSimSecondChange: (v: EvaluationGrade | '') => void
+  onSimCompetencyChange: (v: EvaluationGrade | '') => void
+}
+
+// 성장 시뮬레이션 -- 목표 승진 연도/현재 점수/승진 기준/예상 총점은 상단 Summary
 // Bar에서 이미 보여주므로 여기서 반복하지 않는다. 공식 인사평가 이력은 항상
 // 노출, 가중치 기준·연차별 가중치·승진자격 점수 같은 참고 자료는 "보기"를
 // 눌러야만 펼쳐짐. 보조지표 입력(항상 노출, 즉시 반영) + 예상 평가 입력 +
-// 예상 승진점수 결과.
-export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
+// 예상 승진점수 결과. 보조지표/예상 등급 state는 MemberGrowthDetail이 소유하고
+// (Summary Bar의 "예상 총점"과 값을 공유해야 하므로) 이 컴포넌트는 controlled로 받는다.
+export default function PromotionSimulationPanel({
+  member,
+  aux,
+  onAuxChange,
+  simFirst,
+  simSecond,
+  simCompetency,
+  onSimFirstChange,
+  onSimSecondChange,
+  onSimCompetencyChange,
+}: PromotionSimulationPanelProps) {
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
   const [criteriaOpen, setCriteriaOpen] = useState(false)
-  const [aux, setAux] = useState<Record<AuxKey, string>>({ position: '', reward: '', tenure: '', education: '' })
   const auxSum = AUX_KEYS.reduce((s, { key }) => s + (Number(aux[key]) || 0), 0)
-
-  const [simFirst, setSimFirst] = useState<EvaluationGrade | ''>('')
-  const [simSecond, setSimSecond] = useState<EvaluationGrade | ''>('')
-  const [simCompetency, setSimCompetency] = useState<EvaluationGrade | ''>('')
 
   if (!criteria) {
     return (
@@ -62,21 +81,15 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
     )
   }
 
-  const tenureForWeights = criteria.tenureYears
-
-  // 예상 시뮬레이션: 다음 해 예상 등급을 추가한 뒤 가중합계 + 보조지표.
-  const simHasInput = simFirst !== '' || simSecond !== '' || simCompetency !== ''
-  const nextYear = (records[records.length - 1]?.year ?? new Date().getFullYear() - 1) + 1
-  const simRecords = simHasInput
-    ? [
-        ...records.filter((r) => r.year !== nextYear),
-        { id: 'sim', memberId: member.id, year: nextYear, firstHalfGrade: simFirst, secondHalfGrade: simSecond, competencyGrade: simCompetency },
-      ]
-    : records
-  const simWeighted = calcPromotionWeightedScore(simRecords, profile.gradeScores, tenureForWeights, 0)
-  const simTotal = Math.round((simWeighted + auxSum) * 10) / 10
-  const simEligible = simTotal >= criteria.requiredScore
-  const simGap = Math.round((simTotal - criteria.requiredScore) * 10) / 10
+  const { nextYear, simTotal, simEligible, simGap } = calcSimulatedPromotionTotal(
+    records,
+    profile.gradeScores,
+    criteria,
+    auxSum,
+    simFirst,
+    simSecond,
+    simCompetency,
+  )
 
   return (
     <div className="space-y-4 rounded-lg border border-gray-200 p-4">
@@ -147,7 +160,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
               <input
                 type="number"
                 value={aux[key]}
-                onChange={(e) => setAux((prev) => ({ ...prev, [key]: e.target.value }))}
+                onChange={(e) => onAuxChange((prev) => ({ ...prev, [key]: e.target.value }))}
                 placeholder="0"
                 className="mt-0.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
               />
@@ -161,9 +174,9 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         <p className="text-xs font-bold text-black">{nextYear}년(예상) 평가 입력</p>
         <p className="mt-0.5 text-[11px] text-gray-400">등급을 입력하면 아래 결과가 자동 계산됩니다.</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
-          <GradeSelect label="업적(상)" value={simFirst} onChange={setSimFirst} />
-          <GradeSelect label="업적(하)" value={simSecond} onChange={setSimSecond} />
-          <GradeSelect label="역량" value={simCompetency} onChange={setSimCompetency} />
+          <GradeSelect label="업적(상)" value={simFirst} onChange={onSimFirstChange} />
+          <GradeSelect label="업적(하)" value={simSecond} onChange={onSimSecondChange} />
+          <GradeSelect label="역량" value={simCompetency} onChange={onSimCompetencyChange} />
         </div>
       </div>
 
@@ -173,7 +186,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
           <div>
             <p className="text-[10px] text-gray-400">예상 가중합계</p>
-            <p className="font-mono text-lg font-bold text-black">{simWeighted.toFixed(1)}점</p>
+            <p className="font-mono text-lg font-bold text-black">{(simTotal - auxSum).toFixed(1)}점</p>
           </div>
           <div>
             <p className="text-[10px] text-gray-400">보조지표 합계</p>

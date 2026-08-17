@@ -127,6 +127,40 @@ export function calcPromotionReadiness(
   return { criteria, rawScore, weightedScore, eligible, tenureMet, progressPercent, gap }
 }
 
+// 예상(시뮬레이션) 승진 점수 -- 다음 연도 예상 등급 + 보조지표 합계를 반영한
+// 가중합계. 요약 Bar와 성장 시뮬레이션 패널이 같은 입력값(보조지표/예상 등급)을
+// 공유해서 독립적으로 호출하므로 화면 두 곳의 숫자가 항상 일치한다.
+export function calcSimulatedPromotionTotal(
+  records: HRAppraisalRecord[],
+  gradeScores: Record<EvaluationGrade, number>,
+  criteria: PromotionCriteriaRow,
+  auxSum: number,
+  simFirst: EvaluationGrade | '',
+  simSecond: EvaluationGrade | '',
+  simCompetency: EvaluationGrade | '',
+): { nextYear: number; simTotal: number; simEligible: boolean; simGap: number } {
+  const simHasInput = simFirst !== '' || simSecond !== '' || simCompetency !== ''
+  const nextYear = (records[records.length - 1]?.year ?? new Date().getFullYear() - 1) + 1
+  const simRecords = simHasInput
+    ? [
+        ...records.filter((r) => r.year !== nextYear),
+        {
+          id: 'sim',
+          memberId: records[0]?.memberId ?? '',
+          year: nextYear,
+          firstHalfGrade: simFirst,
+          secondHalfGrade: simSecond,
+          competencyGrade: simCompetency,
+        },
+      ]
+    : records
+  const simWeighted = calcPromotionWeightedScore(simRecords, gradeScores, criteria.tenureYears, 0)
+  const simTotal = Math.round((simWeighted + auxSum) * 10) / 10
+  const simEligible = simTotal >= criteria.requiredScore
+  const simGap = Math.round((simTotal - criteria.requiredScore) * 10) / 10
+  return { nextYear, simTotal, simEligible, simGap }
+}
+
 export const GRADE_ORDER: EvaluationGrade[] = ['D', 'C', 'B', 'A', 'S']
 
 // GRADE_ORDER 상에서 한 단계 위 등급. 이미 최고 등급(S)이면 null.
