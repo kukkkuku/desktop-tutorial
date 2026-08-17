@@ -18,6 +18,7 @@ import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHis
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
+import GradeNoteButton from '../GradeNoteButton'
 
 // 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래. 하나의 flat한
 // 바 안에서 gap만으로 간격을 두고, 구분선/배경색 구분은 쓰지 않는다.
@@ -175,6 +176,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         task,
         contributionPercent: contribution.contributionPercent,
         personalGrade: contribution.personalPerformanceGrade,
+        personalGradeNote: contribution.personalGradeNote,
         personalScore: score * (effectivePercent / 100),
       }
     })
@@ -282,14 +284,19 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleTasks.map(({ task, contributionPercent, personalGrade, personalScore }) => (
+                      {visibleTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
                         <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
                           <td className="py-2.5 pr-3 font-medium">{task.name}</td>
                           <td className="px-3 py-2.5">
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
                           </td>
                           <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
-                          <td className="px-3 py-2.5 text-gray-600">{personalGrade}</td>
+                          <td className="px-3 py-2.5 text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <span>{personalGrade}</span>
+                              <GradeNoteButton note={personalGradeNote} label={task.name} />
+                            </div>
+                          </td>
                           <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
                         </tr>
                       ))}

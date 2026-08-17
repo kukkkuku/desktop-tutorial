@@ -44,6 +44,9 @@ export interface Contribution {
   memberId: string
   contributionPercent: number
   personalPerformanceGrade: PerformanceGrade
+  // 개인수행등급을 준 근거 메모 -- 평가 매트릭스에서 입력하면 팀원 성장
+  // 관리의 과제별 성과에도 그대로 노출된다.
+  personalGradeNote?: string
   // true = still an auto equal-split value, safe to redistribute on the next ADD_MEMBER
   isAutoDistributed?: boolean
 }

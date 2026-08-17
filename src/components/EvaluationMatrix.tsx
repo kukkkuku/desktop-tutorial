@@ -5,12 +5,14 @@ import { PERFORMANCE_GRADE_OPTIONS } from '../types'
 import {
   calcMemberResults,
   calcTaskScore,
+  getContribution,
   getContributionPercent,
   getPersonalPerformanceGrade,
   getTaskContributionSum,
   isContributionSumValid,
   GRADE_COLORS,
 } from '../utils/calculations'
+import GradeNoteButton from './GradeNoteButton'
 
 const MIN_COL_WIDTH = 56
 
@@ -89,6 +91,13 @@ export default function EvaluationMatrix() {
     dispatch({
       type: 'SET_CONTRIBUTION_GRADE',
       payload: { taskId, memberId, personalPerformanceGrade: grade },
+    })
+  }
+
+  function handleGradeNoteSave(taskId: string, memberId: string, note: string) {
+    dispatch({
+      type: 'SET_CONTRIBUTION_NOTE',
+      payload: { taskId, memberId, personalGradeNote: note },
     })
   }
 
@@ -217,6 +226,7 @@ export default function EvaluationMatrix() {
                         const percent = getContributionPercent(contributions, task.id, member.id)
                         const grade = getPersonalPerformanceGrade(contributions, task.id, member.id)
                         const gradeEnabled = criteria.personalGradeWeight > 0 && percent > 0
+                        const note = getContribution(contributions, task.id, member.id)?.personalGradeNote
                         return (
                           <Fragment key={member.id}>
                             <td className="border-l border-gray-200 px-3 py-2">
@@ -232,21 +242,30 @@ export default function EvaluationMatrix() {
                               />
                             </td>
                             <td className="px-3 py-2">
-                              <select
-                                value={grade}
-                                disabled={!gradeEnabled}
-                                title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
-                                onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                className={`w-full rounded-md border px-2 py-1 text-sm ${
-                                  gradeEnabled ? 'border-gray-300 text-black' : 'border-gray-200 bg-gray-100 text-gray-400'
-                                }`}
-                              >
-                                {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                                  <option key={opt} value={opt}>
-                                    {opt}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={grade}
+                                  disabled={!gradeEnabled}
+                                  title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
+                                  onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
+                                  className={`w-full min-w-0 rounded-md border px-2 py-1 text-sm ${
+                                    gradeEnabled ? 'border-gray-300 text-black' : 'border-gray-200 bg-gray-100 text-gray-400'
+                                  }`}
+                                >
+                                  {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                                {gradeEnabled && (
+                                  <GradeNoteButton
+                                    note={note}
+                                    label={`${task.name} · ${member.name}`}
+                                    onSave={(next) => handleGradeNoteSave(task.id, member.id, next)}
+                                  />
+                                )}
+                              </div>
                             </td>
                           </Fragment>
                         )
