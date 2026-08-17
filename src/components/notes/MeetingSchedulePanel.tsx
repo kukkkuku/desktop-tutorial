@@ -54,19 +54,6 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   const [selectedDate, setSelectedDate] = useState(todayStr)
   const [addMemberId, setAddMemberId] = useState<string | null>(members[0]?.id ?? null)
 
-  if (!open) {
-    return (
-      <button
-        onClick={onToggle}
-        className="flex w-10 shrink-0 flex-col items-center gap-2 rounded-lg border border-gray-200 py-3 text-gray-500 hover:bg-gray-50"
-        title="면담 일정 펼치기"
-      >
-        <CalendarIcon className="h-4 w-4" />
-        <span className="text-[11px] font-semibold [writing-mode:vertical-rl]">면담 일정</span>
-      </button>
-    )
-  }
-
   const notesByDate = new Map<string, number[]>()
   meetingNotes.forEach((n) => {
     const idx = members.findIndex((m) => m.id === n.memberId)
@@ -81,6 +68,53 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(0, 6)
     .map(([date, idxs]) => ({ date, idxs }))
+
+  const todayIdxs = notesByDate.get(todayStr) ?? []
+  // 접힌 상태에서 보여줄 목록 -- 오늘 일정이 있으면 맨 위, 그 다음 다가오는 일정.
+  const collapsedEntries = (todayIdxs.length > 0 ? [{ date: todayStr, idxs: todayIdxs }] : []).concat(upcoming).slice(0, 5)
+
+  if (!open) {
+    return (
+      <div className="w-[160px] shrink-0 rounded-lg border border-gray-200 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-[13px] font-bold text-black">
+            <CalendarIcon className="h-3.5 w-3.5 text-gray-400" />
+            면담 일정
+          </span>
+          <button onClick={onToggle} title="펼치기" className="rounded-md px-1 text-gray-400 hover:bg-gray-100">
+            «
+          </button>
+        </div>
+        {collapsedEntries.length === 0 ? (
+          <p className="text-[12px] text-gray-400">예정된 면담이 없습니다.</p>
+        ) : (
+          <div className="space-y-2">
+            {collapsedEntries.map(({ date, idxs }) => (
+              <div key={date}>
+                <p className="text-[11px] font-semibold text-gray-500">{date === todayStr ? '오늘' : fmtShort(date)}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {idxs.map((idx) => {
+                    const member = members[idx]
+                    if (!member) return null
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => onSelectMember(member.id)}
+                        className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-gray-200"
+                      >
+                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
+                        {member.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()

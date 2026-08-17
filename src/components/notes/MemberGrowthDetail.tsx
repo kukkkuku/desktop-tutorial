@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -30,15 +30,43 @@ function HeaderStat({ label, children }: { label: string; children: React.ReactN
   )
 }
 
+// 최근 성과 / 성장 시뮬레이션 박스 공용 아코디언 -- 제목을 누르면 섹션 전체를
+// 접었다 펼 수 있다(내부 요소별 개별 접기와는 별개의, 섹션 단위 토글).
+function AccordionSection({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  open: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-4">
+      <button onClick={onToggle} className="flex w-full items-center justify-between text-left">
+        <h3 className="text-sm font-bold text-black">{title}</h3>
+        <span className="text-gray-400">{open ? '˄' : '˅'}</span>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </div>
+  )
+}
+
 interface MemberGrowthDetailProps {
   memberId: string
   prepRequest?: { memberId: string; token: number } | null
 }
 
+const DEFAULT_LEFT_WIDTH = 760
+const MIN_LEFT_WIDTH = 420
+const MAX_LEFT_WIDTH = 1100
+
 // 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
 // 상단 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
-// 성장 시뮬레이션)과 오른쪽(면담하기)이 나란히 붙어 있어 면담 중에도 성과·
-// 승진 상태를 보면서 바로 기록할 수 있다. 면담하기가 아래로 밀려나지 않는다.
+// 성장 시뮬레이션, 아코디언으로 각각 접고 펼 수 있음)과 오른쪽(면담하기)이
+// 스플리터로 너비를 조절할 수 있게 나란히 붙어 있다.
 export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
   const { state, dispatch } = useAppState()
   const { profile } = useTeamProfile()
@@ -47,10 +75,31 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const periods = workspaces.filter((w) => w.teamName === teamName)
   const member = state.members.find((m) => m.id === memberId)
 
+  const [recentOpen, setRecentOpen] = useState(true)
+  const [simOpen, setSimOpen] = useState(true)
   const [recentExpanded, setRecentExpanded] = useState(false)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+
+  // 좌(최근 성과 + 성장 시뮬레이션) / 우(면담하기) 스플리터 -- lg 이상에서만
+  // 동작하고, 그 아래 폭에서는 위/아래로 쌓인다(고정폭 없이).
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH)
+  const splitRef = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  function onSplitterPointerDown(e: React.PointerEvent) {
+    e.preventDefault()
+    splitRef.current = { startX: e.clientX, startWidth: leftWidth }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  function onSplitterPointerMove(e: React.PointerEvent) {
+    if (!splitRef.current) return
+    const next = splitRef.current.startWidth + (e.clientX - splitRef.current.startX)
+    setLeftWidth(Math.min(MAX_LEFT_WIDTH, Math.max(MIN_LEFT_WIDTH, next)))
+  }
+  function onSplitterPointerUp() {
+    splitRef.current = null
+  }
 
   if (!member) {
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
@@ -148,24 +197,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </HeaderStat>
       </div>
 
-      {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션) / 오른쪽(면담하기) */}
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div className="min-w-0 flex-1 space-y-5">
-          {/* 최근 성과 */}
-          <div className="rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-black">최근 성과</h3>
-              {currentTasks.length > 2 && (
-                <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
-                  {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
-                </button>
-              )}
-            </div>
-
+      {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽
+          (면담하기) -- 스플리터로 폭 조절, lg 미만에서는 위아래로 쌓인다. */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start" style={{ '--left-w': `${leftWidth}px` } as React.CSSProperties}>
+        <div className="w-full min-w-0 space-y-5 lg:w-[var(--left-w)] lg:shrink-0">
+          <AccordionSection title="최근 성과" open={recentOpen} onToggle={() => setRecentOpen((v) => !v)}>
             {currentTasks.length === 0 ? (
-              <p className="mt-3 text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+              <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
             ) : (
-              <div className="mt-3 overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[520px] text-left text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 text-xs text-gray-400">
@@ -193,30 +233,54 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               </div>
             )}
 
-            <button onClick={() => setPastPeriodsOpen((v) => !v)} className="mt-3 text-xs font-medium text-gray-400 hover:text-accent">
-              {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
-            </button>
+            <div className="mt-3 flex items-center justify-between">
+              <button onClick={() => setPastPeriodsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+                {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
+              </button>
+              {currentTasks.length > 2 && (
+                <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
+                  {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
+                </button>
+              )}
+            </div>
             {pastPeriodsOpen && (
               <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
                 <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
               </div>
             )}
-          </div>
+          </AccordionSection>
 
-          {/* 성장 시뮬레이션 */}
-          <PromotionSimulationPanel member={member} />
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
-              엑셀로 가져오기
-            </button>
-            <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
-              승진 기준 관리
-            </button>
-          </div>
+          <AccordionSection title="성장 시뮬레이션" open={simOpen} onToggle={() => setSimOpen((v) => !v)}>
+            <PromotionSimulationPanel member={member} />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
+                엑셀로 가져오기
+              </button>
+              <button onClick={() => setCriteriaManagerOpen(true)} className="rounded-md border border-promo/30 px-3 py-1.5 text-xs font-medium text-promo hover:bg-promo/5">
+                승진 기준 관리
+              </button>
+            </div>
+          </AccordionSection>
         </div>
 
-        {/* 면담하기 -- 왼쪽 열과 나란한 고정 폭 컬럼, 아래로 밀려나지 않는다 */}
-        <div className="w-full shrink-0 lg:w-[380px]">
+        {/* 스플리터 -- lg 이상에서만 드래그로 좌측 폭 조절, 그 아래에서는 숨김 */}
+        <div
+          onPointerDown={onSplitterPointerDown}
+          onPointerMove={onSplitterPointerMove}
+          onPointerUp={onSplitterPointerUp}
+          onPointerCancel={onSplitterPointerUp}
+          style={{ touchAction: 'none' }}
+          title="드래그해서 좌우 폭 조절"
+          aria-label="좌우 폭 조절"
+          role="separator"
+          aria-orientation="vertical"
+          className="group relative hidden shrink-0 cursor-col-resize items-stretch justify-center self-stretch lg:flex lg:w-3"
+        >
+          <span className="w-1 shrink-0 rounded-full bg-gray-200 transition-colors group-hover:bg-accent group-active:bg-accent" />
+        </div>
+
+        {/* 면담하기 -- 왼쪽 열과 나란한 컬럼, 아래로 밀려나지 않는다 */}
+        <div className="w-full min-w-0 flex-1">
           <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
         </div>
       </div>
