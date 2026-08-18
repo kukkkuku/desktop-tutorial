@@ -43,6 +43,7 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
   const [error, setError] = useState('')
   const [applyHireDate, setApplyHireDate] = useState(true)
   const [applied, setApplied] = useState<AppliedSummary | null>(null)
+  const [dragActive, setDragActive] = useState(false)
 
   async function handleFile(file: File) {
     setLoading(true)
@@ -119,12 +120,29 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
         </div>
 
         {!matches && (
-          <label className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-8 text-center hover:border-accent">
+          <label
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragActive(true)
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragActive(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f) handleFile(f)
+            }}
+            className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
+              dragActive ? 'border-accent bg-orange-50/50' : 'border-gray-300 hover:border-accent'
+            }`}
+          >
             {loading ? (
               <Spinner className="h-6 w-6 text-accent" />
             ) : (
               <>
-                <span className="text-sm font-medium text-black">엑셀 파일 선택</span>
+                <span className="text-sm font-medium text-black">
+                  {dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}
+                </span>
                 <span className="text-xs text-gray-400">.xlsx</span>
               </>
             )}

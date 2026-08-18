@@ -20,6 +20,16 @@ import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModa
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
 
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
 // 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래. 하나의 flat한
 // 바 안에서 gap만으로 간격을 두고, 구분선/배경색 구분은 쓰지 않는다.
 function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
@@ -355,12 +365,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               }
               collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}
             >
-              <PromotionSimulationPanel member={member} onOpenCriteria={() => setCriteriaManagerOpen(true)} />
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={() => setImportOpen(true)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-50">
-                  엑셀로 가져오기
+              <div className="mb-3 flex justify-end">
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-gray-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
+                >
+                  <UploadIcon className="h-3.5 w-3.5" /> 엑셀로 가져오기
                 </button>
               </div>
+              <PromotionSimulationPanel member={member} onOpenCriteria={() => setCriteriaManagerOpen(true)} />
             </AccordionSection>
           </div>
 
