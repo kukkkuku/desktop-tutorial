@@ -2,6 +2,7 @@ import type {
   AppState,
   Contribution,
   Criteria,
+  EvaluationStatus,
   MeetingActionItem,
   MeetingNote,
   PeerReview,
@@ -10,6 +11,11 @@ import type {
   TeamMember,
 } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
+
+const EVALUATION_STATUS_OPTIONS: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
+function isEvaluationStatus(value: unknown): value is EvaluationStatus {
+  return typeof value === 'string' && (EVALUATION_STATUS_OPTIONS as string[]).includes(value)
+}
 
 function isPerformanceGrade(value: unknown): value is PerformanceGrade {
   return typeof value === 'string' && (PERFORMANCE_GRADE_OPTIONS as string[]).includes(value)
@@ -40,6 +46,11 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
     comment: typeof raw.comment === 'string' ? raw.comment : '',
     hireDate: typeof raw.hireDate === 'string' ? raw.hireDate : null,
     currentLevelSince: typeof raw.currentLevelSince === 'string' ? raw.currentLevelSince : null,
+    promotionReviewDate: typeof raw.promotionReviewDate === 'string' ? raw.promotionReviewDate : null,
+    auxScores:
+      raw.auxScores && typeof raw.auxScores === 'object'
+        ? (raw.auxScores as TeamMember['auxScores'])
+        : null,
   }
 }
 
@@ -218,5 +229,12 @@ export function migrateAppState(raw: unknown): AppState | null {
         .filter((p): p is PeerReview => p !== null)
     : []
 
-  return { tasks, members, contributions, criteria, meetingNotes, peerReviews }
+  const rawStatus = (r.evaluationStatus ?? {}) as Record<string, unknown>
+  const evaluationStatus: Record<string, EvaluationStatus> = {}
+  for (const member of members) {
+    const value = rawStatus[member.id]
+    if (isEvaluationStatus(value)) evaluationStatus[member.id] = value
+  }
+
+  return { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }

@@ -239,6 +239,64 @@ export async function downloadResultsPdf(
 // 본인 참여 과제와 면담 기록만 담는다. excel.ts의 downloadIndividualResultReports와
 // 짝을 이루며, 팀원별 PDF를 하나씩 만들어 zip 하나로 묶어 내려받는다(파일별로
 // 따로따로 다운로드 창이 뜨는 걸 피하기 위함).
+function buildMemberResultPdfOptions(
+  teamName: string,
+  periodName: string,
+  member: TeamMember,
+  row: ReturnType<typeof calcMemberResults>[number],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  taskScoreMap: Map<string, number>,
+): Parameters<typeof buildPdfBlob>[0] {
+  const dateStr = new Date().toISOString().slice(0, 10)
+
+  const taskRows: (string | number)[][] = []
+  for (const task of tasks) {
+    const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+    if (!contribution || contribution.contributionPercent <= 0) continue
+    const taskScore = taskScoreMap.get(task.id) ?? 0
+    const weighted = taskScore * (contribution.contributionPercent / 100)
+    taskRows.push([
+      task.name,
+      contribution.contributionPercent,
+      criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+      taskScore.toFixed(1),
+      weighted.toFixed(1),
+    ])
+  }
+  const taskSection: ReportSection = {
+    title: '참여 과제',
+    countLabel: `${taskRows.length}건`,
+    columns: ['과제명', '기여도(%)', '개인수행등급', '과제 점수', '가중 점수'],
+    rows: taskRows,
+    emptyLabel: '참여한 과제가 없습니다.',
+  }
+
+  const memberNotes = meetingNotes.filter((n) => n.memberId === member.id).sort((a, b) => a.date.localeCompare(b.date))
+  const notesSection: ReportSection = {
+    title: '면담 기록',
+    countLabel: `${memberNotes.length}건`,
+    columns: ['날짜', '면담 코멘트'],
+    rows: memberNotes.map((n) => [n.date, n.comment]),
+    emptyLabel: '면담 기록이 없습니다.',
+  }
+
+  return {
+    teamName,
+    periodName,
+    title: `${member.name} 개인 평가결과`,
+    stats: [
+      { label: '참여 과제 수', value: `${row.participatedTaskCount}건` },
+      { label: '누적 점수', value: row.cumulativeScore.toFixed(1) },
+      { label: '평가등급', value: row.grade, emphasize: true },
+    ],
+    sections: [taskSection, notesSection],
+    fileName: `${member.name}_평가결과_${dateStr}.pdf`,
+  }
+}
+
 export async function downloadIndividualResultsPdf(
   teamName: string,
   periodName: string,
@@ -248,6 +306,7 @@ export async function downloadIndividualResultsPdf(
   criteria: Criteria,
   meetingNotes: MeetingNote[] = [],
   peerReviews: PeerReview[] = [],
+  selectedMemberIds?: string[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -255,53 +314,23 @@ export async function downloadIndividualResultsPdf(
   const dateStr = new Date().toISOString().slice(0, 10)
   const zip = new JSZip()
 
-  for (const row of results) {
-    const member = row.member
+  const selected = selectedMemberIds ? new Set(selectedMemberIds) : null
+  const targetRows = selected ? results.filter((row) => selected.has(row.member.id)) : results
 
-    const taskRows: (string | number)[][] = []
-    for (const task of tasks) {
-      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
-      if (!contribution || contribution.contributionPercent <= 0) continue
-      const taskScore = taskScoreMap.get(task.id) ?? 0
-      const weighted = taskScore * (contribution.contributionPercent / 100)
-      taskRows.push([
-        task.name,
-        contribution.contributionPercent,
-        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
-        taskScore.toFixed(1),
-        weighted.toFixed(1),
-      ])
-    }
-    const taskSection: ReportSection = {
-      title: '참여 과제',
-      countLabel: `${taskRows.length}건`,
-      columns: ['과제명', '기여도(%)', '개인수행등급', '과제 점수', '가중 점수'],
-      rows: taskRows,
-      emptyLabel: '참여한 과제가 없습니다.',
-    }
-
-    const memberNotes = meetingNotes.filter((n) => n.memberId === member.id).sort((a, b) => a.date.localeCompare(b.date))
-    const notesSection: ReportSection = {
-      title: '면담 기록',
-      countLabel: `${memberNotes.length}건`,
-      columns: ['날짜', '면담 코멘트'],
-      rows: memberNotes.map((n) => [n.date, n.comment]),
-      emptyLabel: '면담 기록이 없습니다.',
-    }
-
-    const blob = await buildPdfBlob({
+  for (const row of targetRows) {
+    const options = buildMemberResultPdfOptions(
       teamName,
       periodName,
-      title: `${member.name} 개인 평가결과`,
-      stats: [
-        { label: '참여 과제 수', value: `${row.participatedTaskCount}건` },
-        { label: '누적 점수', value: row.cumulativeScore.toFixed(1) },
-        { label: '평가등급', value: row.grade, emphasize: true },
-      ],
-      sections: [taskSection, notesSection],
-      fileName: `${member.name}_평가결과_${dateStr}.pdf`,
-    })
-    zip.file(`${member.name}_평가결과_${dateStr}.pdf`, blob)
+      row.member,
+      row,
+      tasks,
+      contributions,
+      criteria,
+      meetingNotes,
+      taskScoreMap,
+    )
+    const blob = await buildPdfBlob(options)
+    zip.file(options.fileName, blob)
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
@@ -313,4 +342,72 @@ export async function downloadIndividualResultsPdf(
   link.click()
   document.body.removeChild(link)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// 결과 테이블의 한 행에서 그 팀원 한 명의 PDF만 내려받거나(다운로드) 새 탭에서
+// 바로 열어 확인(미리보기)할 때 쓴다. 다른 팀원의 이름/점수/등급은 이 PDF에
+// 전혀 포함되지 않는다 -- buildMemberResultPdfOptions가 그 팀원 데이터만 채운다.
+async function buildSingleMemberPdf(
+  teamName: string,
+  periodName: string,
+  member: TeamMember,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  peerReviews: PeerReview[],
+) {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const row = results.find((r) => r.member.id === member.id)
+  if (!row) return null
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((r) => [r.task.id, r.score]))
+  const options = buildMemberResultPdfOptions(
+    teamName,
+    periodName,
+    member,
+    row,
+    tasks,
+    contributions,
+    criteria,
+    meetingNotes,
+    taskScoreMap,
+  )
+  return options
+}
+
+export async function downloadMemberResultPdf(
+  teamName: string,
+  periodName: string,
+  member: TeamMember,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  peerReviews: PeerReview[],
+) {
+  const options = await buildSingleMemberPdf(teamName, periodName, member, members, tasks, contributions, criteria, meetingNotes, peerReviews)
+  if (!options) return
+  await downloadPdfReport(options)
+}
+
+export async function previewMemberResultPdf(
+  teamName: string,
+  periodName: string,
+  member: TeamMember,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  peerReviews: PeerReview[],
+) {
+  const options = await buildSingleMemberPdf(teamName, periodName, member, members, tasks, contributions, criteria, meetingNotes, peerReviews)
+  if (!options) return
+  const blob = await buildPdfBlob(options)
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

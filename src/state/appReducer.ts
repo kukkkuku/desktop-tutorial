@@ -1,4 +1,4 @@
-import type { AppState, Contribution, Criteria, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
@@ -22,6 +22,8 @@ export type AppAction =
   | { type: 'ADD_PEER_REVIEW'; payload: PeerReview }
   | { type: 'UPDATE_PEER_REVIEW'; payload: PeerReview }
   | { type: 'DELETE_PEER_REVIEW'; payload: { id: string } }
+  | { type: 'SET_EVALUATION_STATUS'; payload: { memberId: string; status: EvaluationStatus } }
+  | { type: 'SET_ALL_EVALUATION_STATUS'; payload: { memberIds: string[]; status: EvaluationStatus } }
 
 export function createEmptyState(): AppState {
   return {
@@ -30,6 +32,7 @@ export function createEmptyState(): AppState {
     contributions: [],
     meetingNotes: [],
     peerReviews: [],
+    evaluationStatus: {},
     criteria: {
       performanceGradeWeight: 100,
       taskGradeWeight: 100,
@@ -255,6 +258,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         peerReviews: state.peerReviews.filter((r) => r.id !== action.payload.id),
       }
+
+    case 'SET_EVALUATION_STATUS':
+      return {
+        ...state,
+        evaluationStatus: { ...state.evaluationStatus, [action.payload.memberId]: action.payload.status },
+      }
+
+    case 'SET_ALL_EVALUATION_STATUS': {
+      const next = { ...state.evaluationStatus }
+      for (const id of action.payload.memberIds) next[id] = action.payload.status
+      return { ...state, evaluationStatus: next }
+    }
 
     default:
       return state

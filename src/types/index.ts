@@ -95,6 +95,10 @@ export interface Criteria {
   contributionWeight: number
 }
 
+// 성과평가 결과 화면의 진행 상태 — 팀원별로 추적한다. '평가중'이 기본값이고,
+// 팀장이 검토를 마치면 '검토완료', 그 해의 공식 결과로 못박으면 '확정'으로 올린다.
+export type EvaluationStatus = 'evaluating' | 'reviewed' | 'confirmed'
+
 export interface AppState {
   tasks: Task[]
   members: TeamMember[]
@@ -102,6 +106,8 @@ export interface AppState {
   criteria: Criteria
   meetingNotes: MeetingNote[]
   peerReviews: PeerReview[]
+  // memberId -> 상태. 없는 팀원은 'evaluating'으로 취급한다.
+  evaluationStatus: Record<string, EvaluationStatus>
 }
 
 export interface WorkspaceMeta {

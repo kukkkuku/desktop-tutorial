@@ -12,12 +12,14 @@ import type {
   PerformanceGrade,
   Task,
   TeamMember,
+  WorkspaceMeta,
   Workload,
 } from '../types'
 import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberParticipation, calcMemberResults, calcTaskScore } from './calculations'
 import { calcYearsSince } from './tenure'
 import { applySheetStyle, type StyledColumn } from './excelStyle'
+import { getMemberPerformanceHistory } from './memberHistory'
 
 // ---------- Styled workbook download (exceljs) ----------
 // exceljs is used for every file the app *writes* because it can actually
@@ -574,41 +576,50 @@ export async function downloadAllTemplatesZip(members: TeamMember[]) {
 }
 
 // ---------- Results report export ----------
+// 팀장이 상급자에게 바로 보여줄 수 있는 문서를 목표로, 시트 4개로 고정한다:
+// 01 팀원 성과결과(요약) → 02 개인별 상세 → 03 과제별 결과 → 04 평가기준.
 
-const RANK_COLUMNS: StyledColumn[] = [
-  { header: '순위', width: 6, role: 'category' },
-  { header: '이름', width: 12, role: 'freetext' },
-  { header: '역할', width: 14, role: 'freetext' },
+const SUMMARY_RESULT_COLUMNS: StyledColumn[] = [
+  { header: '팀원', width: 12, role: 'freetext' },
   { header: '직급', width: 10, role: 'freetext' },
-  { header: '참여 과제 수', width: 12, role: 'metric' },
-  { header: '종합 점수(가중평균)', width: 16, role: 'metric' },
-  { header: '누적 점수', width: 16, role: 'metric' },
-  { header: '평가등급', width: 10, role: 'category' },
+  { header: '성과점수', width: 12, role: 'metric' },
+  { header: '최종 고과', width: 10, role: 'category' },
+  { header: '전년도 고과', width: 12, role: 'metric' },
+  { header: '증감', width: 10, role: 'metric' },
+  { header: '비고', width: 24, role: 'freetext' },
 ]
 
-const DETAIL_COLUMNS: StyledColumn[] = [
+const MEMBER_DETAIL_COLUMNS: StyledColumn[] = [
   { header: '팀원', width: 12, role: 'freetext' },
-  { header: '과제명', width: 20, role: 'freetext' },
-  { header: '과제점수', width: 10, role: 'metric' },
+  { header: '과제', width: 20, role: 'freetext' },
+  { header: '중요도', width: 10, role: 'category' },
+  { header: '과제성과', width: 24, role: 'freetext' },
   { header: '기여도(%)', width: 10, role: 'metric' },
-  { header: '개인수행등급', width: 12, role: 'metric' },
-  { header: '목표', width: 24, role: 'freetext' },
-  { header: '성과', width: 24, role: 'freetext' },
-  { header: '성과등급', width: 10, role: 'metric' },
-  { header: '가중점수', width: 10, role: 'metric' },
-  { header: '기여도합계 100% 여부', width: 16, role: 'metric' },
+  { header: '개인 수행등급', width: 14, role: 'metric' },
+  { header: '개인점수', width: 10, role: 'metric' },
 ]
 
-const NOTES_COLUMNS: StyledColumn[] = [
-  { header: '팀원', width: 12, role: 'freetext' },
-  { header: '날짜', width: 12, role: 'metric' },
-  { header: '면담 코멘트', width: 50, role: 'freetext' },
+const TASK_RESULT_COLUMNS: StyledColumn[] = [
+  { header: '과제', width: 22, role: 'freetext' },
+  { header: '과제성과', width: 24, role: 'freetext' },
+  { header: '참여 팀원', width: 26, role: 'freetext' },
+  { header: '기여도(%)', width: 26, role: 'freetext' },
+  { header: '개인성과', width: 12, role: 'metric' },
 ]
 
-const REPORT_PEER_REVIEW_COLUMNS: StyledColumn[] = [
-  { header: '대상팀원', width: 12, role: 'freetext' },
-  { header: '리뷰어', width: 12, role: 'freetext' },
-  { header: '등급', width: 8, role: 'category' },
+const CRITERIA_COLUMNS: StyledColumn[] = [
+  { header: '평가기준', width: 20, role: 'freetext' },
+  { header: '반영 비율(%)', width: 14, role: 'metric' },
+  { header: '사용 여부', width: 10, role: 'category' },
+]
+
+const CRITERIA_LABELS: { key: keyof Criteria; label: string }[] = [
+  { key: 'taskGradeWeight', label: '과제 중요도' },
+  { key: 'performanceGradeWeight', label: '과제 성과등급' },
+  { key: 'workloadWeight', label: '업무량' },
+  { key: 'contributionWeight', label: '팀원 기여도' },
+  { key: 'personalGradeWeight', label: '개인 수행등급' },
+  { key: 'peerReviewWeight', label: '피어리뷰' },
 ]
 
 export async function downloadResultsReport(
@@ -616,79 +627,78 @@ export async function downloadResultsReport(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  meetingNotes: MeetingNote[] = [],
   peerReviews: PeerReview[] = [],
+  periods: WorkspaceMeta[] = [],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
 
-  const rankRows: (string | number)[][] = results.map((row, index) => [
-    index + 1,
-    row.member.name,
-    row.member.role || '-',
-    row.member.level || '-',
-    row.participatedTaskCount,
-    Number(row.weightedAverageScore.toFixed(1)),
-    Number(row.cumulativeScore.toFixed(1)),
-    row.grade,
-  ])
+  // 01. 팀원 성과결과
+  const summaryRows: (string | number)[][] = results.map((row) => {
+    const history = periods.length > 0 ? getMemberPerformanceHistory(row.member.id, periods) : []
+    const prevGrade = history[1]?.grade ?? null
+    const prevScore = history[1]?.cumulativeScore ?? null
+    const delta = prevScore !== null ? Number((row.cumulativeScore - prevScore).toFixed(1)) : ''
+    return [
+      row.member.name,
+      row.member.level || '-',
+      Number(row.cumulativeScore.toFixed(1)),
+      row.grade,
+      prevGrade ?? '-',
+      delta === '' ? '-' : delta > 0 ? `+${delta}` : `${delta}`,
+      row.member.comment || '',
+    ]
+  })
 
-  const detailRows: (string | number)[][] = []
-  for (const task of tasks) {
-    const taskScore = taskScoreMap.get(task.id) ?? 0
-    const taskContributions = contributions.filter((c) => c.taskId === task.id && c.contributionPercent > 0)
-    const sum = taskContributions.reduce((s, c) => s + c.contributionPercent, 0)
-    const sumOk = Math.abs(sum - 100) <= 0.01 ? 'OK' : `${sum.toFixed(1)}%`
-    for (const c of taskContributions) {
-      const member = members.find((m) => m.id === c.memberId)
-      if (!member) continue
-      const personalFactor = criteria.personalGradeWeight > 0 ? c.personalPerformanceGrade : '미사용'
-      const weighted = taskScore * (c.contributionPercent / 100)
-      detailRows.push([
-        member.name,
+  // 02. 개인별 상세
+  const memberDetailRows: (string | number)[][] = []
+  for (const row of results) {
+    for (const task of tasks) {
+      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === row.member.id)
+      if (!contribution || contribution.contributionPercent <= 0) continue
+      const taskScore = taskScoreMap.get(task.id) ?? 0
+      const weighted = taskScore * (contribution.contributionPercent / 100)
+      memberDetailRows.push([
+        row.member.name,
         task.name,
-        Number(taskScore.toFixed(1)),
-        c.contributionPercent,
-        personalFactor,
-        task.objective || '-',
+        task.importance,
         task.achievement || '-',
-        task.performanceGrade,
+        contribution.contributionPercent,
+        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
         Number(weighted.toFixed(1)),
-        sumOk,
       ])
     }
   }
 
-  const sortedNotes = [...meetingNotes].sort((a, b) => {
-    const memberA = members.find((m) => m.id === a.memberId)?.name ?? ''
-    const memberB = members.find((m) => m.id === b.memberId)?.name ?? ''
-    return memberA.localeCompare(memberB) || a.date.localeCompare(b.date)
+  // 03. 과제별 결과
+  const taskResultRows: (string | number)[][] = tasks.map((task) => {
+    const participants = contributions
+      .filter((c) => c.taskId === task.id && c.contributionPercent > 0)
+      .map((c) => ({ member: members.find((m) => m.id === c.memberId), pct: c.contributionPercent }))
+      .filter((p): p is { member: TeamMember; pct: number } => p.member !== undefined)
+    const taskScore = taskScoreMap.get(task.id) ?? 0
+    return [
+      task.name,
+      task.achievement || '-',
+      participants.map((p) => p.member.name).join(', ') || '-',
+      participants.map((p) => `${p.member.name} ${p.pct}%`).join(', ') || '-',
+      Number(taskScore.toFixed(1)),
+    ]
   })
-  const notesRows: (string | number)[][] = []
-  for (const note of sortedNotes) {
-    const member = members.find((m) => m.id === note.memberId)
-    if (!member) continue
-    notesRows.push([member.name, note.date, note.comment])
-  }
 
-  const sortedReviews = [...peerReviews].sort((a, b) => {
-    const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
-    const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
-    return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
-  })
-  const peerReviewRows: (string | number)[][] = []
-  for (const review of sortedReviews) {
-    const target = members.find((m) => m.id === review.targetMemberId)
-    if (!target) continue
-    peerReviewRows.push([target.name, review.reviewerName, review.grade])
-  }
+  // 04. 평가기준
+  const criteriaRows: (string | number)[][] = CRITERIA_LABELS.map(({ key, label }) => [
+    label,
+    criteria[key],
+    criteria[key] > 0 ? '사용' : '미사용',
+  ])
 
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '순위표', RANK_COLUMNS, rankRows)
-  addStyledSheet(wb, '과제별상세', DETAIL_COLUMNS, detailRows)
-  addStyledSheet(wb, '면담기록', NOTES_COLUMNS, notesRows)
-  addStyledSheet(wb, '피어리뷰', REPORT_PEER_REVIEW_COLUMNS, peerReviewRows)
+  addStyledSheet(wb, '01_팀원 성과결과', SUMMARY_RESULT_COLUMNS, summaryRows)
+  addStyledSheet(wb, '02_개인별 상세', MEMBER_DETAIL_COLUMNS, memberDetailRows)
+  addStyledSheet(wb, '03_과제별 결과', TASK_RESULT_COLUMNS, taskResultRows)
+  addStyledSheet(wb, '04_평가기준', CRITERIA_COLUMNS, criteriaRows, criteriaRows.length)
   await downloadStyledWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
@@ -714,6 +724,52 @@ const INDIVIDUAL_NOTES_COLUMNS: StyledColumn[] = [
   { header: '면담 코멘트', width: 50, role: 'freetext' },
 ]
 
+function buildMemberResultWorkbook(
+  member: TeamMember,
+  row: ReturnType<typeof calcMemberResults>[number],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  taskScoreMap: Map<string, number>,
+): ExcelJS.Workbook {
+  const summaryRows: (string | number)[][] = [
+    ['이름', member.name],
+    ['역할', member.role || '-'],
+    ['직급', member.level || '-'],
+    ['참여 과제 수', row.participatedTaskCount],
+    ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],
+    ['누적 점수', Number(row.cumulativeScore.toFixed(1))],
+    ['평가등급', row.grade],
+  ]
+
+  const taskRows: (string | number)[][] = []
+  for (const task of tasks) {
+    const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+    if (!contribution || contribution.contributionPercent <= 0) continue
+    const taskScore = taskScoreMap.get(task.id) ?? 0
+    const weighted = taskScore * (contribution.contributionPercent / 100)
+    taskRows.push([
+      task.name,
+      contribution.contributionPercent,
+      criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+      Number(taskScore.toFixed(1)),
+      Number(weighted.toFixed(1)),
+    ])
+  }
+
+  const memberNotes = meetingNotes
+    .filter((n) => n.memberId === member.id)
+    .sort((a, b) => a.date.localeCompare(b.date))
+  const notesRows: (string | number)[][] = memberNotes.map((note) => [note.date, note.comment])
+
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '요약', SUMMARY_COLUMNS, summaryRows, summaryRows.length)
+  addStyledSheet(wb, '참여 과제', INDIVIDUAL_TASK_COLUMNS, taskRows)
+  addStyledSheet(wb, '면담기록', INDIVIDUAL_NOTES_COLUMNS, notesRows)
+  return wb
+}
+
 export async function downloadIndividualResultReports(
   members: TeamMember[],
   tasks: Task[],
@@ -721,6 +777,7 @@ export async function downloadIndividualResultReports(
   criteria: Criteria,
   meetingNotes: MeetingNote[] = [],
   peerReviews: PeerReview[] = [],
+  selectedMemberIds?: string[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -728,46 +785,13 @@ export async function downloadIndividualResultReports(
   const dateStr = new Date().toISOString().slice(0, 10)
   const zip = new JSZip()
 
-  for (const row of results) {
-    const member = row.member
+  const selected = selectedMemberIds ? new Set(selectedMemberIds) : null
+  const targetRows = selected ? results.filter((row) => selected.has(row.member.id)) : results
 
-    const summaryRows: (string | number)[][] = [
-      ['이름', member.name],
-      ['역할', member.role || '-'],
-      ['직급', member.level || '-'],
-      ['참여 과제 수', row.participatedTaskCount],
-      ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],
-      ['누적 점수', Number(row.cumulativeScore.toFixed(1))],
-      ['평가등급', row.grade],
-    ]
-
-    const taskRows: (string | number)[][] = []
-    for (const task of tasks) {
-      const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
-      if (!contribution || contribution.contributionPercent <= 0) continue
-      const taskScore = taskScoreMap.get(task.id) ?? 0
-      const weighted = taskScore * (contribution.contributionPercent / 100)
-      taskRows.push([
-        task.name,
-        contribution.contributionPercent,
-        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
-        Number(taskScore.toFixed(1)),
-        Number(weighted.toFixed(1)),
-      ])
-    }
-
-    const memberNotes = meetingNotes
-      .filter((n) => n.memberId === member.id)
-      .sort((a, b) => a.date.localeCompare(b.date))
-    const notesRows: (string | number)[][] = memberNotes.map((note) => [note.date, note.comment])
-
-    const wb = new ExcelJS.Workbook()
-    addStyledSheet(wb, '요약', SUMMARY_COLUMNS, summaryRows, summaryRows.length)
-    addStyledSheet(wb, '참여 과제', INDIVIDUAL_TASK_COLUMNS, taskRows)
-    addStyledSheet(wb, '면담기록', INDIVIDUAL_NOTES_COLUMNS, notesRows)
-
+  for (const row of targetRows) {
+    const wb = buildMemberResultWorkbook(row.member, row, tasks, contributions, criteria, meetingNotes, taskScoreMap)
     const buffer = await wb.xlsx.writeBuffer()
-    zip.file(`${member.name}_평가결과_${dateStr}.xlsx`, buffer)
+    zip.file(`${row.member.name}_평가결과_${dateStr}.xlsx`, buffer)
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
@@ -779,4 +803,24 @@ export async function downloadIndividualResultReports(
   link.click()
   document.body.removeChild(link)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// 결과 테이블의 한 행에서 바로 그 팀원 한 명의 엑셀만 내려받을 때 쓴다(zip 없이 단일 파일).
+export async function downloadMemberResultExcel(
+  member: TeamMember,
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  meetingNotes: MeetingNote[],
+  peerReviews: PeerReview[],
+) {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const row = results.find((r) => r.member.id === member.id)
+  if (!row) return
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((r) => [r.task.id, r.score]))
+  const wb = buildMemberResultWorkbook(member, row, tasks, contributions, criteria, meetingNotes, taskScoreMap)
+  const dateStr = new Date().toISOString().slice(0, 10)
+  await downloadStyledWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
 }

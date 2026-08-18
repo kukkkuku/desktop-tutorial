@@ -59,4 +59,5 @@ export function applySheetStyle(ws: Worksheet, columns: StyledColumn[], emptyRow
   }
 
   ws.views = [{ state: 'frozen', ySplit: 1 }]
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } }
 }

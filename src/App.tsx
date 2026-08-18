@@ -11,6 +11,7 @@ import DataStage, { type DataSubTabRequest } from './components/DataStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
+import VersionCompareBar from './components/VersionCompareBar'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
@@ -113,6 +114,7 @@ function WorkspaceGate() {
 export default function App() {
   return (
     <WorkspaceProvider>
+      <VersionCompareBar />
       <WorkspaceGate />
     </WorkspaceProvider>
   )
