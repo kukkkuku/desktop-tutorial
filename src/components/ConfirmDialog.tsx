@@ -1,3 +1,5 @@
+import Button from './Button'
+
 interface ConfirmDialogProps {
   open: boolean
   title: string
@@ -26,20 +28,12 @@ export default function ConfirmDialog({
         <h3 className="text-lg font-bold text-black">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
-          >
+          <Button variant="secondary" onClick={onCancel}>
             취소
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`rounded-md px-4 py-2 text-sm font-medium text-white hover:opacity-90 ${
-              tone === 'danger' ? 'bg-danger' : 'bg-accent'
-            }`}
-          >
+          </Button>
+          <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

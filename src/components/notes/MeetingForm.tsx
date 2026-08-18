@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote, TeamMember } from '../../types'
 import ConfirmDialog from '../ConfirmDialog'
+import Badge from '../Badge'
+import Button from '../Button'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -93,13 +95,9 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
           aria-label="면담 일자"
           className="w-40 shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
         />
-        <button
-          onClick={handleSave}
-          disabled={!comment.trim()}
-          className="shrink-0 rounded-md bg-accent px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="shrink-0 py-2.5">
           작성하기
-        </button>
+        </Button>
       </div>
 
       <div className="mt-3">
@@ -156,19 +154,23 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
                 <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <textarea value={editComment} onChange={(e) => setEditComment(e.target.value)} rows={2} className="min-w-[180px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <div className="flex gap-2">
-                  <button onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
+                  <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="px-3 py-1.5 text-xs">
                     저장
-                  </button>
-                  <button onClick={() => setEditingNoteId(null)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100">
+                  </Button>
+                  <Button variant="secondary" onClick={() => setEditingNoteId(null)} className="px-3 py-1.5 text-xs">
                     취소
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
               <div key={note.id} className="flex flex-wrap items-start gap-3 border-b border-gray-200 py-3">
                 <p className="shrink-0 text-xs font-semibold text-gray-500">
                   {note.date}
-                  {note.date > todayStr && <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-bold text-accent">예정</span>}
+                  {note.date > todayStr && (
+                    <Badge tone="accent" className="ml-2">
+                      예정
+                    </Badge>
+                  )}
                 </p>
                 <div className="min-w-[200px] flex-1 space-y-0.5 text-[13px] text-black">
                   <p className="whitespace-pre-wrap break-words">{note.comment}</p>
@@ -178,19 +180,20 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
                   {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">Career Goal : {note.careerInterest}</p>}
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={() => {
                       setEditingNoteId(note.id)
                       setEditDate(note.date)
                       setEditComment(note.comment)
                     }}
-                    className="rounded-md border border-gray-300 px-2 py-0.5 text-xs hover:bg-gray-100"
+                    className="px-2 py-0.5 text-xs"
                   >
                     수정
-                  </button>
-                  <button onClick={() => setDeletingNote(note)} className="rounded-md border border-danger px-2 py-0.5 text-xs text-danger hover:bg-red-50">
+                  </Button>
+                  <Button variant="danger" onClick={() => setDeletingNote(note)} className="px-2 py-0.5 text-xs">
                     삭제
-                  </button>
+                  </Button>
                 </div>
               </div>
             ),

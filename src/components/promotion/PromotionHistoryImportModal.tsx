@@ -7,6 +7,8 @@ import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatc
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import Spinner from '../Spinner'
 import ResizableTh from '../table/ResizableTh'
+import Button from '../Button'
+import IconButton from '../IconButton'
 
 const PREVIEW_COLUMNS = {
   sheet: 100,
@@ -110,13 +112,9 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
               이름이 일치하는 현재 팀원에게 바로 적용합니다.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
+          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <CloseIcon className="h-5 w-5" />
-          </button>
+          </IconButton>
         </div>
 
         {!matches && (
@@ -235,12 +233,9 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
                 매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.
               </p>
             ) : (
-              <button
-                onClick={handleApply}
-                className="mt-4 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-              >
+              <Button variant="primary" onClick={handleApply} className="mt-4 w-full py-2.5">
                 {matchedCount}명에게 적용
-              </button>
+              </Button>
             )}
 
             {applied && (

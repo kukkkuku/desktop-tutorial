@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Button from './Button'
 
 interface AddPeriodModalProps {
   teamName: string
@@ -40,18 +41,12 @@ export default function AddPeriodModal({ teamName, onSave, onClose }: AddPeriodM
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
-          >
+          <Button variant="secondary" onClick={onClose}>
             취소
-          </button>
-          <button
-            onClick={handleSubmit}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
+          </Button>
+          <Button variant="primary" onClick={handleSubmit}>
             추가
-          </button>
+          </Button>
         </div>
       </div>
     </div>

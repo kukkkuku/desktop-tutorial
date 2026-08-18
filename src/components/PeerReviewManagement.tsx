@@ -12,6 +12,8 @@ import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook } from '../utils/excel'
 import { downloadPeerReviewsPdf } from '../utils/pdfReports'
+import Button from './Button'
+import IconButton from './IconButton'
 
 const PEER_REVIEW_COLUMNS = {
   reviewer: 160,
@@ -155,12 +157,9 @@ export default function PeerReviewManagement({ onUploaded }: PeerReviewManagemen
             </select>
           </div>
           <div className="flex items-end">
-            <button
-              onClick={handleQuickAdd}
-              className="w-full whitespace-nowrap rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-            >
+            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
               + 피어리뷰 추가
-            </button>
+            </Button>
           </div>
         </div>
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
@@ -211,12 +210,7 @@ export default function PeerReviewManagement({ onUploaded }: PeerReviewManagemen
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => setDeletingReview(review)}
-                      title="삭제"
-                      aria-label="삭제"
-                      className="rounded-md border border-gray-300 p-1.5 text-danger hover:bg-red-50"
-                    >
+                    <IconButton onClick={() => setDeletingReview(review)} title="삭제" aria-label="삭제" tone="danger">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M3 6h18" />
                         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -224,7 +218,7 @@ export default function PeerReviewManagement({ onUploaded }: PeerReviewManagemen
                         <path d="M10 11v6" />
                         <path d="M14 11v6" />
                       </svg>
-                    </button>
+                    </IconButton>
                   </td>
                 </tr>
               ))}

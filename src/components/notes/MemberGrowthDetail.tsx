@@ -19,6 +19,7 @@ import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
+import Badge from '../Badge'
 
 function UploadIcon({ className }: { className?: string }) {
   return (
@@ -354,13 +355,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               onToggle={() => setSimOpen((v) => !v)}
               headerBadge={
                 promotionCriteria && (
-                  <span
-                    className={`rounded-md px-2.5 py-1 text-xs font-bold ${
-                      scoreGap !== null && scoreGap >= 0 ? 'bg-orange-50 text-accent' : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
+                  <Badge tone={scoreGap !== null && scoreGap >= 0 ? 'accent' : 'neutral'}>
                     {scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}
-                  </span>
+                  </Badge>
                 )
               }
               collapsedSummary={promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}

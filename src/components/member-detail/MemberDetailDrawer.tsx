@@ -6,6 +6,7 @@ import { auxScoreSum, calcPromotionReadiness, trendArrow } from '../../utils/pro
 import { calcYearsSince } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
 import MemberOverviewPanel from './MemberOverviewPanel'
+import IconButton from '../IconButton'
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -65,13 +66,9 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
             <p className="truncate text-lg font-bold text-black">{member.name}</p>
             <p className="truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="닫기"
-            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
+          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <CloseIcon className="h-5 w-5" />
-          </button>
+          </IconButton>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">

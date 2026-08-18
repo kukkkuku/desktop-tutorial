@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote } from '../../types'
 import { colorForIndex } from '../../utils/memberColors'
+import IconButton from '../IconButton'
+import Button from '../Button'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -159,15 +161,15 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <button onClick={() => setViewDate(new Date(year, month - 1, 1))} aria-label="이전 달" className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100">
+        <IconButton onClick={() => setViewDate(new Date(year, month - 1, 1))} aria-label="이전 달" className="h-7 w-7">
           <Chevron dir="left" className="h-4 w-4" />
-        </button>
+        </IconButton>
         <span className="text-sm font-semibold text-black">
           {year}년 {month + 1}월
         </span>
-        <button onClick={() => setViewDate(new Date(year, month + 1, 1))} aria-label="다음 달" className="flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100">
+        <IconButton onClick={() => setViewDate(new Date(year, month + 1, 1))} aria-label="다음 달" className="h-7 w-7">
           <Chevron dir="right" className="h-4 w-4" />
-        </button>
+        </IconButton>
       </div>
 
       <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] text-gray-400">
@@ -232,9 +234,9 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                 </option>
               ))}
             </select>
-            <button onClick={addSchedule} className="shrink-0 rounded-md bg-accent px-2.5 py-1 text-[12px] font-medium text-white hover:opacity-90">
+            <Button variant="primary" onClick={addSchedule} className="shrink-0 px-2.5 py-1 text-[12px]">
               추가
-            </button>
+            </Button>
           </div>
         </div>
       </div>

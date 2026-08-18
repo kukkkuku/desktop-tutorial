@@ -9,6 +9,7 @@ import { calcYearsSince } from '../../utils/tenure'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ConfirmDialog from '../ConfirmDialog'
 import ResizableTh from '../table/ResizableTh'
+import Button from '../Button'
 
 const APPRAISAL_COLUMNS = {
   year: 64,
@@ -237,12 +238,12 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <td className="px-3 py-2 font-mono font-semibold">{hasDraftGrade ? draftTotal.toFixed(1) : '-'}</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1.5">
-                        <button onClick={() => saveEdit(year, r?.id)} className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-white hover:opacity-90">
+                        <Button variant="primary" onClick={() => saveEdit(year, r?.id)} className="px-2 py-1 text-xs">
                           저장
-                        </button>
-                        <button onClick={() => setEditingYear(null)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">
+                        </Button>
+                        <Button variant="secondary" onClick={() => setEditingYear(null)} className="px-2 py-1 text-xs">
                           취소
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -259,12 +260,9 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <td className="px-3 py-2">-</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end">
-                        <button
-                          onClick={() => startEdit(year)}
-                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                        >
+                        <Button variant="secondary" onClick={() => startEdit(year)} className="px-2 py-1 text-xs">
                           입력
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -286,12 +284,12 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   <td className="px-3 py-2 font-mono font-semibold">{yearGradeSum(r, profile.gradeScores).toFixed(1)}</td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1.5">
-                      <button onClick={() => startEdit(year, r)} className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-100">
+                      <Button variant="secondary" onClick={() => startEdit(year, r)} className="px-2 py-1 text-xs">
                         수정
-                      </button>
-                      <button onClick={() => setDeleting(r)} className="rounded-md border border-danger px-2 py-1 text-xs text-danger hover:bg-red-50">
+                      </Button>
+                      <Button variant="danger" onClick={() => setDeleting(r)} className="px-2 py-1 text-xs">
                         삭제
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>

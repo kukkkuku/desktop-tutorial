@@ -14,6 +14,8 @@ import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
+import Button from './Button'
+import IconButton from './IconButton'
 
 // service/levelTenure는 수정 모드에서 <input type="date">가 들어가는데,
 // 셀 자체의 px-4(32px) 패딩을 빼고도 "mm/dd/yyyy" + 달력 아이콘이 잘리지
@@ -266,12 +268,9 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
             />
           </div>
           <div className="flex items-end">
-            <button
-              onClick={handleQuickAdd}
-              className="w-full whitespace-nowrap rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-            >
+            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
               + 팀원 추가
-            </button>
+            </Button>
           </div>
         </div>
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
@@ -391,18 +390,12 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                     </td>
                     <td className="px-4 py-2 align-top">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(member)}
-                          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-                        >
+                        <Button variant="primary" onClick={() => saveEdit(member)} className="px-3 py-1.5 text-xs">
                           저장
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
-                        >
+                        </Button>
+                        <Button variant="secondary" onClick={cancelEdit} className="px-3 py-1.5 text-xs">
                           취소
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -444,23 +437,13 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => startEdit(member)}
-                        title="수정"
-                        aria-label="수정"
-                        className="rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-100"
-                      >
+                      <IconButton onClick={() => startEdit(member)} title="수정" aria-label="수정">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
                         </svg>
-                      </button>
-                      <button
-                        onClick={() => setDeletingMember(member)}
-                        title="삭제"
-                        aria-label="삭제"
-                        className="rounded-md border border-gray-300 p-1.5 text-danger hover:bg-red-50"
-                      >
+                      </IconButton>
+                      <IconButton onClick={() => setDeletingMember(member)} title="삭제" aria-label="삭제" tone="danger">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                           <path d="M3 6h18" />
                           <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -468,7 +451,7 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                           <path d="M10 11v6" />
                           <path d="M14 11v6" />
                         </svg>
-                      </button>
+                      </IconButton>
                     </div>
                   </td>
                 </tr>
@@ -492,16 +475,12 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-lg font-bold text-black">{viewingPeerReviewsFor.name}님이 받은 피어리뷰</h3>
-              <button
-                onClick={() => setViewingPeerReviewsFor(null)}
-                aria-label="닫기"
-                className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
+              <IconButton onClick={() => setViewingPeerReviewsFor(null)} aria-label="닫기" className="shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
                   <path d="M18 6 6 18" />
                   <path d="M6 6l12 12" />
                 </svg>
-              </button>
+              </IconButton>
             </div>
             <div className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto">
               {peerReviewsForViewing.length === 0 ? (
@@ -519,12 +498,9 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${GRADE_COLORS[review.grade]}`}>
                         {review.grade}
                       </span>
-                      <button
-                        onClick={() => setDeletingPeerReview(review)}
-                        className="rounded-md border border-danger px-2.5 py-1 text-xs font-medium text-danger hover:bg-red-50"
-                      >
+                      <Button variant="danger" onClick={() => setDeletingPeerReview(review)} className="px-2.5 py-1 text-xs">
                         삭제
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))

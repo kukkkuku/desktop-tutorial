@@ -5,6 +5,8 @@ import { useTeamProfile } from '../../state/TeamContext'
 import { YEAR_WEIGHTS_BY_TENURE } from '../../utils/promotion'
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ResizableTh from '../table/ResizableTh'
+import Button from '../Button'
+import IconButton from '../IconButton'
 
 const CRITERIA_COLUMNS = {
   fromLevel: 100,
@@ -78,9 +80,9 @@ export default function PromotionCriteriaManager({
               성과평가 기준(기준 설정)과는 별개인 승진 제도 기준입니다. 첨부된 승진 제도 자료를 기준으로 합니다.
             </p>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="flex shrink-0 items-center justify-center rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <CloseIcon className="h-5 w-5" />
-          </button>
+          </IconButton>
         </div>
 
         <div className="mt-5">
@@ -251,21 +253,21 @@ export default function PromotionCriteriaManager({
         <div className="mt-6 flex justify-end gap-2">
           {isEdit ? (
             <>
-              <button onClick={handleCancelEdit} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100">
+              <Button variant="secondary" onClick={handleCancelEdit}>
                 취소
-              </button>
-              <button onClick={handleSave} className="rounded-md bg-promo px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+              </Button>
+              <Button variant="primary" onClick={handleSave}>
                 저장
-              </button>
+              </Button>
             </>
           ) : (
             <>
-              <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100">
+              <Button variant="secondary" onClick={onClose}>
                 닫기
-              </button>
-              <button onClick={() => setMode('edit')} className="rounded-md bg-promo px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+              </Button>
+              <Button variant="primary" onClick={() => setMode('edit')}>
                 수정하기
-              </button>
+              </Button>
             </>
           )}
         </div>

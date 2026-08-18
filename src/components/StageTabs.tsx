@@ -1,4 +1,5 @@
 import type { WorkspaceMeta } from '../types'
+import IconButton from './IconButton'
 
 export type Stage = 'data' | 'evaluate' | 'results' | 'notes'
 
@@ -45,12 +46,7 @@ export default function StageTabs({
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="flex w-full flex-wrap items-center gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-        <button
-          onClick={onExit}
-          title="홈으로"
-          aria-label="홈으로"
-          className="flex shrink-0 items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100"
-        >
+        <IconButton onClick={onExit} title="홈으로" aria-label="홈으로" className="shrink-0">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -64,7 +60,7 @@ export default function StageTabs({
             <path d="M3 10.5 12 3l9 7.5" />
             <path d="M5 9.5V21h14V9.5" />
           </svg>
-        </button>
+        </IconButton>
         <span className="h-6 w-px shrink-0 bg-gray-200" />
         <span className="whitespace-nowrap text-lg font-bold text-black">
           {teamName} <span className="font-normal text-gray-400">성과관리</span>
@@ -81,17 +77,12 @@ export default function StageTabs({
               </option>
             ))}
           </select>
-          <button
-            onClick={onAddPeriod}
-            title="새 기간 추가"
-            aria-label="새 기간 추가"
-            className="flex shrink-0 items-center justify-center rounded-md border border-gray-300 p-2 text-gray-500 hover:border-accent hover:text-accent"
-          >
+          <IconButton onClick={onAddPeriod} title="새 기간 추가" aria-label="새 기간 추가" className="shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-          </button>
+          </IconButton>
         </div>
 
         {/* 이 세 탭은 위의 기간 선택과 같은 층위 -- 지금 고른 팀+기간에

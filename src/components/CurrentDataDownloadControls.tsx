@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Spinner from './Spinner'
+import Button from './Button'
 
 function DownloadIcon({ className }: { className?: string }) {
   return (
@@ -52,12 +53,9 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
 
   return (
     <div ref={rootRef} className="relative shrink-0">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-      >
+      <Button variant="secondary" onClick={() => setOpen((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5">
         <DownloadIcon className="h-4 w-4" /> {label}
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute right-0 top-full z-10 mt-2 w-56 rounded-md border border-gray-200 bg-white p-3 shadow-md">
@@ -82,14 +80,15 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
               PDF
             </label>
           </div>
-          <button
+          <Button
+            variant="primary"
             onClick={handleDownload}
             disabled={busy || (!wantExcel && !wantPdf)}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 px-3 py-1.5"
           >
             {busy && <Spinner className="h-3.5 w-3.5 text-white" />}
             {busy ? '생성 중...' : '다운로드'}
-          </button>
+          </Button>
         </div>
       )}
     </div>

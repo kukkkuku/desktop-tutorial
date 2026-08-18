@@ -13,6 +13,8 @@ import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentTasksExcel, downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
 import { downloadTasksPdf } from '../utils/pdfReports'
+import Button from './Button'
+import IconButton from './IconButton'
 
 const TASK_COLUMNS = {
   name: 200,
@@ -274,12 +276,9 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
             />
           </div>
           <div className="flex items-end">
-            <button
-              onClick={handleQuickAdd}
-              className="w-full whitespace-nowrap rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 sm:w-auto"
-            >
+            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
               + 과제 추가
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -403,18 +402,12 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
                     </td>
                     <td className="px-4 py-2 align-top">
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => saveEdit(task)}
-                          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-                        >
+                        <Button variant="primary" onClick={() => saveEdit(task)} className="px-3 py-1.5 text-xs">
                           저장
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-black hover:bg-gray-100"
-                        >
+                        </Button>
+                        <Button variant="secondary" onClick={cancelEdit} className="px-3 py-1.5 text-xs">
                           취소
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -470,23 +463,13 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
                 <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => startEdit(task)}
-                      title="수정"
-                      aria-label="수정"
-                      className="rounded-md border border-gray-300 p-1.5 text-gray-600 hover:bg-gray-100"
-                    >
+                    <IconButton onClick={() => startEdit(task)} title="수정" aria-label="수정">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M12 20h9" />
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
                       </svg>
-                    </button>
-                    <button
-                      onClick={() => setDeletingTask(task)}
-                      title="삭제"
-                      aria-label="삭제"
-                      className="rounded-md border border-gray-300 p-1.5 text-danger hover:bg-red-50"
-                    >
+                    </IconButton>
+                    <IconButton onClick={() => setDeletingTask(task)} title="삭제" aria-label="삭제" tone="danger">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M3 6h18" />
                         <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -494,7 +477,7 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
                         <path d="M10 11v6" />
                         <path d="M14 11v6" />
                       </svg>
-                    </button>
+                    </IconButton>
                   </div>
                 </td>
               </tr>

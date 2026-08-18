@@ -21,6 +21,8 @@ import { IMPORTANCE_COLORS } from '../utils/badgeColors'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
+import Button from './Button'
+import IconButton from './IconButton'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
   evaluating: '평가중',
@@ -229,12 +231,9 @@ export default function EvaluationResults() {
           <p className="mt-1 text-sm text-gray-600">기준설정 가중치가 실시간으로 반영됩니다.</p>
         </div>
         <div className={`flex flex-wrap items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
-          <button
-            onClick={() => setConfirmAllOpen(true)}
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"
-          >
+          <Button variant="primary" onClick={() => setConfirmAllOpen(true)} className="px-3 py-1.5">
             전체 확정
-          </button>
+          </Button>
           <CurrentDataDownloadControls
             label="통합 결과 리포트"
             onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
@@ -382,21 +381,19 @@ export default function EvaluationResults() {
                         </button>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5 text-gray-400">
-                          <button
+                        <div className="flex items-center justify-center gap-1.5">
+                          <IconButton
                             onClick={() => previewMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerReviews)}
                             title="미리보기"
-                            className="rounded p-1 hover:bg-gray-100 hover:text-accent"
                           >
                             <PreviewIcon className="h-4 w-4" />
-                          </button>
-                          <button
+                          </IconButton>
+                          <IconButton
                             onClick={() => downloadMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerReviews)}
                             title="PDF 다운로드"
-                            className="rounded p-1 hover:bg-gray-100 hover:text-accent"
                           >
                             <DownloadIcon className="h-4 w-4" />
-                          </button>
+                          </IconButton>
                         </div>
                       </td>
                     </tr>

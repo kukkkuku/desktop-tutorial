@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
+import IconButton from './IconButton'
 
 interface IconProps {
   className?: string
@@ -187,14 +188,9 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // Collapsed rail trigger -- icon only, opens full settings.
   function ExpandIconButton() {
     return (
-      <button
-        onClick={() => onSize('full')}
-        title="상세 설정 열기"
-        aria-label="상세 설정 열기"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-100 hover:text-accent"
-      >
+      <IconButton onClick={() => onSize('full')} title="상세 설정 열기" aria-label="상세 설정 열기" className="h-9 w-9 shrink-0">
         <SlidersIcon className="h-5 w-5 shrink-0" />
-      </button>
+      </IconButton>
     )
   }
 
@@ -221,14 +217,9 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // plain collapse arrow closes it back down to the icon-only rail.
   function CollapseButton() {
     return (
-      <button
-        onClick={() => onSize('icon')}
-        title="접기"
-        aria-label="기준 설정 접기"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-accent"
-      >
+      <IconButton onClick={() => onSize('icon')} title="접기" aria-label="기준 설정 접기" className="h-7 w-7 shrink-0">
         <ChevronLeftIcon className="h-4 w-4" />
-      </button>
+      </IconButton>
     )
   }
 
