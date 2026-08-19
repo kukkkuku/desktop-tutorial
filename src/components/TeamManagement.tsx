@@ -58,11 +58,7 @@ function formatTenureOnly(years: number | null): string {
   return years === 0 ? '1년차 미만' : `${years}년차`
 }
 
-interface TeamManagementProps {
-  onUploaded?: (files: File[]) => void
-}
-
-export default function TeamManagement({ onUploaded }: TeamManagementProps) {
+export default function TeamManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
@@ -183,7 +179,6 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_MEMBERS', payload: list })
-    onUploaded?.(files)
     return { addedCount, updatedCount, errors }
   }
 

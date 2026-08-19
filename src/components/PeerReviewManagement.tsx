@@ -22,11 +22,7 @@ const PEER_REVIEW_COLUMNS = {
   manage: 100,
 }
 
-interface PeerReviewManagementProps {
-  onUploaded?: (files: File[]) => void
-}
-
-export default function PeerReviewManagement({ onUploaded }: PeerReviewManagementProps) {
+export default function PeerReviewManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
@@ -85,7 +81,6 @@ export default function PeerReviewManagement({ onUploaded }: PeerReviewManagemen
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: list })
-    onUploaded?.(files)
     return { addedCount, updatedCount, errors }
   }
 

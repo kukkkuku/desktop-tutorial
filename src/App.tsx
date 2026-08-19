@@ -13,10 +13,12 @@ import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import VersionCompareBar from './components/VersionCompareBar'
 import GoogleSignInGate from './components/GoogleSignInGate'
+import DataManagerDrawer from './components/DataManagerDrawer'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
+  const [dataManagerOpen, setDataManagerOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [dataSubTabRequest, setDataSubTabRequest] = useState<DataSubTabRequest | null>(null)
@@ -85,6 +87,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onSelectPeriod={selectWorkspace}
                 onAddPeriod={() => setAddPeriodOpen(true)}
                 onExit={exitToLanding}
+                onOpenDataManager={() => setDataManagerOpen(true)}
               />
             </div>
             <div className="flex min-h-0 flex-1">
@@ -100,6 +103,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           {addPeriodOpen && (
             <AddPeriodModal teamName={teamName} onDone={handleAddPeriodDone} onClose={() => setAddPeriodOpen(false)} />
           )}
+          <DataManagerDrawer open={dataManagerOpen} onClose={() => setDataManagerOpen(false)} />
         </MemberDetailProvider>
       </TeamProvider>
     </AppProvider>

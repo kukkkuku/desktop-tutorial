@@ -9,7 +9,7 @@ import {
   getContributionPercent,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
-import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
 import {
   downloadIndividualResultsPdf,
   downloadResultsPdf,
@@ -19,7 +19,6 @@ import {
 import { colorForIndex, pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import { IMPORTANCE_COLORS } from '../utils/badgeColors'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import GoogleDriveDialog from './GoogleDriveDialog'
 import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
@@ -228,15 +227,6 @@ export default function EvaluationResults() {
             onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
             onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
           />
-          {currentWorkspace && (
-            <GoogleDriveDialog
-              workspace={currentWorkspace}
-              state={state}
-              dispatch={dispatch}
-              buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
-              buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
-            />
-          )}
           <CurrentDataDownloadControls
             label={selectedIds.size > 0 ? `선택 팀원 리포트 (${selectedIds.size})` : '전체 팀원별 리포트'}
             onExcelDownload={() =>

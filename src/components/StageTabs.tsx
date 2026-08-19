@@ -3,11 +3,11 @@ import IconButton from './IconButton'
 
 export type Stage = 'data' | 'evaluate' | 'results' | 'notes'
 
-// 기간(워크스페이스)에 종속된 세 탭 -- 지금 선택된 팀+기간의 데이터를 다룬다.
-const PERIOD_TABS: { key: Stage; label: string }[] = [
+// 입력 작업 두 탭(데이터/평가하기)과, 결과를 보고 활용하는 쪽(결과/성장
+// 관리/데이터 관리)을 구분선으로 나눈다.
+const WORK_TABS: { key: Stage; label: string }[] = [
   { key: 'data', label: '데이터' },
   { key: 'evaluate', label: '평가하기' },
-  { key: 'results', label: '결과' },
 ]
 
 interface StageTabsProps {
@@ -19,6 +19,17 @@ interface StageTabsProps {
   onSelectPeriod: (id: string) => void
   onAddPeriod: () => void
   onExit: () => void
+  onOpenDataManager: () => void
+}
+
+function DatabaseIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+      <path d="M3 12a9 3 0 0 0 18 0" />
+    </svg>
+  )
 }
 
 // "성장 관리"는 아이콘을 가진 별도 트렌드-업 마크로 표시된다 -- 팀원
@@ -42,6 +53,7 @@ export default function StageTabs({
   onSelectPeriod,
   onAddPeriod,
   onExit,
+  onOpenDataManager,
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -85,11 +97,11 @@ export default function StageTabs({
           </IconButton>
         </div>
 
-        {/* 이 세 탭은 위의 기간 선택과 같은 층위 -- 지금 고른 팀+기간에
-            대한 화면이라 기간 컨트롤 바로 옆에 붙인다. */}
+        {/* 이 두 탭은 위의 기간 선택과 같은 층위 -- 지금 고른 팀+기간에
+            대한 입력 작업이라 기간 컨트롤 바로 옆에 붙인다. */}
         <span className="hidden h-5 w-px bg-gray-200 sm:inline-block" />
         <nav className="flex flex-wrap items-center gap-1">
-          {PERIOD_TABS.map((t) => (
+          {WORK_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => onStageChange(t.key)}
@@ -104,11 +116,25 @@ export default function StageTabs({
           ))}
         </nav>
 
+        {/* 결과를 보고 활용하는 쪽(결과/성장 관리/데이터 관리)은 입력 탭과
+            구분선으로 나누고, 오른쪽으로 묶어서 붙인다. */}
+        <span className="ml-auto hidden h-5 w-px bg-gray-200 sm:inline-block" />
+        <button
+          onClick={() => onStageChange('results')}
+          className={`shrink-0 rounded-md px-4 py-2 text-base transition-colors ${
+            stage === 'results'
+              ? 'bg-orange-50 font-bold text-accent'
+              : 'font-semibold text-gray-500 hover:bg-gray-50 hover:text-black'
+          }`}
+        >
+          결과
+        </button>
+
         {/* 성장 관리는 특정 기간이 아니라 팀원을 기간 너머로 추적하는
-            상위 메뉴 -- 아이콘 있는 별도 버튼으로 오른쪽에 확실히 분리. */}
+            상위 메뉴 -- 아이콘 있는 별도 버튼으로 시각적으로 구분. */}
         <button
           onClick={() => onStageChange('notes')}
-          className={`ml-auto flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
+          className={`flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
             stage === 'notes'
               ? 'border-accent bg-orange-50 text-accent'
               : 'border-gray-300 text-gray-700 hover:border-accent hover:text-accent'
@@ -117,6 +143,10 @@ export default function StageTabs({
           <GrowthIcon className="h-5 w-5 shrink-0" />
           성장 관리
         </button>
+
+        <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">
+          <DatabaseIcon className="h-5 w-5" />
+        </IconButton>
       </div>
     </header>
   )

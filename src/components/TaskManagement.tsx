@@ -35,11 +35,7 @@ interface TaskFormValues {
   achievement: string
 }
 
-interface TaskManagementProps {
-  onUploaded?: (files: File[]) => void
-}
-
-export default function TaskManagement({ onUploaded }: TaskManagementProps) {
+export default function TaskManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
@@ -174,7 +170,6 @@ export default function TaskManagement({ onUploaded }: TaskManagementProps) {
       errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
     }
     dispatch({ type: 'IMPORT_TASKS', payload: list })
-    onUploaded?.(files)
     return { addedCount, updatedCount, errors }
   }
 
