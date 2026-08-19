@@ -5,7 +5,7 @@ import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
 import { useWorkspaces, workspaceStateKey } from './WorkspaceContext'
 
 function withAutoDistribution(state: AppState): AppState {
-  return { ...state, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions) }
+  return { ...state, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, state.peerReviews) }
 }
 
 function loadInitialState(storageKey: string): AppState {

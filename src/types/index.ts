@@ -78,8 +78,21 @@ export interface MeetingNote {
 
 export interface PeerReview {
   id: string
+  // 이 리뷰가 어느 과제에 대한 건지. 새 화면(과제 단위 입력)에서 만든
+  // 리뷰는 항상 채워진다. taskId가 없는 항목은 이 구조로 바뀌기 전(과제
+  // 연결 없이 엑셀로 올렸던) 예전 데이터다 -- 점수 반영에는 그대로
+  // 포함되지만, 과제별 화면에는 나타나지 않는다.
+  taskId?: string
+  // 작성자(리뷰어)가 실제 팀원이면 이 id가 채워진다. 과제 단위 입력은
+  // 항상 참여자 목록에서 리뷰어를 고르므로 채워지고, reviewerName은
+  // 그 팀원의 이름을 그대로 담아 표시용으로 함께 쓴다.
+  reviewerMemberId?: string
   reviewerName: string
   targetMemberId: string
+  // 리뷰어가 본 이 과제에서 대상자의 기여도(%). 과제의 기여도 자동배분
+  // 기본값을 이 평균으로 채우는 데 쓰인다(팀장이 수정 가능). 예전 데이터는
+  // 없을 수 있다.
+  contributionPercent?: number
   grade: PerformanceGrade
 }
 
