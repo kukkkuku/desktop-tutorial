@@ -292,9 +292,9 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
               {(
                 [
                   ['name', '이름'],
-                  ['service', '근속'],
+                  ['service', '근속 (입사일)'],
                   ['level', '직급'],
-                  ['levelTenure', '연차'],
+                  ['levelTenure', '연차 (발령일)'],
                   ['role', '역할'],
                   ['tasks', '참여 과제 수'],
                   ['peer', '받은 피어리뷰'],
@@ -336,7 +336,6 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                       {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
                     </td>
                     <td className="px-4 py-2 align-top">
-                      <label className="block text-[11px] text-gray-400">입사일</label>
                       <input
                         type="date"
                         value={editForm.hireDate}
@@ -359,7 +358,6 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                       </select>
                     </td>
                     <td className="px-4 py-2 align-top">
-                      <label className="block text-[11px] text-gray-400">현 직급 발령일</label>
                       <input
                         type="date"
                         value={editForm.currentLevelSince}
@@ -388,14 +386,19 @@ export default function TeamManagement({ onUploaded }: TeamManagementProps) {
                         {member.active ? '활성' : '비활성'}
                       </button>
                     </td>
-                    <td className="px-4 py-2 align-top">
-                      <div className="flex gap-2">
-                        <Button variant="primary" onClick={() => saveEdit(member)} className="px-3 py-1.5 text-xs">
-                          저장
-                        </Button>
-                        <Button variant="secondary" onClick={cancelEdit} className="px-3 py-1.5 text-xs">
-                          취소
-                        </Button>
+                    <td className="px-4 py-3 align-top">
+                      <div className="flex items-center gap-1">
+                        <IconButton onClick={() => saveEdit(member)} title="저장" aria-label="저장">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </IconButton>
+                        <IconButton onClick={cancelEdit} title="취소" aria-label="취소" tone="danger">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </IconButton>
                       </div>
                     </td>
                   </tr>
