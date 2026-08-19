@@ -1,15 +1,33 @@
-// 구글 드라이브 업로드 -- 기존 xlsx 다운로드를 대체하는 게 아니라 그 옆에
-// 두는 선택 기능이다. Google Identity Services(GIS)로 브라우저에서 바로
-// OAuth 토큰을 받고, Drive API v3에 업로드하면서 구글 시트로 변환한다.
-// 서버가 따로 필요 없어 이 정적 사이트 구조를 그대로 유지할 수 있다.
+// 구글 드라이브 저장 -- "성과평가 결과" 화면의 선택 기능이다. Google Identity
+// Services(GIS)로 브라우저에서 바로 OAuth 토큰을 받고, Drive API v3에
+// 올린다. 서버가 따로 필요 없어 이 정적 사이트 구조를 그대로 유지할 수 있다.
+// 각 팀장이 자기 구글 계정으로 로그인하므로 팀장마다 자기 드라이브의
+// "성장관리" 폴더에 자기 데이터만 쌓인다(공용 계정을 쓰지 않는다).
+//
+// 세 가지를 저장한다:
+//   1) *_성과관리.xlsx    -- 사람이 보는 결과 리포트(기존 "Excel 다운로드"와 동일 내용)
+//   2) *_성장관리_data.json -- 앱이 그대로 다시 읽어들일 수 있는 원본 데이터(source of truth)
+//   3) *_성과관리_GoogleSheet -- 구글 시트로 변환한 보기용 사본(사람이 확인하기 편하도록)
+// 이 중 실제 "불러오기(복원)"는 2) JSON만 사용한다. 구글 시트는 사람이 보는
+// 용도일 뿐 앱이 다시 읽지 않는다(이번 단계에서는 앱→시트 단방향만 구현).
 //
 // 쓰려면 Google Cloud Console에서 OAuth 클라이언트 ID를 만들고
 // VITE_GOOGLE_CLIENT_ID로 빌드 시 넣어줘야 한다(README 참고). 설정 안 돼
-//있으면 isGoogleDriveConfigured()가 false를 반환하고, 호출부는 버튼을
+// 있으면 isGoogleDriveConfigured()가 false를 반환하고, 호출부는 버튼을
 // 비활성 상태로만 보여주면 된다.
 
+import type { AppState, EvaluationCycle, WorkspaceMeta } from '../types'
+
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+// drive.file: 이 앱이 만들었거나 사용자가 직접 연 파일에만 접근한다(드라이브
+// 전체를 훑어보는 권한이 아니다) -- 필요 최소 권한 원칙.
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+const APP_TAG = 'team-performance-evaluation'
+const ROOT_FOLDER_NAME = '성장관리'
+
+export function isGoogleDriveConfigured(): boolean {
+  return Boolean(CLIENT_ID)
+}
 
 interface GoogleTokenResponse {
   access_token?: string
@@ -37,10 +55,6 @@ declare global {
   }
 }
 
-export function isGoogleDriveConfigured(): boolean {
-  return Boolean(CLIENT_ID)
-}
-
 let gisLoadPromise: Promise<void> | null = null
 
 function loadGis(): Promise<void> {
@@ -56,6 +70,14 @@ function loadGis(): Promise<void> {
     document.head.appendChild(script)
   })
   return gisLoadPromise
+}
+
+// 같은 브라우저 세션에서는 매번 로그인 팝업을 띄우지 않도록 토큰을
+// 만료 1분 전까지 재사용한다.
+let cachedToken: { token: string; expiresAt: number } | null = null
+
+export function isConnected(): boolean {
+  return cachedToken !== null && cachedToken.expiresAt - 60_000 > Date.now()
 }
 
 function requestAccessToken(): Promise<string> {
@@ -83,13 +105,16 @@ function requestAccessToken(): Promise<string> {
   })
 }
 
-// 같은 브라우저 세션에서는 매번 로그인 팝업을 띄우지 않도록 토큰을
-// 만료 1분 전까지 재사용한다.
-let cachedToken: { token: string; expiresAt: number } | null = null
+// "Drive 연결" 버튼에서 명시적으로 호출한다. 로그인 팝업을 띄우고, 성공하면
+// isConnected()가 true를 반환하게 된다.
+export async function connectDrive(): Promise<void> {
+  await loadGis()
+  await requestAccessToken()
+}
 
 async function getAccessToken(): Promise<string> {
   await loadGis()
-  if (cachedToken && cachedToken.expiresAt - 60_000 > Date.now()) return cachedToken.token
+  if (isConnected()) return cachedToken!.token
   return requestAccessToken()
 }
 
@@ -105,39 +130,14 @@ async function driveFetch(url: string, accessToken: string, init?: RequestInit):
   return res
 }
 
-const APP_FOLDER_NAME = '팀 성과관리 데이터'
+// ---------- 폴더 관리 ----------
+// drive.file 스코프에서는 이 앱이 만든 파일/폴더만 보이므로, 이름으로
+// 찾아서 있으면 재사용하고 없으면 새로 만든다 -- 다시 저장해도 "성장관리"
+// 폴더가 중복 생성되지 않는다.
 
-let folderIdCache: string | null = null
-
-// drive.file 스코프에서는 이 앱이 만든 파일/폴더만 보이므로, 폴더 이름으로
-// 검색해서 있으면 재사용하고 없으면 새로 만든다.
-async function ensureAppFolder(accessToken: string): Promise<string> {
-  if (folderIdCache) return folderIdCache
-  const q = `name='${APP_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const listRes = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`,
-    accessToken,
-  )
-  const listData = (await listRes.json()) as { files?: { id: string }[] }
-  if (listData.files && listData.files.length > 0) {
-    folderIdCache = listData.files[0].id
-    return folderIdCache
-  }
-  const createRes = await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id', accessToken, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: APP_FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' }),
-  })
-  const createData = (await createRes.json()) as { id: string }
-  folderIdCache = createData.id
-  return folderIdCache
-}
-
-// workspaceId를 appProperties에 저장해두고 그걸로 찾는다. 파일 이름이
-// 바뀌어도(사용자가 드라이브에서 이름을 고쳐도) 항상 같은 파일을 다시
-// 찾아 덮어쓸 수 있다.
-async function findSyncFile(accessToken: string, workspaceId: string): Promise<string | null> {
-  const q = `appProperties has { key='workspaceId' and value='${workspaceId}' } and trashed=false`
+async function findFolderByName(accessToken: string, name: string, parentId?: string): Promise<string | null> {
+  const parentClause = parentId ? ` and '${parentId}' in parents` : ''
+  const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parentClause}`
   const res = await driveFetch(
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`,
     accessToken,
@@ -146,93 +146,290 @@ async function findSyncFile(accessToken: string, workspaceId: string): Promise<s
   return data.files && data.files.length > 0 ? data.files[0].id : null
 }
 
-function buildMultipartBody(
-  metadata: Record<string, unknown>,
-  buffer: ArrayBuffer,
-): { body: Blob; boundary: string } {
-  const boundary = 'perf-eval-drive-upload-' + Date.now()
-  const metadataPart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`
-  const filePartHeader = `--${boundary}\r\nContent-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n\r\n`
-  const closing = `\r\n--${boundary}--`
-  return { body: new Blob([metadataPart, filePartHeader, buffer, closing]), boundary }
+async function createFolder(accessToken: string, name: string, parentId?: string, appProperties?: Record<string, string>): Promise<string> {
+  const res = await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: parentId ? [parentId] : undefined,
+      appProperties,
+    }),
+  })
+  const data = (await res.json()) as { id: string }
+  return data.id
 }
 
-// xlsx 바이트를 구글 드라이브에 올리면서 구글 시트 형식으로 변환한다.
-// 성공하면 방금 만든 시트의 웹 링크를 반환한다. (결과 리포트용 단발성 업로드)
-export async function uploadWorkbookToDrive(buffer: ArrayBuffer, filename: string): Promise<{ webViewLink: string }> {
-  const accessToken = await getAccessToken()
-  const { body, boundary } = buildMultipartBody(
-    { name: filename.replace(/\.xlsx$/i, ''), mimeType: 'application/vnd.google-apps.spreadsheet' },
-    buffer,
-  )
+let rootFolderIdCache: string | null = null
+
+async function ensureRootFolder(accessToken: string): Promise<string> {
+  if (rootFolderIdCache) return rootFolderIdCache
+  const existing = await findFolderByName(accessToken, ROOT_FOLDER_NAME)
+  rootFolderIdCache = existing ?? (await createFolder(accessToken, ROOT_FOLDER_NAME))
+  return rootFolderIdCache
+}
+
+function periodFolderName(workspace: WorkspaceMeta): string {
+  return `${workspace.evaluationYear}_${workspace.periodName}`.replace(/[\\/:*?"<>|]/g, '_')
+}
+
+// 같은 팀+평가기간을 가리키는 안정적인 식별자. workspace.id는 브라우저마다
+// 새로 생성되는 임의 UUID라 기기마다 값이 달라진다 -- 그걸 그대로 드라이브
+// 매칭 키로 쓰면 다른 기기에서 "2026년 상반기"를 새로 만들었을 때 기존
+// 저장분을 못 찾고 매번 새 파일을 만들게 된다. 그래서 팀명·연도·주기·기간
+// 코드처럼 내용으로 정해지는 값들을 합쳐 기기와 무관한 키로 쓴다.
+export function periodKey(workspace: WorkspaceMeta): string {
+  const clean = (v: string | number) => String(v).replace(/[^\w가-힣.-]/g, '_')
+  return [workspace.teamName, workspace.evaluationYear, workspace.evaluationCycle, workspace.evaluationPeriodCode].map(clean).join('__')
+}
+
+// 팀+평가기간 단위 폴더. periodKey를 appProperties에 심어두고 그걸로
+// 찾으므로, 다른 기기에서 같은 팀+기간을 열어도(로컬 workspace.id는 달라도)
+// 항상 같은 폴더를 다시 찾아 재사용한다.
+async function ensurePeriodFolder(accessToken: string, workspace: WorkspaceMeta): Promise<string> {
+  const key = periodKey(workspace)
+  const q = `appProperties has { key='periodKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
   const res = await driveFetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
     accessToken,
-    { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
   )
-  const data = (await res.json()) as { webViewLink: string }
-  return { webViewLink: data.webViewLink }
+  const data = (await res.json()) as { files?: { id: string }[] }
+  if (data.files && data.files.length > 0) return data.files[0].id
+
+  const rootId = await ensureRootFolder(accessToken)
+  return createFolder(accessToken, periodFolderName(workspace), rootId, { app: APP_TAG, periodKey: key, kind: 'period-folder' })
 }
 
-// 팀/평가기간 전체 데이터(과제·팀원·기여도·평가기준·피어리뷰·면담기록·상태)를
-// "팀 성과관리 데이터" 폴더 안에 구글 시트로 올린다. 같은 workspaceId로
-// 이미 올린 파일이 있으면 그 파일을 덮어써서(업서트) 중복 파일이 쌓이지
-// 않게 한다.
-export async function uploadFullSyncToDrive(
-  workspaceId: string,
-  buffer: ArrayBuffer,
-  filename: string,
-): Promise<{ webViewLink: string }> {
-  const accessToken = await getAccessToken()
-  const folderId = await ensureAppFolder(accessToken)
-  const existingFileId = await findSyncFile(accessToken, workspaceId)
-  const name = filename.replace(/\.xlsx$/i, '')
+// ---------- 파일 업로드(생성/업서트) ----------
 
-  if (existingFileId) {
-    const { body, boundary } = buildMultipartBody({ name }, buffer)
+export type ArtifactKind = 'xlsx' | 'json' | 'sheet'
+
+function buildMultipartBody(metadata: Record<string, unknown>, content: BlobPart, contentType: string): { body: Blob; boundary: string } {
+  const boundary = 'perf-eval-drive-' + Date.now()
+  const metadataPart = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`
+  const filePartHeader = `--${boundary}\r\nContent-Type: ${contentType}\r\n\r\n`
+  const closing = `\r\n--${boundary}--`
+  return { body: new Blob([metadataPart, filePartHeader, content, closing]), boundary }
+}
+
+async function findArtifact(accessToken: string, key: string, kind: ArtifactKind): Promise<{ id: string; modifiedTime: string } | null> {
+  const q = `appProperties has { key='periodKey' and value='${key}' } and appProperties has { key='kind' and value='${kind}' } and trashed=false`
+  const res = await driveFetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&spaces=drive`,
+    accessToken,
+  )
+  const data = (await res.json()) as { files?: { id: string; modifiedTime: string }[] }
+  return data.files && data.files.length > 0 ? data.files[0] : null
+}
+
+// 이미 저장한 적이 있는 평가인지(=업데이트/새 버전 선택지를 보여줘야 하는지)
+// 확인한다. JSON 파일 존재 여부로 판단한다(세 파일은 항상 같이 저장되므로).
+// 팀+기간이 같으면(로컬 workspace.id가 달라도) 같은 저장분으로 취급한다.
+export async function hasExistingSave(workspace: WorkspaceMeta): Promise<{ existing: boolean; modifiedTime?: string }> {
+  const accessToken = await getAccessToken()
+  const found = await findArtifact(accessToken, periodKey(workspace), 'json')
+  return found ? { existing: true, modifiedTime: found.modifiedTime } : { existing: false }
+}
+
+export type SaveMode = 'update' | 'new-version'
+
+interface UploadArtifactParams {
+  accessToken: string
+  folderId: string
+  periodKeyValue: string
+  kind: ArtifactKind
+  name: string
+  content: BlobPart
+  contentType: string
+  convertToGoogleSheet?: boolean
+  mode: SaveMode
+  extraAppProperties?: Record<string, string>
+}
+
+async function uploadArtifact({ accessToken, folderId, periodKeyValue, kind, name, content, contentType, convertToGoogleSheet, mode, extraAppProperties }: UploadArtifactParams): Promise<{ id: string; webViewLink: string }> {
+  const existing = mode === 'update' ? await findArtifact(accessToken, periodKeyValue, kind) : null
+
+  if (existing) {
+    const { body, boundary } = buildMultipartBody({ name }, content, contentType)
     const res = await driveFetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,webViewLink`,
+      `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart&fields=id,webViewLink`,
       accessToken,
       { method: 'PATCH', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
     )
-    const data = (await res.json()) as { webViewLink: string }
-    return { webViewLink: data.webViewLink }
+    const data = (await res.json()) as { id: string; webViewLink: string }
+    return data
   }
 
-  const { body, boundary } = buildMultipartBody(
-    {
-      name,
-      mimeType: 'application/vnd.google-apps.spreadsheet',
-      parents: [folderId],
-      appProperties: { workspaceId, app: 'team-performance-evaluation' },
-    },
-    buffer,
-  )
+  const finalName = mode === 'new-version' ? `${name}_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '')}` : name
+  const metadata: Record<string, unknown> = {
+    name: finalName,
+    parents: [folderId],
+    appProperties: { app: APP_TAG, periodKey: periodKeyValue, kind, ...extraAppProperties },
+  }
+  if (convertToGoogleSheet) metadata.mimeType = 'application/vnd.google-apps.spreadsheet'
+  const { body, boundary } = buildMultipartBody(metadata, content, contentType)
   const res = await driveFetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
     accessToken,
     { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
   )
-  const data = (await res.json()) as { webViewLink: string }
-  return { webViewLink: data.webViewLink }
+  const data = (await res.json()) as { id: string; webViewLink: string }
+  return data
 }
 
-// 이 workspaceId로 이미 올려둔 구글 시트가 있는지 확인한다. UI에서
-// "불러오기" 버튼을 활성화할지 판단하는 데 쓴다.
-export async function findFullSyncFileId(workspaceId: string): Promise<string | null> {
-  const accessToken = await getAccessToken()
-  return findSyncFile(accessToken, workspaceId)
+// ---------- 원본 데이터(JSON) 저장 포맷 ----------
+// 이 파일이 source of truth다. 앱은 이 파일만 다시 읽어 복원한다.
+
+export interface DriveSyncPayload {
+  version: 1
+  savedAt: string
+  workspaceId: string
+  teamName: string
+  periodName: string
+  evaluationYear: number
+  evaluationCycle: EvaluationCycle
+  evaluationPeriodCode: string
+  state: AppState
 }
 
-// 구글 드라이브에 올려둔 전체 데이터 시트를 다시 xlsx로 받아온다(구글
-// 시트 → xlsx export). 다른 기기에서 같은 데이터를 보고 싶을 때 쓴다.
-export async function downloadFullSyncFromDrive(workspaceId: string): Promise<ArrayBuffer> {
+export function buildSyncPayload(state: AppState, workspace: WorkspaceMeta): DriveSyncPayload {
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    workspaceId: workspace.id,
+    teamName: workspace.teamName,
+    periodName: workspace.periodName,
+    evaluationYear: workspace.evaluationYear,
+    evaluationCycle: workspace.evaluationCycle,
+    evaluationPeriodCode: workspace.evaluationPeriodCode,
+    state,
+  }
+}
+
+// ---------- 전체 저장(엑셀 + JSON + 구글시트) ----------
+
+export interface SaveAllResult {
+  xlsxLink: string
+  jsonLink: string
+  sheetLink: string
+  folderLink: string
+}
+
+export async function saveAllToDrive(
+  workspace: WorkspaceMeta,
+  xlsxBuffer: ArrayBuffer,
+  sheetBuffer: ArrayBuffer,
+  payload: DriveSyncPayload,
+  mode: SaveMode,
+): Promise<SaveAllResult> {
   const accessToken = await getAccessToken()
-  const fileId = await findSyncFile(accessToken, workspaceId)
-  if (!fileId) throw new Error('이 평가에 대해 구글 드라이브에 업로드된 데이터가 없습니다. 먼저 업로드해주세요.')
+  const folderId = await ensurePeriodFolder(accessToken, workspace)
+  const label = periodFolderName(workspace)
+  const key = periodKey(workspace)
+  // 목록(listSavedPeriods)에서 파일 내용을 내려받지 않고도 평가기간을 바로
+  // 보여줄 수 있도록, 팀명/기간명을 JSON 파일의 appProperties에도 심어둔다.
+  const listingProperties = { teamName: workspace.teamName, periodName: workspace.periodName }
+
+  const [xlsx, json, sheet] = await Promise.all([
+    uploadArtifact({
+      accessToken,
+      folderId,
+      periodKeyValue: key,
+      kind: 'xlsx',
+      name: `${label}_성과관리.xlsx`,
+      content: xlsxBuffer,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mode,
+    }),
+    uploadArtifact({
+      accessToken,
+      folderId,
+      periodKeyValue: key,
+      kind: 'json',
+      name: `${label}_성장관리_data.json`,
+      content: JSON.stringify(payload),
+      contentType: 'application/json',
+      mode,
+      extraAppProperties: listingProperties,
+    }),
+    uploadArtifact({
+      accessToken,
+      folderId,
+      periodKeyValue: key,
+      kind: 'sheet',
+      name: `${label}_성과관리_GoogleSheet`,
+      content: sheetBuffer,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      convertToGoogleSheet: true,
+      mode,
+    }),
+  ])
+
+  const folderRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=webViewLink`, accessToken)
+  const folderData = (await folderRes.json()) as { webViewLink: string }
+
+  return { xlsxLink: xlsx.webViewLink, jsonLink: json.webViewLink, sheetLink: sheet.webViewLink, folderLink: folderData.webViewLink }
+}
+
+// ---------- 불러오기(복원) ----------
+
+export interface SavedPeriodSummary {
+  fileId: string
+  periodKey: string
+  teamName: string
+  periodName: string
+  createdAt: string
+  modifiedAt: string
+}
+
+// 이 구글 계정에 저장된 모든 평가기간의 JSON 원본을 나열한다(다른
+// 기기에서 어떤 평가를 불러올지 고를 수 있도록 전체 목록을 보여준다). 새
+// 기기/새 로컬 평가 프로젝트에서 이 목록으로 기존 평가를 골라 그 데이터를
+// 그대로 가져올 수 있다.
+export async function listSavedPeriods(): Promise<SavedPeriodSummary[]> {
+  const accessToken = await getAccessToken()
+  const q = `appProperties has { key='app' and value='${APP_TAG}' } and appProperties has { key='kind' and value='json' } and trashed=false`
   const res = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,appProperties,createdTime,modifiedTime)&orderBy=modifiedTime desc&spaces=drive&pageSize=100`,
     accessToken,
   )
-  return res.arrayBuffer()
+  const data = (await res.json()) as {
+    files?: { id: string; appProperties?: Record<string, string>; createdTime: string; modifiedTime: string }[]
+  }
+  return (data.files ?? []).map((f) => ({
+    fileId: f.id,
+    periodKey: f.appProperties?.periodKey ?? '',
+    teamName: f.appProperties?.teamName ?? '',
+    periodName: f.appProperties?.periodName ?? '',
+    createdAt: f.createdTime,
+    modifiedAt: f.modifiedTime,
+  }))
+}
+
+export async function fetchSyncPayload(fileId: string): Promise<DriveSyncPayload> {
+  const accessToken = await getAccessToken()
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, accessToken)
+  const text = await res.text()
+  const data = JSON.parse(text) as DriveSyncPayload
+  if (!data || data.version !== 1 || !data.state) throw new Error('저장된 파일 형식을 알아볼 수 없습니다.')
+  return data
+}
+
+// "저장된 파일 보기"에서 쓴다 -- 현재 평가의 기간 폴더 링크만 있으면
+// 되므로 hasExistingSave보다 가벼운 조회.
+export async function getPeriodFolderLink(workspace: WorkspaceMeta): Promise<string | null> {
+  const accessToken = await getAccessToken()
+  const key = periodKey(workspace)
+  const q = `appProperties has { key='periodKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const res = await driveFetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
+    accessToken,
+  )
+  const data = (await res.json()) as { files?: { id: string }[] }
+  const folderId = data.files && data.files.length > 0 ? data.files[0].id : null
+  if (!folderId) return null
+  const folderRes = await driveFetch(`https://www.googleapis.com/drive/v3/files/${folderId}?fields=webViewLink`, accessToken)
+  const folderData = (await folderRes.json()) as { webViewLink: string }
+  return folderData.webViewLink
 }

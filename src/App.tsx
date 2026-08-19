@@ -12,7 +12,6 @@ import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import VersionCompareBar from './components/VersionCompareBar'
-import GoogleSyncMenu from './components/GoogleSyncMenu'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
@@ -85,7 +84,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onSelectPeriod={selectWorkspace}
                 onAddPeriod={() => setAddPeriodOpen(true)}
                 onExit={exitToLanding}
-                syncMenu={<GoogleSyncMenu />}
               />
             </div>
             <div className="flex min-h-0 flex-1">

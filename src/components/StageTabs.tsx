@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import type { WorkspaceMeta } from '../types'
 import IconButton from './IconButton'
 
@@ -20,7 +19,6 @@ interface StageTabsProps {
   onSelectPeriod: (id: string) => void
   onAddPeriod: () => void
   onExit: () => void
-  syncMenu?: ReactNode
 }
 
 // "성장 관리"는 아이콘을 가진 별도 트렌드-업 마크로 표시된다 -- 팀원
@@ -44,7 +42,6 @@ export default function StageTabs({
   onSelectPeriod,
   onAddPeriod,
   onExit,
-  syncMenu,
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -107,22 +104,19 @@ export default function StageTabs({
           ))}
         </nav>
 
-        <div className="ml-auto flex shrink-0 items-center gap-3">
-          {syncMenu}
-          {/* 성장 관리는 특정 기간이 아니라 팀원을 기간 너머로 추적하는
-              상위 메뉴 -- 아이콘 있는 별도 버튼으로 오른쪽에 확실히 분리. */}
-          <button
-            onClick={() => onStageChange('notes')}
-            className={`flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
-              stage === 'notes'
-                ? 'border-accent bg-orange-50 text-accent'
-                : 'border-gray-300 text-gray-700 hover:border-accent hover:text-accent'
-            }`}
-          >
-            <GrowthIcon className="h-5 w-5 shrink-0" />
-            성장 관리
-          </button>
-        </div>
+        {/* 성장 관리는 특정 기간이 아니라 팀원을 기간 너머로 추적하는
+            상위 메뉴 -- 아이콘 있는 별도 버튼으로 오른쪽에 확실히 분리. */}
+        <button
+          onClick={() => onStageChange('notes')}
+          className={`ml-auto flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
+            stage === 'notes'
+              ? 'border-accent bg-orange-50 text-accent'
+              : 'border-gray-300 text-gray-700 hover:border-accent hover:text-accent'
+          }`}
+        >
+          <GrowthIcon className="h-5 w-5 shrink-0" />
+          성장 관리
+        </button>
       </div>
     </header>
   )

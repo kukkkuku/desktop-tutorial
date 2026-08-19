@@ -3,13 +3,10 @@ import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
 import type {
-  AppState,
   Contribution,
   Criteria,
-  EvaluationStatus,
   Importance,
   Level,
-  MeetingActionItem,
   MeetingNote,
   PeerReview,
   PerformanceGrade,
@@ -146,9 +143,10 @@ export async function downloadTaskTemplate() {
   await downloadStyledWorkbook(buildTaskTemplateWorkbook(), '과제_업로드_양식.xlsx')
 }
 
-// 빈 양식(위 downloadTaskTemplate)과 달리 지금 등록된 과제를 그대로 내보낸다.
-export async function downloadCurrentTasksExcel(tasks: Task[], criteria: Criteria) {
-  const rows: (string | number)[][] = tasks.map((task) => [
+const TASK_STATUS_COLUMNS: StyledColumn[] = [...TASK_COLUMNS, { header: '점수', width: 10, role: 'metric' }]
+
+function buildTaskRows(tasks: Task[], criteria: Criteria): (string | number)[][] {
+  return tasks.map((task) => [
     task.name,
     task.importance,
     task.workload,
@@ -157,9 +155,12 @@ export async function downloadCurrentTasksExcel(tasks: Task[], criteria: Criteri
     task.performanceGrade,
     Number(calcTaskScore(task, criteria).toFixed(1)),
   ])
-  const columns: StyledColumn[] = [...TASK_COLUMNS, { header: '점수', width: 10, role: 'metric' }]
+}
+
+// 빈 양식(위 downloadTaskTemplate)과 달리 지금 등록된 과제를 그대로 내보낸다.
+export async function downloadCurrentTasksExcel(tasks: Task[], criteria: Criteria) {
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '과제현황', columns, rows, 0)
+  addStyledSheet(wb, '과제현황', TASK_STATUS_COLUMNS, buildTaskRows(tasks, criteria), 0)
   await downloadStyledWorkbook(wb, `과제현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
@@ -272,10 +273,13 @@ const CURRENT_MEMBER_COLUMNS: StyledColumn[] = [
   { header: '활성여부', width: 10, role: 'category' },
 ]
 
-// 빈 양식(위 downloadMemberTemplate)과 달리 지금 등록된 팀원을 화면(팀원
-// 관리 표)과 같은 컬럼 순서로 그대로 내보낸다.
-export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: Task[], contributions: Contribution[], peerReviews: PeerReview[]) {
-  const rows: (string | number)[][] = members.map((member) => {
+function buildMemberRows(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  peerReviews: PeerReview[],
+): (string | number)[][] {
+  return members.map((member) => {
     const service = calcYearsSince(member.hireDate)
     const levelTenure = calcYearsSince(member.currentLevelSince)
     const { count } = calcMemberParticipation(member, tasks, contributions)
@@ -291,8 +295,13 @@ export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: 
       member.active ? '활성' : '비활성',
     ]
   })
+}
+
+// 빈 양식(위 downloadMemberTemplate)과 달리 지금 등록된 팀원을 화면(팀원
+// 관리 표)과 같은 컬럼 순서로 그대로 내보낸다.
+export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: Task[], contributions: Contribution[], peerReviews: PeerReview[]) {
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '팀원현황', CURRENT_MEMBER_COLUMNS, rows, 0)
+  addStyledSheet(wb, '팀원현황', CURRENT_MEMBER_COLUMNS, buildMemberRows(members, tasks, contributions, peerReviews), 0)
   await downloadStyledWorkbook(wb, `팀원현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
@@ -512,7 +521,7 @@ const MATRIX_COLUMNS: StyledColumn[] = [
 // 평가 매트릭스 화면에 입력된 과제×팀원 기여도/개인수행등급을 행 단위로
 // 풀어서 내보낸다(매트릭스 자체는 2차원 표라 그대로 시트에 옮기기보다
 // 과제별상세처럼 한 줄에 한 조합씩 나열하는 편이 읽기 쉽다).
-export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMember[], contributions: Contribution[], criteria: Criteria) {
+function buildMatrixRows(tasks: Task[], members: TeamMember[], contributions: Contribution[], criteria: Criteria): (string | number)[][] {
   const rows: (string | number)[][] = []
   for (const task of tasks) {
     const taskScore = calcTaskScore(task, criteria)
@@ -530,8 +539,12 @@ export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMem
       ])
     }
   }
+  return rows
+}
+
+export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMember[], contributions: Contribution[], criteria: Criteria) {
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '평가매트릭스', MATRIX_COLUMNS, rows, 0)
+  addStyledSheet(wb, '평가매트릭스', MATRIX_COLUMNS, buildMatrixRows(tasks, members, contributions, criteria), 0)
   await downloadStyledWorkbook(wb, `평가매트릭스_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
@@ -625,22 +638,16 @@ const CRITERIA_LABELS: { key: keyof Criteria; label: string }[] = [
   { key: 'peerReviewWeight', label: '피어리뷰' },
 ]
 
-// 워크북만 만들고 저장은 하지 않는다 -- 파일로 바로 내려받는 경로
-// (downloadResultsReport)와 구글 드라이브로 올리는 경로 양쪽에서 재사용한다.
-export function buildResultsReportWorkbook(
+function buildSummaryResultRows(
   members: TeamMember[],
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
-  periods: WorkspaceMeta[] = [],
-): { workbook: ExcelJS.Workbook; filename: string } {
+  peerReviews: PeerReview[],
+  periods: WorkspaceMeta[],
+): (string | number)[][] {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
-  const taskScores = calcAllTaskScores(tasks, criteria)
-  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
-
-  // 01. 팀원 성과결과
-  const summaryRows: (string | number)[][] = results.map((row) => {
+  return results.map((row) => {
     const history = periods.length > 0 ? getMemberPerformanceHistory(row.member.id, periods) : []
     const prevGrade = history[1]?.grade ?? null
     const prevScore = history[1]?.cumulativeScore ?? null
@@ -655,16 +662,26 @@ export function buildResultsReportWorkbook(
       row.member.comment || '',
     ]
   })
+}
 
-  // 02. 개인별 상세
-  const memberDetailRows: (string | number)[][] = []
+function buildMemberDetailRows(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[],
+): (string | number)[][] {
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const rows: (string | number)[][] = []
   for (const row of results) {
     for (const task of tasks) {
       const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === row.member.id)
       if (!contribution || contribution.contributionPercent <= 0) continue
       const taskScore = taskScoreMap.get(task.id) ?? 0
       const weighted = taskScore * (contribution.contributionPercent / 100)
-      memberDetailRows.push([
+      rows.push([
         row.member.name,
         task.name,
         task.importance,
@@ -675,9 +692,13 @@ export function buildResultsReportWorkbook(
       ])
     }
   }
+  return rows
+}
 
-  // 03. 과제별 결과
-  const taskResultRows: (string | number)[][] = tasks.map((task) => {
+function buildTaskResultRows(tasks: Task[], members: TeamMember[], contributions: Contribution[], criteria: Criteria): (string | number)[][] {
+  const taskScores = calcAllTaskScores(tasks, criteria)
+  const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  return tasks.map((task) => {
     const participants = contributions
       .filter((c) => c.taskId === task.id && c.contributionPercent > 0)
       .map((c) => ({ member: members.find((m) => m.id === c.memberId), pct: c.contributionPercent }))
@@ -691,20 +712,53 @@ export function buildResultsReportWorkbook(
       Number(taskScore.toFixed(1)),
     ]
   })
+}
 
-  // 04. 평가기준
-  const criteriaRows: (string | number)[][] = CRITERIA_LABELS.map(({ key, label }) => [
-    label,
-    criteria[key],
-    criteria[key] > 0 ? '사용' : '미사용',
-  ])
+function buildCriteriaRows(criteria: Criteria): (string | number)[][] {
+  return CRITERIA_LABELS.map(({ key, label }) => [label, criteria[key], criteria[key] > 0 ? '사용' : '미사용'])
+}
 
+// 워크북만 만들고 저장은 하지 않는다 -- 파일로 바로 내려받는 경로
+// (downloadResultsReport)와 구글 드라이브로 올리는 경로 양쪽에서 재사용한다.
+export function buildResultsReportWorkbook(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[] = [],
+  periods: WorkspaceMeta[] = [],
+): { workbook: ExcelJS.Workbook; filename: string } {
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '01_팀원 성과결과', SUMMARY_RESULT_COLUMNS, summaryRows)
-  addStyledSheet(wb, '02_개인별 상세', MEMBER_DETAIL_COLUMNS, memberDetailRows)
-  addStyledSheet(wb, '03_과제별 결과', TASK_RESULT_COLUMNS, taskResultRows)
+  addStyledSheet(wb, '01_팀원 성과결과', SUMMARY_RESULT_COLUMNS, buildSummaryResultRows(members, tasks, contributions, criteria, peerReviews, periods))
+  addStyledSheet(wb, '02_개인별 상세', MEMBER_DETAIL_COLUMNS, buildMemberDetailRows(members, tasks, contributions, criteria, peerReviews))
+  addStyledSheet(wb, '03_과제별 결과', TASK_RESULT_COLUMNS, buildTaskResultRows(tasks, members, contributions, criteria))
+  const criteriaRows = buildCriteriaRows(criteria)
   addStyledSheet(wb, '04_평가기준', CRITERIA_COLUMNS, criteriaRows, criteriaRows.length)
   return { workbook: wb, filename: `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx` }
+}
+
+// ---------- Google Sheet 보기용 워크북(구글 드라이브 저장 전용) ----------
+// 위 결과 리포트(사람이 보고하기 위한 4개 시트)와 팀원/과제/기여도 원본
+// 현황을 한 파일에 모아, 구글 시트로 변환해 드라이브에 올린다. 이 문서는
+// 어디까지나 "보기 편한 사본"이고 이 앱의 source of truth가 아니다 --
+// 실제 복원(불러오기)은 별도로 저장하는 JSON 원본으로만 한다.
+export function buildGoogleSheetViewWorkbook(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[] = [],
+  periods: WorkspaceMeta[] = [],
+): ExcelJS.Workbook {
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '팀원 성과결과', SUMMARY_RESULT_COLUMNS, buildSummaryResultRows(members, tasks, contributions, criteria, peerReviews, periods))
+  addStyledSheet(wb, '과제관리', TASK_STATUS_COLUMNS, buildTaskRows(tasks, criteria), 0)
+  addStyledSheet(wb, '팀원관리', CURRENT_MEMBER_COLUMNS, buildMemberRows(members, tasks, contributions, peerReviews), 0)
+  addStyledSheet(wb, '기여도평가', MATRIX_COLUMNS, buildMatrixRows(tasks, members, contributions, criteria), 0)
+  addStyledSheet(wb, '개인별 상세', MEMBER_DETAIL_COLUMNS, buildMemberDetailRows(members, tasks, contributions, criteria, peerReviews))
+  const criteriaRows = buildCriteriaRows(criteria)
+  addStyledSheet(wb, '평가기준', CRITERIA_COLUMNS, criteriaRows, criteriaRows.length)
+  return wb
 }
 
 export async function downloadResultsReport(
@@ -840,317 +894,4 @@ export async function downloadMemberResultExcel(
   const wb = buildMemberResultWorkbook(member, row, tasks, contributions, criteria, meetingNotes, taskScoreMap)
   const dateStr = new Date().toISOString().slice(0, 10)
   await downloadStyledWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
-}
-
-// ---------- 전체 데이터 동기화(구글 드라이브) ----------
-// "리포트"(위 함수들)는 사람이 읽기 좋게 가공한 결과물이라 다시 앱으로
-// 불러올 수 없다. 동기화는 반대로 AppState 원본 필드를 그대로 시트에
-// 옮기고, 그대로 다시 읽어 AppState로 복원할 수 있어야 한다(왕복 보존).
-
-const SYNC_TASK_COLUMNS: StyledColumn[] = [
-  { header: 'id', width: 24, role: 'freetext' },
-  { header: '과제명', width: 24, role: 'freetext' },
-  { header: '중요도', width: 10, role: 'category' },
-  { header: '성과등급', width: 10, role: 'category' },
-  { header: '업무량', width: 8, role: 'category' },
-  { header: '목표', width: 28, role: 'freetext' },
-  { header: '성과', width: 28, role: 'freetext' },
-]
-
-const SYNC_MEMBER_COLUMNS: StyledColumn[] = [
-  { header: 'id', width: 24, role: 'freetext' },
-  { header: '이름', width: 12, role: 'freetext' },
-  { header: '활성', width: 8, role: 'category' },
-  { header: '직급', width: 8, role: 'category' },
-  { header: '근속연차', width: 10, role: 'metric' },
-  { header: '역할', width: 14, role: 'freetext' },
-  { header: '코멘트', width: 24, role: 'freetext' },
-  { header: '입사일', width: 12, role: 'metric' },
-  { header: '현직급발령일', width: 14, role: 'metric' },
-  { header: '승진심사예정월', width: 14, role: 'metric' },
-  { header: '보조점수JSON', width: 30, role: 'freetext' },
-]
-
-const SYNC_CONTRIBUTION_COLUMNS: StyledColumn[] = [
-  { header: 'taskId', width: 24, role: 'freetext' },
-  { header: 'memberId', width: 24, role: 'freetext' },
-  { header: '기여도', width: 10, role: 'metric' },
-  { header: '개인수행등급', width: 12, role: 'category' },
-  { header: '근거메모', width: 24, role: 'freetext' },
-  { header: '자동분배', width: 10, role: 'category' },
-]
-
-const SYNC_CRITERIA_COLUMNS: StyledColumn[] = [
-  { header: '과제성과등급', width: 14, role: 'metric' },
-  { header: '과제중요도', width: 14, role: 'metric' },
-  { header: '업무량', width: 14, role: 'metric' },
-  { header: '개인수행등급', width: 14, role: 'metric' },
-  { header: '피어리뷰', width: 14, role: 'metric' },
-  { header: '기여도', width: 14, role: 'metric' },
-]
-
-const SYNC_PEER_REVIEW_COLUMNS: StyledColumn[] = [
-  { header: 'id', width: 24, role: 'freetext' },
-  { header: '리뷰어', width: 14, role: 'freetext' },
-  { header: 'targetMemberId', width: 24, role: 'freetext' },
-  { header: '등급', width: 8, role: 'category' },
-]
-
-const SYNC_NOTES_COLUMNS: StyledColumn[] = [
-  { header: 'id', width: 24, role: 'freetext' },
-  { header: 'memberId', width: 24, role: 'freetext' },
-  { header: '날짜', width: 12, role: 'metric' },
-  { header: '코멘트', width: 30, role: 'freetext' },
-  { header: '주요논의', width: 24, role: 'freetext' },
-  { header: '다음확인일', width: 12, role: 'metric' },
-  { header: '강점', width: 20, role: 'freetext' },
-  { header: '보완필요', width: 20, role: 'freetext' },
-  { header: '다음경험', width: 20, role: 'freetext' },
-  { header: '커리어관심사', width: 20, role: 'freetext' },
-  { header: '액션JSON', width: 30, role: 'freetext' },
-]
-
-const SYNC_STATUS_COLUMNS: StyledColumn[] = [
-  { header: 'memberId', width: 24, role: 'freetext' },
-  { header: '상태', width: 12, role: 'category' },
-]
-
-export function buildFullSyncWorkbook(
-  state: AppState,
-  workspaceLabel: string,
-): { workbook: ExcelJS.Workbook; filename: string } {
-  const wb = new ExcelJS.Workbook()
-
-  addStyledSheet(
-    wb,
-    '과제',
-    SYNC_TASK_COLUMNS,
-    state.tasks.map((t) => [t.id, t.name, t.importance, t.performanceGrade, t.workload, t.objective, t.achievement]),
-  )
-
-  addStyledSheet(
-    wb,
-    '팀원',
-    SYNC_MEMBER_COLUMNS,
-    state.members.map((m) => [
-      m.id,
-      m.name,
-      m.active ? 'TRUE' : 'FALSE',
-      m.level,
-      m.yearsOfService ?? '',
-      m.role,
-      m.comment,
-      m.hireDate ?? '',
-      m.currentLevelSince ?? '',
-      m.promotionReviewDate ?? '',
-      m.auxScores ? JSON.stringify(m.auxScores) : '',
-    ]),
-  )
-
-  addStyledSheet(
-    wb,
-    '기여도',
-    SYNC_CONTRIBUTION_COLUMNS,
-    state.contributions.map((c) => [
-      c.taskId,
-      c.memberId,
-      c.contributionPercent,
-      c.personalPerformanceGrade,
-      c.personalGradeNote ?? '',
-      c.isAutoDistributed ? 'TRUE' : 'FALSE',
-    ]),
-  )
-
-  addStyledSheet(
-    wb,
-    '평가기준',
-    SYNC_CRITERIA_COLUMNS,
-    [
-      [
-        state.criteria.performanceGradeWeight,
-        state.criteria.taskGradeWeight,
-        state.criteria.workloadWeight,
-        state.criteria.personalGradeWeight,
-        state.criteria.peerReviewWeight,
-        state.criteria.contributionWeight,
-      ],
-    ],
-    1,
-  )
-
-  addStyledSheet(
-    wb,
-    '피어리뷰',
-    SYNC_PEER_REVIEW_COLUMNS,
-    state.peerReviews.map((p) => [p.id, p.reviewerName, p.targetMemberId, p.grade]),
-  )
-
-  addStyledSheet(
-    wb,
-    '면담기록',
-    SYNC_NOTES_COLUMNS,
-    state.meetingNotes.map((n) => [
-      n.id,
-      n.memberId,
-      n.date,
-      n.comment,
-      n.keyPoints ?? '',
-      n.nextCheckDate ?? '',
-      n.strengths ?? '',
-      n.improvements ?? '',
-      n.nextExperience ?? '',
-      n.careerInterest ?? '',
-      n.actions && n.actions.length > 0 ? JSON.stringify(n.actions) : '',
-    ]),
-  )
-
-  addStyledSheet(
-    wb,
-    '평가상태',
-    SYNC_STATUS_COLUMNS,
-    Object.entries(state.evaluationStatus).map(([memberId, status]) => [memberId, status]),
-  )
-
-  const safeLabel = workspaceLabel.replace(/[\\/:*?"<>|]/g, '_')
-  return { workbook: wb, filename: `${safeLabel}_동기화` }
-}
-
-// addStyledSheet가 만든 시트를 헤더 기준 객체 배열로 되읽는다. 스타일만 입혀둔
-// 빈 행(최대 300행)은 첫 칸이 비어 있으니 자연히 걸러진다.
-function readSheetAsObjects(ws: ExcelJS.Worksheet | undefined): Record<string, unknown>[] {
-  if (!ws) return []
-  const headers: string[] = []
-  ws.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
-    headers[colNumber - 1] = String(cell.value ?? '')
-  })
-  const rows: Record<string, unknown>[] = []
-  for (let r = 2; r <= ws.rowCount; r++) {
-    const row = ws.getRow(r)
-    const first = row.getCell(1).value
-    if (first === null || first === undefined || first === '') continue
-    const obj: Record<string, unknown> = {}
-    headers.forEach((h, i) => {
-      if (h) obj[h] = row.getCell(i + 1).value
-    })
-    rows.push(obj)
-  }
-  return rows
-}
-
-function str(v: unknown, fallback = ''): string {
-  return v === null || v === undefined || v === '' ? fallback : String(v)
-}
-
-// buildFullSyncWorkbook의 역변환. 구글 드라이브에서 내려받은(또는 로컬) 동기화
-// 워크북을 읽어 AppState를 그대로 복원한다.
-export async function parseFullSyncWorkbook(buffer: ArrayBuffer): Promise<AppState> {
-  const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(buffer)
-
-  const tasks: Task[] = readSheetAsObjects(wb.getWorksheet('과제')).map((r) => ({
-    id: str(r['id'], uuidv4()),
-    name: str(r['과제명']),
-    importance: (str(r['중요도'], '일반') as Importance),
-    performanceGrade: (str(r['성과등급'], 'B') as PerformanceGrade),
-    workload: (str(r['업무량'], '중') as Workload),
-    objective: str(r['목표']),
-    achievement: str(r['성과']),
-  }))
-
-  const members: TeamMember[] = readSheetAsObjects(wb.getWorksheet('팀원')).map((r) => {
-    let auxScores: TeamMember['auxScores'] = null
-    const auxRaw = r['보조점수JSON']
-    if (typeof auxRaw === 'string' && auxRaw.trim()) {
-      try {
-        auxScores = JSON.parse(auxRaw)
-      } catch {
-        auxScores = null
-      }
-    }
-    return {
-      id: str(r['id'], uuidv4()),
-      name: str(r['이름']),
-      active: str(r['활성'], 'TRUE').toUpperCase() !== 'FALSE',
-      level: (str(r['직급']) as Level | ''),
-      yearsOfService: typeof r['근속연차'] === 'number' ? (r['근속연차'] as number) : null,
-      role: str(r['역할']),
-      comment: str(r['코멘트']),
-      hireDate: r['입사일'] ? str(r['입사일']) : null,
-      currentLevelSince: r['현직급발령일'] ? str(r['현직급발령일']) : null,
-      promotionReviewDate: r['승진심사예정월'] ? str(r['승진심사예정월']) : null,
-      auxScores,
-    }
-  })
-
-  const contributions: Contribution[] = readSheetAsObjects(wb.getWorksheet('기여도')).map((r) => ({
-    taskId: str(r['taskId']),
-    memberId: str(r['memberId']),
-    contributionPercent: typeof r['기여도'] === 'number' ? (r['기여도'] as number) : Number(r['기여도']) || 0,
-    personalPerformanceGrade: (str(r['개인수행등급'], 'B') as PerformanceGrade),
-    personalGradeNote: r['근거메모'] ? str(r['근거메모']) : undefined,
-    isAutoDistributed: str(r['자동분배'], 'FALSE').toUpperCase() === 'TRUE',
-  }))
-
-  const criteriaRow = readSheetAsObjects(wb.getWorksheet('평가기준'))[0]
-  const criteria: Criteria = criteriaRow
-    ? {
-        taskGradeWeight: Number(criteriaRow['과제중요도']) || 0,
-        performanceGradeWeight: Number(criteriaRow['과제성과등급']) || 0,
-        workloadWeight: Number(criteriaRow['업무량']) || 0,
-        personalGradeWeight: Number(criteriaRow['개인수행등급']) || 0,
-        peerReviewWeight: Number(criteriaRow['피어리뷰']) || 0,
-        contributionWeight: Number(criteriaRow['기여도']) || 0,
-      }
-    : {
-        performanceGradeWeight: 100,
-        taskGradeWeight: 100,
-        workloadWeight: 100,
-        personalGradeWeight: 0,
-        peerReviewWeight: 0,
-        contributionWeight: 100,
-      }
-
-  const peerReviews: PeerReview[] = readSheetAsObjects(wb.getWorksheet('피어리뷰')).map((r) => ({
-    id: str(r['id'], uuidv4()),
-    reviewerName: str(r['리뷰어']),
-    targetMemberId: str(r['targetMemberId']),
-    grade: (str(r['등급'], 'B') as PerformanceGrade),
-  }))
-
-  const meetingNotes: MeetingNote[] = readSheetAsObjects(wb.getWorksheet('면담기록')).map((r) => {
-    let actions: MeetingActionItem[] | undefined
-    const actionsRaw = r['액션JSON']
-    if (typeof actionsRaw === 'string' && actionsRaw.trim()) {
-      try {
-        actions = JSON.parse(actionsRaw)
-      } catch {
-        actions = undefined
-      }
-    }
-    const note: MeetingNote = {
-      id: str(r['id'], uuidv4()),
-      memberId: str(r['memberId']),
-      date: str(r['날짜']),
-      comment: str(r['코멘트']),
-    }
-    if (r['주요논의']) note.keyPoints = str(r['주요논의'])
-    if (r['다음확인일']) note.nextCheckDate = str(r['다음확인일'])
-    if (r['강점']) note.strengths = str(r['강점'])
-    if (r['보완필요']) note.improvements = str(r['보완필요'])
-    if (r['다음경험']) note.nextExperience = str(r['다음경험'])
-    if (r['커리어관심사']) note.careerInterest = str(r['커리어관심사'])
-    if (actions && actions.length > 0) note.actions = actions
-    return note
-  })
-
-  const evaluationStatus: Record<string, EvaluationStatus> = {}
-  for (const r of readSheetAsObjects(wb.getWorksheet('평가상태'))) {
-    const memberId = str(r['memberId'])
-    const status = r['상태']
-    if (memberId && (status === 'evaluating' || status === 'reviewed' || status === 'confirmed')) {
-      evaluationStatus[memberId] = status
-    }
-  }
-
-  return { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }
