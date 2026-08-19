@@ -9,7 +9,7 @@ import {
   getContributionPercent,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
-import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { buildResultsReportWorkbook, downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
 import {
   downloadIndividualResultsPdf,
   downloadResultsPdf,
@@ -19,6 +19,7 @@ import {
 import { colorForIndex, pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import { IMPORTANCE_COLORS } from '../utils/badgeColors'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import GoogleDriveUploadButton from './GoogleDriveUploadButton'
 import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
@@ -238,6 +239,9 @@ export default function EvaluationResults() {
             label="통합 결과 리포트"
             onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
             onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
+          />
+          <GoogleDriveUploadButton
+            buildWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
           />
           <CurrentDataDownloadControls
             label={selectedIds.size > 0 ? `선택 팀원 리포트 (${selectedIds.size})` : '전체 팀원별 리포트'}

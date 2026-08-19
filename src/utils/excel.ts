@@ -622,14 +622,16 @@ const CRITERIA_LABELS: { key: keyof Criteria; label: string }[] = [
   { key: 'peerReviewWeight', label: '피어리뷰' },
 ]
 
-export async function downloadResultsReport(
+// 워크북만 만들고 저장은 하지 않는다 -- 파일로 바로 내려받는 경로
+// (downloadResultsReport)와 구글 드라이브로 올리는 경로 양쪽에서 재사용한다.
+export function buildResultsReportWorkbook(
   members: TeamMember[],
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
   peerReviews: PeerReview[] = [],
   periods: WorkspaceMeta[] = [],
-) {
+): { workbook: ExcelJS.Workbook; filename: string } {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
@@ -699,7 +701,19 @@ export async function downloadResultsReport(
   addStyledSheet(wb, '02_개인별 상세', MEMBER_DETAIL_COLUMNS, memberDetailRows)
   addStyledSheet(wb, '03_과제별 결과', TASK_RESULT_COLUMNS, taskResultRows)
   addStyledSheet(wb, '04_평가기준', CRITERIA_COLUMNS, criteriaRows, criteriaRows.length)
-  await downloadStyledWorkbook(wb, `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx`)
+  return { workbook: wb, filename: `평가결과_${new Date().toISOString().slice(0, 10)}.xlsx` }
+}
+
+export async function downloadResultsReport(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[] = [],
+  periods: WorkspaceMeta[] = [],
+) {
+  const { workbook, filename } = buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periods)
+  await downloadStyledWorkbook(workbook, filename)
 }
 
 // Per-member result files, meant to be handed to each person individually
