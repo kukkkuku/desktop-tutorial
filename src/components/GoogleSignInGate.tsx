@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useWorkspaces } from '../state/WorkspaceContext'
 import { connectDrive, isGoogleDriveConfigured } from '../utils/googleDrive'
 import Button from './Button'
 import Spinner from './Spinner'
@@ -19,6 +20,18 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const [passed, setPassed] = useState(() => !configured || sessionStorage.getItem(GATE_KEY) === '1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { exitToLanding } = useWorkspaces()
+
+  // 로그인 게이트를 쓰는 동안은 "로그인 → 성장관리 프로젝트 선택/생성 →
+  // 입장" 순서를 항상 지킨다. 이전에 열어뒀던 워크스페이스가 남아 있어도
+  // 곧장 그 안으로 들어가지 않고, 매번 이 화면(선택 목록)부터 보여준다.
+  const forcedLandingRef = useRef(false)
+  useEffect(() => {
+    if (!configured || forcedLandingRef.current) return
+    forcedLandingRef.current = true
+    exitToLanding()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configured])
 
   if (passed) return <>{children}</>
 
