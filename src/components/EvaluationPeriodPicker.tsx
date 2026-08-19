@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { EvaluationCycle, WorkspaceMeta } from '../types'
-import { useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
+import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { CYCLE_LABELS, customPeriodCode, findWorkspace, periodOptionsForCycle } from '../utils/period'
 import Button from './Button'
 import IconButton from './IconButton'
@@ -108,26 +108,6 @@ function YearPicker({
       )}
     </div>
   )
-}
-
-function readCounts(id: string): { taskCount: number; memberCount: number } {
-  try {
-    const raw = localStorage.getItem(workspaceStateKey(id))
-    if (!raw) return { taskCount: 0, memberCount: 0 }
-    const parsed = JSON.parse(raw)
-    return {
-      taskCount: Array.isArray(parsed.tasks) ? parsed.tasks.length : 0,
-      memberCount: Array.isArray(parsed.members) ? parsed.members.length : 0,
-    }
-  } catch {
-    return { taskCount: 0, memberCount: 0 }
-  }
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '-'
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 
 interface EvaluationPeriodPickerProps {
@@ -278,10 +258,10 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
               <span className="font-semibold text-black">
                 {year} {effectiveLabel}
               </span>
-              <span className="text-xs text-gray-400">최근 수정 {fmtDate(matched.updatedAt)}</span>
+              <span className="text-xs text-gray-400">최근 수정 {fmtWorkspaceDate(matched.updatedAt)}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              과제 {readCounts(matched.id).taskCount}개 · 팀원 {readCounts(matched.id).memberCount}명
+              과제 {readWorkspaceCounts(matched.id).taskCount}개 · 팀원 {readWorkspaceCounts(matched.id).memberCount}명
             </p>
             <Button variant="primary" onClick={handleSubmit} className="mt-3 w-full">
               평가 계속하기 →

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
-import { useWorkspaces } from '../state/WorkspaceContext'
+import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import IconButton from './IconButton'
@@ -9,23 +9,26 @@ export default function WorkspaceLanding() {
   const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const mostRecentTeam = useMemo(() => {
-    const sorted = [...workspaces].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const sorted = [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
     return sorted[sorted.length - 1]?.teamName ?? ''
   }, [workspaces])
 
   const [teamName, setTeamName] = useState(mostRecentTeam)
   const [addingNewTeam, setAddingNewTeam] = useState(existingTeamNames.length === 0)
   const [newTeamInput, setNewTeamInput] = useState('')
-  const [manageOpen, setManageOpen] = useState(false)
+  const [creatingNew, setCreatingNew] = useState(false)
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
 
   const activeTeamName = addingNewTeam ? newTeamInput.trim() : teamName
+  // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가
+  // 뭐가 있는지" 한눈에 보이는 게 이 화면의 첫 번째 목적이라, 평가기간
+  // 선택기보다 이 목록을 먼저 보여준다.
   const teamWorkspaces = workspaces
     .filter((w) => w.teamName === teamName)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
   function openRename(workspace: WorkspaceMeta) {
     setRenamingWorkspace(workspace)
@@ -51,7 +54,7 @@ export default function WorkspaceLanding() {
     <div className="min-h-screen bg-white">
       <main className="mx-auto flex w-full max-w-xl flex-col items-center px-4 py-16 sm:px-6">
         <h1 className="text-center text-3xl font-black text-black">성과관리</h1>
-        <p className="mt-2 text-center text-sm text-gray-500">평가 기간을 고르면 이어서 작업하거나 새로 시작합니다.</p>
+        <p className="mt-2 text-center text-sm text-gray-500">진행 중인 평가를 이어서 작업하거나 새로 시작합니다.</p>
 
         {existingTeamNames.length > 0 && (
           <div className="mt-8 w-full">
@@ -80,7 +83,10 @@ export default function WorkspaceLanding() {
               <div className="mt-1 flex gap-2">
                 <select
                   value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
+                  onChange={(e) => {
+                    setTeamName(e.target.value)
+                    setCreatingNew(false)
+                  }}
                   className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-black"
                 >
                   {existingTeamNames.map((name) => (
@@ -114,29 +120,21 @@ export default function WorkspaceLanding() {
           </div>
         )}
 
-        {activeTeamName && (
-          <div className="mt-4 w-full">
-            <label className="block text-sm font-medium text-black">평가 기간</label>
-            <div className="mt-1">
-              <EvaluationPeriodPicker key={activeTeamName} teamName={activeTeamName} onDone={selectWorkspace} />
-            </div>
-          </div>
-        )}
-
-        {!addingNewTeam && teamWorkspaces.length > 1 && (
+        {activeTeamName && !addingNewTeam && teamWorkspaces.length > 0 && (
           <div className="mt-6 w-full">
-            <button
-              onClick={() => setManageOpen((v) => !v)}
-              className="text-xs font-medium text-gray-400 hover:text-gray-600"
-            >
-              {manageOpen ? '평가 목록 접기' : `이 팀의 다른 평가 보기 (${teamWorkspaces.length})`}
-            </button>
-            {manageOpen && (
-              <ul className="mt-2 divide-y divide-gray-100 rounded-md border border-gray-200">
-                {teamWorkspaces.map((w) => (
-                  <li key={w.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                    <button onClick={() => selectWorkspace(w.id)} className="text-left text-black hover:text-accent hover:underline">
-                      {w.evaluationYear} {w.periodName}
+            <label className="block text-sm font-medium text-black">평가 목록</label>
+            <ul className="mt-1 divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {teamWorkspaces.map((w) => {
+                const counts = readWorkspaceCounts(w.id)
+                return (
+                  <li key={w.id} className="flex items-center gap-2 px-4 py-3">
+                    <button onClick={() => selectWorkspace(w.id)} className="min-w-0 flex-1 text-left">
+                      <p className="font-semibold text-black">
+                        {w.evaluationYear} {w.periodName}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        과제 {counts.taskCount}개 · 팀원 {counts.memberCount}명 · 최근 수정 {fmtWorkspaceDate(w.updatedAt)}
+                      </p>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
                       <IconButton onClick={() => openRename(w)} title="수정" aria-label="수정">
@@ -154,9 +152,39 @@ export default function WorkspaceLanding() {
                       </IconButton>
                     </div>
                   </li>
-                ))}
-              </ul>
+                )
+              })}
+            </ul>
+
+            {!creatingNew ? (
+              <button onClick={() => setCreatingNew(true)} className="mt-3 text-sm font-semibold text-accent hover:underline">
+                + 새 평가 만들기
+              </button>
+            ) : (
+              <div className="mt-3 rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-black">평가 기간</label>
+                  <IconButton onClick={() => setCreatingNew(false)} aria-label="닫기" title="닫기">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-4 w-4">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </IconButton>
+                </div>
+                <div className="mt-1">
+                  <EvaluationPeriodPicker key={activeTeamName} teamName={activeTeamName} onDone={selectWorkspace} />
+                </div>
+              </div>
             )}
+          </div>
+        )}
+
+        {activeTeamName && (addingNewTeam || teamWorkspaces.length === 0) && (
+          <div className="mt-4 w-full">
+            <label className="block text-sm font-medium text-black">평가 기간</label>
+            <div className="mt-1">
+              <EvaluationPeriodPicker key={activeTeamName} teamName={activeTeamName} onDone={selectWorkspace} />
+            </div>
           </div>
         )}
       </main>

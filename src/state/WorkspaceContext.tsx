@@ -15,6 +15,26 @@ export function workspaceStateKey(id: string): string {
   return `${WORKSPACE_STATE_PREFIX}${id}`
 }
 
+export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number } {
+  try {
+    const raw = localStorage.getItem(workspaceStateKey(id))
+    if (!raw) return { taskCount: 0, memberCount: 0 }
+    const parsed = JSON.parse(raw)
+    return {
+      taskCount: Array.isArray(parsed.tasks) ? parsed.tasks.length : 0,
+      memberCount: Array.isArray(parsed.members) ? parsed.members.length : 0,
+    }
+  } catch {
+    return { taskCount: 0, memberCount: 0 }
+  }
+}
+
+export function fmtWorkspaceDate(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '-'
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Browsers that used the app before workspaces existed have their one and
 // only evaluation saved under OLD_SINGLE_STATE_KEY. The first time this code
 // runs there, wrap that data into a real workspace so it isn't lost — unless
