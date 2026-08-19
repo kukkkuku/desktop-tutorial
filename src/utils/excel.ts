@@ -3,10 +3,13 @@ import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
 import type {
+  AppState,
   Contribution,
   Criteria,
+  EvaluationStatus,
   Importance,
   Level,
+  MeetingActionItem,
   MeetingNote,
   PeerReview,
   PerformanceGrade,
@@ -837,4 +840,317 @@ export async function downloadMemberResultExcel(
   const wb = buildMemberResultWorkbook(member, row, tasks, contributions, criteria, meetingNotes, taskScoreMap)
   const dateStr = new Date().toISOString().slice(0, 10)
   await downloadStyledWorkbook(wb, `${member.name}_평가결과_${dateStr}.xlsx`)
+}
+
+// ---------- 전체 데이터 동기화(구글 드라이브) ----------
+// "리포트"(위 함수들)는 사람이 읽기 좋게 가공한 결과물이라 다시 앱으로
+// 불러올 수 없다. 동기화는 반대로 AppState 원본 필드를 그대로 시트에
+// 옮기고, 그대로 다시 읽어 AppState로 복원할 수 있어야 한다(왕복 보존).
+
+const SYNC_TASK_COLUMNS: StyledColumn[] = [
+  { header: 'id', width: 24, role: 'freetext' },
+  { header: '과제명', width: 24, role: 'freetext' },
+  { header: '중요도', width: 10, role: 'category' },
+  { header: '성과등급', width: 10, role: 'category' },
+  { header: '업무량', width: 8, role: 'category' },
+  { header: '목표', width: 28, role: 'freetext' },
+  { header: '성과', width: 28, role: 'freetext' },
+]
+
+const SYNC_MEMBER_COLUMNS: StyledColumn[] = [
+  { header: 'id', width: 24, role: 'freetext' },
+  { header: '이름', width: 12, role: 'freetext' },
+  { header: '활성', width: 8, role: 'category' },
+  { header: '직급', width: 8, role: 'category' },
+  { header: '근속연차', width: 10, role: 'metric' },
+  { header: '역할', width: 14, role: 'freetext' },
+  { header: '코멘트', width: 24, role: 'freetext' },
+  { header: '입사일', width: 12, role: 'metric' },
+  { header: '현직급발령일', width: 14, role: 'metric' },
+  { header: '승진심사예정월', width: 14, role: 'metric' },
+  { header: '보조점수JSON', width: 30, role: 'freetext' },
+]
+
+const SYNC_CONTRIBUTION_COLUMNS: StyledColumn[] = [
+  { header: 'taskId', width: 24, role: 'freetext' },
+  { header: 'memberId', width: 24, role: 'freetext' },
+  { header: '기여도', width: 10, role: 'metric' },
+  { header: '개인수행등급', width: 12, role: 'category' },
+  { header: '근거메모', width: 24, role: 'freetext' },
+  { header: '자동분배', width: 10, role: 'category' },
+]
+
+const SYNC_CRITERIA_COLUMNS: StyledColumn[] = [
+  { header: '과제성과등급', width: 14, role: 'metric' },
+  { header: '과제중요도', width: 14, role: 'metric' },
+  { header: '업무량', width: 14, role: 'metric' },
+  { header: '개인수행등급', width: 14, role: 'metric' },
+  { header: '피어리뷰', width: 14, role: 'metric' },
+  { header: '기여도', width: 14, role: 'metric' },
+]
+
+const SYNC_PEER_REVIEW_COLUMNS: StyledColumn[] = [
+  { header: 'id', width: 24, role: 'freetext' },
+  { header: '리뷰어', width: 14, role: 'freetext' },
+  { header: 'targetMemberId', width: 24, role: 'freetext' },
+  { header: '등급', width: 8, role: 'category' },
+]
+
+const SYNC_NOTES_COLUMNS: StyledColumn[] = [
+  { header: 'id', width: 24, role: 'freetext' },
+  { header: 'memberId', width: 24, role: 'freetext' },
+  { header: '날짜', width: 12, role: 'metric' },
+  { header: '코멘트', width: 30, role: 'freetext' },
+  { header: '주요논의', width: 24, role: 'freetext' },
+  { header: '다음확인일', width: 12, role: 'metric' },
+  { header: '강점', width: 20, role: 'freetext' },
+  { header: '보완필요', width: 20, role: 'freetext' },
+  { header: '다음경험', width: 20, role: 'freetext' },
+  { header: '커리어관심사', width: 20, role: 'freetext' },
+  { header: '액션JSON', width: 30, role: 'freetext' },
+]
+
+const SYNC_STATUS_COLUMNS: StyledColumn[] = [
+  { header: 'memberId', width: 24, role: 'freetext' },
+  { header: '상태', width: 12, role: 'category' },
+]
+
+export function buildFullSyncWorkbook(
+  state: AppState,
+  workspaceLabel: string,
+): { workbook: ExcelJS.Workbook; filename: string } {
+  const wb = new ExcelJS.Workbook()
+
+  addStyledSheet(
+    wb,
+    '과제',
+    SYNC_TASK_COLUMNS,
+    state.tasks.map((t) => [t.id, t.name, t.importance, t.performanceGrade, t.workload, t.objective, t.achievement]),
+  )
+
+  addStyledSheet(
+    wb,
+    '팀원',
+    SYNC_MEMBER_COLUMNS,
+    state.members.map((m) => [
+      m.id,
+      m.name,
+      m.active ? 'TRUE' : 'FALSE',
+      m.level,
+      m.yearsOfService ?? '',
+      m.role,
+      m.comment,
+      m.hireDate ?? '',
+      m.currentLevelSince ?? '',
+      m.promotionReviewDate ?? '',
+      m.auxScores ? JSON.stringify(m.auxScores) : '',
+    ]),
+  )
+
+  addStyledSheet(
+    wb,
+    '기여도',
+    SYNC_CONTRIBUTION_COLUMNS,
+    state.contributions.map((c) => [
+      c.taskId,
+      c.memberId,
+      c.contributionPercent,
+      c.personalPerformanceGrade,
+      c.personalGradeNote ?? '',
+      c.isAutoDistributed ? 'TRUE' : 'FALSE',
+    ]),
+  )
+
+  addStyledSheet(
+    wb,
+    '평가기준',
+    SYNC_CRITERIA_COLUMNS,
+    [
+      [
+        state.criteria.performanceGradeWeight,
+        state.criteria.taskGradeWeight,
+        state.criteria.workloadWeight,
+        state.criteria.personalGradeWeight,
+        state.criteria.peerReviewWeight,
+        state.criteria.contributionWeight,
+      ],
+    ],
+    1,
+  )
+
+  addStyledSheet(
+    wb,
+    '피어리뷰',
+    SYNC_PEER_REVIEW_COLUMNS,
+    state.peerReviews.map((p) => [p.id, p.reviewerName, p.targetMemberId, p.grade]),
+  )
+
+  addStyledSheet(
+    wb,
+    '면담기록',
+    SYNC_NOTES_COLUMNS,
+    state.meetingNotes.map((n) => [
+      n.id,
+      n.memberId,
+      n.date,
+      n.comment,
+      n.keyPoints ?? '',
+      n.nextCheckDate ?? '',
+      n.strengths ?? '',
+      n.improvements ?? '',
+      n.nextExperience ?? '',
+      n.careerInterest ?? '',
+      n.actions && n.actions.length > 0 ? JSON.stringify(n.actions) : '',
+    ]),
+  )
+
+  addStyledSheet(
+    wb,
+    '평가상태',
+    SYNC_STATUS_COLUMNS,
+    Object.entries(state.evaluationStatus).map(([memberId, status]) => [memberId, status]),
+  )
+
+  const safeLabel = workspaceLabel.replace(/[\\/:*?"<>|]/g, '_')
+  return { workbook: wb, filename: `${safeLabel}_동기화` }
+}
+
+// addStyledSheet가 만든 시트를 헤더 기준 객체 배열로 되읽는다. 스타일만 입혀둔
+// 빈 행(최대 300행)은 첫 칸이 비어 있으니 자연히 걸러진다.
+function readSheetAsObjects(ws: ExcelJS.Worksheet | undefined): Record<string, unknown>[] {
+  if (!ws) return []
+  const headers: string[] = []
+  ws.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    headers[colNumber - 1] = String(cell.value ?? '')
+  })
+  const rows: Record<string, unknown>[] = []
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r)
+    const first = row.getCell(1).value
+    if (first === null || first === undefined || first === '') continue
+    const obj: Record<string, unknown> = {}
+    headers.forEach((h, i) => {
+      if (h) obj[h] = row.getCell(i + 1).value
+    })
+    rows.push(obj)
+  }
+  return rows
+}
+
+function str(v: unknown, fallback = ''): string {
+  return v === null || v === undefined || v === '' ? fallback : String(v)
+}
+
+// buildFullSyncWorkbook의 역변환. 구글 드라이브에서 내려받은(또는 로컬) 동기화
+// 워크북을 읽어 AppState를 그대로 복원한다.
+export async function parseFullSyncWorkbook(buffer: ArrayBuffer): Promise<AppState> {
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.load(buffer)
+
+  const tasks: Task[] = readSheetAsObjects(wb.getWorksheet('과제')).map((r) => ({
+    id: str(r['id'], uuidv4()),
+    name: str(r['과제명']),
+    importance: (str(r['중요도'], '일반') as Importance),
+    performanceGrade: (str(r['성과등급'], 'B') as PerformanceGrade),
+    workload: (str(r['업무량'], '중') as Workload),
+    objective: str(r['목표']),
+    achievement: str(r['성과']),
+  }))
+
+  const members: TeamMember[] = readSheetAsObjects(wb.getWorksheet('팀원')).map((r) => {
+    let auxScores: TeamMember['auxScores'] = null
+    const auxRaw = r['보조점수JSON']
+    if (typeof auxRaw === 'string' && auxRaw.trim()) {
+      try {
+        auxScores = JSON.parse(auxRaw)
+      } catch {
+        auxScores = null
+      }
+    }
+    return {
+      id: str(r['id'], uuidv4()),
+      name: str(r['이름']),
+      active: str(r['활성'], 'TRUE').toUpperCase() !== 'FALSE',
+      level: (str(r['직급']) as Level | ''),
+      yearsOfService: typeof r['근속연차'] === 'number' ? (r['근속연차'] as number) : null,
+      role: str(r['역할']),
+      comment: str(r['코멘트']),
+      hireDate: r['입사일'] ? str(r['입사일']) : null,
+      currentLevelSince: r['현직급발령일'] ? str(r['현직급발령일']) : null,
+      promotionReviewDate: r['승진심사예정월'] ? str(r['승진심사예정월']) : null,
+      auxScores,
+    }
+  })
+
+  const contributions: Contribution[] = readSheetAsObjects(wb.getWorksheet('기여도')).map((r) => ({
+    taskId: str(r['taskId']),
+    memberId: str(r['memberId']),
+    contributionPercent: typeof r['기여도'] === 'number' ? (r['기여도'] as number) : Number(r['기여도']) || 0,
+    personalPerformanceGrade: (str(r['개인수행등급'], 'B') as PerformanceGrade),
+    personalGradeNote: r['근거메모'] ? str(r['근거메모']) : undefined,
+    isAutoDistributed: str(r['자동분배'], 'FALSE').toUpperCase() === 'TRUE',
+  }))
+
+  const criteriaRow = readSheetAsObjects(wb.getWorksheet('평가기준'))[0]
+  const criteria: Criteria = criteriaRow
+    ? {
+        taskGradeWeight: Number(criteriaRow['과제중요도']) || 0,
+        performanceGradeWeight: Number(criteriaRow['과제성과등급']) || 0,
+        workloadWeight: Number(criteriaRow['업무량']) || 0,
+        personalGradeWeight: Number(criteriaRow['개인수행등급']) || 0,
+        peerReviewWeight: Number(criteriaRow['피어리뷰']) || 0,
+        contributionWeight: Number(criteriaRow['기여도']) || 0,
+      }
+    : {
+        performanceGradeWeight: 100,
+        taskGradeWeight: 100,
+        workloadWeight: 100,
+        personalGradeWeight: 0,
+        peerReviewWeight: 0,
+        contributionWeight: 100,
+      }
+
+  const peerReviews: PeerReview[] = readSheetAsObjects(wb.getWorksheet('피어리뷰')).map((r) => ({
+    id: str(r['id'], uuidv4()),
+    reviewerName: str(r['리뷰어']),
+    targetMemberId: str(r['targetMemberId']),
+    grade: (str(r['등급'], 'B') as PerformanceGrade),
+  }))
+
+  const meetingNotes: MeetingNote[] = readSheetAsObjects(wb.getWorksheet('면담기록')).map((r) => {
+    let actions: MeetingActionItem[] | undefined
+    const actionsRaw = r['액션JSON']
+    if (typeof actionsRaw === 'string' && actionsRaw.trim()) {
+      try {
+        actions = JSON.parse(actionsRaw)
+      } catch {
+        actions = undefined
+      }
+    }
+    const note: MeetingNote = {
+      id: str(r['id'], uuidv4()),
+      memberId: str(r['memberId']),
+      date: str(r['날짜']),
+      comment: str(r['코멘트']),
+    }
+    if (r['주요논의']) note.keyPoints = str(r['주요논의'])
+    if (r['다음확인일']) note.nextCheckDate = str(r['다음확인일'])
+    if (r['강점']) note.strengths = str(r['강점'])
+    if (r['보완필요']) note.improvements = str(r['보완필요'])
+    if (r['다음경험']) note.nextExperience = str(r['다음경험'])
+    if (r['커리어관심사']) note.careerInterest = str(r['커리어관심사'])
+    if (actions && actions.length > 0) note.actions = actions
+    return note
+  })
+
+  const evaluationStatus: Record<string, EvaluationStatus> = {}
+  for (const r of readSheetAsObjects(wb.getWorksheet('평가상태'))) {
+    const memberId = str(r['memberId'])
+    const status = r['상태']
+    if (memberId && (status === 'evaluating' || status === 'reviewed' || status === 'confirmed')) {
+      evaluationStatus[memberId] = status
+    }
+  }
+
+  return { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }
