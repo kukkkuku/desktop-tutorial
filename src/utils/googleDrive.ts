@@ -20,8 +20,10 @@ import type { AppState, EvaluationCycle, WorkspaceMeta } from '../types'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // drive.file: 이 앱이 만들었거나 사용자가 직접 연 파일에만 접근한다(드라이브
-// 전체를 훑어보는 권한이 아니다) -- 필요 최소 권한 원칙.
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+// 전체를 훑어보는 권한이 아니다) -- 필요 최소 권한 원칙. userinfo.email은
+// "지금 어느 계정에 연결됐는지"를 화면에 이메일로 명확히 보여주기 위한
+// 것으로, 민감하지 않은 스코프다.
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email'
 const APP_TAG = 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = '성장관리'
 
@@ -75,9 +77,29 @@ function loadGis(): Promise<void> {
 // 같은 브라우저 세션에서는 매번 로그인 팝업을 띄우지 않도록 토큰을
 // 만료 1분 전까지 재사용한다.
 let cachedToken: { token: string; expiresAt: number } | null = null
+// 지금 연결된 계정 이메일 -- "내 Google 드라이브에 연결됨"처럼 애매하게
+// 두지 않고 실제 어느 계정인지 화면에 보여주기 위해 캐시해둔다.
+let cachedEmail: string | null = null
 
 export function isConnected(): boolean {
   return cachedToken !== null && cachedToken.expiresAt - 60_000 > Date.now()
+}
+
+export function getConnectedEmail(): string | null {
+  return isConnected() ? cachedEmail : null
+}
+
+async function fetchConnectedEmail(accessToken: string): Promise<void> {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return
+    const data = (await res.json()) as { email?: string }
+    cachedEmail = data.email ?? null
+  } catch {
+    cachedEmail = null
+  }
 }
 
 function requestAccessToken(): Promise<string> {
@@ -97,7 +119,7 @@ function requestAccessToken(): Promise<string> {
         if (resp.error || !resp.access_token) reject(new Error(resp.error || '로그인이 취소되었습니다.'))
         else {
           cachedToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
-          resolve(resp.access_token)
+          void fetchConnectedEmail(resp.access_token).finally(() => resolve(resp.access_token!))
         }
       },
     })

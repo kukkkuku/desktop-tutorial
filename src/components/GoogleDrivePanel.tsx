@@ -5,6 +5,7 @@ import type { AppState, WorkspaceMeta } from '../types'
 import {
   connectDrive,
   fetchSyncPayload,
+  getConnectedEmail,
   getPeriodFolderLink,
   hasExistingSave,
   isConnected,
@@ -166,9 +167,16 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
         {workspace.teamName} · {workspace.periodName}
       </p>
 
-      {/* 연결 */}
+      {/* 연결 -- 어느 계정에 연결됐는지 이메일로 명확히 보여준다. */}
       <div className="mt-3 flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
-        <span className="text-sm text-gray-700">{isConnected() ? '내 Google 드라이브에 연결됨' : '아직 연결되지 않음'}</span>
+        {isConnected() && getConnectedEmail() ? (
+          <span className="flex items-center gap-2 text-sm text-gray-700">
+            {getConnectedEmail()}
+            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">연결됨</span>
+          </span>
+        ) : (
+          <span className="text-sm text-gray-700">{isConnected() ? '내 Google 드라이브에 연결됨' : '아직 연결되지 않음'}</span>
+        )}
         <Button variant="secondary" onClick={handleConnect} disabled={busy !== null} className="px-2.5 py-1 text-xs">
           {busy === 'connect' ? <Spinner className="h-3.5 w-3.5" /> : isConnected() ? '다시 연결' : 'Drive 연결'}
         </Button>
