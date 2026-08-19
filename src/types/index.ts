@@ -110,11 +110,26 @@ export interface AppState {
   evaluationStatus: Record<string, EvaluationStatus>
 }
 
+// 평가 주기 -- 팀이 성과평가를 반기/분기/월 단위로 쪼개는지, 아니면 그때그때
+// 이름을 붙이는 사용자 정의 기간을 쓰는지.
+export type EvaluationCycle = 'half' | 'quarter' | 'month' | 'custom'
+
+// workspace가 곧 하나의 평가(evaluation)다. id가 evaluationId, teamName이
+// evaluationId를 묶는 teamId 역할을 한다(이 앱은 팀 이름 자체가 안정적인
+// 식별자라 별도 UUID teamId를 두지 않는다). evaluationYear/evaluationCycle/
+// evaluationPeriodCode가 이 평가를 구조적으로 식별하는 값이고, periodName은
+// 화면에 보여주는 라벨이다(예: "상반기"). 과제·팀원·기여도·피어리뷰·평가결과는
+// 전부 이 id(workspaceStateKey)로 저장/조회되므로 이미 evaluationId 기준으로
+// 완전히 분리되어 있다.
 export interface WorkspaceMeta {
   id: string
   teamName: string
   periodName: string
+  evaluationYear: number
+  evaluationCycle: EvaluationCycle
+  evaluationPeriodCode: string
   createdAt: string
+  updatedAt: string
 }
 
 // 공식 인사평가 이력 — 앱이 계산하는 성과평가 점수와는 별도로 팀장이 직접 기록하는

@@ -19,7 +19,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [dataSubTabRequest, setDataSubTabRequest] = useState<DataSubTabRequest | null>(null)
-  const { workspaces, currentWorkspace, selectWorkspace, createWorkspace, exitToLanding } = useWorkspaces()
+  const { workspaces, currentWorkspace, selectWorkspace, exitToLanding } = useWorkspaces()
 
   // CriteriaPanel pins itself right below the header and fills the rest of
   // the viewport, so it needs the header's real rendered height -- a
@@ -47,8 +47,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const teamName = currentWorkspace?.teamName ?? ''
   const periods = workspaces.filter((w) => w.teamName === teamName)
 
-  function handleAddPeriod(periodName: string) {
-    createWorkspace(teamName, periodName)
+  function handleAddPeriodDone(workspaceId: string) {
+    selectWorkspace(workspaceId)
     setAddPeriodOpen(false)
   }
 
@@ -97,7 +97,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             </div>
           </div>
           {addPeriodOpen && (
-            <AddPeriodModal teamName={teamName} onSave={handleAddPeriod} onClose={() => setAddPeriodOpen(false)} />
+            <AddPeriodModal teamName={teamName} onDone={handleAddPeriodDone} onClose={() => setAddPeriodOpen(false)} />
           )}
         </MemberDetailProvider>
       </TeamProvider>

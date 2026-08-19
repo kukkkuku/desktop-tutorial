@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useReducer, type ReactNode } from
 import type { AppState } from '../types'
 import { appReducer, createEmptyState, syncAutoDistribution, type AppAction } from './appReducer'
 import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
-import { workspaceStateKey } from './WorkspaceContext'
+import { useWorkspaces, workspaceStateKey } from './WorkspaceContext'
 
 function withAutoDistribution(state: AppState): AppState {
   return { ...state, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions) }
@@ -32,6 +32,7 @@ const AppContext = createContext<AppContextValue | undefined>(undefined)
 export function AppProvider({ workspaceId, children }: { workspaceId: string; children: ReactNode }) {
   const storageKey = workspaceStateKey(workspaceId)
   const [state, dispatch] = useReducer(appReducer, storageKey, loadInitialState)
+  const { touchWorkspace } = useWorkspaces()
 
   useEffect(() => {
     try {
@@ -40,6 +41,8 @@ export function AppProvider({ workspaceId, children }: { workspaceId: string; ch
       // Storage may be unavailable (private browsing, sandboxed embed, quota exceeded).
       // Keep running in-memory; nothing else depends on persistence succeeding.
     }
+    touchWorkspace(workspaceId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, storageKey])
 
   return <AppContext.Provider value={{ state, dispatch, workspaceId }}>{children}</AppContext.Provider>

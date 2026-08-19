@@ -1,6 +1,6 @@
 // 팀원의 여러 평가기간(워크스페이스)에 걸친 성과 히스토리 — 기존 평가 계산 함수를
 // 그대로 재사용하고, 별도로 데이터를 입력/저장하지 않는다. 같은 팀(teamName)의
-// 다른 기간 워크스페이스는 createWorkspace의 copyMembers 동작 덕분에 팀원 id가
+// 다른 기간 워크스페이스는 팀원을 "이전 평가에서 가져오기" 해도 memberId가
 // 그대로 유지되므로, 각 기간의 저장된 상태를 순회하며 동일 memberId를 찾아 재사용한다.
 import type { AppState, EvaluationGrade, Importance, PerformanceGrade, WorkspaceMeta } from '../types'
 import { workspaceStateKey } from '../state/WorkspaceContext'

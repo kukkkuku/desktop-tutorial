@@ -1,52 +1,31 @@
-import { useState } from 'react'
-import Button from './Button'
+import EvaluationPeriodPicker from './EvaluationPeriodPicker'
+import IconButton from './IconButton'
 
 interface AddPeriodModalProps {
   teamName: string
-  onSave: (periodName: string) => void
+  onDone: (workspaceId: string) => void
   onClose: () => void
 }
 
-export default function AddPeriodModal({ teamName, onSave, onClose }: AddPeriodModalProps) {
-  const [periodName, setPeriodName] = useState('')
-  const [error, setError] = useState('')
-
-  function handleSubmit() {
-    if (!periodName.trim()) {
-      setError('평가 기간을 입력하세요.')
-      return
-    }
-    onSave(periodName)
-  }
-
+export default function AddPeriodModal({ teamName, onDone, onClose }: AddPeriodModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-black">새 기간 추가</h3>
-        <p className="mt-1 text-sm text-gray-600">'{teamName}' 팀에 새 평가 기간을 추가합니다.</p>
-
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-black">평가 기간</label>
-          <input
-            type="text"
-            value={periodName}
-            onChange={(e) => setPeriodName(e.target.value)}
-            placeholder="예: 2026 하반기"
-            autoFocus
-            className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
-              error ? 'border-danger' : 'border-gray-300'
-            }`}
-          />
-          {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-black">평가 기간 선택</h3>
+            <p className="mt-1 text-sm text-gray-600">'{teamName}' 팀의 평가 기간을 고릅니다.</p>
+          </div>
+          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
+              <path d="M18 6 6 18" />
+              <path d="M6 6l12 12" />
+            </svg>
+          </IconButton>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>
-            취소
-          </Button>
-          <Button variant="primary" onClick={handleSubmit}>
-            추가
-          </Button>
+        <div className="mt-4">
+          <EvaluationPeriodPicker teamName={teamName} onDone={onDone} />
         </div>
       </div>
     </div>
