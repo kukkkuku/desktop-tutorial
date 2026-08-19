@@ -70,10 +70,13 @@ jobs:
           npm run build
         env:
           VITE_BASE_PATH: /desktop-tutorial/preview-v2/
-          # 구글 드라이브 업로드(선택 기능)용 OAuth 클라이언트 ID. 저장소
-          # Settings → Secrets and variables → Actions에 GOOGLE_CLIENT_ID를
-          # 등록하면 자동으로 반영된다. 없으면 그 버튼은 비활성 상태로만
-          # 보이고 나머지 기능은 그대로 동작한다.
+          # 구글 드라이브 저장(선택 기능)용 OAuth 클라이언트 ID. 반드시
+          # 저장소 Settings → Secrets and variables → Actions(repository
+          # secret)에 GOOGLE_CLIENT_ID로 등록해야 이 job(build, environment
+          # 미지정)에서 읽힌다 -- Settings → Environments → github-pages
+          # 아래(environment secret)에 등록하면 deploy job에서만 보이고
+          # 여기서는 빈 값이 된다. 값이 비어 있으면 "Google Drive" 버튼
+          # 자체가 렌더링되지 않는다(비활성이 아니라 아예 안 보임).
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
 
       - name: Combine into one Pages artifact (production at /, existing at /preview/, improved at /preview-v2/)
