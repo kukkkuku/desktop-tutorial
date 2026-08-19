@@ -133,7 +133,7 @@ export default function EvaluationResults() {
 
   // 인사이트 자동 계산(중요도 순 정렬, 최대 5개)
   const insights = useMemo(() => {
-    const list: { priority: 1 | 2 | 3 | 4; label: string; title: string; desc: string }[] = []
+    const list: { priority: 1 | 2 | 3; label: string; title: string; desc: string }[] = []
 
     // P1 즉시 조치: 중점·핵심 과제인데 성과등급이 C 이하
     tasks
@@ -170,18 +170,6 @@ export default function EvaluationResults() {
           list.push({ priority: 3, label: '모니터링', title: '기여 공백', desc: `"${t.name}" — ${noContrib}명 미참여, 역할 분담 확인 권장` })
         }
       })
-    }
-
-    // P4 기회: 고효율 팀원(업무량 대비 최고 성과)
-    const effList = results
-      .map((r) => {
-        const participated = tasks.filter((t) => getContributionPercent(contributions, t.id, r.member.id) > 0)
-        const avgWl = participated.length ? participated.reduce((s, t) => s + WORKLOAD_NUM[t.workload], 0) / participated.length : 0
-        return { r, eff: avgWl > 0 ? r.cumulativeScore / avgWl : 0 }
-      })
-      .sort((a, b) => b.eff - a.eff)
-    if (effList.length > 0 && effList[0].eff > 0) {
-      list.push({ priority: 4, label: '기회', title: '고효율 팀원', desc: `${effList[0].r.member.name} — 업무량 대비 최고 성과, 핵심 과제 추가 배분 검토` })
     }
 
     return list.sort((a, b) => a.priority - b.priority).slice(0, 5)
@@ -413,41 +401,19 @@ export default function EvaluationResults() {
           </div>
 
           {insights.length > 0 && (
-            <div className="flex min-w-0 flex-1 gap-5 rounded-lg border border-gray-200 px-5 py-3.5">
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                {insights
-                  .filter((i) => i.priority <= 3)
-                  .map((ins, idx) => {
-                    const lc = ins.priority === 1 ? 'text-red-500' : ins.priority === 2 ? 'text-accent' : 'text-gray-400'
-                    return (
-                      <div key={idx} className="flex items-baseline gap-2">
-                        <span className={`w-12 shrink-0 text-[10px] font-bold ${lc}`}>{ins.label}</span>
-                        <p className="min-w-0 text-xs leading-relaxed text-gray-600">
-                          <span className="mr-1 font-semibold text-gray-800">{ins.title}</span>
-                          {ins.desc}
-                        </p>
-                      </div>
-                    )
-                  })}
-              </div>
-              {insights.some((i) => i.priority === 4) && (
-                <>
-                  <div className="w-px shrink-0 bg-gray-100" />
-                  <div className="flex min-w-0 flex-1 flex-col gap-2">
-                    {insights
-                      .filter((i) => i.priority === 4)
-                      .map((ins, idx) => (
-                        <div key={idx} className="flex items-baseline gap-2">
-                          <span className="w-12 shrink-0 text-[10px] font-bold text-emerald-600">{ins.label}</span>
-                          <p className="min-w-0 text-xs leading-relaxed text-gray-600">
-                            <span className="mr-1 font-semibold text-gray-800">{ins.title}</span>
-                            {ins.desc}
-                          </p>
-                        </div>
-                      ))}
+            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg border border-gray-200 px-5 py-3.5">
+              {insights.map((ins, idx) => {
+                const lc = ins.priority === 1 ? 'text-red-500' : ins.priority === 2 ? 'text-accent' : 'text-gray-400'
+                return (
+                  <div key={idx} className="flex items-baseline gap-2">
+                    <span className={`w-12 shrink-0 text-[10px] font-bold ${lc}`}>{ins.label}</span>
+                    <p className="min-w-0 text-xs leading-relaxed text-gray-600">
+                      <span className="mr-1 font-semibold text-gray-800">{ins.title}</span>
+                      {ins.desc}
+                    </p>
                   </div>
-                </>
-              )}
+                )
+              })}
             </div>
           )}
 
