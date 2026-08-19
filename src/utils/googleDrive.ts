@@ -174,19 +174,44 @@ function periodFolderName(workspace: WorkspaceMeta): string {
   return `${workspace.evaluationYear}_${workspace.periodName}`.replace(/[\\/:*?"<>|]/g, '_')
 }
 
+function sanitizeKeyPart(v: string | number): string {
+  return String(v).replace(/[^\w가-힣.-]/g, '_')
+}
+
 // 같은 팀+평가기간을 가리키는 안정적인 식별자. workspace.id는 브라우저마다
 // 새로 생성되는 임의 UUID라 기기마다 값이 달라진다 -- 그걸 그대로 드라이브
 // 매칭 키로 쓰면 다른 기기에서 "2026년 상반기"를 새로 만들었을 때 기존
 // 저장분을 못 찾고 매번 새 파일을 만들게 된다. 그래서 팀명·연도·주기·기간
 // 코드처럼 내용으로 정해지는 값들을 합쳐 기기와 무관한 키로 쓴다.
 export function periodKey(workspace: WorkspaceMeta): string {
-  const clean = (v: string | number) => String(v).replace(/[^\w가-힣.-]/g, '_')
-  return [workspace.teamName, workspace.evaluationYear, workspace.evaluationCycle, workspace.evaluationPeriodCode].map(clean).join('__')
+  return [workspace.teamName, workspace.evaluationYear, workspace.evaluationCycle, workspace.evaluationPeriodCode]
+    .map(sanitizeKeyPart)
+    .join('__')
 }
 
-// 팀+평가기간 단위 폴더. periodKey를 appProperties에 심어두고 그걸로
-// 찾으므로, 다른 기기에서 같은 팀+기간을 열어도(로컬 workspace.id는 달라도)
-// 항상 같은 폴더를 다시 찾아 재사용한다.
+function teamKey(teamName: string): string {
+  return sanitizeKeyPart(teamName)
+}
+
+// "성장관리" 바로 아래 팀 이름 폴더. 여러 팀을 같은 계정으로 관리해도
+// 기간 폴더가 팀 구분 없이 뒤섞이지 않도록, 팀명을 appProperties에 심어
+// 찾는다(폴더 이름을 바꿔도 다시 찾을 수 있게).
+async function ensureTeamFolder(accessToken: string, rootId: string, teamName: string): Promise<string> {
+  const key = teamKey(teamName)
+  const q = `appProperties has { key='teamKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
+  const res = await driveFetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
+    accessToken,
+  )
+  const data = (await res.json()) as { files?: { id: string }[] }
+  if (data.files && data.files.length > 0) return data.files[0].id
+
+  return createFolder(accessToken, teamName.trim() || '팀', rootId, { app: APP_TAG, teamKey: key, kind: 'team-folder' })
+}
+
+// 팀+평가기간 단위 폴더("성장관리/{팀명}/{연도}_{기간}/"). periodKey를
+// appProperties에 심어두고 그걸로 찾으므로, 다른 기기에서 같은 팀+기간을
+// 열어도(로컬 workspace.id는 달라도) 항상 같은 폴더를 다시 찾아 재사용한다.
 async function ensurePeriodFolder(accessToken: string, workspace: WorkspaceMeta): Promise<string> {
   const key = periodKey(workspace)
   const q = `appProperties has { key='periodKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
@@ -198,7 +223,8 @@ async function ensurePeriodFolder(accessToken: string, workspace: WorkspaceMeta)
   if (data.files && data.files.length > 0) return data.files[0].id
 
   const rootId = await ensureRootFolder(accessToken)
-  return createFolder(accessToken, periodFolderName(workspace), rootId, { app: APP_TAG, periodKey: key, kind: 'period-folder' })
+  const teamId = await ensureTeamFolder(accessToken, rootId, workspace.teamName)
+  return createFolder(accessToken, periodFolderName(workspace), teamId, { app: APP_TAG, periodKey: key, kind: 'period-folder' })
 }
 
 // ---------- 파일 업로드(생성/업서트) ----------

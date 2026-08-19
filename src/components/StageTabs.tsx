@@ -73,7 +73,7 @@ export default function StageTabs({
           >
             {periods.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.periodName}
+                {p.evaluationYear} {p.periodName}
               </option>
             ))}
           </select>
