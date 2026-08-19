@@ -169,12 +169,23 @@ export interface PromotionCriteriaRow {
   requiredScore: number
 }
 
+// 면담 전에 참고할 개인 상황 메모(포스트잇) — 대학원 재학, 육아, 휴가 계획,
+// 배우고 싶어하는 분야처럼 성과 데이터로는 안 잡히지만 면담에서 챙겨야 할
+// 맥락. 평가기간이 바뀌어도 유지되어야 해서 TeamProfile에 팀원 단위로 쌓인다.
+export interface PersonalNote {
+  id: string
+  memberId: string
+  content: string
+  createdAt: string
+}
+
 // 팀 단위(워크스페이스/평가기간을 넘나드는) 저장소 — 인사평가 이력과 승진 기준은
 // 특정 평가기간에 종속되지 않는 데이터라 팀 이름 단위로 별도 보관한다.
 export interface TeamProfile {
   hrAppraisals: HRAppraisalRecord[]
   promotionCriteria: PromotionCriteriaRow[]
   gradeScores: Record<EvaluationGrade, number>
+  personalNotes: PersonalNote[]
 }
 
 export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']

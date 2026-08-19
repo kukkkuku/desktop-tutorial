@@ -83,7 +83,7 @@ const MAX_LEFT_RATIO = 0.8
 // 스플리터로 너비를 조절할 수 있게 나란히 붙어 있다.
 export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
   const { state, dispatch } = useAppState()
-  const { profile } = useTeamProfile()
+  const { profile, addPersonalNote, deletePersonalNote } = useTeamProfile()
   const { workspaces, currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periods = workspaces.filter((w) => w.teamName === teamName)
@@ -95,6 +95,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [noteInput, setNoteInput] = useState('')
 
   // 좌(최근 성과 + 성장 시뮬레이션) / 우(면담하기) 스플리터 -- lg 이상에서만
   // 동작하고, 그 아래 폭에서는 위/아래로 쌓인다(고정폭 없이). 드래그 중에는
@@ -191,10 +192,13 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
 
+  const personalNotes = profile.personalNotes.filter((n) => n.memberId === memberId)
+
   // 면담 인사이트 -- 빈 코멘트 칸만 보고 팀장이 매번 질문을 새로 생각해야
   // 하는 문제를 줄이려고, 등급·참여 과제 기준으로 짧은 코칭 멘트를 미리
-  // 만들어둔다. 통계 예측이 아니라 규칙 기반 문장 생성이다.
-  const meetingInsights: string[] = []
+  // 만들어둔다. 통계 예측이 아니라 규칙 기반 문장 생성이다. 개인 메모(포스트잇)로
+  // 남긴 개인 상황도 면담에서 놓치지 않도록 맨 앞에 그대로 얹는다.
+  const meetingInsights: string[] = personalNotes.map((n) => n.content)
   if (memberResult) {
     if (memberResult.grade === 'S' || memberResult.grade === 'A') {
       meetingInsights.push(`${memberResult.grade} 고과를 유지한 강점과 다음 단계 목표를 확인해 보세요.`)
@@ -286,6 +290,51 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             <span className="text-gray-400"> · 승진 기준 미설정</span>
           )}
         </p>
+      </div>
+
+      {/* 개인 메모(포스트잇) -- 대학원 재학, 육아, 휴가 계획, 배우고 싶어하는
+          분야처럼 성과 데이터로는 안 잡히지만 면담 전에 챙겨야 할 개인 상황을
+          짧게 남겨둔다. 등록하면 아래 면담 인사이트에도 그대로 반영된다. */}
+      <div className="border-b border-gray-200 bg-yellow-50 px-5 py-3">
+        <p className="text-xs font-bold text-yellow-700">개인 메모</p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          {personalNotes.map((note) => (
+            <div key={note.id} className="group flex max-w-xs items-start gap-1.5 rounded-md bg-yellow-100 px-2.5 py-1.5 text-[13px] text-yellow-900 shadow-sm">
+              <span className="whitespace-pre-wrap break-words">{note.content}</span>
+              <button
+                onClick={() => deletePersonalNote(note.id)}
+                className="shrink-0 leading-none text-yellow-400 opacity-0 hover:text-yellow-700 group-hover:opacity-100"
+                aria-label="메모 삭제"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!noteInput.trim()) return
+              addPersonalNote(memberId, noteInput)
+              setNoteInput('')
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <input
+              type="text"
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정, 8월 휴가 예정"
+              className="w-64 rounded-md border border-yellow-200 bg-white px-2.5 py-1.5 text-[13px] text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <button
+              type="submit"
+              disabled={!noteInput.trim()}
+              className="shrink-0 rounded-md bg-yellow-200 px-2.5 py-1.5 text-[13px] font-semibold text-yellow-800 hover:bg-yellow-300 disabled:opacity-40"
+            >
+              + 메모
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* 면담 인사이트 -- 면담 들어가기 전에 바로 읽을 수 있도록 아코디언

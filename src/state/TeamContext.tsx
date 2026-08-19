@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { EvaluationGrade, HRAppraisalRecord, PromotionCriteriaRow, TeamProfile } from '../types'
+import { v4 as uuidv4 } from 'uuid'
+import type { EvaluationGrade, HRAppraisalRecord, PersonalNote, PromotionCriteriaRow, TeamProfile } from '../types'
 import { DEFAULT_GRADE_SCORES, DEFAULT_PROMOTION_CRITERIA } from '../utils/promotion'
 
 const TEAM_PROFILE_PREFIX = 'ux-performance-evaluation-team-'
@@ -13,6 +14,7 @@ function defaultProfile(): TeamProfile {
     hrAppraisals: [],
     promotionCriteria: DEFAULT_PROMOTION_CRITERIA,
     gradeScores: { ...DEFAULT_GRADE_SCORES },
+    personalNotes: [],
   }
 }
 
@@ -31,6 +33,7 @@ function loadProfile(teamName: string): TeamProfile {
           parsed.gradeScores && typeof parsed.gradeScores === 'object'
             ? { ...DEFAULT_GRADE_SCORES, ...parsed.gradeScores }
             : { ...DEFAULT_GRADE_SCORES },
+        personalNotes: Array.isArray(parsed.personalNotes) ? parsed.personalNotes : [],
       }
     }
   } catch {
@@ -45,6 +48,8 @@ interface TeamContextValue {
   deleteAppraisal: (id: string) => void
   setPromotionCriteria: (rows: PromotionCriteriaRow[]) => void
   setGradeScores: (scores: Record<EvaluationGrade, number>) => void
+  addPersonalNote: (memberId: string, content: string) => void
+  deletePersonalNote: (id: string) => void
 }
 
 const TeamContext = createContext<TeamContextValue | undefined>(undefined)
@@ -90,8 +95,20 @@ export function TeamProvider({ teamName, children }: { teamName: string; childre
     setProfile((p) => ({ ...p, gradeScores: scores }))
   }
 
+  function addPersonalNote(memberId: string, content: string) {
+    if (!content.trim()) return
+    const note: PersonalNote = { id: uuidv4(), memberId, content: content.trim(), createdAt: new Date().toISOString().slice(0, 10) }
+    setProfile((p) => ({ ...p, personalNotes: [...p.personalNotes, note] }))
+  }
+
+  function deletePersonalNote(id: string) {
+    setProfile((p) => ({ ...p, personalNotes: p.personalNotes.filter((n) => n.id !== id) }))
+  }
+
   return (
-    <TeamContext.Provider value={{ profile, upsertAppraisal, deleteAppraisal, setPromotionCriteria, setGradeScores }}>
+    <TeamContext.Provider
+      value={{ profile, upsertAppraisal, deleteAppraisal, setPromotionCriteria, setGradeScores, addPersonalNote, deletePersonalNote }}
+    >
       {children}
     </TeamContext.Provider>
   )
