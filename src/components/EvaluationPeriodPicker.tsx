@@ -151,6 +151,9 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
   const [customLabel, setCustomLabel] = useState<string>(cycle === 'custom' ? mostRecent?.periodName ?? '' : '')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
+  // 팀원/과제 복사 여부 -- 이 팀에 이미 다른 기간이 있을 때만 의미가 있다.
+  const [copyMembers, setCopyMembers] = useState(true)
+  const [copyTaskNames, setCopyTaskNames] = useState(false)
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -195,6 +198,8 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
       evaluationCycle: cycle,
       evaluationPeriodCode: effectivePeriodCode,
       periodLabel: effectiveLabel,
+      copyMembers,
+      copyTaskNames,
     })
     onDone(id)
   }
@@ -287,6 +292,29 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
             <p className="text-sm text-gray-500">
               {year} {effectiveLabel || '평가'}가 없습니다.
             </p>
+            {mostRecent && (
+              <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-400">'{mostRecent.periodName}'에서 가져오기</p>
+                <label className="flex items-center gap-2 text-xs text-black">
+                  <input
+                    type="checkbox"
+                    checked={copyMembers}
+                    onChange={(e) => setCopyMembers(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                  />
+                  팀원 정보 복사
+                </label>
+                <label className="flex items-center gap-2 text-xs text-black">
+                  <input
+                    type="checkbox"
+                    checked={copyTaskNames}
+                    onChange={(e) => setCopyTaskNames(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                  />
+                  과제명 복사 (등급·목표·성과는 새로 입력)
+                </label>
+              </div>
+            )}
             <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit} className="mt-3 w-full">
               {year} {effectiveLabel || ''} 평가 만들기 →
             </Button>

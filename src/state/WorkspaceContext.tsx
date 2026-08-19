@@ -137,6 +137,11 @@ export interface NewPeriodInput {
   evaluationCycle: EvaluationCycle
   evaluationPeriodCode: string
   periodLabel: string
+  // 같은 팀의 새 기간을 만들 때 팀원/과제를 이어받을지 -- 화면에서 체크박스로
+  // 직접 고른다(기본값: 팀원은 이어받음, 과제는 새로 입력). 팀이 처음 만드는
+  // 평가라 이어받을 대상이 없으면 무시된다.
+  copyMembers?: boolean
+  copyTaskNames?: boolean
 }
 
 interface WorkspaceContextValue {
@@ -218,12 +223,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       updatedAt: now,
     }
     try {
-      // 평가기준(criteria)과 팀원 명단은 과제/기여도/평가결과와 달리 그
-      // 평가만의 데이터가 아니라 팀이 계속 유지하는 정보라, 같은 팀의 가장
-      // 최근 평가에서 항상 자동으로 이어받는다(다시 입력하지 않아도 되도록).
-      // "이전 평가에서 가져오기"는 이 자동 승계와 별개로, 최근 평가가 아닌
-      // 다른 기간에서 추가로 가져오고 싶을 때 쓰는 보조 수단이다. 과제는
-      // 그 평가만의 성과 기록이라 자동으로 넘기지 않는다.
+      // 평가기준(criteria)은 팀이 계속 유지하는 설정이라 같은 팀의 가장 최근
+      // 평가에서 항상 자동으로 이어받는다. 팀원/과제는 화면의 체크박스로
+      // 사용자가 직접 고른다(기본값: 팀원 이어받음 / 과제는 새로 입력) --
+      // "이전 평가에서 가져오기"는 이 승계와 별개로, 최근 평가가 아닌 다른
+      // 기간에서 추가로 가져오고 싶을 때 쓰는 보조 수단이다.
       const sameTeamWorkspaces = workspaces.filter((w) => w.teamName === trimmedTeamName)
       const mostRecentSameTeam = sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
       const empty = createEmptyState()
@@ -232,7 +236,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (raw) {
           const prevState = JSON.parse(raw)
           if (prevState.criteria) empty.criteria = prevState.criteria
-          if (Array.isArray(prevState.members)) empty.members = prevState.members
+          if ((input.copyMembers ?? true) && Array.isArray(prevState.members)) {
+            empty.members = prevState.members
+          }
+          if (input.copyTaskNames && Array.isArray(prevState.tasks)) {
+            empty.tasks = prevState.tasks.map((t: Task) => ({
+              id: uuidv4(),
+              name: t.name,
+              importance: '일반',
+              workload: '중',
+              objective: '',
+              achievement: '',
+              performanceGrade: 'B',
+            }))
+          }
         }
       }
       localStorage.setItem(workspaceStateKey(meta.id), JSON.stringify(empty))

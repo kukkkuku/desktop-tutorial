@@ -68,7 +68,7 @@ export default function ImportFromPreviousDialog({ teamName, currentWorkspaceId,
                 ))}
               </select>
             </div>
-            <p className="mt-3 text-xs text-gray-400">팀원 명단은 새 평가를 만들 때 이미 가장 최근 평가에서 자동으로 이어받습니다. 이 목록은 다른 기간에서 추가로 가져올 때 씁니다.</p>
+            <p className="mt-3 text-xs text-gray-400">팀원 명단은 평가를 만들 때 "팀원 정보 복사" 옵션으로 이미 가져왔을 수 있습니다. 이 목록은 그 기간이 아닌 다른 기간에서 추가로 가져올 때 씁니다.</p>
             <div className="mt-2 space-y-1.5">
               <label className="flex items-center gap-2 text-sm text-black">
                 <input
