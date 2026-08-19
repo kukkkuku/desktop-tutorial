@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import ConfirmDialog from './ConfirmDialog'
@@ -21,6 +21,23 @@ export default function WorkspaceLanding() {
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
+
+  // teamName/addingNewTeam은 useState 초기값이라 마운트 시점 이후로는 저절로
+  // 안 바뀐다. 그래서 선택돼 있던 팀을 지워 팀이 하나도 안 남거나(팀 이름
+  // 입력창을 다시 보여줘야 함), 다른 팀을 지워서 지금 선택된 teamName이
+  // 더 이상 존재하지 않게 되면 상태가 붕 떠서 "팀은 안 보이는데 평가
+  // 만들기 화면만 뜨는" 상태가 됐다. 목록이 바뀔 때마다 유효한 팀을
+  // 가리키도록 다시 맞춘다.
+  useEffect(() => {
+    if (addingNewTeam) return
+    if (existingTeamNames.length === 0) {
+      setAddingNewTeam(true)
+      return
+    }
+    if (!existingTeamNames.includes(teamName)) {
+      setTeamName(mostRecentTeam || existingTeamNames[0])
+    }
+  }, [existingTeamNames, teamName, mostRecentTeam, addingNewTeam])
 
   const activeTeamName = addingNewTeam ? newTeamInput.trim() : teamName
   // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가

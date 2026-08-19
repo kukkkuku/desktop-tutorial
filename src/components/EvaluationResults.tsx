@@ -120,12 +120,13 @@ export default function EvaluationResults() {
     setConfirmAllOpen(false)
   }
 
-  // 팀원 색상 인덱스는 members 배열 순서 기준(대시보드/면담과 동일).
+  // 팀원 색상 인덱스는 성과 순위(results 정렬 순서) 기준 -- 등록 순서로
+  // 고정해두면 표/범례/기여도 막대의 색이 순위와 안 맞아 보인다.
   const memberIndex = useMemo(() => {
     const map = new Map<string, number>()
-    members.forEach((m, i) => map.set(m.id, i))
+    results.forEach((r, i) => map.set(r.member.id, i))
     return map
-  }, [members])
+  }, [results])
   const idxOf = (memberId: string) => memberIndex.get(memberId) ?? 0
 
   const avg = results.length > 0 ? results.reduce((s, r) => s + r.cumulativeScore, 0) / results.length : 0
@@ -425,7 +426,7 @@ export default function EvaluationResults() {
                 <p className="mt-0.5 text-xs text-gray-500">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {activeMembers.map((m) => {
+                {results.map(({ member: m }) => {
                   const idx = idxOf(m.id)
                   const isHL = highlightId === m.id
                   return (
