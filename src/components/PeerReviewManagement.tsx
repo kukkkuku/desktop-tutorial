@@ -143,7 +143,7 @@ export default function PeerReviewManagement() {
           과제와 활성 팀원이 있어야 피어리뷰를 입력할 수 있습니다.
         </p>
       ) : (
-        <div className="mt-4 rounded-lg border border-gray-200 p-4">
+        <div className="mt-4 max-w-xl rounded-lg border border-gray-200 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-black">과제</label>
@@ -179,50 +179,35 @@ export default function PeerReviewManagement() {
             '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)의 기여도와 등급을 매깁니다. 같이 일하지 않은 사람은 기여도를 비워두면 됩니다.
           </p>
 
-          <div className="mt-3 overflow-hidden rounded-md border border-gray-200">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-[#F3F4F6] text-black">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">팀원</th>
-                  <th className="w-32 px-4 py-2 font-semibold">기여도(%)</th>
-                  <th className="w-28 px-4 py-2 font-semibold">등급</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeMembers.map((m) => (
-                  <tr key={m.id} className="border-t border-gray-200 text-black">
-                    <td className="px-4 py-2 font-medium">
-                      {m.name}
-                      {m.id === reviewerId && <span className="ml-1.5 text-xs font-normal text-gray-400">(본인)</span>}
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={drafts[m.id]?.contributionPercent ?? ''}
-                        onChange={(e) => updateDraft(m.id, { contributionPercent: e.target.value })}
-                        placeholder="-"
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={drafts[m.id]?.grade ?? 'B'}
-                        onChange={(e) => updateDraft(m.id, { grade: e.target.value as PerformanceGrade })}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
-                      >
-                        {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+            {activeMembers.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-3 py-2">
+                <span className="w-24 shrink-0 truncate text-sm font-medium text-black">
+                  {m.name}
+                  {m.id === reviewerId && <span className="ml-1 text-xs font-normal text-gray-400">(본인)</span>}
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={drafts[m.id]?.contributionPercent ?? ''}
+                  onChange={(e) => updateDraft(m.id, { contributionPercent: e.target.value })}
+                  placeholder="기여도 %"
+                  className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                />
+                <select
+                  value={drafts[m.id]?.grade ?? 'B'}
+                  onChange={(e) => updateDraft(m.id, { grade: e.target.value as PerformanceGrade })}
+                  className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                >
+                  {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
           </div>
 
           <Button variant="primary" onClick={handleSaveDrafts} className="mt-3">
@@ -234,7 +219,7 @@ export default function PeerReviewManagement() {
       <h4 className="mt-8 text-sm font-semibold text-black">팀원별 받은 리뷰</h4>
       <p className="mt-1 text-xs text-gray-500">과제별로 누가 어떤 근거(기여도·등급)로 남겼는지 확인할 수 있습니다.</p>
 
-      <div className="mt-3 space-y-3">
+      <div className="mt-3 max-w-xl space-y-3">
         {activeMembers.length === 0 && <p className="text-sm text-gray-400">활성 팀원이 없습니다.</p>}
         {activeMembers.map((m) => {
           const received = receivedByMember.get(m.id) ?? []
