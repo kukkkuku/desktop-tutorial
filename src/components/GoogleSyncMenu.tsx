@@ -17,7 +17,48 @@ function CloudSyncIcon({ className }: { className?: string }) {
   )
 }
 
+function CheckCircleIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+    </svg>
+  )
+}
+
 type Busy = 'upload' | 'download' | null
+type SyncKind = 'upload' | 'download'
+interface LastSync {
+  kind: SyncKind
+  at: string
+  webViewLink?: string
+}
+
+function lastSyncKey(workspaceId: string) {
+  return `gsync-last-${workspaceId}`
+}
+
+function readLastSync(workspaceId: string): LastSync | null {
+  try {
+    const raw = localStorage.getItem(lastSyncKey(workspaceId))
+    return raw ? (JSON.parse(raw) as LastSync) : null
+  } catch {
+    return null
+  }
+}
+
+function writeLastSync(workspaceId: string, info: LastSync) {
+  try {
+    localStorage.setItem(lastSyncKey(workspaceId), JSON.stringify(info))
+  } catch {
+    // 저장 실패해도 메뉴 안내 문구가 안 뜰 뿐, 동기화 자체는 이미 끝난 상태다.
+  }
+}
+
+function fmtTime(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 // 팀/평가기간 데이터를 다루는 화면(데이터·평가하기·결과·성장관리) 어디서나
 // 같은 하나의 버튼으로 구글 드라이브에 통째로 올리고 내려받게 한다. 화면마다
@@ -32,6 +73,7 @@ export default function GoogleSyncMenu() {
   const [busy, setBusy] = useState<Busy>(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastSync, setLastSync] = useState<LastSync | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -43,6 +85,13 @@ export default function GoogleSyncMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
+  // 메뉴를 열 때마다 이 평가의 마지막 동기화 기록을 다시 읽는다 -- 진행바가
+  // 끝난 뒤 "된 건지 안 된 건지" 알 수 없다는 문제를 없애기 위해, 성공/실패
+  // 여부와 마지막 시각을 항상 눈에 보이게 남겨둔다.
+  useEffect(() => {
+    if (open) setLastSync(readLastSync(workspaceId))
+  }, [open, workspaceId])
+
   if (!configured) return null
 
   const workspaceLabel = currentWorkspace ? `${currentWorkspace.teamName}_${currentWorkspace.periodName}` : '평가데이터'
@@ -53,8 +102,10 @@ export default function GoogleSyncMenu() {
     try {
       const { workbook, filename } = buildFullSyncWorkbook(state, workspaceLabel)
       const buffer = await workbook.xlsx.writeBuffer()
-      await uploadFullSyncToDrive(workspaceId, buffer as ArrayBuffer, filename)
-      setOpen(false)
+      const { webViewLink } = await uploadFullSyncToDrive(workspaceId, buffer as ArrayBuffer, filename)
+      const info: LastSync = { kind: 'upload', at: new Date().toISOString(), webViewLink }
+      writeLastSync(workspaceId, info)
+      setLastSync(info)
     } catch (err) {
       setError(err instanceof Error ? err.message : '구글 드라이브 업로드에 실패했습니다.')
     } finally {
@@ -70,7 +121,9 @@ export default function GoogleSyncMenu() {
       const nextState = await parseFullSyncWorkbook(buffer)
       dispatch({ type: 'LOAD_STATE', payload: nextState })
       setConfirmOpen(false)
-      setOpen(false)
+      const info: LastSync = { kind: 'download', at: new Date().toISOString() }
+      writeLastSync(workspaceId, info)
+      setLastSync(info)
     } catch (err) {
       setError(err instanceof Error ? err.message : '구글 드라이브에서 불러오지 못했습니다.')
       setConfirmOpen(false)
@@ -114,6 +167,31 @@ export default function GoogleSyncMenu() {
           </div>
 
           {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+
+          {!error && lastSync && (
+            <div className="mt-3 flex items-start gap-1.5 rounded-md bg-green-50 px-2.5 py-2 text-xs text-green-700">
+              <CheckCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <div>
+                <p>
+                  {fmtTime(lastSync.at)}에 {lastSync.kind === 'upload' ? '업로드' : '불러오기'} 완료
+                </p>
+                {lastSync.kind === 'upload' && lastSync.webViewLink && (
+                  <a
+                    href={lastSync.webViewLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium underline underline-offset-2 hover:opacity-80"
+                  >
+                    시트에서 확인하기 →
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!error && !lastSync && (
+            <p className="mt-3 text-xs text-gray-400">아직 이 평가를 구글 드라이브에 동기화한 기록이 없습니다.</p>
+          )}
         </div>
       )}
 
