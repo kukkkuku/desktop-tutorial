@@ -95,7 +95,6 @@ export default function EvaluationResults() {
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmAllOpen, setConfirmAllOpen] = useState(false)
-  const [detailOpen, setDetailOpen] = useState(false)
 
   function statusOf(memberId: string): EvaluationStatus {
     return evaluationStatus[memberId] ?? 'evaluating'
@@ -413,29 +412,7 @@ export default function EvaluationResults() {
             </table>
           </div>
 
-          {/* 상세보기 — 계산 중간값(과제별 성과·기여도)과 자동 인사이트는 접어둔다. */}
-          <div className="rounded-md border border-gray-200">
-            <button
-              onClick={() => setDetailOpen((v) => !v)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left"
-            >
-              <span className="text-sm font-semibold text-gray-800">상세보기 · 과제별 성과 및 인사이트</span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${detailOpen ? 'rotate-180' : ''}`}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          </div>
-
-          {detailOpen && insights.length > 0 && (
+          {insights.length > 0 && (
             <div className="flex min-w-0 flex-1 gap-5 rounded-lg border border-gray-200 px-5 py-3.5">
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 {insights
@@ -475,7 +452,6 @@ export default function EvaluationResults() {
           )}
 
           {/* 과제별 성과 & 기여도 */}
-          {detailOpen && (
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -620,7 +596,6 @@ export default function EvaluationResults() {
               </div>
             )}
           </div>
-          )}
         </>
       )}
 
