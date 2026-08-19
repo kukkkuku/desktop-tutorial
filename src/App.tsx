@@ -12,6 +12,7 @@ import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import VersionCompareBar from './components/VersionCompareBar'
+import GoogleSignInGate from './components/GoogleSignInGate'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('data')
@@ -115,7 +116,9 @@ export default function App() {
   return (
     <WorkspaceProvider>
       <VersionCompareBar />
-      <WorkspaceGate />
+      <GoogleSignInGate>
+        <WorkspaceGate />
+      </GoogleSignInGate>
     </WorkspaceProvider>
   )
 }
