@@ -372,40 +372,65 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
 }
 
 // ---------- Peer review template / import ----------
+// 팀장이 여기서 직접 입력하는 게 아니라, 이 양식을 팀원들에게 나눠주고
+// (엑셀 파일로 메일/메신저 전달) 각자 자기 이름이 "리뷰어"인 행을 찾아
+// 기여도·등급·근거를 채워 돌려받는 흐름이다. 과제×리뷰어×대상팀원 조합을
+// 미리 다 나열해두므로(참여 안 한 조합은 빈칸으로 두면 됨) 받는 사람이
+// 서식을 새로 만들 필요가 없다.
 
-const PEER_REVIEW_COLUMNS: StyledColumn[] = [
-  { header: '리뷰어', width: 12, role: 'metric' },
+const PEER_REVIEW_TEMPLATE_COLUMNS: StyledColumn[] = [
+  { header: '과제명', width: 22, role: 'category' },
+  { header: '리뷰어', width: 12, role: 'category' },
   { header: '대상팀원', width: 12, role: 'metric' },
-  { header: '등급', width: 8, role: 'category' },
+  { header: '기여도(%)', width: 12, role: 'freetext' },
+  { header: '등급', width: 8, role: 'freetext' },
+  { header: '근거', width: 40, role: 'freetext' },
 ]
 
-function buildPeerReviewTemplateWorkbook(members: TeamMember[]): ExcelJS.Workbook {
-  const rows: (string | number)[][] = members.map((member) => ['', member.name, ''])
+function buildPeerReviewTemplateWorkbook(tasks: Task[], members: TeamMember[]): ExcelJS.Workbook {
+  const activeMembers = members.filter((m) => m.active)
+  const rows: (string | number)[][] = []
+  for (const task of tasks) {
+    for (const reviewer of activeMembers) {
+      for (const target of activeMembers) {
+        rows.push([task.name, reviewer.name, target.name, '', '', ''])
+      }
+    }
+  }
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '피어리뷰양식', PEER_REVIEW_COLUMNS, rows)
+  addStyledSheet(wb, '피어리뷰양식', PEER_REVIEW_TEMPLATE_COLUMNS, rows, 0)
   return wb
 }
 
-export async function downloadPeerReviewTemplate(members: TeamMember[]) {
-  await downloadStyledWorkbook(buildPeerReviewTemplateWorkbook(members), '피어리뷰_업로드_양식.xlsx')
+export async function downloadPeerReviewTemplate(tasks: Task[], members: TeamMember[]) {
+  await downloadStyledWorkbook(buildPeerReviewTemplateWorkbook(tasks, members), '피어리뷰_업로드_양식.xlsx')
 }
 
 // 빈 양식(위 downloadPeerReviewTemplate)과 달리 지금 등록된 피어리뷰를
-// 그대로 내보낸다.
-export async function downloadCurrentPeerReviewsExcel(peerReviews: PeerReview[], members: TeamMember[]) {
+// 그대로 내보낸다. 같은 열 구성이라 다시 업로드해서 조정하는 것도 가능하다.
+export async function downloadCurrentPeerReviewsExcel(peerReviews: PeerReview[], members: TeamMember[], tasks: Task[]) {
+  const memberById = new Map(members.map((m) => [m.id, m]))
+  const taskById = new Map(tasks.map((t) => [t.id, t]))
   const sorted = [...peerReviews].sort((a, b) => {
-    const targetA = members.find((m) => m.id === a.targetMemberId)?.name ?? ''
-    const targetB = members.find((m) => m.id === b.targetMemberId)?.name ?? ''
+    const targetA = memberById.get(a.targetMemberId)?.name ?? ''
+    const targetB = memberById.get(b.targetMemberId)?.name ?? ''
     return targetA.localeCompare(targetB) || a.reviewerName.localeCompare(b.reviewerName)
   })
   const rows: (string | number)[][] = []
   for (const review of sorted) {
-    const target = members.find((m) => m.id === review.targetMemberId)
+    const target = memberById.get(review.targetMemberId)
     if (!target) continue
-    rows.push([review.reviewerName, target.name, review.grade])
+    rows.push([
+      review.taskId ? taskById.get(review.taskId)?.name ?? '' : '',
+      review.reviewerName,
+      target.name,
+      review.contributionPercent ?? '',
+      review.grade,
+      review.comment ?? '',
+    ])
   }
   const wb = new ExcelJS.Workbook()
-  addStyledSheet(wb, '피어리뷰현황', PEER_REVIEW_COLUMNS, rows, 0)
+  addStyledSheet(wb, '피어리뷰현황', PEER_REVIEW_TEMPLATE_COLUMNS, rows, 0)
   await downloadStyledWorkbook(wb, `피어리뷰현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
@@ -418,9 +443,12 @@ export interface PeerReviewImportResult {
   affectedTargetNames: string[]
 }
 
+const TASK_NAME_HEADER_ALIASES = ['과제명', '과제']
 const REVIEWER_HEADER_ALIASES = ['리뷰어', '평가자', '리뷰자']
 const TARGET_HEADER_ALIASES = ['대상팀원', '평가대상', '평가 대상', '대상자', '피평가자']
+const CONTRIBUTION_HEADER_ALIASES = ['기여도(%)', '기여도', '기여도(%)*']
 const GRADE_HEADER_ALIASES = ['등급', '평가등급', '점수']
+const COMMENT_HEADER_ALIASES = ['근거', '코멘트', '의견']
 
 function pickColumn(row: Record<string, unknown>, aliases: string[]): string {
   for (const alias of aliases) {
@@ -430,8 +458,12 @@ function pickColumn(row: Record<string, unknown>, aliases: string[]): string {
   return ''
 }
 
+// 과제×리뷰어×대상팀원을 미리 다 나열해둔 양식이라, 등급을 채우지 않은
+// 행(참여 안 한 조합)은 내용이 있어도 그냥 건너뛴다 -- 등급이 이 리뷰가
+// "실제로 작성됐는지"를 가르는 기준이다.
 export function parsePeerReviewWorkbook(
   buffer: ArrayBuffer,
+  tasks: Task[],
   members: TeamMember[],
   existingPeerReviews: PeerReview[],
 ): PeerReviewImportResult {
@@ -440,48 +472,69 @@ export function parsePeerReviewWorkbook(
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   const errors: string[] = []
-  const byKey = new Map(existingPeerReviews.map((r) => [`${r.reviewerName}::${r.targetMemberId}`, r]))
+  const byKey = new Map(
+    existingPeerReviews.map((r) => [`${r.taskId ?? ''}::${r.reviewerMemberId ?? r.reviewerName}::${r.targetMemberId}`, r]),
+  )
   const memberByName = new Map(members.map((m) => [m.name, m]))
+  const taskByName = new Map(tasks.map((t) => [t.name, t]))
   let importedCount = 0
   let addedCount = 0
   let updatedCount = 0
-  let contentRowCount = 0
+  let filledRowCount = 0
   const affectedTargetNames = new Set<string>()
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
-    const hasAnyContent = Object.values(row).some((v) => String(v ?? '').trim() !== '')
-    if (!hasAnyContent) return
-    contentRowCount += 1
+    const gradeRaw = pickColumn(row, GRADE_HEADER_ALIASES).toUpperCase()
+    if (!gradeRaw) return // 등급을 안 채운 행(미참여 조합)은 조용히 건너뛴다.
+    filledRowCount += 1
 
+    const taskName = pickColumn(row, TASK_NAME_HEADER_ALIASES)
     const reviewerName = pickColumn(row, REVIEWER_HEADER_ALIASES)
     const targetName = pickColumn(row, TARGET_HEADER_ALIASES)
-    const gradeRaw = pickColumn(row, GRADE_HEADER_ALIASES).toUpperCase()
+    const contributionRaw = pickColumn(row, CONTRIBUTION_HEADER_ALIASES)
+    const comment = pickColumn(row, COMMENT_HEADER_ALIASES)
 
-    if (!reviewerName || !targetName || !gradeRaw) {
-      errors.push(
-        `${rowNum}행: 리뷰어/대상팀원/등급 컬럼을 찾지 못했습니다. 엑셀 헤더가 '리뷰어', '대상팀원', '등급'인지 확인해주세요.`,
-      )
-      return
-    }
-
-    const targetMember = memberByName.get(targetName)
-    if (!targetMember) {
-      errors.push(`${rowNum}행: 대상팀원 '${targetName}'을(를) 찾을 수 없습니다.`)
+    if (!reviewerName || !targetName) {
+      errors.push(`${rowNum}행: 리뷰어/대상팀원 칸이 비어 있습니다.`)
       return
     }
     if (!PERFORMANCE_GRADE_OPTIONS.includes(gradeRaw as PerformanceGrade)) {
       errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 등급 '${gradeRaw}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
       return
     }
+    const reviewerMember = memberByName.get(reviewerName)
+    if (!reviewerMember) {
+      errors.push(`${rowNum}행: 리뷰어 '${reviewerName}'을(를) 팀원에서 찾을 수 없습니다.`)
+      return
+    }
+    const targetMember = memberByName.get(targetName)
+    if (!targetMember) {
+      errors.push(`${rowNum}행: 대상팀원 '${targetName}'을(를) 찾을 수 없습니다.`)
+      return
+    }
+    const task = taskName ? taskByName.get(taskName) : undefined
+    if (taskName && !task) {
+      errors.push(`${rowNum}행: 과제 '${taskName}'을(를) 찾을 수 없습니다.`)
+      return
+    }
+    const contributionPercent = contributionRaw === '' ? undefined : Number(contributionRaw)
+    if (contributionPercent !== undefined && Number.isNaN(contributionPercent)) {
+      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 기여도 '${contributionRaw}'는 숫자여야 합니다.`)
+      return
+    }
 
-    const key = `${reviewerName}::${targetMember.id}`
+    const key = `${task?.id ?? ''}::${reviewerMember.id}::${targetMember.id}`
     const existing = byKey.get(key)
     const review: PeerReview = {
       id: existing?.id ?? uuidv4(),
-      reviewerName,
+      taskId: task?.id,
+      reviewerMemberId: reviewerMember.id,
+      reviewerName: reviewerMember.name,
       targetMemberId: targetMember.id,
+      contributionPercent,
       grade: gradeRaw as PerformanceGrade,
+      comment: comment || undefined,
     }
     byKey.set(key, review)
     affectedTargetNames.add(targetName)
@@ -493,8 +546,8 @@ export function parsePeerReviewWorkbook(
     }
   })
 
-  if (contentRowCount === 0) {
-    errors.push('업로드한 파일에 내용이 없습니다. 다운로드한 양식에 리뷰어/대상팀원/등급을 채워 업로드해주세요.')
+  if (filledRowCount === 0) {
+    errors.push('업로드한 파일에 채워진 등급이 없습니다. 다운로드한 양식에서 실제로 참여한 조합의 기여도/등급/근거를 채워 업로드해주세요.')
   }
 
   return {
@@ -569,12 +622,12 @@ export function detectWorkbookKind(buffer: ArrayBuffer): WorkbookKind | null {
   return null
 }
 
-export async function downloadAllTemplatesZip(members: TeamMember[]) {
+export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember[]) {
   const zip = new JSZip()
   const [taskBuf, memberBuf, peerBuf] = await Promise.all([
     buildTaskTemplateWorkbook().xlsx.writeBuffer(),
     buildMemberTemplateWorkbook().xlsx.writeBuffer(),
-    buildPeerReviewTemplateWorkbook(members).xlsx.writeBuffer(),
+    buildPeerReviewTemplateWorkbook(tasks, members).xlsx.writeBuffer(),
   ])
   zip.file('과제_업로드_양식.xlsx', taskBuf)
   zip.file('팀원_업로드_양식.xlsx', memberBuf)

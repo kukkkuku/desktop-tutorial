@@ -16,6 +16,7 @@ import IconButton from './IconButton'
 interface DraftRow {
   contributionPercent: string
   grade: PerformanceGrade
+  comment: string
 }
 
 export default function PeerReviewManagement() {
@@ -43,8 +44,8 @@ export default function PeerReviewManagement() {
         (r) => r.taskId === selectedTaskId && r.reviewerMemberId === reviewerId && r.targetMemberId === m.id,
       )
       next[m.id] = existing
-        ? { contributionPercent: String(existing.contributionPercent ?? ''), grade: existing.grade }
-        : { contributionPercent: '', grade: 'B' }
+        ? { contributionPercent: String(existing.contributionPercent ?? ''), grade: existing.grade, comment: existing.comment ?? '' }
+        : { contributionPercent: '', grade: 'B', comment: '' }
     }
     setDrafts(next)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,6 +78,7 @@ export default function PeerReviewManagement() {
         targetMemberId: m.id,
         contributionPercent: Math.max(0, Math.min(100, pct)),
         grade: draft.grade,
+        comment: draft.comment.trim() || undefined,
       }
       dispatch({ type: existing ? 'UPDATE_PEER_REVIEW' : 'ADD_PEER_REVIEW', payload: review })
     }
@@ -96,7 +98,7 @@ export default function PeerReviewManagement() {
     const errors: string[] = []
     for (const file of files) {
       const buffer = await file.arrayBuffer()
-      const result = parsePeerReviewWorkbook(buffer, members, list)
+      const result = parsePeerReviewWorkbook(buffer, tasks, members, list)
       list = result.peerReviews
       addedCount += result.addedCount
       updatedCount += result.updatedCount
@@ -127,24 +129,31 @@ export default function PeerReviewManagement() {
         <h3 className="text-lg font-semibold text-black">피어리뷰 관리</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
-            onExcelDownload={() => downloadCurrentPeerReviewsExcel(peerReviews, members)}
+            onExcelDownload={() => downloadCurrentPeerReviewsExcel(peerReviews, members, tasks)}
             onPdfDownload={() => downloadPeerReviewsPdf(teamName, periodName, peerReviews, members)}
           />
-          <TitleUploadControls busyLabel="피어리뷰 업로드 중..." onDownload={() => downloadPeerReviewTemplate(members)} onFiles={handleUploadFiles} />
+          <TitleUploadControls busyLabel="피어리뷰 업로드 중..." onDownload={() => downloadPeerReviewTemplate(tasks, members)} onFiles={handleUploadFiles} />
         </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
-        과제별로, 그 과제를 함께한 팀원끼리(본인 포함) 서로의 기여도와 등급을 남깁니다. 등급은 평가 기준의 피어리뷰
-        가중치가 0보다 클 때 평가 점수에 반영되고, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
+        팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-black">'빈양식 다운로드'</span>로 과제·팀원별 빈
+        칸이 다 채워진 엑셀을 받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워
+        돌려받으면 <span className="font-medium text-black">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
+        기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
       </p>
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
         <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
-          과제와 활성 팀원이 있어야 피어리뷰를 입력할 수 있습니다.
+          과제와 활성 팀원이 있어야 피어리뷰 양식을 만들 수 있습니다.
         </p>
       ) : (
-        <div className="mt-4 max-w-xl rounded-lg border border-gray-200 p-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="mt-4 max-w-2xl rounded-lg border border-gray-200 p-4">
+          <p className="text-sm font-semibold text-black">받아온 내용 확인·조정</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            팀원에게 받은 엑셀을 업로드한 뒤, 또는 직접 몇 건만 빠르게 넣거나 고칠 때 여기서 과제·리뷰어를 골라 확인·수정합니다.
+          </p>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-black">과제</label>
               <select
@@ -176,12 +185,12 @@ export default function PeerReviewManagement() {
           </div>
 
           <p className="mt-3 text-xs text-gray-500">
-            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)의 기여도와 등급을 매깁니다. 같이 일하지 않은 사람은 기여도를 비워두면 됩니다.
+            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)에게 매긴 기여도·등급·근거입니다. 같이 일하지 않은 사람은 기여도를 비워두면 됩니다.
           </p>
 
           <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
             {activeMembers.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 px-3 py-2">
+              <div key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
                 <span className="w-24 shrink-0 truncate text-sm font-medium text-black">
                   {m.name}
                   {m.id === reviewerId && <span className="ml-1 text-xs font-normal text-gray-400">(본인)</span>}
@@ -193,12 +202,12 @@ export default function PeerReviewManagement() {
                   value={drafts[m.id]?.contributionPercent ?? ''}
                   onChange={(e) => updateDraft(m.id, { contributionPercent: e.target.value })}
                   placeholder="기여도 %"
-                  className="w-24 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="w-24 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
                 />
                 <select
                   value={drafts[m.id]?.grade ?? 'B'}
                   onChange={(e) => updateDraft(m.id, { grade: e.target.value as PerformanceGrade })}
-                  className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="w-20 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
                 >
                   {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -206,6 +215,13 @@ export default function PeerReviewManagement() {
                     </option>
                   ))}
                 </select>
+                <input
+                  type="text"
+                  value={drafts[m.id]?.comment ?? ''}
+                  onChange={(e) => updateDraft(m.id, { comment: e.target.value })}
+                  placeholder="근거(선택)"
+                  className="min-w-[10rem] flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                />
               </div>
             ))}
           </div>
@@ -217,9 +233,9 @@ export default function PeerReviewManagement() {
       )}
 
       <h4 className="mt-8 text-sm font-semibold text-black">팀원별 받은 리뷰</h4>
-      <p className="mt-1 text-xs text-gray-500">과제별로 누가 어떤 근거(기여도·등급)로 남겼는지 확인할 수 있습니다.</p>
+      <p className="mt-1 text-xs text-gray-500">과제별로 누가 어떤 근거(기여도·등급·코멘트)로 남겼는지 확인할 수 있습니다.</p>
 
-      <div className="mt-3 max-w-xl space-y-3">
+      <div className="mt-3 max-w-2xl space-y-3">
         {activeMembers.length === 0 && <p className="text-sm text-gray-400">활성 팀원이 없습니다.</p>}
         {activeMembers.map((m) => {
           const received = receivedByMember.get(m.id) ?? []
@@ -238,23 +254,26 @@ export default function PeerReviewManagement() {
               ) : (
                 <ul className="divide-y divide-gray-100">
                   {received.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate text-gray-700">
-                        <span className="font-medium text-black">{r.reviewerName || '(작성자 미상)'}</span>
-                        {' · '}
-                        {r.taskId ? taskNameById.get(r.taskId) ?? '(삭제된 과제)' : '과제 미상(예전 데이터)'}
-                        {typeof r.contributionPercent === 'number' && <span className="ml-1.5 text-gray-400">기여도 {r.contributionPercent}%</span>}
-                      </span>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
-                      <IconButton onClick={() => setDeletingReview(r)} title="삭제" aria-label="삭제" tone="danger" className="shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      </IconButton>
+                    <li key={r.id} className="px-4 py-2 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="min-w-0 flex-1 truncate text-gray-700">
+                          <span className="font-medium text-black">{r.reviewerName || '(작성자 미상)'}</span>
+                          {' · '}
+                          {r.taskId ? taskNameById.get(r.taskId) ?? '(삭제된 과제)' : '과제 미상(예전 데이터)'}
+                          {typeof r.contributionPercent === 'number' && <span className="ml-1.5 text-gray-400">기여도 {r.contributionPercent}%</span>}
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
+                        <IconButton onClick={() => setDeletingReview(r)} title="삭제" aria-label="삭제" tone="danger" className="shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                          </svg>
+                        </IconButton>
+                      </div>
+                      {r.comment && <p className="mt-1 text-xs text-gray-500">"{r.comment}"</p>}
                     </li>
                   ))}
                 </ul>

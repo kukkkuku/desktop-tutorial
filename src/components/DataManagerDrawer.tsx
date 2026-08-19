@@ -92,7 +92,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
 
     let peerList = peerReviews
     for (const file of peerFiles) {
-      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), memberList, peerList)
+      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), tasks, memberList, peerList)
       peerList = result.peerReviews
       addedCount += result.addedCount
       updatedCount += result.updatedCount
@@ -106,7 +106,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
 
   async function handleZipDownload() {
     setLoadingLabel('양식 압축 중...')
-    await downloadAllTemplatesZip(members)
+    await downloadAllTemplatesZip(tasks, members)
     setLoadingLabel(null)
   }
 

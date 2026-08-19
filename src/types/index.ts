@@ -94,6 +94,9 @@ export interface PeerReview {
   // 없을 수 있다.
   contributionPercent?: number
   grade: PerformanceGrade
+  // 왜 이 기여도·등급을 줬는지 리뷰어가 남기는 짧은 근거. 등급만 덩그러니
+  // 있으면 근거가 없다는 문제를 해결하기 위한 필드.
+  comment?: string
 }
 
 export interface Criteria {
