@@ -65,10 +65,13 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [settingsOpen])
 
-  // 연도 선택지 -- 이 팀이 실제로 쓴 연도들 + 현재 연도(없으면 새로 시작할 수 있게).
+  // 연도 선택지 -- 이 팀이 실제로 쓴 연도들 + 현재 연도를 중심으로 한 범위
+  // (지난 평가를 소급 입력하거나 다음 연도를 미리 만들어둘 수 있게 앞뒤로
+  // 넉넉히 잡는다).
   const yearOptions = useMemo(() => {
+    const thisYear = new Date().getFullYear()
     const years = new Set(teamWorkspaces.map((w) => w.evaluationYear))
-    years.add(new Date().getFullYear())
+    for (let y = thisYear - 5; y <= thisYear + 2; y++) years.add(y)
     years.add(year)
     return Array.from(years).sort((a, b) => b - a)
   }, [teamWorkspaces, year])

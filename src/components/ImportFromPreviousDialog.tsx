@@ -18,7 +18,9 @@ export default function ImportFromPreviousDialog({ teamName, currentWorkspaceId,
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   const [sourceId, setSourceId] = useState(sourceCandidates[0]?.id ?? '')
-  const [importMembers, setImportMembers] = useState(true)
+  // 팀원은 새 평가를 만들 때 이미 가장 최근 평가에서 자동으로 이어받으므로,
+  // 이 다이얼로그는 기본적으로 "다른(더 예전) 기간에서 추가로 가져오기" 용도다.
+  const [importMembers, setImportMembers] = useState(false)
   const [importTasks, setImportTasks] = useState(false)
   const [done, setDone] = useState(false)
 
@@ -66,7 +68,8 @@ export default function ImportFromPreviousDialog({ teamName, currentWorkspaceId,
                 ))}
               </select>
             </div>
-            <div className="mt-3 space-y-1.5">
+            <p className="mt-3 text-xs text-gray-400">팀원 명단은 새 평가를 만들 때 이미 가장 최근 평가에서 자동으로 이어받습니다. 이 목록은 다른 기간에서 추가로 가져올 때 씁니다.</p>
+            <div className="mt-2 space-y-1.5">
               <label className="flex items-center gap-2 text-sm text-black">
                 <input
                   type="checkbox"

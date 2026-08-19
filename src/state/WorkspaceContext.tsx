@@ -218,9 +218,12 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       updatedAt: now,
     }
     try {
-      // 평가기준(criteria)은 팀원/과제와 달리 "이전 평가에서 가져오기"의
-      // 선택 항목이 아니라 팀 단위 설정이라, 같은 팀의 가장 최근 평가에서
-      // 항상 자동으로 이어받는다(없으면 기본값).
+      // 평가기준(criteria)과 팀원 명단은 과제/기여도/평가결과와 달리 그
+      // 평가만의 데이터가 아니라 팀이 계속 유지하는 정보라, 같은 팀의 가장
+      // 최근 평가에서 항상 자동으로 이어받는다(다시 입력하지 않아도 되도록).
+      // "이전 평가에서 가져오기"는 이 자동 승계와 별개로, 최근 평가가 아닌
+      // 다른 기간에서 추가로 가져오고 싶을 때 쓰는 보조 수단이다. 과제는
+      // 그 평가만의 성과 기록이라 자동으로 넘기지 않는다.
       const sameTeamWorkspaces = workspaces.filter((w) => w.teamName === trimmedTeamName)
       const mostRecentSameTeam = sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
       const empty = createEmptyState()
@@ -229,6 +232,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         if (raw) {
           const prevState = JSON.parse(raw)
           if (prevState.criteria) empty.criteria = prevState.criteria
+          if (Array.isArray(prevState.members)) empty.members = prevState.members
         }
       }
       localStorage.setItem(workspaceStateKey(meta.id), JSON.stringify(empty))
