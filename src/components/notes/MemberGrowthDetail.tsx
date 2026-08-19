@@ -31,17 +31,6 @@ function UploadIcon({ className }: { className?: string }) {
   )
 }
 
-// 상단 Summary Bar의 통계 셀 -- 라벨은 작게 위, 값은 크게 아래. 하나의 flat한
-// 바 안에서 gap만으로 간격을 두고, 구분선/배경색 구분은 쓰지 않는다.
-function HeaderStat({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="truncate text-[11px] text-gray-400">{label}</p>
-      <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[15px] font-bold text-black">{children}</div>
-    </div>
-  )
-}
-
 // 최근 성과 / 성장 시뮬레이션 박스 공용 아코디언 -- 제목을 누르면 섹션 전체를
 // 접었다 펼 수 있다(내부 요소별 개별 접기와는 별개의, 섹션 단위 토글).
 // collapsedSummary를 주면 접혔을 때 제목 옆에 한 줄 요약이 보여서, 접어도
@@ -100,8 +89,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const periods = workspaces.filter((w) => w.teamName === teamName)
   const member = state.members.find((m) => m.id === memberId)
 
-  const [recentOpen, setRecentOpen] = useState(true)
-  const [simOpen, setSimOpen] = useState(true)
+  const [recentOpen, setRecentOpen] = useState(false)
+  const [simOpen, setSimOpen] = useState(false)
   const [recentExpanded, setRecentExpanded] = useState(false)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
@@ -202,71 +191,117 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
 
+  // 면담 인사이트 -- 빈 코멘트 칸만 보고 팀장이 매번 질문을 새로 생각해야
+  // 하는 문제를 줄이려고, 등급·참여 과제 기준으로 짧은 코칭 멘트를 미리
+  // 만들어둔다. 통계 예측이 아니라 규칙 기반 문장 생성이다.
+  const meetingInsights: string[] = []
+  if (memberResult) {
+    if (memberResult.grade === 'S' || memberResult.grade === 'A') {
+      meetingInsights.push(`${memberResult.grade} 고과를 유지한 강점과 다음 단계 목표를 확인해 보세요.`)
+    } else if (memberResult.grade === 'C' || memberResult.grade === 'D') {
+      meetingInsights.push(`${memberResult.grade} 고과의 원인을 함께 점검하고 개선 계획을 논의해 보세요.`)
+    } else {
+      meetingInsights.push(`이번 고과(${memberResult.grade})를 바탕으로 강점과 보완점을 균형 있게 짚어보세요.`)
+    }
+  }
+  if (currentTasks.length > 0) {
+    const names = currentTasks.slice(0, 2).map((t) => t.task.name)
+    meetingInsights.push(`${names.join(', ')}${currentTasks.length > 2 ? ' 등' : ''}에서 맡은 역할과 기여를 구체적으로 확인해 보세요.`)
+  }
+  meetingInsights.push('다음 평가기간에 강화할 역량과 팀장이 지원할 사항을 합의해 보세요.')
+
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- Figma 디자인 그대로: 카드처럼 사방이 둥글게 닫힌
-          박스가 아니라, 아래쪽 구분선 하나로만 다음 섹션과 나뉘는 얇은 바.
-          바 전체를 flex-[1_1_0%] 반반으로 나눠서(왼쪽: 이름+일반 지표, 오른쪽:
-          승진 관련 지표) 내용 길이와 무관하게 항상 좌우 끝까지 꽉 차게 한다.
-          화면이 좁아 오른쪽 승진 박스가 아래 줄로 넘어가도, flex-wrap 상태에서
-          혼자 남은 flex-[1_1_0%] 아이템은 그 줄 전체를 그대로 채우므로 왼쪽부터
-          오른쪽까지 회색 배경이 끊기지 않는다(내용 폭에 맞춰 밀어내는 ml-auto
-          방식은 줄바꿈되면 밀 대상이 없어져 배경이 중간에 뜨는 문제가 있었다). */}
-      <div className="flex flex-wrap items-stretch border-b border-gray-200 bg-white">
-        <div className="flex min-w-0 flex-[1_1_0%] flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-black">{member.name}</p>
-            <p className="mt-0.5 truncate text-xs text-gray-400">
-              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-            <HeaderStat label="합계 점수">
-              {memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점 (${memberResult.grade})` : <span className="text-gray-300">-</span>}
-            </HeaderStat>
-            <HeaderStat label="등급 순위">{rank ? `${rank}위 / ${activeCount}명` : '-'}</HeaderStat>
-            <HeaderStat label="최근 면담">{lastMeetingDate ?? '없음'}</HeaderStat>
-            <HeaderStat label="고과 추이 (5년)">
-              <TrendSparkline points={trendPoints} width={100} />
-            </HeaderStat>
-          </div>
+      {/* 상단 프로필 요약 -- 라벨 붙은 박스를 여러 개 늘어놓지 않고, 사람이
+          읽는 문장 두 줄(현재 성과 / 승진심사)로 묶는다. 승진 기준이 없는
+          팀원은 그 문장에서 "승진 기준 미설정"만 짧게 보여주고 나머지
+          칸(대시로 채워지던 4개)은 아예 렌더링하지 않는다. */}
+      <div className="border-b border-gray-200 bg-white px-5 py-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-lg font-bold text-black">{member.name}</p>
+          <p className="text-xs text-gray-400">
+            {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+          </p>
         </div>
 
-        <div className="flex min-w-0 flex-[1_1_0%] flex-wrap items-center gap-x-6 gap-y-3 border-l border-gray-200 bg-gray-50 px-5 py-3">
-          <HeaderStat label="승급일">
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={reviewDateYear}
-                onChange={(e) => updatePromotionReviewYear(e.target.value)}
-                placeholder="연도"
-                className="w-14 rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-              <span className="text-xs font-normal text-gray-400">년</span>
-              <select
-                value={reviewDateMonth}
-                onChange={(e) => updatePromotionReviewMonth(e.target.value)}
-                className="rounded border-0 bg-transparent p-0 text-[15px] font-bold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
-                  <option key={m} value={m}>
-                    {Number(m)}월
-                  </option>
-                ))}
-              </select>
-            </div>
-          </HeaderStat>
-          <HeaderStat label="직급 기준">{promotionCriteria?.toLevel ?? '-'}</HeaderStat>
-          <HeaderStat label="평가 점수">{promotionCriteria ? `${currentWeightedScore.toFixed(1)}점` : '-'}</HeaderStat>
-          <HeaderStat label="승격 기준">{promotionCriteria ? `${promotionCriteria.requiredScore.toFixed(1)}점` : '-'}</HeaderStat>
-          <HeaderStat label="승격 점수 갭">
-            <span className={scoreGap === null ? 'text-gray-300' : scoreGap >= 0 ? 'text-success' : 'text-accent'}>
-              {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
-            </span>
-          </HeaderStat>
-        </div>
+        {/* 숫자 여러 개를 박스로 나열하지 않고, 사람이 말하듯 한 줄로
+            읽히게 문장형으로 묶는다 -- 승진 기준이 없는 팀원은 그 문장
+            자체를 안 보여줘서(대시로 채운 빈 칸 4개 대신) 화면이 더
+            가벼워진다. */}
+        <p className="mt-1.5 text-sm text-gray-600">
+          {memberResult ? (
+            <>
+              합계 <span className="font-bold text-black">{memberResult.cumulativeScore.toFixed(1)}점 ({memberResult.grade})</span>
+            </>
+          ) : (
+            <span className="text-gray-300">합계 -</span>
+          )}
+          {' · '}
+          등급 <span className="font-semibold text-black">{rank ? `${rank}위 / ${activeCount}명` : '-'}</span>
+          {' · '}
+          최근 면담 <span className="font-semibold text-black">{lastMeetingDate ?? '없음'}</span>
+          {' · '}
+          <span className="inline-flex items-center gap-1.5 align-middle">
+            고과 추이(5년) <TrendSparkline points={trendPoints} width={90} />
+          </span>
+        </p>
+
+        <p className="mt-1.5 text-sm text-gray-600">
+          승진심사 시기{' '}
+          <span className="inline-flex items-center gap-1 font-semibold text-black">
+            <input
+              type="number"
+              value={reviewDateYear}
+              onChange={(e) => updatePromotionReviewYear(e.target.value)}
+              placeholder="연도"
+              className="w-12 rounded border-0 bg-transparent p-0 text-sm font-semibold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            년
+            <select
+              value={reviewDateMonth}
+              onChange={(e) => updatePromotionReviewMonth(e.target.value)}
+              className="rounded border-0 bg-transparent p-0 text-sm font-semibold text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                <option key={m} value={m}>
+                  {Number(m)}월
+                </option>
+              ))}
+            </select>
+          </span>
+          {promotionCriteria ? (
+            <>
+              {' · '}
+              <span className="font-semibold text-black">{promotionCriteria.toLevel}</span> 승격 기준{' '}
+              <span className="font-semibold text-black">{promotionCriteria.requiredScore.toFixed(1)}점</span>
+              {' (현재 '}
+              <span className="font-semibold text-black">{currentWeightedScore.toFixed(1)}점</span>
+              {', '}
+              <span className={scoreGap !== null && scoreGap >= 0 ? 'font-semibold text-success' : 'font-semibold text-accent'}>
+                {scoreGap === null ? '-' : `${scoreGap >= 0 ? '+' : ''}${scoreGap.toFixed(1)}점`}
+              </span>
+              {')'}
+            </>
+          ) : (
+            <span className="text-gray-400"> · 승진 기준 미설정</span>
+          )}
+        </p>
       </div>
+
+      {/* 면담 인사이트 -- 면담 들어가기 전에 바로 읽을 수 있도록 아코디언
+          없이 항상 보인다. */}
+      {meetingInsights.length > 0 && (
+        <div className="border-b border-gray-200 bg-orange-50/40 px-5 py-3">
+          <p className="text-xs font-bold text-accent">면담 인사이트</p>
+          <ul className="mt-1 space-y-0.5">
+            {meetingInsights.map((line, i) => (
+              <li key={i} className="text-[13px] text-gray-700">
+                · {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col p-5">
         {/* 아래는 좌우 2열: 왼쪽(최근 성과 + 성장 시뮬레이션, 아코디언) / 오른쪽

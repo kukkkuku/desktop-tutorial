@@ -37,6 +37,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   const [nextExperience, setNextExperience] = useState('')
   const [careerGoal, setCareerGoal] = useState('')
 
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [pastOpen, setPastOpen] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
@@ -50,6 +51,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
     setImprovements('')
     setNextExperience('')
     setCareerGoal('')
+    setDetailsOpen(false)
     setPastOpen(false)
     setEditingNoteId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,30 +114,42 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
         />
       </div>
 
-      <div className="mt-3 flex flex-col gap-3">
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400">강점</label>
-          <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+      {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
+          때만 쓰는 육성 포인트라, 기본은 접어두고 코멘트만 가볍게 남길 수
+          있게 한다. */}
+      <button
+        onClick={() => setDetailsOpen((v) => !v)}
+        className="mt-3 flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-accent"
+      >
+        {detailsOpen ? '− 육성 포인트 접기' : '+ 육성 포인트 추가 (강점·보완·다음 경험·Career Goal)'}
+      </button>
+
+      {detailsOpen && (
+        <div className="mt-2 flex flex-col gap-3">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400">강점</label>
+            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400">보완 필요</label>
+            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400">다음 도전 경험</label>
+            <input
+              type="text"
+              value={nextExperience}
+              onChange={(e) => setNextExperience(e.target.value)}
+              placeholder="도전해 보고 싶은 경험 입력"
+              className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400">Career Goal</label>
+            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+          </div>
         </div>
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400">보완 필요</label>
-          <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-        </div>
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400">다음 도전 경험</label>
-          <input
-            type="text"
-            value={nextExperience}
-            onChange={(e) => setNextExperience(e.target.value)}
-            placeholder="도전해 보고 싶은 경험 입력"
-            className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-          />
-        </div>
-        <div>
-          <label className="block text-[11px] font-medium text-gray-400">Career Goal</label>
-          <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-        </div>
-      </div>
+      )}
 
       {/* 최근 면담 기록 -- 기본 접힘, 필요할 때만 펼침 */}
       <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3 text-[11px]">
