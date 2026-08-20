@@ -64,16 +64,14 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
             <button
               key={member.id}
               onClick={() => onSelectMember(member.id)}
-              className={`flex w-40 shrink-0 flex-col items-start gap-0.5 rounded-t-lg px-3 py-2 text-left transition-colors ${
+              className={`flex w-auto shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-left transition-colors ${
                 isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-gray-100 hover:bg-gray-200/70'
               }`}
             >
-              <span className="flex items-center gap-1.5">
-                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-gray-200 text-gray-400'}`}>
-                  {grade ?? '-'}
-                </span>
-                <span className={`truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
+              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-gray-200 text-gray-400'}`}>
+                {grade ?? '-'}
               </span>
+              <span className={`text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
               {eligible && <Badge tone="accent">승진 가능</Badge>}
             </button>
           )
