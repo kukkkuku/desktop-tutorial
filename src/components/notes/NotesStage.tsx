@@ -4,6 +4,17 @@ import MemberGrowthRail from './MemberGrowthRail'
 import MemberGrowthDetail from './MemberGrowthDetail'
 import MeetingSchedulePanel from './MeetingSchedulePanel'
 
+function MembersIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
 // NotesSubTab/NotesNavigationRequest는 다른 화면(팀원 상세 Drawer 등)이
 // "이 팀원의 성장 관리 화면으로 이동"을 요청할 때 쓰는 진입점 계약이다.
 // 성장 관리 안에 탭이 없으므로 subTab 값 자체는 더 쓰지 않지만(단, 'record'는
@@ -72,6 +83,18 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
               memberId={selectedMemberId}
               prepRequest={notesRequest?.subTab === 'record' ? { memberId: notesRequest.memberId, token: notesRequest.token } : null}
             />
+          ) : activeMembers.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
+              <MembersIcon className="h-10 w-10 text-gray-300" />
+              <p className="text-sm font-semibold text-black">아직 등록된 팀원이 없습니다</p>
+              <p className="text-[13px] text-gray-500">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
+              <button
+                onClick={onManageTeam}
+                className="mt-1 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                + 팀원 추가하기
+              </button>
+            </div>
           ) : (
             <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500 m-6">
               위에서 팀원을 선택하세요.
