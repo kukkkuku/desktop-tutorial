@@ -3,7 +3,7 @@ import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { EvaluationGrade, PersonalNoteColor } from '../../types'
-import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
+import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
@@ -13,7 +13,6 @@ import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
 import TrendSparkline from './TrendSparkline'
-import Badge from '../Badge'
 import PromotionDatePicker from '../PromotionDatePicker'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
@@ -229,7 +228,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 내려받지 않고 각자 재계산).
   const promotionCriteria = findPromotionCriteria(member.level, profile.promotionCriteria)
   const currentWeightedScore = readiness?.weightedScore ?? 0
-  const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
 
   // 승급일 -- 네이티브 <input type="month">의 브라우저별 달력 팝업이 복잡해
   // 보인다는 피드백이 있어, 연도+월을 한 번에 고르는 커스텀 인풋박스
@@ -327,11 +325,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-gray-500">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-                {promotionCriteria && scoreGap !== null && (
-                  <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
-                    {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
-                  </Badge>
-                )}
               </div>
             </div>
 
@@ -466,16 +459,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={simCollapsed ? undefined : gridStyle}>
           <div className={simCollapsed ? 'w-full min-w-0 xl:min-w-0 xl:flex-1' : 'w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0'}>
             <SectionCard
-              title={`${cardYear} 성과`}
-              headerBadge={
-                memberResult && (
-                  <span className="flex shrink-0 items-center gap-2">
-                    <span className="text-[15px] font-bold text-gray-600">
-                      {cardYear} 성과 {memberResult.cumulativeScore.toFixed(1)}
-                    </span>
-                    <span className={`rounded px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
-                  </span>
-                )
+              title={
+                memberResult
+                  ? `${cardYear} ${currentWorkspace?.periodName ?? ''} - ${memberResult.cumulativeScore.toFixed(1)} - ${memberResult.grade}`
+                  : `${cardYear} ${currentWorkspace?.periodName ?? ''}`
               }
               bodyRef={recentColRef}
             >
@@ -496,21 +483,20 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <div className="divide-y divide-dashed divide-gray-200">
                   {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
                     <div key={task.id} className="flex items-center gap-3 py-2">
-                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
                         <span className="truncate text-sm font-semibold text-black">{task.name}</span>
+                        <span className="shrink-0 text-[12px] text-gray-400">{contributionPercent}%</span>
                       </span>
-                      <span className="w-12 shrink-0 text-center text-[13px] text-gray-600">{contributionPercent}%</span>
-                      <span className="flex w-16 shrink-0 items-center justify-center gap-1">
-                        <span className="text-sm font-semibold text-black">{personalGrade}</span>
-                        <GradeNoteButton
-                          note={personalGradeNote}
-                          label={task.name}
-                          onSave={(next) => handleGradeNoteSave(task.id, next)}
-                          previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
-                        />
+                      <span className="shrink-0 text-sm font-semibold text-gray-600">
+                        {personalGrade} <span className="font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
                       </span>
-                      <span className="w-16 shrink-0 text-right font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
+                      <GradeNoteButton
+                        note={personalGradeNote}
+                        label={task.name}
+                        onSave={(next) => handleGradeNoteSave(task.id, next)}
+                        previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                      />
                     </div>
                   ))}
                 </div>

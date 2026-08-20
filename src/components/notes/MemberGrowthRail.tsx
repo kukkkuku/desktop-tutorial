@@ -1,5 +1,10 @@
 import { useAppState } from '../../state/AppContext'
-import { colorForIndex } from '../../utils/memberColors'
+import { useTeamProfile } from '../../state/TeamContext'
+import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
+import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
+import { calcYearsSince } from '../../utils/tenure'
+import Badge from '../Badge'
+import type { TeamMember } from '../../types'
 
 function UploadIcon({ className }: { className?: string }) {
   return (
@@ -19,11 +24,32 @@ interface MemberGrowthRailProps {
 }
 
 // 팀원 탭 -- 브라우저 탭처럼 위쪽 모서리만 둥글고, 선택된 탭은 흰 배경으로
-// 아래 본문과 이어져 보이게 한다(구분선 없이 바로 붙음). 탭 안에는 팀원
-// 색상의 작은 폴더 아이콘 + 이름만 담아 가볍게 유지한다.
+// 아래 본문과 이어져 보이게 한다(구분선 없이 바로 붙음). 이름 앞에는
+// 팀원 색상 대신 이번 고과 등급 배지를 붙여, 탭만 훑어봐도 등급이 바로
+// 보이게 한다("황"처럼 성만 보여주는 아바타는 불필요한 정보였다). 승진
+// 가능 여부도 상세 화면 헤더 대신 여기서 바로 보여준다.
 export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam, onImportHistory }: MemberGrowthRailProps) {
   const { state } = useAppState()
+  const { profile } = useTeamProfile()
   const activeMembers = state.members.filter((m) => m.active)
+  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+
+  function currentGrade(memberId: string) {
+    return memberResults.find((r) => r.member.id === memberId)?.grade ?? null
+  }
+
+  // 승진 가능 여부 -- MemberGrowthDetail 헤더와 같은 계산(각자 재계산 컨벤션).
+  // 자격 기준 미달이면 배지를 아예 보여주지 않는다(탭 폭이 좁아 "승진까지
+  // N점 필요" 같은 긴 문구까지 넣을 자리가 없다).
+  function isPromotionEligible(member: TeamMember) {
+    const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
+    if (!criteria) return false
+    const appraisals = profile.hrAppraisals.filter((r) => r.memberId === member.id)
+    const levelTenureYears = calcYearsSince(member.currentLevelSince)
+    const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, auxScoreSum(member.auxScores), levelTenureYears)
+    const currentWeightedScore = readiness?.weightedScore ?? 0
+    return currentWeightedScore >= criteria.requiredScore
+  }
 
   return (
     <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2">
@@ -32,22 +58,23 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
       ) : (
         activeMembers.map((member) => {
           const isSelected = selectedMemberId === member.id
-          const colorIdx = state.members.findIndex((m) => m.id === member.id)
+          const grade = currentGrade(member.id)
+          const eligible = isPromotionEligible(member)
           return (
             <button
               key={member.id}
               onClick={() => onSelectMember(member.id)}
-              className={`flex w-40 shrink-0 items-center gap-2 rounded-t-lg px-3 py-2.5 text-left transition-colors ${
+              className={`flex w-40 shrink-0 flex-col items-start gap-0.5 rounded-t-lg px-3 py-2 text-left transition-colors ${
                 isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-gray-100 hover:bg-gray-200/70'
               }`}
             >
-              <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
-                style={{ background: colorForIndex(colorIdx) }}
-              >
-                {member.name.charAt(0)}
+              <span className="flex items-center gap-1.5">
+                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-gray-200 text-gray-400'}`}>
+                  {grade ?? '-'}
+                </span>
+                <span className={`truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
               </span>
-              <span className={`truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
+              {eligible && <Badge tone="accent">승진 가능</Badge>}
             </button>
           )
         })
