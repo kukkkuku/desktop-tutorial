@@ -206,7 +206,7 @@ export default function TeamManagement() {
             둘째 줄로 밀려서 두 줄짜리 폼이었다). 필드 순서도 아래 표
             컬럼 순서(이름-근속(입사일)-직급-연차(현 직급 발령일)-역할)와
             맞췄다. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1.4fr_1fr_1.4fr_1.6fr_auto]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1.4fr_1fr_1.4fr_1.6fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               이름 <span className="text-danger">*</span>

@@ -192,7 +192,7 @@ export default function TaskManagement() {
       </p>
 
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               과제명 <span className="text-danger">*</span>
