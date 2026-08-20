@@ -37,6 +37,17 @@ interface DraftGrades {
 
 const EMPTY_DRAFT: DraftGrades = { firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' }
 
+// 보조지표 -- 승진서열화점수에 그대로 합산되는 입력값(직책/상벌/체류/교육).
+// 인사평가 히스토리 표(최근 5개년 총합)의 재료 중 하나라, 그 총합 바로
+// 아래에 둔다.
+const AUX_KEYS = [
+  { key: 'position', label: '직책' },
+  { key: 'reward', label: '상벌' },
+  { key: 'tenure', label: '체류' },
+  { key: 'education', label: '교육' },
+] as const
+type AuxKey = (typeof AUX_KEYS)[number]['key']
+
 // 등급 + 환산 점수를 한 칸에 같이 보여준다 -- 등급 보기/점수 보기를 오갈 필요
 // 없이 항상 둘 다 눈에 들어오게 한다.
 // multiplier -- 역량 등급은 승진점수 산정 시 2배로 가중된다(promotion.ts의
@@ -163,6 +174,13 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   const achievementTrend = trendArrow(records.slice(-3).flatMap((r) => [r.firstHalfGrade, r.secondHalfGrade]))
   const competencyTrend = trendArrow(records.slice(-3).map((r) => r.competencyGrade))
+
+  const auxSum = (member.auxScores?.position ?? 0) + (member.auxScores?.reward ?? 0) + (member.auxScores?.tenure ?? 0) + (member.auxScores?.education ?? 0)
+  function setAux(key: AuxKey, value: string) {
+    const n = value === '' ? 0 : Number(value)
+    if (!Number.isFinite(n)) return
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, auxScores: { ...member.auxScores, [key]: n } } })
+  }
 
   return (
     <div>
@@ -320,6 +338,23 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <p className="shrink-0 text-[11px] font-semibold text-gray-500">보조지표</p>
+        {AUX_KEYS.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+            {label}
+            <input
+              type="number"
+              value={member.auxScores?.[key] ?? ''}
+              onChange={(e) => setAux(key, e.target.value)}
+              placeholder="0"
+              className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+            />
+          </label>
+        ))}
+        <span className="ml-auto shrink-0 text-[11px] text-gray-400">합계 {auxSum}점</span>
       </div>
 
       {extraYears.length > 0 && (

@@ -104,6 +104,10 @@ interface MemberGrowthDetailProps {
 // 경계값은 잠시 무시되고 나머지 두 컬럼이 남는 폭을 나눠 갖는다.
 const DEFAULT_BOUNDS: [number, number] = [1 / 3, 2 / 3]
 const MIN_COL = 0.15
+// 접힌 성장 시뮬레이션 컬럼의 고정 폭(px, xl:w-16과 동일) -- 스플리터를
+// 잡고 드래그를 시작하는 순간 이 폭에 해당하는 경계값으로 바꿔서 펼침
+// 상태로 전환하고, 그대로 이어서 드래그한 만큼 넓어지게 한다.
+const SIM_COLLAPSED_WIDTH = 64
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -142,7 +146,18 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       onPointerDown: (e: ReactPointerEvent) => {
         e.preventDefault()
         const containerWidth = rowRef.current?.getBoundingClientRect().width || 1
-        dragRef.current = { handle, startX: e.clientX, startBounds: bounds, containerWidth }
+        // 접힌 상태에서 스플리터를 잡으면, 지금의 슬림 바 폭(64px)에 해당하는
+        // 경계값으로 즉시 펼치고 그 지점부터 드래그를 이어간다 -- 접혀 있어도
+        // 양옆 스플리터로 늘려서 펼칠 수 있어야 한다는 요구사항.
+        let startBounds = bounds
+        if (simCollapsed) {
+          const collapsedFrac = SIM_COLLAPSED_WIDTH / containerWidth
+          const b0 = handle === 0 ? bounds[0] : Math.max(MIN_COL, bounds[1] - collapsedFrac)
+          startBounds = [b0, b0 + collapsedFrac]
+          setBounds(startBounds)
+          setSimCollapsed(false)
+        }
+        dragRef.current = { handle, startX: e.clientX, startBounds, containerWidth }
         ;(e.target as Element).setPointerCapture?.(e.pointerId)
       },
       onPointerMove: (e: ReactPointerEvent) => {
@@ -514,18 +529,28 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </SectionCard>
           </div>
 
-          {!simCollapsed && <ColumnSplitter {...splitter0} />}
+          <ColumnSplitter {...splitter0} />
 
           <div className={simCollapsed ? 'w-full shrink-0 xl:w-16' : 'w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0'}>
             {simCollapsed ? (
-              <button
-                onClick={() => setSimCollapsed(false)}
-                title="성장 시뮬레이션 펼치기"
-                className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6 hover:bg-gray-50"
-              >
-                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성장 시뮬레이션</span>
-                {promotionCriteria && <span className="[writing-mode:vertical-rl] text-xs font-semibold text-gray-400">ⓘ 기준 보기</span>}
-              </button>
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6 hover:bg-gray-50">
+                <button
+                  onClick={() => setSimCollapsed(false)}
+                  title="성장 시뮬레이션 펼치기"
+                  className="[writing-mode:vertical-rl] text-base font-bold text-black"
+                >
+                  성장 시뮬레이션
+                </button>
+                {promotionCriteria && (
+                  <button
+                    onClick={() => setCriteriaManagerOpen(true)}
+                    title="승진 기준 보기"
+                    className="[writing-mode:vertical-rl] text-xs font-semibold text-gray-400 hover:text-accent"
+                  >
+                    ⓘ 기준 보기
+                  </button>
+                )}
+              </div>
             ) : (
               <SectionCard
                 title="성장 시뮬레이션"
@@ -547,7 +572,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             )}
           </div>
 
-          {!simCollapsed && <ColumnSplitter {...splitter1} />}
+          <ColumnSplitter {...splitter1} />
 
           {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지를 다른 두
               컬럼과 같은 흰 카드 안에 함께 담는다. */}
