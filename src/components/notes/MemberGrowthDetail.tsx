@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import type { EvaluationGrade, PersonalNoteColor } from '../../types'
+import type { PersonalNoteColor } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
@@ -12,7 +12,7 @@ import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHis
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
-import TrendSparkline from './TrendSparkline'
+import AppraisalYearTable from './AppraisalYearTable'
 import Badge from '../Badge'
 import PromotionDatePicker from '../PromotionDatePicker'
 
@@ -220,20 +220,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
 
-  // 고과 추이 그래프 두 개 -- 상하반기 성과(업적) 고과와 연도별 역량고과는
-  // 서로 다른 주기(반기 vs 연간)라 따로 그린다. 최근 4년 구간이 다 보이도록
-  // 반기 그래프는 최대 8포인트(연 2회 x 4년), 역량 그래프는 4포인트까지
-  // 보여준다.
-  const halfYearGradePoints = appraisals.flatMap((r) => {
-    const pts: { period: string; grade: EvaluationGrade }[] = []
-    if (r.firstHalfGrade) pts.push({ period: `${r.year} 상`, grade: r.firstHalfGrade })
-    if (r.secondHalfGrade) pts.push({ period: `${r.year} 하`, grade: r.secondHalfGrade })
-    return pts
-  })
-  const competencyGradePoints = appraisals
-    .filter((r): r is typeof r & { competencyGrade: EvaluationGrade } => !!r.competencyGrade)
-    .map((r) => ({ period: String(r.year), grade: r.competencyGrade }))
-
   const taskScores = calcAllTaskScores(state.tasks, state.criteria)
   const currentTasks = taskScores
     .map(({ task, score }) => {
@@ -311,15 +297,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </div>
           </div>
 
-          <div className="ml-5 shrink-0 space-y-2">
-            <div>
-              <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
-              <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={200} className="mt-1" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
-              <TrendSparkline points={competencyGradePoints} maxPoints={4} width={130} className="mt-1" />
-            </div>
+          <div className="ml-5 shrink-0">
+            <AppraisalYearTable records={appraisals} gradeScores={profile.gradeScores} anchorYear={reviewYear} />
           </div>
 
           {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
