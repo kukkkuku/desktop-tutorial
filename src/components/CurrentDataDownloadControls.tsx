@@ -14,14 +14,16 @@ function DownloadIcon({ className }: { className?: string }) {
 
 interface CurrentDataDownloadControlsProps {
   label?: string
+  disabled?: boolean
   onExcelDownload: () => void | Promise<void>
   onPdfDownload: () => void | Promise<void>
 }
 
 // 빈 양식(TitleUploadControls)과 짝을 이루는, "지금 입력된 데이터"를 그대로
 // 리포트로 내려받는 버튼. 클릭하면 엑셀/PDF 중 원하는 형식을 골라(둘 다 가능)
-// 한 번에 받을 수 있는 팝오버가 열린다.
-export default function CurrentDataDownloadControls({ label = '리포트 다운로드', onExcelDownload, onPdfDownload }: CurrentDataDownloadControlsProps) {
+// 한 번에 받을 수 있는 팝오버가 열린다. 내려받을 데이터 자체가 없을 때는
+// disabled로 꺼둔다 -- 빈 리포트를 받게 하지 않는다.
+export default function CurrentDataDownloadControls({ label = '리포트 다운로드', disabled = false, onExcelDownload, onPdfDownload }: CurrentDataDownloadControlsProps) {
   const [open, setOpen] = useState(false)
   const [wantExcel, setWantExcel] = useState(true)
   const [wantPdf, setWantPdf] = useState(true)
@@ -53,7 +55,7 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
 
   return (
     <div ref={rootRef} className="relative shrink-0">
-      <Button variant="secondary" onClick={() => setOpen((v) => !v)} className="flex items-center gap-1.5 px-3 py-1.5">
+      <Button variant="secondary" onClick={() => setOpen((v) => !v)} disabled={disabled} className="flex items-center gap-1.5 px-3 py-1.5">
         <DownloadIcon className="h-4 w-4" /> {label}
       </Button>
 

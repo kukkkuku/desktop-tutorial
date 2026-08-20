@@ -11,6 +11,7 @@ import { useResizableColumns } from '../hooks/useResizableColumns'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import EmptyStateDropzone from './EmptyStateDropzone'
 import { downloadCurrentTasksExcel, downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
 import { downloadTasksPdf } from '../utils/pdfReports'
 import Button from './Button'
@@ -179,6 +180,7 @@ export default function TaskManagement() {
         <h3 className="text-lg font-semibold text-black">과제 관리</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
+            disabled={state.tasks.length === 0}
             onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
             onPdfDownload={() => downloadTasksPdf(teamName, periodName, state.tasks, state.criteria)}
           />
@@ -281,13 +283,13 @@ export default function TaskManagement() {
       </div>
 
       {state.tasks.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
-          등록된 과제가 없습니다.
-          <br />
-          위의 '+ 과제 추가' 버튼으로 직접 등록하거나,
-          <br />
-          위쪽 통합 데이터 관리에서 엑셀로 여러 과제를 한 번에 등록할 수 있습니다.
-        </p>
+        <EmptyStateDropzone
+          title="등록된 과제가 없습니다"
+          addHint="위의 '+ 과제 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
+          busyLabel="과제 업로드 중..."
+          onDownloadTemplate={downloadTaskTemplate}
+          onFiles={handleUploadFiles}
+        />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}>

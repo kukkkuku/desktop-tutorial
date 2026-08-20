@@ -12,6 +12,7 @@ import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import EmptyStateDropzone from './EmptyStateDropzone'
 import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
@@ -188,6 +189,7 @@ export default function TeamManagement() {
         <h3 className="text-lg font-semibold text-black">팀원 관리</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
+            disabled={state.members.length === 0}
             onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
             onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
           />
@@ -272,13 +274,13 @@ export default function TeamManagement() {
       </div>
 
       {state.members.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
-          등록된 팀원이 없습니다.
-          <br />
-          위의 '+ 팀원 추가' 버튼으로 직접 등록하거나,
-          <br />
-          위쪽 통합 데이터 관리에서 엑셀로 여러 팀원을 한 번에 등록할 수 있습니다.
-        </p>
+        <EmptyStateDropzone
+          title="등록된 팀원이 없습니다"
+          addHint="위의 '+ 팀원 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
+          busyLabel="팀원 업로드 중..."
+          onDownloadTemplate={downloadMemberTemplate}
+          onFiles={handleUploadFiles}
+        />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.role }}>
