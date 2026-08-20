@@ -7,7 +7,8 @@ import StageTabs, { type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import AddPeriodModal from './components/AddPeriodModal'
 import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
-import DataStage, { type DataSubTabRequest } from './components/DataStage'
+import TasksStage from './components/TasksStage'
+import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
@@ -16,12 +17,12 @@ import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer from './components/DataManagerDrawer'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
-  const [stage, setStage] = useState<Stage>('data')
+  const [stage, setStage] = useState<Stage>('tasks')
   const [addPeriodOpen, setAddPeriodOpen] = useState(false)
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
-  const [dataSubTabRequest, setDataSubTabRequest] = useState<DataSubTabRequest | null>(null)
+  const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, exitToLanding } = useWorkspaces()
 
   // CriteriaPanel pins itself right below the header and fills the rest of
@@ -63,12 +64,12 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
     window.scrollTo(0, 0)
   }
 
-  // 성장 관리 좌측 팀원 카드 하단의 "팀원 관리" 버튼 → 데이터 탭의 팀원
-  // 서브탭으로 이동한다(과제 서브탭이 기본으로 뜨는 걸 피하려고 토큰으로
-  // 요청해서 DataStage가 그 서브탭을 열게 한다).
+  // 면담 화면 좌측 팀원 카드 하단의 "팀원 관리" 버튼 → 팀원관리 탭으로
+  // 이동한다(피어리뷰 서브탭이 열려 있었을 수 있으니 토큰으로 요청해서
+  // TeamStage가 팀원 서브탭을 열게 한다).
   function goToTeamManagement() {
-    setDataSubTabRequest({ subTab: 'members', token: Date.now() })
-    setStage('data')
+    setTeamSubTabRequest({ subTab: 'members', token: Date.now() })
+    setStage('members')
     window.scrollTo(0, 0)
   }
 
@@ -93,7 +94,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             <div className="flex min-h-0 flex-1">
               {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                {stage === 'data' && <DataStage subTabRequest={dataSubTabRequest} />}
+                {stage === 'tasks' && <TasksStage />}
+                {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}
                 {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={goToTeamManagement} />}

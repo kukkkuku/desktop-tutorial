@@ -259,7 +259,7 @@ export default function EvaluationResults() {
 
       {noData ? (
         <p className="rounded-md bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-          활성화된 팀원이 없습니다. 데이터 탭에서 팀원과 과제를 등록하고 평가를 입력하세요.
+          활성화된 팀원이 없습니다. 과제관리·팀원관리에서 팀원과 과제를 등록하고 평가를 입력하세요.
         </p>
       ) : (
         <>

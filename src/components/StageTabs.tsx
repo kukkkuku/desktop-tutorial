@@ -1,13 +1,17 @@
 import type { WorkspaceMeta } from '../types'
 import IconButton from './IconButton'
 
-export type Stage = 'data' | 'evaluate' | 'results' | 'notes'
+export type Stage = 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
-// 입력 작업 두 탭(데이터/평가하기)과, 결과를 보고 활용하는 쪽(결과/성장
-// 관리/데이터 관리)을 구분선으로 나눈다.
-const WORK_TABS: { key: Stage; label: string }[] = [
-  { key: 'data', label: '데이터' },
+// 상단 메뉴는 데이터 관리(드로어) - 과제관리 - 팀원관리 - 평가하기 - 평가결과 -
+// 팀원 면담 순서로 한 줄에 평평하게 나열한다. 예전에는 "데이터"라는 상위
+// 탭 아래 과제/팀원/피어리뷰가 서브탭으로 숨어 있었는데, 자주 쓰는 과제관리·
+// 팀원관리를 한 클릭에 바로 갈 수 있도록 최상위로 끌어올렸다.
+const STAGE_TABS: { key: Stage; label: string }[] = [
+  { key: 'tasks', label: '과제관리' },
+  { key: 'members', label: '팀원관리' },
   { key: 'evaluate', label: '평가하기' },
+  { key: 'results', label: '평가결과' },
 ]
 
 interface StageTabsProps {
@@ -32,14 +36,13 @@ function DatabaseIcon({ className }: { className?: string }) {
   )
 }
 
-// "성장 관리"는 아이콘을 가진 별도 트렌드-업 마크로 표시된다 -- 팀원
-// 성장을 기간 넘어 추적하는, 다른 세 탭과 성격이 다른 상위 메뉴임을
-// 시각적으로 구분하기 위함.
-function GrowthIcon({ className }: { className?: string }) {
+// "팀원 면담"은 말풍선 아이콘으로 표시된다 -- 팀원과의 대화 기록이라는
+// 성격이 다른 네 탭(과제관리/팀원관리/평가하기/평가결과)과 다름을 시각적으로
+// 구분하기 위함.
+function MeetingIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polyline points="3 17 9 11 13 15 21 7" />
-      <polyline points="14 7 21 7 21 14" />
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
     </svg>
   )
 }
@@ -97,11 +100,17 @@ export default function StageTabs({
           </IconButton>
         </div>
 
-        {/* 이 두 탭은 위의 기간 선택과 같은 층위 -- 지금 고른 팀+기간에
-            대한 입력 작업이라 기간 컨트롤 바로 옆에 붙인다. */}
         <span className="hidden h-5 w-px bg-gray-200 sm:inline-block" />
         <nav className="flex flex-wrap items-center gap-1">
-          {WORK_TABS.map((t) => (
+          <button
+            onClick={onOpenDataManager}
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-4 py-2 text-base font-semibold text-gray-500 transition-colors hover:bg-gray-50 hover:text-black"
+          >
+            <DatabaseIcon className="h-5 w-5 shrink-0" />
+            데이터 관리
+          </button>
+
+          {STAGE_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => onStageChange(t.key)}
@@ -114,39 +123,19 @@ export default function StageTabs({
               {t.label}
             </button>
           ))}
+
+          <button
+            onClick={() => onStageChange('notes')}
+            className={`flex shrink-0 items-center gap-1.5 rounded-md px-4 py-2 text-base transition-colors ${
+              stage === 'notes'
+                ? 'bg-accent font-bold text-white'
+                : 'font-semibold text-gray-500 hover:bg-gray-50 hover:text-black'
+            }`}
+          >
+            <MeetingIcon className="h-5 w-5 shrink-0" />
+            팀원 면담
+          </button>
         </nav>
-
-        {/* 결과를 보고 활용하는 쪽(결과/성장 관리/데이터 관리)은 입력 탭과
-            구분선으로 나누고, 오른쪽으로 묶어서 붙인다. */}
-        <span className="ml-auto hidden h-5 w-px bg-gray-200 sm:inline-block" />
-        <button
-          onClick={() => onStageChange('results')}
-          className={`shrink-0 rounded-md px-4 py-2 text-base transition-colors ${
-            stage === 'results'
-              ? 'bg-accent font-bold text-white'
-              : 'font-semibold text-gray-500 hover:bg-gray-50 hover:text-black'
-          }`}
-        >
-          결과
-        </button>
-
-        {/* 성장 관리는 특정 기간이 아니라 팀원을 기간 너머로 추적하는
-            상위 메뉴 -- 아이콘 있는 별도 버튼으로 시각적으로 구분. */}
-        <button
-          onClick={() => onStageChange('notes')}
-          className={`flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
-            stage === 'notes'
-              ? 'border-accent bg-accent text-white'
-              : 'border-gray-300 text-gray-700 hover:border-accent hover:text-accent'
-          }`}
-        >
-          <GrowthIcon className="h-5 w-5 shrink-0" />
-          성장 관리
-        </button>
-
-        <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">
-          <DatabaseIcon className="h-5 w-5" />
-        </IconButton>
       </div>
     </header>
   )

@@ -1,32 +1,30 @@
 import { useEffect, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import TaskManagement from './TaskManagement'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
 import ImportFromPreviousDialog from './ImportFromPreviousDialog'
 
-type DataSubTab = 'tasks' | 'members' | 'peer'
+type TeamSubTab = 'members' | 'peer'
 
-export interface DataSubTabRequest {
-  subTab: DataSubTab
+export interface TeamSubTabRequest {
+  subTab: TeamSubTab
   token: number
 }
 
-const SUB_TABS: { key: DataSubTab; label: string }[] = [
-  { key: 'tasks', label: '과제' },
+const SUB_TABS: { key: TeamSubTab; label: string }[] = [
   { key: 'members', label: '팀원' },
   { key: 'peer', label: '피어리뷰' },
 ]
 
-interface DataStageProps {
+interface TeamStageProps {
   // 다른 화면(성장 관리의 "팀원 관리" 버튼 등)이 특정 서브탭을 열어달라고
   // 요청할 때 쓰는 진입점 -- token이 바뀔 때마다 그 서브탭으로 전환한다.
-  subTabRequest?: DataSubTabRequest | null
+  subTabRequest?: TeamSubTabRequest | null
 }
 
-export default function DataStage({ subTabRequest }: DataStageProps) {
-  const [sub, setSub] = useState<DataSubTab>(subTabRequest?.subTab ?? 'tasks')
+export default function TeamStage({ subTabRequest }: TeamStageProps) {
+  const [sub, setSub] = useState<TeamSubTab>(subTabRequest?.subTab ?? 'members')
   const { workspaceId } = useAppState()
   const { currentWorkspace, workspaces } = useWorkspaces()
   const [importOpen, setImportOpen] = useState(false)
@@ -55,7 +53,7 @@ export default function DataStage({ subTabRequest }: DataStageProps) {
             </button>
           ))}
         </div>
-        {hasOtherPeriods && (sub === 'tasks' || sub === 'members') && (
+        {hasOtherPeriods && sub === 'members' && (
           <button onClick={() => setImportOpen(true)} className="mb-2 text-xs font-medium text-gray-400 hover:text-accent">
             이전 평가에서 가져오기
           </button>
@@ -67,7 +65,6 @@ export default function DataStage({ subTabRequest }: DataStageProps) {
       )}
 
       <div className="mt-5">
-        {sub === 'tasks' && <TaskManagement />}
         {sub === 'members' && <TeamManagement />}
         {sub === 'peer' && <PeerReviewManagement />}
       </div>
