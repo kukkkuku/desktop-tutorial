@@ -45,9 +45,9 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="h-full rounded-lg border border-gray-200 bg-gray-50 p-3.5">
-      <span className="flex items-center gap-2">
-        <h3 className="text-sm font-bold text-black">{title}</h3>
+    <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
+      <span className="flex items-center justify-between gap-2">
+        <h3 className="text-base font-bold text-black">{title}</h3>
         {headerBadge}
       </span>
       <div className="mt-3">{children}</div>
@@ -454,7 +454,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       {/* 최근 성과 / 성장 시뮬레이션 / 면담을 3등분 컬럼으로 나란히 놓는다 --
           두 개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다(기본
           정확히 3등분). xl 미만에서는 위아래로 쌓고 스플리터는 숨긴다. */}
-      <div className="flex-1 p-5">
+      <div className="flex-1 bg-slate-50 p-5">
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
           <div className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
             <SectionCard title="최근 성과">
@@ -515,16 +515,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <ColumnSplitter {...splitter0} />
 
           <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
-            <SectionCard
-              title="성장 시뮬레이션"
-              headerBadge={
-                promotionCriteria && (
-                  <Badge tone={scoreGap !== null && scoreGap >= 0 ? 'accent' : 'neutral'}>
-                    {scoreGap !== null && scoreGap >= 0 ? '승진 가능' : '기준 미달'}
-                  </Badge>
-                )
-              }
-            >
+            <SectionCard title="성장 시뮬레이션">
               <div className="mb-3 flex justify-end">
                 <button
                   onClick={() => setImportOpen(true)}
@@ -539,30 +530,32 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter1} />
 
-          {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지가 한 컬럼에
-              같이 들어간다. */}
+          {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지를 다른 두
+              컬럼과 같은 흰 카드 안에 함께 담는다. */}
           <div className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
-            {meetingInsights.length > 0 && (
-              <div className="mb-4 rounded-lg border border-gray-200 bg-blue-50/40">
-                <button
-                  onClick={() => setInsightsOpen((v) => !v)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left"
-                >
-                  <span className="text-xs font-bold text-accent">면담 인사이트</span>
-                  <span className="shrink-0 text-gray-400">{insightsOpen ? '˄' : '˅'}</span>
-                </button>
-                {insightsOpen && (
-                  <ul className="space-y-0.5 px-4 pb-3">
-                    {meetingInsights.map((line, i) => (
-                      <li key={i} className="text-[13px] text-gray-700">
-                        · {line}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-            <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
+            <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
+              {meetingInsights.length > 0 && (
+                <div className="mb-4 rounded-lg bg-gray-50">
+                  <button
+                    onClick={() => setInsightsOpen((v) => !v)}
+                    className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left"
+                  >
+                    <span className="text-sm font-bold text-accent">면담 인사이트</span>
+                    <span className="shrink-0 text-xs text-gray-400">{insightsOpen ? '접기' : '펼치기'}</span>
+                  </button>
+                  {insightsOpen && (
+                    <ul className="space-y-0.5 px-4 pb-3">
+                      {meetingInsights.map((line, i) => (
+                        <li key={i} className="text-[13px] text-gray-700">
+                          · {line}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+              <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
+            </div>
           </div>
         </div>
       </div>

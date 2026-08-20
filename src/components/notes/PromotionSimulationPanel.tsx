@@ -53,10 +53,20 @@ export default function PromotionSimulationPanel({ member, onOpenCriteria }: { m
 
   return (
     <div className="space-y-4">
-      {/* 결과 -- 조건을 바꾸기 전에도 항상 맨 위에서 바로 보인다. 승진 가능
-          여부 배지는 아코디언 헤더(MemberGrowthDetail)에 이미 있어서 여기서
-          반복하지 않는다. */}
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+      <div className="flex justify-end">
+        <button onClick={onOpenCriteria} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
+          ⓘ 기준 보기
+        </button>
+      </div>
+
+      {/* 결과 -- 조건을 바꾸기 전에도 항상 맨 위에서 바로 보인다. 승진자격
+          점수를 현재 점수와 나란히 둬서 얼마나 남았는지 한눈에 비교되게
+          한다. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl bg-yellow-50 px-4 py-3">
+        <div>
+          <p className="text-[11px] text-gray-500">승진자격 점수</p>
+          <p className="mt-1 text-2xl font-bold text-black">{criteria.requiredScore.toFixed(1)}점</p>
+        </div>
         <div>
           <p className="text-[11px] text-gray-500">현재 점수</p>
           <p className="mt-1 text-2xl font-bold text-black">{currentScore.toFixed(1)}점</p>
@@ -87,17 +97,12 @@ export default function PromotionSimulationPanel({ member, onOpenCriteria }: { m
       </p>
 
       {/* 인사평가 히스토리 -- 접고 펼 수 있음, 기본 노출. 이력 입력 바로
-          위에 보조지표 입력과 기준 보기 버튼을 나란히 둬서, 숨겨진 별도
-          섹션을 열지 않아도 바로 보이고 바로 입력할 수 있게 한다. */}
+          위에 보조지표 입력을 둬서, 숨겨진 별도 섹션을 열지 않아도 바로
+          보이고 바로 입력할 수 있게 한다. */}
       <div>
-        <div className="flex items-center justify-between gap-2">
-          <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
-            {historyOpen ? '− 인사평가 히스토리 접기' : '인사평가 히스토리 보기 →'}
-          </button>
-          <button onClick={onOpenCriteria} className="shrink-0 text-sm font-bold text-promo hover:underline">
-            ⓘ 기준 보기
-          </button>
-        </div>
+        <button onClick={() => setHistoryOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+          {historyOpen ? '− 인사평가 히스토리 접기' : '인사평가 히스토리 보기 →'}
+        </button>
         {historyOpen && (
           <div className="mt-3 space-y-3">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
