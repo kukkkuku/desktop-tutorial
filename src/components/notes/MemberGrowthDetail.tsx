@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import type { PersonalNoteColor } from '../../types'
+import type { EvaluationGrade, PersonalNoteColor } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
@@ -12,7 +12,7 @@ import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHis
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
-import AppraisalYearTable from './AppraisalYearTable'
+import TrendSparkline from './TrendSparkline'
 import Badge from '../Badge'
 import PromotionDatePicker from '../PromotionDatePicker'
 
@@ -220,6 +220,20 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
 
+  // 고과 추이 그래프 두 개 -- 상하반기 성과(업적) 고과와 연도별 역량고과는
+  // 서로 다른 주기(반기 vs 연간)라 따로 그린다. 최근 4년 구간이 다 보이도록
+  // 반기 그래프는 최대 8포인트(연 2회 x 4년), 역량 그래프는 4포인트까지
+  // 보여준다.
+  const halfYearGradePoints = appraisals.flatMap((r) => {
+    const pts: { period: string; grade: EvaluationGrade }[] = []
+    if (r.firstHalfGrade) pts.push({ period: `${r.year} 상`, grade: r.firstHalfGrade })
+    if (r.secondHalfGrade) pts.push({ period: `${r.year} 하`, grade: r.secondHalfGrade })
+    return pts
+  })
+  const competencyGradePoints = appraisals
+    .filter((r): r is typeof r & { competencyGrade: EvaluationGrade } => !!r.competencyGrade)
+    .map((r) => ({ period: String(r.year), grade: r.competencyGrade }))
+
   const taskScores = calcAllTaskScores(state.tasks, state.criteria)
   const currentTasks = taskScores
     .map(({ task, score }) => {
@@ -297,51 +311,24 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </div>
           </div>
 
-          <div className="ml-5 shrink-0">
-            <AppraisalYearTable records={appraisals} gradeScores={profile.gradeScores} anchorYear={reviewYear} />
+          <div className="ml-5 shrink-0 space-y-2">
+            <div>
+              <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+              <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={200} className="mt-1" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
+              <TrendSparkline points={competencyGradePoints} maxPoints={4} width={130} className="mt-1" />
+            </div>
           </div>
 
           {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
               잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
-              등록하면 면담 인사이트에도 그대로 반영된다. */}
-          <div ref={noteStripRef} className="ml-10 flex max-w-xs shrink-0 flex-wrap items-start gap-1.5">
-          {personalNotes.map((note) => {
-            const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
-            return (
-              <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
-                <button
-                  onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
-                  title="색상 변경"
-                  aria-label="색상 변경"
-                  className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
-                />
-                <span className="max-w-[220px] truncate">{note.content}</span>
-                <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
-                  ×
-                </button>
-
-                {colorPickerFor === note.id && (
-                  <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
-                    {NOTE_COLOR_ORDER.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => {
-                          setPersonalNoteColor(note.id, c)
-                          setColorPickerFor(null)
-                        }}
-                        title={c}
-                        aria-label={c}
-                        className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
-                          (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </span>
-            )
-          })}
-
+              등록하면 면담 인사이트에도 그대로 반영된다. 우측에서 좌측으로
+              쌓이는 방식 -- row-reverse로 담아서 "+메모" 입력이 항상
+              오른쪽 끝에 붙어 있고, 새로 추가한 메모일수록 그 입력 바로
+              왼쪽에 붙으며 오래된 메모가 점점 왼쪽으로 밀려난다. */}
+          <div ref={noteStripRef} className="ml-10 flex max-w-xs shrink-0 flex-row-reverse flex-wrap items-start gap-1.5">
           {noteAddOpen ? (
             <form
               onSubmit={(e) => {
@@ -380,6 +367,43 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               + 메모
             </button>
           )}
+
+          {[...personalNotes].reverse().map((note) => {
+            const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
+            return (
+              <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
+                <button
+                  onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
+                  title="색상 변경"
+                  aria-label="색상 변경"
+                  className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
+                />
+                <span className="max-w-[220px] truncate">{note.content}</span>
+                <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                  ×
+                </button>
+
+                {colorPickerFor === note.id && (
+                  <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
+                    {NOTE_COLOR_ORDER.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setPersonalNoteColor(note.id, c)
+                          setColorPickerFor(null)
+                        }}
+                        title={c}
+                        aria-label={c}
+                        className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
+                          (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </span>
+            )
+          })}
           </div>
         </div>
       </div>

@@ -4,30 +4,11 @@ import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
-import { findPromotionCriteria, gradeScore, resolveReviewYear, trendArrow, yearGradeSum } from '../../utils/promotion'
+import { findPromotionCriteria, gradeScore, resolveReviewYear, trendArrow } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
-import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ConfirmDialog from '../ConfirmDialog'
-import ResizableTh from '../table/ResizableTh'
-import Button from '../Button'
-import IconButton from '../IconButton'
 
-const APPRAISAL_COLUMNS = {
-  year: 56,
-  first: 82,
-  second: 82,
-  competency: 82,
-  total: 64,
-  manage: 90,
-}
-
-const GRADE_BADGE: Record<EvaluationGrade, string> = {
-  S: 'text-blue-600 bg-blue-50',
-  A: 'text-green-600 bg-green-50',
-  B: 'text-yellow-600 bg-yellow-50',
-  C: 'text-orange-600 bg-orange-50',
-  D: 'text-red-600 bg-red-50',
-}
+const COL_WIDTH = 104
 
 interface DraftGrades {
   firstHalfGrade: EvaluationGrade | ''
@@ -37,71 +18,77 @@ interface DraftGrades {
 
 const EMPTY_DRAFT: DraftGrades = { firstHalfGrade: '', secondHalfGrade: '', competencyGrade: '' }
 
-// 등급 + 환산 점수를 한 칸에 같이 보여준다 -- 등급 보기/점수 보기를 오갈 필요
-// 없이 항상 둘 다 눈에 들어오게 한다.
-// multiplier -- 역량 등급은 승진점수 산정 시 2배로 가중된다(promotion.ts의
-// yearGradeSum 그대로). 옆 숫자를 원점수 그대로 보여주면 실제 합계 계산에
-//쓰이는 값과 달라 보여서 혼란스러웠다 -- 역량 컬럼만 multiplier={2}로
-// 넘겨서 실제로 합계에 반영되는 점수를 그대로 보여준다.
-function GradeScoreCell({
-  grade,
-  gradeScores,
-  multiplier = 1,
-}: {
-  grade: EvaluationGrade | ''
-  gradeScores: Record<EvaluationGrade, number>
-  multiplier?: number
-}) {
-  if (!grade) return <span className="text-gray-300">-</span>
+function HalfCell({ grade, label, gradeScores }: { grade: EvaluationGrade | ''; label: string; gradeScores: Record<EvaluationGrade, number> }) {
+  if (!grade) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-1 border-r border-gray-100 py-2 last:border-r-0">
+        <p className="text-base text-gray-300">-</p>
+        <p className="text-[11px] text-gray-400">{label}</p>
+      </div>
+    )
+  }
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
-      <span className="font-mono text-xs text-gray-500">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
-    </span>
-  )
-}
-
-// 등급을 고르는 즉시 환산 점수가 옆에 따라온다 -- 등급 선택과 점수 계산을
-// 분리된 화면(등급 보기/점수 보기 토글)으로 두지 않는다.
-function InlineGradeSelect({
-  value,
-  onChange,
-  gradeScores,
-  multiplier = 1,
-}: {
-  value: EvaluationGrade | ''
-  onChange: (v: EvaluationGrade | '') => void
-  gradeScores: Record<EvaluationGrade, number>
-  multiplier?: number
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
-        className="w-16 rounded-md border border-gray-300 px-1.5 py-1 text-sm text-black"
-      >
-        <option value="">-</option>
-        {PERFORMANCE_GRADE_OPTIONS.map((g) => (
-          <option key={g} value={g}>
-            {g}
-          </option>
-        ))}
-      </select>
-      <span className="font-mono text-xs text-gray-500">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
+    <div className="flex flex-1 flex-col items-center justify-center gap-1 border-r border-gray-100 py-2 last:border-r-0">
+      <p className="text-base font-extrabold text-black">{grade}</p>
+      <p className="text-[11px] text-gray-400">{gradeScore(grade, gradeScores).toFixed(1)}</p>
     </div>
   )
 }
 
+function CompetencyCell({ grade, gradeScores }: { grade: EvaluationGrade | ''; gradeScores: Record<EvaluationGrade, number> }) {
+  if (!grade) {
+    return (
+      <>
+        <p className="text-base text-gray-300">-</p>
+        <p className="text-[11px] text-gray-400">역량</p>
+      </>
+    )
+  }
+  return (
+    <>
+      <p className="text-base font-extrabold text-black">{grade}</p>
+      <p className="text-[11px] text-gray-400">{(gradeScore(grade, gradeScores) * 2).toFixed(1)}</p>
+    </>
+  )
+}
+
+// 등급을 고르는 즉시 환산 점수가 옆에 따라온다 -- 컬럼 폭(104px) 안에 두 개를
+// 나란히 넣어야 하는 반기 편집칸이라 select 자체는 최대한 좁게 잡는다.
+function CompactGradeSelect({
+  value,
+  onChange,
+  className,
+}: {
+  value: EvaluationGrade | ''
+  onChange: (v: EvaluationGrade | '') => void
+  className?: string
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
+      className={`rounded border border-gray-300 py-0.5 text-center text-xs text-black ${className ?? 'w-11'}`}
+    >
+      <option value="">-</option>
+      {PERFORMANCE_GRADE_OPTIONS.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 // 회사 공식 인사평가 원장 -- 승진 시뮬레이션(PromotionSimulationPanel)의
-// 재료가 되는 원본 기록. 승급심사 예정년도를 기준으로 최근 5개년을 기본
-// 행으로 보여준다(기록이 없는 해도 빈 행 + "입력"). 그보다 오래된(또는
-// 범위 밖의) 기록은 "더보기"를 눌러야 나온다. 수정/입력 모두 그 행에서
-// 바로 인풋이 열리는 인라인 편집이다(다른 테이블 메뉴와 같은 방식).
+// 재료가 되는 원본 기록. 승급심사 예정년도를 기준으로 최근 5개년을 컬럼으로
+// 나란히 보여준다(Figma의 performance-review-table 그대로: 연도를 컬럼으로
+// 눕히고, 맨 오른쪽에 강조색 총합 컬럼을 붙인다). 기록이 없는 해도 빈
+// 컬럼 + "입력"으로 보여준다. 그보다 오래된(범위 밖) 기록은 "더보기"를
+// 눌러야 나온다. 수정/입력 모두 그 컬럼에서 바로 인풋이 열리는 인라인
+// 편집이다.
 export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember }) {
   const { dispatch } = useAppState()
   const { profile, upsertAppraisal, deleteAppraisal } = useTeamProfile()
-  const cols = useResizableColumns(APPRAISAL_COLUMNS)
   const records = profile.hrAppraisals
     .filter((r) => r.memberId === member.id)
     .sort((a, b) => a.year - b.year)
@@ -119,10 +106,15 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   const [showAll, setShowAll] = useState(false)
 
   const displayYears = [...recentYears, ...(showAll ? extraYears : [])]
-  const windowTotal = recentYears.reduce((sum, y) => {
+  const achievementTotal = recentYears.reduce((sum, y) => {
     const r = records.find((rec) => rec.year === y)
-    return sum + (r ? yearGradeSum(r, profile.gradeScores) : 0)
+    return sum + (r ? gradeScore(r.firstHalfGrade, profile.gradeScores) + gradeScore(r.secondHalfGrade, profile.gradeScores) : 0)
   }, 0)
+  const competencyTotal = recentYears.reduce((sum, y) => {
+    const r = records.find((rec) => rec.year === y)
+    return sum + (r ? gradeScore(r.competencyGrade, profile.gradeScores) * 2 : 0)
+  }, 0)
+  const windowTotal = achievementTotal + competencyTotal
 
   // 승급심사 예정년도를 이 설명 문구에서 바로 수정할 수 있게 한다 -- 상단
   // 요약바의 "승급일"(월 단위)과 같은 member.promotionReviewDate를 쓰므로
@@ -155,12 +147,6 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     setEditingYear(null)
   }
 
-  const draftTotal =
-    gradeScore(draft.firstHalfGrade, profile.gradeScores) +
-    gradeScore(draft.secondHalfGrade, profile.gradeScores) +
-    gradeScore(draft.competencyGrade, profile.gradeScores) * 2
-  const hasDraftGrade = draft.firstHalfGrade || draft.secondHalfGrade || draft.competencyGrade
-
   const achievementTrend = trendArrow(records.slice(-3).flatMap((r) => [r.firstHalfGrade, r.secondHalfGrade]))
   const competencyTrend = trendArrow(records.slice(-3).map((r) => r.competencyGrade))
 
@@ -177,150 +163,105 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
         년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 데이터를 보여줍니다.
       </p>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth }}>
-          <thead className="bg-[#F3F4F6] text-black">
-            <tr>
-              {(
-                [
-                  ['year', '연도'],
-                  ['first', '업적(상)'],
-                  ['second', '업적(하)'],
-                  ['competency', '역량 (×2)'],
-                  ['total', '합계'],
-                  ['manage', ''],
-                ] as const
-              ).map(([key, label]) => (
-                <ResizableTh
-                  key={key}
-                  width={cols.widths[key]}
-                  resizable={key !== 'manage'}
-                  onResizeStart={cols.startResize(key)}
-                  onResizeMove={cols.onResizeMove}
-                  onResizeEnd={cols.onResizeEnd}
-                  className="px-3 py-2 font-semibold"
-                >
-                  {label}
-                </ResizableTh>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {displayYears.map((year) => {
-              const r = records.find((rec) => rec.year === year)
-              const isEditing = editingYear === year
+      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        {/* 헤더 -- 연도 컬럼 + 총합 */}
+        <div className="flex min-w-max">
+          <div className="flex">
+            {displayYears.map((y) => (
+              <div key={y} style={{ width: COL_WIDTH }} className="flex h-9 shrink-0 items-center justify-center border-r border-b border-gray-100 text-sm font-semibold text-gray-500">
+                {y}
+              </div>
+            ))}
+            <div style={{ width: COL_WIDTH }} className="flex h-9 shrink-0 flex-col items-center justify-center border-b border-gray-200 bg-yellow-50 py-1 text-orange-600">
+              <span className="text-sm font-bold">총합</span>
+              <span className="font-mono text-xs font-bold">{windowTotal.toFixed(1)}</span>
+            </div>
+          </div>
+        </div>
 
-              if (isEditing) {
-                return (
-                  <tr key={`edit-${year}`} className="border-t border-gray-200 bg-blue-50/40 text-black">
-                    <td className="px-3 py-2 font-medium">{year}</td>
-                    <td className="px-3 py-2">
-                      <InlineGradeSelect
-                        value={draft.firstHalfGrade}
-                        onChange={(v) => setDraft((d) => ({ ...d, firstHalfGrade: v }))}
-                        gradeScores={profile.gradeScores}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <InlineGradeSelect
-                        value={draft.secondHalfGrade}
-                        onChange={(v) => setDraft((d) => ({ ...d, secondHalfGrade: v }))}
-                        gradeScores={profile.gradeScores}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <InlineGradeSelect
-                        value={draft.competencyGrade}
-                        onChange={(v) => setDraft((d) => ({ ...d, competencyGrade: v }))}
-                        gradeScores={profile.gradeScores}
-                        multiplier={2}
-                      />
-                    </td>
-                    <td className="px-3 py-2 font-mono font-semibold">{hasDraftGrade ? draftTotal.toFixed(1) : '-'}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-1">
-                        <IconButton onClick={() => saveEdit(year, r?.id)} title="저장" aria-label="저장">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </IconButton>
-                        <IconButton onClick={() => setEditingYear(null)} title="취소" aria-label="취소" tone="danger">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                          </svg>
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              }
+        {/* 업적(상/하) */}
+        <div className="flex min-w-max">
+          {displayYears.map((y) => {
+            const r = records.find((rec) => rec.year === y)
+            const isEditing = editingYear === y
+            return (
+              <div key={y} style={{ width: COL_WIDTH }} className="flex shrink-0 border-r border-b border-gray-100">
+                {isEditing ? (
+                  <div className="flex flex-1 items-center justify-center gap-1 py-2">
+                    <CompactGradeSelect value={draft.firstHalfGrade} onChange={(v) => setDraft((d) => ({ ...d, firstHalfGrade: v }))} />
+                    <CompactGradeSelect value={draft.secondHalfGrade} onChange={(v) => setDraft((d) => ({ ...d, secondHalfGrade: v }))} />
+                  </div>
+                ) : (
+                  <>
+                    <HalfCell grade={r?.firstHalfGrade ?? ''} label="상" gradeScores={profile.gradeScores} />
+                    <HalfCell grade={r?.secondHalfGrade ?? ''} label="하" gradeScores={profile.gradeScores} />
+                  </>
+                )}
+              </div>
+            )
+          })}
+          <div style={{ width: COL_WIDTH }} className="flex shrink-0 flex-col items-center justify-center gap-1 border-b border-gray-200 bg-yellow-50 py-2">
+            <p className="text-base font-bold text-black">{achievementTotal.toFixed(1)}</p>
+            <p className="text-[11px] text-gray-400">업적</p>
+          </div>
+        </div>
 
-              if (!r) {
-                return (
-                  <tr key={`empty-${year}`} className="border-t border-gray-200 text-gray-300">
-                    <td className="px-3 py-2 font-medium text-gray-400">{year}</td>
-                    <td className="px-3 py-2">-</td>
-                    <td className="px-3 py-2">-</td>
-                    <td className="px-3 py-2">-</td>
-                    <td className="px-3 py-2">-</td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end">
-                        <Button variant="secondary" onClick={() => startEdit(year)} className="px-2 py-1 text-xs">
-                          입력
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              }
+        {/* 역량 (×2) */}
+        <div className="flex min-w-max">
+          {displayYears.map((y) => {
+            const r = records.find((rec) => rec.year === y)
+            const isEditing = editingYear === y
+            return (
+              <div key={y} style={{ width: COL_WIDTH }} className="flex shrink-0 flex-col items-center justify-center gap-1 border-r border-b border-gray-100 py-2">
+                {isEditing ? (
+                  <CompactGradeSelect value={draft.competencyGrade} onChange={(v) => setDraft((d) => ({ ...d, competencyGrade: v }))} className="w-16" />
+                ) : (
+                  <CompetencyCell grade={r?.competencyGrade ?? ''} gradeScores={profile.gradeScores} />
+                )}
+              </div>
+            )
+          })}
+          <div style={{ width: COL_WIDTH }} className="flex shrink-0 flex-col items-center justify-center gap-1 border-b border-gray-200 bg-yellow-50 py-2">
+            <p className="text-base font-bold text-black">{competencyTotal.toFixed(1)}</p>
+            <p className="text-[11px] text-gray-400">역량 (×2)</p>
+          </div>
+        </div>
 
-              return (
-                <tr key={r.id} className="border-t border-gray-200 text-black">
-                  <td className="px-3 py-2 font-medium">{r.year}</td>
-                  <td className="px-3 py-2">
-                    <GradeScoreCell grade={r.firstHalfGrade} gradeScores={profile.gradeScores} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <GradeScoreCell grade={r.secondHalfGrade} gradeScores={profile.gradeScores} />
-                  </td>
-                  <td className="px-3 py-2">
-                    <GradeScoreCell grade={r.competencyGrade} gradeScores={profile.gradeScores} multiplier={2} />
-                  </td>
-                  <td className="px-3 py-2 font-mono font-semibold">{yearGradeSum(r, profile.gradeScores).toFixed(1)}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex justify-end gap-1">
-                      <IconButton onClick={() => startEdit(year, r)} title="수정" aria-label="수정">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
-                      </IconButton>
-                      <IconButton onClick={() => setDeleting(r)} title="삭제" aria-label="삭제" tone="danger">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      </IconButton>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-gray-200 bg-gray-50 text-black">
-              <td className="px-3 py-2 font-semibold" colSpan={4}>
-                최근 5개년 총합
-              </td>
-              <td className="px-3 py-2 font-mono font-bold">{windowTotal.toFixed(1)}</td>
-              <td className="px-3 py-2" />
-            </tr>
-          </tfoot>
-        </table>
+        {/* 관리 -- 입력 / 수정·삭제 / 저장·취소 */}
+        <div className="flex min-w-max">
+          {displayYears.map((y) => {
+            const r = records.find((rec) => rec.year === y)
+            const isEditing = editingYear === y
+            return (
+              <div key={y} style={{ width: COL_WIDTH }} className="flex shrink-0 items-center justify-center gap-1 border-r border-gray-100 py-1.5">
+                {isEditing ? (
+                  <>
+                    <button onClick={() => saveEdit(y, r?.id)} title="저장" aria-label="저장" className="rounded px-1.5 py-0.5 text-xs font-semibold text-accent hover:bg-blue-50">
+                      저장
+                    </button>
+                    <button onClick={() => setEditingYear(null)} title="취소" aria-label="취소" className="rounded px-1.5 py-0.5 text-xs font-medium text-gray-400 hover:bg-gray-50">
+                      취소
+                    </button>
+                  </>
+                ) : r ? (
+                  <>
+                    <button onClick={() => startEdit(y, r)} title="수정" aria-label="수정" className="rounded px-1.5 py-0.5 text-xs font-medium text-gray-400 hover:bg-gray-50 hover:text-black">
+                      수정
+                    </button>
+                    <button onClick={() => setDeleting(r)} title="삭제" aria-label="삭제" className="rounded px-1.5 py-0.5 text-xs font-medium text-gray-400 hover:bg-red-50 hover:text-red-600">
+                      삭제
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => startEdit(y)} className="rounded px-1.5 py-0.5 text-xs font-semibold text-accent hover:bg-blue-50">
+                    입력
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          <div style={{ width: COL_WIDTH }} className="shrink-0 bg-yellow-50" />
+        </div>
       </div>
 
       {extraYears.length > 0 && (
