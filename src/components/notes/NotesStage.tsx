@@ -22,14 +22,16 @@ interface NotesStageProps {
   onManageTeam: () => void
 }
 
-// 팀원 성장 관리 = 좌측 팀원 카드 레일 + 중앙 통합 상세(요약·최근 성과·성장
-// 시뮬레이션·면담하기) + 우측 면담 일정. Figma 디자인 기준으로 레일/면담
-// 일정은 옅은 회색 배경(bg-gray-50)에 담아 흰색 중앙 콘텐츠와 구분하고,
-// 컬럼 사이 여백 없이 구분선(border)만으로 붙여서 <main>의 좌우/상하 여백을
-// 상쇄한 채(-mx/-my) 화면 끝까지 채운다. 중앙 컬럼 자체에는 패딩을 주지
-// 않는다 -- 프로필 요약 바(MemberGrowthDetail 최상단)가 레일/면담 일정의
-// 구분선까지 여백 없이 이어져야 해서(Figma의 profile-summary가 바로 그
-// 모양), 패딩은 요약 바 아래쪽 콘텐츠에만 개별적으로 준다.
+// 팀원 성장 관리 = 상단 팀원 탭(가벼운 이름 전환) + 중앙 통합 상세(요약·최근
+// 성과·성장 시뮬레이션·면담하기) + 우측 면담 일정. 면담이 팀장의 주요
+// 액션이라 화면 대부분을 중앙+우측에 내주고, 팀원 전환은 세로 카드 레일이
+// 아니라 상단 가로 탭 한 줄로 가볍게 처리한다. 탭 바/면담 일정은 옅은 회색
+// 배경(bg-gray-50)에 담아 흰색 중앙 콘텐츠와 구분하고, 컬럼 사이 여백 없이
+// 구분선(border)만으로 붙여서 <main>의 좌우/상하 여백을 상쇄한 채(-mx/-my)
+// 화면 끝까지 채운다. 중앙 컬럼 자체에는 패딩을 주지 않는다 -- 프로필 요약
+// 바(MemberGrowthDetail 최상단)가 탭 바/면담 일정의 구분선까지 여백 없이
+// 이어져야 해서(Figma의 profile-summary가 바로 그 모양), 패딩은 요약 바
+// 아래쪽 콘텐츠에만 개별적으로 준다.
 export default function NotesStage({ notesRequest, onManageTeam }: NotesStageProps) {
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
@@ -58,26 +60,28 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   // 상쇄됐어야 할 아래쪽 padding까지 더해져서 하단 배경/구분선이 총
   // 3rem(48px)씩 짧아진다.
   return (
-    <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] items-stretch sm:-mx-6 lg:-mx-8">
-      <div className="w-64 shrink-0 border-r border-gray-200 bg-gray-50 p-4">
+    <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] flex-col sm:-mx-6 lg:-mx-8">
+      <div className="shrink-0 border-b border-gray-200 bg-gray-50">
         <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
       </div>
 
-      <div className="min-w-0 flex-1 bg-white">
-        {selectedMemberId ? (
-          <MemberGrowthDetail
-            memberId={selectedMemberId}
-            prepRequest={notesRequest?.subTab === 'record' ? { memberId: notesRequest.memberId, token: notesRequest.token } : null}
-          />
-        ) : (
-          <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500 m-6">
-            좌측에서 팀원을 선택하세요.
-          </p>
-        )}
-      </div>
+      <div className="flex flex-1 items-stretch">
+        <div className="min-w-0 flex-1 bg-white">
+          {selectedMemberId ? (
+            <MemberGrowthDetail
+              memberId={selectedMemberId}
+              prepRequest={notesRequest?.subTab === 'record' ? { memberId: notesRequest.memberId, token: notesRequest.token } : null}
+            />
+          ) : (
+            <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500 m-6">
+              위에서 팀원을 선택하세요.
+            </p>
+          )}
+        </div>
 
-      <div className="shrink-0 border-l border-gray-200 bg-gray-50 p-4">
-        <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
+        <div className="shrink-0 border-l border-gray-200 bg-gray-50 p-4">
+          <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
+        </div>
       </div>
     </div>
   )

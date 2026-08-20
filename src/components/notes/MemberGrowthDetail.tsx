@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -72,13 +72,15 @@ interface MemberGrowthDetailProps {
 }
 
 // 좌(최근 성과)/우(면담일지) 폭 비율 -- 픽셀 고정폭이 아니라 요약 바의
-// 좌우 flex-[1_1_0%] 분할과 같은 방식으로 비율로 나눈다. 기본 6.5:3.5.
-const DEFAULT_LEFT_RATIO = 0.65
-const MIN_LEFT_RATIO = 0.35
-const MAX_LEFT_RATIO = 0.8
+// 좌우 flex-[1_1_0%] 분할과 같은 방식으로 비율로 나눈다. 면담이 팀장의 주요
+// 액션이고 최근 성과·성장 시뮬레이션은 그 면담을 준비하기 위한 참고자료라,
+// 기본값을 4:6으로 잡아 면담하기 쪽에 더 넓은 폭을 준다.
+const DEFAULT_LEFT_RATIO = 0.4
+const MIN_LEFT_RATIO = 0.25
+const MAX_LEFT_RATIO = 0.6
 
-// 팀원 성장 관리 상세 -- 좌측 팀원 카드(레일)에서 선택한 팀원의 통합 화면.
-// 상단 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
+// 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
+// 요약이 전체 폭을 가로지르고, 그 아래는 좌우 2열: 왼쪽(최근 성과 +
 // 성장 시뮬레이션, 아코디언으로 각각 접고 펼 수 있음)과 오른쪽(면담하기)이
 // 스플리터로 너비를 조절할 수 있게 나란히 붙어 있다.
 export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
@@ -95,7 +97,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [noteFormOpen, setNoteFormOpen] = useState(false)
   const [noteInput, setNoteInput] = useState('')
+
+  // 팀원을 전환하면 이전 팀원에서 열어둔 메모 입력창이 그대로 남지 않도록 닫는다.
+  useEffect(() => {
+    setNoteFormOpen(false)
+    setNoteInput('')
+  }, [memberId])
 
   // 좌(최근 성과 + 성장 시뮬레이션) / 우(면담하기) 스플리터 -- lg 이상에서만
   // 동작하고, 그 아래 폭에서는 위/아래로 쌓인다(고정폭 없이). 드래그 중에는
@@ -221,12 +230,67 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           팀원은 그 문장에서 "승진 기준 미설정"만 짧게 보여주고 나머지
           칸(대시로 채워지던 4개)은 아예 렌더링하지 않는다. */}
       <div className="border-b border-gray-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-lg font-bold text-black">{member.name}</p>
-          <p className="text-xs text-gray-400">
-            {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <p className="text-lg font-bold text-black">{member.name}</p>
+            <p className="text-xs text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </p>
+          </div>
+
+          {/* 개인 메모(포스트잇) -- 대학원 재학, 육아, 휴가 계획처럼 성과
+              데이터로는 안 잡히지만 면담 전에 챙겨야 할 개인 상황을 한쪽에
+              작은 칩으로만 보여준다. 입력창은 "+ 메모"를 눌렀을 때만 펼쳐서
+              평소엔 한 줄을 넘지 않는다. 등록하면 아래 면담 인사이트에도
+              그대로 반영된다. */}
+          <div className="flex max-w-[55%] flex-wrap items-center justify-end gap-1">
+            {personalNotes.map((note) => (
+              <span key={note.id} className="group flex max-w-[160px] items-center gap-1 rounded-full bg-yellow-50 px-2 py-1 text-[11px] text-yellow-800">
+                <span className="truncate">{note.content}</span>
+                <button
+                  onClick={() => deletePersonalNote(note.id)}
+                  className="shrink-0 leading-none text-yellow-400 opacity-0 hover:text-yellow-700 group-hover:opacity-100"
+                  aria-label="메모 삭제"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={() => setNoteFormOpen((v) => !v)}
+              className="shrink-0 rounded-full border border-dashed border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-400 hover:border-accent hover:text-accent"
+            >
+              {noteFormOpen ? '− 메모' : '+ 메모'}
+            </button>
+          </div>
         </div>
+
+        {noteFormOpen && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!noteInput.trim()) return
+              addPersonalNote(memberId, noteInput)
+              setNoteInput('')
+            }}
+            className="mt-1.5 flex items-center justify-end gap-1.5"
+          >
+            <input
+              type="text"
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정, 8월 휴가 예정"
+              className="w-64 rounded-md border border-gray-200 px-2.5 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <button
+              type="submit"
+              disabled={!noteInput.trim()}
+              className="shrink-0 rounded-md bg-yellow-200 px-2.5 py-1 text-[12px] font-semibold text-yellow-800 hover:bg-yellow-300 disabled:opacity-40"
+            >
+              추가
+            </button>
+          </form>
+        )}
 
         {/* 숫자 여러 개를 박스로 나열하지 않고, 사람이 말하듯 한 줄로
             읽히게 문장형으로 묶는다 -- 승진 기준이 없는 팀원은 그 문장
@@ -290,51 +354,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             <span className="text-gray-400"> · 승진 기준 미설정</span>
           )}
         </p>
-      </div>
-
-      {/* 개인 메모(포스트잇) -- 대학원 재학, 육아, 휴가 계획, 배우고 싶어하는
-          분야처럼 성과 데이터로는 안 잡히지만 면담 전에 챙겨야 할 개인 상황을
-          짧게 남겨둔다. 등록하면 아래 면담 인사이트에도 그대로 반영된다. */}
-      <div className="border-b border-gray-200 bg-yellow-50 px-5 py-3">
-        <p className="text-xs font-bold text-yellow-700">개인 메모</p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2">
-          {personalNotes.map((note) => (
-            <div key={note.id} className="group flex max-w-xs items-start gap-1.5 rounded-md bg-yellow-100 px-2.5 py-1.5 text-[13px] text-yellow-900 shadow-sm">
-              <span className="whitespace-pre-wrap break-words">{note.content}</span>
-              <button
-                onClick={() => deletePersonalNote(note.id)}
-                className="shrink-0 leading-none text-yellow-400 opacity-0 hover:text-yellow-700 group-hover:opacity-100"
-                aria-label="메모 삭제"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (!noteInput.trim()) return
-              addPersonalNote(memberId, noteInput)
-              setNoteInput('')
-            }}
-            className="flex items-center gap-1.5"
-          >
-            <input
-              type="text"
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정, 8월 휴가 예정"
-              className="w-64 rounded-md border border-yellow-200 bg-white px-2.5 py-1.5 text-[13px] text-black focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <button
-              type="submit"
-              disabled={!noteInput.trim()}
-              className="shrink-0 rounded-md bg-yellow-200 px-2.5 py-1.5 text-[13px] font-semibold text-yellow-800 hover:bg-yellow-300 disabled:opacity-40"
-            >
-              + 메모
-            </button>
-          </form>
-        </div>
       </div>
 
       {/* 면담 인사이트 -- 면담 들어가기 전에 바로 읽을 수 있도록 아코디언
