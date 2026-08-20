@@ -5,7 +5,7 @@ export type BadgeTone = 'neutral' | 'accent' | 'success' | 'danger' | 'navy'
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
   neutral: 'bg-gray-100 text-gray-600',
-  accent: 'bg-gray-100 text-black',
+  accent: 'bg-blue-50 text-accent',
   success: 'bg-emerald-50 text-emerald-600',
   danger: 'bg-red-50 text-red-600',
   navy: 'bg-promo/10 text-promo',

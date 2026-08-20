@@ -25,7 +25,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
               key={member.id}
               onClick={() => onSelectMember(member.id)}
               className={`shrink-0 rounded-md px-3.5 py-2 text-sm font-semibold transition-colors ${
-                isSelected ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-black'
+                isSelected ? 'bg-accent text-white' : 'text-gray-500 hover:bg-blue-50 hover:text-black'
               }`}
             >
               {member.name}

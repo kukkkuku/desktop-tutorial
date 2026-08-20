@@ -131,7 +131,7 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
               if (f) handleFile(f)
             }}
             className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
-              dragActive ? 'border-accent bg-gray-100' : 'border-gray-300 hover:border-accent'
+              dragActive ? 'border-accent bg-blue-50' : 'border-gray-300 hover:border-accent'
             }`}
           >
             {loading ? (

@@ -318,7 +318,7 @@ export default function TeamManagement() {
 
               if (isEditing) {
                 return (
-                  <tr key={member.id} className="border-t border-gray-200 bg-gray-50 text-black">
+                  <tr key={member.id} className="border-t border-gray-200 bg-blue-50/40 text-black">
                     <td className="px-4 py-2 align-top">
                       <input
                         type="text"

@@ -107,7 +107,7 @@ export default function StageTabs({
               onClick={() => onStageChange(t.key)}
               className={`rounded-md px-4 py-2 text-base transition-colors ${
                 stage === t.key
-                  ? 'bg-black font-bold text-white'
+                  ? 'bg-accent font-bold text-white'
                   : 'font-semibold text-gray-500 hover:bg-gray-50 hover:text-black'
               }`}
             >
@@ -123,7 +123,7 @@ export default function StageTabs({
           onClick={() => onStageChange('results')}
           className={`shrink-0 rounded-md px-4 py-2 text-base transition-colors ${
             stage === 'results'
-              ? 'bg-black font-bold text-white'
+              ? 'bg-accent font-bold text-white'
               : 'font-semibold text-gray-500 hover:bg-gray-50 hover:text-black'
           }`}
         >
@@ -136,8 +136,8 @@ export default function StageTabs({
           onClick={() => onStageChange('notes')}
           className={`flex shrink-0 items-center gap-2 rounded-lg border-2 px-4 py-2 text-base font-bold transition-colors ${
             stage === 'notes'
-              ? 'border-black bg-black text-white'
-              : 'border-gray-300 text-gray-700 hover:border-black hover:text-black'
+              ? 'border-accent bg-accent text-white'
+              : 'border-gray-300 text-gray-700 hover:border-accent hover:text-accent'
           }`}
         >
           <GrowthIcon className="h-5 w-5 shrink-0" />

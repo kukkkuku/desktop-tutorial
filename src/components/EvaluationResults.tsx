@@ -305,7 +305,7 @@ export default function EvaluationResults() {
                       key={r.member.id}
                       onClick={() => setHighlightId(isHL ? null : r.member.id)}
                       className="cursor-pointer border-b border-gray-200 transition-colors last:border-0 hover:bg-gray-50"
-                      style={isHL ? { outline: '1px solid #171717', outlineOffset: '-1px' } : undefined}
+                      style={isHL ? { outline: '1px solid #2563EB', outlineOffset: '-1px' } : undefined}
                     >
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                         <input
