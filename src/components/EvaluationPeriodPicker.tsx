@@ -94,7 +94,7 @@ function YearPicker({
                   setOpen(false)
                 }}
                 className={`relative rounded-md py-1.5 text-sm ${
-                  y === year ? 'bg-accent font-bold text-white' : y === thisYear ? 'font-semibold text-accent hover:bg-orange-50' : 'text-black hover:bg-gray-50'
+                  y === year ? 'bg-accent font-bold text-white' : y === thisYear ? 'font-semibold text-accent hover:bg-gray-100' : 'text-black hover:bg-gray-50'
                 }`}
               >
                 {y}
@@ -223,7 +223,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
                   key={c}
                   onClick={() => handleCycleChange(c)}
                   className={`block w-full rounded-md px-2.5 py-1.5 text-left text-sm ${
-                    cycle === c ? 'bg-orange-50 font-semibold text-accent' : 'text-black hover:bg-gray-50'
+                    cycle === c ? 'bg-black font-semibold text-white' : 'text-black hover:bg-gray-50'
                   }`}
                 >
                   {CYCLE_LABELS[c]}

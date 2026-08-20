@@ -202,7 +202,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
                 onDrop={onDrop}
                 onClick={() => !isBusy && bulkInputRef.current?.click()}
                 className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
-                  isDragOver ? 'border-accent bg-orange-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+                  isDragOver ? 'border-accent bg-gray-100' : 'border-gray-300 bg-white hover:bg-gray-50'
                 } ${isBusy ? 'pointer-events-none opacity-60' : ''}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-gray-400">

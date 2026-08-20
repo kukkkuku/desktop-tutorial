@@ -33,12 +33,12 @@ export default function MemberOverviewPanel({
 }: MemberOverviewPanelProps) {
   return (
     <div className="space-y-4">
-      {/* 현재 성과 — 오렌지, 성과평가 결과 (기존 결과 화면과 동일 계산) */}
+      {/* 현재 성과 — 성과평가 결과 (기존 결과 화면과 동일 계산) */}
       <button
         onClick={() => onNavigateToNotes('history')}
-        className="w-full rounded-lg border border-orange-100 bg-orange-50/60 px-4 py-3 text-left transition-colors hover:bg-orange-50"
+        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-gray-100"
       >
-        <p className="text-xs font-semibold text-accent">현재 성과</p>
+        <p className="text-xs font-semibold text-black">현재 성과</p>
         {memberResult ? (
           <p className="mt-1 text-xl font-bold text-black">
             {rank ? `${rank}위 · ` : ''}

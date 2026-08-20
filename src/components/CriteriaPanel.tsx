@@ -205,7 +205,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         onClick={() => toggleActive(item.key)}
         title={`${item.label} — ${active ? `${value}%` : '미사용'} (클릭해서 전환)`}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${
-          active ? 'border-orange-200 bg-orange-50 text-accent hover:border-orange-300' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
+          active ? 'border-gray-300 bg-gray-100 text-black hover:border-gray-400' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
         }`}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -225,7 +225,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
 
   function sliderBackground(value: number): string {
     const percent = ((value - 5) / 95) * 100
-    return `linear-gradient(to right, #eb6100 ${percent}%, #e5e7eb ${percent}%)`
+    return `linear-gradient(to right, #171717 ${percent}%, #e5e7eb ${percent}%)`
   }
 
   function CriteriaItem({ itemKey, label, desc }: { itemKey: keyof Criteria; label: string; desc: string }) {
@@ -242,7 +242,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
             onClick={() => set(itemKey, checked ? 0 : 100)}
             title="클릭해서 사용 여부 전환"
             className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-              checked ? 'bg-orange-50 text-accent hover:bg-orange-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              checked ? 'bg-black text-white hover:opacity-90' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
             {checked ? '사용' : '미사용'}

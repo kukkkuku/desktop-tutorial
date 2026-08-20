@@ -20,7 +20,7 @@ body {
 
 /* Filled-progress track + accent thumb for the criteria weight sliders. The
    input's own `background` (set inline per-value as a two-stop gradient) is
-   what actually paints the orange/gray split -- the track pseudo-elements
+   what actually paints the black/gray split -- the track pseudo-elements
    are left transparent so that gradient shows through underneath them. */
 .criteria-slider {
   -webkit-appearance: none;
@@ -47,7 +47,7 @@ body {
   height: 18px;
   margin-top: -6px;
   border-radius: 9999px;
-  background: #eb6100;
+  background: #171717;
   cursor: pointer;
 }
 .criteria-slider::-moz-range-thumb {
@@ -55,6 +55,6 @@ body {
   height: 18px;
   border: none;
   border-radius: 9999px;
-  background: #eb6100;
+  background: #171717;
   cursor: pointer;
 }

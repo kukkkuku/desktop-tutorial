@@ -359,8 +359,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       {/* 면담 인사이트 -- 면담 들어가기 전에 바로 읽을 수 있도록 아코디언
           없이 항상 보인다. */}
       {meetingInsights.length > 0 && (
-        <div className="border-b border-gray-200 bg-orange-50/40 px-5 py-3">
-          <p className="text-xs font-bold text-accent">면담 인사이트</p>
+        <div className="border-b border-gray-200 bg-gray-50 px-5 py-3">
+          <p className="text-xs font-bold text-black">면담 인사이트</p>
           <ul className="mt-1 space-y-0.5">
             {meetingInsights.map((line, i) => (
               <li key={i} className="text-[13px] text-gray-700">

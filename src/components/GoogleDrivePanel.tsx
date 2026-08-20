@@ -272,7 +272,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
                 </div>
 
                 {restoreTarget?.fileId === item.fileId && (
-                  <div className="mt-2 space-y-1.5 rounded-md bg-orange-50 p-2 text-xs text-gray-700">
+                  <div className="mt-2 space-y-1.5 rounded-md border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
                     <p>현재 화면의 데이터가 이 평가 데이터로 바뀝니다. 계속할까요?</p>
                     <div className="flex flex-wrap gap-1.5">
                       <Button variant="primary" onClick={() => void doRestore(item, true)} disabled={busy !== null} className="px-2.5 py-1 text-xs">

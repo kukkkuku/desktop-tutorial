@@ -212,7 +212,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
               if (isEditing) {
                 return (
-                  <tr key={`edit-${year}`} className="border-t border-gray-200 bg-orange-50/30 text-black">
+                  <tr key={`edit-${year}`} className="border-t border-gray-200 bg-gray-50 text-black">
                     <td className="px-3 py-2 font-medium">{year}</td>
                     <td className="px-3 py-2">
                       <InlineGradeSelect

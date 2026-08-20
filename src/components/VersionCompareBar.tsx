@@ -16,7 +16,7 @@ export default function VersionCompareBar() {
       >
         기존 버전
       </a>
-      <span className="rounded-full bg-orange-50 px-2.5 py-1 font-bold text-accent">개선 버전</span>
+      <span className="rounded-full bg-black px-2.5 py-1 font-bold text-white">개선 버전</span>
     </div>
   )
 }

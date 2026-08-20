@@ -323,7 +323,7 @@ export default function TaskManagement() {
 
               if (isEditing) {
                 return (
-                  <tr key={task.id} className="border-t border-gray-200 bg-orange-50/40 text-black">
+                  <tr key={task.id} className="border-t border-gray-200 bg-gray-50 text-black">
                     <td className="px-4 py-2 align-top">
                       <input
                         type="text"
@@ -424,7 +424,7 @@ export default function TaskManagement() {
                         N
                       </span>
                     )}
-                    <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-black">
                       {(scoreByTaskId.get(task.id) ?? 0).toFixed(1)}점
                     </span>
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">

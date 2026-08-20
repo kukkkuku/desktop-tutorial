@@ -187,7 +187,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
               key={cell.date}
               onClick={() => setSelectedDate(cell.date)}
               className={`flex h-8 flex-col items-center justify-center gap-0.5 rounded-md text-[12px] transition-colors ${
-                !cell.inMonth ? 'text-gray-300 hover:bg-gray-50' : isSelected ? 'bg-accent font-semibold text-white' : isToday ? 'bg-orange-50 font-semibold text-accent' : 'text-black hover:bg-gray-100'
+                !cell.inMonth ? 'text-gray-300 hover:bg-gray-50' : isSelected ? 'bg-accent font-semibold text-white' : isToday ? 'bg-gray-100 font-semibold text-black' : 'text-black hover:bg-gray-100'
               }`}
             >
               {cell.day}
@@ -246,7 +246,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         {todayMembers.length > 0 ? (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {todayMembers.map(({ member, idx }) => (
-              <button key={member.id} onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-[12px] font-semibold text-accent hover:bg-orange-100">
+              <button key={member.id} onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[12px] font-semibold text-black hover:bg-gray-200">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                 {member.name}
               </button>

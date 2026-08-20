@@ -15,7 +15,7 @@ const PAGE_WIDTH_PX = 794 // A4 210mm @ 96dpi
 const PAGE_HEIGHT_PX = 1123 // A4 297mm @ 96dpi
 const CAPTURE_SCALE = 2
 
-const ACCENT = '#EB6100'
+const ACCENT = '#171717'
 const INK = '#111827'
 const SUBTLE = '#6B7280'
 const LINE = '#E5E7EB'
