@@ -483,20 +483,21 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <div className="divide-y divide-dashed divide-gray-200">
                   {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
                     <div key={task.id} className="flex items-center gap-3 py-2">
-                      <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
                         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
                         <span className="truncate text-sm font-semibold text-black">{task.name}</span>
-                        <span className="shrink-0 text-[12px] text-gray-400">{contributionPercent}%</span>
                       </span>
-                      <span className="shrink-0 text-sm font-semibold text-gray-600">
-                        {personalGrade} <span className="font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
+                      <span className="w-10 shrink-0 text-center text-[13px] text-gray-500">{contributionPercent}%</span>
+                      <span className="w-14 shrink-0 text-right font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
+                      <span className="flex w-20 shrink-0 items-center justify-end gap-1">
+                        <span className="text-sm font-semibold text-black">{personalGrade}</span>
+                        <GradeNoteButton
+                          note={personalGradeNote}
+                          label={task.name}
+                          onSave={(next) => handleGradeNoteSave(task.id, next)}
+                          previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                        />
                       </span>
-                      <GradeNoteButton
-                        note={personalGradeNote}
-                        label={task.name}
-                        onSave={(next) => handleGradeNoteSave(task.id, next)}
-                        previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
-                      />
                     </div>
                   ))}
                 </div>
