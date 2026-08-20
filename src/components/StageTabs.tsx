@@ -102,13 +102,9 @@ export default function StageTabs({
 
         <span className="hidden h-5 w-px bg-gray-200 sm:inline-block" />
         <nav className="flex flex-wrap items-center gap-1">
-          <button
-            onClick={onOpenDataManager}
-            className="flex shrink-0 items-center gap-1.5 rounded-md px-4 py-2 text-base font-semibold text-gray-500 transition-colors hover:bg-gray-50 hover:text-black"
-          >
-            <DatabaseIcon className="h-5 w-5 shrink-0" />
-            데이터 관리
-          </button>
+          <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">
+            <DatabaseIcon className="h-5 w-5" />
+          </IconButton>
 
           {STAGE_TABS.map((t) => (
             <button
