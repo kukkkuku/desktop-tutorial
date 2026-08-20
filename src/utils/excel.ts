@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
 import type {
+  AppState,
   Contribution,
   Criteria,
   Importance,
@@ -620,6 +621,37 @@ export function detectWorkbookKind(buffer: ArrayBuffer): WorkbookKind | null {
   if (hasPeerHeaders) return 'peer'
   if (headers.has('이름')) return 'member'
   return null
+}
+
+// "전체 데이터 초기화" 전 백업용 -- 이 브라우저에 저장된 프로젝트(워크스페이스)
+// 전부를 각자의 결과 리포트(buildResultsReportWorkbook)로 만들어 하나의 zip에
+// 담는다. 파일명은 팀명_기간명으로 구분한다.
+export async function downloadAllWorkspacesExcelZip(
+  entries: { meta: WorkspaceMeta; state: AppState }[],
+) {
+  const zip = new JSZip()
+  for (const { meta, state } of entries) {
+    const { workbook } = buildResultsReportWorkbook(
+      state.members,
+      state.tasks,
+      state.contributions,
+      state.criteria,
+      state.peerReviews,
+    )
+    const buf = await workbook.xlsx.writeBuffer()
+    const safeName = `${meta.teamName}_${meta.periodName}`.replace(/[\\/:*?"<>|]/g, '_')
+    zip.file(`${safeName}.xlsx`, buf)
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `전체_백업_엑셀_${new Date().toISOString().slice(0, 10)}.zip`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember[]) {

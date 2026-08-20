@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
+import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, downloadAllWorkspacesExcelZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
+import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
@@ -38,7 +39,10 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const bulkInputRef = useRef<HTMLInputElement>(null)
   const isBusy = loadingLabel !== null
-  const hasData = tasks.length > 0 || members.length > 0 || peerReviews.length > 0
+  // 초기화 버튼 자체는 "이 브라우저에 저장된 프로젝트가 하나라도 있는가"로
+  // 활성화한다 -- 지금 프로젝트는 비어 있어도 다른 프로젝트에 데이터가
+  // 남아있을 수 있고, 초기화는 그것까지 전부 지우기 때문이다.
+  const hasAnyWorkspaceData = workspaces.length > 0
 
   const periodsForTeam = useMemo(
     () => workspaces.filter((w) => w.teamName === currentWorkspace?.teamName),
@@ -124,9 +128,25 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
     void handleBulkFiles(files)
   }
 
+  // 전체 데이터 초기화는 지금 열린 프로젝트 하나가 아니라, 이 브라우저에
+  // 저장된 모든 팀·평가 데이터를 지운다(브라우저 기반 저장이라 다른
+  // 기기·브라우저의 데이터는 애초에 영향받지 않는다). 되돌릴 수 없으므로
+  // 로컬 JSON/엑셀 백업을 먼저 권한다.
+  async function handleLocalJsonBackup() {
+    setLoadingLabel('로컬 백업 파일 생성 중...')
+    downloadLocalJsonBackup()
+    setLoadingLabel(null)
+  }
+
+  async function handleExcelBackup() {
+    setLoadingLabel('엑셀 백업 파일 생성 중...')
+    await downloadAllWorkspacesExcelZip(loadAllWorkspaceEntries())
+    setLoadingLabel(null)
+  }
+
   function handleResetConfirm() {
-    dispatch({ type: 'RESET_ALL' })
     setResetDialogOpen(false)
+    wipeAllAppData()
   }
 
   return (
@@ -242,18 +262,41 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 rounded-md border border-danger/30 bg-red-50 px-4 py-3">
+              <div className="space-y-3 rounded-md border border-danger/30 bg-red-50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-danger">전체 데이터 초기화</p>
+                  <p className="mt-0.5 text-xs text-danger">
+                    이 <span className="font-semibold">브라우저에 저장된 모든 팀·프로젝트 데이터</span>가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다). 브라우저 저장소만
+                    지우므로 다른 기기나 브라우저의 데이터에는 영향이 없지만, 이 브라우저에서는 되돌릴 수 없습니다. 아래에서 먼저 백업하세요.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
+                    로컬 파일로 백업 (JSON)
+                  </Button>
+                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
+                    엑셀로 백업
+                  </Button>
+                  {isBusy && (
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Spinner className="h-3.5 w-3.5 text-accent" />
+                      {loadingLabel}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-gray-500">
+                  JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님). 프로젝트가 여러 개면 프로젝트별로 각각 담깁니다.
+                </p>
+
                 <Button
                   variant="danger"
                   onClick={() => setResetDialogOpen(true)}
-                  disabled={!hasData}
+                  disabled={!hasAnyWorkspaceData}
                   className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm"
                 >
-                  데이터 초기화
+                  전체 데이터 초기화
                 </Button>
-                <p className="text-xs text-danger">
-                  전체 초기화가 필요하면 사용하세요. 과제·팀원·피어리뷰 및 평가 <span className="font-semibold">데이터를 모두 삭제</span>하고 빈 상태로 되돌립니다.
-                </p>
               </div>
             </div>
           )}
@@ -276,7 +319,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
       <ConfirmDialog
         open={resetDialogOpen}
         title="전체 데이터 초기화"
-        message="과제, 팀원, 평가 매트릭스 데이터가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?"
+        message={`이 브라우저에 저장된 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개의 데이터가 모두 삭제되고 처음 화면으로 돌아갑니다. 백업하지 않았다면 취소하고 먼저 백업하세요. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`}
         onConfirm={handleResetConfirm}
         onCancel={() => setResetDialogOpen(false)}
       />
