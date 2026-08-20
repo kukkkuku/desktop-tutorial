@@ -285,43 +285,47 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- 이름/승진심사 아래 20px 지점에 최근 4년 고과
-          추이(상하반기 성과 / 연도별 역량, 이전 그래프 방식)를 위아래로
-          쌓아 보여주고, 그 아래 40px 지점부터 개인 메모를 배치한다. 메모는
-          오른쪽 끝에 붙어 왼쪽으로 쌓인다. */}
+      {/* 상단 프로필 요약 -- 이름·심사일 / 고과 추이 / 메모 세 덩이를 한 줄에
+          바짝 붙여 놓는다("이름과 심사일 - 고과추이 - 메모" 순서). 각자
+          내용만큼만 폭을 쓰고(shrink-0), justify-between처럼 전체 폭에
+          억지로 펼치지 않아 화면이 넓어도 가운데에 빈 여백이 생기지
+          않는다. 덩이 사이 간격만 20px/40px로 차등을 둔다. */}
       <div className="border-b border-gray-200 bg-white px-5 py-4">
-        <p className="flex items-baseline gap-2">
-          <span className="text-lg font-bold text-black">{member.name}</span>
-          <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
-        </p>
+        <div className="flex flex-wrap items-start">
+          <div className="shrink-0">
+            <p className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-black">{member.name}</span>
+              <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
+            </p>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-gray-500">승진심사</span>
-          <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-          {promotionCriteria && scoreGap !== null && (
-            <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
-              <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
-                {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
-              </Badge>
-            </span>
-          )}
-        </div>
-
-        <div className="mt-5 space-y-3">
-          <div>
-            <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
-            <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={260} className="mt-1.5" />
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-gray-500">승진심사</span>
+              <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
+              {promotionCriteria && scoreGap !== null && (
+                <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
+                  <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
+                    {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
+                  </Badge>
+                </span>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
-            <TrendSparkline points={competencyGradePoints} maxPoints={4} width={160} className="mt-1.5" />
-          </div>
-        </div>
 
-        {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
-            잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
-            등록하면 면담 인사이트에도 그대로 반영된다. */}
-        <div ref={noteStripRef} className="mt-10 flex flex-wrap items-center justify-end gap-1.5">
+          <div className="ml-5 shrink-0 space-y-2">
+            <div>
+              <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+              <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={200} className="mt-1" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
+              <TrendSparkline points={competencyGradePoints} maxPoints={4} width={130} className="mt-1" />
+            </div>
+          </div>
+
+          {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
+              잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
+              등록하면 면담 인사이트에도 그대로 반영된다. */}
+          <div ref={noteStripRef} className="ml-10 flex max-w-xs shrink-0 flex-wrap items-start gap-1.5">
           {personalNotes.map((note) => {
             const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
             return (
@@ -397,6 +401,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               + 메모
             </button>
           )}
+          </div>
         </div>
       </div>
 
