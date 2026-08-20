@@ -2,13 +2,13 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import type { EvaluationGrade, PersonalNoteColor } from '../../types'
-import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
+import type { EvaluationGrade, Importance, PersonalNoteColor } from '../../types'
+import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
+import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
-import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
@@ -47,6 +47,72 @@ function SectionCard({
       <div ref={bodyRef} className="mt-3">
         {children}
       </div>
+    </div>
+  )
+}
+
+// 성과 카드 -- Figma(node 36:1266)처럼 평가기간(현재 + 지난 기간) 하나당
+// 카드 하나, 각자 접고 펼 수 있다. "지난 평가기간 성과 보기" 같은 별도
+// 진입점 없이 목록 그 자체가 접기/펼치기 단위다.
+function PeriodCard({
+  title,
+  score,
+  grade,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  title: string
+  score: number | null
+  grade: EvaluationGrade | null
+  isOpen: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <button onClick={onToggle} className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-bold text-black">
+            {title}
+            {score !== null ? ` ${score.toFixed(1)}` : ''}
+          </span>
+          {grade && <span className={`rounded px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[grade]}`}>{grade}</span>}
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-gray-500">{isOpen ? '접기' : '펴기'}</span>
+      </button>
+      {isOpen && <div className="mt-3">{children}</div>}
+    </div>
+  )
+}
+
+// 성과 카드 안의 과제 한 줄 -- 태그+과제명, 기여도, 개인 점수, 개인
+// 등급(+근거) 순서로 Figma 컬럼 순서를 그대로 따른다. 지난 기간은 다른
+// 워크스페이스 스냅샷 데이터라 그 자리에서 바로 고칠 수 없으므로,
+// gradeSlot을 편집 가능/읽기전용으로 바꿔 끼워 현재/과거 모두에서
+// 재사용한다.
+function TaskRow({
+  importance,
+  name,
+  percent,
+  score,
+  gradeSlot,
+}: {
+  importance: Importance
+  name: string
+  percent: number
+  score: number
+  gradeSlot: React.ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-3 py-2">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
+        <span className="truncate text-sm font-semibold text-black">{name}</span>
+      </span>
+      <span className="w-10 shrink-0 text-center text-[13px] text-gray-500">{percent}%</span>
+      <span className="w-14 shrink-0 text-right font-mono text-base font-bold text-black">{score.toFixed(1)}</span>
+      <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
     </div>
   )
 }
@@ -130,7 +196,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const member = state.members.find((m) => m.id === memberId)
 
   const [insightsOpen, setInsightsOpen] = useState(true)
-  const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
+  // 성과 카드(현재 + 지난 기간) 접기/펼치기 -- 카드별 개별 상태. 현재
+  // 보고 있는 평가기간만 기본으로 펼쳐두고 나머지는 접어둔다.
+  const [openPeriods, setOpenPeriods] = useState<Set<string>>(() => new Set(currentWorkspace ? [currentWorkspace.id] : []))
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
@@ -193,12 +261,24 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const splitter0 = makeSplitterHandlers(0)
   const splitter1 = makeSplitterHandlers(1)
 
-  // 팀원을 전환하면 이전 팀원에서 열어둔 메모 입력창이 그대로 남지 않도록 닫는다.
+  // 팀원을 전환하면 이전 팀원에서 열어둔 메모 입력창/성과 카드 펼침 상태가
+  // 그대로 남지 않도록 초기화한다.
   useEffect(() => {
     setNoteAddOpen(false)
     setNoteInput('')
     setColorPickerFor(null)
+    setOpenPeriods(new Set(currentWorkspace ? [currentWorkspace.id] : []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
+
+  function togglePeriod(id: string) {
+    setOpenPeriods((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
   // 색상 피커 바깥을 클릭하면 닫는다.
   useEffect(() => {
@@ -298,6 +378,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => b.personalScore - a.personalScore)
+
+  // 지난 평가기간 성과 -- 별도 "지난 평가기간 성과 보기" 진입점 없이,
+  // 현재 기간 카드 바로 아래에 이어서 각자 접을 수 있는 카드로 보여준다.
+  // 다른 워크스페이스 스냅샷에서 가져온 읽기 전용 데이터라 그 자리에서
+  // 등급을 고치지는 못한다(현재 기간만 편집 가능).
+  const pastPeriods = getMemberPerformanceHistory(memberId, periods).filter((h) => h.workspace.id !== currentWorkspace?.id)
 
   function handleGradeNoteSave(taskId: string, note: string) {
     dispatch({ type: 'SET_CONTRIBUTION_NOTE', payload: { taskId, memberId, personalGradeNote: note } })
@@ -515,63 +601,82 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter0} />
 
-          <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
-            <SectionCard
-              title={
-                memberResult
-                  ? `${cardYear} ${currentWorkspace?.periodName ?? ''} - ${memberResult.cumulativeScore.toFixed(1)} - ${memberResult.grade}`
-                  : `${cardYear} ${currentWorkspace?.periodName ?? ''}`
-              }
-              bodyRef={recentColRef}
-            >
-              <div className="mb-3 flex flex-wrap gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-400">상하반기 성과 고과 추이</p>
-                  <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold text-gray-400">년도별 역량고과 추이</p>
-                  <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
-                </div>
+          <div ref={recentColRef} className="w-full min-w-0 space-y-3 xl:w-[var(--w2)] xl:shrink-0">
+            <div className="flex flex-wrap gap-4 px-1">
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+                <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
               </div>
-
-              {currentTasks.length === 0 ? (
-                <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
-              ) : (
-                <div className="divide-y divide-dashed divide-gray-200">
-                  {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
-                    <div key={task.id} className="flex items-center gap-3 py-2">
-                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
-                        <span className="truncate text-sm font-semibold text-black">{task.name}</span>
-                      </span>
-                      <span className="w-10 shrink-0 text-center text-[13px] text-gray-500">{contributionPercent}%</span>
-                      <span className="w-14 shrink-0 text-right font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
-                      <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-black">{personalGrade}</span>
-                        <GradeNoteButton
-                          note={personalGradeNote}
-                          label={task.name}
-                          onSave={(next) => handleGradeNoteSave(task.id, next)}
-                          previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
-                        />
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3">
-                <button onClick={() => setPastPeriodsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
-                  {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
-                </button>
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400">년도별 역량고과 추이</p>
+                <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
               </div>
-              {pastPeriodsOpen && (
-                <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
-                  <MemberPerformanceHistoryPanel memberId={memberId} periods={periods} />
-                </div>
-              )}
-            </SectionCard>
+            </div>
+
+            {currentWorkspace && (
+              <PeriodCard
+                title={`${cardYear} ${currentWorkspace.periodName}`}
+                score={memberResult?.cumulativeScore ?? null}
+                grade={memberResult?.grade ?? null}
+                isOpen={openPeriods.has(currentWorkspace.id)}
+                onToggle={() => togglePeriod(currentWorkspace.id)}
+              >
+                {currentTasks.length === 0 ? (
+                  <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+                ) : (
+                  <div className="divide-y divide-dashed divide-gray-200">
+                    {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
+                      <TaskRow
+                        key={task.id}
+                        importance={task.importance}
+                        name={task.name}
+                        percent={contributionPercent}
+                        score={personalScore}
+                        gradeSlot={
+                          <>
+                            <span className="text-sm font-semibold text-black">{personalGrade}</span>
+                            <GradeNoteButton
+                              note={personalGradeNote}
+                              label={task.name}
+                              onSave={(next) => handleGradeNoteSave(task.id, next)}
+                              previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                            />
+                          </>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+              </PeriodCard>
+            )}
+
+            {pastPeriods.map(({ workspace, cumulativeScore, grade, tasks }) => (
+              <PeriodCard
+                key={workspace.id}
+                title={`${workspace.evaluationYear} ${workspace.periodName}`}
+                score={cumulativeScore}
+                grade={grade}
+                isOpen={openPeriods.has(workspace.id)}
+                onToggle={() => togglePeriod(workspace.id)}
+              >
+                {tasks.length === 0 ? (
+                  <p className="text-[13px] text-gray-400">참여한 과제가 없습니다.</p>
+                ) : (
+                  <div className="divide-y divide-dashed divide-gray-200">
+                    {tasks.map((t) => (
+                      <TaskRow
+                        key={t.taskId}
+                        importance={t.importance}
+                        name={t.taskName}
+                        percent={t.contributionPercent}
+                        score={t.personalScore}
+                        gradeSlot={<span className="text-sm font-semibold text-black">{t.personalGrade}</span>}
+                      />
+                    ))}
+                  </div>
+                )}
+              </PeriodCard>
+            ))}
           </div>
 
           <ColumnSplitter {...splitter1} />

@@ -12,12 +12,17 @@ function todayString() {
 
 // 면담 분위기 -- 글로 담기 애매한 그날의 톤을 이모지 하나로 남긴다. 기록이
 // 쌓이면 목록만 훑어도 흐름이 눈에 들어온다(기분 일기 앱의 방식과 동일).
+// 9단계 그라데이션 -- 아주 좋음부터 매우 힘듦까지 세분화해서 고른다.
 const MOOD_OPTIONS: { emoji: string; label: string }[] = [
   { emoji: '😄', label: '아주 좋음' },
-  { emoji: '🙂', label: '좋음' },
+  { emoji: '😊', label: '좋음' },
+  { emoji: '🙂', label: '약간 좋음' },
   { emoji: '😐', label: '보통' },
+  { emoji: '😕', label: '약간 걱정됨' },
   { emoji: '😟', label: '걱정됨' },
-  { emoji: '😩', label: '지침' },
+  { emoji: '😣', label: '힘듦' },
+  { emoji: '😩', label: '많이 지침' },
+  { emoji: '😢', label: '매우 힘듦' },
 ]
 
 interface MeetingFormProps {
@@ -129,7 +134,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
 
       {/* 분위기 -- 글로 표현하기 애매한 그날의 톤을 이모지 하나로 남긴다.
           선택은 필수가 아니다. */}
-      <div className="mt-2 flex items-center gap-1">
+      <div className="mt-2 flex flex-wrap items-center gap-1">
         <span className="mr-1 text-[11px] font-medium text-gray-400">분위기</span>
         {MOOD_OPTIONS.map(({ emoji, label }) => (
           <button
@@ -184,20 +189,24 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
         </div>
       )}
 
-      {/* 최근 면담 기록 -- 기본 접힘, 필요할 때만 펼침 */}
-      <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3 text-[11px]">
-        <span className="text-gray-500">최근 면담 기록 {notes.length}건</span>
-        <button onClick={() => setPastOpen((v) => !v)} className="font-semibold text-accent underline">
-          {pastOpen ? '접기' : '전체 이력 보기'}
+      {/* 면담 기록 -- Figma의 timeline-list: 세로선 + 분위기 이모지 노드로
+          기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
+      <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
+        <span className="flex items-center gap-2">
+          <h4 className="text-sm font-bold text-black">면담 기록</h4>
+          <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">최근 {notes.length}건</span>
+        </span>
+        <button onClick={() => setPastOpen((v) => !v)} className="text-xs font-semibold text-gray-500 hover:text-accent">
+          {pastOpen ? '접기' : '펼치기'}
         </button>
       </div>
 
       {pastOpen && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2">
           {notes.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
-          {notes.map((note) =>
+          {notes.map((note, i) =>
             editingNoteId === note.id ? (
-              <div key={note.id} className="flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
+              <div key={note.id} className="ml-9 mb-3 flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
                 <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <textarea value={editComment} onChange={(e) => setEditComment(e.target.value)} rows={2} className="min-w-[180px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <div className="flex gap-2">
@@ -210,38 +219,43 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
                 </div>
               </div>
             ) : (
-              <div key={note.id} className="flex flex-wrap items-start gap-3 border-b border-gray-200 py-3">
-                <p className="shrink-0 text-xs font-semibold text-gray-500">
-                  {note.mood && <span className="mr-1 text-sm align-middle">{note.mood}</span>}
-                  {note.date}
-                  {note.date > todayStr && (
-                    <Badge tone="accent" className="ml-2">
-                      예정
-                    </Badge>
-                  )}
-                </p>
-                <div className="min-w-[200px] flex-1 space-y-0.5 text-[13px] text-black">
-                  <p className="whitespace-pre-wrap break-words">{note.comment}</p>
-                  {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">강점 : {note.strengths}</p>}
-                  {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">보완 : {note.improvements}</p>}
-                  {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">다음도전 : {note.nextExperience}</p>}
-                  {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">Career Goal : {note.careerInterest}</p>}
+              <div key={note.id} className="flex items-stretch gap-3">
+                <div className="flex w-9 shrink-0 flex-col items-center">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-base ring-1 ring-gray-200">
+                    {note.mood ? note.mood : <span className="h-2 w-2 rounded-full bg-gray-300" />}
+                  </span>
+                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
                 </div>
-                <div className="flex shrink-0 gap-1.5">
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setEditingNoteId(note.id)
-                      setEditDate(note.date)
-                      setEditComment(note.comment)
-                    }}
-                    className="px-2 py-0.5 text-xs"
-                  >
-                    수정
-                  </Button>
-                  <Button variant="danger" onClick={() => setDeletingNote(note)} className="px-2 py-0.5 text-xs">
-                    삭제
-                  </Button>
+                <div className="min-w-0 flex-1 pb-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-baseline gap-2">
+                      <span className="text-sm font-bold text-black">{note.date}</span>
+                      {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
+                      {note.date > todayStr && <Badge tone="accent">예정</Badge>}
+                    </span>
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        onClick={() => {
+                          setEditingNoteId(note.id)
+                          setEditDate(note.date)
+                          setEditComment(note.comment)
+                        }}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 hover:bg-gray-50"
+                      >
+                        수정
+                      </button>
+                      <button onClick={() => setDeletingNote(note)} className="rounded-lg border border-red-100 px-3 py-1.5 text-xs font-semibold text-red-500 hover:bg-red-50">
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-0.5 space-y-0.5 text-[13px] text-black">
+                    <p className="whitespace-pre-wrap break-words">{note.comment}</p>
+                    {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">강점 : {note.strengths}</p>}
+                    {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">보완 : {note.improvements}</p>}
+                    {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">다음도전 : {note.nextExperience}</p>}
+                    {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">Career Goal : {note.careerInterest}</p>}
+                  </div>
                 </div>
               </div>
             ),
