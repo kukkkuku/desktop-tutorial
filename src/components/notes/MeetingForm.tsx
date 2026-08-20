@@ -10,6 +10,16 @@ function todayString() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// 면담 분위기 -- 글로 담기 애매한 그날의 톤을 이모지 하나로 남긴다. 기록이
+// 쌓이면 목록만 훑어도 흐름이 눈에 들어온다(기분 일기 앱의 방식과 동일).
+const MOOD_OPTIONS: { emoji: string; label: string }[] = [
+  { emoji: '😄', label: '아주 좋음' },
+  { emoji: '🙂', label: '좋음' },
+  { emoji: '😐', label: '보통' },
+  { emoji: '😟', label: '걱정됨' },
+  { emoji: '😩', label: '지침' },
+]
+
 interface MeetingFormProps {
   member: TeamMember
   focusToken?: number | null
@@ -31,6 +41,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
 
   const [date, setDate] = useState(todayStr)
   const [comment, setComment] = useState('')
+  const [mood, setMood] = useState<string | null>(null)
   const [strengths, setStrengths] = useState('')
   const [improvements, setImprovements] = useState('')
   const [nextExperience, setNextExperience] = useState('')
@@ -46,6 +57,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   useEffect(() => {
     setDate(todayStr)
     setComment('')
+    setMood(null)
     setStrengths('')
     setImprovements('')
     setNextExperience('')
@@ -66,6 +78,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   function handleSave() {
     if (!comment.trim()) return
     const note: MeetingNote = { id: uuidv4(), memberId, date, comment: comment.trim() }
+    if (mood) note.mood = mood
     if (strengths.trim()) note.strengths = strengths.trim()
     if (improvements.trim()) note.improvements = improvements.trim()
     if (nextExperience.trim()) note.nextExperience = nextExperience.trim()
@@ -73,6 +86,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
     dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
     setDate(todayStr)
     setComment('')
+    setMood(null)
     setStrengths('')
     setImprovements('')
     setNextExperience('')
@@ -111,6 +125,26 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
           placeholder="면담 내용을 입력하세요."
           className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
         />
+      </div>
+
+      {/* 분위기 -- 글로 표현하기 애매한 그날의 톤을 이모지 하나로 남긴다.
+          선택은 필수가 아니다. */}
+      <div className="mt-2 flex items-center gap-1">
+        <span className="mr-1 text-[11px] font-medium text-gray-400">분위기</span>
+        {MOOD_OPTIONS.map(({ emoji, label }) => (
+          <button
+            key={emoji}
+            type="button"
+            onClick={() => setMood((v) => (v === emoji ? null : emoji))}
+            title={label}
+            aria-label={label}
+            className={`flex h-7 w-7 items-center justify-center rounded-full text-base transition-colors ${
+              mood === emoji ? 'bg-accent/10 ring-1 ring-accent' : 'hover:bg-gray-100'
+            }`}
+          >
+            {emoji}
+          </button>
+        ))}
       </div>
 
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
@@ -178,6 +212,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
             ) : (
               <div key={note.id} className="flex flex-wrap items-start gap-3 border-b border-gray-200 py-3">
                 <p className="shrink-0 text-xs font-semibold text-gray-500">
+                  {note.mood && <span className="mr-1 text-sm align-middle">{note.mood}</span>}
                   {note.date}
                   {note.date > todayStr && (
                     <Badge tone="accent" className="ml-2">

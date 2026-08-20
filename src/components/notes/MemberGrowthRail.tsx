@@ -1,7 +1,5 @@
 import { useAppState } from '../../state/AppContext'
-import { calcMemberResults } from '../../utils/calculations'
 import { colorForIndex } from '../../utils/memberColors'
-import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 
 interface MemberGrowthRailProps {
   selectedMemberId: string | null
@@ -9,79 +7,46 @@ interface MemberGrowthRailProps {
   onManageTeam: () => void
 }
 
-function fmtShort(date: string): string {
-  return date.slice(5).replace('-', '/')
-}
-
-// 팀원 목록 -- 가로 탭/버튼이 아니라 받은편지함처럼 세로로 쌓인 목록. 각 행은
-// 아바타(둥근 사각 "폴더" 타일 + 이름 첫 글자) + 이름 + 역할·직급을 왼쪽에,
-// 최근 성과 등급과 최근 면담일을 오른쪽에 보여줘서 누르지 않고도 훑어볼 수
-// 있다. 원형 아바타 대신 살짝 둥근 사각 타일을 써서 폴더 아이콘처럼 보이게
-// 하고, 선택된 행은 옅은 배경 + 테두리로 카드처럼 도드라져 보인다. 타일
-// 색은 캘린더 점(MeetingSchedulePanel)과 같은 인덱스 기준을 써서 같은
-// 팀원이 어디서나 같은 색으로 보이게 한다.
+// 팀원 탭 -- 브라우저 탭처럼 위쪽 모서리만 둥글고, 선택된 탭은 흰 배경으로
+// 아래 본문과 이어져 보이게 한다(구분선 없이 바로 붙음). 탭 안에는 팀원
+// 색상의 작은 폴더 아이콘 + 이름만 담아 가볍게 유지한다.
 export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam }: MemberGrowthRailProps) {
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
-  const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
-  const todayStr = new Date().toISOString().slice(0, 10)
 
   return (
-    <div className="flex h-full w-72 flex-col">
-      <div className="flex items-center justify-between px-4 py-3.5">
-        <h2 className="text-sm font-bold text-black">팀원 ({activeMembers.length})</h2>
-        <button onClick={onManageTeam} className="text-xs font-semibold text-gray-400 hover:text-accent">
-          팀원 관리
-        </button>
-      </div>
-
+    <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2">
       {activeMembers.length === 0 ? (
-        <p className="px-4 py-6 text-center text-[13px] text-gray-400">등록된 팀원이 없습니다.</p>
+        <p className="px-2 py-2.5 text-[13px] text-gray-400">등록된 팀원이 없습니다.</p>
       ) : (
-        <div className="flex-1 space-y-1.5 overflow-y-auto px-2.5 pb-3">
-          {activeMembers.map((member) => {
-            const isSelected = selectedMemberId === member.id
-            const colorIdx = state.members.findIndex((m) => m.id === member.id)
-            const result = results.find((r) => r.member.id === member.id)
-            const lastMeeting =
-              state.meetingNotes
-                .filter((n) => n.memberId === member.id && n.date <= todayStr)
-                .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
-            return (
-              <button
-                key={member.id}
-                onClick={() => onSelectMember(member.id)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
-                  isSelected ? 'border border-blue-100 bg-white shadow-sm' : 'border border-transparent hover:bg-gray-100'
-                }`}
+        activeMembers.map((member) => {
+          const isSelected = selectedMemberId === member.id
+          const colorIdx = state.members.findIndex((m) => m.id === member.id)
+          return (
+            <button
+              key={member.id}
+              onClick={() => onSelectMember(member.id)}
+              className={`flex w-40 shrink-0 items-center gap-2 rounded-t-lg px-3 py-2.5 text-left transition-colors ${
+                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-gray-100 hover:bg-gray-200/70'
+              }`}
+            >
+              <span
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+                style={{ background: colorForIndex(colorIdx) }}
               >
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-sm"
-                  style={{ background: colorForIndex(colorIdx) }}
-                >
-                  {member.name.charAt(0)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-sm font-semibold ${isSelected ? 'text-accent' : 'text-black'}`}>{member.name}</span>
-                  <span className="block truncate text-[12px] text-gray-400">
-                    {[member.role, formatLevelTenureLabel(member.level, calcYearsSince(member.currentLevelSince))].filter(Boolean).join(' · ') || '-'}
-                  </span>
-                </span>
-                <span className="shrink-0 text-right text-[11px] leading-[1.6] text-gray-400">
-                  {result ? (
-                    <span className="block font-semibold text-gray-600">
-                      {result.grade} {result.cumulativeScore.toFixed(0)}점
-                    </span>
-                  ) : (
-                    <span className="block">-</span>
-                  )}
-                  <span className="block">{lastMeeting ? fmtShort(lastMeeting) : '면담 없음'}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+                {member.name.charAt(0)}
+              </span>
+              <span className={`truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
+            </button>
+          )
+        })
       )}
+      <button
+        onClick={onManageTeam}
+        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-gray-400 hover:bg-white/60 hover:text-accent"
+      >
+        팀원 관리
+      </button>
     </div>
   )
 }
