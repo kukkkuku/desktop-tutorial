@@ -20,6 +20,7 @@ import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModa
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
 import Badge from '../Badge'
+import YearPicker from '../YearPicker'
 
 function UploadIcon({ className }: { className?: string }) {
   return (
@@ -287,89 +288,91 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- 이름 아래 성과·승진심사를 굵게 강조된 한 줄로
-          바로 읽히게 하고, 등급·최근 면담처럼 부가 정보는 옅은 보조 줄로
-          내린다. 고과 추이는 그래프 대신 등급 배지 행(최근 5년)으로 보여줘
-          숫자를 눈으로 훑기만 해도 파악되게 한다. */}
+      {/* 상단 프로필 요약 -- 이름/성과/승진심사(좌) · 최근 고과 추이(중) ·
+          개인 메모(우) 세 영역을 한 줄에 나란히 놓는다("인사 프로필 카드"
+          참고 디자인). 좁은 화면에서는 flex-wrap으로 자연스럽게 아래로
+          쌓인다. */}
       <div className="border-b border-gray-200 bg-white px-5 py-4">
-        <p className="text-lg font-bold text-black">{member.name}</p>
-        <p className="text-xs text-gray-400">
-          {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-        </p>
+        <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
+          <div className="min-w-0 shrink-0">
+            <p className="text-lg font-bold text-black">{member.name}</p>
+            <p className="text-xs text-gray-400">
+              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+            </p>
 
-        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm">
-          {memberResult ? (
-            <span className="text-black">
-              {currentWorkspace?.evaluationYear ?? ''} 성과{' '}
-              <span className="font-bold">{memberResult.cumulativeScore.toFixed(1)}</span>
+            <p className="mt-2.5 flex items-center gap-2 text-sm">
+              {memberResult ? (
+                <>
+                  <span className="text-black">
+                    {currentWorkspace?.evaluationYear ?? ''} 성과{' '}
+                    <span className="font-bold">{memberResult.cumulativeScore.toFixed(1)}</span>
+                  </span>
+                  <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+                </>
+              ) : (
+                <span className="text-gray-300">성과 -</span>
+              )}
+            </p>
+
+            <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-gray-500">승진심사 시기</span>
+              <span className="inline-flex items-center gap-1.5 font-semibold text-black">
+                <YearPicker year={Number(reviewDateYear) || new Date().getFullYear()} onChange={(y) => updatePromotionReviewYear(String(y))} />
+                <select
+                  value={reviewDateMonth}
+                  onChange={(e) => updatePromotionReviewMonth(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2.5 py-2 text-sm font-medium text-black focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                    <option key={m} value={m}>
+                      {Number(m)}월
+                    </option>
+                  ))}
+                </select>
+              </span>
+              {reviewDateYear && (
+                <button onClick={() => updatePromotionReviewYear('')} className="text-xs font-medium text-gray-400 hover:text-danger">
+                  지우기
+                </button>
+              )}
+              {promotionCriteria && scoreGap !== null && (
+                <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
+                  <Badge tone={scoreGap >= 0 ? 'success' : 'accent'}>
+                    {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
+                  </Badge>
+                </span>
+              )}
+            </p>
+
+            <p className="mt-2 text-xs text-gray-400">
+              등급 {rank ? `${rank}위 / ${activeCount}명` : '-'}
               {' · '}
-              <span className="font-bold">{memberResult.grade}</span>
-            </span>
-          ) : (
-            <span className="text-gray-300">성과 -</span>
-          )}
-          <span className="text-gray-300">|</span>
-          <span className="text-black">
-            승진심사 시기{' '}
-            <span className="inline-flex items-center gap-1 font-semibold">
-              <input
-                type="number"
-                value={reviewDateYear}
-                onChange={(e) => updatePromotionReviewYear(e.target.value)}
-                placeholder="연도"
-                className="w-12 rounded border-0 bg-transparent p-0 text-sm font-semibold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-              년
-              <select
-                value={reviewDateMonth}
-                onChange={(e) => updatePromotionReviewMonth(e.target.value)}
-                className="rounded border-0 bg-transparent p-0 text-sm font-semibold text-black focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
-                  <option key={m} value={m}>
-                    {Number(m)}월
-                  </option>
-                ))}
-              </select>
-            </span>
-          </span>
-          {promotionCriteria && scoreGap !== null && (
-            <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
-              <Badge tone={scoreGap >= 0 ? 'success' : 'accent'}>
-                {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
-              </Badge>
-            </span>
-          )}
-        </p>
-
-        <p className="mt-1 text-xs text-gray-400">
-          등급 {rank ? `${rank}위 / ${activeCount}명` : '-'}
-          {' · '}
-          최근 면담 {lastMeetingDate ?? '없음'}
-        </p>
-
-        {trendPoints.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs font-semibold text-gray-400">최근 5년 고과</p>
-            <div className="mt-1.5 flex gap-2.5">
-              {trendPoints.map((p) => (
-                <div key={p.period} className="flex flex-col items-center gap-0.5">
-                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${GRADE_COLORS[p.grade]}`}>{p.grade}</span>
-                  <span className="text-[10px] text-gray-400">{p.period}</span>
-                </div>
-              ))}
-            </div>
+              최근 면담 {lastMeetingDate ?? '없음'}
+            </p>
           </div>
-        )}
 
-        {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
-            잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다. 헤더
-            아래 남는 영역에 자기 줄을 갖고 있어서 몇 개가 붙든 자유롭게
-            줄바꿈되고 다른 내용을 밀어내지 않는다. 등록하면 면담
-            인사이트에도 그대로 반영된다. */}
-        <div ref={noteStripRef} className="mt-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold text-gray-400">메모</span>
-          {personalNotes.map((note) => {
+          {trendPoints.length > 0 && (
+            <div className="shrink-0">
+              <p className="text-xs font-semibold text-gray-400">최근 5년 고과</p>
+              <div className="mt-1.5 flex gap-2.5">
+                {trendPoints.map((p) => (
+                  <div key={p.period} className="flex flex-col items-center gap-0.5">
+                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${GRADE_COLORS[p.grade]}`}>{p.grade}</span>
+                    <span className="text-[10px] text-gray-400">{p.period}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
+              잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
+              오른쪽 끝에 붙여두고, 몇 개가 붙든 자유롭게 줄바꿈되고 다른
+              내용을 밀어내지 않는다. 등록하면 면담 인사이트에도 그대로
+              반영된다. */}
+          <div ref={noteStripRef} className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
+            <span className="text-xs font-semibold text-gray-400">메모</span>
+            {personalNotes.map((note) => {
             const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
             return (
               <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
@@ -444,6 +447,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               + 메모
             </button>
           )}
+          </div>
         </div>
       </div>
 
