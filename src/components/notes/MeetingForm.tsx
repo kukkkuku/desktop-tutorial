@@ -16,14 +16,13 @@ interface MeetingFormProps {
 }
 
 // 면담일지 -- Figma 디자인(interview-log-card) 그대로: 사방이 닫힌 박스가
-// 아니라 옆 컬럼과 구분선 없이 나뉘어서 폭을 최대로 쓴다(구분선은 부모의
-// 스플리터 선이 대신하므로 여기서 border-l을 또 그리면 선이 두 개로
-// 겹쳐 보인다 -- 왼쪽 여백만 살짝 남겨 스플리터 선과 텍스트가 바로
-// 붙지 않게 한다). 제목 옆에 면담 일자 + 작성하기 버튼이 한 줄, 면담
-// 코멘트, 육성 포인트(강점·보완 필요·다음 도전 경험·Career Goal). 다음
-// 확인일과 Action 입력 영역은 Figma에 없어 제거했다. 최근 면담 기록은
-// 기본 접힘 -- 펼쳤을 때 각 기록은 필드별로 줄바꿈해서 보여준다(한 줄로
-// 합쳐 truncate하면 내용이 잘려서 확인이 안 되는 문제가 있었다).
+// 아니라 3등분 컬럼의 자기 칸을 그대로 채운다(컬럼 사이 여백은 부모 grid의
+// gap이 담당하므로 여기서 따로 테두리/여백을 두지 않는다). 제목 옆에 면담
+// 일자 + 작성하기 버튼이 한 줄, 면담 코멘트, 육성 포인트(강점·보완 필요·
+// 다음 도전 경험·Career Goal). 다음 확인일과 Action 입력 영역은 Figma에
+// 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
+// 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
+// 확인이 안 되는 문제가 있었다).
 export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const memberId = member.id
@@ -87,7 +86,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
   }
 
   return (
-    <div className="pl-5">
+    <div>
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="shrink-0 text-base font-bold text-black">면담일지</h3>
         <input
