@@ -108,9 +108,9 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
           value={date}
           onChange={(e) => setDate(e.target.value)}
           aria-label="면담 일자"
-          className="w-40 shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+          className="w-40 shrink-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
         />
-        <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="shrink-0 py-2.5">
+        <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="shrink-0 px-3 py-1.5">
           작성하기
         </Button>
       </div>

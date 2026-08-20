@@ -58,7 +58,7 @@ export default function YearPicker({
     <div className={`relative inline-block shrink-0 ${className ?? ''}`} ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50"
+        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-black hover:bg-gray-50"
       >
         <CalendarIcon className="h-4 w-4 text-gray-400" />
         {year}

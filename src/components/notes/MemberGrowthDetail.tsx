@@ -321,7 +321,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <select
                   value={reviewDateMonth}
                   onChange={(e) => updatePromotionReviewMonth(e.target.value)}
-                  className="rounded-md border border-gray-300 px-2.5 py-2 text-sm font-medium text-black focus:outline-none focus:ring-1 focus:ring-accent"
+                  className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-black focus:outline-none focus:ring-1 focus:ring-accent"
                 >
                   {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
                     <option key={m} value={m}>
