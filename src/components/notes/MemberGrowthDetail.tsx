@@ -20,7 +20,7 @@ import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModa
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
 import Badge from '../Badge'
-import YearPicker from '../YearPicker'
+import PromotionDatePicker from '../PromotionDatePicker'
 
 function UploadIcon({ className }: { className?: string }) {
   return (
@@ -208,18 +208,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
 
   // 승급일 -- 네이티브 <input type="month">의 브라우저별 달력 팝업이 복잡해
-  // 보인다는 피드백이 있어, 연도 입력칸 + 월 드롭다운으로 직접 구성한다.
-  const [reviewDateYear, reviewDateMonth = '01'] = (member.promotionReviewDate ?? '').split('-')
-  const updatePromotionReviewYear = (value: string) => {
-    if (!value) {
-      dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: null } })
-      return
-    }
-    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${value}-${reviewDateMonth || '01'}` } })
+  // 보인다는 피드백이 있어, 연도+월을 한 번에 고르는 커스텀 인풋박스
+  // (PromotionDatePicker) 하나로 구성한다.
+  const [reviewDateYearStr, reviewDateMonthStr = '01'] = (member.promotionReviewDate ?? '').split('-')
+  const reviewYear = Number(reviewDateYearStr) || new Date().getFullYear()
+  const reviewMonth = Number(reviewDateMonthStr) || 1
+  const updatePromotionReviewDate = (year: number, month: number) => {
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
-  const updatePromotionReviewMonth = (value: string) => {
-    const year = reviewDateYear || String(new Date().getFullYear())
-    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${value}` } })
+  const clearPromotionReviewDate = () => {
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: null } })
   }
 
   // 고과 추이는 워크스페이스별 계산 성과가 아니라 공식 인사평가 이력(연도별
@@ -316,22 +314,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
             <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-gray-500">승진심사 시기</span>
-              <span className="inline-flex items-center gap-1.5 font-semibold text-black">
-                <YearPicker year={Number(reviewDateYear) || new Date().getFullYear()} onChange={(y) => updatePromotionReviewYear(String(y))} />
-                <select
-                  value={reviewDateMonth}
-                  onChange={(e) => updatePromotionReviewMonth(e.target.value)}
-                  className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-black focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
-                    <option key={m} value={m}>
-                      {Number(m)}월
-                    </option>
-                  ))}
-                </select>
-              </span>
-              {reviewDateYear && (
-                <button onClick={() => updatePromotionReviewYear('')} className="text-xs font-medium text-gray-400 hover:text-danger">
+              <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
+              {reviewDateYearStr && (
+                <button onClick={clearPromotionReviewDate} className="text-xs font-medium text-gray-400 hover:text-danger">
                   지우기
                 </button>
               )}
