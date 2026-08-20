@@ -1,16 +1,27 @@
 import { useAppState } from '../../state/AppContext'
 import { colorForIndex } from '../../utils/memberColors'
 
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
 interface MemberGrowthRailProps {
   selectedMemberId: string | null
   onSelectMember: (memberId: string) => void
   onManageTeam: () => void
+  onImportHistory: () => void
 }
 
 // 팀원 탭 -- 브라우저 탭처럼 위쪽 모서리만 둥글고, 선택된 탭은 흰 배경으로
 // 아래 본문과 이어져 보이게 한다(구분선 없이 바로 붙음). 탭 안에는 팀원
 // 색상의 작은 폴더 아이콘 + 이름만 담아 가볍게 유지한다.
-export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam }: MemberGrowthRailProps) {
+export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam, onImportHistory }: MemberGrowthRailProps) {
   const { state } = useAppState()
   const activeMembers = state.members.filter((m) => m.active)
 
@@ -46,6 +57,16 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
         className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-gray-400 hover:bg-white/60 hover:text-accent"
       >
         팀원 관리
+      </button>
+
+      {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 한 번에 여러 팀원에게
+          적용되므로 특정 팀원 화면이 아니라 탭 바 우측(전체 팀원 대상)에 둔다.
+          버튼 스타일은 다른 화면의 엑셀 업로드 버튼(TitleUploadControls)과 통일. */}
+      <button
+        onClick={onImportHistory}
+        className="mb-1 ml-auto flex shrink-0 items-center gap-1.5 rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-blue-50"
+      >
+        <UploadIcon className="h-4 w-4" /> 엑셀로 가져오기
       </button>
     </div>
   )

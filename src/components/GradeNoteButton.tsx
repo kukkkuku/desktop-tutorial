@@ -9,6 +9,10 @@ interface GradeNoteButtonProps {
   note: string | undefined
   label: string
   onSave?: (note: string) => void
+  // 넓은 영역에서 근거가 있으면 아이콘 옆에 짧은 미리보기 텍스트를 보여준다
+  // (예: 12). 좁은 영역이거나 생략하면 아이콘만 보인다 -- 클릭하면 어느
+  // 쪽이든 팝오버로 전체 내용을 보여준다.
+  previewChars?: number
 }
 
 function PencilIcon({ className }: { className?: string }) {
@@ -28,9 +32,11 @@ function MemoIcon({ className }: { className?: string }) {
   )
 }
 
-export default function GradeNoteButton({ note, label, onSave }: GradeNoteButtonProps) {
+export default function GradeNoteButton({ note, label, onSave, previewChars }: GradeNoteButtonProps) {
   const editable = !!onSave
   const hasNote = !!note?.trim()
+  const preview =
+    hasNote && previewChars ? (note!.trim().length > previewChars ? `${note!.trim().slice(0, previewChars)}…` : note!.trim()) : null
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -77,11 +83,12 @@ export default function GradeNoteButton({ note, label, onSave }: GradeNoteButton
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={hasNote ? `근거: ${note}` : editable ? '근거 메모 입력' : '근거 메모 없음'}
-        className={`inline-flex shrink-0 items-center justify-center rounded p-1 ${
+        className={`inline-flex shrink-0 items-center gap-1 rounded px-1 py-1 ${
           hasNote ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
         }`}
       >
-        {hasNote ? <MemoIcon className="h-4 w-4" /> : <PencilIcon className="h-4 w-4" />}
+        {hasNote ? <MemoIcon className="h-4 w-4 shrink-0" /> : <PencilIcon className="h-4 w-4 shrink-0" />}
+        {preview && <span className="text-[11px] font-normal normal-case text-amber-600">{preview}</span>}
       </button>
 
       {open &&

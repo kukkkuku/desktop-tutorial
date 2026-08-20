@@ -3,6 +3,7 @@ import { useAppState } from '../../state/AppContext'
 import MemberGrowthRail from './MemberGrowthRail'
 import MemberGrowthDetail from './MemberGrowthDetail'
 import MeetingSchedulePanel from './MeetingSchedulePanel'
+import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 
 function MembersIcon({ className }: { className?: string }) {
   return (
@@ -48,6 +49,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   const activeMembers = state.members.filter((m) => m.active)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(activeMembers[0]?.id ?? null)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   useEffect(() => {
     if (!notesRequest) return
@@ -73,7 +75,12 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   return (
     <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] flex-col sm:-mx-6 lg:-mx-8">
       <div className="shrink-0 border-b border-gray-200 bg-gray-100">
-        <MemberGrowthRail selectedMemberId={selectedMemberId} onSelectMember={setSelectedMemberId} onManageTeam={onManageTeam} />
+        <MemberGrowthRail
+          selectedMemberId={selectedMemberId}
+          onSelectMember={setSelectedMemberId}
+          onManageTeam={onManageTeam}
+          onImportHistory={() => setImportOpen(true)}
+        />
       </div>
 
       <div className="flex flex-1 items-stretch">
@@ -106,6 +113,8 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
           <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
         </div>
       </div>
+
+      {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}
     </div>
   )
 }

@@ -1,36 +1,25 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { EvaluationGrade, PersonalNoteColor } from '../../types'
-import {
-  calcAllTaskScores,
-  calcMemberResults,
-  getContribution,
-  getEffectiveContributionPercent,
-  GRADE_COLORS,
-} from '../../utils/calculations'
-import { appraisalRecordGrade, auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
+import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
+import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
 import MemberPerformanceHistoryPanel from '../member-detail/MemberPerformanceHistoryPanel'
 import PromotionCriteriaManager from '../promotion/PromotionCriteriaManager'
-import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
 import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
+import TrendSparkline from './TrendSparkline'
 import Badge from '../Badge'
 import PromotionDatePicker from '../PromotionDatePicker'
 
-function UploadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
+// 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
+// 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
+const WIDE_COL_THRESHOLD = 380
+const GRADE_NOTE_PREVIEW_CHARS = 12
 
 // 최근 성과 / 성장 시뮬레이션 카드 공용 래퍼 -- 3등분 컬럼에서 각자 고정된
 // 자기 칸을 가지므로 더 이상 접었다 펼 필요가 없다(예전엔 면담하기와 폭을
@@ -39,10 +28,12 @@ function SectionCard({
   title,
   headerBadge,
   children,
+  bodyRef,
 }: {
   title: string
   headerBadge?: React.ReactNode
   children: React.ReactNode
+  bodyRef?: React.Ref<HTMLDivElement>
 }) {
   return (
     <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
@@ -50,7 +41,9 @@ function SectionCard({
         <h3 className="text-base font-bold text-black">{title}</h3>
         {headerBadge}
       </span>
-      <div className="mt-3">{children}</div>
+      <div ref={bodyRef} className="mt-3">
+        {children}
+      </div>
     </div>
   )
 }
@@ -125,14 +118,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const member = state.members.find((m) => m.id === memberId)
 
   const [insightsOpen, setInsightsOpen] = useState(true)
-  const [recentExpanded, setRecentExpanded] = useState(false)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
   const noteStripRef = useRef<HTMLDivElement>(null)
+
+  // 최근 성과 표 폭 -- 스플리터로 좁아지면 개인등급 근거를 아이콘만, 넓으면
+  // 아이콘+짧은 미리보기로 보여준다(리사이즈 옵저버로 실측).
+  const recentColRef = useRef<HTMLDivElement>(null)
+  const [recentColWide, setRecentColWide] = useState(true)
 
   const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -185,6 +181,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [colorPickerFor])
 
+  useLayoutEffect(() => {
+    const el = recentColRef.current
+    if (!el) return
+    const update = () => setRecentColWide(el.getBoundingClientRect().width >= WIDE_COL_THRESHOLD)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   if (!member) {
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
   }
@@ -214,16 +220,19 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
 
-  // 고과 추이는 워크스페이스별 계산 성과가 아니라 공식 인사평가 이력(연도별
-  // 업적/역량 등급)이 이전 성과 기준이다 -- 승진심사/승진자격 기준과 같은
-  // 데이터 소스를 쓴다. 그래프 대신 등급 배지 행으로 보여줘야 한눈에 읽힌다.
-  const trendPoints = appraisals
-    .map((r) => {
-      const grade = appraisalRecordGrade(r, profile.gradeScores)
-      return grade ? { period: String(r.year), grade } : null
-    })
-    .filter((p): p is { period: string; grade: EvaluationGrade } => p !== null)
-    .slice(-5)
+  // 고과 추이 그래프 두 개 -- 상하반기 성과(업적) 고과와 연도별 역량고과는
+  // 서로 다른 주기(반기 vs 연간)라 따로 그린다. 최근 4년 구간이 다 보이도록
+  // 반기 그래프는 최대 8포인트(연 2회 x 4년), 역량 그래프는 4포인트까지
+  // 보여준다.
+  const halfYearGradePoints = appraisals.flatMap((r) => {
+    const pts: { period: string; grade: EvaluationGrade }[] = []
+    if (r.firstHalfGrade) pts.push({ period: `${r.year} 상`, grade: r.firstHalfGrade })
+    if (r.secondHalfGrade) pts.push({ period: `${r.year} 하`, grade: r.secondHalfGrade })
+    return pts
+  })
+  const competencyGradePoints = appraisals
+    .filter((r): r is typeof r & { competencyGrade: EvaluationGrade } => !!r.competencyGrade)
+    .map((r) => ({ period: String(r.year), grade: r.competencyGrade }))
 
   const taskScores = calcAllTaskScores(state.tasks, state.criteria)
   const currentTasks = taskScores
@@ -242,7 +251,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => b.personalScore - a.personalScore)
 
-  const visibleTasks = recentExpanded ? currentTasks : currentTasks.slice(0, 2)
+  function handleGradeNoteSave(taskId: string, note: string) {
+    dispatch({ type: 'SET_CONTRIBUTION_NOTE', payload: { taskId, memberId, personalGradeNote: note } })
+  }
 
   const personalNotes = profile.personalNotes.filter((n) => n.memberId === memberId)
 
@@ -274,128 +285,118 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- Figma "employee-hero" 그대로: 이름/승진심사(좌) ·
-          최근 5년 고과(중) · 메모(우) 세 영역만, 딱 그 배열대로. */}
-      <div className="border-b border-gray-200 bg-white px-5 py-3">
-        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
-          <div className="flex shrink-0 flex-col items-start gap-3">
-            <p className="flex items-baseline gap-2">
-              <span className="text-lg font-bold text-black">{member.name}</span>
-              <span className="text-xs text-gray-500">
-                {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
-              </span>
-            </p>
+      {/* 상단 프로필 요약 -- 이름/승진심사 아래 20px 지점에 최근 4년 고과
+          추이(상하반기 성과 / 연도별 역량, 이전 그래프 방식)를 위아래로
+          쌓아 보여주고, 그 아래 40px 지점부터 개인 메모를 배치한다. 메모는
+          오른쪽 끝에 붙어 왼쪽으로 쌓인다. */}
+      <div className="border-b border-gray-200 bg-white px-5 py-4">
+        <p className="flex items-baseline gap-2">
+          <span className="text-lg font-bold text-black">{member.name}</span>
+          <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
+        </p>
 
-            <p className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-gray-500">승진심사</span>
-              <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-              {promotionCriteria && scoreGap !== null && (
-                <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
-                  <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
-                    {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
-                  </Badge>
-                </span>
-              )}
-            </p>
-          </div>
-
-          {trendPoints.length > 0 && (
-            <div className="flex shrink-0 flex-col items-start gap-2.5">
-              <p className="text-xs font-semibold text-gray-400">최근 5년 고과</p>
-              <div className="flex gap-4">
-                {trendPoints.map((p) => (
-                  <span key={p.period} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${GRADE_COLORS[p.grade]}`}>
-                    {p.grade}
-                  </span>
-                ))}
-              </div>
-            </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-gray-500">승진심사</span>
+          <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
+          {promotionCriteria && scoreGap !== null && (
+            <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
+              <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
+                {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
+              </Badge>
+            </span>
           )}
+        </div>
 
-          {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
-              잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
-              등록하면 면담 인사이트에도 그대로 반영된다. */}
-          <div ref={noteStripRef} className="flex shrink-0 flex-col items-end justify-center gap-3 self-stretch">
-            {noteAddOpen ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (!noteInput.trim()) return
-                  addPersonalNote(memberId, noteInput)
-                  setNoteInput('')
-                  setNoteAddOpen(false)
-                }}
-                className="flex items-center gap-1"
-              >
-                <input
-                  type="text"
-                  autoFocus
-                  value={noteInput}
-                  onChange={(e) => setNoteInput(e.target.value)}
-                  onBlur={() => {
-                    if (!noteInput.trim()) setNoteAddOpen(false)
-                  }}
-                  placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                  className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
-                />
-                <button
-                  type="submit"
-                  disabled={!noteInput.trim()}
-                  className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
-                >
-                  추가
-                </button>
-              </form>
-            ) : (
-              <button
-                onClick={() => setNoteAddOpen(true)}
-                className="shrink-0 rounded-full border border-dashed border-gray-300 px-4 py-1.5 text-[13px] font-semibold text-gray-500 hover:border-violet-300 hover:text-violet-600"
-              >
-                + 메모
-              </button>
-            )}
-
-            {personalNotes.length > 0 && (
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                {personalNotes.map((note) => {
-                  const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
-                  return (
-                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
-                      <button
-                        onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
-                        title="색상 변경"
-                        aria-label="색상 변경"
-                        className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
-                      />
-                      <span className="max-w-[220px] truncate">{note.content}</span>
-                      <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
-                        ×
-                      </button>
-
-                      {colorPickerFor === note.id && (
-                        <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
-                          {NOTE_COLOR_ORDER.map((c) => (
-                            <button
-                              key={c}
-                              onClick={() => {
-                                setPersonalNoteColor(note.id, c)
-                                setColorPickerFor(null)
-                              }}
-                              title={c}
-                              aria-label={c}
-                              className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
-                                (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
-                              }`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </span>
-                  )
-                })}
-              </div>
-            )}
+        <div className="mt-5 space-y-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+            <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={260} className="mt-1.5" />
           </div>
+          <div>
+            <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
+            <TrendSparkline points={competencyGradePoints} maxPoints={4} width={160} className="mt-1.5" />
+          </div>
+        </div>
+
+        {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
+            잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
+            등록하면 면담 인사이트에도 그대로 반영된다. */}
+        <div ref={noteStripRef} className="mt-10 flex flex-wrap items-center justify-end gap-1.5">
+          {personalNotes.map((note) => {
+            const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
+            return (
+              <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
+                <button
+                  onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
+                  title="색상 변경"
+                  aria-label="색상 변경"
+                  className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
+                />
+                <span className="max-w-[220px] truncate">{note.content}</span>
+                <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                  ×
+                </button>
+
+                {colorPickerFor === note.id && (
+                  <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
+                    {NOTE_COLOR_ORDER.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setPersonalNoteColor(note.id, c)
+                          setColorPickerFor(null)
+                        }}
+                        title={c}
+                        aria-label={c}
+                        className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
+                          (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </span>
+            )
+          })}
+
+          {noteAddOpen ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (!noteInput.trim()) return
+                addPersonalNote(memberId, noteInput)
+                setNoteInput('')
+                setNoteAddOpen(false)
+              }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="text"
+                autoFocus
+                value={noteInput}
+                onChange={(e) => setNoteInput(e.target.value)}
+                onBlur={() => {
+                  if (!noteInput.trim()) setNoteAddOpen(false)
+                }}
+                placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
+                className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
+              />
+              <button
+                type="submit"
+                disabled={!noteInput.trim()}
+                className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+              >
+                추가
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setNoteAddOpen(true)}
+              className="shrink-0 rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[12px] font-medium text-gray-400 hover:border-violet-300 hover:text-violet-600"
+            >
+              + 메모
+            </button>
+          )}
         </div>
       </div>
 
@@ -405,33 +406,39 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       <div className="flex-1 bg-slate-50 p-5">
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
           <div className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
-            <SectionCard title="최근 성과">
+            <SectionCard title="최근 성과" bodyRef={recentColRef}>
               {currentTasks.length === 0 ? (
                 <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[420px] text-left text-sm">
+                  <table className="w-full min-w-[380px] text-left text-sm">
                     <thead>
                       <tr className="border-b border-gray-200 text-xs text-gray-400">
-                        <th className="py-2 pr-3 font-semibold">프로젝트</th>
-                        <th className="px-3 py-2 font-semibold">중요도</th>
+                        <th className="py-2 pr-3 font-semibold">과제</th>
                         <th className="px-3 py-2 font-semibold">기여도</th>
                         <th className="px-3 py-2 font-semibold">개인 등급</th>
                         <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
+                      {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
                         <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
-                          <td className="py-2.5 pr-3 font-medium">{task.name}</td>
-                          <td className="px-3 py-2.5">
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                          <td className="py-2.5 pr-3">
+                            <span className="flex items-center gap-1.5">
+                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                              <span className="font-medium">{task.name}</span>
+                            </span>
                           </td>
                           <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
                           <td className="px-3 py-2.5 text-gray-600">
                             <div className="flex items-center gap-1">
                               <span>{personalGrade}</span>
-                              <GradeNoteButton note={personalGradeNote} label={task.name} />
+                              <GradeNoteButton
+                                note={personalGradeNote}
+                                label={task.name}
+                                onSave={(next) => handleGradeNoteSave(task.id, next)}
+                                previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                              />
                             </div>
                           </td>
                           <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
@@ -442,15 +449,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </div>
               )}
 
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-3">
                 <button onClick={() => setPastPeriodsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
                   {pastPeriodsOpen ? '− 지난 평가기간 성과 접기' : '지난 평가기간 성과 보기 →'}
                 </button>
-                {currentTasks.length > 2 && (
-                  <button onClick={() => setRecentExpanded((v) => !v)} className="text-xs font-medium text-gray-500 hover:text-accent">
-                    {recentExpanded ? '접기' : '더보기'} {recentExpanded ? '˄' : '>'}
-                  </button>
-                )}
               </div>
               {pastPeriodsOpen && (
                 <div className="mt-3 border-t border-dashed border-gray-200 pt-3">
@@ -463,16 +465,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <ColumnSplitter {...splitter0} />
 
           <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
-            <SectionCard title="성장 시뮬레이션">
-              <div className="mb-3 flex justify-end">
-                <button
-                  onClick={() => setImportOpen(true)}
-                  className="flex items-center gap-1.5 rounded-md bg-gray-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700"
-                >
-                  <UploadIcon className="h-3.5 w-3.5" /> 엑셀로 가져오기
-                </button>
-              </div>
-              <PromotionSimulationPanel member={member} onOpenCriteria={() => setCriteriaManagerOpen(true)} />
+            <SectionCard
+              title="성장 시뮬레이션"
+              headerBadge={
+                promotionCriteria && (
+                  <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
+                    ⓘ 기준 보기
+                  </button>
+                )
+              }
+            >
+              <PromotionSimulationPanel member={member} />
             </SectionCard>
           </div>
 
@@ -509,7 +512,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       </div>
 
       {criteriaManagerOpen && <PromotionCriteriaManager onClose={() => setCriteriaManagerOpen(false)} />}
-      {importOpen && <PromotionHistoryImportModal onClose={() => setImportOpen(false)} />}
     </div>
   )
 }

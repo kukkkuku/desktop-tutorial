@@ -22,7 +22,7 @@ type AuxKey = (typeof AUX_KEYS)[number]['key']
 // 가중치/승진자격 기준은 이 컴포넌트가 직접 띄우지 않고, 상위(MemberGrowthDetail)의
 // 공용 "승진 기준" 모달을 열어 달라고 요청만 한다 -- 예전엔 여기서 조회 전용
 // 팝업, 위에서 수정용 팝업을 따로 띄워 같은 내용이 두 가지 모양으로 보였다.
-export default function PromotionSimulationPanel({ member, onOpenCriteria }: { member: TeamMember; onOpenCriteria: () => void }) {
+export default function PromotionSimulationPanel({ member }: { member: TeamMember }) {
   const { dispatch } = useAppState()
   const { profile } = useTeamProfile()
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
@@ -53,12 +53,6 @@ export default function PromotionSimulationPanel({ member, onOpenCriteria }: { m
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={onOpenCriteria} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
-          ⓘ 기준 보기
-        </button>
-      </div>
-
       {/* 결과 -- 조건을 바꾸기 전에도 항상 맨 위에서 바로 보인다. 승진자격
           점수를 현재 점수와 나란히 둬서 얼마나 남았는지 한눈에 비교되게
           한다. */}
