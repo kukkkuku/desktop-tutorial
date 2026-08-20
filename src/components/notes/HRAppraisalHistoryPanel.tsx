@@ -13,12 +13,12 @@ import Button from '../Button'
 import IconButton from '../IconButton'
 
 const APPRAISAL_COLUMNS = {
-  year: 64,
-  first: 96,
-  second: 96,
-  competency: 96,
-  total: 72,
-  manage: 120,
+  year: 56,
+  first: 82,
+  second: 82,
+  competency: 82,
+  total: 64,
+  manage: 90,
 }
 
 const GRADE_BADGE: Record<EvaluationGrade, string> = {

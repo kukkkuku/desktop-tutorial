@@ -28,7 +28,11 @@ export default function PromotionSimulationPanel({ member, onOpenCriteria }: { m
   const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
-  const [historyOpen, setHistoryOpen] = useState(true)
+  // 인사평가 히스토리 표는 연도/업적(상)/업적(하)/역량/합계/관리까지 여러
+  // 컬럼을 가진 편집용 표라 3등분 컬럼 폭에서는 가로 스크롤이 생긴다.
+  // 기본은 접어서 위쪽 요약(현재점수·시뮬레이션 결과)만 깔끔하게 보이게
+  // 하고, 실제로 등급을 입력/수정할 때만 펼친다.
+  const [historyOpen, setHistoryOpen] = useState(false)
   const auxSum = auxScoreSum(member.auxScores)
 
   function setAux(key: AuxKey, value: string) {
