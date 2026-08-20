@@ -189,12 +189,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
   }
 
-  const activeCount = state.members.filter((m) => m.active).length
-
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
   const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
   const memberResult = resultIdx >= 0 ? memberResults[resultIdx] : undefined
-  const rank = resultIdx >= 0 ? resultIdx + 1 : null
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
@@ -216,9 +213,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const updatePromotionReviewDate = (year: number, month: number) => {
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
-  const clearPromotionReviewDate = () => {
-    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: null } })
-  }
 
   // 고과 추이는 워크스페이스별 계산 성과가 아니라 공식 인사평가 이력(연도별
   // 업적/역량 등급)이 이전 성과 기준이다 -- 승진심사/승진자격 기준과 같은
@@ -230,12 +224,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     })
     .filter((p): p is { period: string; grade: EvaluationGrade } => p !== null)
     .slice(-5)
-
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const lastMeetingDate =
-    state.meetingNotes
-      .filter((n) => n.memberId === memberId && n.date <= todayStr)
-      .sort((a, b) => b.date.localeCompare(a.date))[0]?.date ?? null
 
   const taskScores = calcAllTaskScores(state.tasks, state.criteria)
   const currentTasks = taskScores
@@ -286,65 +274,39 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- 이름/성과/승진심사(좌) · 최근 고과 추이(중) ·
-          개인 메모(우) 세 영역을 한 줄에 나란히 놓는다("인사 프로필 카드"
-          참고 디자인). 좁은 화면에서는 flex-wrap으로 자연스럽게 아래로
-          쌓인다. */}
-      <div className="border-b border-gray-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-          <div className="min-w-0 shrink-0">
-            <p className="text-lg font-bold text-black">{member.name}</p>
-            <p className="text-xs text-gray-400">
-              {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+      {/* 상단 프로필 요약 -- Figma "employee-hero" 그대로: 이름/승진심사(좌) ·
+          최근 5년 고과(중) · 메모(우) 세 영역만, 딱 그 배열대로. */}
+      <div className="border-b border-gray-200 bg-white px-5 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+          <div className="flex shrink-0 flex-col items-start gap-3">
+            <p className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-black">{member.name}</span>
+              <span className="text-xs text-gray-500">
+                {[member.role, formatLevelTenureLabel(member.level, levelTenureYears)].filter(Boolean).join(' · ') || '-'}
+              </span>
             </p>
 
-            <p className="mt-2.5 flex items-center gap-2 text-sm">
-              {memberResult ? (
-                <>
-                  <span className="text-black">
-                    {currentWorkspace?.evaluationYear ?? ''} 성과{' '}
-                    <span className="font-bold">{memberResult.cumulativeScore.toFixed(1)}</span>
-                  </span>
-                  <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
-                </>
-              ) : (
-                <span className="text-gray-300">성과 -</span>
-              )}
-            </p>
-
-            <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-gray-500">승진심사 시기</span>
+            <p className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-gray-500">승진심사</span>
               <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-              {reviewDateYearStr && (
-                <button onClick={clearPromotionReviewDate} className="text-xs font-medium text-gray-400 hover:text-danger">
-                  지우기
-                </button>
-              )}
               {promotionCriteria && scoreGap !== null && (
                 <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
-                  <Badge tone={scoreGap >= 0 ? 'success' : 'accent'}>
+                  <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
                     {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
                   </Badge>
                 </span>
               )}
             </p>
-
-            <p className="mt-2 text-xs text-gray-400">
-              등급 {rank ? `${rank}위 / ${activeCount}명` : '-'}
-              {' · '}
-              최근 면담 {lastMeetingDate ?? '없음'}
-            </p>
           </div>
 
           {trendPoints.length > 0 && (
-            <div className="shrink-0">
+            <div className="flex shrink-0 flex-col items-start gap-2.5">
               <p className="text-xs font-semibold text-gray-400">최근 5년 고과</p>
-              <div className="mt-1.5 flex gap-2.5">
+              <div className="flex gap-4">
                 {trendPoints.map((p) => (
-                  <div key={p.period} className="flex flex-col items-center gap-0.5">
-                    <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${GRADE_COLORS[p.grade]}`}>{p.grade}</span>
-                    <span className="text-[10px] text-gray-400">{p.period}</span>
-                  </div>
+                  <span key={p.period} className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${GRADE_COLORS[p.grade]}`}>
+                    {p.grade}
+                  </span>
                 ))}
               </div>
             </div>
@@ -352,86 +314,87 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
               잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
-              오른쪽 끝에 붙여두고, 몇 개가 붙든 자유롭게 줄바꿈되고 다른
-              내용을 밀어내지 않는다. 등록하면 면담 인사이트에도 그대로
-              반영된다. */}
-          <div ref={noteStripRef} className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
-            <span className="text-xs font-semibold text-gray-400">메모</span>
-            {personalNotes.map((note) => {
-            const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
-            return (
-              <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
-                <button
-                  onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
-                  title="색상 변경"
-                  aria-label="색상 변경"
-                  className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
-                />
-                <span className="max-w-[220px] truncate">{note.content}</span>
-                <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
-                  ×
-                </button>
-
-                {colorPickerFor === note.id && (
-                  <div className="absolute left-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
-                    {NOTE_COLOR_ORDER.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => {
-                          setPersonalNoteColor(note.id, c)
-                          setColorPickerFor(null)
-                        }}
-                        title={c}
-                        aria-label={c}
-                        className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
-                          (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </span>
-            )
-          })}
-
-          {noteAddOpen ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!noteInput.trim()) return
-                addPersonalNote(memberId, noteInput)
-                setNoteInput('')
-                setNoteAddOpen(false)
-              }}
-              className="flex items-center gap-1"
-            >
-              <input
-                type="text"
-                autoFocus
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onBlur={() => {
-                  if (!noteInput.trim()) setNoteAddOpen(false)
+              등록하면 면담 인사이트에도 그대로 반영된다. */}
+          <div ref={noteStripRef} className="flex shrink-0 flex-col items-end justify-center gap-3 self-stretch">
+            {noteAddOpen ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!noteInput.trim()) return
+                  addPersonalNote(memberId, noteInput)
+                  setNoteInput('')
+                  setNoteAddOpen(false)
                 }}
-                placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
-              />
-              <button
-                type="submit"
-                disabled={!noteInput.trim()}
-                className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+                className="flex items-center gap-1"
               >
-                추가
+                <input
+                  type="text"
+                  autoFocus
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  onBlur={() => {
+                    if (!noteInput.trim()) setNoteAddOpen(false)
+                  }}
+                  placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
+                  className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
+                />
+                <button
+                  type="submit"
+                  disabled={!noteInput.trim()}
+                  className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+                >
+                  추가
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setNoteAddOpen(true)}
+                className="shrink-0 rounded-full border border-dashed border-gray-300 px-4 py-1.5 text-[13px] font-semibold text-gray-500 hover:border-violet-300 hover:text-violet-600"
+              >
+                + 메모
               </button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setNoteAddOpen(true)}
-              className="rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[12px] font-medium text-gray-400 hover:border-violet-300 hover:text-violet-600"
-            >
-              + 메모
-            </button>
-          )}
+            )}
+
+            {personalNotes.length > 0 && (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                {personalNotes.map((note) => {
+                  const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
+                  return (
+                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
+                      <button
+                        onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
+                        title="색상 변경"
+                        aria-label="색상 변경"
+                        className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
+                      />
+                      <span className="max-w-[220px] truncate">{note.content}</span>
+                      <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                        ×
+                      </button>
+
+                      {colorPickerFor === note.id && (
+                        <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
+                          {NOTE_COLOR_ORDER.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => {
+                                setPersonalNoteColor(note.id, c)
+                                setColorPickerFor(null)
+                              }}
+                              title={c}
+                              aria-label={c}
+                              className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
+                                (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
