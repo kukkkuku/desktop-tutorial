@@ -3,8 +3,8 @@ import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { EvaluationGrade, PersonalNoteColor } from '../../types'
-import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent } from '../../utils/calculations'
-import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
+import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
+import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -100,15 +100,17 @@ interface MemberGrowthDetailProps {
 
 // 3등분 컬럼(최근 성과 / 성장 시뮬레이션 / 면담) 폭 경계 -- [b1, b2]는 전체
 // 폭에서 0~1 사이 비율로 나타낸 두 경계선 위치다. 컬럼 폭은 [0,b1], [b1,b2],
-// [b2,1] 세 구간. 기본은 정확히 3등분.
+// [b2,1] 세 구간. 기본은 정확히 3등분. 성장 시뮬레이션 컬럼을 접으면 이
+// 경계값은 잠시 무시되고 나머지 두 컬럼이 남는 폭을 나눠 갖는다.
 const DEFAULT_BOUNDS: [number, number] = [1 / 3, 2 / 3]
 const MIN_COL = 0.15
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
-// 요약이 전체 폭을 가로지르고, 그 아래는 3등분: 최근 성과 / 성장 시뮬레이션 /
-// 면담(면담 인사이트 + 면담일지) -- 두 개의 스플리터로 폭을 자유롭게 조절할
-// 수 있다. 우측 면담 일정(캘린더)은 NotesStage가 별도 컬럼으로 붙여준다 --
-// 이 컴포넌트는 건드리지 않는다.
+// 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
+// 그 아래는 3등분: 최근 성과 / 성장 시뮬레이션 / 면담(면담 인사이트 +
+// 면담일지) -- 두 개의 스플리터로 폭을 자유롭게 조절할 수 있다. 우측 면담
+// 일정(캘린더)은 NotesStage가 별도 컬럼으로 붙여준다 -- 이 컴포넌트는
+// 건드리지 않는다.
 export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrowthDetailProps) {
   const { state, dispatch } = useAppState()
   const { profile, addPersonalNote, deletePersonalNote, setPersonalNoteColor } = useTeamProfile()
@@ -120,6 +122,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [insightsOpen, setInsightsOpen] = useState(true)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
+  const [simCollapsed, setSimCollapsed] = useState(true)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
@@ -198,14 +201,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
   const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
   const memberResult = resultIdx >= 0 ? memberResults[resultIdx] : undefined
+  const cardYear = currentWorkspace?.evaluationYear ?? new Date().getFullYear()
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, auxScoreSum(member.auxScores), levelTenureYears)
 
-  // Summary Bar의 승진 관련 항목(현재 점수/승진 기준/필요 점수 갭) --
-  // PromotionSimulationPanel과 같은 계산을 여기서 독립적으로 다시 구해 쓴다
-  // (코드베이스 컨벤션: prop으로 내려받지 않고 각자 재계산).
+  // 요약카드(승진자격 점수/현재 점수/시뮬레이션 가산/최종 시뮬레이션 점수) --
+  // 팀장이 화면을 열자마자 가장 먼저 봐야 할 숫자라 성장 시뮬레이션 패널
+  // 안이 아니라 상단 요약으로 올린다. PromotionSimulationPanel과 같은
+  // 계산을 여기서 독립적으로 다시 구해 쓴다(코드베이스 컨벤션: prop으로
+  // 내려받지 않고 각자 재계산).
   const promotionCriteria = findPromotionCriteria(member.level, profile.promotionCriteria)
   const currentWeightedScore = readiness?.weightedScore ?? 0
   const scoreGap = promotionCriteria ? Math.round((currentWeightedScore - promotionCriteria.requiredScore) * 10) / 10 : null
@@ -220,10 +226,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
 
+  const projectedTotal = promotionCriteria
+    ? calcProjectedPromotionScore(appraisals, profile.gradeScores, promotionCriteria, reviewYear, auxScoreSum(member.auxScores)).projectedTotal
+    : 0
+  const simDelta = Math.round((projectedTotal - currentWeightedScore) * 10) / 10
+
   // 고과 추이 그래프 두 개 -- 상하반기 성과(업적) 고과와 연도별 역량고과는
   // 서로 다른 주기(반기 vs 연간)라 따로 그린다. 최근 4년 구간이 다 보이도록
   // 반기 그래프는 최대 8포인트(연 2회 x 4년), 역량 그래프는 4포인트까지
-  // 보여준다.
+  // 보여준다. 최근 성과 카드 안에 작게 넣는다.
   const halfYearGradePoints = appraisals.flatMap((r) => {
     const pts: { period: string; grade: EvaluationGrade }[] = []
     if (r.firstHalfGrade) pts.push({ period: `${r.year} 상`, grade: r.firstHalfGrade })
@@ -285,175 +296,208 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   return (
     <div className="flex min-h-full flex-col">
-      {/* 상단 프로필 요약 -- 이름·심사일 / 고과 추이 / 메모 세 덩이를 한 줄에
-          바짝 붙여 놓는다("이름과 심사일 - 고과추이 - 메모" 순서). 각자
-          내용만큼만 폭을 쓰고(shrink-0), justify-between처럼 전체 폭에
-          억지로 펼치지 않아 화면이 넓어도 가운데에 빈 여백이 생기지
-          않는다. 덩이 사이 간격만 20px/40px로 차등을 둔다. */}
+      {/* 상단 프로필 요약 -- 이름·심사일 + 승진 점수 요약카드를 왼쪽에 붙여
+          놓고, 메모는 화면 가장 우측 끝으로 보낸다(justify-between). 가장
+          중요한 숫자(승진자격/현재/가산/최종 점수)를 요약카드로 여기서
+          바로 보여준다. */}
       <div className="border-b border-gray-200 bg-white px-5 py-4">
-        <div className="flex flex-wrap items-start">
-          <div className="shrink-0">
-            <p className="flex items-baseline gap-2">
-              <span className="text-lg font-bold text-black">{member.name}</span>
-              <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
-            </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-5">
+            <div className="shrink-0">
+              <p className="flex items-baseline gap-2">
+                <span className="text-lg font-bold text-black">{member.name}</span>
+                <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
+              </p>
 
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-gray-500">승진심사</span>
-              <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-              {promotionCriteria && scoreGap !== null && (
-                <span title={`${promotionCriteria.toLevel} 승격 기준 ${promotionCriteria.requiredScore.toFixed(1)}점 (현재 ${currentWeightedScore.toFixed(1)}점)`}>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-gray-500">승진심사</span>
+                <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
+                {promotionCriteria && scoreGap !== null && (
                   <Badge tone={scoreGap >= 0 ? 'accent' : 'neutral'}>
                     {scoreGap >= 0 ? '승진 가능' : `승진까지 ${Math.abs(scoreGap).toFixed(1)}점 필요`}
                   </Badge>
-                </span>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="ml-5 shrink-0 space-y-2">
-            <div>
-              <p className="text-xs font-semibold text-gray-400">상하반기 성과 고과 추이</p>
-              <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={200} className="mt-1" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-gray-400">년도별 역량고과 추이</p>
-              <TrendSparkline points={competencyGradePoints} maxPoints={4} width={130} className="mt-1" />
-            </div>
+            {promotionCriteria && (
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-yellow-50 px-4 py-3">
+                <div>
+                  <p className="text-[11px] text-gray-500">승진자격 점수</p>
+                  <p className="mt-1 text-2xl font-bold text-black">{promotionCriteria.requiredScore.toFixed(1)}점</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-500">현재 점수</p>
+                  <p className="mt-1 text-2xl font-bold text-black">{currentWeightedScore.toFixed(1)}점</p>
+                </div>
+                <span className="text-xl text-gray-300" aria-hidden="true">
+                  +
+                </span>
+                <div>
+                  <p className="text-[11px] text-gray-500" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
+                    시뮬레이션 가산 ⓘ
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-accent">
+                    {simDelta >= 0 ? '+' : ''}
+                    {simDelta.toFixed(1)}점
+                  </p>
+                </div>
+                <span className="text-xl text-gray-300" aria-hidden="true">
+                  →
+                </span>
+                <div>
+                  <p className="text-[11px] text-gray-500">최종 시뮬레이션 점수 ({reviewYear}년)</p>
+                  <p className="mt-1 text-2xl font-bold text-black">{projectedTotal.toFixed(1)}점</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
               잡히지만 면담 전에 챙겨야 할 개인 상황을 칩으로 붙여둔다.
-              등록하면 면담 인사이트에도 그대로 반영된다. 우측에서 좌측으로
-              쌓이는 방식 -- row-reverse로 담아서 "+메모" 입력이 항상
-              오른쪽 끝에 붙어 있고, 새로 추가한 메모일수록 그 입력 바로
-              왼쪽에 붙으며 오래된 메모가 점점 왼쪽으로 밀려난다. */}
-          <div ref={noteStripRef} className="ml-10 flex max-w-xs shrink-0 flex-row-reverse flex-wrap items-start gap-1.5">
-          {noteAddOpen ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!noteInput.trim()) return
-                addPersonalNote(memberId, noteInput)
-                setNoteInput('')
-                setNoteAddOpen(false)
-              }}
-              className="flex items-center gap-1"
-            >
-              <input
-                type="text"
-                autoFocus
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onBlur={() => {
-                  if (!noteInput.trim()) setNoteAddOpen(false)
+              등록하면 면담 인사이트에도 그대로 반영된다. 화면 가장 우측
+              끝에 붙여, "+메모" 입력을 위에 두고 칩은 그 아래 오른쪽
+              정렬로 쌓는다. */}
+          <div ref={noteStripRef} className="flex shrink-0 flex-col items-end gap-1.5">
+            {noteAddOpen ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (!noteInput.trim()) return
+                  addPersonalNote(memberId, noteInput)
+                  setNoteInput('')
+                  setNoteAddOpen(false)
                 }}
-                placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
-              />
-              <button
-                type="submit"
-                disabled={!noteInput.trim()}
-                className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+                className="flex items-center gap-1"
               >
-                추가
-              </button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setNoteAddOpen(true)}
-              className="shrink-0 rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[12px] font-medium text-gray-400 hover:border-violet-300 hover:text-violet-600"
-            >
-              + 메모
-            </button>
-          )}
-
-          {[...personalNotes].reverse().map((note) => {
-            const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
-            return (
-              <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
-                <button
-                  onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
-                  title="색상 변경"
-                  aria-label="색상 변경"
-                  className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
+                <input
+                  type="text"
+                  autoFocus
+                  value={noteInput}
+                  onChange={(e) => setNoteInput(e.target.value)}
+                  onBlur={() => {
+                    if (!noteInput.trim()) setNoteAddOpen(false)
+                  }}
+                  placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
+                  className="w-60 rounded-full border border-gray-200 px-3 py-1 text-[12px] text-black focus:outline-none focus:ring-1 focus:ring-violet-400"
                 />
-                <span className="max-w-[220px] truncate">{note.content}</span>
-                <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
-                  ×
+                <button
+                  type="submit"
+                  disabled={!noteInput.trim()}
+                  className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+                >
+                  추가
                 </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setNoteAddOpen(true)}
+                className="shrink-0 rounded-full border border-dashed border-gray-300 px-2.5 py-1 text-[12px] font-medium text-gray-400 hover:border-violet-300 hover:text-violet-600"
+              >
+                + 메모
+              </button>
+            )}
 
-                {colorPickerFor === note.id && (
-                  <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
-                    {NOTE_COLOR_ORDER.map((c) => (
+            {personalNotes.length > 0 && (
+              <div className="flex max-w-xs flex-wrap justify-end gap-1.5">
+                {personalNotes.map((note) => {
+                  const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
+                  return (
+                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
                       <button
-                        key={c}
-                        onClick={() => {
-                          setPersonalNoteColor(note.id, c)
-                          setColorPickerFor(null)
-                        }}
-                        title={c}
-                        aria-label={c}
-                        className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
-                          (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
-                        }`}
+                        onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
+                        title="색상 변경"
+                        aria-label="색상 변경"
+                        className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
                       />
-                    ))}
-                  </div>
-                )}
-              </span>
-            )
-          })}
+                      <span className="max-w-[220px] truncate">{note.content}</span>
+                      <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                        ×
+                      </button>
+
+                      {colorPickerFor === note.id && (
+                        <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-2 shadow-lg">
+                          {NOTE_COLOR_ORDER.map((c) => (
+                            <button
+                              key={c}
+                              onClick={() => {
+                                setPersonalNoteColor(note.id, c)
+                                setColorPickerFor(null)
+                              }}
+                              title={c}
+                              aria-label={c}
+                              className={`h-5 w-5 rounded-full ${NOTE_COLOR_STYLES[c].dot} transition-transform hover:scale-110 ${
+                                (note.color ?? 'violet') === c ? 'ring-2 ring-accent ring-offset-2' : ''
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* 최근 성과 / 성장 시뮬레이션 / 면담을 3등분 컬럼으로 나란히 놓는다 --
           두 개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다(기본
-          정확히 3등분). xl 미만에서는 위아래로 쌓고 스플리터는 숨긴다. */}
+          정확히 3등분). 성장 시뮬레이션을 접으면 세로 타이틀만 남은 얇은
+          바가 되고, 나머지 두 컬럼이 남는 폭을 나눠 갖는다. xl 미만에서는
+          위아래로 쌓고 스플리터는 숨긴다. */}
       <div className="flex-1 bg-slate-50 p-5">
-        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
-          <div className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
-            <SectionCard title="최근 성과" bodyRef={recentColRef}>
+        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={simCollapsed ? undefined : gridStyle}>
+          <div className={simCollapsed ? 'w-full min-w-0 xl:min-w-0 xl:flex-1' : 'w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0'}>
+            <SectionCard
+              title={`${cardYear} 성과`}
+              headerBadge={
+                memberResult && (
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="text-[15px] font-bold text-gray-600">
+                      {cardYear} 성과 {memberResult.cumulativeScore.toFixed(1)}
+                    </span>
+                    <span className={`rounded px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[memberResult.grade]}`}>{memberResult.grade}</span>
+                  </span>
+                )
+              }
+              bodyRef={recentColRef}
+            >
+              <div className="mb-3 flex flex-wrap gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+                  <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400">년도별 역량고과 추이</p>
+                  <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
+                </div>
+              </div>
+
               {currentTasks.length === 0 ? (
                 <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[380px] text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-xs text-gray-400">
-                        <th className="py-2 pr-3 font-semibold">과제</th>
-                        <th className="px-3 py-2 font-semibold">기여도</th>
-                        <th className="px-3 py-2 font-semibold">개인 등급</th>
-                        <th className="pl-3 py-2 text-right font-semibold">개인 점수</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
-                        <tr key={task.id} className="border-b border-gray-100 text-black last:border-0">
-                          <td className="py-2.5 pr-3">
-                            <span className="flex items-center gap-1.5">
-                              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
-                              <span className="font-medium">{task.name}</span>
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-gray-600">{contributionPercent}%</td>
-                          <td className="px-3 py-2.5 text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <span>{personalGrade}</span>
-                              <GradeNoteButton
-                                note={personalGradeNote}
-                                label={task.name}
-                                onSave={(next) => handleGradeNoteSave(task.id, next)}
-                                previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
-                              />
-                            </div>
-                          </td>
-                          <td className="pl-3 py-2.5 text-right font-mono font-semibold">{personalScore.toFixed(1)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="divide-y divide-dashed divide-gray-200">
+                  {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
+                    <div key={task.id} className="flex items-center gap-3 py-2">
+                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>{task.importance}</span>
+                        <span className="truncate text-sm font-semibold text-black">{task.name}</span>
+                      </span>
+                      <span className="w-12 shrink-0 text-center text-[13px] text-gray-600">{contributionPercent}%</span>
+                      <span className="flex w-16 shrink-0 items-center justify-center gap-1">
+                        <span className="text-sm font-semibold text-black">{personalGrade}</span>
+                        <GradeNoteButton
+                          note={personalGradeNote}
+                          label={task.name}
+                          onSave={(next) => handleGradeNoteSave(task.id, next)}
+                          previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                        />
+                      </span>
+                      <span className="w-16 shrink-0 text-right font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -470,28 +514,44 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </SectionCard>
           </div>
 
-          <ColumnSplitter {...splitter0} />
+          {!simCollapsed && <ColumnSplitter {...splitter0} />}
 
-          <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
-            <SectionCard
-              title="성장 시뮬레이션"
-              headerBadge={
-                promotionCriteria && (
-                  <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
-                    ⓘ 기준 보기
-                  </button>
-                )
-              }
-            >
-              <PromotionSimulationPanel member={member} />
-            </SectionCard>
+          <div className={simCollapsed ? 'w-full shrink-0 xl:w-16' : 'w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0'}>
+            {simCollapsed ? (
+              <button
+                onClick={() => setSimCollapsed(false)}
+                title="성장 시뮬레이션 펼치기"
+                className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6 hover:bg-gray-50"
+              >
+                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성장 시뮬레이션</span>
+                {promotionCriteria && <span className="[writing-mode:vertical-rl] text-xs font-semibold text-gray-400">ⓘ 기준 보기</span>}
+              </button>
+            ) : (
+              <SectionCard
+                title="성장 시뮬레이션"
+                headerBadge={
+                  <span className="flex shrink-0 items-center gap-3">
+                    {promotionCriteria && (
+                      <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
+                        ⓘ 기준 보기
+                      </button>
+                    )}
+                    <button onClick={() => setSimCollapsed(true)} className="shrink-0 text-xs font-semibold text-gray-400 hover:text-accent">
+                      − 접기
+                    </button>
+                  </span>
+                }
+              >
+                <PromotionSimulationPanel member={member} />
+              </SectionCard>
+            )}
           </div>
 
-          <ColumnSplitter {...splitter1} />
+          {!simCollapsed && <ColumnSplitter {...splitter1} />}
 
           {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지를 다른 두
               컬럼과 같은 흰 카드 안에 함께 담는다. */}
-          <div className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
+          <div className={simCollapsed ? 'w-full min-w-0 xl:min-w-0 xl:flex-1' : 'w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1'}>
             <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
               {meetingInsights.length > 0 && (
                 <div className="mb-4 rounded-lg bg-gray-50">
