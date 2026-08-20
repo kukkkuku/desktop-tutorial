@@ -19,6 +19,10 @@ import PromotionDatePicker from '../PromotionDatePicker'
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
 const WIDE_COL_THRESHOLD = 380
 const GRADE_NOTE_PREVIEW_CHARS = 12
+// 성장 시뮬레이션 컬럼이 "접힌 슬림 바"로 보일지 판단하는 실측 폭 기준 --
+// 버튼으로 접고 펼치는 게 아니라, 스플리터로 줄이면 이 폭 아래로 내려가서
+// 자동으로 슬림 바가 되고 늘리면 다시 컨텐츠가 나온다.
+const SIM_NARROW_THRESHOLD = 120
 
 // 최근 성과 / 성장 시뮬레이션 카드 공용 래퍼 -- 3등분 컬럼에서 각자 고정된
 // 자기 칸을 가지므로 더 이상 접었다 펼 필요가 없다(예전엔 면담하기와 폭을
@@ -97,16 +101,19 @@ interface MemberGrowthDetailProps {
   prepRequest?: { memberId: string; token: number } | null
 }
 
-// 3등분 컬럼(최근 성과 / 성장 시뮬레이션 / 면담) 폭 경계 -- [b1, b2]는 전체
-// 폭에서 0~1 사이 비율로 나타낸 두 경계선 위치다. 컬럼 폭은 [0,b1], [b1,b2],
-// [b2,1] 세 구간. 기본은 정확히 3등분. 성장 시뮬레이션 컬럼을 접으면 이
-// 경계값은 잠시 무시되고 나머지 두 컬럼이 남는 폭을 나눠 갖는다.
-const DEFAULT_BOUNDS: [number, number] = [1 / 3, 2 / 3]
+// 3등분 컬럼(성장 시뮬레이션 / 최근 성과 / 면담) 폭 경계 -- [b0, b1]은 전체
+// 폭에서 0~1 사이 비율로 나타낸 두 경계선 위치다. 컬럼 폭은 [0,b0], [b0,b1],
+// [b1,1] 세 구간. 성장 시뮬레이션(첫 컬럼)은 기본값이 슬림 바 폭(아래
+// SIM_COLLAPSED_WIDTH)이 되도록 마운트 시점에 실측해서 보정하고, 나머지
+// 폭은 최근 성과/면담이 반씩 나눠 갖는다.
+const DEFAULT_BOUNDS: [number, number] = [0.05, 0.525]
 const MIN_COL = 0.15
-// 접힌 성장 시뮬레이션 컬럼의 고정 폭(px, xl:w-16과 동일) -- 스플리터를
-// 잡고 드래그를 시작하는 순간 이 폭에 해당하는 경계값으로 바꿔서 펼침
-// 상태로 전환하고, 그대로 이어서 드래그한 만큼 넓어지게 한다.
+// 성장 시뮬레이션 컬럼의 기본(마운트 시) 슬림 폭(px) -- 버튼으로 접는 게
+// 아니라 스플리터로 이 폭 근처까지 줄이면 자동으로 슬림 바 모습이 된다.
 const SIM_COLLAPSED_WIDTH = 64
+// 성장 시뮬레이션 컬럼이 가질 수 있는 최소 폭(px) -- 스플리터로 완전히
+// 사라지지 않게 막아둔다.
+const SIM_MIN_WIDTH = 48
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -125,7 +132,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [insightsOpen, setInsightsOpen] = useState(true)
   const [pastPeriodsOpen, setPastPeriodsOpen] = useState(false)
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
-  const [simCollapsed, setSimCollapsed] = useState(true)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
@@ -136,35 +142,43 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const recentColRef = useRef<HTMLDivElement>(null)
   const [recentColWide, setRecentColWide] = useState(true)
 
+  // 성장 시뮬레이션 컬럼 -- 버튼으로 접고 펼치는 게 아니라, 스플리터로 줄인
+  // 실제 폭을 실측해서 슬림 바 모습을 자동으로 켜고 끈다.
+  const simColRef = useRef<HTMLDivElement>(null)
+  const [simNarrow, setSimNarrow] = useState(true)
+
   const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ handle: 0 | 1; startX: number; startBounds: [number, number]; containerWidth: number } | null>(null)
+  const boundsInitialized = useRef(false)
+
+  // 마운트 시점에 첫 컬럼(성장 시뮬레이션) 폭이 정확히 슬림 바 픽셀값이
+  // 되도록 경계값을 보정한다 -- 화면 폭마다 DEFAULT_BOUNDS의 비율만으로는
+  // 정확한 픽셀 폭을 맞출 수 없기 때문.
+  useLayoutEffect(() => {
+    if (boundsInitialized.current) return
+    const containerWidth = rowRef.current?.getBoundingClientRect().width
+    if (!containerWidth) return
+    boundsInitialized.current = true
+    const b0 = SIM_COLLAPSED_WIDTH / containerWidth
+    setBounds([b0, b0 + (1 - b0) / 2])
+  }, [])
 
   function makeSplitterHandlers(handle: 0 | 1) {
     return {
       onPointerDown: (e: ReactPointerEvent) => {
         e.preventDefault()
         const containerWidth = rowRef.current?.getBoundingClientRect().width || 1
-        // 접힌 상태에서 스플리터를 잡으면, 지금의 슬림 바 폭(64px)에 해당하는
-        // 경계값으로 즉시 펼치고 그 지점부터 드래그를 이어간다 -- 접혀 있어도
-        // 양옆 스플리터로 늘려서 펼칠 수 있어야 한다는 요구사항.
-        let startBounds = bounds
-        if (simCollapsed) {
-          const collapsedFrac = SIM_COLLAPSED_WIDTH / containerWidth
-          const b0 = handle === 0 ? bounds[0] : Math.max(MIN_COL, bounds[1] - collapsedFrac)
-          startBounds = [b0, b0 + collapsedFrac]
-          setBounds(startBounds)
-          setSimCollapsed(false)
-        }
-        dragRef.current = { handle, startX: e.clientX, startBounds, containerWidth }
+        dragRef.current = { handle, startX: e.clientX, startBounds: bounds, containerWidth }
         ;(e.target as Element).setPointerCapture?.(e.pointerId)
       },
       onPointerMove: (e: ReactPointerEvent) => {
         if (!dragRef.current || dragRef.current.handle !== handle) return
         const { startX, startBounds, containerWidth } = dragRef.current
         const delta = (e.clientX - startX) / containerWidth
+        const minSim = SIM_MIN_WIDTH / containerWidth
         if (handle === 0) {
-          const next0 = Math.min(startBounds[1] - MIN_COL, Math.max(MIN_COL, startBounds[0] + delta))
+          const next0 = Math.min(startBounds[1] - MIN_COL, Math.max(minSim, startBounds[0] + delta))
           setBounds([next0, startBounds[1]])
         } else {
           const next1 = Math.min(1 - MIN_COL, Math.max(startBounds[0] + MIN_COL, startBounds[1] + delta))
@@ -202,6 +216,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     const el = recentColRef.current
     if (!el) return
     const update = () => setRecentColWide(el.getBoundingClientRect().width >= WIDE_COL_THRESHOLD)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = simColRef.current
+    if (!el) return
+    const update = () => setSimNarrow(el.getBoundingClientRect().width < SIM_NARROW_THRESHOLD)
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
@@ -450,14 +474,48 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      {/* 최근 성과 / 성장 시뮬레이션 / 면담을 3등분 컬럼으로 나란히 놓는다 --
-          두 개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다(기본
-          정확히 3등분). 성장 시뮬레이션을 접으면 세로 타이틀만 남은 얇은
-          바가 되고, 나머지 두 컬럼이 남는 폭을 나눠 갖는다. xl 미만에서는
-          위아래로 쌓고 스플리터는 숨긴다. */}
+      {/* 성장 시뮬레이션 / 최근 성과 / 면담을 3등분 컬럼으로 나란히 놓는다 --
+          두 개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다. 성장
+          시뮬레이션(첫 컬럼)은 접기 버튼이 따로 없다 -- 스플리터로 좁히면
+          실측 폭에 따라 저절로 세로 타이틀만 남은 슬림 바가 되고, 다시
+          늘리면 컨텐츠가 나온다. xl 미만에서는 위아래로 쌓고 스플리터는
+          숨긴다(이 경우 성장 시뮬레이션은 항상 폭이 넓어 슬림 바가 되지
+          않는다). */}
       <div className="flex-1 bg-slate-50 p-5">
-        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={simCollapsed ? undefined : gridStyle}>
-          <div className={simCollapsed ? 'w-full min-w-0 xl:min-w-0 xl:flex-1' : 'w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0'}>
+        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
+          <div ref={simColRef} className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
+            {simNarrow ? (
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6">
+                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성장 시뮬레이션</span>
+                {promotionCriteria && (
+                  <button
+                    onClick={() => setCriteriaManagerOpen(true)}
+                    title="승진 기준 보기"
+                    className="[writing-mode:vertical-rl] text-xs font-semibold text-gray-400 hover:text-accent"
+                  >
+                    ⓘ 기준 보기
+                  </button>
+                )}
+              </div>
+            ) : (
+              <SectionCard
+                title="성장 시뮬레이션"
+                headerBadge={
+                  promotionCriteria && (
+                    <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
+                      ⓘ 기준 보기
+                    </button>
+                  )
+                }
+              >
+                <PromotionSimulationPanel member={member} />
+              </SectionCard>
+            )}
+          </div>
+
+          <ColumnSplitter {...splitter0} />
+
+          <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
             <SectionCard
               title={
                 memberResult
@@ -489,7 +547,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                       </span>
                       <span className="w-10 shrink-0 text-center text-[13px] text-gray-500">{contributionPercent}%</span>
                       <span className="w-14 shrink-0 text-right font-mono text-base font-bold text-black">{personalScore.toFixed(1)}</span>
-                      <span className="flex w-20 shrink-0 items-center justify-end gap-1">
+                      <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">
                         <span className="text-sm font-semibold text-black">{personalGrade}</span>
                         <GradeNoteButton
                           note={personalGradeNote}
@@ -516,54 +574,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </SectionCard>
           </div>
 
-          <ColumnSplitter {...splitter0} />
-
-          <div className={simCollapsed ? 'w-full shrink-0 xl:w-16' : 'w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0'}>
-            {simCollapsed ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6 hover:bg-gray-50">
-                <button
-                  onClick={() => setSimCollapsed(false)}
-                  title="성장 시뮬레이션 펼치기"
-                  className="[writing-mode:vertical-rl] text-base font-bold text-black"
-                >
-                  성장 시뮬레이션
-                </button>
-                {promotionCriteria && (
-                  <button
-                    onClick={() => setCriteriaManagerOpen(true)}
-                    title="승진 기준 보기"
-                    className="[writing-mode:vertical-rl] text-xs font-semibold text-gray-400 hover:text-accent"
-                  >
-                    ⓘ 기준 보기
-                  </button>
-                )}
-              </div>
-            ) : (
-              <SectionCard
-                title="성장 시뮬레이션"
-                headerBadge={
-                  <span className="flex shrink-0 items-center gap-3">
-                    {promotionCriteria && (
-                      <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-gray-500 hover:text-accent">
-                        ⓘ 기준 보기
-                      </button>
-                    )}
-                    <button onClick={() => setSimCollapsed(true)} className="shrink-0 text-xs font-semibold text-gray-400 hover:text-accent">
-                      − 접기
-                    </button>
-                  </span>
-                }
-              >
-                <PromotionSimulationPanel member={member} />
-              </SectionCard>
-            )}
-          </div>
-
           <ColumnSplitter {...splitter1} />
 
           {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지를 다른 두
               컬럼과 같은 흰 카드 안에 함께 담는다. */}
-          <div className={simCollapsed ? 'w-full min-w-0 xl:min-w-0 xl:flex-1' : 'w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1'}>
+          <div className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
             <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
               {meetingInsights.length > 0 && (
                 <div className="mb-4 rounded-lg bg-gray-50">
