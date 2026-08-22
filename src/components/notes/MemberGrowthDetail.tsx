@@ -181,6 +181,9 @@ const SIM_COLLAPSED_WIDTH = 64
 // 세 컬럼 모두가 가질 수 있는 최소 폭(px) -- 스플리터로 어느 컬럼이든
 // 완전히 사라지지 않게 막아둔다.
 const COL_MIN_WIDTH = 48
+// 성과/면담 슬림 바의 "한번에 펼치기" 아이콘을 누르면 이 폭(px)으로 펼친다
+// -- 3등분 기본폭까지 늘리지 않고, 내용이 깨지지 않는 최소 크기로만 연다.
+const EXPAND_TARGET_WIDTH = 420
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -285,6 +288,25 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
+    })
+  }
+
+  // 성과/면담 슬림 바의 펼치기 아이콘 -- 스플리터를 직접 드래그하는 대신
+  // 클릭 한 번으로, 내용이 깨지지 않는 최소 폭(EXPAND_TARGET_WIDTH)까지
+  // 곧바로 펼친다. 성과는 b0(성장 시뮬레이션과의 경계)는 그대로 두고 b1을
+  // 옮기고, 면담은 반대로 b1을 옮겨 우측 폭을 확보한다.
+  function expandColumn(which: 'perf' | 'meeting') {
+    const containerWidth = rowRef.current?.getBoundingClientRect().width
+    if (!containerWidth) return
+    const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
+    const minFrac = COL_MIN_WIDTH / containerWidth
+    setBounds(([b0]) => {
+      if (which === 'perf') {
+        const next1 = Math.max(b0 + minFrac, Math.min(1 - minFrac, b0 + targetFrac))
+        return [b0, next1]
+      }
+      const next1 = Math.min(1 - minFrac, Math.max(b0 + minFrac, 1 - targetFrac))
+      return [b0, next1]
     })
   }
 
@@ -625,7 +647,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <div ref={recentColRef} className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
             {perfNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-6">
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
+                <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
                 <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성과</span>
               </div>
             ) : (
@@ -717,7 +740,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
           <div ref={meetingColRef} className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
             {meetingNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-6">
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
+                <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
                 <span className="[writing-mode:vertical-rl] text-base font-bold text-black">면담</span>
               </div>
             ) : (
