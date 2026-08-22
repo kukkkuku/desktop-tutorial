@@ -20,10 +20,11 @@ import CollapseToggleButton from '../CollapseToggleButton'
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
 const WIDE_COL_THRESHOLD = 380
 const GRADE_NOTE_PREVIEW_CHARS = 12
-// 성장 시뮬레이션 컬럼이 "접힌 슬림 바"로 보일지 판단하는 실측 폭 기준 --
-// 버튼으로 접고 펼치는 게 아니라, 스플리터로 줄이면 이 폭 아래로 내려가서
-// 자동으로 슬림 바가 되고 늘리면 다시 컨텐츠가 나온다.
-const SIM_NARROW_THRESHOLD = 120
+// 3등분 컬럼(성장 시뮬레이션/성과/면담) 중 어느 컬럼이든 "접힌 슬림 바"로
+// 보일지 판단하는 공용 실측 폭 기준 -- 버튼으로 접고 펼치는 게 아니라,
+// 스플리터로 어느 컬럼이든 이 폭 아래로 줄이면 자동으로 세로 타이틀만
+// 남은 슬림 바가 되고, 다시 늘리면 컨텐츠가 나온다.
+const COL_NARROW_THRESHOLD = 120
 
 // 최근 성과 / 성장 시뮬레이션 카드 공용 래퍼 -- 3등분 컬럼에서 각자 고정된
 // 자기 칸을 가지므로 더 이상 접었다 펼 필요가 없다(예전엔 면담하기와 폭을
@@ -174,13 +175,12 @@ interface MemberGrowthDetailProps {
 // SIM_COLLAPSED_WIDTH)이 되도록 마운트 시점에 실측해서 보정하고, 나머지
 // 폭은 최근 성과/면담이 반씩 나눠 갖는다.
 const DEFAULT_BOUNDS: [number, number] = [0.05, 0.525]
-const MIN_COL = 0.15
 // 성장 시뮬레이션 컬럼의 기본(마운트 시) 슬림 폭(px) -- 버튼으로 접는 게
 // 아니라 스플리터로 이 폭 근처까지 줄이면 자동으로 슬림 바 모습이 된다.
 const SIM_COLLAPSED_WIDTH = 64
-// 성장 시뮬레이션 컬럼이 가질 수 있는 최소 폭(px) -- 스플리터로 완전히
-// 사라지지 않게 막아둔다.
-const SIM_MIN_WIDTH = 48
+// 세 컬럼 모두가 가질 수 있는 최소 폭(px) -- 스플리터로 어느 컬럼이든
+// 완전히 사라지지 않게 막아둔다.
+const COL_MIN_WIDTH = 48
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -207,14 +207,19 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const noteStripRef = useRef<HTMLDivElement>(null)
 
   // 최근 성과 표 폭 -- 스플리터로 좁아지면 개인등급 근거를 아이콘만, 넓으면
-  // 아이콘+짧은 미리보기로 보여준다(리사이즈 옵저버로 실측).
+  // 아이콘+짧은 미리보기로 보여준다(리사이즈 옵저버로 실측). 같은 실측값을
+  // 성과 컬럼의 슬림 바 여부(perfNarrow) 판단에도 재사용한다.
   const recentColRef = useRef<HTMLDivElement>(null)
   const [recentColWide, setRecentColWide] = useState(true)
+  const [perfNarrow, setPerfNarrow] = useState(false)
 
-  // 성장 시뮬레이션 컬럼 -- 버튼으로 접고 펼치는 게 아니라, 스플리터로 줄인
-  // 실제 폭을 실측해서 슬림 바 모습을 자동으로 켜고 끈다.
+  // 성장 시뮬레이션 / 면담 컬럼 -- 버튼으로 접고 펼치는 게 아니라, 스플리터로
+  // 줄인 실제 폭을 실측해서 슬림 바 모습을 자동으로 켜고 끈다(성과 컬럼도
+  // 위 recentColRef로 같은 방식을 쓴다).
   const simColRef = useRef<HTMLDivElement>(null)
   const [simNarrow, setSimNarrow] = useState(true)
+  const meetingColRef = useRef<HTMLDivElement>(null)
+  const [meetingNarrow, setMeetingNarrow] = useState(false)
 
   const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -245,12 +250,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         if (!dragRef.current || dragRef.current.handle !== handle) return
         const { startX, startBounds, containerWidth } = dragRef.current
         const delta = (e.clientX - startX) / containerWidth
-        const minSim = SIM_MIN_WIDTH / containerWidth
+        // 세 컬럼 모두 같은 최소 픽셀폭까지 줄일 수 있다 -- 어느 컬럼이든
+        // 스플리터로 좁히면 슬림 바가 될 수 있어야 한다는 요구사항.
+        const minPx = COL_MIN_WIDTH / containerWidth
         if (handle === 0) {
-          const next0 = Math.min(startBounds[1] - MIN_COL, Math.max(minSim, startBounds[0] + delta))
+          const next0 = Math.min(startBounds[1] - minPx, Math.max(minPx, startBounds[0] + delta))
           setBounds([next0, startBounds[1]])
         } else {
-          const next1 = Math.min(1 - MIN_COL, Math.max(startBounds[0] + MIN_COL, startBounds[1] + delta))
+          const next1 = Math.min(1 - minPx, Math.max(startBounds[0] + minPx, startBounds[1] + delta))
           setBounds([startBounds[0], next1])
         }
       },
@@ -296,7 +303,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   useLayoutEffect(() => {
     const el = recentColRef.current
     if (!el) return
-    const update = () => setRecentColWide(el.getBoundingClientRect().width >= WIDE_COL_THRESHOLD)
+    const update = () => {
+      const width = el.getBoundingClientRect().width
+      setRecentColWide(width >= WIDE_COL_THRESHOLD)
+      setPerfNarrow(width < COL_NARROW_THRESHOLD)
+    }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
@@ -306,7 +317,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   useLayoutEffect(() => {
     const el = simColRef.current
     if (!el) return
-    const update = () => setSimNarrow(el.getBoundingClientRect().width < SIM_NARROW_THRESHOLD)
+    const update = () => setSimNarrow(el.getBoundingClientRect().width < COL_NARROW_THRESHOLD)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = meetingColRef.current
+    if (!el) return
+    const update = () => setMeetingNarrow(el.getBoundingClientRect().width < COL_NARROW_THRESHOLD)
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
@@ -561,13 +582,13 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         </div>
       </div>
 
-      {/* 성장 시뮬레이션 / 최근 성과 / 면담을 3등분 컬럼으로 나란히 놓는다 --
-          두 개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다. 성장
-          시뮬레이션(첫 컬럼)은 접기 버튼이 따로 없다 -- 스플리터로 좁히면
-          실측 폭에 따라 저절로 세로 타이틀만 남은 슬림 바가 되고, 다시
-          늘리면 컨텐츠가 나온다. xl 미만에서는 위아래로 쌓고 스플리터는
-          숨긴다(이 경우 성장 시뮬레이션은 항상 폭이 넓어 슬림 바가 되지
-          않는다). */}
+      {/* 성장 시뮬레이션 / 성과 / 면담을 3등분 컬럼으로 나란히 놓는다 -- 두
+          개의 스플리터로 각 컬럼 폭을 자유롭게 조절할 수 있다. 세 컬럼 모두
+          접기 버튼이 따로 없다 -- 스플리터로 어느 컬럼이든 좁히면 실측 폭에
+          따라 저절로 세로 타이틀만 남은 슬림 바가 되고, 다시 늘리면 컨텐츠가
+          나온다(기본값은 성장 시뮬레이션만 슬림하게 시작). xl 미만에서는
+          위아래로 쌓고 스플리터는 숨긴다(이 경우 모든 컬럼이 항상 폭이 넓어
+          슬림 바가 되지 않는다). */}
       <div className="flex-1 bg-slate-50 p-5">
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
           <div ref={simColRef} className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
@@ -602,109 +623,114 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter0} />
 
-          <div ref={recentColRef} className="w-full min-w-0 space-y-3 xl:w-[var(--w2)] xl:shrink-0">
-            <div className="flex flex-wrap gap-4 px-1">
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400">상하반기 성과 고과 추이</p>
-                <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
+          <div ref={recentColRef} className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
+            {perfNarrow ? (
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-6">
+                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성과</span>
               </div>
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400">년도별 역량고과 추이</p>
-                <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
-              </div>
-            </div>
-
-            {currentWorkspace && (
-              <PeriodCard
-                title={`${cardYear} ${currentWorkspace.periodName}`}
-                score={memberResult?.cumulativeScore ?? null}
-                grade={memberResult?.grade ?? null}
-                isOpen={openPeriods.has(currentWorkspace.id)}
-                onToggle={() => togglePeriod(currentWorkspace.id)}
-              >
-                {currentTasks.length === 0 ? (
-                  <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
-                ) : (
-                  <div className="divide-y divide-dashed divide-gray-200">
-                    {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
-                      <TaskRow
-                        key={task.id}
-                        importance={task.importance}
-                        name={task.name}
-                        percent={contributionPercent}
-                        score={personalScore}
-                        gradeSlot={
-                          <>
-                            <span className="text-sm font-semibold text-black">{personalGrade}</span>
-                            <GradeNoteButton
-                              note={personalGradeNote}
-                              label={task.name}
-                              onSave={(next) => handleGradeNoteSave(task.id, next)}
-                              previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
-                            />
-                          </>
-                        }
-                      />
-                    ))}
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-4 px-1">
+                  <div>
+                    <p className="text-[11px] font-semibold text-gray-400">상하반기 성과 고과 추이</p>
+                    <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
                   </div>
+                  <div>
+                    <p className="text-[11px] font-semibold text-gray-400">년도별 역량고과 추이</p>
+                    <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
+                  </div>
+                </div>
+
+                {currentWorkspace && (
+                  <PeriodCard
+                    title={`${cardYear} ${currentWorkspace.periodName}`}
+                    score={memberResult?.cumulativeScore ?? null}
+                    grade={memberResult?.grade ?? null}
+                    isOpen={openPeriods.has(currentWorkspace.id)}
+                    onToggle={() => togglePeriod(currentWorkspace.id)}
+                  >
+                    {currentTasks.length === 0 ? (
+                      <p className="text-[13px] text-gray-400">이번 기간 참여한 과제가 없습니다.</p>
+                    ) : (
+                      <div className="divide-y divide-dashed divide-gray-200">
+                        {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
+                          <TaskRow
+                            key={task.id}
+                            importance={task.importance}
+                            name={task.name}
+                            percent={contributionPercent}
+                            score={personalScore}
+                            gradeSlot={
+                              <>
+                                <span className="text-sm font-semibold text-black">{personalGrade}</span>
+                                <GradeNoteButton
+                                  note={personalGradeNote}
+                                  label={task.name}
+                                  onSave={(next) => handleGradeNoteSave(task.id, next)}
+                                  previewChars={recentColWide ? GRADE_NOTE_PREVIEW_CHARS : undefined}
+                                />
+                              </>
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </PeriodCard>
                 )}
-              </PeriodCard>
+
+                {pastPeriods.map(({ workspace, cumulativeScore, grade, tasks }) => (
+                  <PeriodCard
+                    key={workspace.id}
+                    title={`${workspace.evaluationYear} ${workspace.periodName}`}
+                    score={cumulativeScore}
+                    grade={grade}
+                    isOpen={openPeriods.has(workspace.id)}
+                    onToggle={() => togglePeriod(workspace.id)}
+                  >
+                    {tasks.length === 0 ? (
+                      <p className="text-[13px] text-gray-400">참여한 과제가 없습니다.</p>
+                    ) : (
+                      <div className="divide-y divide-dashed divide-gray-200">
+                        {tasks.map((t) => (
+                          <TaskRow
+                            key={t.taskId}
+                            importance={t.importance}
+                            name={t.taskName}
+                            percent={t.contributionPercent}
+                            score={t.personalScore}
+                            gradeSlot={<span className="text-sm font-semibold text-black">{t.personalGrade}</span>}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </PeriodCard>
+                ))}
+              </div>
             )}
-
-            {pastPeriods.map(({ workspace, cumulativeScore, grade, tasks }) => (
-              <PeriodCard
-                key={workspace.id}
-                title={`${workspace.evaluationYear} ${workspace.periodName}`}
-                score={cumulativeScore}
-                grade={grade}
-                isOpen={openPeriods.has(workspace.id)}
-                onToggle={() => togglePeriod(workspace.id)}
-              >
-                {tasks.length === 0 ? (
-                  <p className="text-[13px] text-gray-400">참여한 과제가 없습니다.</p>
-                ) : (
-                  <div className="divide-y divide-dashed divide-gray-200">
-                    {tasks.map((t) => (
-                      <TaskRow
-                        key={t.taskId}
-                        importance={t.importance}
-                        name={t.taskName}
-                        percent={t.contributionPercent}
-                        score={t.personalScore}
-                        gradeSlot={<span className="text-sm font-semibold text-black">{t.personalGrade}</span>}
-                      />
-                    ))}
-                  </div>
-                )}
-              </PeriodCard>
-            ))}
           </div>
 
           <ColumnSplitter {...splitter1} />
 
-          {/* 면담 -- 면담 인사이트(접고 펼 수 있음) + 면담일지를 다른 두
-              컬럼과 같은 흰 카드 안에 함께 담는다. */}
-          <div className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
-            <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
-              {meetingInsights.length > 0 && (
-                <div className="mb-4 rounded-lg bg-gray-50">
-                  <div className="flex w-full items-center justify-between gap-2 px-4 py-2.5">
-                    <span className="text-sm font-bold text-accent">면담 인사이트</span>
-                    <CollapseToggleButton collapsed={!insightsOpen} onClick={() => setInsightsOpen((v) => !v)} label="면담 인사이트" />
-                  </div>
-                  {insightsOpen && (
-                    <ul className="space-y-0.5 px-4 pb-3">
-                      {meetingInsights.map((line, i) => (
-                        <li key={i} className="text-[13px] text-gray-700">
-                          · {line}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-              <MeetingForm member={member} focusToken={prepRequest?.token ?? null} />
-            </div>
+          {/* 면담 -- 시뮬레이션/성과 컬럼이 접혀 폭이 넉넉해지면 내부에서
+              좌(인사이트+기록)/우(일지 작성) 2단으로 나뉜다(MeetingForm 내부
+              실측). 폭이 좁으면 인사이트 -> 일지 -> 기록 순으로 위아래 쌓인다.
+              컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
+          <div ref={meetingColRef} className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
+            {meetingNarrow ? (
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-6">
+                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">면담</span>
+              </div>
+            ) : (
+              <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
+                <MeetingForm
+                  member={member}
+                  focusToken={prepRequest?.token ?? null}
+                  insights={meetingInsights}
+                  insightsOpen={insightsOpen}
+                  onToggleInsights={() => setInsightsOpen((v) => !v)}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

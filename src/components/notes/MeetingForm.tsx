@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -26,9 +26,17 @@ const MOOD_OPTIONS: { emoji: string; label: string }[] = [
   { emoji: '😢', label: '매우 힘듦' },
 ]
 
+// 이 폭보다 넓으면 좌(인사이트+기록)/우(일지 작성) 2단으로 나눈다 -- 시뮬
+// 레이션/성과 컬럼을 슬림 바로 접어서 면담 컬럼에 여유가 생겼을 때만
+// 적용된다. 좁으면 인사이트 -> 일지 작성 -> 기록 순으로 위아래로 쌓인다.
+const SPLIT_THRESHOLD = 640
+
 interface MeetingFormProps {
   member: TeamMember
   focusToken?: number | null
+  insights: string[]
+  insightsOpen: boolean
+  onToggleInsights: () => void
 }
 
 // 면담일지 -- Figma 디자인(interview-log-card) 그대로: 사방이 닫힌 박스가
@@ -39,11 +47,13 @@ interface MeetingFormProps {
 // 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
 // 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
 // 확인이 안 되는 문제가 있었다).
-export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
+export default function MeetingForm({ member, focusToken, insights, insightsOpen, onToggleInsights }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const memberId = member.id
   const todayStr = todayString()
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [wide, setWide] = useState(false)
 
   const [date, setDate] = useState(todayStr)
   const [comment, setComment] = useState('')
@@ -79,6 +89,16 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
     commentRef.current?.focus()
   }, [focusToken])
 
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const update = () => setWide(el.getBoundingClientRect().width >= SPLIT_THRESHOLD)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   const notes = state.meetingNotes.filter((n) => n.memberId === memberId).sort((a, b) => b.date.localeCompare(a.date))
 
   function handleSave() {
@@ -105,7 +125,25 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
     setEditingNoteId(null)
   }
 
-  return (
+  const insightsBlock = insights.length > 0 && (
+    <div className="rounded-lg bg-gray-50">
+      <div className="flex w-full items-center justify-between gap-2 px-4 py-2.5">
+        <span className="text-sm font-bold text-accent">면담 인사이트</span>
+        <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
+      </div>
+      {insightsOpen && (
+        <ul className="space-y-0.5 px-4 pb-3">
+          {insights.map((line, i) => (
+            <li key={i} className="text-[13px] text-gray-700">
+              · {line}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+
+  const logFormBlock = (
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="shrink-0 text-base font-bold text-black">면담일지</h3>
@@ -189,10 +227,14 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
           </div>
         </div>
       )}
+    </div>
+  )
 
+  const historyBlock = (
+    <div>
       {/* 면담 기록 -- Figma의 timeline-list: 세로선 + 분위기 이모지 노드로
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
-      <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-3">
+      <div className="flex items-center justify-between">
         <span className="flex items-center gap-2">
           <h4 className="text-sm font-bold text-black">면담 기록</h4>
           <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">최근 {notes.length}건</span>
@@ -259,6 +301,26 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
               </div>
             ),
           )}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div ref={rootRef}>
+      {wide ? (
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <div className="space-y-4">
+            {insightsBlock}
+            {historyBlock}
+          </div>
+          <div>{logFormBlock}</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {insightsBlock}
+          {logFormBlock}
+          {historyBlock}
         </div>
       )}
 
