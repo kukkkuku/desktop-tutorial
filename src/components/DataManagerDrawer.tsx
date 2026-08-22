@@ -3,6 +3,8 @@ import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, downloadAllWorkspacesExcelZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
+import { ADMIN_EMAILS } from '../utils/adminInvite'
+import { getConnectedEmail } from '../utils/googleDrive'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -27,12 +29,18 @@ const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
-// 흩어져 있었다. 여기 하나로 모으고, 화면 오른쪽에서 드로어로 연다.
+// 흩어져 있었다. 여기 하나로 모으고, 화면 가운데 모달로 연다.
 export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerProps) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews, contributions, criteria } = state
   const { currentWorkspace, workspaces } = useWorkspaces()
   const [tab, setTab] = useState<Tab>('local')
+  // "팀원 초대" 탭 자체를 관리자 계정으로 이 앱에 로그인했을 때만 보여준다
+  // (다른 사람에게는 탭이 아예 보이지 않는다). 이 앱의 전체 진입 게이트가
+  // 이미 Google 로그인을 요구하므로, 그때 연결된 이메일을 그대로 쓴다 --
+  // AdminInvitePanel 안의 "관리자로 Google 연결"은 메일 발송에 필요한
+  // 별도 권한(gmail.send)을 위한 것이라 이 탭 노출 여부와는 별개다.
+  const isAdminUser = ADMIN_EMAILS.includes(getConnectedEmail() ?? '')
 
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
   const [bulkSummary, setBulkSummary] = useState<BulkSummary | null>(null)
@@ -151,14 +159,14 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
   }
 
   return (
-    <div className={`fixed inset-0 z-50 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
       <div
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md transform flex-col bg-white shadow-xl transition-transform duration-300 ${
-          open ? 'translate-x-0' : 'translate-x-full'
+        className={`relative flex max-h-[85vh] w-full max-w-lg transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+          open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -176,7 +184,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
             [
               { key: 'local' as const, label: '로컬 파일' },
               { key: 'drive' as const, label: 'Google Drive' },
-              { key: 'admin' as const, label: '팀원 초대' },
+              ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대' }] : []),
             ]
           ).map((t) => (
             <button
@@ -316,7 +324,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
               <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>
             ))}
 
-          {tab === 'admin' && <AdminInvitePanel />}
+          {tab === 'admin' && isAdminUser && <AdminInvitePanel />}
         </div>
       </div>
 
