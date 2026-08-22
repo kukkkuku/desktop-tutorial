@@ -105,8 +105,14 @@ function saveInviteList(list: InviteRecipient[]): void {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// 받는 사람이 전부 Gmail이라, "@" 없이 아이디만 적어도 등록할 수 있게 한다
+// (예: "hong.gildong" -> "hong.gildong@gmail.com"). Gmail 아이디에 실제로
+// 쓰이는 문자만 허용해서, 이상한 텍스트가 엉뚱하게 이메일로 만들어지지
+// 않게 한다.
+const GMAIL_ID_RE = /^[a-zA-Z0-9.]+$/
 
 // 붙여넣기(줄바꿈/쉼표/세미콜론 구분) 텍스트에서 이메일 형식만 걸러낸다.
+// "@" 없이 아이디만 적은 항목은 @gmail.com을 붙여 완성한다.
 export function parseEmailText(text: string): { emails: string[]; invalid: string[] } {
   const raw = text
     .split(/[\n,;]+/)
@@ -115,7 +121,8 @@ export function parseEmailText(text: string): { emails: string[]; invalid: strin
   const emails: string[] = []
   const invalid: string[] = []
   for (const item of raw) {
-    if (EMAIL_RE.test(item)) emails.push(item.toLowerCase())
+    const candidate = !item.includes('@') && GMAIL_ID_RE.test(item) ? `${item}@gmail.com` : item
+    if (EMAIL_RE.test(candidate)) emails.push(candidate.toLowerCase())
     else invalid.push(item)
   }
   return { emails, invalid }

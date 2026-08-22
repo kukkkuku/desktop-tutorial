@@ -175,9 +175,9 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
         onClick={onClose}
       />
       <div
-        className={`relative flex max-h-[85vh] w-full max-w-lg transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
-          open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-        }`}
+        className={`relative flex max-h-[85vh] w-full transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+          tab === 'admin' ? 'max-w-3xl' : 'max-w-lg'
+        } ${open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <h2 className="text-base font-bold text-black">데이터 관리</h2>
