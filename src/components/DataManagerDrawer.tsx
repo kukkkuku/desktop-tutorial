@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, downloadAllWorkspacesExcelZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
@@ -40,7 +40,17 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
   // 이미 Google 로그인을 요구하므로, 그때 연결된 이메일을 그대로 쓴다 --
   // AdminInvitePanel 안의 "관리자로 Google 연결"은 메일 발송에 필요한
   // 별도 권한(gmail.send)을 위한 것이라 이 탭 노출 여부와는 별개다.
-  const isAdminUser = ADMIN_EMAILS.includes(getConnectedEmail() ?? '')
+  // state로 들고 있는 이유: getConnectedEmail()을 렌더 중에 그냥 읽기만
+  // 하면, GoogleDrivePanel 안에서 "다시 연결"을 눌러 연결에 성공해도 그건
+  // 자식 컴포넌트의 로컬 state 변경일 뿐이라 이 부모(DataManagerDrawer)가
+  // 다시 렌더링되지 않고, 탭 목록이 연결 이전 값으로 멈춰버린다. 그래서
+  // 모달이 열릴 때와 연결 성공 콜백(refreshAdminStatus) 양쪽에서 명시적으로
+  // 다시 확인한다.
+  const [isAdminUser, setIsAdminUser] = useState(() => ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
+  const refreshAdminStatus = () => setIsAdminUser(ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
+  useEffect(() => {
+    if (open) refreshAdminStatus()
+  }, [open])
 
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
   const [bulkSummary, setBulkSummary] = useState<BulkSummary | null>(null)
@@ -319,6 +329,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
                 dispatch={dispatch}
                 buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
                 buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
+                onConnected={refreshAdminStatus}
               />
             ) : (
               <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>

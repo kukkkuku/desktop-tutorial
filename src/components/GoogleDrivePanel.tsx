@@ -61,6 +61,9 @@ interface GoogleDrivePanelProps {
   dispatch: Dispatch<AppAction>
   buildReportWorkbook: () => ExcelJS.Workbook
   buildSheetWorkbook: () => ExcelJS.Workbook
+  // 연결(재연결 포함)에 성공했을 때 알려준다 -- 부모(DataManagerDrawer)가
+  // 관리자 이메일 여부에 따라 보여주는 다른 탭을 다시 확인할 수 있도록.
+  onConnected?: () => void
 }
 
 type Busy = 'connect' | 'checking' | 'saving' | 'listing' | 'restoring' | null
@@ -68,7 +71,7 @@ type Busy = 'connect' | 'checking' | 'saving' | 'listing' | 'restoring' | null
 // "데이터 관리" 드로어의 Google Drive 탭 내용. 연결/저장/불러오기/파일보기를
 // 이 안에서 모두 처리한다. 자체 트리거 버튼이나 팝업 창이 없는 순수
 // 콘텐츠라, 드로어가 열려 있는 동안 항상 보인다.
-export default function GoogleDrivePanel({ workspace, state, dispatch, buildReportWorkbook, buildSheetWorkbook }: GoogleDrivePanelProps) {
+export default function GoogleDrivePanel({ workspace, state, dispatch, buildReportWorkbook, buildSheetWorkbook, onConnected }: GoogleDrivePanelProps) {
   const configured = isGoogleDriveConfigured()
   const [busy, setBusy] = useState<Busy>(null)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +116,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
   function handleConnect() {
     void withBusy('connect', async () => {
       await connectDrive()
+      onConnected?.()
     })
   }
 
