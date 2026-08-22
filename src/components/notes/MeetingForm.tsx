@@ -5,6 +5,7 @@ import type { MeetingNote, TeamMember } from '../../types'
 import ConfirmDialog from '../ConfirmDialog'
 import Badge from '../Badge'
 import Button from '../Button'
+import CollapseToggleButton from '../CollapseToggleButton'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -155,12 +156,12 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
           때만 쓰는 육성 포인트라, 기본은 접어두고 코멘트만 가볍게 남길 수
           있게 한다. */}
-      <button
-        onClick={() => setDetailsOpen((v) => !v)}
-        className="mt-3 flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-accent"
-      >
-        {detailsOpen ? '− 육성 포인트 접기' : '+ 육성 포인트 추가 (강점·보완·다음 경험·Career Goal)'}
-      </button>
+      <div className="mt-3 flex items-center gap-1.5">
+        <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+          육성 포인트 (강점·보완·다음 경험·Career Goal)
+        </button>
+      </div>
 
       {detailsOpen && (
         <div className="mt-2 flex flex-col gap-3">
@@ -196,9 +197,7 @@ export default function MeetingForm({ member, focusToken }: MeetingFormProps) {
           <h4 className="text-sm font-bold text-black">면담 기록</h4>
           <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">최근 {notes.length}건</span>
         </span>
-        <button onClick={() => setPastOpen((v) => !v)} className="text-xs font-semibold text-gray-500 hover:text-accent">
-          {pastOpen ? '접기' : '펼치기'}
-        </button>
+        <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
       </div>
 
       {pastOpen && (

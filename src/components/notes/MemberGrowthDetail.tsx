@@ -14,6 +14,7 @@ import MeetingForm from './MeetingForm'
 import GradeNoteButton from '../GradeNoteButton'
 import TrendSparkline from './TrendSparkline'
 import PromotionDatePicker from '../PromotionDatePicker'
+import CollapseToggleButton from '../CollapseToggleButton'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
@@ -71,7 +72,7 @@ function PeriodCard({
 }) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <button onClick={onToggle} className="flex w-full items-center justify-between gap-2 text-left">
+      <div className="flex w-full items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-base font-bold text-black">
             {title}
@@ -79,8 +80,8 @@ function PeriodCard({
           </span>
           {grade && <span className={`rounded px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[grade]}`}>{grade}</span>}
         </span>
-        <span className="shrink-0 text-xs font-semibold text-gray-500">{isOpen ? '접기' : '펴기'}</span>
-      </button>
+        <CollapseToggleButton collapsed={!isOpen} onClick={onToggle} label={title} />
+      </div>
       {isOpen && <div className="mt-3">{children}</div>}
     </div>
   )
@@ -687,13 +688,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
               {meetingInsights.length > 0 && (
                 <div className="mb-4 rounded-lg bg-gray-50">
-                  <button
-                    onClick={() => setInsightsOpen((v) => !v)}
-                    className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left"
-                  >
+                  <div className="flex w-full items-center justify-between gap-2 px-4 py-2.5">
                     <span className="text-sm font-bold text-accent">면담 인사이트</span>
-                    <span className="shrink-0 text-xs text-gray-400">{insightsOpen ? '접기' : '펼치기'}</span>
-                  </button>
+                    <CollapseToggleButton collapsed={!insightsOpen} onClick={() => setInsightsOpen((v) => !v)} label="면담 인사이트" />
+                  </div>
                   {insightsOpen && (
                     <ul className="space-y-0.5 px-4 pb-3">
                       {meetingInsights.map((line, i) => (
