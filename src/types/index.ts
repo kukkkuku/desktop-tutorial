@@ -77,6 +77,9 @@ export interface MeetingNote {
   improvements?: string
   nextExperience?: string
   careerInterest?: string
+  // 이 기록을 만들 때 같은 계정의 Google 캘린더에도 종일 일정으로 등록했다면
+  // 그 이벤트 id. 수정/삭제 시 캘린더 쪽 일정도 같이 맞추기 위해 들고 있다.
+  calendarEventId?: string
 }
 
 export interface PeerReview {

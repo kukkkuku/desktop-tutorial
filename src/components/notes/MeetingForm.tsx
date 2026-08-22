@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote, TeamMember } from '../../types'
+import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, updateCalendarEvent } from '../../utils/googleCalendar'
 import ConfirmDialog from '../ConfirmDialog'
 import Badge from '../Badge'
 import Button from '../Button'
@@ -110,6 +111,13 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (nextExperience.trim()) note.nextExperience = nextExperience.trim()
     if (careerGoal.trim()) note.careerInterest = careerGoal.trim()
     dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+    // 오늘/이후 일정만 캘린더에 올린다 -- 지난 일에 대한 메모까지 캘린더에
+    // 박히면 알림 목적에 안 맞는다.
+    if (date >= todayStr && isCalendarConfigured()) {
+      createCalendarEvent({ memberName: member.name, date, comment: note.comment })
+        .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
+        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+    }
     setDate(todayStr)
     setComment('')
     setMood(null)
@@ -121,8 +129,25 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
 
   function saveEdit(note: MeetingNote) {
     if (!editDate || !editComment.trim()) return
-    dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, date: editDate, comment: editComment.trim() } })
+    const updated: MeetingNote = { ...note, date: editDate, comment: editComment.trim() }
+    dispatch({ type: 'UPDATE_MEETING_NOTE', payload: updated })
     setEditingNoteId(null)
+    if (!isCalendarConfigured()) return
+    if (updated.calendarEventId) {
+      if (editDate >= todayStr) {
+        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment }).catch((err) =>
+          console.warn('캘린더 일정 수정 실패:', err),
+        )
+      } else {
+        // 과거 날짜로 바뀌면 더 이상 "예정"이 아니니 캘린더 일정은 지운다.
+        void deleteCalendarEvent(updated.calendarEventId)
+        dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: undefined } })
+      }
+    } else if (editDate >= todayStr) {
+      createCalendarEvent({ memberName: member.name, date: editDate, comment: updated.comment })
+        .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: eventId } }))
+        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+    }
   }
 
   const insightsBlock = insights.length > 0 && (
@@ -273,6 +298,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       <span className="text-sm font-bold text-black">{note.date}</span>
                       {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
+                      {note.calendarEventId && (
+                        <span title="Google 캘린더에 등록됨" className="text-xs text-gray-400">
+                          📅
+                        </span>
+                      )}
                     </span>
                     <div className="flex shrink-0 gap-1.5">
                       <button
@@ -329,7 +359,10 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         title="면담 기록 삭제"
         message={`${deletingNote?.date} 면담 기록을 삭제하시겠습니까?`}
         onConfirm={() => {
-          if (deletingNote) dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
+          if (deletingNote) {
+            if (deletingNote.calendarEventId) void deleteCalendarEvent(deletingNote.calendarEventId)
+            dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
+          }
           setDeletingNote(null)
         }}
         onCancel={() => setDeletingNote(null)}

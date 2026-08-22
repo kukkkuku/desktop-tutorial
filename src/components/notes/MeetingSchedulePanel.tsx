@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote } from '../../types'
 import { colorForIndex } from '../../utils/memberColors'
+import { createCalendarEvent, isCalendarConfigured } from '../../utils/googleCalendar'
 import IconButton from '../IconButton'
 import Button from '../Button'
 
@@ -148,7 +149,16 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   function addSchedule() {
     const memberId = addMemberId ?? members[0]?.id
     if (!memberId) return
-    dispatch({ type: 'ADD_MEETING_NOTE', payload: { id: uuidv4(), memberId, date: selectedDate, comment: '' } })
+    const member = members.find((m) => m.id === memberId)
+    const note: MeetingNote = { id: uuidv4(), memberId, date: selectedDate, comment: '' }
+    dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+    // 오늘/이후 일정만 캘린더에 올린다 -- 지난 날짜로 기록을 남기는 경우까지
+    // 캘린더에 박히면 알림 목적에 안 맞는다.
+    if (member && selectedDate >= todayStr && isCalendarConfigured()) {
+      createCalendarEvent({ memberName: member.name, date: selectedDate })
+        .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
+        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+    }
   }
 
   return (

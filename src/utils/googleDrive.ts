@@ -22,8 +22,11 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // drive.file: 이 앱이 만들었거나 사용자가 직접 연 파일에만 접근한다(드라이브
 // 전체를 훑어보는 권한이 아니다) -- 필요 최소 권한 원칙. userinfo.email은
 // "지금 어느 계정에 연결됐는지"를 화면에 이메일로 명확히 보여주기 위한
-// 것으로, 민감하지 않은 스코프다.
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email'
+// 것으로, 민감하지 않은 스코프다. calendar.events는 면담 일정을 이 계정의
+// 구글 캘린더에도 등록하기 위한 것(googleCalendar.ts) -- 앱이 만든 일정만
+// 만들고/고치고/지울 수 있고, 기존 캘린더 전체를 읽는 권한은 없다.
+const DRIVE_SCOPE =
+  'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events'
 const APP_TAG = 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = '성장관리'
 
@@ -136,7 +139,9 @@ export async function connectDrive(): Promise<void> {
   await requestAccessToken()
 }
 
-async function getAccessToken(): Promise<string> {
+// googleCalendar.ts도 이 토큰을 그대로 재사용한다 -- 같은 로그인, scope만
+// 위에서 함께 요청해둔 것.
+export async function getAccessToken(): Promise<string> {
   await loadGis()
   if (isConnected()) return cachedToken!.token
   return requestAccessToken()
