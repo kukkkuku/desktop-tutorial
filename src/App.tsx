@@ -13,8 +13,10 @@ import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import VersionCompareBar from './components/VersionCompareBar'
-import GoogleSignInGate from './components/GoogleSignInGate'
+import GoogleSignInGate, { GATE_KEY } from './components/GoogleSignInGate'
 import DataManagerDrawer from './components/DataManagerDrawer'
+import { ADMIN_EMAILS } from './utils/adminInvite'
+import { disconnectDrive, getConnectedEmail, isConnected as isDriveConnected, readLastSave } from './utils/googleDrive'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('tasks')
@@ -24,6 +26,26 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, exitToLanding } = useWorkspaces()
+
+  // 헤더 우측 계정 영역 -- getConnectedEmail()/isConnected()는 모듈
+  // 전역변수를 그냥 읽기만 하는 함수라 그 값이 바뀌어도 저절로 리렌더를
+  // 트리거하지 않는다. 그래서 실제 연결 상태를 React state로 한 번 옮겨
+  // 담아두고, DataManagerDrawer 쪽에서 연결/재연결에 성공할 때마다
+  // onAccountChange로 다시 읽어오게 한다.
+  const [accountEmail, setAccountEmail] = useState<string | null>(() => (isDriveConnected() ? getConnectedEmail() : null))
+  const refreshAccount = () => setAccountEmail(isDriveConnected() ? getConnectedEmail() : null)
+  const isAdminUser = ADMIN_EMAILS.includes(accountEmail ?? '')
+  const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
+
+  function handleLogout() {
+    disconnectDrive()
+    try {
+      sessionStorage.removeItem(GATE_KEY)
+    } catch {
+      // 세션 저장소를 못 지워도 아래 새로고침이 로그인 화면으로 되돌린다.
+    }
+    window.location.reload()
+  }
 
   // CriteriaPanel pins itself right below the header and fills the rest of
   // the viewport, so it needs the header's real rendered height -- a
@@ -89,6 +111,10 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onAddPeriod={() => setAddPeriodOpen(true)}
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
+                accountEmail={accountEmail}
+                isAdminUser={isAdminUser}
+                hasSavedCurrentPeriod={hasSavedCurrentPeriod}
+                onLogout={handleLogout}
               />
             </div>
             <div className="flex min-h-0 flex-1">
@@ -105,7 +131,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           {addPeriodOpen && (
             <AddPeriodModal teamName={teamName} onDone={handleAddPeriodDone} onClose={() => setAddPeriodOpen(false)} />
           )}
-          <DataManagerDrawer open={dataManagerOpen} onClose={() => setDataManagerOpen(false)} />
+          <DataManagerDrawer open={dataManagerOpen} onClose={() => setDataManagerOpen(false)} onAccountChange={refreshAccount} />
         </MemberDetailProvider>
       </TeamProvider>
     </AppProvider>

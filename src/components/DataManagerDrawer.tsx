@@ -14,6 +14,9 @@ import Spinner from './Spinner'
 interface DataManagerDrawerProps {
   open: boolean
   onClose: () => void
+  // Drive 연결(재연결 포함)에 성공했을 때 알려준다 -- 상단 헤더(StageTabs)의
+  // 계정 이메일/관리자 배지도 같이 새로고침할 수 있도록.
+  onAccountChange?: () => void
 }
 
 type Tab = 'local' | 'drive' | 'admin'
@@ -30,7 +33,7 @@ const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
 // 흩어져 있었다. 여기 하나로 모으고, 화면 가운데 모달로 연다.
-export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerProps) {
+export default function DataManagerDrawer({ open, onClose, onAccountChange }: DataManagerDrawerProps) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews, contributions, criteria } = state
   const { currentWorkspace, workspaces } = useWorkspaces()
@@ -47,7 +50,10 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
   // 모달이 열릴 때와 연결 성공 콜백(refreshAdminStatus) 양쪽에서 명시적으로
   // 다시 확인한다.
   const [isAdminUser, setIsAdminUser] = useState(() => ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
-  const refreshAdminStatus = () => setIsAdminUser(ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
+  const refreshAdminStatus = () => {
+    setIsAdminUser(ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
+    onAccountChange?.()
+  }
   useEffect(() => {
     if (open) refreshAdminStatus()
   }, [open])

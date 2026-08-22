@@ -6,7 +6,8 @@ import Spinner from './Spinner'
 
 // 같은 탭에서 새로고침해도 다시 로그인 화면부터 보이지 않도록, 통과 여부를
 // 탭 단위로만 기억한다(브라우저를 새로 열면 다시 로그인 화면이 뜬다).
-const GATE_KEY = 'google-gate-passed'
+// 헤더의 "로그아웃"도 이 키를 지우고 새로고침해 이 화면으로 되돌아간다.
+export const GATE_KEY = 'google-gate-passed'
 
 interface GoogleSignInGateProps {
   children: ReactNode

@@ -1,4 +1,5 @@
 import type { WorkspaceMeta } from '../types'
+import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
 
 export type Stage = 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
@@ -24,6 +25,12 @@ interface StageTabsProps {
   onAddPeriod: () => void
   onExit: () => void
   onOpenDataManager: () => void
+  // Google 계정 연결 상태 -- 연결 안 됐으면(또는 연동 자체가 설정 안 됐으면)
+  // accountEmail이 null이라 이 영역 전체를 그리지 않는다.
+  accountEmail: string | null
+  isAdminUser: boolean
+  hasSavedCurrentPeriod: boolean
+  onLogout: () => void
 }
 
 function DatabaseIcon({ className }: { className?: string }) {
@@ -47,6 +54,14 @@ function MeetingIcon({ className }: { className?: string }) {
   )
 }
 
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
 export default function StageTabs({
   stage,
   onStageChange,
@@ -57,6 +72,10 @@ export default function StageTabs({
   onAddPeriod,
   onExit,
   onOpenDataManager,
+  accountEmail,
+  isAdminUser,
+  hasSavedCurrentPeriod,
+  onLogout,
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -132,6 +151,24 @@ export default function StageTabs({
             팀원 면담
           </button>
         </nav>
+
+        {accountEmail && (
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <GoogleAccountMenu className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black">
+              {accountEmail}
+              {isAdminUser && (
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">관리자</span>
+              )}
+              <ChevronDownIcon className="h-3.5 w-3.5 text-gray-400" />
+            </GoogleAccountMenu>
+            {hasSavedCurrentPeriod && (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">저장됨</span>
+            )}
+            <button onClick={onLogout} className="text-sm text-gray-400 hover:text-black">
+              로그아웃
+            </button>
+          </div>
+        )}
       </div>
     </header>
   )

@@ -94,6 +94,13 @@ export function getConnectedEmail(): string | null {
   return isConnected() ? cachedEmail : null
 }
 
+// 헤더의 "로그아웃" -- 캐시된 토큰/이메일만 지운다. 다음에 뭔가 Google API를
+// 호출하면(연결 버튼이든 자동 로그인 게이트든) 새로 로그인 팝업을 띄운다.
+export function disconnectDrive(): void {
+  cachedToken = null
+  cachedEmail = null
+}
+
 async function fetchConnectedEmail(accessToken: string): Promise<void> {
   try {
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -469,6 +476,32 @@ export async function fetchSyncPayload(fileId: string): Promise<DriveSyncPayload
   const data = JSON.parse(text) as DriveSyncPayload
   if (!data || data.version !== 1 || !data.state) throw new Error('저장된 파일 형식을 알아볼 수 없습니다.')
   return data
+}
+
+// ---------- 마지막 저장 기록(로컬) ----------
+// 평가기간(workspaceId)별로 최근 저장 결과를 브라우저에 남겨, 다시 열었을 때
+// "언제 저장됐는지"를 보여주고(GoogleDrivePanel) 헤더의 "저장됨" 배지 여부도
+// 판단한다(StageTabs). Drive 쪽 진짜 상태가 아니라 이 브라우저 기준 캐시다.
+
+function lastSaveKey(workspaceId: string) {
+  return `gdrive-last-save-${workspaceId}`
+}
+
+export function readLastSave(workspaceId: string): (SaveAllResult & { at: string }) | null {
+  try {
+    const raw = localStorage.getItem(lastSaveKey(workspaceId))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+export function writeLastSave(workspaceId: string, result: SaveAllResult) {
+  try {
+    localStorage.setItem(lastSaveKey(workspaceId), JSON.stringify({ ...result, at: new Date().toISOString() }))
+  } catch {
+    // 저장 실패해도 방금 저장 자체는 이미 끝난 상태라 안내만 못 뜬다.
+  }
 }
 
 // "저장된 파일 보기"에서 쓴다 -- 현재 평가의 기간 폴더 링크만 있으면
