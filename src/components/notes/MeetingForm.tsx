@@ -63,6 +63,9 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   const [editDate, setEditDate] = useState('')
   const [editComment, setEditComment] = useState('')
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
+  // 캘린더 등록/수정 실패는 면담 기록 저장 자체를 막지는 않지만, 콘솔에만
+  // 조용히 남기면 왜 캘린더에 안 뜨는지 알 방법이 없다 -- 화면에도 보여준다.
+  const [calendarError, setCalendarError] = useState<string | null>(null)
 
   useEffect(() => {
     setDate(todayStr)
@@ -94,12 +97,16 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (nextExperience.trim()) note.nextExperience = nextExperience.trim()
     if (careerGoal.trim()) note.careerInterest = careerGoal.trim()
     dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+    setCalendarError(null)
     // 오늘/이후 일정만 캘린더에 올린다 -- 지난 일에 대한 메모까지 캘린더에
     // 박히면 알림 목적에 안 맞는다.
     if (date >= todayStr && isCalendarConfigured()) {
       createCalendarEvent({ memberName: member.name, date, comment: note.comment })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
-        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+        .catch((err) => {
+          console.warn('캘린더 일정 등록 실패:', err)
+          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+        })
     }
     setDate(todayStr)
     setComment('')
@@ -115,12 +122,14 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     const updated: MeetingNote = { ...note, date: editDate, comment: editComment.trim() }
     dispatch({ type: 'UPDATE_MEETING_NOTE', payload: updated })
     setEditingNoteId(null)
+    setCalendarError(null)
     if (!isCalendarConfigured()) return
     if (updated.calendarEventId) {
       if (editDate >= todayStr) {
-        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment }).catch((err) =>
-          console.warn('캘린더 일정 수정 실패:', err),
-        )
+        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment }).catch((err) => {
+          console.warn('캘린더 일정 수정 실패:', err)
+          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 수정에 실패했습니다.')
+        })
       } else {
         // 과거 날짜로 바뀌면 더 이상 "예정"이 아니니 캘린더 일정은 지운다.
         void deleteCalendarEvent(updated.calendarEventId)
@@ -129,7 +138,10 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     } else if (editDate >= todayStr) {
       createCalendarEvent({ memberName: member.name, date: editDate, comment: updated.comment })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: eventId } }))
-        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+        .catch((err) => {
+          console.warn('캘린더 일정 등록 실패:', err)
+          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+        })
     }
   }
 
@@ -166,6 +178,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           작성하기
         </Button>
       </div>
+
+      {calendarError && (
+        <p className="mt-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs text-danger">
+          ⚠️ 면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
+        </p>
+      )}
 
       <div className="mt-3">
         <label className="block text-[11px] font-medium text-gray-400">코멘트</label>

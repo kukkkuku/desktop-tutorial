@@ -56,6 +56,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   })
   const [selectedDate, setSelectedDate] = useState(todayStr)
   const [addMemberId, setAddMemberId] = useState<string | null>(members[0]?.id ?? null)
+  const [calendarError, setCalendarError] = useState<string | null>(null)
 
   const notesByDate = new Map<string, number[]>()
   meetingNotes.forEach((n) => {
@@ -152,12 +153,16 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
     const member = members.find((m) => m.id === memberId)
     const note: MeetingNote = { id: uuidv4(), memberId, date: selectedDate, comment: '' }
     dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+    setCalendarError(null)
     // 오늘/이후 일정만 캘린더에 올린다 -- 지난 날짜로 기록을 남기는 경우까지
     // 캘린더에 박히면 알림 목적에 안 맞는다.
     if (member && selectedDate >= todayStr && isCalendarConfigured()) {
       createCalendarEvent({ memberName: member.name, date: selectedDate })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
-        .catch((err) => console.warn('캘린더 일정 등록 실패:', err))
+        .catch((err) => {
+          console.warn('캘린더 일정 등록 실패:', err)
+          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+        })
     }
   }
 
@@ -248,6 +253,9 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
               추가
             </Button>
           </div>
+          {calendarError && (
+            <p className="rounded-md bg-red-50 px-2 py-1.5 text-[11px] text-danger">⚠️ 캘린더 등록 실패: {calendarError}</p>
+          )}
         </div>
       </div>
 
