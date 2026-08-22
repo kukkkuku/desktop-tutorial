@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -27,11 +27,6 @@ const MOOD_OPTIONS: { emoji: string; label: string }[] = [
   { emoji: '😢', label: '매우 힘듦' },
 ]
 
-// 이 폭보다 넓으면 좌(인사이트+기록)/우(일지 작성) 2단으로 나눈다 -- 시뮬
-// 레이션/성과 컬럼을 슬림 바로 접어서 면담 컬럼에 여유가 생겼을 때만
-// 적용된다. 좁으면 인사이트 -> 일지 작성 -> 기록 순으로 위아래로 쌓인다.
-const SPLIT_THRESHOLD = 640
-
 interface MeetingFormProps {
   member: TeamMember
   focusToken?: number | null
@@ -53,8 +48,6 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   const memberId = member.id
   const todayStr = todayString()
   const commentRef = useRef<HTMLTextAreaElement>(null)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const [wide, setWide] = useState(false)
 
   const [date, setDate] = useState(todayStr)
   const [comment, setComment] = useState('')
@@ -89,16 +82,6 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (!focusToken) return
     commentRef.current?.focus()
   }, [focusToken])
-
-  useLayoutEffect(() => {
-    const el = rootRef.current
-    if (!el) return
-    const update = () => setWide(el.getBoundingClientRect().width >= SPLIT_THRESHOLD)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const notes = state.meetingNotes.filter((n) => n.memberId === memberId).sort((a, b) => b.date.localeCompare(a.date))
 
@@ -337,22 +320,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   )
 
   return (
-    <div ref={rootRef}>
-      {wide ? (
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-          <div className="space-y-4">
-            {insightsBlock}
-            {historyBlock}
-          </div>
-          <div>{logFormBlock}</div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {insightsBlock}
-          {logFormBlock}
-          {historyBlock}
-        </div>
-      )}
+    <div>
+      <div className="space-y-4">
+        {insightsBlock}
+        {logFormBlock}
+        {historyBlock}
+      </div>
 
       <ConfirmDialog
         open={deletingNote !== null}
