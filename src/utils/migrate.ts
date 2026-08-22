@@ -54,6 +54,7 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
     memberId: raw.memberId,
     contributionPercent,
     personalPerformanceGrade,
+    evaluationNote: typeof raw.evaluationNote === 'string' ? raw.evaluationNote : typeof raw.personalGradeNote === 'string' ? raw.personalGradeNote : '',
     isAutoDistributed: raw.isAutoDistributed === true,
   }
 }
@@ -66,8 +67,17 @@ function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
 
 function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {
   if (typeof raw.id !== 'string' || typeof raw.reviewerName !== 'string') return null
-  if (typeof raw.targetMemberId !== 'string' || !isPerformanceGrade(raw.grade)) return null
-  return { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  if (typeof raw.targetMemberId !== 'string') return null
+  return {
+    id: raw.id,
+    taskId: typeof raw.taskId === 'string' ? raw.taskId : '',
+    reviewerMemberId: typeof raw.reviewerMemberId === 'string' ? raw.reviewerMemberId : '',
+    reviewerName: raw.reviewerName,
+    targetMemberId: raw.targetMemberId,
+    contributionPercent: typeof raw.contributionPercent === 'number' ? raw.contributionPercent : null,
+    grade: isPerformanceGrade(raw.grade) ? raw.grade : null,
+    evidence: typeof raw.evidence === 'string' ? raw.evidence : '',
+  }
 }
 
 // Criteria used to be plain on/off booleans; now each is a 0-100 reflection
@@ -87,7 +97,13 @@ function migrateCriteria(raw: unknown): Criteria {
     taskGradeWeight: resolveWeight(r.taskGradeWeight, r.useImportance, 100),
     workloadWeight: resolveWeight(r.workloadWeight, r.useWorkload, 100),
     personalGradeWeight: resolveWeight(r.personalGradeWeight, r.usePersonalPerformanceGrade, 0),
+    contributionWeight: resolveWeight(r.contributionWeight, r.useContribution, 100),
     peerReviewWeight: resolveWeight(r.peerReviewWeight, r.usePeerReview, 0),
+    gradeSPercent: resolveWeight(r.gradeSPercent, undefined, 10),
+    gradeAPercent: resolveWeight(r.gradeAPercent, undefined, 20),
+    gradeBPercent: resolveWeight(r.gradeBPercent, undefined, 40),
+    gradeCPercent: resolveWeight(r.gradeCPercent, undefined, 20),
+    gradeDPercent: resolveWeight(r.gradeDPercent, undefined, 10),
   }
 }
 

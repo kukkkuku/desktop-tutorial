@@ -1,0 +1,22 @@
+import type { Level } from '../types'
+import { GRADE_POINTS, PROMOTION_RULES, YEAR_WEIGHTS } from '../utils/growth'
+
+const TRACK_LABELS: Record<number, string> = {
+  3: '사원(정기), 대리(발탁)',
+  4: '대리(정기), 과장·차장(발탁)',
+  5: '과장·차장(정기)',
+}
+
+export default function PromotionCriteriaDialog({ level, onClose }: { level: Level | ''; onClose: () => void }) {
+  return <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/30 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
+    <section role="dialog" aria-modal="true" aria-labelledby="promotion-criteria-title" className="max-h-[calc(100vh-2rem)] w-full max-w-3xl overflow-y-auto rounded-lg border border-gray-200 bg-white p-6 shadow-lg">
+      <div className="flex items-start justify-between gap-4"><div><h2 id="promotion-criteria-title" className="text-xl font-semibold text-gray-950">승진 기준</h2><p className="mt-1 text-sm text-gray-500">성과평가 기준과는 별개인 승진 제도 기준입니다. 승진심사 점수 산정에 사용하는 기준을 확인할 수 있습니다.</p></div><button type="button" onClick={onClose} className="ui-button ui-button-ghost ui-button-sm" aria-label="승진 기준 닫기">×</button></div>
+
+      <div className="mt-6"><h3 className="ui-section-title">직급별 승진자격기준</h3><div className="mt-3 overflow-hidden rounded-lg border border-gray-200"><div className="grid grid-cols-4 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600"><span>현재직급</span><span>다음직급</span><span>체류연한</span><span>승진자격점수</span></div>{Object.entries(PROMOTION_RULES).map(([currentLevel, rule]) => <div key={currentLevel} className={`grid grid-cols-4 border-t border-gray-100 px-3 py-3 text-sm ${level === currentLevel ? 'bg-orange-50 font-semibold' : ''}`}><span>{currentLevel}</span><span>{rule.next}</span><span>{rule.years}년</span><span>{rule.target}점</span></div>)}</div></div>
+
+      <div className="mt-6"><h3 className="ui-section-title">평가 등급 점수</h3><p className="mt-2 text-sm leading-5 text-gray-500">인사평가 등급을 승진점수로 환산할 때 사용하는 등급별 점수입니다. 역량 등급은 이 점수의 2배로 반영됩니다.</p><div className="mt-3 overflow-hidden rounded-lg border border-gray-200"><div className="grid grid-cols-6 bg-gray-50 px-3 py-2 text-center text-xs font-semibold text-gray-600"><span className="text-left">구분</span>{Object.keys(GRADE_POINTS).map((grade) => <span key={grade}>{grade}</span>)}</div><div className="grid grid-cols-6 border-t border-gray-100 px-3 py-3 text-center text-sm"><strong className="text-left">업적(상/하)</strong>{Object.values(GRADE_POINTS).map((point) => <span key={point} className="tabular-nums text-gray-700">{point.toFixed(1)}</span>)}</div><div className="grid grid-cols-6 border-t border-gray-100 px-3 py-3 text-center text-sm"><strong className="text-left">역량 (×2)</strong>{Object.values(GRADE_POINTS).map((point) => <span key={point} className="font-semibold tabular-nums text-blue-600">{(point * 2).toFixed(1)}</span>)}</div></div></div>
+
+      <div className="mt-6"><h3 className="ui-section-title">연차별 가중치</h3><p className="mt-2 text-sm leading-5 text-gray-500">체류연수와 승진 트랙에 따라 최근 연도의 평가를 더 크게 반영하는 고정 참고값입니다.</p><div className="mt-3 overflow-x-auto rounded-lg border border-gray-200"><div className="min-w-[650px]"><div className="grid grid-cols-[72px_repeat(5,72px)_1fr] bg-gray-50 px-3 py-2 text-center text-xs font-semibold text-gray-600"><span className="text-left">체류년수</span><span>최근 1년차</span><span>2년차</span><span>3년차</span><span>4년차</span><span>5년차</span><span className="text-left">적용 대상</span></div>{Object.entries(YEAR_WEIGHTS).map(([years, weights]) => <div key={years} className="grid grid-cols-[72px_repeat(5,72px)_1fr] border-t border-gray-100 px-3 py-3 text-center text-sm"><strong className="text-left">{years}년</strong>{Array.from({ length: 5 }, (_, index) => <span key={index} className="tabular-nums text-gray-600">{weights[index] === undefined ? '–' : `${Math.round(weights[index] * 100)}%`}</span>)}<span className="text-left text-gray-500">{TRACK_LABELS[Number(years)]}</span></div>)}</div></div></div>
+    </section>
+  </div>
+}

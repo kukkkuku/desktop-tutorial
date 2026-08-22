@@ -4,7 +4,10 @@ import type { Task } from '../types'
 import TaskModal from './TaskModal'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
+import Badge from './Badge'
+import SectionHeader from './SectionHeader'
 import { downloadTaskTemplate, parseTaskWorkbook, type TaskImportResult } from '../utils/excel'
+import CriteriaWorkspaceLayout from './CriteriaWorkspaceLayout'
 
 export default function TaskManagement() {
   const { state, dispatch } = useAppState()
@@ -54,30 +57,28 @@ export default function TaskManagement() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black">과제 관리</h2>
-        <button
-          onClick={openAddModal}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          + 과제 추가
-        </button>
-      </div>
-      <p className="mt-1 text-sm text-gray-600">
-        과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
-      </p>
+    <CriteriaWorkspaceLayout>
+    <div className="ui-page">
+      <SectionHeader
+        title="과제 관리"
+        description="과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다."
+        action={
+        <div className="flex items-center gap-2">
+          <button onClick={openAddModal} className="ui-button ui-button-primary">+ 과제 추가</button>
+        </div>
+        }
+      />
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
+      <div className="ui-toolbar">
         <button
           onClick={downloadTaskTemplate}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+          className="ui-button ui-button-secondary"
         >
           엑셀 양식 다운로드
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
+          className="ui-button ui-button-secondary"
         >
           엑셀로 업로드
         </button>
@@ -106,7 +107,7 @@ export default function TaskManagement() {
       )}
 
       {state.tasks.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
+        <p className="ui-empty">
           등록된 과제가 없습니다.
           <br />
           '+ 과제 추가' 버튼으로 직접 등록하거나,
@@ -114,9 +115,9 @@ export default function TaskManagement() {
           위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
         </p>
       ) : (
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[820px] text-left text-sm">
-          <thead className="bg-[#F3F4F6] text-black">
+      <div className="ui-table-wrap">
+        <table className="ui-table min-w-[820px]">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold">과제명</th>
               <th className="px-4 py-3 font-semibold">과제등급</th>
@@ -134,28 +135,26 @@ export default function TaskManagement() {
                   <span className="inline-flex items-center gap-1.5">
                     {task.name}
                     {recentlyAddedIds.has(task.id) && (
-                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-                        N
-                      </span>
+                      <Badge tone="accent">N</Badge>
                     )}
                   </span>
                 </td>
-                <td className="px-4 py-3">{task.importance}</td>
-                <td className="px-4 py-3">{task.performanceGrade}</td>
-                <td className="px-4 py-3">{task.workload}</td>
+                <td className={`px-4 py-3 ${state.criteria.taskGradeWeight === 0 ? 'text-gray-400' : ''}`}>{state.criteria.taskGradeWeight === 0 ? '미사용' : task.importance}</td>
+                <td className={`px-4 py-3 ${state.criteria.performanceGradeWeight === 0 ? 'text-gray-400' : ''}`}>{state.criteria.performanceGradeWeight === 0 ? '미사용' : task.performanceGrade}</td>
+                <td className={`px-4 py-3 ${state.criteria.workloadWeight === 0 ? 'text-gray-400' : ''}`}>{state.criteria.workloadWeight === 0 ? '미사용' : task.workload}</td>
                 <td className="px-4 py-3 text-gray-600">{task.objective || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEditModal(task)}
-                      className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                      className="ui-button ui-button-secondary ui-button-sm"
                     >
                       수정
                     </button>
                     <button
                       onClick={() => setDeletingTask(task)}
-                      className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                      className="ui-button ui-button-danger ui-button-sm"
                     >
                       삭제
                     </button>
@@ -170,6 +169,7 @@ export default function TaskManagement() {
 
       {modalOpen && (
         <TaskModal
+          criteria={state.criteria}
           initialTask={editingTask}
           existingNames={state.tasks.map((t) => t.name)}
           onSave={handleSave}
@@ -188,5 +188,6 @@ export default function TaskManagement() {
         onCancel={() => setDeletingTask(null)}
       />
     </div>
+    </CriteriaWorkspaceLayout>
   )
 }

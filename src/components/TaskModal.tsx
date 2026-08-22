@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { Importance, PerformanceGrade, Task, Workload } from '../types'
+import type { Criteria, Importance, PerformanceGrade, Task, Workload } from '../types'
 import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 
 interface TaskModalProps {
@@ -8,9 +8,10 @@ interface TaskModalProps {
   existingNames: string[]
   onSave: (task: Task) => void
   onClose: () => void
+  criteria: Criteria
 }
 
-export default function TaskModal({ initialTask, existingNames, onSave, onClose }: TaskModalProps) {
+export default function TaskModal({ initialTask, existingNames, onSave, onClose, criteria }: TaskModalProps) {
   const [name, setName] = useState(initialTask?.name ?? '')
   const [importance, setImportance] = useState<Importance>(initialTask?.importance ?? '일반')
   const [performanceGrade, setPerformanceGrade] = useState<PerformanceGrade>(
@@ -57,19 +58,19 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-black">{initialTask ? '과제 수정' : '과제 추가'}</h3>
+    <div className="ui-modal-backdrop">
+      <div className="ui-modal-panel max-w-md">
+        <h3 className="ui-modal-title">{initialTask ? '과제 수정' : '과제 추가'}</h3>
 
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-black">과제명</label>
+            <label className="ui-label">과제명</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예: CloudX"
-              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+              className={`ui-field ${
                 errors.name ? 'border-danger' : 'border-gray-300'
               }`}
             />
@@ -77,11 +78,12 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">과제등급</label>
+            <label className="ui-label">과제등급</label>
             <select
+              disabled={criteria.taskGradeWeight === 0}
               value={importance}
               onChange={(e) => setImportance(e.target.value as Importance)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="ui-field disabled:bg-gray-100 disabled:text-gray-400"
             >
               {IMPORTANCE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -92,11 +94,12 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">성과등급</label>
+            <label className="ui-label">성과등급</label>
             <select
+              disabled={criteria.performanceGradeWeight === 0}
               value={performanceGrade}
               onChange={(e) => setPerformanceGrade(e.target.value as PerformanceGrade)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="ui-field disabled:bg-gray-100 disabled:text-gray-400"
             >
               {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -107,11 +110,12 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">업무량</label>
+            <label className="ui-label">업무량</label>
             <select
+              disabled={criteria.workloadWeight === 0}
               value={workload}
               onChange={(e) => setWorkload(e.target.value as Workload)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="ui-field disabled:bg-gray-100 disabled:text-gray-400"
             >
               {WORKLOAD_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
@@ -122,13 +126,13 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">목표</label>
+            <label className="ui-label">목표</label>
             <textarea
               value={objective}
               onChange={(e) => setObjective(e.target.value)}
               placeholder="과제의 목표를 입력하세요"
               rows={3}
-              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+              className={`ui-field ${
                 errors.objective ? 'border-danger' : 'border-gray-300'
               }`}
             />
@@ -136,27 +140,27 @@ export default function TaskModal({ initialTask, existingNames, onSave, onClose 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">성과</label>
+            <label className="ui-label">성과</label>
             <textarea
               value={achievement}
               onChange={(e) => setAchievement(e.target.value)}
               placeholder="실제 달성한 성과를 입력하세요 (선택)"
               rows={2}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="ui-field"
             />
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="ui-modal-actions">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+            className="ui-button ui-button-secondary"
           >
             취소
           </button>
           <button
             onClick={handleSubmit}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="ui-button ui-button-primary"
           >
             저장
           </button>

@@ -12,6 +12,7 @@ export type AppAction =
   | { type: 'IMPORT_MEMBERS'; payload: TeamMember[] }
   | { type: 'SET_CONTRIBUTION_PERCENT'; payload: { taskId: string; memberId: string; contributionPercent: number } }
   | { type: 'SET_CONTRIBUTION_GRADE'; payload: { taskId: string; memberId: string; personalPerformanceGrade: PerformanceGrade } }
+  | { type: 'SET_CONTRIBUTION_NOTE'; payload: { taskId: string; memberId: string; evaluationNote: string } }
   | { type: 'SET_CRITERIA'; payload: Partial<Criteria> }
   | { type: 'RESET_ALL' }
   | { type: 'ADD_MEETING_NOTE'; payload: MeetingNote }
@@ -32,7 +33,13 @@ export function createEmptyState(): AppState {
       taskGradeWeight: 100,
       workloadWeight: 100,
       personalGradeWeight: 0,
+      contributionWeight: 100,
       peerReviewWeight: 0,
+      gradeSPercent: 10,
+      gradeAPercent: 20,
+      gradeBPercent: 40,
+      gradeCPercent: 20,
+      gradeDPercent: 10,
     },
   }
 }
@@ -41,7 +48,7 @@ function upsertContribution(
   contributions: Contribution[],
   taskId: string,
   memberId: string,
-  patch: Partial<Pick<Contribution, 'contributionPercent' | 'personalPerformanceGrade' | 'isAutoDistributed'>>,
+  patch: Partial<Pick<Contribution, 'contributionPercent' | 'personalPerformanceGrade' | 'evaluationNote' | 'isAutoDistributed'>>,
 ): Contribution[] {
   const exists = contributions.some((c) => c.taskId === taskId && c.memberId === memberId)
   if (exists) {
@@ -186,6 +193,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         contributions: upsertContribution(state.contributions, taskId, memberId, { personalPerformanceGrade }),
       }
+    }
+
+    case 'SET_CONTRIBUTION_NOTE': {
+      const { taskId, memberId, evaluationNote } = action.payload
+      return { ...state, contributions: upsertContribution(state.contributions, taskId, memberId, { evaluationNote }) }
     }
 
     case 'SET_CRITERIA':

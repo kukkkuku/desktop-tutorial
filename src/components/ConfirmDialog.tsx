@@ -4,28 +4,29 @@ interface ConfirmDialogProps {
   message: string
   onConfirm: () => void
   onCancel: () => void
+  confirmLabel?: string
 }
 
-export default function ConfirmDialog({ open, title, message, onConfirm, onCancel }: ConfirmDialogProps) {
+export default function ConfirmDialog({ open, title, message, onConfirm, onCancel, confirmLabel = '삭제' }: ConfirmDialogProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-black">{title}</h3>
+    <div className="ui-modal-backdrop">
+      <div className="ui-modal-panel max-w-sm">
+        <h3 className="ui-modal-title">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="ui-modal-actions">
           <button
             onClick={onCancel}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+            className="ui-button ui-button-secondary"
           >
             취소
           </button>
           <button
             onClick={onConfirm}
-            className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="ui-button ui-button-danger"
           >
-            삭제
+            {confirmLabel}
           </button>
         </div>
       </div>

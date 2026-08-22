@@ -50,19 +50,19 @@ export default function MemberModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-black">{initialMember ? '팀원 수정' : '팀원 추가'}</h3>
+    <div className="ui-modal-backdrop">
+      <div className="ui-modal-panel max-w-sm">
+        <h3 className="ui-modal-title">{initialMember ? '팀원 수정' : '팀원 추가'}</h3>
 
         <div className="mt-4 max-h-[70vh] space-y-4 overflow-y-auto pr-1">
           <div>
-            <label className="block text-sm font-medium text-black">이름</label>
+            <label className="ui-label">이름</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예: 홍길동"
-              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+              className={`ui-field ${
                 error ? 'border-danger' : 'border-gray-300'
               }`}
             />
@@ -71,11 +71,11 @@ export default function MemberModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-black">직책</label>
+              <label className="ui-label">직책</label>
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value as Position | '')}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="ui-field"
               >
                 <option value="">-</option>
                 {POSITION_OPTIONS.map((opt) => (
@@ -86,11 +86,11 @@ export default function MemberModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-black">직급</label>
+              <label className="ui-label">직급</label>
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value as Level | '')}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="ui-field"
               >
                 <option value="">-</option>
                 {LEVEL_OPTIONS.map((opt) => (
@@ -104,36 +104,36 @@ export default function MemberModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-black">연차</label>
+              <label className="ui-label">연차</label>
               <input
                 type="number"
                 min={0}
                 value={yearsOfService}
                 onChange={(e) => setYearsOfService(e.target.value)}
                 placeholder="예: 3"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="ui-field"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-black">역할</label>
+              <label className="ui-label">역할</label>
               <input
                 type="text"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="예: 기획, 디자인, 개발"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="ui-field"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black">코멘트</label>
+            <label className="ui-label">코멘트</label>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="팀원에 대한 코멘트를 남겨보세요 (선택)"
               rows={2}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="ui-field"
             />
           </div>
 
@@ -151,16 +151,16 @@ export default function MemberModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="ui-modal-actions">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+            className="ui-button ui-button-secondary"
           >
             취소
           </button>
           <button
             onClick={handleSubmit}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="ui-button ui-button-primary"
           >
             저장
           </button>

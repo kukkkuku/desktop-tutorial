@@ -143,9 +143,9 @@ export function calcMemberCumulativeScore(
 ): number {
   return taskScores.reduce((sum, row) => {
     const contribution = getContribution(contributions, row.task.id, member.id)
-    const percent = contribution?.contributionPercent ?? 0
+    const contributionFactor = blendByWeight(1, (contribution?.contributionPercent ?? 0) / 100, criteria.contributionWeight)
     const personalFactor = calcPersonalGradeFactor(contribution, criteria)
-    return sum + row.score * (percent / 100) * personalFactor
+    return sum + row.score * contributionFactor * personalFactor
   }, 0)
 }
 
@@ -154,17 +154,22 @@ export function calcPeerReviewFactor(
   memberId: string,
   criteria: Criteria,
 ): number {
-  const received = peerReviews.filter((r) => r.targetMemberId === memberId)
-  if (received.length === 0) return 1.0
-  const avgScore = received.reduce((sum, r) => sum + PERFORMANCE_SCORE[r.grade], 0) / received.length
-  return blendByWeight(1.0, avgScore / 100, criteria.peerReviewWeight)
+  if (criteria.peerReviewWeight <= 0) return 1
+  const receivedGrades = peerReviews
+    .filter((review) => review.targetMemberId === memberId && review.reviewerMemberId !== memberId && review.grade)
+    .map((review) => PERFORMANCE_SCORE[review.grade!])
+  if (receivedGrades.length === 0) return 1
+  const averageFactor = receivedGrades.reduce((sum, score) => sum + score, 0) / receivedGrades.length / 100
+  return blendByWeight(1, averageFactor, criteria.peerReviewWeight)
 }
 
 export function calcMemberParticipation(
   member: TeamMember,
   tasks: Task[],
   contributions: Contribution[],
+  criteria?: Criteria,
 ): { count: number; totalShare: number } {
+  if (criteria?.contributionWeight === 0) return { count: tasks.length, totalShare: tasks.length }
   let count = 0
   let totalShare = 0
   for (const task of tasks) {
@@ -177,11 +182,15 @@ export function calcMemberParticipation(
   return { count, totalShare }
 }
 
-export function calcEvaluationGrade(ratio: number): EvaluationGrade {
-  if (ratio >= 1.2) return 'S'
-  if (ratio >= 1.0) return 'A'
-  if (ratio >= 0.8) return 'B'
-  if (ratio >= 0.6) return 'C'
+export function calcEvaluationGrade(rankPercent: number, criteria?: Criteria): EvaluationGrade {
+  const s = criteria?.gradeSPercent ?? 10
+  const a = s + (criteria?.gradeAPercent ?? 20)
+  const b = a + (criteria?.gradeBPercent ?? 40)
+  const c = b + (criteria?.gradeCPercent ?? 20)
+  if (rankPercent < s) return 'S'
+  if (rankPercent < a) return 'A'
+  if (rankPercent < b) return 'B'
+  if (rankPercent < c) return 'C'
   return 'D'
 }
 
@@ -198,17 +207,22 @@ export function calcMemberResults(
     .filter((m) => m.active)
     .map((member) => {
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
-      const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
-      const cumulativeScore = rawCumulativeScore * peerReviewFactor
-      const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
+      const cumulativeScore = rawCumulativeScore * calcPeerReviewFactor(peerReviews, member.id, criteria)
+      const { count, totalShare } = calcMemberParticipation(member, tasks, contributions, criteria)
       return { member, cumulativeScore, participatedTaskCount: count, totalShare }
     })
 
   const expectedScore = calcExpectedScore(withCumulativeScore.map((r) => r.cumulativeScore))
 
-  const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount, totalShare }) => {
-    const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
+  const scoredRows = withCumulativeScore.map((row) => ({
+    ...row,
+    weightedAverageScore: row.totalShare > 0 ? row.cumulativeScore / row.totalShare : 0,
+  }))
+
+  const rows = scoredRows.map(({ member, cumulativeScore, participatedTaskCount, weightedAverageScore }) => {
     const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
+    const greaterCount = scoredRows.filter((row) => row.weightedAverageScore > weightedAverageScore).length
+    const rankPercent = scoredRows.length > 0 ? (greaterCount / scoredRows.length) * 100 : 100
     return {
       member,
       participatedTaskCount,
@@ -216,7 +230,7 @@ export function calcMemberResults(
       weightedAverageScore,
       expectedScore,
       ratio,
-      grade: calcEvaluationGrade(ratio),
+      grade: calcEvaluationGrade(rankPercent, criteria),
     }
   })
 

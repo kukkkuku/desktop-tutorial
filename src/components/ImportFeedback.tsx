@@ -34,7 +34,7 @@ export default function ImportFeedback({ addedCount, updatedCount, errors, onDis
         </div>
         <button
           onClick={onDismiss}
-          className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-black hover:bg-gray-100"
+          className="ui-button ui-button-ghost ui-button-sm shrink-0"
         >
           닫기
         </button>

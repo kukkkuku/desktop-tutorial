@@ -6,6 +6,10 @@ import { downloadMemberTemplate, parseMemberWorkbook, type MemberImportResult } 
 import MemberModal from './MemberModal'
 import ConfirmDialog from './ConfirmDialog'
 import ImportFeedback from './ImportFeedback'
+import Badge from './Badge'
+import SectionHeader from './SectionHeader'
+import PeerReviewSection from './PeerReviewSection'
+import CriteriaWorkspaceLayout from './CriteriaWorkspaceLayout'
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
@@ -14,6 +18,7 @@ export default function TeamManagement() {
   const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
   const [importResult, setImportResult] = useState<MemberImportResult | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
+  const [activeView, setActiveView] = useState<'members' | 'peer'>('members')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function openAddModal() {
@@ -43,6 +48,10 @@ export default function TeamManagement() {
     }
   }
 
+  function toggleMemberActive(member: TeamMember) {
+    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, active: !member.active } })
+  }
+
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -55,30 +64,35 @@ export default function TeamManagement() {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black">팀원 관리</h2>
-        <button
-          onClick={openAddModal}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          + 팀원 추가
-        </button>
-      </div>
-      <p className="mt-1 text-sm text-gray-600">
-        팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
-      </p>
+    <CriteriaWorkspaceLayout>
+    <div className="ui-page">
+      <SectionHeader
+        title="팀원 관리"
+        description="현재 평가 프로젝트의 팀원을 관리합니다. 제외한 팀원의 다른 평가기간 이력과 TeamMember ID는 유지됩니다."
+        action={
+        <div className="flex items-center gap-2">
+          {activeView === 'members' && <button onClick={openAddModal} className="ui-button ui-button-primary">+ 팀원 추가</button>}
+        </div>
+        }
+      />
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
+      <div className="flex border-b border-gray-200" role="tablist" aria-label="팀원 관리 구분">
+        <button type="button" role="tab" aria-selected={activeView === 'members'} onClick={() => setActiveView('members')} className={`border-b-2 px-5 py-2.5 text-sm font-semibold transition-colors ${activeView === 'members' ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>팀원</button>
+        <button type="button" role="tab" aria-selected={activeView === 'peer'} onClick={() => setActiveView('peer')} className={`border-b-2 px-5 py-2.5 text-sm font-semibold transition-colors ${activeView === 'peer' ? 'border-gray-950 text-gray-950' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>피어리뷰</button>
+      </div>
+
+      {activeView === 'peer' ? <PeerReviewSection /> : <>
+
+      <div className="ui-toolbar">
         <button
           onClick={downloadMemberTemplate}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+          className="ui-button ui-button-secondary"
         >
           엑셀 양식 다운로드
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
+          className="ui-button ui-button-secondary"
         >
           엑셀로 업로드
         </button>
@@ -107,7 +121,7 @@ export default function TeamManagement() {
       )}
 
       {state.members.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
+        <p className="ui-empty">
           등록된 팀원이 없습니다.
           <br />
           '+ 팀원 추가' 버튼으로 직접 등록하거나,
@@ -115,9 +129,9 @@ export default function TeamManagement() {
           위의 '엑셀로 업로드' 버튼으로 여러 팀원을 한 번에 등록할 수 있습니다.
         </p>
       ) : (
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="bg-[#F3F4F6] text-black">
+      <div className="ui-table-wrap">
+        <table className="ui-table min-w-[900px]">
+          <thead>
             <tr>
               <th className="px-4 py-3 font-semibold">이름</th>
               <th className="px-4 py-3 font-semibold">직책</th>
@@ -138,9 +152,7 @@ export default function TeamManagement() {
                     <span className="inline-flex items-center gap-1.5">
                       {member.name}
                       {recentlyAddedIds.has(member.id) && (
-                        <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-                          N
-                        </span>
+                        <Badge tone="accent">N</Badge>
                       )}
                     </span>
                   </td>
@@ -150,25 +162,19 @@ export default function TeamManagement() {
                   <td className="px-4 py-3">{member.role || '-'}</td>
                   <td className="px-4 py-3">{count}건</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        member.active ? 'bg-green-50 text-success' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {member.active ? '사용' : '미사용'}
-                    </span>
+                    <button type="button" role="switch" aria-checked={member.active} onClick={() => toggleMemberActive(member)} title="클릭해서 활성/비활성 전환" className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${member.active ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}><span className={`h-1.5 w-1.5 rounded-full ${member.active ? 'bg-green-500' : 'bg-gray-400'}`} />{member.active ? '활성' : '비활성'}</button>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEditModal(member)}
-                        className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
+                        className="ui-button ui-button-secondary ui-button-sm"
                       >
                         수정
                       </button>
                       <button
                         onClick={() => setDeletingMember(member)}
-                        className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
+                        className="ui-button ui-button-danger ui-button-sm"
                       >
                         삭제
                       </button>
@@ -197,10 +203,12 @@ export default function TeamManagement() {
       <ConfirmDialog
         open={deletingMember !== null}
         title="팀원 삭제"
-        message={`'${deletingMember?.name}' 팀원을 삭제하시겠습니까? 관련된 기여도 데이터도 함께 삭제됩니다.`}
+        message={`'${deletingMember?.name}' 팀원을 현재 평가 프로젝트에서 제외하시겠습니까? 현재 기간의 기여도는 삭제되지만 다른 평가기간 이력은 유지됩니다.`}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeletingMember(null)}
       />
+      </>}
     </div>
+    </CriteriaWorkspaceLayout>
   )
 }
