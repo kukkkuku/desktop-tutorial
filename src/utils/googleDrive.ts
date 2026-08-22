@@ -59,7 +59,9 @@ declare global {
 
 let gisLoadPromise: Promise<void> | null = null
 
-function loadGis(): Promise<void> {
+// 관리자 초대 메일(adminInvite.ts)도 같은 Google Identity Services 스크립트가
+// 필요해서, 중복 로드하지 않도록 이 로더를 그대로 공유한다.
+export function loadGis(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve()
   if (gisLoadPromise) return gisLoadPromise
   gisLoadPromise = new Promise((resolve, reject) => {

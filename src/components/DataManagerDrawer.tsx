@@ -3,6 +3,7 @@ import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, downloadAllWorkspacesExcelZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
+import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
@@ -13,7 +14,7 @@ interface DataManagerDrawerProps {
   onClose: () => void
 }
 
-type Tab = 'local' | 'drive'
+type Tab = 'local' | 'drive' | 'admin'
 
 interface BulkSummary {
   addedCount: number
@@ -175,6 +176,7 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
             [
               { key: 'local' as const, label: '로컬 파일' },
               { key: 'drive' as const, label: 'Google Drive' },
+              { key: 'admin' as const, label: '팀원 초대' },
             ]
           ).map((t) => (
             <button
@@ -313,6 +315,8 @@ export default function DataManagerDrawer({ open, onClose }: DataManagerDrawerPr
             ) : (
               <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>
             ))}
+
+          {tab === 'admin' && <AdminInvitePanel />}
         </div>
       </div>
 
