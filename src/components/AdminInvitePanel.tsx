@@ -17,6 +17,9 @@ import Button from './Button'
 import Spinner from './Spinner'
 
 const APP_URL = 'https://kukkkuku.github.io/desktop-tutorial/preview-v2/'
+// OAuth 테스트 사용자 등록 화면(프로젝트 493396486126, 이 앱의 Gmail API와
+// 같은 GCP 프로젝트) 바로가기 -- 매번 콘솔에서 찾아 들어가는 수고를 던다.
+const TEST_USERS_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials/consent?project=493396486126'
 const DEFAULT_SUBJECT = '성과·성장관리 앱 초대'
 const DEFAULT_BODY = `안녕하세요, 팀 성과·성장관리 앱에 초대합니다.
 
@@ -206,10 +209,20 @@ export default function AdminInvitePanel() {
                 ))}
               </ul>
             )}
-            <p className="mt-2 rounded-md bg-blue-50 px-2.5 py-2 text-[11px] text-gray-600">
-              메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console → OAuth 동의 화면 → 테스트 사용자에도 등록해야
-              합니다. 위 "목록 복사"로 복사해 그대로 붙여넣으면 됩니다.
-            </p>
+            <div className="mt-2 rounded-md bg-blue-50 px-2.5 py-2 text-[11px] text-gray-600">
+              <p>
+                메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야
+                합니다. 위 "목록 복사"로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
+              </p>
+              <a
+                href={TEST_USERS_CONSOLE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1.5 inline-block font-medium text-accent underline underline-offset-2"
+              >
+                테스트 사용자 등록 페이지 열기 →
+              </a>
+            </div>
           </div>
         </div>
 
