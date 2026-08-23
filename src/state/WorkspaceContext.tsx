@@ -145,7 +145,7 @@ interface WorkspaceContextValue {
   deleteWorkspace: (id: string) => void
   renameWorkspace: (id: string, teamName: string, periodName: string) => void
   touchWorkspace: (id: string) => void
-  importFromWorkspace: (targetId: string, sourceId: string, opts: { members: boolean; tasks: boolean }) => void
+  importFromWorkspace: (targetId: string, sourceId: string, opts: { memberIds: string[]; taskIds: string[]; criteria: boolean }) => void
   // 로그인 게이트 통과 직후, 그리고 "다른 Google 계정 연결" 직후 호출한다 --
   // 지금 연결된 계정 스코프의 데이터로 워크스페이스 상태를 다시 읽어들인다.
   reloadForAccount: () => void
@@ -301,11 +301,17 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  // 다른 평가기간의 팀원/과제를 지금 평가로 가져온다. 팀원은 memberId를 그대로
-  // 유지한다 -- 팀원 관리의 "최근 5년 고과"가 같은 memberId를 기간마다 찾아
-  // 이력을 이어붙이는 방식이라, id가 바뀌면 그 팀원의 과거 이력이 끊긴다.
-  // 과제는 그 평가만의 성과 기록이라 새 id로 복사하고 등급/목표/성과는 비운다.
-  function importFromWorkspace(targetId: string, sourceId: string, opts: { members: boolean; tasks: boolean }) {
+  // 다른 평가기간의 팀원/과제를 지금 평가로 가져온다. 화면에서 하나씩 골라
+  // 담을 수 있도록 memberIds/taskIds로 선택한 항목만 받는다(빈 배열이면
+  // 그 종류는 아무것도 안 가져온다). 팀원은 memberId를 그대로 유지한다 --
+  // 팀원 관리의 "최근 5년 고과"가 같은 memberId를 기간마다 찾아 이력을
+  // 이어붙이는 방식이라, id가 바뀌면 그 팀원의 과거 이력이 끊긴다. 과제는
+  // 그 평가만의 성과 기록이라 새 id로 복사하고 등급/목표/성과는 비운다.
+  function importFromWorkspace(
+    targetId: string,
+    sourceId: string,
+    opts: { memberIds: string[]; taskIds: string[]; criteria: boolean },
+  ) {
     try {
       const sourceRaw = localStorage.getItem(workspaceStateKey(sourceId))
       const targetRaw = localStorage.getItem(workspaceStateKey(targetId))
@@ -313,22 +319,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       const source = JSON.parse(sourceRaw)
       const target = JSON.parse(targetRaw)
 
-      if (opts.members && Array.isArray(source.members)) {
+      if (opts.memberIds.length > 0 && Array.isArray(source.members)) {
+        const selectedIds = new Set(opts.memberIds)
         const existingIds = new Set((target.members as TeamMember[]).map((m) => m.id))
-        const toAdd = (source.members as TeamMember[]).filter((m) => !existingIds.has(m.id))
+        const toAdd = (source.members as TeamMember[]).filter((m) => selectedIds.has(m.id) && !existingIds.has(m.id))
         target.members = [...target.members, ...toAdd]
       }
-      if (opts.tasks && Array.isArray(source.tasks)) {
-        const copied: Task[] = (source.tasks as Task[]).map((t) => ({
-          id: uuidv4(),
-          name: t.name,
-          importance: '일반',
-          workload: '중',
-          objective: '',
-          achievement: '',
-          performanceGrade: 'B',
-        }))
+      if (opts.taskIds.length > 0 && Array.isArray(source.tasks)) {
+        const selectedIds = new Set(opts.taskIds)
+        const copied: Task[] = (source.tasks as Task[])
+          .filter((t) => selectedIds.has(t.id))
+          .map((t) => ({
+            id: uuidv4(),
+            name: t.name,
+            importance: '일반',
+            workload: '중',
+            objective: '',
+            achievement: '',
+            performanceGrade: 'B',
+          }))
         target.tasks = [...target.tasks, ...copied]
+      }
+      if (opts.criteria && source.criteria) {
+        target.criteria = source.criteria
       }
 
       localStorage.setItem(workspaceStateKey(targetId), JSON.stringify(target))
