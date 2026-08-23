@@ -6,6 +6,7 @@ import type { EvaluationGrade, EvaluationStatus, Workload } from '../types'
 import {
   calcAllTaskScores,
   calcMemberResults,
+  getContribution,
   getContributionPercent,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
@@ -466,6 +467,7 @@ export default function EvaluationResults() {
                     .map((m) => ({ m, pct: getContributionPercent(contributions, task.id, m.id) }))
                     .filter((x) => x.pct > 0)
                   const hlPct = highlightId ? getContributionPercent(contributions, task.id, highlightId) : 0
+                  const hlNote = highlightId ? getContribution(contributions, task.id, highlightId)?.personalGradeNote : undefined
                   return (
                     <div key={task.id} className="flex items-stretch transition-colors hover:bg-gray-50/70">
                       {/* 1열: 과제 정보 + 성과등급/점수 */}
@@ -545,6 +547,15 @@ export default function EvaluationResults() {
                           <div className="flex h-5 items-center rounded bg-gray-100 px-2">
                             <span className="text-xs text-gray-300">미입력</span>
                           </div>
+                        )}
+                        {/* 선택된 팀원의 근거(개인수행등급을 준 이유)가 있으면 막대 아래
+                            그대로 보여준다 -- 이 컬럼은 다른 두 컬럼보다 여유가 많아
+                            한 줄 정도는 항상 넣을 자리가 있다. */}
+                        {hlNote?.trim() && (
+                          <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-500">
+                            <span className="mr-1 font-semibold text-amber-500">근거 :</span>
+                            {hlNote.trim()}
+                          </p>
                         )}
                       </div>
                     </div>
