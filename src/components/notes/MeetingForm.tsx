@@ -288,22 +288,27 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 </div>
               </div>
             ) : (
-              <div key={note.id} className="flex items-stretch gap-3">
-                <div className="flex w-9 shrink-0 flex-col items-center">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-gray-200">
-                    {note.mood ? <MoodIcon mood={note.mood} className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-gray-300" />}
-                  </span>
+              <div key={note.id} className="flex items-stretch gap-4">
+                <div className="flex w-8 shrink-0 flex-col items-center">
+                  {note.mood ? (
+                    <MoodIcon mood={note.mood} className="h-8 w-8 shrink-0" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                      <span className="h-2 w-2 rounded-full bg-gray-300" />
+                    </span>
+                  )}
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
                 </div>
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="flex items-baseline gap-2">
-                      <span className="text-sm font-bold text-black">{note.date}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-xl font-bold text-black">{note.date}</span>
                       {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
-                        <span title="Google 캘린더에 등록됨" className="text-xs text-gray-400">
-                          📅
+                        <span title="Google 캘린더에 등록됨" className="flex h-5 w-5 shrink-0 flex-col overflow-hidden rounded-[3px] border border-[#bcc1cd]">
+                          <span className="h-1.5 w-full shrink-0 bg-[#a35c5c]" />
+                          <span className="flex flex-1 items-center justify-center bg-[#e5e7eb] text-[9px] font-bold text-[#555]">{note.date.slice(8, 10)}</span>
                         </span>
                       )}
                     </span>
