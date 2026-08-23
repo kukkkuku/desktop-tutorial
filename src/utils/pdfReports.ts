@@ -3,6 +3,7 @@ import type { Contribution, Criteria, MeetingNote, PeerReview, Task, TeamMember 
 import { calcAllTaskScores, calcMemberResults, calcTaskScore } from './calculations'
 import { calcYearsSince } from './tenure'
 import { buildPdfBlob, downloadPdfReport, type ReportSection } from './pdfReport'
+import { saveBlobLocally } from './localSave'
 
 // 각 화면(과제/팀원/피어리뷰/평가 매트릭스/결과)의 "지금 입력된 데이터"를
 // pdfReport의 공용 리포트 템플릿에 맞춰 채워 넣는다 -- 엑셀(원본 데이터)과
@@ -334,14 +335,7 @@ export async function downloadIndividualResultsPdf(
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(zipBlob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `팀원별_평가결과_${dateStr}.zip`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlobLocally(zipBlob, `팀원별_평가결과_${dateStr}.zip`)
 }
 
 // 결과 테이블의 한 행에서 그 팀원 한 명의 PDF만 내려받거나(다운로드) 새 탭에서

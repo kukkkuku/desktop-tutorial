@@ -21,6 +21,7 @@ import { calcAllTaskScores, calcMemberParticipation, calcMemberResults, calcTask
 import { calcYearsSince } from './tenure'
 import { applySheetStyle, type StyledColumn } from './excelStyle'
 import { getMemberPerformanceHistory } from './memberHistory'
+import { saveBlobLocally } from './localSave'
 
 // ---------- Styled workbook download (exceljs) ----------
 // exceljs is used for every file the app *writes* because it can actually
@@ -83,14 +84,7 @@ async function downloadStyledWorkbook(wb: ExcelJS.Workbook, filename: string): P
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    await saveBlobLocally(blob, filename)
     return true
   } catch (err) {
     console.error('엑셀 다운로드 실패:', err)
@@ -644,14 +638,7 @@ export async function downloadAllWorkspacesExcelZip(
   }
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `전체_백업_엑셀_${new Date().toISOString().slice(0, 10)}.zip`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlobLocally(blob, `전체_백업_엑셀_${new Date().toISOString().slice(0, 10)}.zip`)
 }
 
 export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember[]) {
@@ -666,14 +653,7 @@ export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember
   zip.file('피어리뷰_업로드_양식.xlsx', peerBuf)
 
   const blob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = '전체_업로드_양식.zip'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlobLocally(blob, '전체_업로드_양식.zip')
 }
 
 // ---------- Results report export ----------
@@ -951,14 +931,7 @@ export async function downloadIndividualResultReports(
   }
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  const url = URL.createObjectURL(zipBlob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `팀원별_평가결과_${dateStr}.zip`
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlobLocally(zipBlob, `팀원별_평가결과_${dateStr}.zip`)
 }
 
 // 결과 테이블의 한 행에서 바로 그 팀원 한 명의 엑셀만 내려받을 때 쓴다(zip 없이 단일 파일).

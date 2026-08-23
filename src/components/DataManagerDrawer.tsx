@@ -5,6 +5,14 @@ import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTe
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
 import { ADMIN_EMAILS } from '../utils/adminInvite'
 import { getConnectedEmail } from '../utils/googleDrive'
+import {
+  clearSaveDirectory,
+  getSaveDirectoryName,
+  isDirectoryPickerSupported,
+  LOCAL_SAVE_SUBFOLDER,
+  pickSaveDirectory,
+  restoreSaveDirectory,
+} from '../utils/localSave'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -64,6 +72,34 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange }: Da
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
   const bulkInputRef = useRef<HTMLInputElement>(null)
   const isBusy = loadingLabel !== null
+
+  // 로컬 저장 위치 -- 지정해두면 "전체 양식 ZIP/JSON 백업/엑셀 백업"이 브라우저
+  // 기본 다운로드 폴더 대신 이 폴더(정확히는 그 안의 전용 하위 폴더) 밑에 바로
+  // 쌓인다. 예전에 지정해둔 폴더가 있으면 모달이 열릴 때 조용히 재확인한다.
+  const [saveDirName, setSaveDirName] = useState<string | null>(() => getSaveDirectoryName())
+  const [saveDirError, setSaveDirError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!open) return
+    void restoreSaveDirectory().then((name) => setSaveDirName(name))
+  }, [open])
+
+  async function handlePickSaveDirectory() {
+    setSaveDirError(null)
+    try {
+      const name = await pickSaveDirectory()
+      setSaveDirName(name)
+    } catch (err) {
+      // 사용자가 폴더 선택창을 취소한 경우도 여기로 온다 -- 에러로
+      // 보여줄 필요 없이 조용히 넘어간다.
+      if (err instanceof Error && err.name === 'AbortError') return
+      setSaveDirError(err instanceof Error ? err.message : '폴더를 지정하지 못했습니다.')
+    }
+  }
+
+  function handleClearSaveDirectory() {
+    clearSaveDirectory()
+    setSaveDirName(null)
+  }
   // 초기화 버튼 자체는 "이 브라우저에 저장된 프로젝트가 하나라도 있는가"로
   // 활성화한다 -- 지금 프로젝트는 비어 있어도 다른 프로젝트에 데이터가
   // 남아있을 수 있고, 초기화는 그것까지 전부 지우기 때문이다.
@@ -218,6 +254,35 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange }: Da
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === 'local' && (
             <div className="space-y-4">
+              {isDirectoryPickerSupported() && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-black">저장 위치</p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {saveDirName ? (
+                        <>
+                          <span className="font-medium text-black">{saveDirName}</span> 폴더 안의{' '}
+                          <span className="font-medium text-black">{LOCAL_SAVE_SUBFOLDER}</span>에 저장됩니다.
+                        </>
+                      ) : (
+                        '지정하지 않으면 브라우저 기본 다운로드 폴더에 저장됩니다.'
+                      )}
+                    </p>
+                    {saveDirError && <p className="mt-0.5 text-xs text-danger">{saveDirError}</p>}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button variant="secondary" onClick={handlePickSaveDirectory} className="px-3 py-1.5 text-xs">
+                      {saveDirName ? '위치 변경' : '위치 지정'}
+                    </Button>
+                    {saveDirName && (
+                      <Button variant="secondary" onClick={handleClearSaveDirectory} className="px-3 py-1.5 text-xs">
+                        해제
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm font-semibold text-black">전체 일괄 업로드</p>
                 <p className="mt-0.5 text-xs text-gray-500">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올립니다. 내용을 보고 종류를 자동으로 구분합니다.</p>

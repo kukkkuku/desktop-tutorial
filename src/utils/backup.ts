@@ -1,5 +1,6 @@
 import type { AppState, WorkspaceMeta } from '../types'
 import { workspaceStateKey } from '../state/WorkspaceContext'
+import { saveBlobLocally } from './localSave'
 
 // 이 앱이 localStorage에 쓰는 모든 키는 이 접두어들 중 하나로 시작한다
 // (워크스페이스 목록/현재 워크스페이스/주기 설정/워크스페이스별 평가
@@ -19,28 +20,17 @@ function collectAppKeys(): string[] {
   return keys
 }
 
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
 // 로컬 JSON 백업 -- 이 브라우저에 저장된 모든 팀·평가 원본 데이터를 키 그대로
 // 담은 스냅샷. 엑셀 백업(사람이 읽기 좋은 사본)과 달리, 필요하면 같은 키로
 // localStorage에 다시 넣어 완전히 복원할 수 있는 유일한 백업이다.
-export function downloadLocalJsonBackup() {
+export async function downloadLocalJsonBackup() {
   const data: Record<string, string> = {}
   for (const key of collectAppKeys()) {
     const value = localStorage.getItem(key)
     if (value !== null) data[key] = value
   }
   const payload = { exportedAt: new Date().toISOString(), data }
-  triggerDownload(
+  await saveBlobLocally(
     new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }),
     `성과관리_전체백업_${new Date().toISOString().slice(0, 10)}.json`,
   )

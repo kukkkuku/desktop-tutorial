@@ -5,6 +5,7 @@ import '@fontsource/pretendard/400.css'
 import '@fontsource/pretendard/600.css'
 import '@fontsource/pretendard/700.css'
 import '@fontsource/pretendard/800.css'
+import { saveBlobLocally } from './localSave'
 
 // PDF 리포트 -- 엑셀(원본 데이터 그대로)과 달리 "지금 이 시점의 현황을 한눈에
 // 보여주는 인쇄용 보고서"다. 포인트 컬러는 오렌지(브랜드 accent) 하나만
@@ -234,12 +235,5 @@ export async function buildPdfBlob(options: ReportOptions): Promise<Blob> {
 
 export async function downloadPdfReport(options: ReportOptions) {
   const blob = await buildPdfBlob(options)
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = options.fileName
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlobLocally(blob, options.fileName)
 }
