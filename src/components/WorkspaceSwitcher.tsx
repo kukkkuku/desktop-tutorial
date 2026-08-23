@@ -45,6 +45,10 @@ export default function WorkspaceSwitcher({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
   const current = periods.find((p) => p.id === currentWorkspaceId)
+  // 팀 이름에 "팀"을 안 붙이고 짓는 경우(예: "디자인")가 많아서, 화면에는
+  // 항상 "~팀"으로 붙여서 보여준다. 이미 "팀"으로 끝나면 중복으로
+  // 붙이지 않는다.
+  const displayTeamName = teamName.endsWith('팀') ? teamName : `${teamName}팀`
 
   useEffect(() => {
     if (!open) return
@@ -77,15 +81,15 @@ export default function WorkspaceSwitcher({
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-base font-bold text-black transition-colors ${
-          open ? 'border-accent ring-2 ring-accent/15' : 'border-gray-200 hover:border-gray-300'
+        className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xl font-bold text-black transition-colors hover:bg-gray-50 ${
+          open ? 'bg-gray-50' : ''
         }`}
       >
-        <FolderIcon className="h-4 w-4 shrink-0 text-accent" />
+        <FolderIcon className="h-5 w-5 shrink-0 text-accent" />
         <span className="whitespace-nowrap">
-          {teamName} {current ? `${current.evaluationYear} ${current.periodName}` : ''}
+          {displayTeamName} {current ? `${current.evaluationYear} ${current.periodName}` : ''}
         </span>
-        <ChevronDownIcon className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open &&
@@ -96,7 +100,7 @@ export default function WorkspaceSwitcher({
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
             className="z-50 w-60 overflow-hidden rounded-lg border border-gray-200 bg-white py-1.5 shadow-xl"
           >
-            <p className="px-3 pb-1 pt-1.5 text-xs font-medium text-gray-400">{teamName}</p>
+            <p className="px-3 pb-1 pt-1.5 text-xs font-medium text-gray-400">{displayTeamName}</p>
             <div className="px-1">
               {periods.map((p) => {
                 const selected = p.id === currentWorkspaceId
