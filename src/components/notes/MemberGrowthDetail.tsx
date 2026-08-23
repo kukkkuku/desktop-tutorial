@@ -214,43 +214,61 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
   const noteStripRef = useRef<HTMLDivElement>(null)
 
-  // 최근 성과 표 폭 -- 스플리터로 좁아지면 개인등급 근거를 아이콘만, 넓으면
-  // 아이콘+짧은 미리보기로 보여준다(리사이즈 옵저버로 실측). 같은 실측값을
-  // 성과 컬럼의 슬림 바 여부(perfNarrow) 판단에도 재사용한다.
-  const recentColRef = useRef<HTMLDivElement>(null)
-  const [recentColWide, setRecentColWide] = useState(true)
-  const [perfNarrow, setPerfNarrow] = useState(false)
-
-  // 성장 시뮬레이션 / 면담 컬럼 -- 버튼으로 접고 펼치는 게 아니라, 스플리터로
-  // 줄인 실제 폭을 실측해서 슬림 바 모습을 자동으로 켜고 끈다(성과 컬럼도
-  // 위 recentColRef로 같은 방식을 쓴다).
-  const simColRef = useRef<HTMLDivElement>(null)
-  const [simNarrow, setSimNarrow] = useState(true)
-  const meetingColRef = useRef<HTMLDivElement>(null)
-  const [meetingNarrow, setMeetingNarrow] = useState(false)
-  // 면담 컬럼이 3등분 영역 전체 폭의 절반 이상을 차지하면 내부를
-  // 좌(인사이트+기록)/우(작성 폼)로 나눈다 -- 스플리터로 넓혀도, 아래
-  // expandColumn('meeting')으로 한번에 펼쳐도 똑같이 이 실측값으로 판단한다.
-  // xl 미만(위아래로 쌓는 레이아웃)에서는 컬럼 폭이 곧 전체 폭과 같아져
-  // 잘못 분할될 수 있어 window 폭으로 xl 여부도 함께 확인한다.
-  const [meetingSplit, setMeetingSplit] = useState(false)
-
   const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ handle: 0 | 1; startX: number; startBounds: [number, number]; containerWidth: number } | null>(null)
   const boundsInitialized = useRef(false)
 
+  // 컬럼 폭은 실제 DOM을 각자 재는 대신 bounds(경계 비율) x 컨테이너 실측
+  // 폭으로 계산한다 -- 그래야 "슬림 바로 접힌 컬럼은 항상 정확히
+  // COL_MIN_WIDTH(64px)"라는 걸 보장할 수 있다(드래그 도중 120px 문턱을
+  // 넘기 전까지 몇 px에 멈추든, 접힌 순간엔 딱 64px로 스냅). xl 미만에서는
+  // 컬럼이 항상 전체 폭으로 쌓이므로 window 폭으로 xl 여부도 함께 본다.
+  const [containerWidth, setContainerWidth] = useState(0)
+  const [isXl, setIsXl] = useState(() => window.innerWidth >= 1280)
+
   // 마운트 시점에 첫 컬럼(성장 시뮬레이션) 폭이 정확히 슬림 바 픽셀값이
-  // 되도록 경계값을 보정한다 -- 화면 폭마다 DEFAULT_BOUNDS의 비율만으로는
-  // 정확한 픽셀 폭을 맞출 수 없기 때문.
+  // 되도록 경계값을 보정하고, 이후에도 컨테이너 실측 폭을 계속 추적한다 --
+  // 화면 폭마다 DEFAULT_BOUNDS의 비율만으로는 정확한 픽셀 폭을 맞출 수
+  // 없기 때문.
   useLayoutEffect(() => {
-    if (boundsInitialized.current) return
-    const containerWidth = rowRef.current?.getBoundingClientRect().width
-    if (!containerWidth) return
-    boundsInitialized.current = true
-    const b0 = SIM_COLLAPSED_WIDTH / containerWidth
-    setBounds([b0, b0 + (1 - b0) / 2])
+    const el = rowRef.current
+    if (!el) return
+    const update = () => {
+      const width = el.getBoundingClientRect().width
+      setContainerWidth(width)
+      if (!boundsInitialized.current && width > 0) {
+        boundsInitialized.current = true
+        const b0 = SIM_COLLAPSED_WIDTH / width
+        setBounds([b0, b0 + (1 - b0) / 2])
+      }
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    const update = () => setIsXl(window.innerWidth >= 1280)
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  const simWidthPx = bounds[0] * containerWidth
+  const perfWidthPx = (bounds[1] - bounds[0]) * containerWidth
+  const meetingWidthPx = (1 - bounds[1]) * containerWidth
+  const simNarrow = isXl && containerWidth > 0 && simWidthPx < COL_NARROW_THRESHOLD
+  const perfNarrow = isXl && containerWidth > 0 && perfWidthPx < COL_NARROW_THRESHOLD
+  const meetingNarrow = isXl && containerWidth > 0 && meetingWidthPx < COL_NARROW_THRESHOLD
+  // 면담 컬럼이 3등분 영역 전체 폭의 절반 이상을 차지하면 내부를
+  // 좌(인사이트+기록)/우(작성 폼)로 나눈다 -- 스플리터로 넓혀도, 아래
+  // expandColumn('meeting')으로 한번에 펼쳐도 똑같이 이 계산으로 판단한다.
+  const meetingSplit = isXl && containerWidth > 0 && meetingWidthPx >= containerWidth * MEETING_SPLIT_RATIO
+  // 최근 성과 표 폭 -- 좁으면 개인등급 근거를 아이콘만, 넓으면 아이콘+짧은
+  // 미리보기로 보여준다. xl 미만(쌓인 레이아웃)에서는 컬럼 폭이 곧
+  // 컨테이너 전체 폭이다.
+  const recentColWide = isXl ? perfWidthPx >= WIDE_COL_THRESHOLD : containerWidth >= WIDE_COL_THRESHOLD
 
   function makeSplitterHandlers(handle: 0 | 1) {
     return {
@@ -302,14 +320,22 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     })
   }
 
-  // 성과/면담 슬림 바의 펼치기 아이콘 -- 스플리터를 직접 드래그하는 대신
-  // 클릭 한 번으로, 내용이 깨지지 않는 최소 폭(EXPAND_TARGET_WIDTH)까지
-  // 곧바로 펼친다. 성과는 b0(성장 시뮬레이션과의 경계)는 그대로 두고 b1을
-  // 옮기고, 면담은 반대로 b1을 옮겨 우측 폭을 확보한다.
-  function expandColumn(which: 'perf' | 'meeting') {
+  // 세 컬럼 슬림 바의 타이틀(또는 펼치기 아이콘)을 누르면 스플리터를 직접
+  // 드래그하는 대신 한 번에, 내용이 깨지지 않는 최소 폭(EXPAND_TARGET_WIDTH)
+  // 까지 곧바로 펼친다. 성장 시뮬레이션은 b0(첫 경계선)를, 성과는
+  // b0는 그대로 두고 b1을, 면담은 반대로 b1을 옮겨 폭을 확보한다.
+  function expandColumn(which: 'sim' | 'perf' | 'meeting') {
     const containerWidth = rowRef.current?.getBoundingClientRect().width
     if (!containerWidth) return
     const minFrac = COL_MIN_WIDTH / containerWidth
+    if (which === 'sim') {
+      const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
+      setBounds(([, b1]) => {
+        const next0 = Math.max(minFrac, Math.min(b1 - minFrac, targetFrac))
+        return [next0, b1]
+      })
+      return
+    }
     setBounds(([b0]) => {
       if (which === 'perf') {
         const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
@@ -335,50 +361,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [colorPickerFor])
-
-  useLayoutEffect(() => {
-    const el = recentColRef.current
-    if (!el) return
-    const update = () => {
-      const width = el.getBoundingClientRect().width
-      setRecentColWide(width >= WIDE_COL_THRESHOLD)
-      setPerfNarrow(width < COL_NARROW_THRESHOLD)
-    }
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  useLayoutEffect(() => {
-    const el = simColRef.current
-    if (!el) return
-    const update = () => setSimNarrow(el.getBoundingClientRect().width < COL_NARROW_THRESHOLD)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  useLayoutEffect(() => {
-    const el = meetingColRef.current
-    if (!el) return
-    const update = () => {
-      const width = el.getBoundingClientRect().width
-      setMeetingNarrow(width < COL_NARROW_THRESHOLD)
-      const rowWidth = rowRef.current?.getBoundingClientRect().width || 0
-      const isXl = window.innerWidth >= 1280
-      setMeetingSplit(isXl && rowWidth > 0 && width >= rowWidth * MEETING_SPLIT_RATIO)
-    }
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(el)
-    window.addEventListener('resize', update)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('resize', update)
-    }
-  }, [])
 
   if (!member) {
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
@@ -649,10 +631,16 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           슬림 바가 되지 않는다). */}
       <div className="flex-1 bg-slate-50 p-5">
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
-          <div ref={simColRef} className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0">
+          <div className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0" style={simNarrow ? { width: COL_MIN_WIDTH } : undefined}>
             {simNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6">
-                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성장 시뮬레이션</span>
+                <button
+                  onClick={() => expandColumn('sim')}
+                  title="성장 시뮬레이션 펼치기"
+                  className="[writing-mode:vertical-rl] text-base font-bold text-black hover:text-accent"
+                >
+                  성장 시뮬레이션
+                </button>
                 {promotionCriteria && (
                   <button
                     onClick={() => setCriteriaManagerOpen(true)}
@@ -681,11 +669,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter0} />
 
-          <div ref={recentColRef} className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0">
+          <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0" style={perfNarrow ? { width: COL_MIN_WIDTH } : undefined}>
             {perfNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
-                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">성과</span>
+                <button
+                  onClick={() => expandColumn('perf')}
+                  title="성과 펼치기"
+                  className="[writing-mode:vertical-rl] text-base font-bold text-black hover:text-accent"
+                >
+                  성과
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -774,11 +768,20 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               좌(인사이트+기록)/우(일지 작성) 2단으로 나뉜다(MeetingForm 내부
               실측). 폭이 좁으면 인사이트 -> 일지 -> 기록 순으로 위아래 쌓인다.
               컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
-          <div ref={meetingColRef} className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1">
+          <div
+            className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1"
+            style={meetingNarrow ? { width: COL_MIN_WIDTH, flex: '0 0 auto' } : undefined}
+          >
             {meetingNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
-                <span className="[writing-mode:vertical-rl] text-base font-bold text-black">면담</span>
+                <button
+                  onClick={() => expandColumn('meeting')}
+                  title="면담 펼치기"
+                  className="[writing-mode:vertical-rl] text-base font-bold text-black hover:text-accent"
+                >
+                  면담
+                </button>
               </div>
             ) : (
               <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
