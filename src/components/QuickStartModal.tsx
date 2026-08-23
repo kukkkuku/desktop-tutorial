@@ -1,5 +1,9 @@
 import { useState, type ReactNode } from 'react'
+import { v4 as uuidv4 } from 'uuid'
+import { useAppState } from '../state/AppContext'
+import type { Task, TeamMember } from '../types'
 import ImportFromPreviousDialog from './ImportFromPreviousDialog'
+import Button from './Button'
 import IconButton from './IconButton'
 
 interface QuickStartModalProps {
@@ -11,8 +15,8 @@ interface QuickStartModalProps {
   // 업로드"(과제·팀원·피어리뷰 자동 구분)를 그대로 쓴다. 여기서 새로
   // 만들지 않고 그 화면을 열어준다.
   onOpenDataManager: () => void
-  // "직접 입력" -- 과제관리 탭으로 이동시켜 위에 있는 입력 폼부터
-  // 쓰게 한다.
+  // "직접 입력"으로 과제/팀원을 빠르게 등록한 뒤 호출한다 -- 과제관리
+  // 탭으로 이동시켜 방금 넣은 결과를 바로 보여준다.
   onDirectEntry: () => void
 }
 
@@ -78,6 +82,91 @@ function OptionCard({
   )
 }
 
+// "직접 입력"을 눌렀을 때 -- 과제관리/팀원관리의 상세 폼(등급/업무량/
+// 목표/직급/입사일 등)까지 다 채우게 하지 않고, 과제명·팀원 이름만
+// 한 줄에 하나씩 받아서 한 번에 등록한다. 나머지 항목은 필요할 때
+// 각 화면에서 채우면 된다. 상세 필드는 각각 기본값(과제: 일반/B/중,
+// 팀원: 직급·입사일 등 비워둠)으로 넣는다.
+function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { state, dispatch } = useAppState()
+  const [taskText, setTaskText] = useState('')
+  const [memberText, setMemberText] = useState('')
+
+  function parseLines(text: string): string[] {
+    return Array.from(new Set(text.split('\n').map((s) => s.trim()).filter(Boolean)))
+  }
+
+  const canStart = taskText.trim() !== '' || memberText.trim() !== ''
+
+  function handleStart() {
+    for (const name of parseLines(taskText)) {
+      if (state.tasks.some((t) => t.name === name)) continue
+      const task: Task = { id: uuidv4(), name, importance: '일반', performanceGrade: 'B', workload: '중', objective: '', achievement: '' }
+      dispatch({ type: 'ADD_TASK', payload: task })
+    }
+    for (const name of parseLines(memberText)) {
+      if (state.members.some((m) => m.name === name)) continue
+      const member: TeamMember = {
+        id: uuidv4(),
+        name,
+        active: true,
+        level: '',
+        yearsOfService: null,
+        role: '',
+        comment: '',
+        hireDate: null,
+        currentLevelSince: null,
+      }
+      dispatch({ type: 'ADD_MEMBER', payload: member })
+    }
+    onDone()
+  }
+
+  return (
+    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-black">직접 입력</h3>
+          <p className="mt-1 text-sm text-gray-500">과제명과 팀원 이름을 한 줄에 하나씩 입력하세요. 나머지 항목은 나중에 채우면 됩니다.</p>
+        </div>
+        <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
+          <XIcon className="h-5 w-5" />
+        </IconButton>
+      </div>
+
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-black">과제명</label>
+        <textarea
+          value={taskText}
+          onChange={(e) => setTaskText(e.target.value)}
+          rows={4}
+          placeholder={'예:\n신규 랜딩페이지 제작\n결제 시스템 개선'}
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+        />
+      </div>
+      <div className="mt-3">
+        <label className="block text-sm font-medium text-black">팀원 이름</label>
+        <textarea
+          value={memberText}
+          onChange={(e) => setMemberText(e.target.value)}
+          rows={4}
+          placeholder={'예:\n김민수\n이서연'}
+          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+        />
+      </div>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>
+          취소
+        </Button>
+        <Button variant="primary" onClick={handleStart} disabled={!canStart}>
+          시작하기
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // 헤더의 번개 아이콘("빠른 시작")으로 어디서든 열 수 있는 시작 방법
 // 선택 모달. 과제관리 빈 화면에 있는 온보딩과 목적은 같지만(시작 방법
 // 고르기), 특정 탭이 빈 상태일 때만 보이는 게 아니라 언제든 누를 수
@@ -92,10 +181,18 @@ export default function QuickStartModal({
   onOpenDataManager,
   onDirectEntry,
 }: QuickStartModalProps) {
-  const [importOpen, setImportOpen] = useState(false)
+  const [step, setStep] = useState<'menu' | 'import' | 'direct'>('menu')
 
-  if (importOpen) {
+  if (step === 'import') {
     return <ImportFromPreviousDialog teamName={teamName} currentWorkspaceId={currentWorkspaceId} onClose={onClose} />
+  }
+
+  if (step === 'direct') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <DirectEntryStep onClose={onClose} onDone={onDirectEntry} />
+      </div>
+    )
   }
 
   return (
@@ -121,15 +218,15 @@ export default function QuickStartModal({
           <OptionCard
             icon={<PencilIcon className="h-5 w-5" />}
             title="직접 입력"
-            hint="과제관리에서 과제부터 하나씩 추가하고 팀원을 등록하세요"
-            onClick={onDirectEntry}
+            hint="과제명·팀원 이름만 빠르게 입력해서 바로 시작하세요"
+            onClick={() => setStep('direct')}
           />
           {hasOtherPeriods && (
             <OptionCard
               icon={<HistoryIcon className="h-5 w-5" />}
               title="이전 평가에서 가져오기"
               hint="과제·팀원을 이전 기간에서 이어받으세요"
-              onClick={() => setImportOpen(true)}
+              onClick={() => setStep('import')}
             />
           )}
         </div>
