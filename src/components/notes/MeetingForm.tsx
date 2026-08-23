@@ -12,13 +12,6 @@ import IconButton from '../IconButton'
 import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
 import MoodPicker from './MoodPicker'
 
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  )
-}
 function XIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -327,9 +320,6 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       className="w-44 rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
                     />
                     <div className="flex shrink-0 items-center gap-1">
-                      <IconButton onClick={() => saveEdit(note)} disabled={!editComment.trim()} title="저장" aria-label="저장">
-                        <CheckIcon className="h-4 w-4" />
-                      </IconButton>
                       <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
                         <XIcon className="h-4 w-4" />
                       </IconButton>
@@ -347,28 +337,37 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       </IconButton>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-start gap-3">
+                  {/* 면담일지(작성 폼)와 똑같은 레이아웃 -- textarea 옆에
+                      기분 그리드 + 제출 버튼을 세로로 쌓는다. 버튼 라벨만
+                      "수정하기"로 바꾸고, 그 동작이 곧 저장이라 별도
+                      체크(저장) 아이콘은 두지 않는다. */}
+                  <div className="mt-2 flex flex-wrap items-stretch gap-4">
                     <textarea
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       rows={3}
-                      className="min-h-[96px] min-w-[160px] flex-1 resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
+                      className="min-h-[72px] min-w-[160px] flex-1 resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
                     />
-                    <div className="grid shrink-0 grid-cols-3 gap-1.5">
-                      {MOOD_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
-                          title={opt.label}
-                          aria-label={opt.label}
-                          className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
-                            editMood === opt.value ? 'ring-2 ring-accent' : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <MoodIcon mood={opt.value} className="h-9 w-9" />
-                        </button>
-                      ))}
+                    <div className="flex shrink-0 flex-col items-center gap-2">
+                      <div className="grid grid-cols-3 gap-0.5">
+                        {MOOD_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
+                            title={opt.label}
+                            aria-label={opt.label}
+                            className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
+                              editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-gray-50'
+                            }`}
+                          >
+                            <MoodIcon mood={opt.value} className="h-5 w-5" />
+                          </button>
+                        ))}
+                      </div>
+                      <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="w-full px-2 py-1.5">
+                        수정하기
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -388,7 +387,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
-                      <span className="text-xl font-bold text-black">{note.date}</span>
+                      <span className="text-base font-bold text-black">{note.date}</span>
                       {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
