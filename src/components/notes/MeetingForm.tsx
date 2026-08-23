@@ -33,6 +33,10 @@ interface MeetingFormProps {
   insights: string[]
   insightsOpen: boolean
   onToggleInsights: () => void
+  // 면담 컬럼 실측 폭이 전체 3등분 영역의 절반 이상이 되면 부모(MemberGrowthDetail)가
+  // true로 넘긴다 -- 왼쪽에 인사이트+기록, 오른쪽에 작성 폼을 나란히 놓는다.
+  // 좁으면 인사이트 -> 작성 폼 -> 기록 순으로 위아래로 쌓는다(기본값).
+  splitLayout?: boolean
 }
 
 // 면담일지 -- Figma 디자인(interview-log-card) 그대로: 사방이 닫힌 박스가
@@ -43,7 +47,7 @@ interface MeetingFormProps {
 // 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
 // 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
 // 확인이 안 되는 문제가 있었다).
-export default function MeetingForm({ member, focusToken, insights, insightsOpen, onToggleInsights }: MeetingFormProps) {
+export default function MeetingForm({ member, focusToken, insights, insightsOpen, onToggleInsights, splitLayout }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const memberId = member.id
   const todayStr = todayString()
@@ -220,11 +224,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
           때만 쓰는 육성 포인트라, 기본은 접어두고 코멘트만 가볍게 남길 수
           있게 한다. */}
-      <div className="mt-3 flex items-center gap-1.5">
-        <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
+      <div className="mt-3 flex items-center justify-between gap-2">
         <button onClick={() => setDetailsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
+        <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
       </div>
 
       {detailsOpen && (
@@ -339,11 +343,21 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
 
   return (
     <div>
-      <div className="space-y-4">
-        {insightsBlock}
-        {logFormBlock}
-        {historyBlock}
-      </div>
+      {splitLayout ? (
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {insightsBlock}
+            {historyBlock}
+          </div>
+          <div>{logFormBlock}</div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {insightsBlock}
+          {logFormBlock}
+          {historyBlock}
+        </div>
+      )}
 
       <ConfirmDialog
         open={deletingNote !== null}

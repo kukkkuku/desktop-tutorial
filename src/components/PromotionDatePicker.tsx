@@ -8,17 +8,6 @@ function ChevronDownIcon({ className }: { className?: string }) {
   )
 }
 
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4" />
-      <path d="M8 2v4" />
-      <path d="M3 10h18" />
-    </svg>
-  )
-}
-
 // 승진심사 시기 -- 연도 입력칸 + 월 드롭다운 두 칸으로 나뉘어 있던 걸
 // "2026년 4월" 하나의 인풋박스로 합쳤다(Figma select-month 참고). 박스를
 // 누르면 연도 스테퍼 + 12개월 그리드 팝오버가 뜨고, 월을 고르면 바로
@@ -56,7 +45,6 @@ export default function PromotionDatePicker({
         {year}년 {month}월
         <ChevronDownIcon className="h-3 w-3 text-gray-400" />
       </button>
-      <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
 
       {open && (
         <div className="absolute left-0 top-full z-10 mt-2 w-56 rounded-md border border-gray-200 bg-white p-3 shadow-md">

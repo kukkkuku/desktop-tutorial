@@ -179,11 +179,16 @@ const DEFAULT_BOUNDS: [number, number] = [0.05, 0.525]
 // 아니라 스플리터로 이 폭 근처까지 줄이면 자동으로 슬림 바 모습이 된다.
 const SIM_COLLAPSED_WIDTH = 64
 // 세 컬럼 모두가 가질 수 있는 최소 폭(px) -- 스플리터로 어느 컬럼이든
-// 완전히 사라지지 않게 막아둔다.
-const COL_MIN_WIDTH = 48
+// 완전히 사라지지 않게 막아둔다(접힌 슬림 바의 폭과 같다).
+const COL_MIN_WIDTH = 64
 // 성과/면담 슬림 바의 "한번에 펼치기" 아이콘을 누르면 이 폭(px)으로 펼친다
 // -- 3등분 기본폭까지 늘리지 않고, 내용이 깨지지 않는 최소 크기로만 연다.
 const EXPAND_TARGET_WIDTH = 420
+// 면담 컬럼 실측 폭이 전체 3등분 영역의 이 비율(절반) 이상이면 내부에서
+// 좌(인사이트+기록)/우(작성 폼) 2단으로 나뉜다. 펼치기 아이콘을 눌렀을 때도
+// 바로 이 비율만큼 열어서, 열자마자 분할 레이아웃이 되는 게 "면담"의
+// 고유 기본 크기다.
+const MEETING_SPLIT_RATIO = 0.5
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -223,6 +228,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [simNarrow, setSimNarrow] = useState(true)
   const meetingColRef = useRef<HTMLDivElement>(null)
   const [meetingNarrow, setMeetingNarrow] = useState(false)
+  // 면담 컬럼이 3등분 영역 전체 폭의 절반 이상을 차지하면 내부를
+  // 좌(인사이트+기록)/우(작성 폼)로 나눈다 -- 스플리터로 넓혀도, 아래
+  // expandColumn('meeting')으로 한번에 펼쳐도 똑같이 이 실측값으로 판단한다.
+  // xl 미만(위아래로 쌓는 레이아웃)에서는 컬럼 폭이 곧 전체 폭과 같아져
+  // 잘못 분할될 수 있어 window 폭으로 xl 여부도 함께 확인한다.
+  const [meetingSplit, setMeetingSplit] = useState(false)
 
   const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -298,14 +309,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   function expandColumn(which: 'perf' | 'meeting') {
     const containerWidth = rowRef.current?.getBoundingClientRect().width
     if (!containerWidth) return
-    const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
     const minFrac = COL_MIN_WIDTH / containerWidth
     setBounds(([b0]) => {
       if (which === 'perf') {
+        const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
         const next1 = Math.max(b0 + minFrac, Math.min(1 - minFrac, b0 + targetFrac))
         return [b0, next1]
       }
-      const next1 = Math.min(1 - minFrac, Math.max(b0 + minFrac, 1 - targetFrac))
+      // 면담은 펼치자마자 전체 영역의 절반을 차지하도록 열어, 곧바로
+      // 좌우분할(인사이트+기록 / 작성 폼) 레이아웃이 그 자체로 "고유
+      // 기본 크기"가 되게 한다.
+      const next1 = Math.min(1 - minFrac, Math.max(b0 + minFrac, 1 - MEETING_SPLIT_RATIO))
       return [b0, next1]
     })
   }
@@ -349,11 +363,21 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   useLayoutEffect(() => {
     const el = meetingColRef.current
     if (!el) return
-    const update = () => setMeetingNarrow(el.getBoundingClientRect().width < COL_NARROW_THRESHOLD)
+    const update = () => {
+      const width = el.getBoundingClientRect().width
+      setMeetingNarrow(width < COL_NARROW_THRESHOLD)
+      const rowWidth = rowRef.current?.getBoundingClientRect().width || 0
+      const isXl = window.innerWidth >= 1280
+      setMeetingSplit(isXl && rowWidth > 0 && width >= rowWidth * MEETING_SPLIT_RATIO)
+    }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
-    return () => observer.disconnect()
+    window.addEventListener('resize', update)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', update)
+    }
   }, [])
 
   if (!member) {
@@ -472,8 +496,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <div className="flex flex-wrap items-center gap-5">
             <div className="shrink-0">
               <p className="flex items-baseline gap-2">
-                <span className="text-lg font-bold text-black">{member.name}</span>
-                <span className="text-xs text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
+                <span className="text-[22px] font-bold text-black">{member.name}</span>
+                <span className="text-[13px] text-gray-500">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -483,33 +507,45 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             </div>
 
             {promotionCriteria && (
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-yellow-50 px-4 py-3">
-                <div>
-                  <p className="text-[11px] text-gray-500">승진자격 점수</p>
-                  <p className="mt-1 text-2xl font-bold text-black">{promotionCriteria.requiredScore.toFixed(1)}점</p>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center rounded-xl bg-[#f8fafc] px-3 py-2">
+                  <div>
+                    <p className="text-xs text-gray-500">승진자격 점수</p>
+                    <p className="mt-1.5 text-[28px] font-bold leading-none text-black">{promotionCriteria.requiredScore.toFixed(1)}점</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-500">현재 점수</p>
-                  <p className="mt-1 text-2xl font-bold text-black">{currentWeightedScore.toFixed(1)}점</p>
+                <div className="flex items-center gap-3 rounded-xl bg-[#f8fafc] px-3 py-2">
+                  <div>
+                    <p className="text-xs text-gray-500">현재 점수</p>
+                    <p className="mt-1.5 text-[28px] font-bold leading-none text-black">{currentWeightedScore.toFixed(1)}점</p>
+                  </div>
+                  <span className="text-2xl text-gray-300" aria-hidden="true">
+                    +
+                  </span>
+                  <div>
+                    <p className="flex items-center gap-1 text-xs text-gray-500" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
+                      시뮬레이션 가산
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3 shrink-0">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="16" x2="12" y2="12" />
+                        <line x1="12" y1="8" x2="12.01" y2="8" />
+                      </svg>
+                    </p>
+                    <p className="mt-1.5 text-[28px] font-bold leading-none text-accent">
+                      {simDelta >= 0 ? '+' : ''}
+                      {simDelta.toFixed(1)}점
+                    </p>
+                  </div>
                 </div>
-                <span className="text-xl text-gray-300" aria-hidden="true">
-                  +
-                </span>
-                <div>
-                  <p className="text-[11px] text-gray-500" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
-                    시뮬레이션 가산 ⓘ
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-accent">
-                    {simDelta >= 0 ? '+' : ''}
-                    {simDelta.toFixed(1)}점
-                  </p>
-                </div>
-                <span className="text-xl text-gray-300" aria-hidden="true">
-                  →
-                </span>
-                <div>
-                  <p className="text-[11px] text-gray-500">최종 시뮬레이션 점수 ({reviewYear}년)</p>
-                  <p className="mt-1 text-2xl font-bold text-black">{projectedTotal.toFixed(1)}점</p>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+                <div className="flex items-center rounded-xl bg-[#fffae8] px-3 py-2">
+                  <div>
+                    <p className="text-xs text-gray-500">최종 시뮬레이션 점수 ({reviewYear}년)</p>
+                    <p className="mt-1.5 text-[28px] font-bold leading-none text-[#e05221]">{projectedTotal.toFixed(1)}점</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -752,6 +788,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   insights={meetingInsights}
                   insightsOpen={insightsOpen}
                   onToggleInsights={() => setInsightsOpen((v) => !v)}
+                  splitLayout={meetingSplit}
                 />
               </div>
             )}
