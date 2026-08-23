@@ -5,7 +5,6 @@ import { TeamProvider } from './state/TeamContext'
 import { MemberDetailProvider } from './state/MemberDetailContext'
 import StageTabs, { type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
-import AddPeriodModal from './components/AddPeriodModal'
 import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
 import TasksStage from './components/TasksStage'
 import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
@@ -20,7 +19,6 @@ import { disconnectDrive, getConnectedEmail, readLastSave } from './utils/google
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('tasks')
-  const [addPeriodOpen, setAddPeriodOpen] = useState(false)
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
@@ -78,11 +76,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const teamName = currentWorkspace?.teamName ?? ''
   const periods = workspaces.filter((w) => w.teamName === teamName)
 
-  function handleAddPeriodDone(workspaceId: string) {
-    selectWorkspace(workspaceId)
-    setAddPeriodOpen(false)
-  }
-
   // 팀원 상세 Drawer의 카드/버튼 → 새 페이지가 아니라 면담 탭의 해당 서브탭(면담
   // 기록/성과 히스토리/인사평가·승진 관리)으로 이동해 그 팀원을 선택해둔다.
   function goToNotes(memberId: string, subTab: NotesSubTab) {
@@ -113,7 +106,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 currentWorkspaceId={workspaceId}
                 periods={periods}
                 onSelectPeriod={selectWorkspace}
-                onAddPeriod={() => setAddPeriodOpen(true)}
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
                 accountEmail={accountEmail}
@@ -135,9 +127,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               </main>
             </div>
           </div>
-          {addPeriodOpen && (
-            <AddPeriodModal teamName={teamName} onDone={handleAddPeriodDone} onClose={() => setAddPeriodOpen(false)} />
-          )}
           <DataManagerDrawer
             open={dataManagerOpen}
             onClose={() => setDataManagerOpen(false)}

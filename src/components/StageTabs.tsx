@@ -2,6 +2,7 @@ import type { WorkspaceMeta } from '../types'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
 
 export type Stage = 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
@@ -23,7 +24,6 @@ interface StageTabsProps {
   currentWorkspaceId: string
   periods: WorkspaceMeta[]
   onSelectPeriod: (id: string) => void
-  onAddPeriod: () => void
   onExit: () => void
   onOpenDataManager: () => void
   // Google 계정 연결 상태 -- 연결 안 됐으면(또는 연동 자체가 설정 안 됐으면)
@@ -77,7 +77,6 @@ export default function StageTabs({
   currentWorkspaceId,
   periods,
   onSelectPeriod,
-  onAddPeriod,
   onExit,
   onOpenDataManager,
   accountEmail,
@@ -90,44 +89,13 @@ export default function StageTabs({
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="flex w-full flex-wrap items-center gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
-        <IconButton onClick={onExit} title="홈으로" aria-label="홈으로" className="shrink-0">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-6 w-6"
-          >
-            <path d="M3 10.5 12 3l9 7.5" />
-            <path d="M5 9.5V21h14V9.5" />
-          </svg>
-        </IconButton>
-        <span className="h-6 w-px shrink-0 bg-gray-200" />
-        <span className="whitespace-nowrap text-lg font-bold text-black">
-          {teamName} <span className="font-normal text-gray-400">성과관리</span>
-        </span>
-        <div className="flex items-center gap-2">
-          <select
-            value={currentWorkspaceId}
-            onChange={(e) => onSelectPeriod(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black"
-          >
-            {periods.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.evaluationYear} {p.periodName}
-              </option>
-            ))}
-          </select>
-          <IconButton onClick={onAddPeriod} title="새 기간 추가" aria-label="새 기간 추가" className="shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </IconButton>
-        </div>
+        <WorkspaceSwitcher
+          teamName={teamName}
+          currentWorkspaceId={currentWorkspaceId}
+          periods={periods}
+          onSelectPeriod={onSelectPeriod}
+          onOpenProjectManagement={onExit}
+        />
 
         <span className="hidden h-5 w-px bg-gray-200 sm:inline-block" />
         <nav className="flex flex-wrap items-center gap-1">

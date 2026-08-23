@@ -40,22 +40,32 @@ function XIcon({ className }: { className?: string }) {
 // "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
 // 같은 색으로 보이는 경우가 생기고, 카드가 여러 개면 화면 전체가 알록달록
 // 산만해진다. 카드 폭(300px)을 넘지 않도록 일정 인원 이상은 "+N"으로 접는다.
+// 4명까지는 여백을 둔 채 나란히, 그 이상은 메신저 아바타 스택처럼
+// 1/4씩 겹쳐서 항상 한 줄에 들어오게 한다. 겹칠 때는 뒤 아바타가 앞
+// 아바타 위로 올라오는 게 자연스럽도록 흰 테두리(2px)로 구분한다.
 function AvatarRow({ names }: { names: string[] }) {
+  const overlapped = names.length > 4
   const visible = names.slice(0, MAX_VISIBLE_AVATARS)
   const overflow = names.length - visible.length
+  const circleClass = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[15px] font-semibold text-gray-600 ${
+    overlapped ? 'border-2 border-white' : ''
+  }`
+  const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: '-10px' } : undefined)
+
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-2'}`}>
       {visible.map((name, i) => (
-        <span
-          key={`${name}-${i}`}
-          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-gray-100 text-base font-semibold text-gray-600"
-          title={name}
-        >
+        <span key={`${name}-${i}`} className={circleClass} style={overlapStyle(i)} title={name}>
           {name.slice(0, 2)}
         </span>
       ))}
       {overflow > 0 && (
-        <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-gray-100 text-base font-semibold text-gray-500">
+        <span
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[15px] font-semibold text-gray-500 ${
+            overlapped ? 'border-2 border-white' : ''
+          }`}
+          style={overlapStyle(visible.length)}
+        >
           +{overflow}
         </span>
       )}
