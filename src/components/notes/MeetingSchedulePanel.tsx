@@ -131,8 +131,8 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   // 캘린더의 현재 상태를 통째로 읽어와 세 방향으로 맞춘다. 이 패널은 팀
   // 전체 일정을 다루므로(특정 팀원 화면이 아니다) 모든 팀원의 기록을
   // 대상으로 한다.
-  //   1) 구글 캘린더에서 지워진 일정 -> 이 앱에 남은 연결(calendarEventId)만
-  //      끊는다(면담 기록 자체는 지우지 않는다).
+  //   1) 구글 캘린더에서 지워진 일정 -> 연결된 면담 기록도 함께 지운다
+  //      (연결만 끊고 남겨두면 삭제가 앱에 반영되지 않은 것처럼 보인다).
   //   2) 구글 캘린더에서 날짜/설명을 고친 일정 -> 연결된 면담 기록의
   //      날짜/코멘트를 그 값으로 덮어써서 맞춘다.
   //   3) 이 앱이 모르는, "{팀원 이름} 면담" 형식의 일정 -> 그 팀원의 새
@@ -150,7 +150,10 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         if (!note.calendarEventId) continue
         const ev = eventById.get(note.calendarEventId)
         if (!ev) {
-          dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: undefined } })
+          // 구글 캘린더에서 지운 일정은 이 앱의 면담 기록도 함께 지운다 --
+          // 연결만 끊고 기록을 남겨두면 "캘린더에서 지웠는데 앱엔 그대로
+          // 남아있다"는 것과 같아서 삭제가 반영된 것처럼 보이지 않는다.
+          dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: note.id } })
           unlinked++
           continue
         }
@@ -183,7 +186,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       const parts = [
         imported > 0 && `${imported}건 가져옴`,
         updated > 0 && `${updated}건 갱신됨`,
-        unlinked > 0 && `${unlinked}건 연동 해제됨`,
+        unlinked > 0 && `${unlinked}건 삭제됨`,
       ].filter((v): v is string => Boolean(v))
       setSyncMessage(parts.length > 0 ? parts.join(' · ') : '변경된 내용이 없습니다.')
     } catch (err) {
