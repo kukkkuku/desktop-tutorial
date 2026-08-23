@@ -37,13 +37,12 @@ interface TaskFormValues {
 }
 
 export default function TaskManagement() {
-  const { state, dispatch } = useAppState()
+  const { state, dispatch, recentlyAddedIds, markRecentlyAdded } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
   const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
-  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
 
   const [newName, setNewName] = useState('')
   const [newImportance, setNewImportance] = useState<Importance>('일반')
@@ -147,7 +146,7 @@ export default function TaskManagement() {
       achievement: newAchievement.trim(),
     }
     dispatch({ type: 'ADD_TASK', payload: task })
-    setRecentlyAddedIds(new Set([task.id]))
+    markRecentlyAdded([task.id])
     setNewName('')
     setNewImportance('일반')
     setNewWorkload('중')
@@ -292,7 +291,7 @@ export default function TaskManagement() {
         />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}>
+        <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -308,7 +307,7 @@ export default function TaskManagement() {
               ).map(([key, label]) => (
                 <ResizableTh
                   key={key}
-                  width={key === 'achievement' ? undefined : cols.widths[key]}
+                  width={cols.widths[key]}
                   resizable={key !== 'manage'}
                   onResizeStart={cols.startResize(key)}
                   onResizeMove={cols.onResizeMove}
@@ -422,7 +421,7 @@ export default function TaskManagement() {
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
                     {recentlyAddedIds.has(task.id) && (
-                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      <span className="rounded-full bg-success px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                         N
                       </span>
                     )}

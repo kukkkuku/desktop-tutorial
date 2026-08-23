@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useAppState } from '../state/AppContext'
-import { useWorkspaces } from '../state/WorkspaceContext'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
-import ImportFromPreviousDialog from './ImportFromPreviousDialog'
 
 type TeamSubTab = 'members' | 'peer'
 
@@ -25,11 +22,6 @@ interface TeamStageProps {
 
 export default function TeamStage({ subTabRequest }: TeamStageProps) {
   const [sub, setSub] = useState<TeamSubTab>(subTabRequest?.subTab ?? 'members')
-  const { workspaceId } = useAppState()
-  const { currentWorkspace, workspaces } = useWorkspaces()
-  const [importOpen, setImportOpen] = useState(false)
-  const teamName = currentWorkspace?.teamName ?? ''
-  const hasOtherPeriods = workspaces.some((w) => w.teamName === teamName && w.id !== workspaceId)
 
   useEffect(() => {
     if (!subTabRequest) return
@@ -39,30 +31,19 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-gray-200">
-        <div className="flex">
-          {SUB_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setSub(tab.key)}
-              className={`border-b-2 px-5 py-2.5 text-sm font-medium transition-colors ${
-                sub === tab.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {hasOtherPeriods && sub === 'members' && (
-          <button onClick={() => setImportOpen(true)} className="mb-2 text-xs font-medium text-gray-400 hover:text-accent">
-            이전 평가에서 가져오기
+      <div className="flex items-center border-b border-gray-200">
+        {SUB_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setSub(tab.key)}
+            className={`border-b-2 px-5 py-2.5 text-sm font-medium transition-colors ${
+              sub === tab.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
+            }`}
+          >
+            {tab.label}
           </button>
-        )}
+        ))}
       </div>
-
-      {importOpen && (
-        <ImportFromPreviousDialog teamName={teamName} currentWorkspaceId={workspaceId} onClose={() => setImportOpen(false)} />
-      )}
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}

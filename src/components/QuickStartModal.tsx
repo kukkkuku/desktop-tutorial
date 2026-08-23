@@ -93,7 +93,7 @@ function EntryPanel({
 // 상세 필드는 각각 기본값(과제: 일반/B/중, 팀원: 직급·입사일 등
 // 비워둠)으로 넣는다.
 function DirectEntryPanel({ onDone }: { onDone: () => void }) {
-  const { state, dispatch } = useAppState()
+  const { state, dispatch, markRecentlyAdded } = useAppState()
   const [target, setTarget] = useState<EntryTarget>('task')
   const [taskNames, setTaskNames] = useState<string[]>([])
   const [memberNames, setMemberNames] = useState<string[]>([])
@@ -137,10 +137,12 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
   const canStart = taskNames.length > 0 || memberNames.length > 0
 
   function handleStart() {
+    const addedIds: string[] = []
     for (const name of taskNames) {
       if (state.tasks.some((t) => t.name === name)) continue
       const task: Task = { id: uuidv4(), name, importance: '일반', performanceGrade: 'B', workload: '중', objective: '', achievement: '' }
       dispatch({ type: 'ADD_TASK', payload: task })
+      addedIds.push(task.id)
     }
     for (const name of memberNames) {
       if (state.members.some((m) => m.name === name)) continue
@@ -156,7 +158,9 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
         currentLevelSince: null,
       }
       dispatch({ type: 'ADD_MEMBER', payload: member })
+      addedIds.push(member.id)
     }
+    if (addedIds.length > 0) markRecentlyAdded(addedIds)
     onDone()
   }
 
@@ -219,7 +223,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="flex h-[640px] max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 p-6 pb-0">
           <div>
             <h3 className="text-lg font-bold text-black">빠른 시작</h3>
@@ -246,7 +250,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
           ))}
         </div>
 
-        <div className="overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {tab === 'direct' && <DirectEntryPanel onDone={onDirectEntry} />}
           {tab === 'excel' && <BulkUploadPanel />}
           {tab === 'import' && hasOtherPeriods && <ImportFromPreviousPanel teamName={teamName} currentWorkspaceId={currentWorkspaceId} />}
