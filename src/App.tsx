@@ -16,7 +16,7 @@ import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer from './components/DataManagerDrawer'
 import QuickStartModal from './components/QuickStartModal'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
-import { readLastSave } from './utils/googleDrive'
+import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 
 // 새 평가를 막 만들어 과제가 하나도 없는 워크스페이스를 열면, 빠른 시작
 // 팝업을 자동으로 띄워 첫 화면부터 시작 방법을 고르게 한다. AppProvider
@@ -46,15 +46,18 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
   const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
 
-  // "다른 Google 계정 연결"로 계정이 바뀌면 헤더 표시(refreshAccount)뿐
-  // 아니라 워크스페이스 데이터도 새 계정 것으로 다시 읽어야 한다. 지금
-  // 열려 있던 workspaceId는 새 계정에는 없는 id일 수 있으므로, 곧바로
-  // 프로젝트 선택 화면으로 되돌린다(로그인 게이트를 처음 통과할 때와
-  // 같은 흐름).
+  // "계정이 바뀌었을 수 있다"는 신호는 실제 전환(다른 Google 계정 연결)
+  // 뿐 아니라, 데이터 관리 드로어를 열 때마다도 도는 단순 새로고침에서도
+  // 온다. 이메일이 실제로 달라졌을 때만 워크스페이스를 다시 읽고 프로젝트
+  // 선택 화면으로 되돌린다 -- 안 그러면 아무것도 안 바뀐 상황(드로어를
+  // 그냥 열기만 했을 때)에도 매번 메인 화면으로 튕겨 나간다.
   function handleAccountChange() {
+    const previousEmail = accountEmail
     refreshAccount()
-    reloadForAccount()
-    exitToLanding()
+    if (getConnectedEmail() !== previousEmail) {
+      reloadForAccount()
+      exitToLanding()
+    }
   }
 
   // Drive 전체 저장 진행 상태 -- 데이터 관리 드로어(GoogleDrivePanel)에서

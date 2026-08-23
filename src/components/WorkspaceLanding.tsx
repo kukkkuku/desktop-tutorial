@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
+import { getConnectedEmail } from '../utils/googleDrive'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
@@ -174,12 +175,13 @@ export default function WorkspaceLanding() {
   const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, reloadForAccount } = useWorkspaces()
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
 
-  // "다른 Google 계정 연결"로 계정이 바뀌면 헤더 표시(refreshAccount)뿐
-  // 아니라 워크스페이스 목록도 새 계정 것으로 다시 읽어야 한다. 이미
-  // 이 랜딩 화면에 있으므로 별도로 exitToLanding을 부를 필요는 없다.
+  // "계정이 바뀌었을 수 있다"는 신호가 실제 전환이 아닐 수도 있으므로,
+  // 이메일이 실제로 달라졌을 때만 워크스페이스 목록을 다시 읽는다(이미
+  // 이 랜딩 화면에 있으므로 별도로 exitToLanding을 부를 필요는 없다).
   function handleAccountChange() {
+    const previousEmail = accountEmail
     refreshAccount()
-    reloadForAccount()
+    if (getConnectedEmail() !== previousEmail) reloadForAccount()
   }
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const mostRecentTeam = useMemo(() => {

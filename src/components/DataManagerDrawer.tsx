@@ -72,16 +72,23 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   // 하면, GoogleDrivePanel 안에서 "다시 연결"을 눌러 연결에 성공해도 그건
   // 자식 컴포넌트의 로컬 state 변경일 뿐이라 이 부모(DataManagerDrawer)가
   // 다시 렌더링되지 않고, 탭 목록이 연결 이전 값으로 멈춰버린다. 그래서
-  // 모달이 열릴 때와 연결 성공 콜백(refreshAdminStatus) 양쪽에서 명시적으로
-  // 다시 확인한다.
+  // 모달이 열릴 때와 연결 성공 콜백 양쪽에서 명시적으로 다시 확인한다.
   const [isAdminUser, setIsAdminUser] = useState(() => ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
   const refreshAdminStatus = () => {
     setIsAdminUser(ADMIN_EMAILS.includes(getConnectedEmail() ?? ''))
-    onAccountChange?.()
   }
   useEffect(() => {
     if (open) refreshAdminStatus()
   }, [open])
+  // onAccountChange는 "실제로 계정이 바뀌었다"는 신호라 워크스페이스
+  // 재로드 + 프로젝트 선택 화면 이동까지 트리거한다(App.tsx 참고) --
+  // 모달이 열릴 때마다 도는 refreshAdminStatus와 섞어 부르면 안 되고,
+  // Google Drive 탭 안에서 실제로 "다른 계정 연결"이 성공했을 때만 불러야
+  // 한다.
+  const handleDriveAccountSwitch = () => {
+    refreshAdminStatus()
+    onAccountChange?.()
+  }
 
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
@@ -246,7 +253,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   dispatch={dispatch}
                   buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
                   buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
-                  onConnected={refreshAdminStatus}
+                  onConnected={handleDriveAccountSwitch}
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
