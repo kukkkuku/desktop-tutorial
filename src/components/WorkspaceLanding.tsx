@@ -44,18 +44,18 @@ function AvatarRow({ names }: { names: string[] }) {
   const visible = names.slice(0, MAX_VISIBLE_AVATARS)
   const overflow = names.length - visible.length
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       {visible.map((name, i) => (
         <span
           key={`${name}-${i}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600"
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-gray-100 text-base font-semibold text-gray-600"
           title={name}
         >
           {name.slice(0, 2)}
         </span>
       ))}
       {overflow > 0 && (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+        <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-gray-100 text-base font-semibold text-gray-500">
           +{overflow}
         </span>
       )}
@@ -73,7 +73,15 @@ interface ProjectCardProps {
 function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   return (
-    <div className="flex w-[300px] shrink-0 flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-[0_8px_24px_0_rgba(15,23,42,0.02)]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(workspace.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
+      }}
+      className="flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
+    >
       <div className="flex flex-col gap-5 p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -88,15 +96,15 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
       </div>
       <div className="border-t border-gray-100" />
       <div className="flex items-center justify-between bg-[#fcfdfe] px-6 py-4">
-        <button onClick={() => onOpen(workspace.id)} className="flex items-center gap-1 text-sm font-semibold text-accent hover:underline">
+        <span className="flex items-center gap-1 text-sm font-semibold text-accent">
           프로젝트 열기
           <ChevronRightIcon className="h-3.5 w-3.5" />
-        </button>
+        </span>
         <div className="flex items-center gap-4 text-sm font-medium">
-          <button onClick={() => onEdit(workspace)} className="text-gray-500 hover:text-black">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(workspace) }} className="text-gray-500 hover:text-black">
             수정
           </button>
-          <button onClick={() => onDelete(workspace)} className="text-danger hover:opacity-80">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(workspace) }} className="text-danger hover:opacity-80">
             삭제
           </button>
         </div>
@@ -169,7 +177,7 @@ export default function WorkspaceLanding() {
 
   return (
     <div className="min-h-screen bg-white">
-      <main className="mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
+      <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
         <p className="text-sm text-gray-500">진행할 팀과 평가기간을 선택하세요.</p>
 
         {existingTeamNames.length > 0 && (
@@ -281,7 +289,7 @@ export default function WorkspaceLanding() {
                 </div>
               </div>
             ) : (
-              <div className="mt-6 flex flex-wrap gap-6">
+              <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {teamWorkspaces.map((w) => (
                   <ProjectCard key={w.id} workspace={w} onOpen={selectWorkspace} onEdit={openRename} onDelete={setDeletingWorkspace} />
                 ))}
