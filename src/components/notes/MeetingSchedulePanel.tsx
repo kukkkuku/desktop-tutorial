@@ -4,7 +4,8 @@ import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote } from '../../types'
 import { colorForIndex } from '../../utils/memberColors'
-import { createCalendarEvent, isCalendarConfigured } from '../../utils/googleCalendar'
+import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured } from '../../utils/googleCalendar'
+import ConfirmDialog from '../ConfirmDialog'
 import IconButton from '../IconButton'
 import Button from '../Button'
 
@@ -37,6 +38,25 @@ function CalendarIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className={className}>
+      <path d="M18 6 6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  )
+}
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  )
+}
 
 interface MeetingSchedulePanelProps {
   open: boolean
@@ -60,13 +80,16 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   const [selectedDate, setSelectedDate] = useState(todayStr)
   const [addMemberId, setAddMemberId] = useState<string | null>(members[0]?.id ?? null)
   const [calendarError, setCalendarError] = useState<string | null>(null)
+  const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
 
-  const notesByDate = new Map<string, number[]>()
+  // 날짜별로 (팀원 인덱스, 그 면담 기록) 쌍을 모아둔다 -- 칩 자체에서 바로
+  // 삭제할 수 있으려면 인덱스뿐 아니라 기록(note)까지 들고 있어야 한다.
+  const notesByDate = new Map<string, { idx: number; note: MeetingNote }[]>()
   meetingNotes.forEach((n) => {
     const idx = members.findIndex((m) => m.id === n.memberId)
     if (idx === -1) return
     const list = notesByDate.get(n.date) ?? []
-    if (!list.includes(idx)) list.push(idx)
+    if (!list.some((e) => e.idx === idx)) list.push({ idx, note: n })
     notesByDate.set(n.date, list)
   })
 
@@ -74,14 +97,39 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
     .filter(([date]) => date > todayStr)
     .sort((a, b) => a[0].localeCompare(b[0]))
     .slice(0, 6)
-    .map(([date, idxs]) => ({ date, idxs }))
+    .map(([date, entries]) => ({ date, entries }))
 
-  const todayIdxs = notesByDate.get(todayStr) ?? []
+  const todayEntries = notesByDate.get(todayStr) ?? []
   // 접힌 상태에서 보여줄 목록 -- 오늘 일정이 있으면 맨 위, 그 다음 다가오는 일정.
-  const collapsedEntries = (todayIdxs.length > 0 ? [{ date: todayStr, idxs: todayIdxs }] : []).concat(upcoming).slice(0, 5)
+  const collapsedEntries = (todayEntries.length > 0 ? [{ date: todayStr, entries: todayEntries }] : []).concat(upcoming).slice(0, 5)
+
+  function requestDeleteNote(note: MeetingNote) {
+    setDeletingNote(note)
+  }
+
+  function confirmDeleteNote() {
+    if (!deletingNote) return
+    if (deletingNote.calendarEventId) void deleteCalendarEvent(deletingNote.calendarEventId, teamName)
+    dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
+    setDeletingNote(null)
+  }
+
+  // 접힌 패널의 칩과 펼친 패널 안의 여러 목록(오늘 일정/이후 예정/선택 날짜)이
+  // 모두 이 다이얼로그를 공유한다 -- 어느 쪽에서 삭제를 눌렀는지와 무관하게
+  // deletingNote 하나로 확인 후 처리한다.
+  const deleteDialog = (
+    <ConfirmDialog
+      open={deletingNote !== null}
+      title="면담 일정 삭제"
+      message={`${deletingNote?.date} ${members.find((m) => m.id === deletingNote?.memberId)?.name ?? ''} 면담 일정을 삭제하시겠습니까?`}
+      onConfirm={confirmDeleteNote}
+      onCancel={() => setDeletingNote(null)}
+    />
+  )
 
   if (!open) {
     return (
+      <>
       <div className="w-fit shrink-0 rounded-lg border border-gray-200 bg-white p-3">
         <button
           onClick={onToggle}
@@ -95,24 +143,33 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
           <p className="whitespace-nowrap text-[12px] text-gray-400">예정 없음</p>
         ) : (
           <div className="space-y-2">
-            {collapsedEntries.map(({ date, idxs }) => (
+            {collapsedEntries.map(({ date, entries }) => (
               <div key={date}>
                 <p className="whitespace-nowrap text-[11px] font-semibold text-gray-500">{date === todayStr ? '오늘' : fmtShort(date)}</p>
                 {/* 한 날짜에 여러 명이면 옆으로 나열하지 않고 아래로 쌓아서
                     패널 너비가 늘어나지 않게 한다. */}
                 <div className="mt-1 flex flex-col items-start gap-1">
-                  {idxs.map((idx) => {
+                  {entries.map(({ idx, note }) => {
                     const member = members[idx]
                     if (!member) return null
                     return (
-                      <button
+                      <span
                         key={idx}
-                        onClick={() => onSelectMember(member.id)}
-                        className="flex max-w-[130px] items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-gray-200"
+                        className="flex max-w-[150px] items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-1.5 pr-0.5 text-[11px] text-gray-600 hover:bg-gray-200"
                       >
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                        <span className="truncate">{member.name}</span>
-                      </button>
+                        <button onClick={() => onSelectMember(member.id)} className="flex min-w-0 items-center gap-1">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          <span className="truncate">{member.name}</span>
+                        </button>
+                        <button
+                          onClick={() => requestDeleteNote(note)}
+                          title="면담 일정 삭제"
+                          aria-label="면담 일정 삭제"
+                          className="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-white hover:text-danger"
+                        >
+                          <CloseIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
                     )
                   })}
                 </div>
@@ -121,6 +178,8 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
           </div>
         )}
       </div>
+        {deleteDialog}
+      </>
     )
   }
 
@@ -148,7 +207,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   const dayNotes = members
     .map((member, idx) => ({ member, idx, note: meetingNotes.find((n) => n.memberId === member.id && n.date === selectedDate) }))
     .filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.note)
-  const todayMembers = members.map((member, idx) => ({ member, idx })).filter(({ member }) => meetingNotes.some((n) => n.memberId === member.id && n.date === todayStr))
+  const todayMembers = todayEntries.map(({ idx, note }) => ({ member: members[idx], idx, note })).filter((x): x is { member: (typeof members)[number]; idx: number; note: MeetingNote } => !!x.member)
 
   function addSchedule() {
     const memberId = addMemberId ?? members[0]?.id
@@ -170,6 +229,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   }
 
   return (
+    <>
     <div className="w-[300px] shrink-0 rounded-lg border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-bold text-black">면담 일정</h3>
@@ -197,7 +257,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       </div>
       <div className="mt-1 grid grid-cols-7 gap-1">
         {cells.map((cell) => {
-          const dotIdxs = notesByDate.get(cell.date) ?? []
+          const dotIdxs = (notesByDate.get(cell.date) ?? []).map((e) => e.idx)
           const isToday = cell.date === todayStr
           const isSelected = cell.date === selectedDate
           return (
@@ -237,11 +297,16 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             <p className="text-[13px] text-gray-400">이 날짜에 등록된 면담이 없습니다.</p>
           ) : (
             dayNotes.map(({ member, idx, note }) => (
-              <button key={note.id} onClick={() => onSelectMember(member.id)} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[13px] hover:bg-gray-100">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                <span className="shrink-0 font-medium text-black">{member.name}</span>
-                <span className="truncate text-gray-500">{note.comment || '(코멘트 없음)'}</span>
-              </button>
+              <div key={note.id} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-gray-100">
+                <button onClick={() => onSelectMember(member.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[13px]">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
+                  <span className="shrink-0 font-medium text-black">{member.name}</span>
+                  <span className="truncate text-gray-500">{note.comment || '(코멘트 없음)'}</span>
+                </button>
+                <IconButton onClick={() => requestDeleteNote(note)} title="삭제" aria-label="삭제" tone="danger">
+                  <TrashIcon className="h-3.5 w-3.5" />
+                </IconButton>
+              </div>
             ))
           )}
           <div className="mt-1 flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
@@ -266,11 +331,21 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         <p className="text-[13px] font-semibold text-black">오늘 일정</p>
         {todayMembers.length > 0 ? (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {todayMembers.map(({ member, idx }) => (
-              <button key={member.id} onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[12px] font-semibold text-accent hover:bg-blue-100">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                {member.name}
-              </button>
+            {todayMembers.map(({ member, idx, note }) => (
+              <span key={member.id} className="flex items-center gap-1 rounded-full bg-blue-50 py-0.5 pl-2 pr-0.5 text-[12px] font-semibold text-accent">
+                <button onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 hover:underline">
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                  {member.name}
+                </button>
+                <button
+                  onClick={() => requestDeleteNote(note)}
+                  title="면담 일정 삭제"
+                  aria-label="면담 일정 삭제"
+                  className="rounded-full p-0.5 text-accent/60 hover:bg-white hover:text-danger"
+                >
+                  <CloseIcon className="h-2.5 w-2.5" />
+                </button>
+              </span>
             ))}
           </div>
         ) : (
@@ -282,18 +357,28 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         <div className="mt-3 border-t border-gray-200 pt-3">
           <p className="text-[13px] font-semibold text-black">이후 예정 ({upcoming.length}건)</p>
           <div className="mt-1.5 space-y-1.5">
-            {upcoming.map(({ date, idxs }) => (
+            {upcoming.map(({ date, entries }) => (
               <div key={date} className="flex items-center gap-2 text-[12px]">
                 <span className="shrink-0 font-medium text-gray-500">{fmtShort(date)}</span>
                 <div className="flex flex-wrap gap-1">
-                  {idxs.map((idx) => {
+                  {entries.map(({ idx, note }) => {
                     const member = members[idx]
                     if (!member) return null
                     return (
-                      <button key={idx} onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-gray-600 hover:bg-gray-200">
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
-                        {member.name}
-                      </button>
+                      <span key={idx} className="flex items-center gap-1 rounded-full bg-gray-100 py-0.5 pl-1.5 pr-0.5 text-gray-600">
+                        <button onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 hover:underline">
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
+                          {member.name}
+                        </button>
+                        <button
+                          onClick={() => requestDeleteNote(note)}
+                          title="면담 일정 삭제"
+                          aria-label="면담 일정 삭제"
+                          className="rounded-full p-0.5 text-gray-400 hover:bg-white hover:text-danger"
+                        >
+                          <CloseIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
                     )
                   })}
                 </div>
@@ -303,5 +388,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         </div>
       )}
     </div>
+      {deleteDialog}
+    </>
   )
 }
