@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
@@ -36,16 +36,7 @@ interface TaskFormValues {
   achievement: string
 }
 
-interface TaskManagementProps {
-  // 팀원관리와 마찬가지로 "이전 평가에서 가져오기" 다이얼로그는 상위
-  // (TasksStage)가 소유한다 -- 과제가 이미 있는 상태에서도 계속 써야 하는
-  // 기능이라 빈 상태 UI에 종속시키지 않고, 빈 상태에서는 그 다이얼로그를
-  // 여는 콜백만 받아 카드 형태로 하나 더 보여준다. 이전 기간이 없으면
-  // undefined라 그 카드 자체가 안 보인다.
-  onImportPrevious?: () => void
-}
-
-export default function TaskManagement({ onImportPrevious }: TaskManagementProps) {
+export default function TaskManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
@@ -53,12 +44,6 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
   const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
-  const nameInputRef = useRef<HTMLInputElement>(null)
-
-  function focusNameInput() {
-    nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    nameInputRef.current?.focus()
-  }
 
   const [newName, setNewName] = useState('')
   const [newImportance, setNewImportance] = useState<Importance>('일반')
@@ -213,7 +198,6 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
               과제명 <span className="text-danger">*</span>
             </label>
             <input
-              ref={nameInputRef}
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -299,38 +283,13 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
       </div>
 
       {state.tasks.length === 0 ? (
-        <div className="mt-4">
-          <p className="text-sm font-semibold text-black">등록된 과제가 없습니다. 시작 방법을 선택하세요</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-            <EmptyStateDropzone
-              title="Excel로 한 번에 시작"
-              addHint="양식을 받아서 채운 뒤 업로드하면 한 번에 등록됩니다"
-              busyLabel="과제 업로드 중..."
-              onDownloadTemplate={downloadTaskTemplate}
-              onFiles={handleUploadFiles}
-            />
-            <div className="mt-4 flex flex-col gap-3 lg:mt-0">
-              <button
-                type="button"
-                onClick={focusNameInput}
-                className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
-              >
-                <p className="text-sm font-semibold text-black">직접 입력</p>
-                <p className="text-xs text-gray-500">위 양식에 과제를 하나씩 추가하세요</p>
-              </button>
-              {onImportPrevious && (
-                <button
-                  type="button"
-                  onClick={onImportPrevious}
-                  className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
-                >
-                  <p className="text-sm font-semibold text-black">이전 평가에서 가져오기</p>
-                  <p className="text-xs text-gray-500">과제·팀원을 이전 기간에서 이어받으세요</p>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <EmptyStateDropzone
+          title="등록된 과제가 없습니다"
+          addHint="위의 '+ 과제 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
+          busyLabel="과제 업로드 중..."
+          onDownloadTemplate={downloadTaskTemplate}
+          onFiles={handleUploadFiles}
+        />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}>
