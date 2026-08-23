@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import Badge from './Badge'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
@@ -18,10 +17,22 @@ function PlusIcon({ className }: { className?: string }) {
   )
 }
 
-function ChevronRightIcon({ className }: { className?: string }) {
+function PencilIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m9 18 6-6-6-6" />
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  )
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
     </svg>
   )
 }
@@ -39,21 +50,41 @@ function XIcon({ className }: { className?: string }) {
 // 정하지 않고 전부 같은 중립 톤으로 통일한다. 순환 색상을 쓰면 카드마다
 // "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
 // 같은 색으로 보이는 경우가 생기고, 카드가 여러 개면 화면 전체가 알록달록
-// 산만해진다. 카드 폭(300px)을 넘지 않도록 일정 인원 이상은 "+N"으로 접는다.
-// 4명까지는 여백을 둔 채 나란히, 그 이상은 메신저 아바타 스택처럼
-// 1/4씩 겹쳐서 항상 한 줄에 들어오게 한다. 겹칠 때는 뒤 아바타가 앞
-// 아바타 위로 올라오는 게 자연스럽도록 흰 테두리(2px)로 구분한다.
+// 산만해진다.
+// 겹침 여부는 인원 수로 고정하지 않고, 실제 카드 폭에 다 나란히 들어갈
+// 여유가 있는지 측정해서 정한다 -- 여유가 있으면 그냥 나란히 두고,
+// 폭이 부족할 때만 메신저 아바타 스택처럼 1/4씩 겹쳐서 항상 한 줄에
+// 들어오게 한다. 겹칠 때는 뒤 아바타가 앞 아바타 위로 올라오는 게
+// 자연스럽도록 흰 테두리(2px)로 구분한다.
+const AVATAR_SIZE = 40
+const AVATAR_GAP = 8
+const AVATAR_OVERLAP = 10
+
 function AvatarRow({ names }: { names: string[] }) {
-  const overlapped = names.length > 4
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [overlapped, setOverlapped] = useState(false)
   const visible = names.slice(0, MAX_VISIBLE_AVATARS)
   const overflow = names.length - visible.length
+  const itemCount = visible.length + (overflow > 0 ? 1 : 0)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || itemCount === 0) return
+    const spacedWidth = itemCount * AVATAR_SIZE + (itemCount - 1) * AVATAR_GAP
+    const update = () => setOverlapped(el.getBoundingClientRect().width < spacedWidth)
+    update()
+    const resizeObserver = new ResizeObserver(update)
+    resizeObserver.observe(el)
+    return () => resizeObserver.disconnect()
+  }, [itemCount])
+
   const circleClass = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[15px] font-semibold text-gray-600 ${
     overlapped ? 'border-2 border-white' : ''
   }`
-  const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: '-10px' } : undefined)
+  const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
 
   return (
-    <div className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-2'}`}>
+    <div ref={containerRef} className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-2'}`}>
       {visible.map((name, i) => (
         <span key={`${name}-${i}`} className={circleClass} style={overlapStyle(i)} title={name}>
           {name.slice(0, 2)}
@@ -90,35 +121,42 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
+      className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
     >
-      <div className="flex flex-col gap-5 p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-black">
-              {workspace.evaluationYear} {workspace.periodName}
-            </p>
-            <p className="mt-1.5 text-xs text-gray-400">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-          </div>
-          <Badge className="shrink-0">팀원 {counts.memberCount}명</Badge>
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-lg font-bold text-black">
+          {workspace.evaluationYear} {workspace.periodName}
+        </p>
+        <div className="flex shrink-0 items-center gap-1">
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(workspace)
+            }}
+            title="수정"
+            aria-label="수정"
+          >
+            <PencilIcon className="h-4 w-4" />
+          </IconButton>
+          <IconButton
+            onClick={(e) => {
+              e.stopPropagation()
+              onDelete(workspace)
+            }}
+            title="삭제"
+            aria-label="삭제"
+            tone="danger"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </IconButton>
         </div>
-        <AvatarRow names={counts.memberNames} />
       </div>
-      <div className="border-t border-gray-100" />
-      <div className="flex items-center justify-between bg-[#fcfdfe] px-6 py-4">
-        <span className="flex items-center gap-1 text-sm font-semibold text-accent">
-          프로젝트 열기
-          <ChevronRightIcon className="h-3.5 w-3.5" />
-        </span>
-        <div className="flex items-center gap-4 text-sm font-medium">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(workspace) }} className="text-gray-500 hover:text-black">
-            수정
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(workspace) }} className="text-danger hover:opacity-80">
-            삭제
-          </button>
-        </div>
-      </div>
+      <p className="flex items-center gap-1.5 text-xs text-gray-400">
+        최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}
+        <span className="text-gray-300">·</span>
+        팀원 {counts.memberCount}명
+      </p>
+      <AvatarRow names={counts.memberNames} />
     </div>
   )
 }
