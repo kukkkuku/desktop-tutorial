@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { Task, TeamMember } from '../types'
@@ -82,29 +82,119 @@ function OptionCard({
   )
 }
 
+type EntryTarget = 'task' | 'member'
+
+// 하나의 칩(추가된 과제명/팀원 이름)을 보여준다 -- x를 누르면 그
+// 자리에서 뺄 수 있다.
+function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1.5 text-sm text-black">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${label} 삭제`}
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-black"
+      >
+        <XIcon className="h-3 w-3" />
+      </button>
+    </span>
+  )
+}
+
+// 좌우 큰 영역(과제 / 팀원)에 칩이 쌓인다. 영역을 눌러 어디에 추가할지
+// 고른 뒤, 하단 입력창에서 이름을 입력하고 Enter를 치면 그 칩이 선택된
+// 영역으로 들어간다. 여러 줄(또는 쉼표 구분)을 붙여넣으면 한 번에
+// 여러 칩으로 나뉜다.
+function EntryPanel({
+  title,
+  count,
+  items,
+  active,
+  onSelect,
+  onRemove,
+}: {
+  title: string
+  count: number
+  items: string[]
+  active: boolean
+  onSelect: () => void
+  onRemove: (index: number) => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex min-h-[160px] flex-col items-start gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
+        active ? 'border-accent bg-blue-50/40' : 'border-gray-200 bg-white hover:border-gray-300'
+      }`}
+    >
+      <p className={`text-sm font-semibold ${active ? 'text-accent' : 'text-black'}`}>
+        {title} {count > 0 && <span className="font-normal text-gray-400">{count}개</span>}
+      </p>
+      <div className="flex flex-wrap content-start gap-1.5">
+        {items.map((name, i) => (
+          <Chip key={`${name}-${i}`} label={name} onRemove={() => onRemove(i)} />
+        ))}
+        {items.length === 0 && <p className="text-xs text-gray-300">{active ? '아래에 입력하고 Enter' : '눌러서 선택'}</p>}
+      </div>
+    </button>
+  )
+}
+
 // "직접 입력"을 눌렀을 때 -- 과제관리/팀원관리의 상세 폼(등급/업무량/
 // 목표/직급/입사일 등)까지 다 채우게 하지 않고, 과제명·팀원 이름만
-// 한 줄에 하나씩 받아서 한 번에 등록한다. 나머지 항목은 필요할 때
-// 각 화면에서 채우면 된다. 상세 필드는 각각 기본값(과제: 일반/B/중,
-// 팀원: 직급·입사일 등 비워둠)으로 넣는다.
+// 빠르게 받아서 한 번에 등록한다. 나머지 항목은 필요할 때 각 화면에서
+// 채우면 된다. 상세 필드는 각각 기본값(과제: 일반/B/중, 팀원: 직급·
+// 입사일 등 비워둠)으로 넣는다.
 function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const { state, dispatch } = useAppState()
-  const [taskText, setTaskText] = useState('')
-  const [memberText, setMemberText] = useState('')
+  const [target, setTarget] = useState<EntryTarget>('task')
+  const [taskNames, setTaskNames] = useState<string[]>([])
+  const [memberNames, setMemberNames] = useState<string[]>([])
+  const [inputValue, setInputValue] = useState('')
 
-  function parseLines(text: string): string[] {
-    return Array.from(new Set(text.split('\n').map((s) => s.trim()).filter(Boolean)))
+  const setCurrentNames = target === 'task' ? setTaskNames : setMemberNames
+
+  function addNames(raw: string) {
+    const names = raw
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (names.length === 0) return
+    setCurrentNames((prev) => {
+      const next = [...prev]
+      for (const name of names) {
+        if (!next.includes(name)) next.push(name)
+      }
+      return next
+    })
   }
 
-  const canStart = taskText.trim() !== '' || memberText.trim() !== ''
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      addNames(inputValue)
+      setInputValue('')
+    }
+  }
+
+  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
+    const text = e.clipboardData.getData('text')
+    if (!text.includes('\n') && !text.includes(',')) return
+    e.preventDefault()
+    addNames(text)
+  }
+
+  const canStart = taskNames.length > 0 || memberNames.length > 0
 
   function handleStart() {
-    for (const name of parseLines(taskText)) {
+    for (const name of taskNames) {
       if (state.tasks.some((t) => t.name === name)) continue
       const task: Task = { id: uuidv4(), name, importance: '일반', performanceGrade: 'B', workload: '중', objective: '', achievement: '' }
       dispatch({ type: 'ADD_TASK', payload: task })
     }
-    for (const name of parseLines(memberText)) {
+    for (const name of memberNames) {
       if (state.members.some((m) => m.name === name)) continue
       const member: TeamMember = {
         id: uuidv4(),
@@ -123,37 +213,45 @@ function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () 
   }
 
   return (
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+    <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-bold text-black">직접 입력</h3>
-          <p className="mt-1 text-sm text-gray-500">과제명과 팀원 이름을 한 줄에 하나씩 입력하세요. 나머지 항목은 나중에 채우면 됩니다.</p>
+          <p className="mt-1 text-sm text-gray-500">영역을 고르고 아래에 이름을 입력해 Enter를 치세요. 나머지 항목은 나중에 채우면 됩니다.</p>
         </div>
         <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
           <XIcon className="h-5 w-5" />
         </IconButton>
       </div>
 
-      <div className="mt-4">
-        <label className="block text-sm font-medium text-black">과제명</label>
-        <textarea
-          value={taskText}
-          onChange={(e) => setTaskText(e.target.value)}
-          rows={4}
-          placeholder={'예:\n신규 랜딩페이지 제작\n결제 시스템 개선'}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <EntryPanel
+          title="과제"
+          count={taskNames.length}
+          items={taskNames}
+          active={target === 'task'}
+          onSelect={() => setTarget('task')}
+          onRemove={(i) => setTaskNames((prev) => prev.filter((_, idx) => idx !== i))}
+        />
+        <EntryPanel
+          title="팀원"
+          count={memberNames.length}
+          items={memberNames}
+          active={target === 'member'}
+          onSelect={() => setTarget('member')}
+          onRemove={(i) => setMemberNames((prev) => prev.filter((_, idx) => idx !== i))}
         />
       </div>
-      <div className="mt-3">
-        <label className="block text-sm font-medium text-black">팀원 이름</label>
-        <textarea
-          value={memberText}
-          onChange={(e) => setMemberText(e.target.value)}
-          rows={4}
-          placeholder={'예:\n김민수\n이서연'}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-        />
-      </div>
+
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        placeholder={target === 'task' ? '과제명을 입력하고 Enter (예: 신규 랜딩페이지 제작)' : '팀원 이름을 입력하고 Enter (예: 김민수)'}
+        className="mt-3 w-full rounded-md border border-accent px-3 py-2 text-sm text-black outline-none ring-accent/15 focus:ring-2"
+      />
 
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary" onClick={onClose}>
