@@ -14,6 +14,7 @@ import {
   GRADE_COLORS,
 } from '../utils/calculations'
 import GradeNoteButton from './GradeNoteButton'
+import LiveRankingPopover from './LiveRankingPopover'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMatrixExcel } from '../utils/excel'
 import { downloadMatrixPdf } from '../utils/pdfReports'
@@ -67,6 +68,11 @@ export default function EvaluationMatrix() {
   // 기여도·개인수행등급)는 타이틀에 맞춘 고정 폭을 쓴다.
   const [taskWidth, setTaskWidth] = useState(DEFAULT_TASK_COL_WIDTH)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
+
+  // 기여도·개인수행등급을 조정할 때마다 팀원 순위·등급이 바로 바뀌는 걸
+  // 표 밖에서도 볼 수 있는 우측 팝오버 -- 기본으로 열려 있고, 닫으면 이
+  // 버튼으로 다시 띄운다.
+  const [rankingOpen, setRankingOpen] = useState(true)
 
   const startTaskResize = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -124,11 +130,24 @@ export default function EvaluationMatrix() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-black">평가 매트릭스</h3>
-        <CurrentDataDownloadControls
-          onExcelDownload={() => downloadCurrentMatrixExcel(tasks, members, contributions, criteria)}
-          onPdfDownload={() => downloadMatrixPdf(teamName, periodName, tasks, members, contributions, criteria)}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {!rankingOpen && (
+            <button
+              type="button"
+              onClick={() => setRankingOpen(true)}
+              className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              실시간 순위 보기
+            </button>
+          )}
+          <CurrentDataDownloadControls
+            onExcelDownload={() => downloadCurrentMatrixExcel(tasks, members, contributions, criteria)}
+            onPdfDownload={() => downloadMatrixPdf(teamName, periodName, tasks, members, contributions, criteria)}
+          />
+        </div>
       </div>
+
+      <LiveRankingPopover results={memberResults} open={rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-sm text-gray-600">
         과제(행) × 팀원(열)로 기여도와 개인수행등급을 입력하세요. 참여하지 않은 칸은 비워두면 됩니다.{' '}
         <strong className="text-black">기여도</strong>와 <strong className="text-black">개인수행등급</strong> 컬럼은
