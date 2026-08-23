@@ -115,6 +115,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 isAdminUser={isAdminUser}
                 hasSavedCurrentPeriod={hasSavedCurrentPeriod}
                 onLogout={handleLogout}
+                onAccountChange={refreshAccount}
               />
             </div>
             <div className="flex min-h-0 flex-1">

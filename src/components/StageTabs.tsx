@@ -31,6 +31,9 @@ interface StageTabsProps {
   isAdminUser: boolean
   hasSavedCurrentPeriod: boolean
   onLogout: () => void
+  // "다른 Google 계정 연결"로 계정을 바꾸면 호출한다 -- App이 accountEmail을
+  // 다시 읽어오도록.
+  onAccountChange?: () => void
 }
 
 function DatabaseIcon({ className }: { className?: string }) {
@@ -76,6 +79,7 @@ export default function StageTabs({
   isAdminUser,
   hasSavedCurrentPeriod,
   onLogout,
+  onAccountChange,
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -154,7 +158,10 @@ export default function StageTabs({
 
         {accountEmail && (
           <div className="ml-auto flex shrink-0 items-center gap-3">
-            <GoogleAccountMenu className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black">
+            <GoogleAccountMenu
+              className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black"
+              onAccountChange={onAccountChange}
+            >
               {accountEmail}
               {isAdminUser && (
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">관리자</span>

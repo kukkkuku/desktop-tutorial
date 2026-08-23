@@ -44,7 +44,9 @@ interface GoogleTokenResponse {
 }
 
 interface GoogleTokenClient {
-  requestAccessToken: () => void
+  // prompt: 'select_account'를 넘기면 이미 로그인된 세션이 있어도 구글
+  // 계정 선택 화면을 강제로 다시 띄운다 -- "다른 Google 계정 연결"에 쓴다.
+  requestAccessToken: (overrideConfig?: { prompt?: string }) => void
 }
 
 declare global {
@@ -153,7 +155,7 @@ async function fetchConnectedEmail(accessToken: string): Promise<void> {
   }
 }
 
-function requestAccessToken(): Promise<string> {
+function requestAccessToken(promptOverride?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!CLIENT_ID) {
       reject(new Error('Google Client ID가 설정되지 않았습니다.'))
@@ -174,7 +176,7 @@ function requestAccessToken(): Promise<string> {
         }
       },
     })
-    tokenClient.requestAccessToken()
+    tokenClient.requestAccessToken(promptOverride ? { prompt: promptOverride } : undefined)
   })
 }
 
@@ -183,6 +185,17 @@ function requestAccessToken(): Promise<string> {
 export async function connectDrive(): Promise<void> {
   await loadGis()
   await requestAccessToken()
+}
+
+// 헤더 계정 메뉴의 "+ 다른 Google 계정 연결" -- 이미 로그인돼 있어도 구글
+// 계정 선택 화면을 강제로 띄운다(prompt: 'select_account'). 다른 계정을
+// 고르면 그 계정으로 토큰/이메일이 교체된다(여러 계정을 동시에 유지하는
+// 것이 아니라, 지금 연결된 계정을 바꾸는 것 -- 이 앱은 한 번에 한 계정만
+// 다룬다). 반환값은 새로 연결된 이메일.
+export async function connectDifferentAccount(): Promise<string> {
+  await loadGis()
+  await requestAccessToken('select_account')
+  return getConnectedEmail() ?? ''
 }
 
 // googleCalendar.ts도 이 토큰을 그대로 재사용한다 -- 같은 로그인, scope만

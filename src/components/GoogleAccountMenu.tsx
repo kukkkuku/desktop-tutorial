@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { connectDifferentAccount, getConnectedEmail } from '../utils/googleDrive'
 
 function CalendarIcon({ className }: { className?: string }) {
   return (
@@ -39,16 +40,36 @@ interface GoogleAccountMenuProps {
   // 자유롭게 넘긴다.
   children: ReactNode
   className?: string
+  // 다른 계정으로 전환 성공 시 알려준다 -- 호출부(헤더/데이터 관리)가
+  // 각자 들고 있는 accountEmail 표시를 새로 읽어오도록.
+  onAccountChange?: () => void
 }
 
-// 연결된 계정 칩을 누르면 계정 상세정보 대신 캘린더/Gmail/Drive로 바로 넘어갈
-// 수 있는 짧은 메뉴만 띄운다. 헤더(StageTabs)와 데이터 관리 드로어의 Google
-// Drive 탭(GoogleDrivePanel) 양쪽에서 같은 동작을 쓴다.
-export default function GoogleAccountMenu({ children, className }: GoogleAccountMenuProps) {
+// 연결된 계정 칩을 누르면 지금 계정 정보 + 다른 계정으로 전환하는 액션,
+// 그리고 캘린더/Gmail/Drive로 바로 넘어갈 수 있는 짧은 메뉴를 띄운다.
+// 헤더(StageTabs)와 데이터 관리 드로어의 Google Drive 탭(GoogleDrivePanel)
+// 양쪽에서 같은 동작을 쓴다.
+export default function GoogleAccountMenu({ children, className, onAccountChange }: GoogleAccountMenuProps) {
   const [open, setOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
+  const [switchError, setSwitchError] = useState<string | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  async function handleConnectDifferentAccount() {
+    setSwitchError(null)
+    setSwitching(true)
+    try {
+      await connectDifferentAccount()
+      onAccountChange?.()
+      setOpen(false)
+    } catch (err) {
+      setSwitchError(err instanceof Error ? err.message : '계정 전환에 실패했습니다.')
+    } finally {
+      setSwitching(false)
+    }
+  }
 
   useEffect(() => {
     if (!open) return
@@ -87,8 +108,22 @@ export default function GoogleAccountMenu({ children, className }: GoogleAccount
           <div
             ref={menuRef}
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="z-50 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+            className="z-50 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
           >
+            <div className="border-b border-gray-100 px-3 py-2">
+              <p className="truncate text-xs text-gray-400">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
+              <button
+                type="button"
+                onClick={() => void handleConnectDifferentAccount()}
+                disabled={switching}
+                className="mt-1.5 flex w-full items-center gap-1.5 whitespace-nowrap text-sm font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="text-base leading-none">+</span>
+                {switching ? '전환하는 중...' : '다른 Google 계정 연결'}
+              </button>
+              {switchError && <p className="mt-1 text-[11px] text-danger">{switchError}</p>}
+            </div>
+
             {ACCOUNT_LINKS.map(({ label, href, Icon }) => (
               <a
                 key={href}

@@ -156,7 +156,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
       {/* 연결 -- 어느 계정에 연결됐는지 이메일로 명확히 보여준다. */}
       <div className="mt-3 flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
         {isConnected() && getConnectedEmail() ? (
-          <GoogleAccountMenu className="flex items-center gap-2 text-sm text-gray-700 hover:text-black">
+          <GoogleAccountMenu className="flex items-center gap-2 text-sm text-gray-700 hover:text-black" onAccountChange={onConnected}>
             {getConnectedEmail()}
             <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">연결됨</span>
           </GoogleAccountMenu>
