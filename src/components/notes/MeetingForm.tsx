@@ -9,8 +9,24 @@ import Badge from '../Badge'
 import Button from '../Button'
 import CollapseToggleButton from '../CollapseToggleButton'
 import IconButton from '../IconButton'
-import MoodIcon from './MoodIcon'
+import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
 import MoodPicker from './MoodPicker'
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  )
+}
+function XIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M18 6 6 18" />
+      <path d="M6 6l12 12" />
+    </svg>
+  )
+}
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -279,16 +295,31 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
               <div key={note.id} className="ml-9 mb-3 flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
                 <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <textarea value={editComment} onChange={(e) => setEditComment(e.target.value)} rows={2} className="min-w-[180px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-                <div className="flex w-full items-center">
-                  <MoodPicker value={editMood} onChange={setEditMood} compact={moodCompact} />
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="px-3 py-1.5 text-xs">
-                    저장
-                  </Button>
-                  <Button variant="secondary" onClick={() => setEditingNoteId(null)} className="px-3 py-1.5 text-xs">
-                    취소
-                  </Button>
+                <div className="flex w-full items-center justify-between gap-2">
+                  <div className="flex items-center gap-1">
+                    {MOOD_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
+                        title={opt.label}
+                        aria-label={opt.label}
+                        className={`flex items-center justify-center rounded-full p-1 transition-colors ${
+                          editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <MoodIcon mood={opt.value} className="h-6 w-6" />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <IconButton onClick={() => saveEdit(note)} disabled={!editComment.trim()} title="저장" aria-label="저장">
+                      <CheckIcon className="h-4 w-4" />
+                    </IconButton>
+                    <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소" tone="danger">
+                      <XIcon className="h-4 w-4" />
+                    </IconButton>
+                  </div>
                 </div>
               </div>
             ) : (
