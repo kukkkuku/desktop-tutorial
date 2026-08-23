@@ -387,7 +387,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
-                      <span className="text-base font-bold text-black">{note.date}</span>
+                      <span className="text-sm font-normal text-black">{note.date}</span>
                       {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (

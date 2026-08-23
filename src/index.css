@@ -1,12 +1,30 @@
+@import '@fontsource/pretendard/400.css';
+@import '@fontsource/pretendard/500.css';
+@import '@fontsource/pretendard/600.css';
+@import '@fontsource/pretendard/700.css';
+@import '@fontsource/pretendard/800.css';
+@import '@fontsource/pretendard/900.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html,
+html {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* 기본 폰트 규칙: 프리텐다드, 바디(명시적 사이즈가 없는 텍스트) 기본
+   14px, 앱 전체 최소 폰트 크기 13px(위 tailwind.config의 text-xs 조정과
+   함께 적용). html이 아니라 body에만 지정 -- html의 font-size를 바꾸면
+   Tailwind의 rem 기반 유틸리티(spacing, text-base 등)가 전부 그 배율로
+   줄어들어 레이아웃 전체가 틀어진다. */
 body {
   color-scheme: light;
   background-color: #ffffff;
   color: #000000;
+  font-size: 14px;
 }
 
 /* overflow-x: clip (not hidden) so this only clips visual overflow without
