@@ -26,7 +26,7 @@ export default function TasksStage() {
       )}
 
       <div className="mt-5">
-        <TaskManagement />
+        <TaskManagement onImportPrevious={hasOtherPeriods ? () => setImportOpen(true) : undefined} />
       </div>
     </div>
   )
