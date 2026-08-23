@@ -27,6 +27,17 @@ function XIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  )
+}
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -292,33 +303,72 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           {notes.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
           {notes.map((note, i) =>
             editingNoteId === note.id ? (
-              <div key={note.id} className="ml-9 mb-3 flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
-                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-                <textarea value={editComment} onChange={(e) => setEditComment(e.target.value)} rows={2} className="min-w-[180px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-                <div className="flex w-full items-center justify-between gap-2">
-                  <div className="flex items-center gap-1">
-                    {MOOD_OPTIONS.map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
-                        title={opt.label}
-                        aria-label={opt.label}
-                        className={`flex items-center justify-center rounded-full p-1 transition-colors ${
-                          editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-gray-50'
-                        }`}
+              <div key={note.id} className="flex items-stretch gap-4 pb-4">
+                {/* 수정 중에도 타임라인 인디케이터(분위기 아이콘/점 + 세로선)는
+                    그대로 둔다 -- 편집 폼으로 바뀌었다고 위치 감각이
+                    사라지면 안 된다. */}
+                <div className="flex w-8 shrink-0 flex-col items-center">
+                  {note.mood ? (
+                    <MoodIcon mood={note.mood} className="h-8 w-8 shrink-0" />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                      <span className="h-2 w-2 rounded-full bg-gray-300" />
+                    </span>
+                  )}
+                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      aria-label="면담 일자"
+                      className="w-44 rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
+                    />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <IconButton onClick={() => saveEdit(note)} disabled={!editComment.trim()} title="저장" aria-label="저장">
+                        <CheckIcon className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
+                        <XIcon className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => {
+                          setEditingNoteId(null)
+                          setDeletingNote(note)
+                        }}
+                        title="삭제"
+                        aria-label="삭제"
+                        tone="danger"
                       >
-                        <MoodIcon mood={opt.value} className="h-6 w-6" />
-                      </button>
-                    ))}
+                        <TrashIcon className="h-4 w-4" />
+                      </IconButton>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <IconButton onClick={() => saveEdit(note)} disabled={!editComment.trim()} title="저장" aria-label="저장">
-                      <CheckIcon className="h-4 w-4" />
-                    </IconButton>
-                    <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소" tone="danger">
-                      <XIcon className="h-4 w-4" />
-                    </IconButton>
+                  <div className="mt-2 flex items-start gap-3">
+                    <textarea
+                      value={editComment}
+                      onChange={(e) => setEditComment(e.target.value)}
+                      rows={3}
+                      className="min-h-[96px] min-w-[160px] flex-1 resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
+                    />
+                    <div className="grid shrink-0 grid-cols-3 gap-1.5">
+                      {MOOD_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
+                          title={opt.label}
+                          aria-label={opt.label}
+                          className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
+                            editMood === opt.value ? 'ring-2 ring-accent' : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <MoodIcon mood={opt.value} className="h-9 w-9" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
