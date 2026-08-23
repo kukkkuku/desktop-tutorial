@@ -193,17 +193,21 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-4">
+      {/* textarea 옆에 분위기+작성하기를 붙이되(넓을 때), 컬럼이 좁아져서
+          textarea가 최소 폭(min-w) 아래로 밀리면 flex-wrap이 자동으로
+          이 칸을 textarea 아래 줄로 내려보낸다 -- 별도 실측 없이 순수
+          CSS만으로 반응형이 된다. */}
+      <div className="mt-3 flex flex-wrap items-start gap-4">
         <textarea
           ref={commentRef}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           placeholder="면담 내용을 입력하세요."
-          className="h-[124px] min-w-0 flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+          className="h-[124px] min-w-[240px] flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
         />
-        <div className="flex w-20 shrink-0 flex-col items-center gap-2.5">
-          <div className="flex flex-wrap items-center justify-center gap-1.5">
+        <div className="flex shrink-0 flex-col items-center gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {MOOD_OPTIONS.map(({ emoji, label }) => (
               <button
                 key={emoji}
@@ -211,11 +215,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 onClick={() => setMood((v) => (v === emoji ? null : emoji))}
                 title={label}
                 aria-label={label}
-                className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
                   mood === emoji ? 'bg-accent/10 text-accent ring-1 ring-accent' : 'text-gray-500 hover:bg-gray-100'
                 }`}
               >
-                <MoodIcon emoji={emoji} className="h-4 w-4" />
+                <MoodIcon emoji={emoji} className="h-5 w-5" />
               </button>
             ))}
           </div>
@@ -290,11 +294,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       onClick={() => setEditMood((v) => (v === emoji ? null : emoji))}
                       title={label}
                       aria-label={label}
-                      className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
                         editMood === emoji ? 'bg-accent/10 text-accent ring-1 ring-accent' : 'text-gray-500 hover:bg-gray-100'
                       }`}
                     >
-                      <MoodIcon emoji={emoji} className="h-4 w-4" />
+                      <MoodIcon emoji={emoji} className="h-5 w-5" />
                     </button>
                   ))}
                 </div>
