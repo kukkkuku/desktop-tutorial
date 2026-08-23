@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
+import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote, TeamMember } from '../../types'
-import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, updateCalendarEvent } from '../../utils/googleCalendar'
+import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, listTeamCalendarEvents, updateCalendarEvent } from '../../utils/googleCalendar'
 import ConfirmDialog from '../ConfirmDialog'
 import Badge from '../Badge'
 import Button from '../Button'
@@ -41,6 +42,8 @@ interface MeetingFormProps {
 // 확인이 안 되는 문제가 있었다).
 export default function MeetingForm({ member, focusToken, insights, insightsOpen, onToggleInsights, splitLayout }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
   const memberId = member.id
   const todayStr = todayString()
   const commentRef = useRef<HTMLTextAreaElement>(null)
@@ -66,6 +69,8 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   // 캘린더 등록/수정 실패는 면담 기록 저장 자체를 막지는 않지만, 콘솔에만
   // 조용히 남기면 왜 캘린더에 안 뜨는지 알 방법이 없다 -- 화면에도 보여준다.
   const [calendarError, setCalendarError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   useEffect(() => {
     setDate(todayStr)
@@ -112,7 +117,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     // 오늘/이후 일정만 캘린더에 올린다 -- 지난 일에 대한 메모까지 캘린더에
     // 박히면 알림 목적에 안 맞는다.
     if (date >= todayStr && isCalendarConfigured()) {
-      createCalendarEvent({ memberName: member.name, date, comment: note.comment })
+      createCalendarEvent({ memberName: member.name, date, comment: note.comment, teamName })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
@@ -137,22 +142,70 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (!isCalendarConfigured()) return
     if (updated.calendarEventId) {
       if (editDate >= todayStr) {
-        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment }).catch((err) => {
+        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment, teamName }).catch((err) => {
           console.warn('캘린더 일정 수정 실패:', err)
           setCalendarError(err instanceof Error ? err.message : '캘린더 일정 수정에 실패했습니다.')
         })
       } else {
         // 과거 날짜로 바뀌면 더 이상 "예정"이 아니니 캘린더 일정은 지운다.
-        void deleteCalendarEvent(updated.calendarEventId)
+        void deleteCalendarEvent(updated.calendarEventId, teamName)
         dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: undefined } })
       }
     } else if (editDate >= todayStr) {
-      createCalendarEvent({ memberName: member.name, date: editDate, comment: updated.comment })
+      createCalendarEvent({ memberName: member.name, date: editDate, comment: updated.comment, teamName })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
           setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
         })
+    }
+  }
+
+  // "일정 연동" -- 이 앱은 서버가 없는 정적 사이트라 구글 캘린더 쪽 변경을
+  // 실시간으로(웹훅) 받을 수 없다. 대신 버튼을 누른 시점에 "{팀명} 면담"
+  // 캘린더의 현재 상태를 통째로 읽어와 두 방향으로 맞춘다.
+  //   1) 구글 캘린더에서 지워진 일정 -> 이 앱에 남은 연결(calendarEventId)만
+  //      끊는다(면담 기록 자체는 지우지 않는다 -- 캘린더 삭제가 곧 면담
+  //      기록 삭제를 뜻하진 않는다).
+  //   2) 이 앱이 모르는, "{이 팀원 이름} 면담" 형식의 일정 -> 새 면담
+  //      기록으로 가져온다(다른 이름의 일정은 이 팀원 것이 아니므로 건너뛴다).
+  async function handleSyncCalendar() {
+    if (!isCalendarConfigured() || syncing) return
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const events = await listTeamCalendarEvents(teamName)
+      const eventIds = new Set(events.map((e) => e.id))
+      let unlinked = 0
+      for (const note of notes) {
+        if (note.calendarEventId && !eventIds.has(note.calendarEventId)) {
+          dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: undefined } })
+          unlinked++
+        }
+      }
+
+      const linkedEventIds = new Set(notes.map((n) => n.calendarEventId).filter((id): id is string => Boolean(id)))
+      let imported = 0
+      for (const ev of events) {
+        if (linkedEventIds.has(ev.id)) continue
+        if (ev.summary !== `${member.name} 면담`) continue
+        const note: MeetingNote = {
+          id: uuidv4(),
+          memberId,
+          date: ev.date,
+          comment: ev.description?.trim() || '(Google 캘린더에서 가져온 일정)',
+          calendarEventId: ev.id,
+        }
+        dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+        imported++
+      }
+
+      setSyncMessage(imported === 0 && unlinked === 0 ? '변경된 내용이 없습니다.' : `${imported}건 가져옴 · ${unlinked}건 연동 해제됨`)
+    } catch (err) {
+      console.warn('캘린더 동기화 실패:', err)
+      setSyncMessage(err instanceof Error ? err.message : '캘린더 동기화에 실패했습니다.')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -261,11 +314,29 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     <div>
       {/* 면담 기록 -- Figma의 timeline-list: 세로선 + 분위기 이모지 노드로
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
         <h4 className="text-sm font-bold text-black">면담 기록</h4>
         <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">최근 {notes.length}건</span>
+        {isCalendarConfigured() && (
+          <button
+            type="button"
+            onClick={handleSyncCalendar}
+            disabled={syncing}
+            title={`Google 캘린더의 "${member.name} 면담" 일정을 이 기록과 맞춥니다.`}
+            className="ml-auto flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`}>
+              <path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" />
+              <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" />
+              <path d="M3 16v4h4" />
+              <path d="M21 8V4h-4" />
+            </svg>
+            {syncing ? '동기화 중…' : '일정 연동'}
+          </button>
+        )}
       </div>
+      {syncMessage && <p className="mt-1 text-[11px] text-gray-400">{syncMessage}</p>}
 
       {pastOpen && (
         <div className="mt-2">
@@ -379,7 +450,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         message={`${deletingNote?.date} 면담 기록을 삭제하시겠습니까?`}
         onConfirm={() => {
           if (deletingNote) {
-            if (deletingNote.calendarEventId) void deleteCalendarEvent(deletingNote.calendarEventId)
+            if (deletingNote.calendarEventId) void deleteCalendarEvent(deletingNote.calendarEventId, teamName)
             dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
           }
           setDeletingNote(null)

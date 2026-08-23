@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
+import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote } from '../../types'
 import { colorForIndex } from '../../utils/memberColors'
 import { createCalendarEvent, isCalendarConfigured } from '../../utils/googleCalendar'
@@ -47,6 +48,8 @@ interface MeetingSchedulePanelProps {
 // 우측에 붙는 컬럼. 접으면 얇은 세로 바만 남는다.
 export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }: MeetingSchedulePanelProps) {
   const { state, dispatch } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
   const { members, meetingNotes } = state
   const todayStr = todayString()
 
@@ -157,7 +160,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
     // 오늘/이후 일정만 캘린더에 올린다 -- 지난 날짜로 기록을 남기는 경우까지
     // 캘린더에 박히면 알림 목적에 안 맞는다.
     if (member && selectedDate >= todayStr && isCalendarConfigured()) {
-      createCalendarEvent({ memberName: member.name, date: selectedDate })
+      createCalendarEvent({ memberName: member.name, date: selectedDate, teamName })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)

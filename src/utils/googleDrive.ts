@@ -22,11 +22,14 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // drive.file: 이 앱이 만들었거나 사용자가 직접 연 파일에만 접근한다(드라이브
 // 전체를 훑어보는 권한이 아니다) -- 필요 최소 권한 원칙. userinfo.email은
 // "지금 어느 계정에 연결됐는지"를 화면에 이메일로 명확히 보여주기 위한
-// 것으로, 민감하지 않은 스코프다. calendar.events는 면담 일정을 이 계정의
-// 구글 캘린더에도 등록하기 위한 것(googleCalendar.ts) -- 앱이 만든 일정만
-// 만들고/고치고/지울 수 있고, 기존 캘린더 전체를 읽는 권한은 없다.
+// 것으로, 민감하지 않은 스코프다. calendar(전체)는 면담 일정을 이 계정의
+// "{팀명} 면담" 전용 캘린더에 등록/수정/삭제하고(googleCalendar.ts),
+// "일정 연동" 버튼으로 그 캘린더의 현재 상태(구글 쪽에서 지우거나 새로
+// 만든 일정)를 읽어와 앱과 맞추기 위한 것이다. 전용 캘린더를 새로 만들고
+// 목록을 조회하려면 이벤트만 다루는 calendar.events보다 넓은 calendar
+// 스코프가 필요하다.
 const DRIVE_SCOPE =
-  'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar.events'
+  'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar'
 const APP_TAG = 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = '성장관리'
 
