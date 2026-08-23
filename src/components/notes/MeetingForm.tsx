@@ -205,14 +205,14 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           textarea가 최소 폭(min-w) 아래로 밀리면 flex-wrap이 자동으로
           이 칸을 textarea 아래 줄로 내려보낸다 -- 별도 실측 없이 순수
           CSS만으로 반응형이 된다. */}
-      <div ref={logRowRef} className="mt-3 flex flex-wrap items-start gap-4">
+      <div ref={logRowRef} className="mt-3 flex flex-wrap items-stretch gap-4">
         <textarea
           ref={commentRef}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           placeholder="면담 내용을 입력하세요."
-          className="h-[124px] min-w-[240px] flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+          className="min-h-[72px] min-w-[240px] flex-1 resize-y rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
         />
         <div className="flex shrink-0 flex-col items-center gap-2">
           <MoodPicker value={mood} onChange={setMood} compact={moodCompact} />
