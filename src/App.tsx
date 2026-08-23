@@ -16,7 +16,7 @@ import VersionCompareBar from './components/VersionCompareBar'
 import GoogleSignInGate, { GATE_KEY } from './components/GoogleSignInGate'
 import DataManagerDrawer from './components/DataManagerDrawer'
 import { ADMIN_EMAILS } from './utils/adminInvite'
-import { disconnectDrive, getConnectedEmail, isConnected as isDriveConnected, readLastSave } from './utils/googleDrive'
+import { disconnectDrive, getConnectedEmail, readLastSave } from './utils/googleDrive'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('tasks')
@@ -32,8 +32,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   // 트리거하지 않는다. 그래서 실제 연결 상태를 React state로 한 번 옮겨
   // 담아두고, DataManagerDrawer 쪽에서 연결/재연결에 성공할 때마다
   // onAccountChange로 다시 읽어오게 한다.
-  const [accountEmail, setAccountEmail] = useState<string | null>(() => (isDriveConnected() ? getConnectedEmail() : null))
-  const refreshAccount = () => setAccountEmail(isDriveConnected() ? getConnectedEmail() : null)
+  const [accountEmail, setAccountEmail] = useState<string | null>(() => getConnectedEmail())
+  const refreshAccount = () => setAccountEmail(getConnectedEmail())
   const isAdminUser = ADMIN_EMAILS.includes(accountEmail ?? '')
   const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
 

@@ -89,19 +89,54 @@ let cachedToken: { token: string; expiresAt: number } | null = null
 // 두지 않고 실제 어느 계정인지 화면에 보여주기 위해 캐시해둔다.
 let cachedEmail: string | null = null
 
+// cachedEmail은 모듈 전역 변수라 새로고침하면 그냥 사라진다(Drive/Calendar
+// 액세스 토큰은 짧게(~1시간) 살고, 페이지를 새로고침할 때마다 메모리가
+// 초기화되기 때문). 로그인 게이트 통과 여부(GATE_KEY)는 세션스토리지라
+// 새로고침에도 남아있는데, 헤더의 계정 이메일 표시만 사라지면 "로그인
+// 정보가 없어졌다"로 보인다 -- 그래서 한 번 확인된 이메일은 세션스토리지에
+// 같이 남겨두고, 지금 당장 토큰이 살아있지 않아도(만료됐거나 막 새로고침
+// 직후라 아직 안 받아왔거나) 헤더에는 계속 마지막으로 확인된 이메일을
+// 보여준다. GATE_KEY와 마찬가지로 탭을 닫으면 사라진다(로그아웃과 동일한
+// 범위).
+const PERSISTED_EMAIL_KEY = 'google-account-email'
+
+function readPersistedEmail(): string | null {
+  try {
+    return sessionStorage.getItem(PERSISTED_EMAIL_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writePersistedEmail(email: string | null): void {
+  try {
+    if (email) sessionStorage.setItem(PERSISTED_EMAIL_KEY, email)
+    else sessionStorage.removeItem(PERSISTED_EMAIL_KEY)
+  } catch {
+    // 세션 저장 실패해도 이번 세션의 메모리 캐시(cachedEmail)는 정상 동작한다.
+  }
+}
+
 export function isConnected(): boolean {
   return cachedToken !== null && cachedToken.expiresAt - 60_000 > Date.now()
 }
 
+// 헤더처럼 "지금 이 탭에서 확인된 계정이 누구인지"를 보여주는 곳에서 쓴다.
+// 액세스 토큰이 막 만료됐거나 새로고침 직후라 아직 못 받아온 경우에도,
+// 이전에 확인된 이메일이 있으면 그걸 그대로 보여준다(화면에서 로그인
+// 정보가 사라진 것처럼 보이지 않도록). Drive/Calendar API를 실제로 호출할
+// 수 있는지는 이것과 별개로 isConnected()로 따로 확인한다.
 export function getConnectedEmail(): string | null {
-  return isConnected() ? cachedEmail : null
+  return (isConnected() ? cachedEmail : null) ?? readPersistedEmail()
 }
 
-// 헤더의 "로그아웃" -- 캐시된 토큰/이메일만 지운다. 다음에 뭔가 Google API를
-// 호출하면(연결 버튼이든 자동 로그인 게이트든) 새로 로그인 팝업을 띄운다.
+// 헤더의 "로그아웃" -- 캐시된 토큰/이메일과, 새로고침에도 남아있던 계정
+// 표시까지 전부 지운다. 다음에 뭔가 Google API를 호출하면(연결 버튼이든
+// 자동 로그인 게이트든) 새로 로그인 팝업을 띄운다.
 export function disconnectDrive(): void {
   cachedToken = null
   cachedEmail = null
+  writePersistedEmail(null)
 }
 
 async function fetchConnectedEmail(accessToken: string): Promise<void> {
@@ -112,6 +147,7 @@ async function fetchConnectedEmail(accessToken: string): Promise<void> {
     if (!res.ok) return
     const data = (await res.json()) as { email?: string }
     cachedEmail = data.email ?? null
+    if (cachedEmail) writePersistedEmail(cachedEmail)
   } catch {
     cachedEmail = null
   }
