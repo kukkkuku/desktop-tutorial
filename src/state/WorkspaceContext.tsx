@@ -15,17 +15,19 @@ export function workspaceStateKey(id: string): string {
   return `${WORKSPACE_STATE_PREFIX}${id}`
 }
 
-export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number } {
+export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number; memberNames: string[] } {
   try {
     const raw = localStorage.getItem(workspaceStateKey(id))
-    if (!raw) return { taskCount: 0, memberCount: 0 }
+    if (!raw) return { taskCount: 0, memberCount: 0, memberNames: [] }
     const parsed = JSON.parse(raw)
+    const members = Array.isArray(parsed.members) ? (parsed.members as { name?: string; active?: boolean }[]) : []
     return {
       taskCount: Array.isArray(parsed.tasks) ? parsed.tasks.length : 0,
-      memberCount: Array.isArray(parsed.members) ? parsed.members.length : 0,
+      memberCount: members.length,
+      memberNames: members.filter((m) => m.active !== false).map((m) => m.name ?? ''),
     }
   } catch {
-    return { taskCount: 0, memberCount: 0 }
+    return { taskCount: 0, memberCount: 0, memberNames: [] }
   }
 }
 
