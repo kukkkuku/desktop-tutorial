@@ -265,6 +265,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
                           <span className="truncate">{member.name}</span>
                         </button>
+                        <span className="h-2.5 w-px shrink-0 bg-gray-300" />
                         <button
                           onClick={() => requestDeleteNote(note)}
                           title="면담 일정 삭제"
@@ -422,6 +423,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                   <span className="shrink-0 font-medium text-black">{member.name}</span>
                   <span className="truncate text-gray-500">{note.comment || '(코멘트 없음)'}</span>
                 </button>
+                <span className="h-4 w-px shrink-0 bg-gray-200" />
                 <IconButton onClick={() => requestDeleteNote(note)} title="삭제" aria-label="삭제" tone="danger">
                   <TrashIcon className="h-3.5 w-3.5" />
                 </IconButton>
@@ -456,6 +458,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                   {member.name}
                 </button>
+                <span className="h-2.5 w-px shrink-0 bg-accent/30" />
                 <button
                   onClick={() => requestDeleteNote(note)}
                   title="면담 일정 삭제"
@@ -489,6 +492,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                           {member.name}
                         </button>
+                        <span className="h-2.5 w-px shrink-0 bg-gray-300" />
                         <button
                           onClick={() => requestDeleteNote(note)}
                           title="면담 일정 삭제"

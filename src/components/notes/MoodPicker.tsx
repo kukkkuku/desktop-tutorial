@@ -36,7 +36,7 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
 
   if (!compact) {
     return (
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-3 gap-0.5">
         {MOOD_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -44,11 +44,11 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
             onClick={() => pick(opt.value)}
             title={opt.label}
             aria-label={opt.label}
-            className={`flex items-center justify-center rounded-full p-1 transition-colors ${
+            className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
               value === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-gray-50'
             }`}
           >
-            <MoodIcon mood={opt.value} className="h-6 w-6" />
+            <MoodIcon mood={opt.value} className="h-5 w-5" />
           </button>
         ))}
       </div>

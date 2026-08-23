@@ -263,6 +263,7 @@ export default function PeerReviewManagement() {
                           {typeof r.contributionPercent === 'number' && <span className="ml-1.5 text-gray-400">기여도 {r.contributionPercent}%</span>}
                         </span>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
+                        <span className="h-4 w-px shrink-0 bg-gray-200" />
                         <IconButton onClick={() => setDeletingReview(r)} title="삭제" aria-label="삭제" tone="danger" className="shrink-0">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                             <path d="M3 6h18" />
