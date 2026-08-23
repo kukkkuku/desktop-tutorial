@@ -510,12 +510,15 @@ export default function EvaluationResults() {
                           막대 위 라벨은 두지 않는다. 대신 팀원을 선택했을 때만 그 자리에
                           "{팀원} {%}"를 표시한다(높이는 항상 예약해 행이 늘어나지 않게). */}
                       <div style={{ width: `${colWidths[2]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
-                        <p className="h-4 text-xs font-bold leading-4">
+                        <p className="flex h-4 items-baseline whitespace-nowrap text-xs font-bold leading-4" style={{ gap: '20px' }}>
                           {highlightId !== null &&
                             (hlPct > 0 ? (
-                              <span style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
-                                {members.find((m) => m.id === highlightId)?.name} {hlPct}%
-                              </span>
+                              <>
+                                <span className="shrink-0" style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
+                                  {members.find((m) => m.id === highlightId)?.name} {hlPct}%
+                                </span>
+                                {hlNote?.trim() && <span className="min-w-0 truncate font-normal text-black">{hlNote.trim()}</span>}
+                              </>
                             ) : (
                               <span className="font-normal text-gray-300">미참여</span>
                             ))}
@@ -547,15 +550,6 @@ export default function EvaluationResults() {
                           <div className="flex h-5 items-center rounded bg-gray-100 px-2">
                             <span className="text-xs text-gray-300">미입력</span>
                           </div>
-                        )}
-                        {/* 선택된 팀원의 근거(개인수행등급을 준 이유)가 있으면 막대 아래
-                            그대로 보여준다 -- 이 컬럼은 다른 두 컬럼보다 여유가 많아
-                            한 줄 정도는 항상 넣을 자리가 있다. */}
-                        {hlNote?.trim() && (
-                          <p className="whitespace-pre-wrap break-words text-[11px] leading-snug text-gray-500">
-                            <span className="mr-1 font-semibold text-amber-500">근거 :</span>
-                            {hlNote.trim()}
-                          </p>
                         )}
                       </div>
                     </div>
