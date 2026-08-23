@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import Badge from './Badge'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -36,8 +35,11 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
-// 팀원 이니셜(2자) + 순환 파스텔 색상 아바타. 카드 폭(300px)을 넘지 않도록
-// 일정 인원 이상은 "+N"으로 접는다.
+// 팀원 이니셜(2자) 아바타 -- 색은 인덱스(카드마다 0부터 다시 시작)로
+// 정하지 않고 전부 같은 중립 톤으로 통일한다. 순환 색상을 쓰면 카드마다
+// "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
+// 같은 색으로 보이는 경우가 생기고, 카드가 여러 개면 화면 전체가 알록달록
+// 산만해진다. 카드 폭(300px)을 넘지 않도록 일정 인원 이상은 "+N"으로 접는다.
 function AvatarRow({ names }: { names: string[] }) {
   const visible = names.slice(0, MAX_VISIBLE_AVATARS)
   const overflow = names.length - visible.length
@@ -46,8 +48,7 @@ function AvatarRow({ names }: { names: string[] }) {
       {visible.map((name, i) => (
         <span
           key={`${name}-${i}`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-          style={{ background: pastelForIndex(i), color: pastelTextForIndex(i) }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600"
           title={name}
         >
           {name.slice(0, 2)}
