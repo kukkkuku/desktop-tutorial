@@ -26,6 +26,7 @@ interface StageTabsProps {
   onSelectPeriod: (id: string) => void
   onExit: () => void
   onOpenDataManager: () => void
+  onOpenQuickStart: () => void
   // Google 계정 연결 상태 -- 연결 안 됐으면(또는 연동 자체가 설정 안 됐으면)
   // accountEmail이 null이라 이 영역 전체를 그리지 않는다.
   accountEmail: string | null
@@ -47,6 +48,14 @@ function DatabaseIcon({ className }: { className?: string }) {
       <ellipse cx="12" cy="5" rx="9" ry="3" />
       <path d="M3 5v14a9 3 0 0 0 18 0V5" />
       <path d="M3 12a9 3 0 0 0 18 0" />
+    </svg>
+  )
+}
+
+function ZapIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9z" />
     </svg>
   )
 }
@@ -79,6 +88,7 @@ export default function StageTabs({
   onSelectPeriod,
   onExit,
   onOpenDataManager,
+  onOpenQuickStart,
   accountEmail,
   isAdminUser,
   hasSavedCurrentPeriod,
@@ -101,6 +111,9 @@ export default function StageTabs({
         <nav className="flex flex-wrap items-center gap-1">
           <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">
             <DatabaseIcon className="h-5 w-5" />
+          </IconButton>
+          <IconButton onClick={onOpenQuickStart} title="빠른 시작" aria-label="빠른 시작" className="shrink-0">
+            <ZapIcon className="h-5 w-5" />
           </IconButton>
 
           {STAGE_TABS.map((t) => (

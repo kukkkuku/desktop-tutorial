@@ -14,12 +14,14 @@ import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './com
 import VersionCompareBar from './components/VersionCompareBar'
 import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer from './components/DataManagerDrawer'
+import QuickStartModal from './components/QuickStartModal'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { readLastSave } from './utils/googleDrive'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('tasks')
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
+  const [quickStartOpen, setQuickStartOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
@@ -58,6 +60,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
 
   const teamName = currentWorkspace?.teamName ?? ''
   const periods = workspaces.filter((w) => w.teamName === teamName)
+  const hasOtherPeriods = workspaces.some((w) => w.teamName === teamName && w.id !== workspaceId)
 
   // 팀원 상세 Drawer의 카드/버튼 → 새 페이지가 아니라 면담 탭의 해당 서브탭(면담
   // 기록/성과 히스토리/인사평가·승진 관리)으로 이동해 그 팀원을 선택해둔다.
@@ -91,6 +94,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onSelectPeriod={selectWorkspace}
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
+                onOpenQuickStart={() => setQuickStartOpen(true)}
                 accountEmail={accountEmail}
                 isAdminUser={isAdminUser}
                 hasSavedCurrentPeriod={hasSavedCurrentPeriod}
@@ -116,6 +120,22 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             onAccountChange={refreshAccount}
             onSaveStatusChange={setSaveStatus}
           />
+          {quickStartOpen && (
+            <QuickStartModal
+              teamName={teamName}
+              currentWorkspaceId={workspaceId}
+              hasOtherPeriods={hasOtherPeriods}
+              onClose={() => setQuickStartOpen(false)}
+              onOpenDataManager={() => {
+                setQuickStartOpen(false)
+                setDataManagerOpen(true)
+              }}
+              onDirectEntry={() => {
+                setQuickStartOpen(false)
+                handleStageChange('tasks')
+              }}
+            />
+          )}
         </MemberDetailProvider>
       </TeamProvider>
     </AppProvider>
