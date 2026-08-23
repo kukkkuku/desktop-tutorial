@@ -27,6 +27,7 @@ interface StageTabsProps {
   onExit: () => void
   onOpenDataManager: () => void
   onOpenQuickStart: () => void
+  quickStartOpen: boolean
   // Google 계정 연결 상태 -- 연결 안 됐으면(또는 연동 자체가 설정 안 됐으면)
   // accountEmail이 null이라 이 영역 전체를 그리지 않는다.
   accountEmail: string | null
@@ -89,6 +90,7 @@ export default function StageTabs({
   onExit,
   onOpenDataManager,
   onOpenQuickStart,
+  quickStartOpen,
   accountEmail,
   isAdminUser,
   hasSavedCurrentPeriod,
@@ -112,7 +114,13 @@ export default function StageTabs({
           <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">
             <DatabaseIcon className="h-5 w-5" />
           </IconButton>
-          <IconButton onClick={onOpenQuickStart} title="빠른 시작" aria-label="빠른 시작" className="shrink-0">
+          <IconButton
+            onClick={onOpenQuickStart}
+            title="빠른 시작"
+            aria-label="빠른 시작"
+            aria-pressed={quickStartOpen}
+            className={`shrink-0 rounded-md ${quickStartOpen ? 'bg-blue-50 !text-accent' : ''}`}
+          >
             <ZapIcon className="h-5 w-5" />
           </IconButton>
 

@@ -95,6 +95,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
                 onOpenQuickStart={() => setQuickStartOpen(true)}
+                quickStartOpen={quickStartOpen}
                 accountEmail={accountEmail}
                 isAdminUser={isAdminUser}
                 hasSavedCurrentPeriod={hasSavedCurrentPeriod}

@@ -54,10 +54,18 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
   const nameInputRef = useRef<HTMLInputElement>(null)
+  // 과제가 하나도 없을 때는 "시작 방법 선택" 온보딩을 먼저 보여주고,
+  // 직접 입력을 고르기 전까지는 아래 수동 입력 폼/표를 숨긴다.
+  const [directEntryOpened, setDirectEntryOpened] = useState(false)
+  const hasTasks = state.tasks.length > 0
+  const showForm = hasTasks || directEntryOpened
 
   function focusNameInput() {
-    nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    nameInputRef.current?.focus()
+    setDirectEntryOpened(true)
+    requestAnimationFrame(() => {
+      nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      nameInputRef.current?.focus()
+    })
   }
 
   const [newName, setNewName] = useState('')
@@ -206,6 +214,52 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
         과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
       </p>
 
+      {!showForm && (
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-black">등록된 과제가 없습니다. 시작 방법을 선택하세요</p>
+          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+            <EmptyStateDropzone
+              title="Excel로 한 번에 시작"
+              addHint="양식을 받아서 채운 뒤 업로드하면 한 번에 등록됩니다"
+              busyLabel="과제 업로드 중..."
+              onDownloadTemplate={downloadTaskTemplate}
+              onFiles={handleUploadFiles}
+            />
+            <div className="mt-4 flex flex-col gap-3 lg:mt-0">
+              <button
+                type="button"
+                onClick={focusNameInput}
+                className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
+              >
+                <p className="text-sm font-semibold text-black">직접 입력</p>
+                <p className="text-xs text-gray-500">위 양식에 과제를 하나씩 추가하세요</p>
+              </button>
+              {onImportPrevious && (
+                <button
+                  type="button"
+                  onClick={onImportPrevious}
+                  className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
+                >
+                  <p className="text-sm font-semibold text-black">이전 평가에서 가져오기</p>
+                  <p className="text-xs text-gray-500">과제·팀원을 이전 기간에서 이어받으세요</p>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <>
+          {!hasTasks && (
+            <button
+              type="button"
+              onClick={() => setDirectEntryOpened(false)}
+              className="mt-4 flex items-center gap-1 text-sm text-gray-400 hover:text-black"
+            >
+              ← 다른 방법으로 시작
+            </button>
+          )}
       <div className="mt-4 rounded-lg border border-gray-200 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
           <div>
@@ -298,40 +352,7 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
       </div>
 
-      {state.tasks.length === 0 ? (
-        <div className="mt-4">
-          <p className="text-sm font-semibold text-black">등록된 과제가 없습니다. 시작 방법을 선택하세요</p>
-          <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-            <EmptyStateDropzone
-              title="Excel로 한 번에 시작"
-              addHint="양식을 받아서 채운 뒤 업로드하면 한 번에 등록됩니다"
-              busyLabel="과제 업로드 중..."
-              onDownloadTemplate={downloadTaskTemplate}
-              onFiles={handleUploadFiles}
-            />
-            <div className="mt-4 flex flex-col gap-3 lg:mt-0">
-              <button
-                type="button"
-                onClick={focusNameInput}
-                className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
-              >
-                <p className="text-sm font-semibold text-black">직접 입력</p>
-                <p className="text-xs text-gray-500">위 양식에 과제를 하나씩 추가하세요</p>
-              </button>
-              {onImportPrevious && (
-                <button
-                  type="button"
-                  onClick={onImportPrevious}
-                  className="flex flex-col items-start gap-1 rounded-lg border border-gray-200 bg-white p-4 text-left transition-colors hover:border-accent hover:bg-blue-50/40"
-                >
-                  <p className="text-sm font-semibold text-black">이전 평가에서 가져오기</p>
-                  <p className="text-xs text-gray-500">과제·팀원을 이전 기간에서 이어받으세요</p>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
+      {hasTasks ? (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}>
           <thead className="bg-[#F3F4F6] text-black">
@@ -530,6 +551,12 @@ export default function TaskManagement({ onImportPrevious }: TaskManagementProps
           </tbody>
         </table>
       </div>
+      ) : (
+        <p className="mt-4 rounded-lg border border-dashed border-gray-200 p-6 text-center text-sm text-gray-400">
+          위 양식으로 첫 과제를 추가해보세요.
+        </p>
+      )}
+        </>
       )}
 
       <ConfirmDialog

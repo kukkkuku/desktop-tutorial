@@ -147,7 +147,7 @@ function EntryPanel({
 // 빠르게 받아서 한 번에 등록한다. 나머지 항목은 필요할 때 각 화면에서
 // 채우면 된다. 상세 필드는 각각 기본값(과제: 일반/B/중, 팀원: 직급·
 // 입사일 등 비워둠)으로 넣는다.
-function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+function DirectEntryStep({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
   const { state, dispatch } = useAppState()
   const [target, setTarget] = useState<EntryTarget>('task')
   const [taskNames, setTaskNames] = useState<string[]>([])
@@ -172,7 +172,10 @@ function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () 
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
+    // 한글 등 조합형 입력(IME)은 마지막 글자를 조합 확정할 때도 Enter
+    // keydown이 한 번 더 발생한다 -- 이걸 그대로 커밋해버리면 조합 중이던
+    // 글자가 먼저 끊겨 들어가면서 한 번의 Enter가 여러 칩으로 쪼개진다.
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault()
       addNames(inputValue)
       setInputValue('')
@@ -216,10 +219,13 @@ function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () 
     <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold text-black">직접 입력</h3>
+          <button type="button" onClick={onBack} className="text-xs font-medium text-gray-400 hover:text-black">
+            ← 시작 방법 다시 선택
+          </button>
+          <h3 className="mt-1 text-lg font-bold text-black">직접 입력</h3>
           <p className="mt-1 text-sm text-gray-500">영역을 고르고 아래에 이름을 입력해 Enter를 치세요. 나머지 항목은 나중에 채우면 됩니다.</p>
         </div>
-        <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
+        <IconButton onClick={onBack} aria-label="뒤로" className="shrink-0">
           <XIcon className="h-5 w-5" />
         </IconButton>
       </div>
@@ -254,8 +260,8 @@ function DirectEntryStep({ onClose, onDone }: { onClose: () => void; onDone: () 
       />
 
       <div className="mt-5 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          취소
+        <Button variant="secondary" onClick={onBack}>
+          뒤로
         </Button>
         <Button variant="primary" onClick={handleStart} disabled={!canStart}>
           시작하기
@@ -281,14 +287,19 @@ export default function QuickStartModal({
 }: QuickStartModalProps) {
   const [step, setStep] = useState<'menu' | 'import' | 'direct'>('menu')
 
+  // 방식을 고른 뒤에도 다른 방법으로 바꿀 수 있어야 하므로, 하위 단계의
+  // "닫기"는 팝업 전체를 닫는 대신 방법 선택 메뉴로 되돌아간다. 팝업을
+  // 완전히 닫는 건 메뉴 화면의 X 버튼(아래 onClose)뿐이다.
+  const backToMenu = () => setStep('menu')
+
   if (step === 'import') {
-    return <ImportFromPreviousDialog teamName={teamName} currentWorkspaceId={currentWorkspaceId} onClose={onClose} />
+    return <ImportFromPreviousDialog teamName={teamName} currentWorkspaceId={currentWorkspaceId} onClose={backToMenu} />
   }
 
   if (step === 'direct') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <DirectEntryStep onClose={onClose} onDone={onDirectEntry} />
+        <DirectEntryStep onBack={backToMenu} onDone={onDirectEntry} />
       </div>
     )
   }
