@@ -29,7 +29,7 @@ interface DataManagerDrawerProps {
   onSaveStatusChange?: (status: 'saving' | 'saved' | 'error') => void
 }
 
-type Tab = 'local' | 'drive' | 'admin'
+type Tab = 'local' | 'drive' | 'admin' | 'reset'
 
 interface BulkSummary {
   addedCount: number
@@ -219,9 +219,9 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         onClick={onClose}
       />
       <div
-        className={`relative flex max-h-[85vh] w-full transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
-          tab === 'admin' ? 'max-w-3xl' : 'max-w-lg'
-        } ${open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}`}
+        className={`relative flex h-[640px] max-h-[85vh] w-full max-w-3xl transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+          open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
+        }`}
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <h2 className="text-base font-bold text-black">데이터 관리</h2>
@@ -239,13 +239,18 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               { key: 'local' as const, label: '로컬 파일' },
               { key: 'drive' as const, label: 'Google Drive' },
               ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대' }] : []),
+              { key: 'reset' as const, label: '데이터 초기화' },
             ]
           ).map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                tab === t.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
+                tab === t.key
+                  ? t.key === 'reset'
+                    ? 'border-danger text-danger'
+                    : 'border-accent text-accent'
+                  : 'border-transparent text-gray-400 hover:text-black'
               }`}
             >
               {t.label}
@@ -255,7 +260,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === 'local' && (
-            <div className="space-y-4">
+            <div className="mx-auto max-w-lg space-y-4">
               {isDirectoryPickerSupported() && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
                   <div>
@@ -354,62 +359,67 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               <div className="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-500">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
-
-              <div className="space-y-3 rounded-md border border-danger/30 bg-red-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-danger">전체 데이터 초기화</p>
-                  <p className="mt-0.5 text-xs text-danger">
-                    이 <span className="font-semibold">브라우저에 저장된 모든 팀·프로젝트 데이터</span>가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다). 브라우저 저장소만
-                    지우므로 다른 기기나 브라우저의 데이터에는 영향이 없지만, 이 브라우저에서는 되돌릴 수 없습니다. 아래에서 먼저 백업하세요.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
-                    로컬 파일로 백업 (JSON)
-                  </Button>
-                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
-                    엑셀로 백업
-                  </Button>
-                  {isBusy && (
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                      <Spinner className="h-3.5 w-3.5 text-accent" />
-                      {loadingLabel}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-gray-500">
-                  JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님). 프로젝트가 여러 개면 프로젝트별로 각각 담깁니다.
-                </p>
-
-                <Button
-                  variant="danger"
-                  onClick={() => setResetDialogOpen(true)}
-                  disabled={!hasAnyWorkspaceData}
-                  className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm"
-                >
-                  전체 데이터 초기화
-                </Button>
-              </div>
             </div>
           )}
 
-          {tab === 'drive' &&
-            (currentWorkspace ? (
-              <GoogleDrivePanel
-                workspace={currentWorkspace}
-                state={state}
-                dispatch={dispatch}
-                buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
-                buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
-                onConnected={refreshAdminStatus}
-                onSaveStatusChange={onSaveStatusChange}
-              />
-            ) : (
-              <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>
-            ))}
+          {tab === 'drive' && (
+            <div className="mx-auto max-w-lg">
+              {currentWorkspace ? (
+                <GoogleDrivePanel
+                  workspace={currentWorkspace}
+                  state={state}
+                  dispatch={dispatch}
+                  buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
+                  buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
+                  onConnected={refreshAdminStatus}
+                  onSaveStatusChange={onSaveStatusChange}
+                />
+              ) : (
+                <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>
+              )}
+            </div>
+          )}
 
           {tab === 'admin' && isAdminUser && <AdminInvitePanel />}
+
+          {tab === 'reset' && (
+            <div className="mx-auto max-w-lg space-y-3 rounded-md border border-danger/30 bg-red-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-danger">전체 데이터 초기화</p>
+                <p className="mt-0.5 text-xs text-danger">
+                  이 <span className="font-semibold">브라우저에 저장된 모든 팀·프로젝트 데이터</span>가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다). 브라우저 저장소만
+                  지우므로 다른 기기나 브라우저의 데이터에는 영향이 없지만, 이 브라우저에서는 되돌릴 수 없습니다. 아래에서 먼저 백업하세요.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
+                  로컬 파일로 백업 (JSON)
+                </Button>
+                <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-3 py-1.5 text-sm">
+                  엑셀로 백업
+                </Button>
+                {isBusy && (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <Spinner className="h-3.5 w-3.5 text-accent" />
+                    {loadingLabel}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-gray-500">
+                JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님). 프로젝트가 여러 개면 프로젝트별로 각각 담깁니다.
+              </p>
+
+              <Button
+                variant="danger"
+                onClick={() => setResetDialogOpen(true)}
+                disabled={!hasAnyWorkspaceData}
+                className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm"
+              >
+                전체 데이터 초기화
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
