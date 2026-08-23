@@ -25,6 +25,8 @@ interface DataManagerDrawerProps {
   // Drive 연결(재연결 포함)에 성공했을 때 알려준다 -- 상단 헤더(StageTabs)의
   // 계정 이메일/관리자 배지도 같이 새로고침할 수 있도록.
   onAccountChange?: () => void
+  // 전체 데이터 저장 진행 상태를 알려준다 -- 헤더의 "저장 중"/"저장 실패" 배지용.
+  onSaveStatusChange?: (status: 'saving' | 'saved' | 'error') => void
 }
 
 type Tab = 'local' | 'drive' | 'admin'
@@ -41,7 +43,7 @@ const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
 // 흩어져 있었다. 여기 하나로 모으고, 화면 가운데 모달로 연다.
-export default function DataManagerDrawer({ open, onClose, onAccountChange }: DataManagerDrawerProps) {
+export default function DataManagerDrawer({ open, onClose, onAccountChange, onSaveStatusChange }: DataManagerDrawerProps) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews, contributions, criteria } = state
   const { currentWorkspace, workspaces } = useWorkspaces()
@@ -401,6 +403,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange }: Da
                 buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
                 buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
                 onConnected={refreshAdminStatus}
+                onSaveStatusChange={onSaveStatusChange}
               />
             ) : (
               <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>

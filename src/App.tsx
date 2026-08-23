@@ -37,6 +37,11 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const isAdminUser = ADMIN_EMAILS.includes(accountEmail ?? '')
   const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
 
+  // Drive 전체 저장 진행 상태 -- 데이터 관리 드로어(GoogleDrivePanel)에서
+  // 저장을 시작/완료/실패할 때마다 갱신되고, 헤더의 계정 정보 옆 배지로
+  // 보여준다.
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
   function handleLogout() {
     disconnectDrive()
     try {
@@ -116,6 +121,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 hasSavedCurrentPeriod={hasSavedCurrentPeriod}
                 onLogout={handleLogout}
                 onAccountChange={refreshAccount}
+                saveStatus={saveStatus}
               />
             </div>
             <div className="flex min-h-0 flex-1">
@@ -132,7 +138,12 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           {addPeriodOpen && (
             <AddPeriodModal teamName={teamName} onDone={handleAddPeriodDone} onClose={() => setAddPeriodOpen(false)} />
           )}
-          <DataManagerDrawer open={dataManagerOpen} onClose={() => setDataManagerOpen(false)} onAccountChange={refreshAccount} />
+          <DataManagerDrawer
+            open={dataManagerOpen}
+            onClose={() => setDataManagerOpen(false)}
+            onAccountChange={refreshAccount}
+            onSaveStatusChange={setSaveStatus}
+          />
         </MemberDetailProvider>
       </TeamProvider>
     </AppProvider>

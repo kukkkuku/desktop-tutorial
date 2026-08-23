@@ -1,6 +1,7 @@
 import type { WorkspaceMeta } from '../types'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
+import Spinner from './Spinner'
 
 export type Stage = 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
@@ -34,6 +35,10 @@ interface StageTabsProps {
   // "다른 Google 계정 연결"로 계정을 바꾸면 호출한다 -- App이 accountEmail을
   // 다시 읽어오도록.
   onAccountChange?: () => void
+  // Drive 전체 저장 진행 상태 -- 계정 정보 옆에 "저장 중"/"저장 실패" 배지로
+  // 보여준다. 지정 안 하면(또는 'idle'이면) hasSavedCurrentPeriod에 따른
+  // 기존 "저장됨" 배지만 보여준다.
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 function DatabaseIcon({ className }: { className?: string }) {
@@ -80,6 +85,7 @@ export default function StageTabs({
   hasSavedCurrentPeriod,
   onLogout,
   onAccountChange,
+  saveStatus = 'idle',
 }: StageTabsProps) {
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -168,7 +174,22 @@ export default function StageTabs({
               )}
               <ChevronDownIcon className="h-3.5 w-3.5 text-gray-400" />
             </GoogleAccountMenu>
-            {hasSavedCurrentPeriod && (
+            {saveStatus === 'saving' && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600">
+                <Spinner className="h-3 w-3" />
+                저장 중
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <button
+                onClick={onOpenDataManager}
+                title="데이터 관리에서 다시 저장"
+                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger hover:bg-red-100"
+              >
+                저장 실패 · 재시도
+              </button>
+            )}
+            {saveStatus !== 'saving' && saveStatus !== 'error' && hasSavedCurrentPeriod && (
               <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">저장됨</span>
             )}
             <button onClick={onLogout} className="text-sm text-gray-400 hover:text-black">
