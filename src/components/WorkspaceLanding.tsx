@@ -131,7 +131,7 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className="flex cursor-pointer flex-col gap-5 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
+      className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-lg font-bold text-black">
@@ -162,8 +162,8 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-xs text-gray-400">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-        <span className="shrink-0 rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">팀원 {counts.memberCount}명</span>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-600">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
+        <span className="shrink-0 text-[11px] text-gray-300">팀원 {counts.memberCount}명</span>
       </div>
       <AvatarRow names={counts.memberNames} />
     </div>
