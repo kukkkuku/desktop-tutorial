@@ -163,11 +163,13 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
 
   // "일정 연동" -- 이 앱은 서버가 없는 정적 사이트라 구글 캘린더 쪽 변경을
   // 실시간으로(웹훅) 받을 수 없다. 대신 버튼을 누른 시점에 "{팀명} 면담"
-  // 캘린더의 현재 상태를 통째로 읽어와 두 방향으로 맞춘다.
+  // 캘린더의 현재 상태를 통째로 읽어와 세 방향으로 맞춘다.
   //   1) 구글 캘린더에서 지워진 일정 -> 이 앱에 남은 연결(calendarEventId)만
   //      끊는다(면담 기록 자체는 지우지 않는다 -- 캘린더 삭제가 곧 면담
   //      기록 삭제를 뜻하진 않는다).
-  //   2) 이 앱이 모르는, "{이 팀원 이름} 면담" 형식의 일정 -> 새 면담
+  //   2) 구글 캘린더에서 날짜/설명을 고친 일정 -> 연결된 면담 기록의
+  //      날짜/코멘트를 그 값으로 덮어써서 맞춘다.
+  //   3) 이 앱이 모르는, "{이 팀원 이름} 면담" 형식의 일정 -> 새 면담
   //      기록으로 가져온다(다른 이름의 일정은 이 팀원 것이 아니므로 건너뛴다).
   async function handleSyncCalendar() {
     if (!isCalendarConfigured() || syncing) return
@@ -175,12 +177,24 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     setSyncMessage(null)
     try {
       const events = await listTeamCalendarEvents(teamName)
-      const eventIds = new Set(events.map((e) => e.id))
+      const eventById = new Map(events.map((e) => [e.id, e]))
       let unlinked = 0
+      let updated = 0
       for (const note of notes) {
-        if (note.calendarEventId && !eventIds.has(note.calendarEventId)) {
+        if (!note.calendarEventId) continue
+        const ev = eventById.get(note.calendarEventId)
+        if (!ev) {
           dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: undefined } })
           unlinked++
+          continue
+        }
+        // 설명이 비어 있으면(구글 쪽에서 지운 게 아니라 원래 없던 경우가
+        // 대부분) 기존 코멘트를 그대로 둔다 -- 빈 값으로 덮어써서 기록
+        // 내용을 날리지 않도록.
+        const nextComment = ev.description?.trim() || note.comment
+        if (ev.date !== note.date || nextComment !== note.comment) {
+          dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, date: ev.date, comment: nextComment } })
+          updated++
         }
       }
 
@@ -200,7 +214,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         imported++
       }
 
-      setSyncMessage(imported === 0 && unlinked === 0 ? '변경된 내용이 없습니다.' : `${imported}건 가져옴 · ${unlinked}건 연동 해제됨`)
+      const parts = [
+        imported > 0 && `${imported}건 가져옴`,
+        updated > 0 && `${updated}건 갱신됨`,
+        unlinked > 0 && `${unlinked}건 연동 해제됨`,
+      ].filter((v): v is string => Boolean(v))
+      setSyncMessage(parts.length > 0 ? parts.join(' · ') : '변경된 내용이 없습니다.')
     } catch (err) {
       console.warn('캘린더 동기화 실패:', err)
       setSyncMessage(err instanceof Error ? err.message : '캘린더 동기화에 실패했습니다.')
