@@ -4,7 +4,7 @@ import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote } from '../../types'
 import { colorForIndex } from '../../utils/memberColors'
-import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured } from '../../utils/googleCalendar'
+import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, listTeamCalendarEvents } from '../../utils/googleCalendar'
 import ConfirmDialog from '../ConfirmDialog'
 import IconButton from '../IconButton'
 import Button from '../Button'
@@ -57,6 +57,16 @@ function TrashIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+function SyncIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" />
+      <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" />
+      <path d="M3 16v4h4" />
+      <path d="M21 8V4h-4" />
+    </svg>
+  )
+}
 
 interface MeetingSchedulePanelProps {
   open: boolean
@@ -81,6 +91,8 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   const [addMemberId, setAddMemberId] = useState<string | null>(members[0]?.id ?? null)
   const [calendarError, setCalendarError] = useState<string | null>(null)
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   // 날짜별로 (팀원 인덱스, 그 면담 기록) 쌍을 모아둔다 -- 칩 자체에서 바로
   // 삭제할 수 있으려면 인덱스뿐 아니라 기록(note)까지 들고 있어야 한다.
@@ -114,6 +126,81 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
     setDeletingNote(null)
   }
 
+  // "일정 연동" -- 이 앱은 서버가 없는 정적 사이트라 구글 캘린더 쪽 변경을
+  // 실시간으로(웹훅) 받을 수 없다. 대신 버튼을 누른 시점에 "{팀명} 면담"
+  // 캘린더의 현재 상태를 통째로 읽어와 세 방향으로 맞춘다. 이 패널은 팀
+  // 전체 일정을 다루므로(특정 팀원 화면이 아니다) 모든 팀원의 기록을
+  // 대상으로 한다.
+  //   1) 구글 캘린더에서 지워진 일정 -> 이 앱에 남은 연결(calendarEventId)만
+  //      끊는다(면담 기록 자체는 지우지 않는다).
+  //   2) 구글 캘린더에서 날짜/설명을 고친 일정 -> 연결된 면담 기록의
+  //      날짜/코멘트를 그 값으로 덮어써서 맞춘다.
+  //   3) 이 앱이 모르는, "{팀원 이름} 면담" 형식의 일정 -> 그 팀원의 새
+  //      면담 기록으로 가져온다.
+  async function handleSyncCalendar() {
+    if (!isCalendarConfigured() || syncing) return
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const events = await listTeamCalendarEvents(teamName)
+      const eventById = new Map(events.map((e) => [e.id, e]))
+      let unlinked = 0
+      let updated = 0
+      for (const note of meetingNotes) {
+        if (!note.calendarEventId) continue
+        const ev = eventById.get(note.calendarEventId)
+        if (!ev) {
+          dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: undefined } })
+          unlinked++
+          continue
+        }
+        // 설명이 비어 있으면(구글 쪽에서 지운 게 아니라 원래 없던 경우가
+        // 대부분) 기존 코멘트를 그대로 둔다.
+        const nextComment = ev.description?.trim() || note.comment
+        if (ev.date !== note.date || nextComment !== note.comment) {
+          dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, date: ev.date, comment: nextComment } })
+          updated++
+        }
+      }
+
+      const linkedEventIds = new Set(meetingNotes.map((n) => n.calendarEventId).filter((id): id is string => Boolean(id)))
+      let imported = 0
+      for (const ev of events) {
+        if (linkedEventIds.has(ev.id)) continue
+        const member = members.find((m) => ev.summary === `${m.name} 면담`)
+        if (!member) continue
+        const note: MeetingNote = {
+          id: uuidv4(),
+          memberId: member.id,
+          date: ev.date,
+          comment: ev.description?.trim() || '(Google 캘린더에서 가져온 일정)',
+          calendarEventId: ev.id,
+        }
+        dispatch({ type: 'ADD_MEETING_NOTE', payload: note })
+        imported++
+      }
+
+      const parts = [
+        imported > 0 && `${imported}건 가져옴`,
+        updated > 0 && `${updated}건 갱신됨`,
+        unlinked > 0 && `${unlinked}건 연동 해제됨`,
+      ].filter((v): v is string => Boolean(v))
+      setSyncMessage(parts.length > 0 ? parts.join(' · ') : '변경된 내용이 없습니다.')
+    } catch (err) {
+      console.warn('캘린더 동기화 실패:', err)
+      setSyncMessage(err instanceof Error ? err.message : '캘린더 동기화에 실패했습니다.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const syncButtonContent = (
+    <>
+      <SyncIcon className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+      {syncing ? '동기화 중…' : '일정 연동'}
+    </>
+  )
+
   // 접힌 패널의 칩과 펼친 패널 안의 여러 목록(오늘 일정/이후 예정/선택 날짜)이
   // 모두 이 다이얼로그를 공유한다 -- 어느 쪽에서 삭제를 눌렀는지와 무관하게
   // deletingNote 하나로 확인 후 처리한다.
@@ -130,7 +217,21 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   if (!open) {
     return (
       <>
-      <div className="w-fit shrink-0 rounded-lg border border-gray-200 bg-white p-3">
+      <div className="flex w-fit shrink-0 flex-col items-stretch gap-2">
+      {isCalendarConfigured() && (
+        <div className="rounded-lg border border-gray-200 bg-white px-2 py-1.5">
+          <button
+            type="button"
+            onClick={handleSyncCalendar}
+            disabled={syncing}
+            title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
+            className="flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-gray-400 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {syncButtonContent}
+          </button>
+        </div>
+      )}
+      <div className="rounded-lg border border-gray-200 bg-white p-3">
         <button
           onClick={onToggle}
           title="면담 일정 펼치기"
@@ -177,6 +278,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             ))}
           </div>
         )}
+      </div>
       </div>
         {deleteDialog}
       </>
@@ -231,12 +333,26 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   return (
     <>
     <div className="w-[300px] shrink-0 rounded-lg border border-gray-200 bg-white p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-black">면담 일정</h3>
-        <button onClick={onToggle} title="접기" className="rounded-md px-1.5 text-gray-400 hover:bg-gray-100">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="shrink-0 text-base font-bold text-black">면담 일정</h3>
+          {isCalendarConfigured() && (
+            <button
+              type="button"
+              onClick={handleSyncCalendar}
+              disabled={syncing}
+              title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
+              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-gray-400 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {syncButtonContent}
+            </button>
+          )}
+        </div>
+        <button onClick={onToggle} title="접기" className="shrink-0 rounded-md px-1.5 text-gray-400 hover:bg-gray-100">
           »
         </button>
       </div>
+      {syncMessage && <p className="mt-1 text-[11px] text-gray-400">{syncMessage}</p>}
 
       <div className="mt-3 flex items-center justify-between">
         <IconButton onClick={() => setViewDate(new Date(year, month - 1, 1))} aria-label="이전 달" className="h-7 w-7">
