@@ -103,7 +103,7 @@ export default function MoodIcon({ mood, className = 'h-8 w-8' }: MoodIconProps)
 
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" className={className}>
-      <circle cx="12" cy="12" r="11" fill={colors.bg} />
+      <circle cx="12" cy="12" r="10.7" fill={colors.bg} stroke={colors.fg} strokeWidth={1.4} />
       {renderFace(key, colors.fg)}
     </svg>
   )

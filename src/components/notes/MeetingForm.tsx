@@ -16,9 +16,10 @@ function todayString() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// 기분 선택 영역(6단계 아이콘 한 줄)이 라벨까지 편하게 펼쳐지려면 대략 이
+// 기분 선택 영역(3x2 아이콘 그리드)이 라벨까지 편하게 펼쳐지려면 대략 이
 // 정도 너비가 필요하다 -- 이보다 좁으면 대표 아이콘 하나 + 팝오버로 접는다.
-const MOOD_INLINE_MIN_WIDTH = 460
+// 한 줄에 6개를 다 펼치던 이전 레이아웃보다 훨씬 좁은 너비로도 충분하다.
+const MOOD_INLINE_MIN_WIDTH = 200
 
 interface MeetingFormProps {
   member: TeamMember
