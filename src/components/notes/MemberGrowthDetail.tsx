@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -189,6 +189,35 @@ const EXPAND_TARGET_WIDTH = 420
 // 바로 이 비율만큼 열어서, 열자마자 분할 레이아웃이 되는 게 "면담"의
 // 고유 기본 크기다.
 const MEETING_SPLIT_RATIO = 0.5
+// 면담 컬럼은 다른 두 컬럼과 문턱을 공유하지 않는다 -- 면담일지의 날짜
+// 입력칸(고정 폭)이 있어서, 다른 컬럼이 접히는 120px 문턱에서는 아직 넓게
+// 펼쳐진 폼이 그대로 렌더링돼 날짜 입력칸이 카드 밖으로 삐져나온다. 이
+// 폭 밑으로 내려가야 비로소 슬림 바로 접혀 폼 자체가 안 보이게 한다.
+const MEETING_NARROW_THRESHOLD = 300
+// 스플리터 하나의 실제 렌더 폭(px, ColumnSplitter의 xl:w-3와 일치) --
+// 컬럼 폭을 픽셀 단위로 직접 계산할 때 두 스플리터가 차지하는 폭을
+// 컨테이너 폭에서 미리 빼줘야 나머지 세 컬럼 폭의 합이 정확히 맞아떨어진다.
+const SPLITTER_WIDTH = 12
+
+// 세 컬럼의 실제 렌더 폭(px)을 한 번에 계산한다. 접힌(narrow) 컬럼은 항상
+// 정확히 COL_MIN_WIDTH -- 나머지 "열린" 컬럼들이 그 차이를 자기들끼리
+// bounds 비율대로 나눠 흡수해서, 스플리터 폭까지 포함한 합이 언제나
+// containerWidth와 정확히 같아지게 한다(그래야 열린 컬럼이 bounds가
+// 가리키는 것보다 실제로는 더 좁아져 있는데 접힌 컬럼만 64px로 고정해버려
+// 우측 여백이 밀려나거나 컨테이너를 넘치는 문제가 생기지 않는다).
+function computeColumnWidths(bounds: [number, number], containerWidth: number, narrow: [boolean, boolean, boolean]): [number, number, number] {
+  const available = Math.max(0, containerWidth - SPLITTER_WIDTH * 2)
+  const raw: [number, number, number] = [bounds[0] * available, (bounds[1] - bounds[0]) * available, (1 - bounds[1]) * available]
+  const pinnedSum = narrow.reduce((sum, isNarrow) => sum + (isNarrow ? COL_MIN_WIDTH : 0), 0)
+  const openIndices = [0, 1, 2].filter((i) => !narrow[i])
+  const openRawSum = openIndices.reduce((sum, i) => sum + raw[i], 0)
+  const remaining = Math.max(0, available - pinnedSum)
+  return raw.map((w, i) => {
+    if (narrow[i]) return COL_MIN_WIDTH
+    if (openRawSum <= 0) return remaining / (openIndices.length || 1)
+    return (w / openRawSum) * remaining
+  }) as [number, number, number]
+}
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
 // 요약(이름·승진심사 + 승진 점수 요약카드 + 메모)이 전체 폭을 가로지르고,
@@ -260,7 +289,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const meetingWidthPx = (1 - bounds[1]) * containerWidth
   const simNarrow = isXl && containerWidth > 0 && simWidthPx < COL_NARROW_THRESHOLD
   const perfNarrow = isXl && containerWidth > 0 && perfWidthPx < COL_NARROW_THRESHOLD
-  const meetingNarrow = isXl && containerWidth > 0 && meetingWidthPx < COL_NARROW_THRESHOLD
+  const meetingNarrow = isXl && containerWidth > 0 && meetingWidthPx < MEETING_NARROW_THRESHOLD
   // 면담 컬럼이 3등분 영역 전체 폭의 절반 이상을 차지하면 내부를
   // 좌(인사이트+기록)/우(작성 폼)로 나눈다 -- 스플리터로 넓혀도, 아래
   // expandColumn('meeting')으로 한번에 펼쳐도 똑같이 이 계산으로 판단한다.
@@ -269,6 +298,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 미리보기로 보여준다. xl 미만(쌓인 레이아웃)에서는 컬럼 폭이 곧
   // 컨테이너 전체 폭이다.
   const recentColWide = isXl ? perfWidthPx >= WIDE_COL_THRESHOLD : containerWidth >= WIDE_COL_THRESHOLD
+  // 세 컬럼의 실제 렌더 폭(px) -- xl 미만에서는 각 컬럼이 w-full로 쌓이므로
+  // null(스타일 미적용)로 둔다.
+  const colWidths = isXl && containerWidth > 0 ? computeColumnWidths(bounds, containerWidth, [simNarrow, perfNarrow, meetingNarrow]) : null
 
   function makeSplitterHandlers(handle: 0 | 1) {
     return {
@@ -461,12 +493,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }
   meetingInsights.push('다음 평가기간에 강화할 역량과 팀장이 지원할 사항을 합의해 보세요.')
 
-  const gridStyle = {
-    '--w1': `${(bounds[0] * 100).toFixed(2)}%`,
-    '--w2': `${((bounds[1] - bounds[0]) * 100).toFixed(2)}%`,
-    '--w3': `${((1 - bounds[1]) * 100).toFixed(2)}%`,
-  } as CSSProperties
-
   return (
     <div className="flex min-h-full flex-col">
       {/* 상단 프로필 요약 -- 이름·심사일 + 승진 점수 요약카드를 왼쪽에 붙여
@@ -630,8 +656,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           위아래로 쌓고 스플리터는 숨긴다(이 경우 모든 컬럼이 항상 폭이 넓어
           슬림 바가 되지 않는다). */}
       <div className="flex-1 bg-slate-50 p-5">
-        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0" style={gridStyle}>
-          <div className="w-full min-w-0 xl:w-[var(--w1)] xl:shrink-0" style={simNarrow ? { width: COL_MIN_WIDTH } : undefined}>
+        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0">
+          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[0], flex: '0 0 auto' } : undefined}>
             {simNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-gray-200 bg-white py-6">
                 <button
@@ -669,7 +695,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter0} />
 
-          <div className="w-full min-w-0 xl:w-[var(--w2)] xl:shrink-0" style={perfNarrow ? { width: COL_MIN_WIDTH } : undefined}>
+          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[1], flex: '0 0 auto' } : undefined}>
             {perfNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
@@ -768,10 +794,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               좌(인사이트+기록)/우(일지 작성) 2단으로 나뉜다(MeetingForm 내부
               실측). 폭이 좁으면 인사이트 -> 일지 -> 기록 순으로 위아래 쌓인다.
               컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
-          <div
-            className="w-full min-w-0 xl:w-[var(--w3)] xl:shrink-0 xl:flex-1"
-            style={meetingNarrow ? { width: COL_MIN_WIDTH, flex: '0 0 auto' } : undefined}
-          >
+          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
             {meetingNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-gray-200 bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
