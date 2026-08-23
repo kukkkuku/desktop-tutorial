@@ -300,12 +300,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 {/* 수정 중에도 타임라인 인디케이터(분위기 아이콘/점 + 세로선)는
                     그대로 둔다 -- 편집 폼으로 바뀌었다고 위치 감각이
                     사라지면 안 된다. */}
-                <div className="flex w-8 shrink-0 flex-col items-center">
+                <div className="flex w-5 shrink-0 flex-col items-center">
                   {note.mood ? (
-                    <MoodIcon mood={note.mood} className="h-8 w-8 shrink-0" />
+                    <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
-                      <span className="h-2 w-2 rounded-full bg-gray-300" />
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
                     </span>
                   )}
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
@@ -374,12 +374,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
               </div>
             ) : (
               <div key={note.id} className="flex items-stretch gap-4">
-                <div className="flex w-8 shrink-0 flex-col items-center">
+                <div className="flex w-5 shrink-0 flex-col items-center">
                   {note.mood ? (
-                    <MoodIcon mood={note.mood} className="h-8 w-8 shrink-0" />
+                    <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
-                      <span className="h-2 w-2 rounded-full bg-gray-300" />
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
                     </span>
                   )}
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
