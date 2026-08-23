@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllTemplatesZip, downloadAllWorkspacesExcelZip, detectWorkbookKind, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
+import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllWorkspacesExcelZip } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
 import { ADMIN_EMAILS } from '../utils/adminInvite'
 import { getConnectedEmail } from '../utils/googleDrive'
@@ -15,6 +15,7 @@ import {
 } from '../utils/localSave'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
+import BulkUploadPanel from './BulkUploadPanel'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import Spinner from './Spinner'
@@ -53,14 +54,6 @@ function DriveIcon({ className }: { className?: string }) {
   )
 }
 
-interface BulkSummary {
-  addedCount: number
-  updatedCount: number
-  errors: string[]
-}
-
-const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
-
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
@@ -91,10 +84,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   }, [open])
 
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
-  const [bulkSummary, setBulkSummary] = useState<BulkSummary | null>(null)
-  const [isDragOver, setIsDragOver] = useState(false)
   const [resetDialogOpen, setResetDialogOpen] = useState(false)
-  const bulkInputRef = useRef<HTMLInputElement>(null)
   const isBusy = loadingLabel !== null
 
   // 로컬 저장 위치 -- 지정해두면 "전체 양식 ZIP/JSON 백업/엑셀 백업"이 브라우저
@@ -133,85 +123,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     () => workspaces.filter((w) => w.teamName === currentWorkspace?.teamName),
     [workspaces, currentWorkspace],
   )
-
-  async function handleBulkFiles(files: File[]) {
-    if (files.length === 0) return
-    setBulkSummary(null)
-    setLoadingLabel(`파일 ${files.length}개 확인 중...`)
-
-    // 종류별로 먼저 나누고 항상 과제 -> 팀원 -> 피어리뷰 순서로 처리한다 --
-    // 피어리뷰는 이름으로 팀원을 찾으므로, 같이 올린 팀원 파일보다 먼저
-    // 처리되면 조회가 실패한다.
-    const taskFiles: File[] = []
-    const memberFiles: File[] = []
-    const peerFiles: File[] = []
-    const errors: string[] = []
-
-    for (const file of files) {
-      const buffer = await file.arrayBuffer()
-      const kind = detectWorkbookKind(buffer)
-      if (kind === 'task') taskFiles.push(file)
-      else if (kind === 'member') memberFiles.push(file)
-      else if (kind === 'peer') peerFiles.push(file)
-      else errors.push(`[${file.name}] 과제·팀원·피어리뷰 양식 중 어떤 것인지 인식하지 못했습니다.`)
-    }
-
-    let addedCount = 0
-    let updatedCount = 0
-
-    let taskList = tasks
-    for (const file of taskFiles) {
-      const result = parseTaskWorkbook(await file.arrayBuffer(), taskList)
-      taskList = result.tasks
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-    }
-    if (taskFiles.length > 0) dispatch({ type: 'IMPORT_TASKS', payload: taskList })
-
-    let memberList = members
-    for (const file of memberFiles) {
-      const result = parseMemberWorkbook(await file.arrayBuffer(), memberList)
-      memberList = result.members
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-    }
-    if (memberFiles.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
-
-    let peerList = peerReviews
-    for (const file of peerFiles) {
-      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), tasks, memberList, peerList)
-      peerList = result.peerReviews
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
-    }
-    if (peerFiles.length > 0) dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
-
-    setBulkSummary({ addedCount, updatedCount, errors })
-    setLoadingLabel(null)
-  }
-
-  async function handleZipDownload() {
-    setLoadingLabel('양식 압축 중...')
-    await downloadAllTemplatesZip(tasks, members)
-    setLoadingLabel(null)
-  }
-
-  function onBulkInputChange(e: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    e.target.value = ''
-    void handleBulkFiles(files)
-  }
-
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setIsDragOver(false)
-    if (isBusy) return
-    const files = Array.from(e.dataTransfer.files).filter((f) => FILE_NAME_PATTERN.test(f.name))
-    void handleBulkFiles(files)
-  }
 
   // 전체 데이터 초기화는 지금 열린 프로젝트 하나가 아니라, 이 브라우저에
   // 저장된 모든 팀·평가 데이터를 지운다(브라우저 기반 저장이라 다른
@@ -318,71 +229,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 </div>
               )}
 
-              <div>
-                <p className="text-sm font-semibold text-black">전체 일괄 업로드</p>
-                <p className="mt-0.5 text-xs text-gray-500">과제·팀원·피어리뷰가 섞인 파일을 한 번에 올립니다. 내용을 보고 종류를 자동으로 구분합니다.</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="secondary" onClick={handleZipDownload} disabled={isBusy} className="px-3 py-1.5 text-sm">
-                  전체 양식 ZIP 다운로드
-                </Button>
-                <Button variant="primary" onClick={() => bulkInputRef.current?.click()} disabled={isBusy} className="px-3 py-1.5 text-sm">
-                  전체 일괄 업로드
-                </Button>
-                <input ref={bulkInputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onBulkInputChange} />
-                {isBusy && (
-                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <Spinner className="h-3.5 w-3.5 text-accent" />
-                    {loadingLabel}
-                  </span>
-                )}
-              </div>
-
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  if (!isBusy) setIsDragOver(true)
-                }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={onDrop}
-                onClick={() => !isBusy && bulkInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
-                  isDragOver ? 'border-accent bg-blue-50' : 'border-gray-300 bg-white hover:bg-gray-50'
-                } ${isBusy ? 'pointer-events-none opacity-60' : ''}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-gray-400">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 2v6h6" />
-                </svg>
-                <p className="text-sm text-gray-600">파일을 여기에 드래그</p>
-                <p className="text-xs text-gray-400">여러 파일 동시 업로드 가능 (.xlsx)</p>
-              </div>
-
-              {bulkSummary && (
-                <div className={`rounded-md border px-4 py-3 ${bulkSummary.errors.length > 0 ? 'border-danger/30 bg-red-50' : 'border-success/30 bg-green-50'}`}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className={`text-sm font-semibold ${bulkSummary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
-                        {bulkSummary.addedCount > 0 || bulkSummary.updatedCount > 0
-                          ? `신규 ${bulkSummary.addedCount}건 추가, 기존 ${bulkSummary.updatedCount}건 업데이트되었습니다.`
-                          : '변경된 건이 없습니다.'}
-                        {bulkSummary.errors.length > 0 && ` (${bulkSummary.errors.length}건 오류)`}
-                      </p>
-                      {bulkSummary.errors.length > 0 && (
-                        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-danger">
-                          {bulkSummary.errors.map((err, i) => (
-                            <li key={i}>{err}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <button onClick={() => setBulkSummary(null)} className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-black hover:bg-gray-100">
-                      닫기
-                    </button>
-                  </div>
-                </div>
-              )}
+              <BulkUploadPanel />
 
               <div className="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-500">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건

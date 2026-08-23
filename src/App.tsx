@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState } from 'react'
-import { AppProvider } from './state/AppContext'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { AppProvider, useAppState } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
 import { MemberDetailProvider } from './state/MemberDetailContext'
@@ -17,6 +17,22 @@ import DataManagerDrawer from './components/DataManagerDrawer'
 import QuickStartModal from './components/QuickStartModal'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { readLastSave } from './utils/googleDrive'
+
+// 새 평가를 막 만들어 과제가 하나도 없는 워크스페이스를 열면, 빠른 시작
+// 팝업을 자동으로 띄워 첫 화면부터 시작 방법을 고르게 한다. AppProvider
+// 안(useAppState 접근 필요)이면서 stage 전환과 무관하게 워크스페이스가
+// 열려 있는 동안 딱 한 번만 마운트되는 지점에 둬야, 탭을 왔다갔다 할 때마다
+// 다시 뜨는 일이 없다.
+function AutoOpenQuickStart({ onOpen }: { onOpen: () => void }) {
+  const { state } = useAppState()
+  const triggered = useRef(false)
+  useEffect(() => {
+    if (triggered.current) return
+    triggered.current = true
+    if (state.tasks.length === 0) onOpen()
+  }, [state.tasks.length, onOpen])
+  return null
+}
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('tasks')
@@ -81,6 +97,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
 
   return (
     <AppProvider workspaceId={workspaceId}>
+      <AutoOpenQuickStart onOpen={() => setQuickStartOpen(true)} />
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <div className="flex min-h-screen flex-col bg-white">
@@ -127,10 +144,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               currentWorkspaceId={workspaceId}
               hasOtherPeriods={hasOtherPeriods}
               onClose={() => setQuickStartOpen(false)}
-              onOpenDataManager={() => {
-                setQuickStartOpen(false)
-                setDataManagerOpen(true)
-              }}
               onDirectEntry={() => {
                 setQuickStartOpen(false)
                 handleStageChange('tasks')
