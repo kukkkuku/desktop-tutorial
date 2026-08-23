@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -9,25 +9,15 @@ import Button from '../Button'
 import CollapseToggleButton from '../CollapseToggleButton'
 import IconButton from '../IconButton'
 import MoodIcon from './MoodIcon'
+import MoodPicker from './MoodPicker'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// 면담 분위기 -- 글로 담기 애매한 그날의 톤을 이모지 하나로 남긴다. 기록이
-// 쌓이면 목록만 훑어도 흐름이 눈에 들어온다(기분 일기 앱의 방식과 동일).
-// 9단계 그라데이션 -- 아주 좋음부터 매우 힘듦까지 세분화해서 고른다.
-const MOOD_OPTIONS: { emoji: string; label: string }[] = [
-  { emoji: '😄', label: '아주 좋음' },
-  { emoji: '😊', label: '좋음' },
-  { emoji: '🙂', label: '약간 좋음' },
-  { emoji: '😐', label: '보통' },
-  { emoji: '😕', label: '약간 걱정됨' },
-  { emoji: '😟', label: '걱정됨' },
-  { emoji: '😣', label: '힘듦' },
-  { emoji: '😩', label: '많이 지침' },
-  { emoji: '😢', label: '매우 힘듦' },
-]
+// 기분 선택 영역(6단계 아이콘 한 줄)이 라벨까지 편하게 펼쳐지려면 대략 이
+// 정도 너비가 필요하다 -- 이보다 좁으면 대표 아이콘 하나 + 팝오버로 접는다.
+const MOOD_INLINE_MIN_WIDTH = 460
 
 interface MeetingFormProps {
   member: TeamMember
@@ -54,6 +44,9 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   const memberId = member.id
   const todayStr = todayString()
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const logRowRef = useRef<HTMLDivElement>(null)
+  const [logRowWidth, setLogRowWidth] = useState(0)
+  const moodCompact = logRowWidth > 0 && logRowWidth < MOOD_INLINE_MIN_WIDTH
 
   const [date, setDate] = useState(todayStr)
   const [comment, setComment] = useState('')
@@ -92,6 +85,17 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (!focusToken) return
     commentRef.current?.focus()
   }, [focusToken])
+
+  useLayoutEffect(() => {
+    const el = logRowRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0
+      setLogRowWidth(width)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   const notes = state.meetingNotes.filter((n) => n.memberId === memberId).sort((a, b) => b.date.localeCompare(a.date))
 
@@ -197,7 +201,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           textarea가 최소 폭(min-w) 아래로 밀리면 flex-wrap이 자동으로
           이 칸을 textarea 아래 줄로 내려보낸다 -- 별도 실측 없이 순수
           CSS만으로 반응형이 된다. */}
-      <div className="mt-3 flex flex-wrap items-start gap-4">
+      <div ref={logRowRef} className="mt-3 flex flex-wrap items-start gap-4">
         <textarea
           ref={commentRef}
           value={comment}
@@ -207,22 +211,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           className="h-[124px] min-w-[240px] flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
         />
         <div className="flex shrink-0 flex-col items-center gap-2">
-          <div className="grid grid-cols-5 gap-1.5">
-            {MOOD_OPTIONS.map(({ emoji, label }) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => setMood((v) => (v === emoji ? null : emoji))}
-                title={label}
-                aria-label={label}
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                  mood === emoji ? 'bg-accent/10 text-accent ring-1 ring-accent' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                <MoodIcon emoji={emoji} className="h-5 w-5" />
-              </button>
-            ))}
-          </div>
+          <MoodPicker value={mood} onChange={setMood} compact={moodCompact} />
           <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="w-full px-2 py-1.5">
             작성하기
           </Button>
@@ -286,21 +275,8 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
               <div key={note.id} className="ml-9 mb-3 flex flex-wrap items-start gap-2 rounded-md border border-gray-300 bg-white px-3 py-3">
                 <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
                 <textarea value={editComment} onChange={(e) => setEditComment(e.target.value)} rows={2} className="min-w-[180px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
-                <div className="flex w-full flex-wrap items-center gap-1.5">
-                  {MOOD_OPTIONS.map(({ emoji, label }) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setEditMood((v) => (v === emoji ? null : emoji))}
-                      title={label}
-                      aria-label={label}
-                      className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                        editMood === emoji ? 'bg-accent/10 text-accent ring-1 ring-accent' : 'text-gray-500 hover:bg-gray-100'
-                      }`}
-                    >
-                      <MoodIcon emoji={emoji} className="h-5 w-5" />
-                    </button>
-                  ))}
+                <div className="flex w-full items-center">
+                  <MoodPicker value={editMood} onChange={setEditMood} compact={moodCompact} />
                 </div>
                 <div className="flex gap-2">
                   <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="px-3 py-1.5 text-xs">
@@ -315,7 +291,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
               <div key={note.id} className="flex items-stretch gap-3">
                 <div className="flex w-9 shrink-0 flex-col items-center">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-gray-200">
-                    {note.mood ? <MoodIcon emoji={note.mood} className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-gray-300" />}
+                    {note.mood ? <MoodIcon mood={note.mood} className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-gray-300" />}
                   </span>
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
                 </div>
