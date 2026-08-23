@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
-import { connectDifferentAccount } from '../utils/googleDrive'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
+import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
 
 const MAX_VISIBLE_AVATARS = 6
@@ -48,19 +48,10 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
-function CloudIcon({ className }: { className?: string }) {
+function ChevronDownIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-    </svg>
-  )
-}
-
-function UserIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 20a6 6 0 0 0-12 0" />
-      <circle cx="12" cy="10" r="4" />
+      <path d="m6 9 6 6 6-6" />
     </svg>
   )
 }
@@ -182,20 +173,6 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
 export default function WorkspaceLanding() {
   const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
-  const [switchingAccount, setSwitchingAccount] = useState(false)
-
-  async function handleConnectDifferentAccount() {
-    setSwitchingAccount(true)
-    try {
-      await connectDifferentAccount()
-      refreshAccount()
-    } catch {
-      // 계정 전환 실패는 조용히 무시 -- 기존 계정으로 계속 쓸 수 있다.
-    } finally {
-      setSwitchingAccount(false)
-    }
-  }
-
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const mostRecentTeam = useMemo(() => {
     const sorted = [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
@@ -262,27 +239,18 @@ export default function WorkspaceLanding() {
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
           <p className="whitespace-nowrap text-[22px] font-extrabold text-black">성과·성장관리</p>
           {accountEmail && (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="whitespace-nowrap text-[13px] text-gray-600">{accountEmail}</span>
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-bold text-green-700">
-                <CloudIcon className="h-3 w-3" />
-                Google 연결됨
-              </span>
-              {isAdminUser && (
-                <span className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600">관리자</span>
-              )}
-              <button
-                onClick={() => void handleConnectDifferentAccount()}
-                disabled={switchingAccount}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2.5 text-[13px] font-semibold text-gray-600 hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+            <div className="flex shrink-0 items-center gap-3">
+              <GoogleAccountMenu
+                className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black"
+                onAccountChange={refreshAccount}
               >
-                <UserIcon className="h-3.5 w-3.5" />
-                {switchingAccount ? '전환하는 중...' : '다른 계정'}
-              </button>
-              <button
-                onClick={handleLogout}
-                className="shrink-0 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[13px] font-semibold text-danger hover:bg-red-100"
-              >
+                {accountEmail}
+                {isAdminUser && (
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">관리자</span>
+                )}
+                <ChevronDownIcon className="h-3.5 w-3.5 text-gray-400" />
+              </GoogleAccountMenu>
+              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-black">
                 로그아웃
               </button>
             </div>
