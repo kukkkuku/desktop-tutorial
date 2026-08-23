@@ -535,7 +535,7 @@ export async function fetchSyncPayload(fileId: string): Promise<DriveSyncPayload
 // "언제 저장됐는지"를 보여주고(GoogleDrivePanel) 헤더의 "저장됨" 배지 여부도
 // 판단한다(StageTabs). Drive 쪽 진짜 상태가 아니라 이 브라우저 기준 캐시다.
 
-function lastSaveKey(workspaceId: string) {
+export function lastSaveKey(workspaceId: string) {
   return `gdrive-last-save-${workspaceId}`
 }
 

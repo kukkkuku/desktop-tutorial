@@ -2,12 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationGrade, HRAppraisalRecord, PersonalNote, PersonalNoteColor, PromotionCriteriaRow, TeamProfile } from '../types'
 import { DEFAULT_GRADE_SCORES, DEFAULT_PROMOTION_CRITERIA } from '../utils/promotion'
-
-const TEAM_PROFILE_PREFIX = 'ux-performance-evaluation-team-'
-
-function teamProfileKey(teamName: string): string {
-  return `${TEAM_PROFILE_PREFIX}${teamName}`
-}
+import { teamProfileKey } from '../utils/storageKeys'
 
 function defaultProfile(): TeamProfile {
   return {

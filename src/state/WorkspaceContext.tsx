@@ -2,17 +2,20 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationCycle, Task, TeamMember, WorkspaceMeta } from '../types'
 import { createEmptyState } from './appReducer'
-import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
+import { migrateLegacyDataOnce } from '../utils/legacyMigration'
+import {
+  cyclePreferenceKey,
+  currentWorkspaceKey,
+  workspaceStateKey as workspaceStateKeyFor,
+  workspacesKey,
+} from '../utils/storageKeys'
 import { findWorkspace, inferStructuredPeriod } from '../utils/period'
 
-const WORKSPACES_KEY = 'ux-performance-evaluation-workspaces'
-const CURRENT_KEY = 'ux-performance-evaluation-current-workspace'
-const CYCLE_PREF_KEY = 'ux-performance-evaluation-cycle-pref'
-const OLD_SINGLE_STATE_KEY = 'ux-performance-evaluation-state'
-export const WORKSPACE_STATE_PREFIX = 'ux-performance-evaluation-workspace-'
-
+// 다른 모듈들(backup.ts, memberHistory.ts, AppContext.tsx)이 계속 이 경로에서
+// workspaceStateKey를 가져오므로, 실제 구현(storageKeys.ts, 계정 스코프 포함)을
+// 그대로 재노출한다.
 export function workspaceStateKey(id: string): string {
-  return `${WORKSPACE_STATE_PREFIX}${id}`
+  return workspaceStateKeyFor(id)
 }
 
 export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number; memberNames: string[] } {
@@ -35,43 +38,6 @@ export function fmtWorkspaceDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '-'
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-}
-
-// Browsers that used the app before workspaces existed have their one and
-// only evaluation saved under OLD_SINGLE_STATE_KEY. The first time this code
-// runs there, wrap that data into a real workspace so it isn't lost — unless
-// it's empty or the untouched legacy sample fixture, in which case there's
-// nothing worth keeping and the user just starts from the landing screen.
-function migrateLegacySingleState(): WorkspaceMeta[] {
-  try {
-    const raw = localStorage.getItem(OLD_SINGLE_STATE_KEY)
-    if (!raw) return []
-    const migrated = migrateAppState(JSON.parse(raw))
-    if (!migrated || isUntouchedLegacySample(migrated)) return []
-    const hasContent =
-      migrated.tasks.length > 0 ||
-      migrated.members.length > 0 ||
-      migrated.meetingNotes.length > 0 ||
-      migrated.peerReviews.length > 0
-    if (!hasContent) return []
-
-    const id = uuidv4()
-    const now = new Date().toISOString()
-    const meta: WorkspaceMeta = {
-      id,
-      teamName: 'UX팀',
-      periodName: '기존 데이터',
-      evaluationYear: new Date().getFullYear(),
-      evaluationCycle: 'custom',
-      evaluationPeriodCode: 'CUSTOM-기존-데이터',
-      createdAt: now,
-      updatedAt: now,
-    }
-    localStorage.setItem(workspaceStateKey(id), JSON.stringify(migrated))
-    return [meta]
-  } catch {
-    return []
-  }
 }
 
 // 예전 워크스페이스는 evaluationYear/evaluationCycle/evaluationPeriodCode/
@@ -109,13 +75,8 @@ function migrateWorkspaceMeta(raw: unknown): WorkspaceMeta | null {
 
 function loadWorkspaces(): WorkspaceMeta[] {
   try {
-    const raw = localStorage.getItem(WORKSPACES_KEY)
-    if (raw === null) {
-      const migrated = migrateLegacySingleState()
-      localStorage.setItem(WORKSPACES_KEY, JSON.stringify(migrated))
-      if (migrated.length > 0) localStorage.setItem(CURRENT_KEY, migrated[0].id)
-      return migrated
-    }
+    const raw = localStorage.getItem(workspacesKey())
+    if (raw === null) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
     return parsed.map(migrateWorkspaceMeta).filter((w): w is WorkspaceMeta => w !== null)
@@ -126,7 +87,7 @@ function loadWorkspaces(): WorkspaceMeta[] {
 
 function loadCurrentId(workspaces: WorkspaceMeta[]): string | null {
   try {
-    const raw = localStorage.getItem(CURRENT_KEY)
+    const raw = localStorage.getItem(currentWorkspaceKey())
     if (raw && workspaces.some((w) => w.id === raw)) return raw
     return null
   } catch {
@@ -136,7 +97,7 @@ function loadCurrentId(workspaces: WorkspaceMeta[]): string | null {
 
 function loadCyclePreferences(): Record<string, EvaluationCycle> {
   try {
-    const raw = localStorage.getItem(CYCLE_PREF_KEY)
+    const raw = localStorage.getItem(cyclePreferenceKey())
     if (!raw) return {}
     const parsed = JSON.parse(raw)
     return parsed && typeof parsed === 'object' ? parsed : {}
@@ -145,11 +106,14 @@ function loadCyclePreferences(): Record<string, EvaluationCycle> {
   }
 }
 
+// 계정이 확인될 때마다(최초 로그인 게이트 통과, "다른 Google 계정 연결")
+// 다시 호출해서 그 계정 스코프의 데이터로 상태를 새로 읽어들인다.
 function loadInitialWorkspaceState(): {
   workspaces: WorkspaceMeta[]
   currentId: string | null
   cyclePreferences: Record<string, EvaluationCycle>
 } {
+  migrateLegacyDataOnce()
   const workspaces = loadWorkspaces()
   return { workspaces, currentId: loadCurrentId(workspaces), cyclePreferences: loadCyclePreferences() }
 }
@@ -182,6 +146,9 @@ interface WorkspaceContextValue {
   renameWorkspace: (id: string, teamName: string, periodName: string) => void
   touchWorkspace: (id: string) => void
   importFromWorkspace: (targetId: string, sourceId: string, opts: { members: boolean; tasks: boolean }) => void
+  // 로그인 게이트 통과 직후, 그리고 "다른 Google 계정 연결" 직후 호출한다 --
+  // 지금 연결된 계정 스코프의 데이터로 워크스페이스 상태를 다시 읽어들인다.
+  reloadForAccount: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(undefined)
@@ -194,7 +161,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(WORKSPACES_KEY, JSON.stringify(workspaces))
+      localStorage.setItem(workspacesKey(), JSON.stringify(workspaces))
     } catch {
       // Storage may be unavailable; keep running in-memory.
     }
@@ -202,8 +169,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      if (currentWorkspaceId) localStorage.setItem(CURRENT_KEY, currentWorkspaceId)
-      else localStorage.removeItem(CURRENT_KEY)
+      if (currentWorkspaceId) localStorage.setItem(currentWorkspaceKey(), currentWorkspaceId)
+      else localStorage.removeItem(currentWorkspaceKey())
     } catch {
       // ignore
     }
@@ -211,11 +178,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(CYCLE_PREF_KEY, JSON.stringify(cyclePreferences))
+      localStorage.setItem(cyclePreferenceKey(), JSON.stringify(cyclePreferences))
     } catch {
       // ignore
     }
   }, [cyclePreferences])
+
+  // 로그인 게이트를 처음 통과했을 때, 그리고 "다른 Google 계정 연결"로
+  // 계정을 바꿨을 때 호출한다 -- 지금 연결된 계정(accountScope) 기준으로
+  // 워크스페이스 목록/현재 선택/주기 설정을 다시 읽어 상태를 통째로
+  // 교체한다. 계정을 바꾼 직후에는 currentWorkspaceId가 새 계정에 없는
+  // id를 가리키고 있을 수 있으므로, 호출부가 이어서 exitToLanding()도
+  // 함께 불러 항상 프로젝트 선택 화면으로 되돌아가게 한다.
+  function reloadForAccount() {
+    const next = loadInitialWorkspaceState()
+    setWorkspaces(next.workspaces)
+    setCurrentWorkspaceId(next.currentId)
+    setCyclePreferences(next.cyclePreferences)
+  }
 
   function teamCyclePreference(teamName: string): EvaluationCycle {
     return cyclePreferences[teamName] ?? 'half'
@@ -375,6 +355,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         renameWorkspace,
         touchWorkspace,
         importFromWorkspace,
+        reloadForAccount,
       }}
     >
       {children}

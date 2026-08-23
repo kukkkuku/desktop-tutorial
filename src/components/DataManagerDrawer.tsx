@@ -124,10 +124,10 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     [workspaces, currentWorkspace],
   )
 
-  // 전체 데이터 초기화는 지금 열린 프로젝트 하나가 아니라, 이 브라우저에
-  // 저장된 모든 팀·평가 데이터를 지운다(브라우저 기반 저장이라 다른
-  // 기기·브라우저의 데이터는 애초에 영향받지 않는다). 되돌릴 수 없으므로
-  // 로컬 JSON/엑셀 백업을 먼저 권한다.
+  // 전체 데이터 초기화는 지금 열린 프로젝트 하나가 아니라, 지금 로그인된
+  // 이 계정에 저장된 모든 팀·평가 데이터를 지운다(계정별로 저장 키가
+  // 분리돼 있어 다른 Google 계정이나 다른 기기·브라우저의 데이터는 애초에
+  // 영향받지 않는다). 되돌릴 수 없으므로 로컬 JSON/엑셀 백업을 먼저 권한다.
   async function handleLocalJsonBackup() {
     setLoadingLabel('로컬 백업 파일 생성 중...')
     downloadLocalJsonBackup()
@@ -263,9 +263,12 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 <div>
                   <p className="text-base font-bold text-danger">전체 데이터 초기화</p>
                   <p className="mt-3 text-sm leading-relaxed text-danger">
-                    <span className="font-bold">이 브라우저에 저장된 모든 팀·프로젝트 데이터</span>가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다).
+                    <span className="font-bold">
+                      {getConnectedEmail() ? `${getConnectedEmail()} 계정의 모든 팀·프로젝트 데이터` : '이 계정의 모든 팀·프로젝트 데이터'}
+                    </span>
+                    가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다).
                     <br />
-                    브라우저 저장소만 지우므로 다른 기기나 브라우저의 데이터에는 영향이 없지만, 이 브라우저에서는 되돌릴 수 없습니다.
+                    계정별로 저장이 분리돼 있어 다른 Google 계정이나 다른 기기·브라우저의 데이터에는 영향이 없지만, 이 계정에서는 되돌릴 수 없습니다.
                     <br />
                     아래에서 먼저 백업하세요.
                   </p>
@@ -304,7 +307,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
       <ConfirmDialog
         open={resetDialogOpen}
         title="전체 데이터 초기화"
-        message={`이 브라우저에 저장된 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개의 데이터가 모두 삭제되고 처음 화면으로 돌아갑니다. 백업하지 않았다면 취소하고 먼저 백업하세요. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`}
+        message={`이 계정에 저장된 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개의 데이터가 모두 삭제되고 처음 화면으로 돌아갑니다. 백업하지 않았다면 취소하고 먼저 백업하세요. 이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`}
         onConfirm={handleResetConfirm}
         onCancel={() => setResetDialogOpen(false)}
       />

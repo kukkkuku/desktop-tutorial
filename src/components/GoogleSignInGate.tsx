@@ -21,7 +21,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const [passed, setPassed] = useState(() => !configured || sessionStorage.getItem(GATE_KEY) === '1')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { exitToLanding } = useWorkspaces()
+  const { exitToLanding, reloadForAccount } = useWorkspaces()
 
   // 로그인 게이트를 쓰는 동안은 "로그인 → 성장관리 프로젝트 선택/생성 →
   // 입장" 순서를 항상 지킨다. 이전에 열어뒀던 워크스페이스가 남아 있어도
@@ -41,6 +41,10 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
     setBusy(true)
     try {
       await connectDrive()
+      // 로그인이 막 확인된 이 계정 기준으로 워크스페이스 데이터를 다시
+      // 읽어들인다 -- WorkspaceProvider가 이 게이트보다 먼저 마운트돼서
+      // 최초 로드 시점에는 아직 계정을 몰랐을 수 있다(첫 로그인인 경우).
+      reloadForAccount()
       try {
         sessionStorage.setItem(GATE_KEY, '1')
       } catch {

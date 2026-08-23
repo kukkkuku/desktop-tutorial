@@ -171,8 +171,16 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
 }
 
 export default function WorkspaceLanding() {
-  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
+  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, reloadForAccount } = useWorkspaces()
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
+
+  // "다른 Google 계정 연결"로 계정이 바뀌면 헤더 표시(refreshAccount)뿐
+  // 아니라 워크스페이스 목록도 새 계정 것으로 다시 읽어야 한다. 이미
+  // 이 랜딩 화면에 있으므로 별도로 exitToLanding을 부를 필요는 없다.
+  function handleAccountChange() {
+    refreshAccount()
+    reloadForAccount()
+  }
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const mostRecentTeam = useMemo(() => {
     const sorted = [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
@@ -242,7 +250,7 @@ export default function WorkspaceLanding() {
             <div className="flex shrink-0 items-center gap-3">
               <GoogleAccountMenu
                 className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black"
-                onAccountChange={refreshAccount}
+                onAccountChange={handleAccountChange}
               >
                 {accountEmail}
                 {isAdminUser && (

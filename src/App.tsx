@@ -41,10 +41,21 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
-  const { workspaces, currentWorkspace, selectWorkspace, exitToLanding } = useWorkspaces()
+  const { workspaces, currentWorkspace, selectWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
 
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
   const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
+
+  // "다른 Google 계정 연결"로 계정이 바뀌면 헤더 표시(refreshAccount)뿐
+  // 아니라 워크스페이스 데이터도 새 계정 것으로 다시 읽어야 한다. 지금
+  // 열려 있던 workspaceId는 새 계정에는 없는 id일 수 있으므로, 곧바로
+  // 프로젝트 선택 화면으로 되돌린다(로그인 게이트를 처음 통과할 때와
+  // 같은 흐름).
+  function handleAccountChange() {
+    refreshAccount()
+    reloadForAccount()
+    exitToLanding()
+  }
 
   // Drive 전체 저장 진행 상태 -- 데이터 관리 드로어(GoogleDrivePanel)에서
   // 저장을 시작/완료/실패할 때마다 갱신되고, 헤더의 계정 정보 옆 배지로
@@ -117,7 +128,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 isAdminUser={isAdminUser}
                 hasSavedCurrentPeriod={hasSavedCurrentPeriod}
                 onLogout={handleLogout}
-                onAccountChange={refreshAccount}
+                onAccountChange={handleAccountChange}
                 saveStatus={saveStatus}
               />
             </div>
@@ -135,7 +146,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
           <DataManagerDrawer
             open={dataManagerOpen}
             onClose={() => setDataManagerOpen(false)}
-            onAccountChange={refreshAccount}
+            onAccountChange={handleAccountChange}
             onSaveStatusChange={setSaveStatus}
           />
           {quickStartOpen && (
