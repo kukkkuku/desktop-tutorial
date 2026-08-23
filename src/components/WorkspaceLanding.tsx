@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
+import { useGoogleAccount } from '../hooks/useGoogleAccount'
+import { connectDifferentAccount } from '../utils/googleDrive'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
@@ -46,6 +48,23 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
+function CloudIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+    </svg>
+  )
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M18 20a6 6 0 0 0-12 0" />
+      <circle cx="12" cy="10" r="4" />
+    </svg>
+  )
+}
+
 // 팀원 이니셜(2자) 아바타 -- 색은 인덱스(카드마다 0부터 다시 시작)로
 // 정하지 않고 전부 같은 중립 톤으로 통일한다. 순환 색상을 쓰면 카드마다
 // "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
@@ -56,9 +75,9 @@ function XIcon({ className }: { className?: string }) {
 // 폭이 부족할 때만 메신저 아바타 스택처럼 1/4씩 겹쳐서 항상 한 줄에
 // 들어오게 한다. 겹칠 때는 뒤 아바타가 앞 아바타 위로 올라오는 게
 // 자연스럽도록 흰 테두리(2px)로 구분한다.
-const AVATAR_SIZE = 40
-const AVATAR_GAP = 8
-const AVATAR_OVERLAP = 10
+const AVATAR_SIZE = 32
+const AVATAR_GAP = 6
+const AVATAR_OVERLAP = 8
 
 function AvatarRow({ names }: { names: string[] }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -78,13 +97,13 @@ function AvatarRow({ names }: { names: string[] }) {
     return () => resizeObserver.disconnect()
   }, [itemCount])
 
-  const circleClass = `flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[15px] font-semibold text-gray-600 ${
+  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600 ${
     overlapped ? 'border-2 border-white' : ''
   }`
   const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
 
   return (
-    <div ref={containerRef} className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-2'}`}>
+    <div ref={containerRef} className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-1.5'}`}>
       {visible.map((name, i) => (
         <span key={`${name}-${i}`} className={circleClass} style={overlapStyle(i)} title={name}>
           {name.slice(0, 2)}
@@ -92,7 +111,7 @@ function AvatarRow({ names }: { names: string[] }) {
       ))}
       {overflow > 0 && (
         <span
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[15px] font-semibold text-gray-500 ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500 ${
             overlapped ? 'border-2 border-white' : ''
           }`}
           style={overlapStyle(visible.length)}
@@ -121,7 +140,7 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
+      className="flex cursor-pointer flex-col gap-5 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
     >
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-lg font-bold text-black">
@@ -151,11 +170,10 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
           </IconButton>
         </div>
       </div>
-      <p className="flex items-center gap-1.5 text-xs text-gray-400">
-        최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}
-        <span className="text-gray-300">·</span>
-        팀원 {counts.memberCount}명
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 flex-1 truncate text-xs text-gray-400">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
+        <span className="shrink-0 rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">팀원 {counts.memberCount}명</span>
+      </div>
       <AvatarRow names={counts.memberNames} />
     </div>
   )
@@ -163,6 +181,21 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
 
 export default function WorkspaceLanding() {
   const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace } = useWorkspaces()
+  const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
+  const [switchingAccount, setSwitchingAccount] = useState(false)
+
+  async function handleConnectDifferentAccount() {
+    setSwitchingAccount(true)
+    try {
+      await connectDifferentAccount()
+      refreshAccount()
+    } catch {
+      // 계정 전환 실패는 조용히 무시 -- 기존 계정으로 계속 쓸 수 있다.
+    } finally {
+      setSwitchingAccount(false)
+    }
+  }
+
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const mostRecentTeam = useMemo(() => {
     const sorted = [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
@@ -225,6 +258,37 @@ export default function WorkspaceLanding() {
 
   return (
     <div className="min-h-screen bg-white">
+      <header className="border-b border-gray-100 bg-white px-6 py-5 sm:px-10">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
+          <p className="whitespace-nowrap text-[22px] font-extrabold text-black">성과·성장관리</p>
+          {accountEmail && (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="whitespace-nowrap text-[13px] text-gray-600">{accountEmail}</span>
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-[11px] font-bold text-green-700">
+                <CloudIcon className="h-3 w-3" />
+                Google 연결됨
+              </span>
+              {isAdminUser && (
+                <span className="shrink-0 rounded bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600">관리자</span>
+              )}
+              <button
+                onClick={() => void handleConnectDifferentAccount()}
+                disabled={switchingAccount}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2.5 text-[13px] font-semibold text-gray-600 hover:border-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <UserIcon className="h-3.5 w-3.5" />
+                {switchingAccount ? '전환하는 중...' : '다른 계정'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="shrink-0 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[13px] font-semibold text-danger hover:bg-red-100"
+              >
+                로그아웃
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
       <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
         <p className="text-sm text-gray-500">진행할 팀과 평가기간을 선택하세요.</p>
 
