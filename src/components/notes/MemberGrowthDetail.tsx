@@ -416,8 +416,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const currentWeightedScore = readiness?.weightedScore ?? 0
 
   // 승급일 -- 네이티브 <input type="month">의 브라우저별 달력 팝업이 복잡해
-  // 보인다는 피드백이 있어, 연도+월을 한 번에 고르는 커스텀 인풋박스
-  // (PromotionDatePicker) 하나로 구성한다.
+  // 보인다는 피드백이 있어, 연도(YearPicker)+월(select)을 나란히 둔
+  // PromotionDatePicker로 고른다.
   const [reviewDateYearStr, reviewDateMonthStr = '01'] = (member.promotionReviewDate ?? '').split('-')
   const reviewYear = Number(reviewDateYearStr) || new Date().getFullYear()
   const reviewMonth = Number(reviewDateMonthStr) || 1

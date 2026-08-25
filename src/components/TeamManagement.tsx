@@ -16,11 +16,12 @@ import EmptyStateDropzone from './EmptyStateDropzone'
 import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
+import DatePicker from './DatePicker'
 import IconButton from './IconButton'
 
-// service/levelTenure는 수정 모드에서 <input type="date">가 들어가는데,
-// 셀 자체의 px-4(32px) 패딩을 빼고도 "mm/dd/yyyy" + 달력 아이콘이 잘리지
-// 않을 만큼 넉넉히 잡아야 한다(150px로는 마지막 자리가 잘려 보였다).
+// service/levelTenure는 수정 모드에서 DatePicker가 들어가는데, 셀 자체의
+// px-4(32px) 패딩을 빼고도 "YYYY.MM.DD" + 달력 아이콘이 잘리지 않을 만큼
+// 넉넉히 잡아야 한다(150px로는 마지막 자리가 잘려 보였다).
 const TEAM_COLUMNS = {
   name: 140,
   service: 190,
@@ -223,11 +224,11 @@ export default function TeamManagement() {
           </div>
           <div>
             <label className="block text-sm font-medium text-black">입사일</label>
-            <input
-              type="date"
+            <DatePicker
               value={newForm.hireDate}
-              onChange={(e) => setNewForm((f) => ({ ...f, hireDate: e.target.value }))}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              onChange={(v) => setNewForm((f) => ({ ...f, hireDate: v }))}
+              ariaLabel="입사일"
+              className="mt-1 w-full"
             />
           </div>
           <div>
@@ -247,11 +248,11 @@ export default function TeamManagement() {
           </div>
           <div>
             <label className="block text-sm font-medium text-black">현 직급 발령일</label>
-            <input
-              type="date"
+            <DatePicker
               value={newForm.currentLevelSince}
-              onChange={(e) => setNewForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              onChange={(v) => setNewForm((f) => ({ ...f, currentLevelSince: v }))}
+              ariaLabel="현 직급 발령일"
+              className="mt-1 w-full"
             />
           </div>
           <div>
@@ -333,11 +334,11 @@ export default function TeamManagement() {
                       {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
                     </td>
                     <td className="px-4 py-2 align-top">
-                      <input
-                        type="date"
+                      <DatePicker
                         value={editForm.hireDate}
-                        onChange={(e) => setEditForm((f) => ({ ...f, hireDate: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                        onChange={(v) => setEditForm((f) => ({ ...f, hireDate: v }))}
+                        ariaLabel="입사일"
+                        className="w-full"
                       />
                     </td>
                     <td className="px-4 py-2 align-top">
@@ -355,11 +356,11 @@ export default function TeamManagement() {
                       </select>
                     </td>
                     <td className="px-4 py-2 align-top">
-                      <input
-                        type="date"
+                      <DatePicker
                         value={editForm.currentLevelSince}
-                        onChange={(e) => setEditForm((f) => ({ ...f, currentLevelSince: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                        onChange={(v) => setEditForm((f) => ({ ...f, currentLevelSince: v }))}
+                        ariaLabel="현 직급 발령일"
+                        className="w-full"
                       />
                     </td>
                     <td className="px-4 py-2 align-top">

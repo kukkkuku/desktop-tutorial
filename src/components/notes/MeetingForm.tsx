@@ -8,6 +8,7 @@ import ConfirmDialog from '../ConfirmDialog'
 import Badge from '../Badge'
 import Button from '../Button'
 import CollapseToggleButton from '../CollapseToggleButton'
+import DatePicker from '../DatePicker'
 import IconButton from '../IconButton'
 import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
 import MoodPicker from './MoodPicker'
@@ -206,13 +207,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           placeholder와 아이콘 그 자체로 의미가 드러난다). */}
       <div className="flex items-center gap-2">
         <h3 className="shrink-0 text-sm font-bold text-black">면담일지</h3>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="면담 일자"
-          className="w-40 shrink-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black"
-        />
+        <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
       </div>
 
       {calendarError && (
@@ -312,13 +307,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <input
-                      type="date"
-                      value={editDate}
-                      onChange={(e) => setEditDate(e.target.value)}
-                      aria-label="면담 일자"
-                      className="w-44 rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
-                    />
+                    <DatePicker value={editDate} onChange={setEditDate} ariaLabel="면담 일자" clearable={false} />
                     <div className="flex shrink-0 items-center gap-1">
                       <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
                         <XIcon className="h-4 w-4" />
