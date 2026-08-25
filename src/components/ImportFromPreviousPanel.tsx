@@ -1,35 +1,39 @@
 import { useEffect, useMemo, useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
+import { useAppState } from '../state/AppContext'
 import { useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
-import type { Task, TeamMember } from '../types'
+import type { Criteria, Task, TeamMember } from '../types'
 import Button from './Button'
 
 interface ImportFromPreviousPanelProps {
   teamName: string
   currentWorkspaceId: string
-  // 취소 버튼은 독립 다이얼로그(ImportFromPreviousDialog)에서만 필요하다 --
-  // 빠른 시작 팝업의 탭으로 쓸 때는 탭을 바꾸거나 팝업을 닫으면 되므로
-  // 별도 취소 버튼이 없다.
+  // 취소 버튼은 독립 다이얼로그에서만 필요하다 -- 빠른 시작 팝업의 탭으로
+  // 쓸 때는 탭을 바꾸거나 팝업을 닫으면 되므로 별도 취소 버튼이 없다.
   onCancel?: () => void
+  // 데이터를 적용한 뒤 "데이터 적용하여 빠르게 시작하기" 버튼을 누르면
+  // 호출된다 -- 빠른 시작 팝업을 닫고 과제관리로 이동시키는 데 쓴다.
+  onApplied?: () => void
 }
 
 interface SourceState {
   tasks: Task[]
   members: TeamMember[]
-  hasCriteria: boolean
+  criteria: Criteria | null
 }
 
 function readSourceState(workspaceId: string): SourceState {
   try {
     const raw = localStorage.getItem(workspaceStateKey(workspaceId))
-    if (!raw) return { tasks: [], members: [], hasCriteria: false }
+    if (!raw) return { tasks: [], members: [], criteria: null }
     const parsed = JSON.parse(raw)
     return {
       tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
       members: Array.isArray(parsed.members) ? parsed.members : [],
-      hasCriteria: Boolean(parsed.criteria),
+      criteria: parsed.criteria ?? null,
     }
   } catch {
-    return { tasks: [], members: [], hasCriteria: false }
+    return { tasks: [], members: [], criteria: null }
   }
 }
 
@@ -37,10 +41,16 @@ function readSourceState(workspaceId: string): SourceState {
 // 복사되던 예전 체크박스 대신, 생성 후 언제든 원할 때 쓰는 별도 액션이다.
 // 팀·평가기간을 골라 원본을 정하고, 그 안의 과제/팀원을 하나씩 골라서
 // 가져올 수 있다(기본은 전체 선택 -- "전체 해제"로 한 번에 뺄 수 있다).
-// 독립 다이얼로그(ImportFromPreviousDialog)와 빠른 시작 팝업의 탭, 양쪽에서
-// 그대로 재사용한다.
-export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, onCancel }: ImportFromPreviousPanelProps) {
-  const { workspaces, importFromWorkspace } = useWorkspaces()
+//
+// 지금 열려 있는 평가(currentWorkspaceId)로만 가져오므로, localStorage를
+// 거치지 않고 useAppState()의 dispatch로 바로 적용한다 -- 그래야 화면이
+// 새로고침 없이 즉시 갱신된다. 팀원은 memberId를 그대로 유지한다("최근
+// 5년 고과"가 같은 memberId로 기간별 이력을 이어붙이는 방식이라, id가
+// 바뀌면 이력이 끊긴다). 과제는 그 평가만의 성과 기록이라 새 id로
+// 복사하고 등급/목표/성과는 비운다.
+export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, onCancel, onApplied }: ImportFromPreviousPanelProps) {
+  const { workspaces } = useWorkspaces()
+  const { state, dispatch } = useAppState()
 
   const hasAnySource = workspaces.some((w) => w.id !== currentWorkspaceId)
   const teamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))).sort(), [workspaces])
@@ -64,21 +74,22 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
   }, [sourceTeam, periodCandidates])
 
   const sourceState = useMemo<SourceState>(
-    () => (sourceId ? readSourceState(sourceId) : { tasks: [], members: [], hasCriteria: false }),
+    () => (sourceId ? readSourceState(sourceId) : { tasks: [], members: [], criteria: null }),
     [sourceId],
   )
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
   const [importCriteria, setImportCriteria] = useState(true)
-  const [done, setDone] = useState(false)
+  const [justApplied, setJustApplied] = useState(false)
+  const [pulsing, setPulsing] = useState(false)
 
   // 원본 평가가 바뀔 때마다 전체 선택 상태로 초기화한다.
   useEffect(() => {
     setSelectedTaskIds(new Set(sourceState.tasks.map((t) => t.id)))
     setSelectedMemberIds(new Set(sourceState.members.map((m) => m.id)))
-    setImportCriteria(sourceState.hasCriteria)
-    setDone(false)
+    setImportCriteria(sourceState.criteria !== null)
+    setJustApplied(false)
   }, [sourceState])
 
   function toggleTask(id: string) {
@@ -104,12 +115,35 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
 
   function handleImport() {
     if (!sourceId || (selectedTaskIds.size === 0 && selectedMemberIds.size === 0)) return
-    importFromWorkspace(currentWorkspaceId, sourceId, {
-      taskIds: Array.from(selectedTaskIds),
-      memberIds: Array.from(selectedMemberIds),
-      criteria: importCriteria,
-    })
-    setDone(true)
+
+    const existingMemberIds = new Set(state.members.map((m) => m.id))
+    const membersToAdd = sourceState.members.filter((m) => selectedMemberIds.has(m.id) && !existingMemberIds.has(m.id))
+    for (const member of membersToAdd) {
+      dispatch({ type: 'ADD_MEMBER', payload: member })
+    }
+
+    const tasksToAdd: Task[] = sourceState.tasks
+      .filter((t) => selectedTaskIds.has(t.id))
+      .map((t) => ({
+        id: uuidv4(),
+        name: t.name,
+        importance: '일반',
+        workload: '중',
+        objective: '',
+        achievement: '',
+        performanceGrade: 'B',
+      }))
+    for (const task of tasksToAdd) {
+      dispatch({ type: 'ADD_TASK', payload: task })
+    }
+
+    if (importCriteria && sourceState.criteria) {
+      dispatch({ type: 'SET_CRITERIA', payload: sourceState.criteria })
+    }
+
+    setJustApplied(true)
+    setPulsing(true)
+    setTimeout(() => setPulsing(false), 400)
   }
 
   if (!hasAnySource) {
@@ -156,13 +190,6 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
 
       {!sourceId ? (
         <p className="mt-4 text-sm text-gray-500">이 팀에는 가져올 다른 기간이 없습니다. 다른 팀을 선택해보세요.</p>
-      ) : done ? (
-        <>
-          <p className="mt-4 text-sm text-black">가져왔습니다. 화면을 새로고침하면 반영됩니다.</p>
-          <Button variant="primary" onClick={() => window.location.reload()} className="mt-4 w-full">
-            새로고침
-          </Button>
-        </>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -235,20 +262,41 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 type="checkbox"
                 checked={importCriteria}
                 onChange={(e) => setImportCriteria(e.target.checked)}
-                disabled={!sourceState.hasCriteria}
+                disabled={!sourceState.criteria}
                 className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent disabled:cursor-not-allowed"
               />
               평가기준도 가져오기
             </label>
             <div className="flex gap-2">
-              {onCancel && (
+              {onCancel && !justApplied && (
                 <Button variant="secondary" onClick={onCancel}>
                   취소
                 </Button>
               )}
-              <Button variant="primary" onClick={handleImport} disabled={selectedTaskIds.size === 0 && selectedMemberIds.size === 0}>
-                선택 항목 가져오기
-              </Button>
+              <button
+                type="button"
+                onClick={justApplied ? onApplied : handleImport}
+                disabled={!justApplied && selectedTaskIds.size === 0 && selectedMemberIds.size === 0}
+                className={`flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-white transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
+                  justApplied ? 'bg-success' : 'bg-accent hover:opacity-90'
+                } ${pulsing ? 'scale-110' : 'scale-100'}`}
+              >
+                {justApplied && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 shrink-0"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {justApplied ? '데이터 적용하여 빠르게 시작하기' : '선택 항목 가져오기'}
+              </button>
             </div>
           </div>
         </>

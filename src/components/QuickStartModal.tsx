@@ -12,9 +12,10 @@ interface QuickStartModalProps {
   currentWorkspaceId: string
   hasOtherPeriods: boolean
   onClose: () => void
-  // "직접 입력"으로 과제/팀원을 빠르게 등록한 뒤 호출한다 -- 과제관리
-  // 탭으로 이동시켜 방금 넣은 결과를 바로 보여준다.
-  onDirectEntry: () => void
+  // "직접 입력"으로 과제/팀원을 등록했거나, "이전 평가 가져오기"에서
+  // 데이터를 적용한 뒤 호출한다 -- 과제관리 탭으로 이동시켜 방금 넣은
+  // 결과를 바로 보여준다.
+  onDataReady: () => void
 }
 
 function XIcon({ className }: { className?: string }) {
@@ -212,7 +213,7 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 탭 전환으로 바꿨다. 각 탭의 실제 동작은 이미 있는 화면의 로직을
 // 그대로 재사용한다 -- Excel은 데이터 관리 드로어와 같은 BulkUploadPanel,
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
-export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDirectEntry }: QuickStartModalProps) {
+export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady }: QuickStartModalProps) {
   const [tab, setTab] = useState<Tab>('direct')
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
@@ -251,9 +252,11 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          {tab === 'direct' && <DirectEntryPanel onDone={onDirectEntry} />}
+          {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
           {tab === 'excel' && <BulkUploadPanel />}
-          {tab === 'import' && hasOtherPeriods && <ImportFromPreviousPanel teamName={teamName} currentWorkspaceId={currentWorkspaceId} />}
+          {tab === 'import' && hasOtherPeriods && (
+            <ImportFromPreviousPanel teamName={teamName} currentWorkspaceId={currentWorkspaceId} onApplied={onDataReady} />
+          )}
         </div>
       </div>
     </div>

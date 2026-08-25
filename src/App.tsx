@@ -158,7 +158,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               currentWorkspaceId={workspaceId}
               hasOtherPeriods={hasOtherPeriods}
               onClose={() => setQuickStartOpen(false)}
-              onDirectEntry={() => {
+              onDataReady={() => {
                 setQuickStartOpen(false)
                 handleStageChange('tasks')
               }}
