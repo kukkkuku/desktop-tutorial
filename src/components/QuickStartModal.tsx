@@ -1,4 +1,4 @@
-import { useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { Task, TeamMember } from '../types'
@@ -27,7 +27,6 @@ function XIcon({ className }: { className?: string }) {
   )
 }
 
-type EntryTarget = 'task' | 'member'
 type Tab = 'direct' | 'excel' | 'import'
 
 // 하나의 칩(추가된 과제명/팀원 이름)을 보여준다 -- x를 누르면 그
@@ -48,43 +47,62 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   )
 }
 
-// 좌우 큰 영역(과제 / 팀원)에 칩이 쌓인다. 영역을 눌러 어디에 추가할지
-// 고른 뒤, 하단 입력창에서 이름을 입력하고 Enter를 치면 그 칩이 선택된
-// 영역으로 들어간다. 여러 줄(또는 쉼표 구분)을 붙여넣으면 한 번에
-// 여러 칩으로 나뉜다.
+// 좌우 큰 영역(과제 / 팀원)이 각자 자기 입력창을 갖는다 -- 예전엔 영역을
+// 먼저 눌러 "어디에 추가할지" 고른 뒤 하단의 공용 입력창에 쳐야 해서,
+// 이미 과제가 선택된 채로 팝업이 열려도 커서가 거기 가 있지 않았다.
+// 이제 두 영역 다 처음부터 입력 가능한 상태라 그럴 필요가 없고, 영역도
+// 세로로 넉넉히 커져서(칩 목록이 스크롤되는 만큼) 입력창은 항상 그
+// 영역 하단에 붙어 있다. 박스 아무 곳이나 눌러도 그 영역의 입력창에
+// 포커스가 간다.
 function EntryPanel({
   title,
-  count,
   items,
-  active,
-  onSelect,
   onRemove,
+  inputValue,
+  onInputChange,
+  onKeyDown,
+  onPaste,
+  placeholder,
+  autoFocus,
 }: {
   title: string
-  count: number
   items: string[]
-  active: boolean
-  onSelect: () => void
   onRemove: (index: number) => void
+  inputValue: string
+  onInputChange: (v: string) => void
+  onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void
+  onPaste: (e: ClipboardEvent<HTMLInputElement>) => void
+  placeholder: string
+  autoFocus?: boolean
 }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`flex min-h-[160px] flex-col items-start gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
-        active ? 'border-accent bg-blue-50/40' : 'border-gray-200 bg-white hover:border-gray-300'
-      }`}
+    <div
+      onClick={() => inputRef.current?.focus()}
+      className="flex h-full flex-col gap-2 rounded-lg border-2 border-gray-200 bg-white p-3 transition-colors focus-within:border-accent focus-within:bg-blue-50/20"
     >
-      <p className={`text-sm font-semibold ${active ? 'text-accent' : 'text-black'}`}>
-        {title} {count > 0 && <span className="font-normal text-gray-400">{count}개</span>}
+      <p className="shrink-0 text-sm font-semibold text-black">
+        {title} {items.length > 0 && <span className="font-normal text-gray-400">{items.length}개</span>}
       </p>
-      <div className="flex flex-wrap content-start gap-1.5">
+      <div className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
         {items.map((name, i) => (
           <Chip key={`${name}-${i}`} label={name} onRemove={() => onRemove(i)} />
         ))}
-        {items.length === 0 && <p className="text-xs text-gray-300">{active ? '아래에 입력하고 Enter' : '눌러서 선택'}</p>}
       </div>
-    </button>
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        onChange={(e) => onInputChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        onPaste={onPaste}
+        onClick={(e) => e.stopPropagation()}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        className="w-full shrink-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+      />
+    </div>
   )
 }
 
@@ -95,20 +113,18 @@ function EntryPanel({
 // 비워둠)으로 넣는다.
 function DirectEntryPanel({ onDone }: { onDone: () => void }) {
   const { state, dispatch, markRecentlyAdded } = useAppState()
-  const [target, setTarget] = useState<EntryTarget>('task')
   const [taskNames, setTaskNames] = useState<string[]>([])
   const [memberNames, setMemberNames] = useState<string[]>([])
-  const [inputValue, setInputValue] = useState('')
+  const [taskInput, setTaskInput] = useState('')
+  const [memberInput, setMemberInput] = useState('')
 
-  const setCurrentNames = target === 'task' ? setTaskNames : setMemberNames
-
-  function addNames(raw: string) {
+  function addNames(raw: string, setNames: React.Dispatch<React.SetStateAction<string[]>>) {
     const names = raw
       .split(/[\n,]/)
       .map((s) => s.trim())
       .filter(Boolean)
     if (names.length === 0) return
-    setCurrentNames((prev) => {
+    setNames((prev) => {
       const next = [...prev]
       for (const name of names) {
         if (!next.includes(name)) next.push(name)
@@ -117,22 +133,32 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
     })
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    // 한글 등 조합형 입력(IME)은 마지막 글자를 조합 확정할 때도 Enter
-    // keydown이 한 번 더 발생한다 -- 이걸 그대로 커밋해버리면 조합 중이던
-    // 글자가 먼저 끊겨 들어가면서 한 번의 Enter가 여러 칩으로 쪼개진다.
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      addNames(inputValue)
-      setInputValue('')
+  // 각 영역이 자기 입력값/추가 대상 배열을 따로 가지므로, 키 핸들러도
+  // 영역별로 만들어서 그 값들을 클로저로 붙잡는다.
+  function makeKeyDownHandler(
+    value: string,
+    setValue: (v: string) => void,
+    setNames: React.Dispatch<React.SetStateAction<string[]>>,
+  ) {
+    return (e: KeyboardEvent<HTMLInputElement>) => {
+      // 한글 등 조합형 입력(IME)은 마지막 글자를 조합 확정할 때도 Enter
+      // keydown이 한 번 더 발생한다 -- 이걸 그대로 커밋해버리면 조합 중이던
+      // 글자가 먼저 끊겨 들어가면서 한 번의 Enter가 여러 칩으로 쪼개진다.
+      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+        e.preventDefault()
+        addNames(value, setNames)
+        setValue('')
+      }
     }
   }
 
-  function handlePaste(e: ClipboardEvent<HTMLInputElement>) {
-    const text = e.clipboardData.getData('text')
-    if (!text.includes('\n') && !text.includes(',')) return
-    e.preventDefault()
-    addNames(text)
+  function makePasteHandler(setNames: React.Dispatch<React.SetStateAction<string[]>>) {
+    return (e: ClipboardEvent<HTMLInputElement>) => {
+      const text = e.clipboardData.getData('text')
+      if (!text.includes('\n') && !text.includes(',')) return
+      e.preventDefault()
+      addNames(text, setNames)
+    }
   }
 
   const canStart = taskNames.length > 0 || memberNames.length > 0
@@ -166,37 +192,32 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div>
-      <div className="grid grid-cols-2 gap-3">
+    <div className="flex h-full min-h-[420px] flex-col">
+      <div className="grid flex-1 grid-cols-2 gap-3">
         <EntryPanel
           title="과제"
-          count={taskNames.length}
           items={taskNames}
-          active={target === 'task'}
-          onSelect={() => setTarget('task')}
           onRemove={(i) => setTaskNames((prev) => prev.filter((_, idx) => idx !== i))}
+          inputValue={taskInput}
+          onInputChange={setTaskInput}
+          onKeyDown={makeKeyDownHandler(taskInput, setTaskInput, setTaskNames)}
+          onPaste={makePasteHandler(setTaskNames)}
+          placeholder="과제명을 입력하고 Enter (예: 신규 랜딩페이지 제작)"
+          autoFocus
         />
         <EntryPanel
           title="팀원"
-          count={memberNames.length}
           items={memberNames}
-          active={target === 'member'}
-          onSelect={() => setTarget('member')}
           onRemove={(i) => setMemberNames((prev) => prev.filter((_, idx) => idx !== i))}
+          inputValue={memberInput}
+          onInputChange={setMemberInput}
+          onKeyDown={makeKeyDownHandler(memberInput, setMemberInput, setMemberNames)}
+          onPaste={makePasteHandler(setMemberNames)}
+          placeholder="팀원 이름을 입력하고 Enter (예: 김민수)"
         />
       </div>
 
-      <input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        placeholder={target === 'task' ? '과제명을 입력하고 Enter (예: 신규 랜딩페이지 제작)' : '팀원 이름을 입력하고 Enter (예: 김민수)'}
-        className="mt-3 w-full rounded-md border border-accent px-3 py-2 text-sm text-black outline-none ring-accent/15 focus:ring-2"
-      />
-
-      <div className="mt-5 flex justify-end">
+      <div className="mt-5 flex shrink-0 justify-end">
         <Button variant="primary" onClick={handleStart} disabled={!canStart}>
           시작하기
         </Button>
