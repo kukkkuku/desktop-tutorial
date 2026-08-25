@@ -470,9 +470,53 @@ function pickColumn(row: Record<string, unknown>, aliases: string[]): string {
   return ''
 }
 
+// ---------- 피어리뷰(리뷰어 한 명 = 파일 한 개, 과제 하나당 시트 하나) ----------
+// 위 flat 양식(한 시트에 과제명/리뷰어/대상팀원 열을 다 나열)과 달리, 각
+// 리뷰어에게 개별로 나눠주는 파일 형식도 있다: 시트가 "안내"/"_메타"
+// (리뷰어 이름·평가기간 메타데이터) + 과제 시트 여러 개("1_과제명" 처럼
+// 번호 접두어)로 구성되고, 각 과제 시트는 3행이 헤더("평가 대상"/
+// "기여도(%)"/"수행등급"/"근거"), 4행부터 데이터, "기여도 합계"로
+// 시작하는 검증용 수식 행에서 끝난다. 본인 행은 이름 뒤에 "(본인)"이
+// 붙어 있다(자기 자신에 대한 리뷰로 그대로 반영한다).
+const REVIEWER_META_SHEET_NAMES = ['_메타', '안내']
+const REVIEWER_FILE_LABEL_REVIEWER = ['평가자', '리뷰어']
+const PEER_SUMMARY_ROW_MARKER = '기여도 합계'
+const TASK_SHEET_PREFIX = /^\s*\d+[._-]?\s*/
+const SELF_MARKER = /\s*[(（]\s*본인\s*[)）]\s*$/
+
+function readLabelValueSheet(ws: XLSX.WorkSheet, labels: string[]): string {
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+  for (const row of rows) {
+    const label = String(row?.[0] ?? '').trim()
+    if (labels.includes(label)) return String(row?.[1] ?? '').trim()
+  }
+  return ''
+}
+
+function findReviewerFileHeaderRow(ws: XLSX.WorkSheet): number | null {
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+  for (let i = 0; i < Math.min(rows.length, 8); i++) {
+    const cells = (rows[i] ?? []).map((v) => String(v ?? '').trim())
+    if (TARGET_HEADER_ALIASES.some((h) => cells.includes(h)) && CONTRIBUTION_HEADER_ALIASES.some((h) => cells.includes(h))) {
+      return i
+    }
+  }
+  return null
+}
+
+// 워크북 전체를 봐야 판단할 수 있다(리뷰어 이름은 메타 시트, 대상/기여도
+// 열은 과제 시트에 따로 있어 시트 하나만으로는 알 수 없다).
+function isReviewerPerTaskWorkbook(wb: XLSX.WorkBook): boolean {
+  return wb.SheetNames.some((name) => {
+    if (REVIEWER_META_SHEET_NAMES.includes(name)) return false
+    return findReviewerFileHeaderRow(wb.Sheets[name]) !== null
+  })
+}
+
 // 과제×리뷰어×대상팀원을 미리 다 나열해둔 양식이라, 등급을 채우지 않은
 // 행(참여 안 한 조합)은 내용이 있어도 그냥 건너뛴다 -- 등급이 이 리뷰가
-// "실제로 작성됐는지"를 가르는 기준이다.
+// "실제로 작성됐는지"를 가르는 기준이다. 리뷰어 한 명당 파일 한 개(과제별
+// 시트)로 받는 형식도 같은 결과 타입으로 함께 지원한다.
 export function parsePeerReviewWorkbook(
   buffer: ArrayBuffer,
   tasks: Task[],
@@ -480,8 +524,6 @@ export function parsePeerReviewWorkbook(
   existingPeerReviews: PeerReview[],
 ): PeerReviewImportResult {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = findDataSheet(wb, [...REVIEWER_HEADER_ALIASES, ...TARGET_HEADER_ALIASES])
-  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   const errors: string[] = []
   const byKey = new Map(
@@ -496,51 +538,52 @@ export function parsePeerReviewWorkbook(
   let skippedNoGrade = 0
   const affectedTargetNames = new Set<string>()
 
-  rows.forEach((row, index) => {
-    const rowNum = index + 2
-    const gradeRaw = pickColumn(row, GRADE_HEADER_ALIASES).toUpperCase()
+  // 한 조합(과제×리뷰어×대상팀원)을 검증하고 byKey에 반영한다. 두 파일
+  // 형식(한 시트에 다 나열 / 리뷰어별 파일+과제별 시트) 모두 이 한 곳을
+  // 거치게 해서 검증·카운트 로직이 갈라지지 않게 한다.
+  function applyRow(params: {
+    rowLabel: string
+    taskName: string
+    reviewerName: string
+    targetName: string
+    gradeRaw: string
+    contributionRaw: string
+    comment: string
+  }) {
+    const { rowLabel, taskName, reviewerName, targetName, contributionRaw, comment } = params
+    const gradeRaw = params.gradeRaw.toUpperCase()
     if (!gradeRaw) {
-      // 등급을 안 채운 행(아직 리뷰를 안 쓴 조합)은 가져오지 않지만, 기여도가
-      // 이미 채워져 있으면(참여는 한 조합) 몇 건이 이렇게 빠졌는지는 세서
-      // 돌려준다 -- 그래야 "0건 인식"이 실제로 빈 조합 때문인지, 파싱
-      // 자체가 실패한 건지 화면에서 구분할 수 있다.
-      if (pickColumn(row, CONTRIBUTION_HEADER_ALIASES).trim() !== '') skippedNoGrade += 1
+      if (contributionRaw.trim() !== '') skippedNoGrade += 1
       return
     }
     filledRowCount += 1
 
-    const taskName = pickColumn(row, TASK_NAME_HEADER_ALIASES)
-    const reviewerName = pickColumn(row, REVIEWER_HEADER_ALIASES)
-    const targetName = pickColumn(row, TARGET_HEADER_ALIASES)
-    const contributionRaw = pickColumn(row, CONTRIBUTION_HEADER_ALIASES)
-    const comment = pickColumn(row, COMMENT_HEADER_ALIASES)
-
     if (!reviewerName || !targetName) {
-      errors.push(`${rowNum}행: 리뷰어/대상팀원 칸이 비어 있습니다.`)
+      errors.push(`${rowLabel}: 리뷰어/대상팀원 칸이 비어 있습니다.`)
       return
     }
     if (!PERFORMANCE_GRADE_OPTIONS.includes(gradeRaw as PerformanceGrade)) {
-      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 등급 '${gradeRaw}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
+      errors.push(`${rowLabel} '${reviewerName}→${targetName}': 등급 '${gradeRaw}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
       return
     }
     const reviewerMember = memberByName.get(reviewerName)
     if (!reviewerMember) {
-      errors.push(`${rowNum}행: 리뷰어 '${reviewerName}'을(를) 팀원에서 찾을 수 없습니다.`)
+      errors.push(`${rowLabel}: 리뷰어 '${reviewerName}'을(를) 팀원에서 찾을 수 없습니다.`)
       return
     }
     const targetMember = memberByName.get(targetName)
     if (!targetMember) {
-      errors.push(`${rowNum}행: 대상팀원 '${targetName}'을(를) 찾을 수 없습니다.`)
+      errors.push(`${rowLabel}: 대상팀원 '${targetName}'을(를) 찾을 수 없습니다.`)
       return
     }
     const task = taskName ? taskByName.get(taskName) : undefined
     if (taskName && !task) {
-      errors.push(`${rowNum}행: 과제 '${taskName}'을(를) 찾을 수 없습니다.`)
+      errors.push(`${rowLabel}: 과제 '${taskName}'을(를) 찾을 수 없습니다.`)
       return
     }
     const contributionPercent = contributionRaw === '' ? undefined : Number(contributionRaw)
     if (contributionPercent !== undefined && Number.isNaN(contributionPercent)) {
-      errors.push(`${rowNum}행 '${reviewerName}→${targetName}': 기여도 '${contributionRaw}'는 숫자여야 합니다.`)
+      errors.push(`${rowLabel} '${reviewerName}→${targetName}': 기여도 '${contributionRaw}'는 숫자여야 합니다.`)
       return
     }
 
@@ -564,7 +607,52 @@ export function parsePeerReviewWorkbook(
     } else {
       addedCount += 1
     }
-  })
+  }
+
+  if (isReviewerPerTaskWorkbook(wb)) {
+    const metaSheet = REVIEWER_META_SHEET_NAMES.map((n) => wb.Sheets[n]).find((s) => s !== undefined)
+    const reviewerName = metaSheet ? readLabelValueSheet(metaSheet, REVIEWER_FILE_LABEL_REVIEWER) : ''
+    if (!reviewerName) {
+      errors.push('이 파일에서 리뷰어(평가자) 이름을 찾지 못했습니다. "_메타" 또는 "안내" 시트에 평가자 행이 있는지 확인해주세요.')
+    } else {
+      for (const sheetName of wb.SheetNames) {
+        if (REVIEWER_META_SHEET_NAMES.includes(sheetName)) continue
+        const ws = wb.Sheets[sheetName]
+        const headerRowIndex = findReviewerFileHeaderRow(ws)
+        if (headerRowIndex === null) continue // 이 시트는 리뷰 데이터 시트가 아니다(예: 다른 안내성 시트).
+
+        const taskName = sheetName.replace(TASK_SHEET_PREFIX, '').trim()
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '', range: headerRowIndex })
+        rows.forEach((row, index) => {
+          const targetRaw = pickColumn(row, TARGET_HEADER_ALIASES)
+          if (!targetRaw || targetRaw === PEER_SUMMARY_ROW_MARKER) return // 데이터 끝(검증용 합계 행) 또는 빈 행.
+          applyRow({
+            rowLabel: `[${sheetName}] ${headerRowIndex + index + 2}행`,
+            taskName,
+            reviewerName,
+            targetName: targetRaw.replace(SELF_MARKER, '').trim(),
+            gradeRaw: pickColumn(row, GRADE_HEADER_ALIASES),
+            contributionRaw: pickColumn(row, CONTRIBUTION_HEADER_ALIASES),
+            comment: pickColumn(row, COMMENT_HEADER_ALIASES),
+          })
+        })
+      }
+    }
+  } else {
+    const ws = findDataSheet(wb, [...REVIEWER_HEADER_ALIASES, ...TARGET_HEADER_ALIASES])
+    const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+    rows.forEach((row, index) => {
+      applyRow({
+        rowLabel: `${index + 2}행`,
+        taskName: pickColumn(row, TASK_NAME_HEADER_ALIASES),
+        reviewerName: pickColumn(row, REVIEWER_HEADER_ALIASES),
+        targetName: pickColumn(row, TARGET_HEADER_ALIASES),
+        gradeRaw: pickColumn(row, GRADE_HEADER_ALIASES),
+        contributionRaw: pickColumn(row, CONTRIBUTION_HEADER_ALIASES),
+        comment: pickColumn(row, COMMENT_HEADER_ALIASES),
+      })
+    })
+  }
 
   if (filledRowCount === 0) {
     errors.push(
@@ -643,6 +731,10 @@ function headerSetOf(ws: XLSX.WorkSheet): Set<string> {
 // 훑어서 하나라도 인식되는 시트가 있으면 그 종류로 판단한다.
 export function detectWorkbookKind(buffer: ArrayBuffer): WorkbookKind | null {
   const wb = XLSX.read(buffer, { type: 'array' })
+  // 리뷰어 한 명당 파일 한 개(과제별 시트, 리뷰어 이름은 별도 메타 시트)
+  // 형식은 리뷰어/대상팀원 신호가 시트 하나에 같이 있지 않아 아래 시트별
+  // 헤더 검사로는 못 잡는다 -- 워크북 전체를 보고 먼저 확인한다.
+  if (isReviewerPerTaskWorkbook(wb)) return 'peer'
   for (const name of wb.SheetNames) {
     const headers = headerSetOf(wb.Sheets[name])
     // 피어리뷰 양식도 어느 과제인지 가리키는 '과제명' 열을 갖고 있으므로,
