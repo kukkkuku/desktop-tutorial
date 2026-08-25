@@ -190,32 +190,31 @@ export default function WorkspaceLanding() {
   }, [workspaces])
 
   const [teamName, setTeamName] = useState(mostRecentTeam)
-  const [addingNewTeam, setAddingNewTeam] = useState(existingTeamNames.length === 0)
   const [newTeamInput, setNewTeamInput] = useState('')
-  const [creatingNew, setCreatingNew] = useState(false)
+  const [teamNameModalOpen, setTeamNameModalOpen] = useState(false)
+  const [periodModalTeam, setPeriodModalTeam] = useState<string | null>(null)
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
 
-  // teamName/addingNewTeam은 useState 초기값이라 마운트 시점 이후로는 저절로
-  // 안 바뀐다. 그래서 선택돼 있던 팀을 지워 팀이 하나도 안 남거나(팀 이름
-  // 입력창을 다시 보여줘야 함), 다른 팀을 지워서 지금 선택된 teamName이
-  // 더 이상 존재하지 않게 되면 상태가 붕 떠서 "팀은 안 보이는데 평가
-  // 만들기 화면만 뜨는" 상태가 됐다. 목록이 바뀔 때마다 유효한 팀을
+  // teamName은 useState 초기값이라 마운트 시점 이후로는 저절로 안 바뀐다.
+  // 선택돼 있던 팀을 지워서 지금 선택된 teamName이 더 이상 존재하지
+  // 않게 되면 상태가 붕 떠버리므로, 목록이 바뀔 때마다 유효한 팀을
   // 가리키도록 다시 맞춘다.
   useEffect(() => {
-    if (addingNewTeam) return
-    if (existingTeamNames.length === 0) {
-      setAddingNewTeam(true)
-      return
-    }
+    if (existingTeamNames.length === 0) return
     if (!existingTeamNames.includes(teamName)) {
       setTeamName(mostRecentTeam || existingTeamNames[0])
     }
-  }, [existingTeamNames, teamName, mostRecentTeam, addingNewTeam])
+  }, [existingTeamNames, teamName, mostRecentTeam])
 
-  const activeTeamName = addingNewTeam ? newTeamInput.trim() : teamName
+  function confirmTeamName() {
+    const name = newTeamInput.trim()
+    if (!name) return
+    setTeamNameModalOpen(false)
+    setPeriodModalTeam(name)
+  }
   // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가
   // 뭐가 있는지" 한눈에 보이는 게 이 화면의 첫 번째 목적이라, 평가기간
   // 선택기보다 이 목록을 먼저 보여준다.
@@ -270,113 +269,72 @@ export default function WorkspaceLanding() {
       <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
         <p className="text-sm text-gray-500">진행할 팀과 평가기간을 선택하세요.</p>
 
-        {existingTeamNames.length > 0 && (
+        {existingTeamNames.length > 0 ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-8">
-            {addingNewTeam ? (
-              <div className="flex flex-1 gap-2">
-                <input
-                  type="text"
-                  autoFocus
-                  value={newTeamInput}
-                  onChange={(e) => setNewTeamInput(e.target.value)}
-                  placeholder="새 팀 이름"
-                  className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2.5 text-sm text-black"
-                />
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setAddingNewTeam(false)
-                    setNewTeamInput('')
-                  }}
-                >
-                  취소
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center gap-3">
-                  {existingTeamNames.map((name) => {
-                    const teamWs = workspaces.filter((w) => w.teamName === name)
-                    const mostRecentWs = [...teamWs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
-                    const memberCount = mostRecentWs ? readWorkspaceCounts(mostRecentWs.id).memberCount : 0
-                    const active = name === teamName
-                    return (
-                      <button
-                        key={name}
-                        onClick={() => {
-                          setTeamName(name)
-                          setCreatingNew(false)
-                        }}
-                        className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 py-2.5 text-sm transition-colors ${
-                          active ? 'border-accent text-accent' : 'border-gray-300 text-gray-500 hover:border-gray-400'
-                        }`}
-                      >
-                        <span className="font-bold">{name}</span>
-                        <span className="font-medium opacity-70">
-                          {memberCount}명 · {teamWs.length}개
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <Button variant="secondary" onClick={() => setAddingNewTeam(true)} className="flex shrink-0 items-center gap-1.5">
-                  <PlusIcon className="h-3.5 w-3.5" /> 새 팀
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-
-        {addingNewTeam && existingTeamNames.length === 0 && (
-          <div className="mt-8">
-            <label className="block text-sm font-medium text-black">팀 이름</label>
-            <input
-              type="text"
-              autoFocus
-              value={newTeamInput}
-              onChange={(e) => setNewTeamInput(e.target.value)}
-              placeholder="예: UX팀"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-black"
-            />
-          </div>
-        )}
-
-        {activeTeamName && addingNewTeam && (
-          <div className="mt-8">
-            <label className="block text-sm font-medium text-black">평가 기간</label>
-            <div className="mt-1">
-              <EvaluationPeriodPicker key={activeTeamName} teamName={activeTeamName} onDone={selectWorkspace} />
+            <div className="flex flex-wrap items-center gap-3">
+              {existingTeamNames.map((name) => {
+                const teamWs = workspaces.filter((w) => w.teamName === name)
+                const mostRecentWs = [...teamWs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+                const memberCount = mostRecentWs ? readWorkspaceCounts(mostRecentWs.id).memberCount : 0
+                const active = name === teamName
+                return (
+                  <button
+                    key={name}
+                    onClick={() => setTeamName(name)}
+                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 py-2.5 text-sm transition-colors ${
+                      active ? 'border-accent text-accent' : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="font-bold">{name}</span>
+                    <span className="font-medium opacity-70">
+                      {memberCount}명 · {teamWs.length}개
+                    </span>
+                  </button>
+                )
+              })}
             </div>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setNewTeamInput('')
+                setTeamNameModalOpen(true)
+              }}
+              className="flex shrink-0 items-center gap-1.5"
+            >
+              <PlusIcon className="h-3.5 w-3.5" /> 새 팀
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 px-6 py-16 text-center">
+            <p className="text-sm text-gray-500">첫 팀을 만들어 성과관리를 시작하세요.</p>
+            <Button
+              variant="primary"
+              onClick={() => {
+                setNewTeamInput('')
+                setTeamNameModalOpen(true)
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <PlusIcon className="h-3.5 w-3.5" /> 팀 만들기
+            </Button>
           </div>
         )}
 
-        {activeTeamName && !addingNewTeam && (
+        {teamName && (
           <div className="mt-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex items-end gap-3">
                 <h2 className="text-xl font-bold text-black">{teamName}</h2>
                 <span className="text-sm text-gray-500">평가 프로젝트 {teamWorkspaces.length}개</span>
               </div>
-              {teamWorkspaces.length > 0 && !creatingNew && (
-                <Button variant="primary" onClick={() => setCreatingNew(true)} className="flex items-center gap-1.5">
-                  <PlusIcon className="h-3.5 w-3.5" /> 새 평가 만들기
-                </Button>
-              )}
+              <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)} className="flex items-center gap-1.5">
+                <PlusIcon className="h-3.5 w-3.5" /> 새 평가 만들기
+              </Button>
             </div>
 
-            {teamWorkspaces.length === 0 || creatingNew ? (
-              <div className="mt-4 rounded-lg border border-gray-200 p-4">
-                {teamWorkspaces.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <label className="block text-sm font-medium text-black">평가 기간</label>
-                    <IconButton onClick={() => setCreatingNew(false)} aria-label="닫기" title="닫기">
-                      <XIcon className="h-4 w-4" />
-                    </IconButton>
-                  </div>
-                )}
-                <div className="mt-1">
-                  <EvaluationPeriodPicker key={activeTeamName} teamName={activeTeamName} onDone={selectWorkspace} />
-                </div>
+            {teamWorkspaces.length === 0 ? (
+              <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-gray-200 px-6 py-16 text-center">
+                <p className="text-sm text-gray-500">첫 평가를 만들어 시작하세요.</p>
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -388,6 +346,72 @@ export default function WorkspaceLanding() {
           </div>
         )}
       </main>
+
+      {teamNameModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setTeamNameModalOpen(false)}
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-black">새 팀 만들기</h3>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-black">팀명</label>
+              <input
+                type="text"
+                autoFocus
+                value={newTeamInput}
+                onChange={(e) => setNewTeamInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmTeamName()
+                }}
+                placeholder="예: UX팀"
+                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-black"
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                onClick={() => setTeamNameModalOpen(false)}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmTeamName}
+                disabled={!newTeamInput.trim()}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {periodModalTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setPeriodModalTeam(null)}
+        >
+          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-black">새 평가 프로젝트</h3>
+              <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
+                <XIcon className="h-4 w-4" />
+              </IconButton>
+            </div>
+            <div className="mt-4">
+              <EvaluationPeriodPicker
+                key={periodModalTeam}
+                teamName={periodModalTeam}
+                onDone={(id) => {
+                  setPeriodModalTeam(null)
+                  selectWorkspace(id)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {renamingWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
