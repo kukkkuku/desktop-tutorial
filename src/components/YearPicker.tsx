@@ -20,7 +20,7 @@ function ChevronIcon({ className, direction }: { className?: string; direction: 
   )
 }
 
-const YEAR_GRID_SIZE = 8
+const YEAR_GRID_SIZE = 10
 
 // 연도를 <select>나 스피너형 number input이 아니라 작은 캘린더형 팝오버
 // (연도 그리드)에서 고른다 -- 버튼에 선택된 연도 + 달력 아이콘을 두고,
@@ -39,7 +39,8 @@ export default function YearPicker({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
-  const [rangeStart, setRangeStart] = useState(() => year - (year % YEAR_GRID_SIZE ? year % YEAR_GRID_SIZE : 0) - Math.floor(YEAR_GRID_SIZE / 2))
+  // 2020-2029처럼 실제 "연대" 경계(10의 배수)에 맞춰 시작 연도를 정한다.
+  const [rangeStart, setRangeStart] = useState(() => Math.floor(year / YEAR_GRID_SIZE) * YEAR_GRID_SIZE)
   const ref = useRef<HTMLDivElement>(null)
   const thisYear = new Date().getFullYear()
 
@@ -64,7 +65,7 @@ export default function YearPicker({
         {year}
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-2 w-52 rounded-md border border-gray-200 bg-white p-2 shadow-md">
+        <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-md border border-gray-200 bg-white p-2 shadow-md">
           <div className="flex items-center justify-between px-1 pb-1.5">
             <IconButton onClick={() => setRangeStart((s) => s - YEAR_GRID_SIZE)} aria-label="이전 연대" title="이전 연대">
               <ChevronIcon direction="left" className="h-4 w-4" />
@@ -76,7 +77,7 @@ export default function YearPicker({
               <ChevronIcon direction="right" className="h-4 w-4" />
             </IconButton>
           </div>
-          <div className="grid grid-cols-4 gap-1">
+          <div className="grid grid-cols-5 gap-1">
             {years.map((y) => (
               <button
                 key={y}
