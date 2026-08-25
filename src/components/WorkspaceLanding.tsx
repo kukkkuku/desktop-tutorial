@@ -117,12 +117,13 @@ function AvatarRow({ names }: { names: string[] }) {
 
 interface ProjectCardProps {
   workspace: WorkspaceMeta
+  isCurrent: boolean
   onOpen: (id: string) => void
   onEdit: (workspace: WorkspaceMeta) => void
   onDelete: (workspace: WorkspaceMeta) => void
 }
 
-function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) {
+function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   return (
     <div
@@ -132,8 +133,16 @@ function ProjectCard({ workspace, onOpen, onEdit, onDelete }: ProjectCardProps) 
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)]"
+      className={`flex cursor-pointer flex-col gap-3 rounded-2xl border bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)] ${
+        isCurrent ? 'border-accent ring-1 ring-accent/30' : 'border-gray-100'
+      }`}
     >
+      {isCurrent && (
+        <span className="flex w-fit shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          평가 진행중
+        </span>
+      )}
       <div className="flex items-start justify-between gap-3">
         <p className="min-w-0 truncate text-lg font-bold text-black">
           {workspace.evaluationYear} {workspace.periodName}
@@ -184,10 +193,11 @@ export default function WorkspaceLanding() {
     if (getConnectedEmail() !== previousEmail) reloadForAccount()
   }
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
-  const mostRecentTeam = useMemo(() => {
-    const sorted = [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
-    return sorted[sorted.length - 1]?.teamName ?? ''
-  }, [workspaces])
+  const sortedByRecency = useMemo(() => [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)), [workspaces])
+  const mostRecentTeam = sortedByRecency[sortedByRecency.length - 1]?.teamName ?? ''
+  // 방금까지 하던 평가(전체 팀 통틀어 가장 최근에 수정된 워크스페이스) --
+  // 카드 목록에서 "평가 진행중" 배지로 구분해 바로 이어할 수 있게 한다.
+  const mostRecentWorkspaceId = sortedByRecency[sortedByRecency.length - 1]?.id ?? null
 
   const [teamName, setTeamName] = useState(mostRecentTeam)
   const [newTeamInput, setNewTeamInput] = useState('')
@@ -339,7 +349,14 @@ export default function WorkspaceLanding() {
             ) : (
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 {teamWorkspaces.map((w) => (
-                  <ProjectCard key={w.id} workspace={w} onOpen={selectWorkspace} onEdit={openRename} onDelete={setDeletingWorkspace} />
+                  <ProjectCard
+                    key={w.id}
+                    workspace={w}
+                    isCurrent={w.id === mostRecentWorkspaceId}
+                    onOpen={selectWorkspace}
+                    onEdit={openRename}
+                    onDelete={setDeletingWorkspace}
+                  />
                 ))}
               </div>
             )}

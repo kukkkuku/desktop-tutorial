@@ -85,16 +85,6 @@ function loadWorkspaces(): WorkspaceMeta[] {
   }
 }
 
-function loadCurrentId(workspaces: WorkspaceMeta[]): string | null {
-  try {
-    const raw = localStorage.getItem(currentWorkspaceKey())
-    if (raw && workspaces.some((w) => w.id === raw)) return raw
-    return null
-  } catch {
-    return null
-  }
-}
-
 function loadCyclePreferences(): Record<string, EvaluationCycle> {
   try {
     const raw = localStorage.getItem(cyclePreferenceKey())
@@ -108,6 +98,13 @@ function loadCyclePreferences(): Record<string, EvaluationCycle> {
 
 // 계정이 확인될 때마다(최초 로그인 게이트 통과, "다른 Google 계정 연결")
 // 다시 호출해서 그 계정 스코프의 데이터로 상태를 새로 읽어들인다.
+//
+// currentId는 항상 null로 시작한다 -- 예전엔 마지막으로 열어둔 워크스페이스를
+// localStorage에서 복원해 로그인하자마자 바로 그 평가 화면으로 들어갔는데,
+// 그러면 프로젝트 관리(랜딩) 화면을 거치지 않고 건너뛰어버려 다른 팀/기간을
+// 고를 기회 없이 항상 같은 평가로만 들어가게 된다. 로그인/새로고침 뒤에는
+// 항상 랜딩 화면에서 이어할 평가를 고르거나 새로 만들도록, 저장된 마지막
+// 선택은 더 이상 자동 복원하지 않는다.
 function loadInitialWorkspaceState(): {
   workspaces: WorkspaceMeta[]
   currentId: string | null
@@ -115,7 +112,7 @@ function loadInitialWorkspaceState(): {
 } {
   migrateLegacyDataOnce()
   const workspaces = loadWorkspaces()
-  return { workspaces, currentId: loadCurrentId(workspaces), cyclePreferences: loadCyclePreferences() }
+  return { workspaces, currentId: null, cyclePreferences: loadCyclePreferences() }
 }
 
 export interface NewPeriodInput {
