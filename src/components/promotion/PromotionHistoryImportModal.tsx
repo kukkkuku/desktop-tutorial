@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { TeamMember } from '../../types'
 import { useAppState } from '../../state/AppContext'
@@ -32,10 +32,15 @@ interface AppliedSummary {
   skipped: number
 }
 
-// 승진 시뮬레이션 Excel(시트당 팀원 1명, 연도별 업적·역량 등급)을 읽어 이름이
-// 일치하는 기존 팀원에게 인사평가 이력을 바로 적용한다. 새 팀원을 만들지 않고,
-// 적용 전 매칭 결과를 미리 보여준다.
-export default function PromotionHistoryImportModal({ onClose }: { onClose: () => void }) {
+// 승진 시뮬레이션 Excel(시트당 팀원 1명, 연도별 업적·역량 등급)이나 이전
+// 성과 단순 표(한 시트에 팀원별 여러 행)를 읽어 이름이 일치하는 기존
+// 팀원에게 인사평가 이력을 바로 적용한다. 새 팀원을 만들지 않고, 적용 전
+// 매칭 결과를 미리 보여준다.
+//
+// initialFile -- 다른 업로드 경로(예: 전체 일괄 업로드에 이전 성과 파일이
+// 섞여 있던 경우)에서 이미 고른 파일을 넘겨주면 드래그·선택 단계를
+// 건너뛰고 바로 매칭 미리보기로 시작한다.
+export default function PromotionHistoryImportModal({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
   const { state, dispatch } = useAppState()
   const { profile, upsertAppraisal } = useTeamProfile()
   const cols = useResizableColumns(PREVIEW_COLUMNS)
@@ -46,6 +51,15 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
   const [applyHireDate, setApplyHireDate] = useState(true)
   const [applied, setApplied] = useState<AppliedSummary | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  // 동명이인이라 자동 연결이 안 된 행에서 사용자가 고른 팀원 id -- matches
+  // 배열의 인덱스로 키를 잡는다(같은 이름이 여러 블록일 수 있어 이름만으로는
+  // 구분이 안 된다).
+  const [manualPicks, setManualPicks] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (initialFile) void handleFile(initialFile)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleFile(file: File) {
     setLoading(true)
@@ -69,12 +83,19 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
     }
   }
 
+  function resolvedMember(match: PromotionImportMatch, index: number): TeamMember | null {
+    if (match.member) return match.member
+    const pickedId = manualPicks[index]
+    return pickedId ? match.candidates.find((c) => c.id === pickedId) ?? null : null
+  }
+
   function handleApply() {
     if (!matches) return
     let memberCount = 0
     let yearCount = 0
-    for (const { sheet, member } of matches) {
-      if (!member) continue
+    matches.forEach(({ sheet }, index) => {
+      const member = resolvedMember(matches[index], index)
+      if (!member) return
       memberCount += 1
       for (const y of sheet.years) {
         const existing = profile.hrAppraisals.find((r) => r.memberId === member.id && r.year === y.year)
@@ -95,11 +116,11 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
         if (sheet.auxScores && !member.auxScores) patch.auxScores = sheet.auxScores
         if (Object.keys(patch).length > 0) dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, ...patch } })
       }
-    }
+    })
     setApplied({ memberCount, yearCount, skipped: matches.length - memberCount })
   }
 
-  const matchedCount = matches?.filter((m) => m.member).length ?? 0
+  const matchedCount = matches?.filter((m, i) => resolvedMember(m, i)).length ?? 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -201,13 +222,26 @@ export default function PromotionHistoryImportModal({ onClose }: { onClose: () =
                   </tr>
                 </thead>
                 <tbody>
-                  {matches.map(({ sheet, member }) => (
-                    <tr key={sheet.sheetName} className="border-t border-gray-200 text-black">
+                  {matches.map(({ sheet, member, candidates }, index) => (
+                    <tr key={`${sheet.sheetName}-${sheet.name}-${index}`} className="border-t border-gray-200 text-black">
                       <td className="px-3 py-2 text-gray-400">{sheet.sheetName}</td>
                       <td className="px-3 py-2 font-medium">{sheet.name}</td>
                       <td className="px-3 py-2">
                         {member ? (
                           <span className="text-success">{member.name}에 연결</span>
+                        ) : candidates.length > 1 ? (
+                          <select
+                            value={manualPicks[index] ?? ''}
+                            onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
+                            className="w-full rounded-md border border-accent px-1.5 py-1 text-sm text-black"
+                          >
+                            <option value="">동명이인 {candidates.length}명 -- 선택</option>
+                            {candidates.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.name} ({c.role || c.level || '역할 미지정'})
+                              </option>
+                            ))}
+                          </select>
                         ) : (
                           <span className="text-gray-400">매칭되는 팀원 없음</span>
                         )}

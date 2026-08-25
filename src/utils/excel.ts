@@ -113,6 +113,20 @@ function addStyledSheet(
   return ws
 }
 
+// 업로드 파일이 "안내" 시트를 앞에 두고 실제 데이터는 두 번째 시트에 담는
+// 경우(이 앱이 내려주는 이전 성과/피어리뷰 양식 등)가 있어, 항상 첫 번째
+// 시트만 읽으면 안내 시트를 데이터로 착각해 0건으로 읽힌다. 헤더 후보 중
+// 하나라도 가진 첫 시트를 찾고, 없으면 기존 동작대로 첫 시트로 되돌아간다.
+function findDataSheet(wb: XLSX.WorkBook, headerCandidates: string[]): XLSX.WorkSheet {
+  for (const name of wb.SheetNames) {
+    const ws = wb.Sheets[name]
+    const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
+    const headers = new Set(headerRow.map((h) => String(h ?? '').trim()))
+    if (headerCandidates.some((h) => headers.has(h))) return ws
+  }
+  return wb.Sheets[wb.SheetNames[0]]
+}
+
 // ---------- Task template / import ----------
 
 const TASK_COLUMNS: StyledColumn[] = [
@@ -170,7 +184,7 @@ export interface TaskImportResult {
 
 export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): TaskImportResult {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
+  const ws = findDataSheet(wb, ['과제명'])
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   const errors: string[] = []
@@ -311,7 +325,7 @@ export interface MemberImportResult {
 
 export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMember[]): MemberImportResult {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
+  const ws = findDataSheet(wb, ['이름'])
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   const errors: string[] = []
@@ -436,13 +450,16 @@ export interface PeerReviewImportResult {
   addedCount: number
   updatedCount: number
   affectedTargetNames: string[]
+  // 기여도는 채웠지만 등급을 아직 안 채운 행(참여는 했지만 리뷰를 마치지
+  // 않은 조합) 수 -- 조용히 0건 처리되지 않도록 별도로 센다.
+  skippedNoGrade: number
 }
 
 const TASK_NAME_HEADER_ALIASES = ['과제명', '과제']
 const REVIEWER_HEADER_ALIASES = ['리뷰어', '평가자', '리뷰자']
 const TARGET_HEADER_ALIASES = ['대상팀원', '평가대상', '평가 대상', '대상자', '피평가자']
 const CONTRIBUTION_HEADER_ALIASES = ['기여도(%)', '기여도', '기여도(%)*']
-const GRADE_HEADER_ALIASES = ['등급', '평가등급', '점수']
+const GRADE_HEADER_ALIASES = ['등급', '평가등급', '점수', '수행등급', '개인수행등급']
 const COMMENT_HEADER_ALIASES = ['근거', '코멘트', '의견']
 
 function pickColumn(row: Record<string, unknown>, aliases: string[]): string {
@@ -463,7 +480,7 @@ export function parsePeerReviewWorkbook(
   existingPeerReviews: PeerReview[],
 ): PeerReviewImportResult {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
+  const ws = findDataSheet(wb, [...REVIEWER_HEADER_ALIASES, ...TARGET_HEADER_ALIASES])
   const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
 
   const errors: string[] = []
@@ -476,12 +493,20 @@ export function parsePeerReviewWorkbook(
   let addedCount = 0
   let updatedCount = 0
   let filledRowCount = 0
+  let skippedNoGrade = 0
   const affectedTargetNames = new Set<string>()
 
   rows.forEach((row, index) => {
     const rowNum = index + 2
     const gradeRaw = pickColumn(row, GRADE_HEADER_ALIASES).toUpperCase()
-    if (!gradeRaw) return // 등급을 안 채운 행(미참여 조합)은 조용히 건너뛴다.
+    if (!gradeRaw) {
+      // 등급을 안 채운 행(아직 리뷰를 안 쓴 조합)은 가져오지 않지만, 기여도가
+      // 이미 채워져 있으면(참여는 한 조합) 몇 건이 이렇게 빠졌는지는 세서
+      // 돌려준다 -- 그래야 "0건 인식"이 실제로 빈 조합 때문인지, 파싱
+      // 자체가 실패한 건지 화면에서 구분할 수 있다.
+      if (pickColumn(row, CONTRIBUTION_HEADER_ALIASES).trim() !== '') skippedNoGrade += 1
+      return
+    }
     filledRowCount += 1
 
     const taskName = pickColumn(row, TASK_NAME_HEADER_ALIASES)
@@ -542,7 +567,11 @@ export function parsePeerReviewWorkbook(
   })
 
   if (filledRowCount === 0) {
-    errors.push('업로드한 파일에 채워진 등급이 없습니다. 다운로드한 양식에서 실제로 참여한 조합의 기여도/등급/근거를 채워 업로드해주세요.')
+    errors.push(
+      skippedNoGrade > 0
+        ? `업로드한 파일에 기여도가 채워진 조합이 ${skippedNoGrade}건 있지만, 등급(수행등급)이 비어 있어 하나도 가져오지 못했습니다. 각 조합의 등급을 채운 뒤 다시 업로드해주세요.`
+        : '업로드한 파일에 채워진 등급이 없습니다. 다운로드한 양식에서 실제로 참여한 조합의 기여도/등급/근거를 채워 업로드해주세요.',
+    )
   }
 
   return {
@@ -552,6 +581,7 @@ export function parsePeerReviewWorkbook(
     addedCount,
     updatedCount,
     affectedTargetNames: Array.from(affectedTargetNames),
+    skippedNoGrade,
   }
 }
 
@@ -598,22 +628,35 @@ export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMem
 
 // ---------- Unified data management (all three templates + content-based upload routing) ----------
 
-export type WorkbookKind = 'task' | 'member' | 'peer'
+export type WorkbookKind = 'task' | 'member' | 'peer' | 'history'
+
+// 시트 하나를 넘겨받아 헤더 집합을 돌려준다 -- detectWorkbookKind가 "안내"
+// 시트를 지나쳐 실제 데이터 시트까지 훑어보는 데 쓴다.
+function headerSetOf(ws: XLSX.WorkSheet): Set<string> {
+  const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
+  return new Set(headerRow.map((h) => String(h ?? '').trim()))
+}
 
 // Classifies an uploaded file by its header row instead of its filename, so
 // renamed downloads (or files re-saved by email/chat apps) still route to
-// the right parser.
+// the right parser. 시트가 여러 개면("안내" 시트가 앞에 오는 경우 등) 전부
+// 훑어서 하나라도 인식되는 시트가 있으면 그 종류로 판단한다.
 export function detectWorkbookKind(buffer: ArrayBuffer): WorkbookKind | null {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
-  const headers = new Set(headerRow.map((h) => String(h ?? '').trim()))
-
-  if (headers.has('과제명')) return 'task'
-  const hasPeerHeaders =
-    REVIEWER_HEADER_ALIASES.some((h) => headers.has(h)) && TARGET_HEADER_ALIASES.some((h) => headers.has(h))
-  if (hasPeerHeaders) return 'peer'
-  if (headers.has('이름')) return 'member'
+  for (const name of wb.SheetNames) {
+    const headers = headerSetOf(wb.Sheets[name])
+    // 피어리뷰 양식도 어느 과제인지 가리키는 '과제명' 열을 갖고 있으므로,
+    // '과제명'만 보고 task로 단정하면 안 된다 -- 리뷰어/대상팀원처럼 더
+    // 구체적인 피어리뷰 신호부터 먼저 확인한다.
+    const hasPeerHeaders =
+      REVIEWER_HEADER_ALIASES.some((h) => headers.has(h)) && TARGET_HEADER_ALIASES.some((h) => headers.has(h))
+    if (hasPeerHeaders) return 'peer'
+    if (headers.has('과제명')) return 'task'
+    // 이전 성과(승진심사용 5개년 이력) -- '이름'만으로는 팀원 양식과
+    // 구분이 안 되므로 '평가연도'가 같이 있는지로 가른다.
+    if (headers.has('이름') && headers.has('평가연도')) return 'history'
+    if (headers.has('이름')) return 'member'
+  }
   return null
 }
 

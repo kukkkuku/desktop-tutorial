@@ -28,11 +28,15 @@ export interface ParsedEmployeeSheet {
 export interface PromotionImportMatch {
   sheet: ParsedEmployeeSheet
   member: TeamMember | null
+  // 이름이 같은 기존 팀원이 2명 이상이면 자동으로 아무나 골라 연결하지
+  // 않는다 -- member는 null로 두고, 화면에서 이 후보 중 하나를 직접
+  // 고르게 한다. 후보가 1명 이하면 항상 비어 있다.
+  candidates: TeamMember[]
 }
 
 // 승진 시뮬레이션 Excel은 시트마다 팀원 한 명(사번/이름/입사일 + 연도별 업적·역량 등급)을
 // 담는 고정 레이아웃이다 — '승진기준'/'Sheet1'은 데이터가 아닌 기준표/작업용 시트라 제외.
-const SKIP_SHEETS = new Set(['승진기준', 'Sheet1'])
+const SKIP_SHEETS = new Set(['승진기준', 'Sheet1', '안내'])
 const VALID_GRADES = new Set(['S', 'A', 'B', 'C', 'D'])
 const YEAR_COLS = ['G', 'H', 'I', 'J', 'K']
 const KNOWN_LEVELS: Level[] = ['사원', '대리', '과장', '차장', '부장']
@@ -160,16 +164,106 @@ export function parsePromotionHistoryWorkbook(buffer: ArrayBuffer): ParsedEmploy
     // (실제로 한 사람에게 두 블록 모두 값이 들어있는 경우는 못 봤다).
     const auxScores = readAuxScores(ws, 4, 5, 6, 7) ?? readAuxScores(ws, 28, 29, 30, 31)
 
+    // B3에 우연히 글자가 있어도(안내/설명용 시트 등) 그 외 신호가 전부
+    // 비어 있으면 실제 팀원 시트가 아니다 -- 미리보기에 이상한 이름의
+    // 빈 행이 섞여 나오는 걸 막는다.
+    if (years.length === 0 && !hireDate && !promotionReviewDate && !currentLevel && !auxScores) continue
+
     results.push({ sheetName, name, hireDate, promotionReviewDate, currentLevel, years, auxScores })
   }
 
+  results.push(...parseFlatPerformanceWorkbook(buffer))
   return results
 }
 
 // 이름이 정확히 일치하는 기존 팀원에만 연결한다 — 새 팀원을 임의로 만들지 않는다.
+// 동명이인이 있으면(후보 2명 이상) 자동으로 아무나 고르지 않고 화면에서
+// 선택하게 한다.
 export function matchToMembers(sheets: ParsedEmployeeSheet[], members: TeamMember[]): PromotionImportMatch[] {
-  return sheets.map((sheet) => ({
-    sheet,
-    member: members.find((m) => m.name === sheet.name) ?? null,
-  }))
+  return sheets.map((sheet) => {
+    const candidates = members.filter((m) => m.name === sheet.name)
+    return { sheet, member: candidates.length === 1 ? candidates[0] : null, candidates }
+  })
+}
+
+// ---------- 이전 성과 5년치(단일 시트, 팀원별 여러 행) ----------
+// 시트당 팀원 1명(B3/C3/... 고정 셀)인 위 "승진 시뮬레이션 Excel"과 달리,
+// 한 시트 안에 모든 팀원의 연도별 행을 나열하는 단순 표 형식도 지원한다.
+// 같은 팀원은 첫 행에만 이름·직급·승진심사 시기를 채우고 나머지 행은
+// 비워두는 방식이라(병합 셀 대신), 위에서 아래로 훑으며 마지막으로 본
+// 이름·직급·승진심사 시기를 그 아래 빈 행에도 그대로 적용한다(forward-fill).
+const FLAT_NAME_HEADER = '이름'
+const FLAT_YEAR_HEADER = '평가연도'
+const FLAT_LEVEL_HEADER = '직급'
+const FLAT_PROMOTION_DATE_HEADER = '승진심사 시기'
+const FLAT_FIRST_HALF_HEADER = ['업적(상)', '업적상']
+const FLAT_SECOND_HALF_HEADER = ['업적(하)', '업적하']
+const FLAT_COMPETENCY_HEADER = ['역량']
+
+function pickFlat(row: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const v = row[key]
+    if (v !== undefined && String(v).trim() !== '') return String(v).trim()
+  }
+  return ''
+}
+
+// 값이 '-'거나 비어 있으면 "등급 없음"으로, 그 외에는 유효한 S/A/B/C/D일
+// 때만 등급으로 받아들인다(안내 시트: "등급은 S/A/B/C/D 또는 -를 입력").
+function toFlatGrade(raw: string): EvaluationGrade | '' {
+  const trimmed = raw.trim().toUpperCase()
+  if (!trimmed || trimmed === '-') return ''
+  return VALID_GRADES.has(trimmed) ? (trimmed as EvaluationGrade) : ''
+}
+
+function findFlatPerformanceSheet(wb: XLSX.WorkBook): XLSX.WorkSheet | null {
+  for (const name of wb.SheetNames) {
+    const ws = wb.Sheets[name]
+    const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
+    const headers = new Set(headerRow.map((h) => String(h ?? '').trim()))
+    if (headers.has(FLAT_NAME_HEADER) && headers.has(FLAT_YEAR_HEADER)) return ws
+  }
+  return null
+}
+
+function parseFlatPerformanceWorkbook(buffer: ArrayBuffer): ParsedEmployeeSheet[] {
+  const wb = XLSX.read(buffer, { type: 'array' })
+  const ws = findFlatPerformanceSheet(wb)
+  if (!ws) return []
+
+  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+  const results: ParsedEmployeeSheet[] = []
+  let current: ParsedEmployeeSheet | null = null
+
+  for (const row of rows) {
+    const rawName = String(row[FLAT_NAME_HEADER] ?? '').trim()
+    if (rawName) {
+      if (current) results.push(current)
+      const levelRaw = String(row[FLAT_LEVEL_HEADER] ?? '').trim()
+      current = {
+        sheetName: rawName,
+        name: rawName,
+        hireDate: null,
+        promotionReviewDate: String(row[FLAT_PROMOTION_DATE_HEADER] ?? '').trim() || null,
+        currentLevel: (KNOWN_LEVELS as string[]).includes(levelRaw) ? (levelRaw as Level) : null,
+        years: [],
+        auxScores: null,
+      }
+    }
+    if (!current) continue // 이름 없이 시작하는 행(첫 팀원보다 앞선 빈 행)은 건너뛴다.
+
+    const yearRaw = row[FLAT_YEAR_HEADER]
+    const year = typeof yearRaw === 'number' ? yearRaw : Number(yearRaw)
+    if (!Number.isFinite(year)) continue
+
+    const firstHalfGrade = toFlatGrade(pickFlat(row, FLAT_FIRST_HALF_HEADER))
+    const secondHalfGrade = toFlatGrade(pickFlat(row, FLAT_SECOND_HALF_HEADER))
+    const competencyGrade = toFlatGrade(pickFlat(row, FLAT_COMPETENCY_HEADER))
+    if (!firstHalfGrade && !secondHalfGrade && !competencyGrade) continue // 아직 등급을 안 채운 연도는 건너뛴다.
+
+    current.years.push({ year, firstHalfGrade, secondHalfGrade, competencyGrade })
+  }
+  if (current) results.push(current)
+
+  return results
 }

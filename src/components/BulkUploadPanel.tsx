@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import { detectWorkbookKind, downloadAllTemplatesZip, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
+import PromotionHistoryImportModal from './promotion/PromotionHistoryImportModal'
 import Button from './Button'
 import Spinner from './Spinner'
 
@@ -22,6 +23,10 @@ export default function BulkUploadPanel() {
   const [isDragOver, setIsDragOver] = useState(false)
   const bulkInputRef = useRef<HTMLInputElement>(null)
   const isBusy = loadingLabel !== null
+  // "이전 성과" 파일은 이름으로 팀원을 찾아 연결해야 하고 동명이인이면
+  // 골라야 해서, 다른 종류처럼 바로 반영하지 않고 확인 팝업(같은 로직을
+  // 쓰는 인사평가 이력 가져오기)으로 넘긴다.
+  const [historyFile, setHistoryFile] = useState<File | null>(null)
 
   async function handleBulkFiles(files: File[]) {
     if (files.length === 0) return
@@ -34,6 +39,7 @@ export default function BulkUploadPanel() {
     const taskFiles: File[] = []
     const memberFiles: File[] = []
     const peerFiles: File[] = []
+    const historyFiles: File[] = []
     const errors: string[] = []
 
     for (const file of files) {
@@ -42,7 +48,8 @@ export default function BulkUploadPanel() {
       if (kind === 'task') taskFiles.push(file)
       else if (kind === 'member') memberFiles.push(file)
       else if (kind === 'peer') peerFiles.push(file)
-      else errors.push(`[${file.name}] 과제·팀원·피어리뷰 양식 중 어떤 것인지 인식하지 못했습니다.`)
+      else if (kind === 'history') historyFiles.push(file)
+      else errors.push(`[${file.name}] 과제·팀원·피어리뷰·이전 성과 양식 중 어떤 것인지 인식하지 못했습니다.`)
     }
 
     let addedCount = 0
@@ -78,8 +85,13 @@ export default function BulkUploadPanel() {
     }
     if (peerFiles.length > 0) dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
 
+    if (historyFiles.length > 1) {
+      errors.push('이전 성과 파일은 한 번에 하나씩만 확인 팝업에서 처리할 수 있습니다. 첫 번째 파일만 열었습니다.')
+    }
+
     setBulkSummary({ addedCount, updatedCount, errors })
     setLoadingLabel(null)
+    if (historyFiles.length > 0) setHistoryFile(historyFiles[0])
   }
 
   async function handleZipDownload() {
@@ -169,6 +181,8 @@ export default function BulkUploadPanel() {
           </div>
         </div>
       )}
+
+      {historyFile && <PromotionHistoryImportModal initialFile={historyFile} onClose={() => setHistoryFile(null)} />}
     </div>
   )
 }
