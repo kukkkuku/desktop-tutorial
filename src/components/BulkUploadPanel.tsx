@@ -7,9 +7,18 @@ import Spinner from './Spinner'
 
 const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 
-interface BulkSummary {
+interface KindSummary {
+  label: string
   addedCount: number
   updatedCount: number
+}
+
+interface BulkSummary {
+  // 종류별(과제/팀원/피어리뷰)로 나눠서 보여준다 -- 하나로 합친 "신규 N건
+  // 추가"만 보여주면 피어리뷰처럼 특정 종류만 올렸을 때 뭐가 반영됐는지
+  // 이름이 전혀 안 보여서 "인사평가 얘기만 하네" 식으로 헷갈릴 수 있다.
+  // 이번 배치에 실제로 올라온 종류만 담는다(안 올린 종류는 표시 안 함).
+  kinds: KindSummary[]
   errors: string[]
 }
 
@@ -57,44 +66,58 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
       else errors.push(`[${file.name}] 과제·팀원·피어리뷰·이전 성과 양식 중 어떤 것인지 인식하지 못했습니다.`)
     }
 
-    let addedCount = 0
-    let updatedCount = 0
+    const kinds: KindSummary[] = []
 
     let taskList = tasks
-    for (const file of taskFiles) {
-      const result = parseTaskWorkbook(await file.arrayBuffer(), taskList)
-      taskList = result.tasks
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+    if (taskFiles.length > 0) {
+      let addedCount = 0
+      let updatedCount = 0
+      for (const file of taskFiles) {
+        const result = parseTaskWorkbook(await file.arrayBuffer(), taskList)
+        taskList = result.tasks
+        addedCount += result.addedCount
+        updatedCount += result.updatedCount
+        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+      }
+      dispatch({ type: 'IMPORT_TASKS', payload: taskList })
+      kinds.push({ label: '과제', addedCount, updatedCount })
     }
-    if (taskFiles.length > 0) dispatch({ type: 'IMPORT_TASKS', payload: taskList })
 
     let memberList = members
-    for (const file of memberFiles) {
-      const result = parseMemberWorkbook(await file.arrayBuffer(), memberList)
-      memberList = result.members
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+    if (memberFiles.length > 0) {
+      let addedCount = 0
+      let updatedCount = 0
+      for (const file of memberFiles) {
+        const result = parseMemberWorkbook(await file.arrayBuffer(), memberList)
+        memberList = result.members
+        addedCount += result.addedCount
+        updatedCount += result.updatedCount
+        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+      }
+      dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
+      kinds.push({ label: '팀원', addedCount, updatedCount })
     }
-    if (memberFiles.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: memberList })
 
-    let peerList = peerReviews
-    for (const file of peerFiles) {
-      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), taskList, memberList, peerList)
-      peerList = result.peerReviews
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+    if (peerFiles.length > 0) {
+      let addedCount = 0
+      let updatedCount = 0
+      let peerList = peerReviews
+      for (const file of peerFiles) {
+        const result = parsePeerReviewWorkbook(await file.arrayBuffer(), taskList, memberList, peerList)
+        peerList = result.peerReviews
+        addedCount += result.addedCount
+        updatedCount += result.updatedCount
+        errors.push(...result.errors.map((m) => `[${file.name}] ${m}`))
+      }
+      dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
+      kinds.push({ label: '피어리뷰', addedCount, updatedCount })
     }
-    if (peerFiles.length > 0) dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: peerList })
 
     if (historyFiles.length > 1) {
       errors.push('이전 성과 파일은 한 번에 하나씩만 확인 팝업에서 처리할 수 있습니다. 첫 번째 파일만 열었습니다.')
     }
 
-    setBulkSummary({ addedCount, updatedCount, errors })
+    setBulkSummary({ kinds, errors })
     setLoadingLabel(null)
     if (historyFiles.length > 0) setHistoryFile(historyFiles[0])
   }
@@ -166,22 +189,32 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
         <div className={`rounded-md border px-4 py-3 ${bulkSummary.errors.length > 0 ? 'border-danger/30 bg-red-50' : 'border-success/30 bg-green-50'}`}>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className={`text-sm font-semibold ${bulkSummary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
-                {bulkSummary.addedCount > 0 || bulkSummary.updatedCount > 0
-                  ? `신규 ${bulkSummary.addedCount}건 추가, 기존 ${bulkSummary.updatedCount}건 업데이트되었습니다.`
-                  : '변경된 건이 없습니다.'}
-                {bulkSummary.errors.length > 0 && ` (${bulkSummary.errors.length}건 오류)`}
-              </p>
-              {bulkSummary.errors.length > 0 && (
-                <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-danger">
-                  {bulkSummary.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
+              {bulkSummary.kinds.length > 0 ? (
+                <ul className={`space-y-0.5 text-sm font-semibold ${bulkSummary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
+                  {bulkSummary.kinds.map((k) => (
+                    <li key={k.label}>
+                      {k.label}: 신규 {k.addedCount}건 추가, 기존 {k.updatedCount}건 업데이트
+                    </li>
                   ))}
                 </ul>
+              ) : (
+                <p className={`text-sm font-semibold ${bulkSummary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
+                  변경된 건이 없습니다.
+                </p>
+              )}
+              {bulkSummary.errors.length > 0 && (
+                <>
+                  <p className="mt-2 text-sm font-semibold text-danger">{bulkSummary.errors.length}건 오류</p>
+                  <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-danger">
+                    {bulkSummary.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </>
               )}
             </div>
             <div className="flex shrink-0 gap-2">
-              {onDone && (bulkSummary.addedCount > 0 || bulkSummary.updatedCount > 0) && (
+              {onDone && bulkSummary.kinds.some((k) => k.addedCount > 0 || k.updatedCount > 0) && (
                 <button
                   onClick={onDone}
                   className="flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
