@@ -1,5 +1,21 @@
-import type { AppState, Contribution, Criteria, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
+import type {
+  AppState,
+  Contribution,
+  Criteria,
+  EvaluationStatus,
+  MeetingActionItem,
+  MeetingNote,
+  PeerReview,
+  PerformanceGrade,
+  Task,
+  TeamMember,
+} from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
+
+const EVALUATION_STATUS_OPTIONS: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
+function isEvaluationStatus(value: unknown): value is EvaluationStatus {
+  return typeof value === 'string' && (EVALUATION_STATUS_OPTIONS as string[]).includes(value)
+}
 
 function isPerformanceGrade(value: unknown): value is PerformanceGrade {
   return typeof value === 'string' && (PERFORMANCE_GRADE_OPTIONS as string[]).includes(value)
@@ -24,11 +40,17 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
     id: raw.id,
     name: raw.name,
     active: typeof raw.active === 'boolean' ? raw.active : true,
-    position: typeof raw.position === 'string' ? (raw.position as TeamMember['position']) : '',
     level: typeof raw.level === 'string' ? (raw.level as TeamMember['level']) : '',
     yearsOfService: typeof raw.yearsOfService === 'number' ? raw.yearsOfService : null,
     role: typeof raw.role === 'string' ? raw.role : '',
     comment: typeof raw.comment === 'string' ? raw.comment : '',
+    hireDate: typeof raw.hireDate === 'string' ? raw.hireDate : null,
+    currentLevelSince: typeof raw.currentLevelSince === 'string' ? raw.currentLevelSince : null,
+    promotionReviewDate: typeof raw.promotionReviewDate === 'string' ? raw.promotionReviewDate : null,
+    auxScores:
+      raw.auxScores && typeof raw.auxScores === 'object'
+        ? (raw.auxScores as TeamMember['auxScores'])
+        : null,
   }
 }
 
@@ -58,16 +80,47 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
   }
 }
 
+function migrateMeetingAction(raw: Record<string, unknown>): MeetingActionItem | null {
+  if (typeof raw.id !== 'string' || typeof raw.content !== 'string') return null
+  return {
+    id: raw.id,
+    content: raw.content,
+    dueDate: typeof raw.dueDate === 'string' ? raw.dueDate : '',
+    done: raw.done === true,
+  }
+}
+
 function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
   if (typeof raw.id !== 'string' || typeof raw.memberId !== 'string') return null
   if (typeof raw.date !== 'string' || typeof raw.comment !== 'string') return null
-  return { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
+  const note: MeetingNote = { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
+  if (typeof raw.strengths === 'string' && raw.strengths) note.strengths = raw.strengths
+  if (typeof raw.improvements === 'string' && raw.improvements) note.improvements = raw.improvements
+  if (typeof raw.nextExperience === 'string' && raw.nextExperience) note.nextExperience = raw.nextExperience
+  if (typeof raw.careerInterest === 'string' && raw.careerInterest) note.careerInterest = raw.careerInterest
+  if (Array.isArray(raw.actions)) {
+    const actions = (raw.actions as Record<string, unknown>[])
+      .map(migrateMeetingAction)
+      .filter((a): a is MeetingActionItem => a !== null)
+    if (actions.length > 0) note.actions = actions
+  }
+  return note
 }
 
+// taskId/reviewerMemberId/contributionPercent/comment는 전부 선택 필드라
+// "예전 데이터"(과제 연결 없이 엑셀로 올렸던 시절)는 원래도 없을 수 있다.
+// 이 함수가 그 필드들을 무조건 비워버리면(과거에 실제로 그랬다) 매번 앱을
+// 새로고침할 때마다 방금 올린 최신 데이터(taskId 있음)까지 전부 "과제
+// 미상(예전 데이터)"으로 깎여나간다 -- raw에 있으면 그대로 보존해야 한다.
 function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {
   if (typeof raw.id !== 'string' || typeof raw.reviewerName !== 'string') return null
   if (typeof raw.targetMemberId !== 'string' || !isPerformanceGrade(raw.grade)) return null
-  return { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  const review: PeerReview = { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  if (typeof raw.taskId === 'string') review.taskId = raw.taskId
+  if (typeof raw.reviewerMemberId === 'string') review.reviewerMemberId = raw.reviewerMemberId
+  if (typeof raw.contributionPercent === 'number') review.contributionPercent = raw.contributionPercent
+  if (typeof raw.comment === 'string') review.comment = raw.comment
+  return review
 }
 
 // Criteria used to be plain on/off booleans; now each is a 0-100 reflection
@@ -88,6 +141,7 @@ function migrateCriteria(raw: unknown): Criteria {
     workloadWeight: resolveWeight(r.workloadWeight, r.useWorkload, 100),
     personalGradeWeight: resolveWeight(r.personalGradeWeight, r.usePersonalPerformanceGrade, 0),
     peerReviewWeight: resolveWeight(r.peerReviewWeight, r.usePeerReview, 0),
+    contributionWeight: resolveWeight(r.contributionWeight, undefined, 100),
   }
 }
 
@@ -104,9 +158,9 @@ const LEGACY_SAMPLE_TASKS = [
   { name: 'OneClick', importance: '일반', performanceGrade: 'B', workload: '소' },
 ]
 const LEGACY_SAMPLE_MEMBERS = [
-  { name: '김기정', position: '팀장', level: '과장', yearsOfService: 7, role: '기획' },
-  { name: '이혜원', position: 'PL', level: '대리', yearsOfService: 4, role: '디자인' },
-  { name: '서승우', position: '팀원', level: '사원', yearsOfService: 2, role: '개발' },
+  { name: '김기정', level: '과장', yearsOfService: 7, role: '기획' },
+  { name: '이혜원', level: '대리', yearsOfService: 4, role: '디자인' },
+  { name: '서승우', level: '사원', yearsOfService: 2, role: '개발' },
 ]
 const LEGACY_SAMPLE_CONTRIBUTIONS: Record<string, [number, PerformanceGrade]> = {
   'CloudX|김기정': [50, 'A'],
@@ -141,7 +195,6 @@ export function isUntouchedLegacySample(state: AppState): boolean {
     state.members.some(
       (m) =>
         m.name === fixture.name &&
-        m.position === fixture.position &&
         m.level === fixture.level &&
         m.yearsOfService === fixture.yearsOfService &&
         m.role === fixture.role,
@@ -186,5 +239,12 @@ export function migrateAppState(raw: unknown): AppState | null {
         .filter((p): p is PeerReview => p !== null)
     : []
 
-  return { tasks, members, contributions, criteria, meetingNotes, peerReviews }
+  const rawStatus = (r.evaluationStatus ?? {}) as Record<string, unknown>
+  const evaluationStatus: Record<string, EvaluationStatus> = {}
+  for (const member of members) {
+    const value = rawStatus[member.id]
+    if (isEvaluationStatus(value)) evaluationStatus[member.id] = value
+  }
+
+  return { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }

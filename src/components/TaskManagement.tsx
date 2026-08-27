@@ -1,38 +1,122 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
-import type { Task } from '../types'
-import TaskModal from './TaskModal'
+import { useWorkspaces } from '../state/WorkspaceContext'
+import type { Importance, PerformanceGrade, Task, Workload } from '../types'
+import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import ConfirmDialog from './ConfirmDialog'
-import ImportFeedback from './ImportFeedback'
-import { downloadTaskTemplate, parseTaskWorkbook, type TaskImportResult } from '../utils/excel'
+import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
+import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
+import { useResizableColumns } from '../hooks/useResizableColumns'
+import ResizableTh from './table/ResizableTh'
+import TitleUploadControls from './TitleUploadControls'
+import CurrentDataDownloadControls from './CurrentDataDownloadControls'
+import EmptyStateDropzone from './EmptyStateDropzone'
+import { downloadCurrentTasksExcel, downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
+import { downloadTasksPdf } from '../utils/pdfReports'
+import Button from './Button'
+import IconButton from './IconButton'
+
+const TASK_COLUMNS = {
+  name: 200,
+  taskGrade: 110,
+  performanceGrade: 110,
+  workload: 100,
+  objective: 180,
+  achievement: 180,
+  manage: 100,
+}
+
+interface TaskFormValues {
+  name: string
+  importance: Importance
+  workload: Workload
+  performanceGrade: PerformanceGrade
+  objective: string
+  achievement: string
+}
 
 export default function TaskManagement() {
-  const { state, dispatch } = useAppState()
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const { state, dispatch, recentlyAddedIds, markRecentlyAdded } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
+  const teamName = currentWorkspace?.teamName ?? ''
+  const periodName = currentWorkspace?.periodName ?? ''
+  const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
-  const [importResult, setImportResult] = useState<TaskImportResult | null>(null)
-  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set())
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  function openAddModal() {
-    setEditingTask(null)
-    setModalOpen(true)
+  const [newName, setNewName] = useState('')
+  const [newImportance, setNewImportance] = useState<Importance>('일반')
+  const [newWorkload, setNewWorkload] = useState<Workload>('중')
+  const [newPerformanceGrade, setNewPerformanceGrade] = useState<PerformanceGrade>('B')
+  const [newObjective, setNewObjective] = useState('')
+  const [newAchievement, setNewAchievement] = useState('')
+  const [newFormError, setNewFormError] = useState('')
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<TaskFormValues>({
+    name: '',
+    importance: '일반',
+    workload: '중',
+    performanceGrade: 'B',
+    objective: '',
+    achievement: '',
+  })
+  const [editFormError, setEditFormError] = useState('')
+
+  const isImportanceUsed = state.criteria.taskGradeWeight > 0
+  const isWorkloadUsed = state.criteria.workloadWeight > 0
+  const isPerformanceGradeUsed = state.criteria.performanceGradeWeight > 0
+
+  const taskScores = calcAllTaskScores(state.tasks, state.criteria)
+  const scoreByTaskId = new Map(taskScores.map((row) => [row.task.id, row.score]))
+  const participantCountByTaskId = new Map(
+    state.tasks.map((t) => [
+      t.id,
+      state.contributions.filter((c) => c.taskId === t.id && c.contributionPercent > 0).length,
+    ]),
+  )
+
+  function startEdit(task: Task) {
+    setEditingId(task.id)
+    setEditForm({
+      name: task.name,
+      importance: task.importance,
+      workload: task.workload,
+      performanceGrade: task.performanceGrade,
+      objective: task.objective,
+      achievement: task.achievement,
+    })
+    setEditFormError('')
   }
 
-  function openEditModal(task: Task) {
-    setEditingTask(task)
-    setModalOpen(true)
+  function cancelEdit() {
+    setEditingId(null)
+    setEditFormError('')
   }
 
-  function handleSave(task: Task) {
-    if (editingTask) {
-      dispatch({ type: 'UPDATE_TASK', payload: task })
-    } else {
-      dispatch({ type: 'ADD_TASK', payload: task })
+  function saveEdit(task: Task) {
+    const trimmedName = editForm.name.trim()
+    if (!trimmedName) {
+      setEditFormError('과제명을 입력하세요.')
+      return
     }
-    setModalOpen(false)
-    setEditingTask(null)
+    if (state.tasks.some((t) => t.name === trimmedName && t.id !== task.id)) {
+      setEditFormError(`과제명 '${trimmedName}'은(는) 이미 존재합니다.`)
+      return
+    }
+    dispatch({
+      type: 'UPDATE_TASK',
+      payload: {
+        ...task,
+        name: trimmedName,
+        importance: editForm.importance,
+        workload: editForm.workload,
+        performanceGrade: editForm.performanceGrade,
+        objective: editForm.objective.trim(),
+        achievement: editForm.achievement.trim(),
+      },
+    })
+    setEditingId(null)
   }
 
   function handleDeleteConfirm() {
@@ -42,142 +126,368 @@ export default function TaskManagement() {
     }
   }
 
-  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
-    const buffer = await file.arrayBuffer()
-    const result = parseTaskWorkbook(buffer, state.tasks)
-    dispatch({ type: 'IMPORT_TASKS', payload: result.tasks })
-    setImportResult(result)
-    setRecentlyAddedIds(new Set(result.addedIds))
+  function handleQuickAdd() {
+    const trimmedName = newName.trim()
+    if (!trimmedName) {
+      setNewFormError('과제명을 입력하세요.')
+      return
+    }
+    if (state.tasks.some((t) => t.name === trimmedName)) {
+      setNewFormError(`과제명 '${trimmedName}'은(는) 이미 존재합니다.`)
+      return
+    }
+    const task: Task = {
+      id: uuidv4(),
+      name: trimmedName,
+      importance: newImportance,
+      performanceGrade: newPerformanceGrade,
+      workload: newWorkload,
+      objective: newObjective.trim(),
+      achievement: newAchievement.trim(),
+    }
+    dispatch({ type: 'ADD_TASK', payload: task })
+    markRecentlyAdded([task.id])
+    setNewName('')
+    setNewImportance('일반')
+    setNewWorkload('중')
+    setNewPerformanceGrade('B')
+    setNewObjective('')
+    setNewAchievement('')
+    setNewFormError('')
+  }
+
+  async function handleUploadFiles(files: File[]) {
+    let list = state.tasks
+    let addedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
+    for (const file of files) {
+      const buffer = await file.arrayBuffer()
+      const result = parseTaskWorkbook(buffer, list)
+      list = result.tasks
+      addedCount += result.addedCount
+      updatedCount += result.updatedCount
+      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
+    }
+    dispatch({ type: 'IMPORT_TASKS', payload: list })
+    return { addedCount, updatedCount, errors }
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-black">과제 관리</h2>
-        <button
-          onClick={openAddModal}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          + 과제 추가
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-lg font-semibold text-black">과제 관리</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <CurrentDataDownloadControls
+            disabled={state.tasks.length === 0}
+            onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
+            onPdfDownload={() => downloadTasksPdf(teamName, periodName, state.tasks, state.criteria)}
+          />
+          <TitleUploadControls busyLabel="과제 업로드 중..." onDownload={downloadTaskTemplate} onFiles={handleUploadFiles} />
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
         과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
       </p>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 px-4 py-3">
-        <button
-          onClick={downloadTaskTemplate}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
-        >
-          엑셀 양식 다운로드
-        </button>
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-md border-2 border-accent px-3 py-2 text-sm font-semibold text-accent hover:bg-orange-50"
-        >
-          엑셀로 업로드
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls"
-          className="hidden"
-          onChange={handleFileSelected}
-        />
-        <span className="text-sm text-gray-500">
-          과제명, 과제등급(중점/핵심/일반/지원), 업무량(대/중/소), 목표, 성과, 성과등급(S/A/B/C/D) 컬럼을 포함한 엑셀 파일을 업로드하세요.
-        </span>
+      <div className="mt-4 rounded-lg border border-gray-200 p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
+          <div>
+            <label className="block text-sm font-medium text-black">
+              과제명 <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="예: 신규 랜딩페이지 제작"
+              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
+                newFormError ? 'border-danger' : 'border-gray-300'
+              }`}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">과제등급</label>
+            <select
+              value={newImportance}
+              onChange={(e) => setNewImportance(e.target.value as Importance)}
+              disabled={!isImportanceUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {IMPORTANCE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">업무량</label>
+            <select
+              value={newWorkload}
+              onChange={(e) => setNewWorkload(e.target.value as Workload)}
+              disabled={!isWorkloadUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {WORKLOAD_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">성과등급</label>
+            <select
+              value={newPerformanceGrade}
+              onChange={(e) => setNewPerformanceGrade(e.target.value as PerformanceGrade)}
+              disabled={!isPerformanceGradeUsed}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            >
+              {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">목표</label>
+            <input
+              type="text"
+              value={newObjective}
+              onChange={(e) => setNewObjective(e.target.value)}
+              placeholder="예: 전환율 15% 개선"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">성과</label>
+            <input
+              type="text"
+              value={newAchievement}
+              onChange={(e) => setNewAchievement(e.target.value)}
+              placeholder="예: 전환율 18% 달성 (선택)"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div className="flex items-end">
+            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
+              + 과제 추가
+            </Button>
+          </div>
+        </div>
+
+        {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
       </div>
 
-      {importResult && (
-        <ImportFeedback
-          addedCount={importResult.addedCount}
-          updatedCount={importResult.updatedCount}
-          errors={importResult.errors}
-          onDismiss={() => {
-            setImportResult(null)
-            setRecentlyAddedIds(new Set())
-          }}
-        />
-      )}
-
       {state.tasks.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm leading-relaxed text-gray-500">
-          등록된 과제가 없습니다.
-          <br />
-          '+ 과제 추가' 버튼으로 직접 등록하거나,
-          <br />
-          위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
-        </p>
+        <EmptyStateDropzone
+          title="등록된 과제가 없습니다"
+          addHint="위의 '+ 과제 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
+          busyLabel="과제 업로드 중..."
+          onDownloadTemplate={downloadTaskTemplate}
+          onFiles={handleUploadFiles}
+        />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full min-w-[820px] text-left text-sm">
+        <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
-              <th className="px-4 py-3 font-semibold">과제명</th>
-              <th className="px-4 py-3 font-semibold">과제등급</th>
-              <th className="px-4 py-3 font-semibold">성과등급</th>
-              <th className="px-4 py-3 font-semibold">업무량</th>
-              <th className="px-4 py-3 font-semibold">목표</th>
-              <th className="px-4 py-3 font-semibold">성과</th>
-              <th className="px-4 py-3 font-semibold">관리</th>
+              {(
+                [
+                  ['name', '과제명'],
+                  ['taskGrade', '과제등급'],
+                  ['performanceGrade', '성과등급'],
+                  ['workload', '업무량'],
+                  ['objective', '목표'],
+                  ['achievement', '성과'],
+                  ['manage', '관리'],
+                ] as const
+              ).map(([key, label]) => (
+                <ResizableTh
+                  key={key}
+                  width={cols.widths[key]}
+                  resizable={key !== 'manage'}
+                  onResizeStart={cols.startResize(key)}
+                  onResizeMove={cols.onResizeMove}
+                  onResizeEnd={cols.onResizeEnd}
+                >
+                  {label}
+                </ResizableTh>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {state.tasks.map((task) => (
+            {state.tasks.map((task) => {
+              const isEditing = editingId === task.id
+
+              if (isEditing) {
+                return (
+                  <tr key={task.id} className="border-t border-gray-200 bg-blue-50/40 text-black">
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        className={`w-full rounded-md border px-2 py-1.5 text-sm text-black ${
+                          editFormError ? 'border-danger' : 'border-gray-300'
+                        }`}
+                      />
+                      {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.importance}
+                        onChange={(e) => setEditForm((f) => ({ ...f, importance: e.target.value as Importance }))}
+                        disabled={!isImportanceUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {IMPORTANCE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.performanceGrade}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, performanceGrade: e.target.value as PerformanceGrade }))
+                        }
+                        disabled={!isPerformanceGradeUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <select
+                        value={editForm.workload}
+                        onChange={(e) => setEditForm((f) => ({ ...f, workload: e.target.value as Workload }))}
+                        disabled={!isWorkloadUsed}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                      >
+                        {WORKLOAD_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.objective}
+                        onChange={(e) => setEditForm((f) => ({ ...f, objective: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        value={editForm.achievement}
+                        onChange={(e) => setEditForm((f) => ({ ...f, achievement: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <div className="flex items-center gap-1">
+                        <IconButton onClick={() => saveEdit(task)} title="저장" aria-label="저장">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </IconButton>
+                        <IconButton onClick={cancelEdit} title="취소" aria-label="취소" tone="danger">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <path d="M18 6 6 18" />
+                            <path d="m6 6 12 12" />
+                          </svg>
+                        </IconButton>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              }
+
+              return (
               <tr key={task.id} className="border-t border-gray-200 text-black">
                 <td className="px-4 py-3 font-medium">
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
                     {recentlyAddedIds.has(task.id) && (
-                      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      <span className="rounded-full bg-success px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                         N
                       </span>
                     )}
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                      {(scoreByTaskId.get(task.id) ?? 0).toFixed(1)}점
+                    </span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                      {participantCountByTaskId.get(task.id) ?? 0}명
+                    </span>
                   </span>
                 </td>
-                <td className="px-4 py-3">{task.importance}</td>
-                <td className="px-4 py-3">{task.performanceGrade}</td>
-                <td className="px-4 py-3">{task.workload}</td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {task.importance}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-bold ${
+                      isPerformanceGradeUsed ? GRADE_COLORS[task.performanceGrade] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {task.performanceGrade}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      isWorkloadUsed ? WORKLOAD_COLORS[task.workload] : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {task.workload}
+                  </span>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{task.objective || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditModal(task)}
-                      className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium hover:bg-gray-100"
-                    >
-                      수정
-                    </button>
-                    <button
-                      onClick={() => setDeletingTask(task)}
-                      className="rounded-md border border-danger px-3 py-1 text-xs font-medium text-danger hover:bg-red-50"
-                    >
-                      삭제
-                    </button>
+                    <IconButton onClick={() => startEdit(task)} title="수정" aria-label="수정">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                      </svg>
+                    </IconButton>
+                    <span className="h-4 w-px bg-gray-200" />
+                    <IconButton onClick={() => setDeletingTask(task)} title="삭제" aria-label="삭제" tone="danger">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </IconButton>
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>
-      )}
-
-      {modalOpen && (
-        <TaskModal
-          initialTask={editingTask}
-          existingNames={state.tasks.map((t) => t.name)}
-          onSave={handleSave}
-          onClose={() => {
-            setModalOpen(false)
-            setEditingTask(null)
-          }}
-        />
       )}
 
       <ConfirmDialog

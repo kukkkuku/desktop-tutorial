@@ -1,12 +1,78 @@
+@import '@fontsource/pretendard/400.css';
+@import '@fontsource/pretendard/500.css';
+@import '@fontsource/pretendard/600.css';
+@import '@fontsource/pretendard/700.css';
+@import '@fontsource/pretendard/800.css';
+@import '@fontsource/pretendard/900.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html,
+html {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* 기본 폰트 규칙: 프리텐다드, 바디(명시적 사이즈가 없는 텍스트) 기본
+   14px, 앱 전체 최소 폰트 크기 13px(위 tailwind.config의 text-xs 조정과
+   함께 적용). html이 아니라 body에만 지정 -- html의 font-size를 바꾸면
+   Tailwind의 rem 기반 유틸리티(spacing, text-base 등)가 전부 그 배율로
+   줄어들어 레이아웃 전체가 틀어진다. */
 body {
   color-scheme: light;
   background-color: #ffffff;
   color: #000000;
-  overflow-x: hidden;
+  font-size: 14px;
+}
+
+/* overflow-x: clip (not hidden) so this only clips visual overflow without
+   turning #root into a scroll container -- any ancestor with overflow other
+   than visible/clip breaks position: sticky descendants, since sticky sticks
+   relative to the nearest actual scroll container instead of the viewport. */
+#root {
+  overflow-x: clip;
   max-width: 100%;
+}
+
+/* Filled-progress track + accent thumb for the criteria weight sliders. The
+   input's own `background` (set inline per-value as a two-stop gradient) is
+   what actually paints the blue/gray split -- the track pseudo-elements
+   are left transparent so that gradient shows through underneath them. */
+.criteria-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+.criteria-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent;
+}
+.criteria-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: transparent;
+}
+.criteria-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  border-radius: 9999px;
+  background: #2563eb;
+  cursor: pointer;
+}
+.criteria-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 9999px;
+  background: #2563eb;
+  cursor: pointer;
 }

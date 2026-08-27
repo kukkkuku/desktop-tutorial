@@ -10,11 +10,14 @@ import type {
   Workload,
 } from '../types'
 
-export const IMPORTANCE_WEIGHT: Record<Importance, number> = {
-  중점: 1.3,
-  핵심: 1.1,
-  일반: 1.0,
-  지원: 0.8,
+// Task-grade score, on the same 0-100+ point scale as PERFORMANCE_SCORE
+// (100 = neutral/no-effect), rather than a raw multiplier — easier to read
+// at a glance than a "1.3배" style factor.
+export const IMPORTANCE_SCORE: Record<Importance, number> = {
+  중점: 130,
+  핵심: 110,
+  일반: 100,
+  지원: 80,
 }
 
 export const PERFORMANCE_SCORE: Record<PerformanceGrade, number> = {
@@ -55,7 +58,7 @@ export function calcTaskScore(task: Task, criteria: Criteria): number {
     PERFORMANCE_SCORE[task.performanceGrade],
     criteria.performanceGradeWeight,
   )
-  const importanceWeight = blendByWeight(1.0, IMPORTANCE_WEIGHT[task.importance], criteria.taskGradeWeight)
+  const importanceWeight = blendByWeight(100, IMPORTANCE_SCORE[task.importance], criteria.taskGradeWeight) / 100
   const workloadFactor = blendByWeight(1.0, WORKLOAD_FACTOR[task.workload], criteria.workloadWeight)
   return performanceScore * importanceWeight * workloadFactor
 }
@@ -85,6 +88,24 @@ export function getContributionPercent(
   return getContribution(contributions, taskId, memberId)?.contributionPercent ?? 0
 }
 
+// The contribution % entered per task/member always has to sum to 100 across
+// that task's participants (enforced in the matrix), so blending each
+// participant's share toward an equal split preserves that sum exactly:
+// blend(equalShare, actual, w) summed over participants = 100 regardless of
+// w, since sum(actual) = 100 and sum(equalShare) = participantCount*equalShare = 100.
+export function getEffectiveContributionPercent(
+  contributions: Contribution[],
+  taskId: string,
+  memberId: string,
+  contributionWeight: number,
+): number {
+  const actual = getContributionPercent(contributions, taskId, memberId)
+  if (actual <= 0) return 0
+  const participantCount = contributions.filter((c) => c.taskId === taskId && c.contributionPercent > 0).length
+  const equalShare = participantCount > 0 ? 100 / participantCount : 0
+  return blendByWeight(equalShare, actual, contributionWeight)
+}
+
 export function getPersonalPerformanceGrade(
   contributions: Contribution[],
   taskId: string,
@@ -93,9 +114,13 @@ export function getPersonalPerformanceGrade(
   return getContribution(contributions, taskId, memberId)?.personalPerformanceGrade ?? 'B'
 }
 
-export function getTaskContributionSum(contributions: Contribution[], taskId: string): number {
+export function getTaskContributionSum(
+  contributions: Contribution[],
+  taskId: string,
+  activeMemberIds?: Set<string>,
+): number {
   return contributions
-    .filter((c) => c.taskId === taskId)
+    .filter((c) => c.taskId === taskId && (!activeMemberIds || activeMemberIds.has(c.memberId)))
     .reduce((sum, c) => sum + c.contributionPercent, 0)
 }
 
@@ -143,7 +168,7 @@ export function calcMemberCumulativeScore(
 ): number {
   return taskScores.reduce((sum, row) => {
     const contribution = getContribution(contributions, row.task.id, member.id)
-    const percent = contribution?.contributionPercent ?? 0
+    const percent = getEffectiveContributionPercent(contributions, row.task.id, member.id, criteria.contributionWeight)
     const personalFactor = calcPersonalGradeFactor(contribution, criteria)
     return sum + row.score * (percent / 100) * personalFactor
   }, 0)
@@ -177,6 +202,28 @@ export function calcMemberParticipation(
   return { count, totalShare }
 }
 
+// Same as calcMemberParticipation but sums effective (contribution-weight-
+// blended) share instead of raw entered %, so weightedAverageScore divides
+// by the same basis calcMemberCumulativeScore was built on.
+function calcMemberEffectiveParticipation(
+  member: TeamMember,
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+): { count: number; totalShare: number } {
+  let count = 0
+  let totalShare = 0
+  for (const task of tasks) {
+    const percent = getContributionPercent(contributions, task.id, member.id)
+    if (percent > 0) {
+      count += 1
+      const effective = getEffectiveContributionPercent(contributions, task.id, member.id, criteria.contributionWeight)
+      totalShare += effective / 100
+    }
+  }
+  return { count, totalShare }
+}
+
 export function calcEvaluationGrade(ratio: number): EvaluationGrade {
   if (ratio >= 1.2) return 'S'
   if (ratio >= 1.0) return 'A'
@@ -200,7 +247,7 @@ export function calcMemberResults(
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, contributions, criteria)
       const peerReviewFactor = calcPeerReviewFactor(peerReviews, member.id, criteria)
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
-      const { count, totalShare } = calcMemberParticipation(member, tasks, contributions)
+      const { count, totalShare } = calcMemberEffectiveParticipation(member, tasks, contributions, criteria)
       return { member, cumulativeScore, participatedTaskCount: count, totalShare }
     })
 
@@ -220,7 +267,11 @@ export function calcMemberResults(
     }
   })
 
-  return rows.sort((a, b) => b.weightedAverageScore - a.weightedAverageScore)
+  // ratio (and therefore grade) is cumulativeScore divided by the same
+  // expectedScore for everyone, so sorting by cumulativeScore keeps rank
+  // order consistent with grade order. weightedAverageScore is kept as a
+  // supplementary, workload-normalized figure but does not drive the sort.
+  return rows.sort((a, b) => b.cumulativeScore - a.cumulativeScore)
 }
 
 export const GRADE_COLORS: Record<EvaluationGrade, string> = {
