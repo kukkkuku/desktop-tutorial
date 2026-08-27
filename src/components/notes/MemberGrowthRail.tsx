@@ -4,6 +4,7 @@ import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import Badge from '../Badge'
+import Button from '../Button'
 import type { TeamMember } from '../../types'
 
 function UploadIcon({ className }: { className?: string }) {
@@ -28,6 +29,10 @@ interface MemberGrowthRailProps {
 // 팀원 색상 대신 이번 고과 등급 배지를 붙여, 탭만 훑어봐도 등급이 바로
 // 보이게 한다("황"처럼 성만 보여주는 아바타는 불필요한 정보였다). 승진
 // 가능 여부도 상세 화면 헤더 대신 여기서 바로 보여준다.
+//
+// 폭은 브라우저 탭처럼 기본 200px에서 시작해, 팀원이 늘어나 다 못 들어가면
+// 탭들이 균등하게 줄어든다(flex-basis 200px + shrink, 바닥은 88px). "팀원
+// 관리" 버튼은 이 그룹 밖에 있어(shrink-0) 늘 고정 크기를 유지한다.
 export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onManageTeam, onImportHistory }: MemberGrowthRailProps) {
   const { state } = useAppState()
   const { profile } = useTeamProfile()
@@ -64,15 +69,19 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
             <button
               key={member.id}
               onClick={() => onSelectMember(member.id)}
-              className={`flex w-auto shrink-0 items-center gap-1.5 whitespace-nowrap rounded-t-lg px-3 py-2.5 text-left transition-colors ${
+              className={`flex min-w-[88px] flex-[1_1_200px] items-center gap-1.5 overflow-hidden rounded-t-lg px-3 py-2.5 text-left transition-colors ${
                 isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-gray-100 hover:bg-gray-200/70'
               }`}
             >
               <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-gray-200 text-gray-400'}`}>
                 {grade ?? '-'}
               </span>
-              <span className={`text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
-              {eligible && <Badge tone="accent">승진 가능</Badge>}
+              <span className={`min-w-0 truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
+              {eligible && (
+                <Badge tone="accent" className="shrink-0">
+                  승진 가능
+                </Badge>
+              )}
             </button>
           )
         })
@@ -86,13 +95,15 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
 
       {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 한 번에 여러 팀원에게
           적용되므로 특정 팀원 화면이 아니라 탭 바 우측(전체 팀원 대상)에 둔다.
-          버튼 스타일은 다른 화면의 엑셀 업로드 버튼(TitleUploadControls)과 통일. */}
-      <button
+          버튼은 앱 전체가 공유하는 Button 컴포넌트(secondary)를 그대로 써서
+          다른 화면 버튼들과 색/굵기가 어긋나지 않게 한다. */}
+      <Button
+        variant="secondary"
         onClick={onImportHistory}
-        className="mb-1 ml-auto flex shrink-0 items-center gap-1.5 rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-blue-50"
+        className="mb-1 ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap"
       >
-        <UploadIcon className="h-4 w-4" /> 엑셀로 가져오기
-      </button>
+        <UploadIcon className="h-4 w-4" /> 지난 성과 엑셀파일 불러오기
+      </Button>
     </div>
   )
 }
