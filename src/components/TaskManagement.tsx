@@ -114,8 +114,8 @@ export default function TaskManagement() {
           위의 '엑셀로 업로드' 버튼으로 여러 과제를 한 번에 등록할 수 있습니다.
         </p>
       ) : (
-      <div className="mt-4 rounded-lg border border-gray-200">
-        <table className="w-full text-left text-sm">
+      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               <th className="px-4 py-3 font-semibold">과제명</th>
