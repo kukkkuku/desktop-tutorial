@@ -291,7 +291,17 @@ export default function TaskManagement() {
         />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: cols.totalWidth }}>
+        {/* 팀원관리 표와 같은 규칙 -- 컨테이너를 꽉 채우되(width 100%), 너무
+            좁아지면 가로 스크롤로 넘긴다(minWidth). 예전에는 폭을 컬럼 너비의
+            합(cols.totalWidth = 980px)으로 고정해서, 넓은 화면에서는 표가 화면
+            중간에서 끊기고 오른쪽이 빈 채로 남았다. minWidth에서 성과 컬럼을
+            빼는 것은 목표·성과처럼 글이 들어가는 칸이 조금 줄어드는 편이
+            등급·업무량 같은 짧은 칸이 줄어드는 것보다 낫기 때문이다(팀원관리도
+            같은 이유로 역할 컬럼을 뺀다). */}
+        <table
+          className="table-fixed text-left text-sm"
+          style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}
+        >
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(

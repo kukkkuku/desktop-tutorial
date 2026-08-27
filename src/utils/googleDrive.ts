@@ -102,11 +102,60 @@ let cachedEmail: string | null = null
 // 범위).
 const PERSISTED_EMAIL_KEY = 'google-account-email'
 
+// "이 브라우저에서 로그인 유지"를 켜면 마지막 로그인 계정을 탭이 아니라
+// 브라우저 단위로(localStorage) 남긴다 -- 새로고침은 물론 브라우저를 닫았다
+// 열어도 로그인 화면을 다시 거치지 않는다. 체크를 안 하면 아래
+// REMEMBERED_EMAIL_KEY만 남아서, 다음 로그인 화면에서 "○○○으로 계속"을
+// 물어보는 데만 쓴다(자동 통과는 안 함).
+const KEEP_LOGIN_KEY = 'google-keep-login'
+const REMEMBERED_EMAIL_KEY = 'google-remembered-email'
+
 function readPersistedEmail(): string | null {
   try {
-    return sessionStorage.getItem(PERSISTED_EMAIL_KEY)
+    return sessionStorage.getItem(PERSISTED_EMAIL_KEY) ?? (isKeepLoginEnabled() ? readRememberedEmail() : null)
   } catch {
     return null
+  }
+}
+
+// 마지막으로 로그인한 계정 이메일. "로그인 유지" 여부와 상관없이 남겨두고,
+// 로그인 화면에서 "○○○으로 계속" 안내를 띄우는 데 쓴다.
+export function readRememberedEmail(): string | null {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function isKeepLoginEnabled(): boolean {
+  try {
+    return localStorage.getItem(KEEP_LOGIN_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+// 로그인에 성공했을 때 호출한다. keepLogin이 false면 "계속하시겠습니까"
+// 안내에 쓸 이메일만 남기고 자동 통과 플래그는 지운다.
+export function rememberLogin(email: string | null, keepLogin: boolean): void {
+  try {
+    if (email) localStorage.setItem(REMEMBERED_EMAIL_KEY, email)
+    if (keepLogin) localStorage.setItem(KEEP_LOGIN_KEY, '1')
+    else localStorage.removeItem(KEEP_LOGIN_KEY)
+  } catch {
+    // 저장 실패해도 이번 세션 로그인 자체는 이미 끝난 상태다.
+  }
+}
+
+// 로그아웃 -- 자동 통과 플래그와 기억해둔 계정을 모두 지운다. 다음에는
+// "○○○으로 계속" 안내 없이 처음부터 로그인해야 한다.
+export function forgetLogin(): void {
+  try {
+    localStorage.removeItem(KEEP_LOGIN_KEY)
+    localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+  } catch {
+    // 못 지워도 disconnectDrive()가 토큰은 확실히 버린다.
   }
 }
 
@@ -182,9 +231,14 @@ function requestAccessToken(promptOverride?: string): Promise<string> {
 
 // "Drive 연결" 버튼에서 명시적으로 호출한다. 로그인 팝업을 띄우고, 성공하면
 // isConnected()가 true를 반환하게 된다.
-export async function connectDrive(): Promise<void> {
+//
+// selectAccount -- 로그인 화면의 "다른 계정으로 로그인"에서 true로 부른다.
+// 이미 브라우저에 로그인된 구글 세션이 하나뿐이면 구글이 계정 선택 없이
+// 그대로 통과시켜 버려서, 계정을 바꾸고 싶어도 못 바꾸는 상황이 생긴다.
+// prompt: 'select_account'를 넘기면 계정 선택 화면을 항상 띄운다.
+export async function connectDrive(selectAccount = false): Promise<void> {
   await loadGis()
-  await requestAccessToken()
+  await requestAccessToken(selectAccount ? 'select_account' : undefined)
 }
 
 // 헤더 계정 메뉴의 "+ 다른 Google 계정 연결" -- 이미 로그인돼 있어도 구글
