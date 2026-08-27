@@ -15,7 +15,6 @@ import {
 } from '../utils/localSave'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
-import BulkUploadPanel from './BulkUploadPanel'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import Spinner from './Spinner'
@@ -36,11 +35,16 @@ type Tab = 'local' | 'drive' | 'admin' | 'reset'
 // 이 프로젝트는 모든 아이콘을 currentColor 획선 SVG로 통일해서 쓰므로(다른
 // 탭·버튼과 같은 관례) 같은 방식으로 맞춘다. DriveIcon은 GoogleAccountMenu의
 // "구글 드라이브로 이동" 아이콘과 동일한 모양을 재사용.
+//
+// "로컬 파일"은 파일 하나가 아니라 "이 기기(로컬)에 저장"을 뜻하므로,
+// Figma 디자인(node 76:12)에도 문서 아이콘이 아니라 모니터 아이콘으로
+// 그려져 있다 -- 이전에 문서 아이콘으로 잘못 옮겨졌던 걸 바로잡는다.
 function LocalFileIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
     </svg>
   )
 }
@@ -236,7 +240,33 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 </div>
               )}
 
-              <BulkUploadPanel />
+              {/* "로컬 파일" 탭은 이름대로 이 기기에 지금 데이터를 백업하는
+                  용도다 -- 새 데이터를 올리는 "전체 일괄 업로드"는 온보딩
+                  성격이라 빠른 시작(Excel로 시작 탭)에만 두고 여기서는
+                  뺐다. */}
+              <div className="rounded-md border border-gray-200 p-4">
+                <p className="text-sm font-semibold text-black">지금 데이터 백업</p>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-4 py-2">
+                    로컬 파일로 백업 (JSON)
+                  </Button>
+                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-4 py-2">
+                    엑셀로 백업
+                  </Button>
+                  {isBusy && (
+                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <Spinner className="h-3.5 w-3.5 text-accent" />
+                      {loadingLabel}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                  JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님).
+                </p>
+              </div>
 
               <div className="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-500">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
