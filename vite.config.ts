@@ -2,6 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/desktop-tutorial/' : '/',
+  base: process.env.VITE_BASE_PATH || (command === 'build' ? '/desktop-tutorial/' : '/'),
   plugins: [react()],
 }))
