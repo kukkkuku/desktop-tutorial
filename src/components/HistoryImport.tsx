@@ -104,7 +104,7 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
               </div>
 
               {/* Connected Members */}
-              <div className="mb-4 flex flex-wrap gap-2 rounded-lg bg-blue-50 p-3">
+              <div className="mb-4 flex flex-col gap-2 rounded-lg bg-blue-50 p-3">
                 {connectedMembers.map((member, idx) => (
                   <div key={idx} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 border border-gray-200">
                     <p className="text-sm font-semibold text-gray-900">{member.name}</p>
