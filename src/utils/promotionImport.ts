@@ -216,22 +216,33 @@ function toFlatGrade(raw: string): EvaluationGrade | '' {
   return VALID_GRADES.has(trimmed) ? (trimmed as EvaluationGrade) : ''
 }
 
-function findFlatPerformanceSheet(wb: XLSX.WorkBook): XLSX.WorkSheet | null {
+interface FlatPerformanceSheet {
+  ws: XLSX.WorkSheet
+  headerRow: number
+}
+
+// 실제 업로드되는 "이전 성과" 파일은 헤더 행 위에 제목/부제 행이 한두 줄 더
+// 있는 경우가 흔하다(안내 시트 자체와는 별개로, 데이터 시트 안에서도). 첫
+// 행을 헤더로 단정하지 않고 위쪽 몇 행을 스캔해 실제 헤더 행을 찾는다.
+function findFlatPerformanceSheet(wb: XLSX.WorkBook): FlatPerformanceSheet | null {
   for (const name of wb.SheetNames) {
     const ws = wb.Sheets[name]
-    const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
-    const headers = new Set(headerRow.map((h) => String(h ?? '').trim()))
-    if (headers.has(FLAT_NAME_HEADER) && headers.has(FLAT_YEAR_HEADER)) return ws
+    const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+    for (let i = 0; i < Math.min(rows.length, 8); i++) {
+      const headers = new Set((rows[i] ?? []).map((h) => String(h ?? '').trim()))
+      if (headers.has(FLAT_NAME_HEADER) && headers.has(FLAT_YEAR_HEADER)) return { ws, headerRow: i }
+    }
   }
   return null
 }
 
 function parseFlatPerformanceWorkbook(buffer: ArrayBuffer): ParsedEmployeeSheet[] {
   const wb = XLSX.read(buffer, { type: 'array' })
-  const ws = findFlatPerformanceSheet(wb)
-  if (!ws) return []
+  const found = findFlatPerformanceSheet(wb)
+  if (!found) return []
+  const { ws, headerRow } = found
 
-  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+  const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws, { defval: '', range: headerRow })
   const results: ParsedEmployeeSheet[] = []
   let current: ParsedEmployeeSheet | null = null
 

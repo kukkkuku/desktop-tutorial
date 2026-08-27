@@ -719,10 +719,20 @@ export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMem
 export type WorkbookKind = 'task' | 'member' | 'peer' | 'history'
 
 // 시트 하나를 넘겨받아 헤더 집합을 돌려준다 -- detectWorkbookKind가 "안내"
-// 시트를 지나쳐 실제 데이터 시트까지 훑어보는 데 쓴다.
+// 시트를 지나쳐 실제 데이터 시트까지 훑어보는 데 쓴다. 첫 행만 보지 않고
+// 위쪽 몇 행을 다 훑는 이유: "이전 성과" 양식처럼 제목/부제 행이 실제
+// 헤더 행 위에 몇 줄 더 있는 경우, 첫 행만 보면 헤더 신호(이름/평가연도
+// 등)를 영영 못 찾아 종류 판정 자체가 실패한다.
 function headerSetOf(ws: XLSX.WorkSheet): Set<string> {
-  const headerRow: unknown[] = (XLSX.utils.sheet_to_json(ws, { header: 1 })[0] as unknown[]) ?? []
-  return new Set(headerRow.map((h) => String(h ?? '').trim()))
+  const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+  const headers = new Set<string>()
+  for (const row of rows.slice(0, 8)) {
+    for (const cell of row ?? []) {
+      const text = String(cell ?? '').trim()
+      if (text) headers.add(text)
+    }
+  }
+  return headers
 }
 
 // Classifies an uploaded file by its header row instead of its filename, so
