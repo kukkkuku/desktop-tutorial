@@ -233,7 +233,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const periods = workspaces.filter((w) => w.teamName === teamName)
   const member = state.members.find((m) => m.id === memberId)
 
-  const [insightsOpen, setInsightsOpen] = useState(true)
+  // 면담 화면의 기본 상태는 "면담일지만 열려 있는" 것이다 -- 이 탭에 들어오는
+  // 목적이 대개 면담 내용을 바로 적는 것이라, 인사이트·면담 기록·육성 포인트가
+  // 다 펼쳐져 있으면 정작 입력칸이 밀려 좁아진다. 인사이트는 필요할 때 펼쳐
+  // 보게 하고(면담 기록·육성 포인트는 원래 기본 접힘), 남는 세로 공간은
+  // 입력칸이 가져간다.
+  const [insightsOpen, setInsightsOpen] = useState(false)
   // 성과 카드(현재 + 지난 기간) 접기/펼치기 -- 카드별 개별 상태. 현재
   // 보고 있는 평가기간만 기본으로 펼쳐두고 나머지는 접어둔다.
   const [openPeriods, setOpenPeriods] = useState<Set<string>>(() => new Set(currentWorkspace ? [currentWorkspace.id] : []))
@@ -807,7 +812,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </button>
               </div>
             ) : (
-              <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col rounded-xl border border-gray-200 bg-white p-5">
+                {/* 인사이트·면담 기록을 접어두면 카드가 내용 높이만큼만 줄어들어
+                    입력칸이 서너 줄짜리로 쪼그라든다. 화면 세로를 채우도록 최소
+                    높이를 뷰포트 기준으로 잡아두고(위쪽 헤더·팀원 탭·점수 바가
+                    차지하는 만큼 뺀다), 그 안에서 남는 공간은 입력칸이 가져간다. */}
                 <MeetingForm
                   member={member}
                   focusToken={prepRequest?.token ?? null}

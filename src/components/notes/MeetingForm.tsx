@@ -200,7 +200,9 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   )
 
   const logFormBlock = (
-    <div>
+    // 이 블록이 카드의 남은 세로를 다 차지하고, 그 안에서 입력칸 줄이 flex-1로
+    // 늘어난다 -- 2단(splitLayout)이든 위아래로 쌓이는 좁은 레이아웃이든 같다.
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Figma interview-form(36:1477) 그대로: 면담일지 라벨+날짜만 한 줄,
           그 아래 코멘트 textarea 옆에 분위기 선택 + 작성하기 버튼을 세로로
           쌓은 좁은 칸을 나란히 붙인다(따로 "코멘트"/"분위기" 라벨 없이
@@ -220,7 +222,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           textarea가 최소 폭(min-w) 아래로 밀리면 flex-wrap이 자동으로
           이 칸을 textarea 아래 줄로 내려보낸다 -- 별도 실측 없이 순수
           CSS만으로 반응형이 된다. */}
-      <div ref={logRowRef} className="mt-3 flex flex-wrap items-stretch gap-4">
+      <div ref={logRowRef} className="mt-3 flex min-h-0 flex-1 flex-wrap items-stretch gap-4">
         <textarea
           ref={commentRef}
           value={comment}
@@ -431,20 +433,26 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   )
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col">
       {splitLayout ? (
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-4">
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-6">
+          {/* 왼쪽(인사이트·면담 기록)은 기본이 접힘이라 짧지만, 펼쳐서 기록이
+              많아지면 이 칸 안에서만 스크롤한다 -- 카드 전체가 늘어나 오른쪽
+              입력칸까지 같이 길어지지 않도록. */}
+          <div className="min-h-0 space-y-4 overflow-y-auto">
             {insightsBlock}
             {historyBlock}
           </div>
-          <div>{logFormBlock}</div>
+          <div className="flex min-h-0 flex-col">{logFormBlock}</div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {insightsBlock}
+        // 위아래로 쌓이는 좁은 레이아웃에서도 입력칸이 남는 세로를 가져간다.
+        // 인사이트/기록은 접혀 있으면 한 줄짜리 헤더뿐이라 자리를 거의 안 쓰고,
+        // 펼치면 그만큼만 가져가고 나머지는 그대로 입력칸 몫이다.
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <div className="shrink-0">{insightsBlock}</div>
           {logFormBlock}
-          {historyBlock}
+          <div className="shrink-0">{historyBlock}</div>
         </div>
       )}
 
