@@ -714,6 +714,50 @@ export async function downloadCurrentMatrixExcel(tasks: Task[], members: TeamMem
   await downloadStyledWorkbook(wb, `평가매트릭스_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
+// ---------- 이전 성과(승진심사용 5개년 이력) 단순 표 양식 ----------
+// promotionImport.ts의 parseFlatPerformanceWorkbook이 읽는 것과 정확히 같은
+// 열 구성(이름/직급/승진심사 시기/평가연도/업적(상)/업적(하)/역량)이다. 팀원별로
+// 승진심사 시기 직전 5개년 행을 미리 만들어두고(이름/직급/승진심사 시기는
+// 첫 행에만), 등급 칸만 채우면 되게 한다.
+
+const HISTORY_TEMPLATE_COLUMNS: StyledColumn[] = [
+  { header: '이름', width: 12, role: 'freetext' },
+  { header: '직급', width: 10, role: 'category' },
+  { header: '승진심사 시기', width: 14, role: 'category' },
+  { header: '평가연도', width: 10, role: 'metric' },
+  { header: '업적(상)', width: 10, role: 'category' },
+  { header: '업적(하)', width: 10, role: 'category' },
+  { header: '역량', width: 10, role: 'category' },
+]
+
+function buildHistoryTemplateWorkbook(members: TeamMember[]): ExcelJS.Workbook {
+  const activeMembers = members.filter((m) => m.active)
+  const sourceMembers = activeMembers.length > 0 ? activeMembers : ([{ name: '김민준', level: '과장', promotionReviewDate: null }] as TeamMember[])
+  const rows: (string | number)[][] = []
+  for (const member of sourceMembers) {
+    const reviewYear = member.promotionReviewDate ? Number(member.promotionReviewDate.split('-')[0]) : new Date().getFullYear() + 1
+    for (let offset = 1; offset <= 5; offset += 1) {
+      const isFirstRow = offset === 1
+      rows.push([
+        isFirstRow ? member.name : '',
+        isFirstRow ? member.level || '' : '',
+        isFirstRow ? member.promotionReviewDate || '' : '',
+        reviewYear - offset,
+        '',
+        '',
+        '',
+      ])
+    }
+  }
+  const wb = new ExcelJS.Workbook()
+  addStyledSheet(wb, '성과입력', HISTORY_TEMPLATE_COLUMNS, rows, 0)
+  return wb
+}
+
+export async function downloadHistoryTemplate(members: TeamMember[]) {
+  await downloadStyledWorkbook(buildHistoryTemplateWorkbook(members), '이전성과_업로드_양식.xlsx')
+}
+
 // ---------- Unified data management (all three templates + content-based upload routing) ----------
 
 export type WorkbookKind = 'task' | 'member' | 'peer' | 'history'
@@ -786,19 +830,46 @@ export async function downloadAllWorkspacesExcelZip(
   await saveBlobLocally(blob, `전체_백업_엑셀_${new Date().toISOString().slice(0, 10)}.zip`)
 }
 
-export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember[]) {
-  const zip = new JSZip()
-  const [taskBuf, memberBuf, peerBuf] = await Promise.all([
-    buildTaskTemplateWorkbook().xlsx.writeBuffer(),
-    buildMemberTemplateWorkbook().xlsx.writeBuffer(),
-    buildPeerReviewTemplateWorkbook(tasks, members).xlsx.writeBuffer(),
-  ])
-  zip.file('과제_업로드_양식.xlsx', taskBuf)
-  zip.file('팀원_업로드_양식.xlsx', memberBuf)
-  zip.file('피어리뷰_업로드_양식.xlsx', peerBuf)
+// 종류별 양식 하나를 (파일명, 워크북) 쌍으로 만들어준다 -- 전체 ZIP과 "선택
+// 다운로드" 둘 다 같은 조합 로직(파일 하나면 그대로, 여럿이면 zip)을 타므로
+// 여기 한 곳에만 각 종류의 파일명/빌더를 연결해둔다.
+async function buildTemplateFile(kind: WorkbookKind, tasks: Task[], members: TeamMember[]): Promise<{ name: string; buffer: ExcelJS.Buffer }> {
+  switch (kind) {
+    case 'task':
+      return { name: '과제_업로드_양식.xlsx', buffer: await buildTaskTemplateWorkbook().xlsx.writeBuffer() }
+    case 'member':
+      return { name: '팀원_업로드_양식.xlsx', buffer: await buildMemberTemplateWorkbook().xlsx.writeBuffer() }
+    case 'peer':
+      return { name: '피어리뷰_업로드_양식.xlsx', buffer: await buildPeerReviewTemplateWorkbook(tasks, members).xlsx.writeBuffer() }
+    case 'history':
+      return { name: '이전성과_업로드_양식.xlsx', buffer: await buildHistoryTemplateWorkbook(members).xlsx.writeBuffer() }
+  }
+}
 
+const TEMPLATE_LABELS: Record<WorkbookKind, string> = { task: '과제', member: '팀원', peer: '피어리뷰', history: '이전성과' }
+
+// kinds가 하나면 그 파일을 바로 내려받고, 여럿이면 zip으로 묶는다 -- "전체 ZIP
+// 다운로드"와 "선택 다운로드" 버튼이 이 하나의 함수를 함께 쓴다.
+export async function downloadTemplates(kinds: WorkbookKind[], tasks: Task[], members: TeamMember[]) {
+  if (kinds.length === 0) return
+  if (kinds.length === 1) {
+    const { name, buffer } = await buildTemplateFile(kinds[0], tasks, members)
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    await saveBlobLocally(blob, name)
+    return
+  }
+  const zip = new JSZip()
+  for (const kind of kinds) {
+    const { name, buffer } = await buildTemplateFile(kind, tasks, members)
+    zip.file(name, buffer)
+  }
   const blob = await zip.generateAsync({ type: 'blob' })
-  await saveBlobLocally(blob, '전체_업로드_양식.zip')
+  const zipName = kinds.length === 4 ? '전체_업로드_양식.zip' : `${kinds.map((k) => TEMPLATE_LABELS[k]).join('_')}_업로드_양식.zip`
+  await saveBlobLocally(blob, zipName)
+}
+
+export async function downloadAllTemplatesZip(tasks: Task[], members: TeamMember[]) {
+  await downloadTemplates(['task', 'member', 'peer', 'history'], tasks, members)
 }
 
 // ---------- Results report export ----------
