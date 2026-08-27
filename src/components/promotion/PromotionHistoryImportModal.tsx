@@ -31,15 +31,30 @@ interface AppliedSummary {
   skipped: number
 }
 
+interface PromotionHistoryImportPanelProps {
+  initialFile?: File
+  // 적용 완료 버튼(초록색으로 바뀐 뒤)을 눌렀을 때 -- 호출부가 "다음으로
+  // 진행"까지 겸하고 싶으면(예: 빠른 시작에서 과제관리로 이동) 여기서 처리한다.
+  onApplied: () => void
+  // 우측 상단 닫기(X) -- 적용 여부와 무관하게 이 화면 자체를 치우고 싶을 때.
+  onDismiss: () => void
+}
+
 // 승진 시뮬레이션 Excel(시트당 팀원 1명, 연도별 업적·역량 등급)이나 이전
 // 성과 단순 표(한 시트에 팀원별 여러 행)를 읽어 이름이 일치하는 기존
 // 팀원에게 인사평가 이력을 바로 적용한다. 새 팀원을 만들지 않고, 적용 전
 // 매칭 결과를 미리 보여준다.
 //
+// 모달 전용이 아니라 순수 콘텐츠만 담은 패널이다 -- 빠른 시작의 "Excel로
+// 시작" 탭(BulkUploadPanel)은 이걸 팝업 위에 또 팝업을 띄우는 대신 같은
+// 화면 안에 그대로 이어 붙여서 쓴다(위쪽 드롭존이 그대로 보여야 파일을
+// 더 추가하기도 쉽다). 독립된 진입점(팀원 면담의 "지난 성과 엑셀파일
+// 불러오기")에서는 아래 PromotionHistoryImportModal로 감싸 모달로 띄운다.
+//
 // initialFile -- 다른 업로드 경로(예: 전체 일괄 업로드에 이전 성과 파일이
 // 섞여 있던 경우)에서 이미 고른 파일을 넘겨주면 드래그·선택 단계를
 // 건너뛰고 바로 매칭 미리보기로 시작한다.
-export default function PromotionHistoryImportModal({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
+export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss }: PromotionHistoryImportPanelProps) {
   const { state, dispatch } = useAppState()
   const { profile, upsertAppraisal } = useTeamProfile()
   const cols = useResizableColumns(PREVIEW_COLUMNS)
@@ -122,20 +137,19 @@ export default function PromotionHistoryImportModal({ onClose, initialFile }: { 
   const matchedCount = matches?.filter((m, i) => resolvedMember(m, i)).length ?? 0
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-black">인사평가 이력 엑셀로 가져오기</h3>
-            <p className="mt-1 text-[13px] text-gray-500">
-              승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
-              이름이 일치하는 현재 팀원에게 바로 적용합니다.
-            </p>
-          </div>
-          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
-            <CloseIcon className="h-5 w-5" />
-          </IconButton>
+    <div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-black">인사평가 이력 엑셀로 가져오기</h3>
+          <p className="mt-1 text-[13px] text-gray-500">
+            승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
+            이름이 일치하는 현재 팀원에게 바로 적용합니다.
+          </p>
         </div>
+        <IconButton onClick={onDismiss} aria-label="닫기" className="shrink-0">
+          <CloseIcon className="h-5 w-5" />
+        </IconButton>
+      </div>
 
         {!matches && (
           <label
@@ -268,7 +282,7 @@ export default function PromotionHistoryImportModal({ onClose, initialFile }: { 
             ) : (
               <button
                 type="button"
-                onClick={applied ? onClose : handleApply}
+                onClick={applied ? onApplied : handleApply}
                 className={`mt-4 flex w-full items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-medium text-white transition-colors ${
                   applied ? 'bg-success' : 'bg-accent hover:opacity-90'
                 }`}
@@ -287,7 +301,7 @@ export default function PromotionHistoryImportModal({ onClose, initialFile }: { 
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
-                {applied ? '적용 완료 · 닫기' : `${matchedCount}명에게 적용`}
+                {applied ? '적용 완료' : `${matchedCount}명에게 적용`}
               </button>
             )}
 
@@ -299,6 +313,18 @@ export default function PromotionHistoryImportModal({ onClose, initialFile }: { 
             )}
           </div>
         )}
+    </div>
+  )
+}
+
+// 독립 진입점(예: 팀원 면담 화면의 "지난 성과 엑셀파일 불러오기")에서만
+// 쓰는 모달 래퍼 -- 배경 딤 처리와 카드 틀만 담당하고 실제 내용은 위
+// PromotionHistoryImportPanel 그대로 재사용한다.
+export default function PromotionHistoryImportModal({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+        <PromotionHistoryImportPanel initialFile={initialFile} onApplied={onClose} onDismiss={onClose} />
       </div>
     </div>
   )

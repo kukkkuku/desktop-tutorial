@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useAppState } from '../state/AppContext'
 import { detectWorkbookKind, downloadAllTemplatesZip, parseMemberWorkbook, parsePeerReviewWorkbook, parseTaskWorkbook } from '../utils/excel'
-import PromotionHistoryImportModal from './promotion/PromotionHistoryImportModal'
+import { PromotionHistoryImportPanel } from './promotion/PromotionHistoryImportModal'
 import Button from './Button'
 import Spinner from './Spinner'
 
@@ -200,14 +200,20 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
         </div>
       )}
 
+      {/* 이전 성과 파일은 별도 팝업으로 또 띄우지 않고 이 화면 안에 그대로
+          이어 붙인다 -- 위 드롭존이 계속 보이므로 파일을 더 추가하고
+          싶으면 팝업을 닫을 필요 없이 바로 더 올릴 수 있다. */}
       {historyFile && (
-        <PromotionHistoryImportModal
-          initialFile={historyFile}
-          onClose={() => {
-            setHistoryFile(null)
-            onDone?.()
-          }}
-        />
+        <div className="rounded-lg border border-gray-200 p-4">
+          <PromotionHistoryImportPanel
+            initialFile={historyFile}
+            onApplied={() => {
+              setHistoryFile(null)
+              onDone?.()
+            }}
+            onDismiss={() => setHistoryFile(null)}
+          />
+        </div>
       )}
     </div>
   )
