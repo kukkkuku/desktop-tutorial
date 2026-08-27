@@ -64,7 +64,13 @@ interface BulkSummary {
 // 탭처럼 업로드가 끝났을 때 과제관리 탭으로 이동시키는 콜백). 데이터 관리
 // 드로어에서 쓸 때는 넘기지 않아, 그 화면에서는 지금처럼 배너만 뜨고 그
 // 자리에 머무른다.
-export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}) {
+// wide -- 좌우 2단(양식 목록/업로드) 레이아웃을 쓸지 여부. 빠른 시작
+// 팝업(max-w-5xl, 1024px)은 충분히 넓어서 켜지만, 데이터 관리 드로어의
+// "로컬 파일" 탭(max-w-lg, 512px)은 같은 md: 브레이크포인트에서 2단을
+// 강제로 욱여넣으면 왼쪽 칼럼이 너무 좁아져 텍스트가 한 글자씩 세로로
+// 줄바꿈됐다 -- Tailwind의 md:는 뷰포트 기준이라 이 컴포넌트를 감싸는
+// 컨테이너가 좁은지 넓은지는 구분 못 하므로, 호출하는 쪽이 직접 알려준다.
+export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () => void; wide?: boolean } = {}) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews } = state
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
@@ -213,13 +219,13 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
         <p className="mt-0.5 text-xs text-gray-500">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
       </div>
 
-      {/* 왼쪽(양식)보다 오른쪽(업로드)이 실제로 더 많이 쓰는 영역이라 조금
-          더 넓게 배정하지만(5:7), 문구가 잘리지 않도록 왼쪽도 충분히
-          넓힌다. 각 양식은 카드 전체를 눌러 선택되는 큰 히트 영역 +
-          우측의 큼직한 체크 아이콘으로, 작은 네이티브 체크박스보다 훨씬
-          누르기 쉽게 만들었다. */}
-      <div className="grid gap-4 md:grid-cols-12">
-        <div className="md:col-span-5 space-y-2">
+      {/* wide일 때만 좌우 2단(5:7, 왼쪽도 문구가 안 잘릴 만큼 넉넉히).
+          좁은 컨테이너(데이터 관리 드로어 등)에서는 세로로 쌓는다. 각
+          양식은 카드 전체를 눌러 선택되는 큰 히트 영역 + 우측의 큼직한
+          체크 아이콘으로, 작은 네이티브 체크박스보다 훨씬 누르기 쉽게
+          만들었다. */}
+      <div className={wide ? 'grid gap-4 md:grid-cols-12' : 'space-y-4'}>
+        <div className={wide ? 'md:col-span-5 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-black">양식 다운로드</p>
             <div className="flex shrink-0 gap-1.5">
@@ -287,7 +293,7 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
           </ul>
         </div>
 
-        <div className="md:col-span-7 space-y-2">
+        <div className={wide ? 'md:col-span-7 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-black">작성한 양식 업로드</p>
             {isBusy && (

@@ -274,7 +274,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
-          {tab === 'excel' && <BulkUploadPanel onDone={onDataReady} />}
+          {tab === 'excel' && <BulkUploadPanel onDone={onDataReady} wide />}
           {tab === 'import' && hasOtherPeriods && (
             <ImportFromPreviousPanel teamName={teamName} currentWorkspaceId={currentWorkspaceId} onApplied={onDataReady} />
           )}
