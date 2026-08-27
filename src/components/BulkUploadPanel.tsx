@@ -77,7 +77,7 @@ export default function BulkUploadPanel() {
 
     let peerList = peerReviews
     for (const file of peerFiles) {
-      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), tasks, memberList, peerList)
+      const result = parsePeerReviewWorkbook(await file.arrayBuffer(), taskList, memberList, peerList)
       peerList = result.peerReviews
       addedCount += result.addedCount
       updatedCount += result.updatedCount
