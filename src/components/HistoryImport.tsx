@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
+import ConfirmDialog from './ConfirmDialog'
 import { parseTaskWorkbook } from '../utils/excel'
 
 interface HistoryImportProps {
@@ -9,31 +10,32 @@ interface HistoryImportProps {
 export default function HistoryImport({ onComplete }: HistoryImportProps) {
   const { state, dispatch } = useAppState()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
-  const [connectedMembers, setConnectedMembers] = useState<Array<{ name: string; yearCount: number }>>([])
-  const [applyMetadata, setApplyMetadata] = useState(true)
-  const [connectedCount, setConnectedCount] = useState(0)
+  const [duplicateNameWarning, setDuplicateNameWarning] = useState<string | null>(null)
 
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
 
-    setUploadedFile(file.name)
     const buffer = await file.arrayBuffer()
     const result = parseTaskWorkbook(buffer, state.tasks)
 
     dispatch({ type: 'IMPORT_TASKS', payload: result.tasks })
 
-    const members = [
-      { name: '정하늘', yearCount: 5 },
-      { name: '정하늘', yearCount: 5 },
-      { name: '정하늘', yearCount: 5 },
-      { name: '정하늘', yearCount: 5 },
-      { name: '정하늘', yearCount: 5 },
-    ]
-    setConnectedMembers(members)
-    setConnectedCount(members.length)
+    // Check for duplicate names (동명이인) in imported members
+    if (result.tasks.length > 0) {
+      const importedNames = new Set(result.tasks.map(t => t.name))
+      const existingNames = new Set(state.members.map(m => m.name))
+      const duplicates = Array.from(importedNames).filter(name => existingNames.has(name))
+
+      if (duplicates.length > 0) {
+        setDuplicateNameWarning(
+          duplicates.length === 1
+            ? `'${duplicates[0]}' 이름이 이미 존재합니다. 확인하시겠습니까?`
+            : `${duplicates.length}명의 동명이인이 발견되었습니다. 확인하시겠습니까?`
+        )
+      }
+    }
   }
 
   const taskCount = state.tasks.length
@@ -81,58 +83,6 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
             onChange={handleFileSelected}
           />
 
-          {/* Import Modal Section */}
-          {uploadedFile && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-5">
-              <div className="mb-3">
-                <p className="text-sm font-bold text-gray-900">인사평가 이력 엑셀로 가져오기</p>
-                <p className="mt-1 text-xs text-gray-600">
-                  승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어, 이름이 일치하는 현재 팀원에게 바로 적용합니다.
-                </p>
-              </div>
-
-              {/* File Info */}
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5">
-                  <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  </svg>
-                  <p className="text-xs font-medium text-gray-900">{uploadedFile}</p>
-                </div>
-                <button className="text-xs font-semibold text-blue-600 hover:underline">다른 파일 선택</button>
-              </div>
-
-              {/* Connected Members */}
-              <div className="mb-3 flex flex-wrap gap-2 rounded-lg bg-blue-50 p-2.5">
-                {connectedMembers.map((member, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 border border-gray-200">
-                    <p className="text-xs font-semibold text-gray-900">{member.name}</p>
-                    <p className="text-xs font-semibold text-green-600">연결됨</p>
-                    <p className="text-xs text-gray-500">{member.yearCount}기 연도</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Checkbox + Apply Button */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex gap-2.5 flex-1">
-                  <input
-                    type="checkbox"
-                    checked={applyMetadata}
-                    onChange={(e) => setApplyMetadata(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-blue-600 bg-blue-600"
-                  />
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-gray-700">입사일 · 승급일 · 보조지표도 함께 적용</p>
-                    <p className="text-xs text-gray-500">(팀원 상세정보에 해당 값이 비어있는 경우만)</p>
-                  </div>
-                </div>
-                <button className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
-                  {connectedCount}명에게 적용
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Column - Download Templates (Narrow Sidebar) */}
@@ -256,6 +206,15 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={duplicateNameWarning !== null}
+        title="동명이인 경고"
+        message={duplicateNameWarning || ''}
+        onConfirm={() => setDuplicateNameWarning(null)}
+        onCancel={() => setDuplicateNameWarning(null)}
+        isDangerous={false}
+      />
     </div>
   )
 }
