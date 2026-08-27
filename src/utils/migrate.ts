@@ -107,10 +107,20 @@ function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
   return note
 }
 
+// taskId/reviewerMemberId/contributionPercent/comment는 전부 선택 필드라
+// "예전 데이터"(과제 연결 없이 엑셀로 올렸던 시절)는 원래도 없을 수 있다.
+// 이 함수가 그 필드들을 무조건 비워버리면(과거에 실제로 그랬다) 매번 앱을
+// 새로고침할 때마다 방금 올린 최신 데이터(taskId 있음)까지 전부 "과제
+// 미상(예전 데이터)"으로 깎여나간다 -- raw에 있으면 그대로 보존해야 한다.
 function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {
   if (typeof raw.id !== 'string' || typeof raw.reviewerName !== 'string') return null
   if (typeof raw.targetMemberId !== 'string' || !isPerformanceGrade(raw.grade)) return null
-  return { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  const review: PeerReview = { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  if (typeof raw.taskId === 'string') review.taskId = raw.taskId
+  if (typeof raw.reviewerMemberId === 'string') review.reviewerMemberId = raw.reviewerMemberId
+  if (typeof raw.contributionPercent === 'number') review.contributionPercent = raw.contributionPercent
+  if (typeof raw.comment === 'string') review.comment = raw.comment
+  return review
 }
 
 // Criteria used to be plain on/off booleans; now each is a 0-100 reflection
