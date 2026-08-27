@@ -444,6 +444,34 @@ export interface ProjectPeerReviewImportResult {
   errors: string[]
 }
 
+const PEER_REVIEW_TARGET_ALIASES = ['평가 대상', '대상팀원', '평가대상', '대상자', '피평가자']
+const PEER_REVIEW_CONTRIBUTION_ALIASES = ['기여도(%)', '기여도']
+const PEER_REVIEW_GRADE_ALIASES = ['수행등급', '등급', '평가등급']
+const PEER_REVIEW_EVIDENCE_ALIASES = ['근거', '코멘트', '의견']
+
+// downloadMemberPeerReviewTemplates가 만드는 파일은 과제 시트가 4줄짜리 헤더
+// (과제명/평가기간/과제ID/컬럼헤더)지만, 손으로 만들었거나 다른 도구가 생성한
+// 피어리뷰 파일은 과제ID 줄이 없는 3줄짜리 헤더로 오기도 한다. 고정된 행 번호
+// 대신 컬럼헤더 행을 스캔해서 찾아야 두 형식 모두, 그리고 헤더 앞에 안내
+// 문구가 한두 줄 더 끼어 있는 경우까지 깨지지 않는다.
+function findPeerReviewHeaderRow(rows: unknown[][]): number | null {
+  for (let i = 0; i < Math.min(rows.length, 8); i++) {
+    const cells = (rows[i] ?? []).map((value) => normalizedLabel(value))
+    if (PEER_REVIEW_TARGET_ALIASES.some((alias) => cells.includes(alias)) && PEER_REVIEW_CONTRIBUTION_ALIASES.some((alias) => cells.includes(alias))) {
+      return i
+    }
+  }
+  return null
+}
+
+function peerReviewColumnIndex(headerCells: string[], aliases: string[]): number {
+  for (const alias of aliases) {
+    const index = headerCells.indexOf(alias)
+    if (index >= 0) return index
+  }
+  return -1
+}
+
 export function parseProjectPeerReviewWorkbook(
   buffer: ArrayBuffer,
   expectedProjectId: string,
@@ -473,23 +501,36 @@ export function parseProjectPeerReviewWorkbook(
   for (const sheetName of wb.SheetNames.filter((name) => name !== '_메타' && name !== '안내')) {
     const ws = wb.Sheets[sheetName]
     const rows = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1, defval: '' })
-    const suppliedTaskId = normalizedLabel(rows[2]?.[0]).replace(/^과제ID:\s*/, '')
-    const taskName = normalizedLabel(rows[0]?.[0]).replace(/^과제:\s*/, '')
-    const task = tasks.find((item) => item.id === suppliedTaskId)
+    const headerRowIndex = findPeerReviewHeaderRow(rows)
+    if (headerRowIndex === null) continue // 리뷰 데이터가 아닌 안내성 시트로 보고 건너뛴다.
+    const headerCells = (rows[headerRowIndex] ?? []).map((value) => normalizedLabel(value))
+    const targetCol = peerReviewColumnIndex(headerCells, PEER_REVIEW_TARGET_ALIASES)
+    const contributionCol = peerReviewColumnIndex(headerCells, PEER_REVIEW_CONTRIBUTION_ALIASES)
+    const gradeCol = includeGrade ? peerReviewColumnIndex(headerCells, PEER_REVIEW_GRADE_ALIASES) : -1
+    const evidenceCol = peerReviewColumnIndex(headerCells, PEER_REVIEW_EVIDENCE_ALIASES)
+
+    const precedingRows = rows.slice(0, headerRowIndex)
+    const taskIdRow = precedingRows.find((row) => normalizedLabel(row?.[0]).startsWith('과제ID:'))
+    const suppliedTaskId = taskIdRow ? normalizedLabel(taskIdRow[0]).replace(/^과제ID:\s*/, '') : ''
+    const taskNameRow = precedingRows.find((row) => normalizedLabel(row?.[0]).startsWith('과제:'))
+    const taskName = taskNameRow ? normalizedLabel(taskNameRow[0]).replace(/^과제:\s*/, '') : ''
+    const task = (suppliedTaskId ? tasks.find((item) => item.id === suppliedTaskId) : undefined)
       ?? tasks.find((item) => normalizedLabel(item.name) === taskName)
     if (!task) { errors.push(`${sheetName}: 과제를 찾을 수 없습니다.`); continue }
     const participants = new Set(peerReviewParticipants(task.id, members, contributions).map((member) => member.id))
-    for (const [rowIndex, row] of rows.slice(4).entries()) {
-      const targetLabel = normalizedLabel(row[0])
+    for (const [rowIndex, row] of rows.slice(headerRowIndex + 1).entries()) {
+      const rowLabel = `${sheetName} ${headerRowIndex + rowIndex + 2}행`
+      const targetLabel = normalizedLabel(row[targetCol])
       if (!targetLabel || targetLabel === '기여도 합계') continue
       const target = memberByLabel.get(targetLabel)
-      if (!target) { errors.push(`${sheetName} ${rowIndex + 5}행: 평가 대상이 일치하지 않습니다.`); continue }
-      if (!participants.has(target.id)) { errors.push(`${sheetName} ${rowIndex + 5}행: 해당 과제 참여자가 아닙니다.`); continue }
-      const contribution = row[1] === '' ? null : Number(row[1])
-      const gradeCell = includeGrade ? String(row[2] ?? '').toUpperCase() : ''
-      const evidence = String(row[includeGrade ? 3 : 2] ?? '').trim()
-      if (contribution !== null && (!Number.isFinite(contribution) || contribution < 0 || contribution > 100)) { errors.push(`${sheetName} ${rowIndex + 5}행: 기여도는 0~100 숫자여야 합니다.`); continue }
-      if (includeGrade && gradeCell && !PERFORMANCE_GRADE_OPTIONS.includes(gradeCell as PerformanceGrade)) { errors.push(`${sheetName} ${rowIndex + 5}행: 수행등급을 확인해주세요.`); continue }
+      if (!target) { errors.push(`${rowLabel}: 평가 대상이 일치하지 않습니다.`); continue }
+      if (!participants.has(target.id)) { errors.push(`${rowLabel}: 해당 과제 참여자가 아닙니다.`); continue }
+      const contributionRaw = contributionCol >= 0 ? row[contributionCol] : ''
+      const contribution = contributionRaw === '' || contributionRaw === undefined ? null : Number(contributionRaw)
+      const gradeCell = gradeCol >= 0 ? String(row[gradeCol] ?? '').toUpperCase() : ''
+      const evidence = evidenceCol >= 0 ? String(row[evidenceCol] ?? '').trim() : ''
+      if (contribution !== null && (!Number.isFinite(contribution) || contribution < 0 || contribution > 100)) { errors.push(`${rowLabel}: 기여도는 0~100 숫자여야 합니다.`); continue }
+      if (gradeCell && !PERFORMANCE_GRADE_OPTIONS.includes(gradeCell as PerformanceGrade)) { errors.push(`${rowLabel}: 수행등급을 확인해주세요.`); continue }
       reviews.push({ id: uuidv4(), taskId: task.id, reviewerMemberId: reviewerMemberId ?? '', reviewerName: reviewer?.name ?? reviewerName, targetMemberId: target.id, contributionPercent: contribution, grade: gradeCell ? gradeCell as PerformanceGrade : null, evidence })
     }
   }
