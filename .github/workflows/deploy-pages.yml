@@ -6,6 +6,7 @@ on:
       - main
       - claude/ux-performance-evaluation-app-zfczzk
       - claude/v2-workspace-periods
+      - claude/figma-design-impl-tw1f7x
   workflow_dispatch:
 
 permissions:
@@ -33,6 +34,12 @@ jobs:
           ref: claude/v2-workspace-periods
           path: site-preview
 
+      - name: Checkout preview-v2 (claude/figma-design-impl-tw1f7x)
+        uses: actions/checkout@v4
+        with:
+          ref: claude/figma-design-impl-tw1f7x
+          path: site-preview-v2
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -40,6 +47,7 @@ jobs:
           cache-dependency-path: |
             site-main/package-lock.json
             site-preview/package-lock.json
+            site-preview-v2/package-lock.json
 
       - name: Build production
         working-directory: site-main
@@ -55,12 +63,22 @@ jobs:
         env:
           VITE_BASE_PATH: /desktop-tutorial/preview/
 
-      - name: Combine into one Pages artifact (production at /, preview at /preview/)
+      - name: Build preview-v2
+        working-directory: site-preview-v2
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_BASE_PATH: /desktop-tutorial/preview-v2/
+
+      - name: Combine into one Pages artifact (production at /, preview at /preview/, preview-v2 at /preview-v2/)
         run: |
           mkdir -p combined
           cp -r site-main/dist/. combined/
           mkdir -p combined/preview
           cp -r site-preview/dist/. combined/preview/
+          mkdir -p combined/preview-v2
+          cp -r site-preview-v2/dist/. combined/preview-v2/
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
