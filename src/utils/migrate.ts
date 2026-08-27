@@ -64,10 +64,21 @@ function migrateMeetingNote(raw: Record<string, unknown>): MeetingNote | null {
   return { id: raw.id, memberId: raw.memberId, date: raw.date, comment: raw.comment }
 }
 
+// Older builds recorded one grade per (reviewer, target) pair with no task, contribution,
+// or rationale. There's no sound way to backfill a task for those rows, so they're dropped.
 function migratePeerReview(raw: Record<string, unknown>): PeerReview | null {
   if (typeof raw.id !== 'string' || typeof raw.reviewerName !== 'string') return null
-  if (typeof raw.targetMemberId !== 'string' || !isPerformanceGrade(raw.grade)) return null
-  return { id: raw.id, reviewerName: raw.reviewerName, targetMemberId: raw.targetMemberId, grade: raw.grade }
+  if (typeof raw.targetMemberId !== 'string' || typeof raw.taskId !== 'string') return null
+  if (!isPerformanceGrade(raw.grade)) return null
+  return {
+    id: raw.id,
+    reviewerName: raw.reviewerName,
+    targetMemberId: raw.targetMemberId,
+    taskId: raw.taskId,
+    contributionPercent: typeof raw.contributionPercent === 'number' ? raw.contributionPercent : 0,
+    grade: raw.grade,
+    rationale: typeof raw.rationale === 'string' ? raw.rationale : '',
+  }
 }
 
 // Criteria used to be plain on/off booleans; now each is a 0-100 reflection

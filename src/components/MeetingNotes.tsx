@@ -76,7 +76,7 @@ export default function MeetingNotes() {
     e.target.value = ''
     if (!file) return
     const buffer = await file.arrayBuffer()
-    const result = parsePeerReviewWorkbook(buffer, members, peerReviews)
+    const result = parsePeerReviewWorkbook(buffer, members, tasks, peerReviews)
     dispatch({ type: 'IMPORT_PEER_REVIEWS', payload: result.peerReviews })
     setPeerReviewResult(result)
   }
@@ -244,15 +244,16 @@ export default function MeetingNotes() {
           <div className="mt-6 border-t border-gray-200 pt-4">
             <p className="text-sm font-medium text-black">피어리뷰</p>
             <p className="mt-0.5 text-sm text-gray-600">
-              팀원들에게 엑셀 양식을 나눠준 뒤, 각자 리뷰어명과 등급을 채운 파일을 받아 업로드하세요. 같은 리뷰어가 같은
-              대상팀원을 다시 평가하면 값이 갱신됩니다.
+              위에서 선택한 팀원을 평가자로 하는 엑셀 양식을 다운로드해 나눠준 뒤, 과제별 기여도·수행등급·근거를 채운
+              파일을 받아 업로드하세요. 같은 평가자가 같은 과제에서 같은 대상팀원을 다시 평가하면 값이 갱신됩니다.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => downloadPeerReviewTemplate(members)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                onClick={() => selectedMember && downloadPeerReviewTemplate(selectedMember, members, tasks)}
+                disabled={!selectedMember}
+                className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                엑셀 양식 다운로드
+                {selectedMember ? `${selectedMember.name}용 엑셀 양식 다운로드` : '엑셀 양식 다운로드'}
               </button>
               <button
                 onClick={() => peerReviewFileInputRef.current?.click()}
@@ -301,6 +302,8 @@ export default function MeetingNotes() {
                       <span className="text-sm text-black">
                         <span className="font-medium">{review.reviewerName}</span>
                         <span className="text-gray-500"> → {selectedMember.name}</span>
+                        <span className="text-gray-500"> · {tasks.find((t) => t.id === review.taskId)?.name ?? '알 수 없는 과제'}</span>
+                        <span className="text-gray-500"> · 기여도 {review.contributionPercent}%</span>
                       </span>
                       <div className="flex items-center gap-2">
                         <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${GRADE_COLORS[review.grade]}`}>

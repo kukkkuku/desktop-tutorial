@@ -46,7 +46,10 @@ export interface PeerReview {
   id: string
   reviewerName: string
   targetMemberId: string
+  taskId: string
+  contributionPercent: number
   grade: PerformanceGrade
+  rationale: string
 }
 
 export interface Criteria {
