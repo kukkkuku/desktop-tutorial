@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AppProvider } from './state/AppContext'
 import Navigation, { type TabKey } from './components/Navigation'
+import QuickStartExcel from './components/QuickStartExcel'
 import TaskManagement from './components/TaskManagement'
 import TeamManagement from './components/TeamManagement'
 import EvaluationMatrix from './components/EvaluationMatrix'
@@ -21,6 +22,7 @@ export default function App() {
       <div className="min-h-screen bg-white">
         <Navigation activeTab={activeTab} onTabChange={handleTabChange} />
         <main className="mx-auto w-full max-w-[1920px] px-4 py-6 sm:px-6">
+          {activeTab === 'quickstart' && <QuickStartExcel />}
           {activeTab === 'tasks' && <TaskManagement />}
           {activeTab === 'members' && <TeamManagement />}
           {activeTab === 'matrix' && <EvaluationMatrix />}

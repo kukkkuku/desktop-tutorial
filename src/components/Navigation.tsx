@@ -1,6 +1,7 @@
-export type TabKey = 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
+export type TabKey = 'quickstart' | 'tasks' | 'members' | 'matrix' | 'criteria' | 'results' | 'notes'
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: 'quickstart', label: '빠른 시작' },
   { key: 'tasks', label: '과제관리' },
   { key: 'members', label: '팀원관리' },
   { key: 'matrix', label: '평가매트릭스' },
