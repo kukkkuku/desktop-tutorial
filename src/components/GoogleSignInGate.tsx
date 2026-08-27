@@ -13,12 +13,19 @@ interface GoogleSignInGateProps {
   children: ReactNode
 }
 
-// 앱을 열자마자 뜨는 입장 화면. Google 계정 연결이 설정돼 있지 않으면(빌드에
-// GOOGLE_CLIENT_ID가 없으면) 이 화면 자체를 건너뛰고 바로 기존 화면으로
-// 넘어간다 -- 설정이 안 됐다고 앱을 통째로 못 쓰게 막지는 않는다.
+// 앱을 열자마자 뜨는 입장 화면. 빌드에 GOOGLE_CLIENT_ID가 없으면 예전에는
+// 이 화면 자체를 건너뛰고 앱 안으로 그냥 들여보냈는데, 그러면 화면에는
+// "로그인 화면이 안 뜬다 / 우측 상단 계정 정보가 사라졌다"로만 보이고 진짜
+// 원인(빌드에 CLIENT_ID가 안 들어감)이 전혀 드러나지 않는다. 그래서 설정이
+// 안 됐을 때도 이 화면은 그대로 띄우되, 버튼을 비활성화하고 이유를 적어준다.
 export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const configured = isGoogleDriveConfigured()
-  const [passed, setPassed] = useState(() => !configured || sessionStorage.getItem(GATE_KEY) === '1')
+  // 페이지를 새로 열면 항상 이 로그인 화면부터 시작한다. 예전에는 세션스토리지
+  // (GATE_KEY)에 통과 기록이 남아 있으면 이 화면을 건너뛰었는데, 정작 액세스
+  // 토큰은 모듈 메모리에만 있어서 새로고침하면 사라진다 -- 즉 "로그인한 것으로
+  // 치고" 들여보내지만 실제로는 Drive를 못 부르는 반쪽 상태였고, 화면상으로는
+  // 로그인 화면이 안 뜨고 우측 상단 계정 정보만 비는 것처럼 보였다.
+  const [passed, setPassed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { exitToLanding, reloadForAccount } = useWorkspaces()
@@ -66,12 +73,29 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
         <Button
           variant="primary"
           onClick={handleStart}
-          disabled={busy}
+          disabled={busy || !configured}
           className="mt-8 flex w-full items-center justify-center gap-2 px-6 py-3 text-base"
         >
           {busy && <Spinner className="h-4 w-4 text-white" />}
           {busy ? '연결하는 중...' : 'Google 계정으로 시작'}
         </Button>
+        {/* 설정이 안 된 빌드라고 앱을 통째로 못 쓰게 막지는 않는다 -- 다만
+            예전처럼 이 화면을 조용히 건너뛰지는 않고, 이유를 보여준 뒤
+            사용자가 직접 넘어가게 한다. */}
+        {!configured && (
+          <>
+            <p className="mt-3 text-xs text-danger">
+              이 빌드에 Google Client ID가 없습니다. 프로젝트 루트 .env.local에
+              VITE_GOOGLE_CLIENT_ID를 넣고 dev 서버를 다시 시작하세요.
+            </p>
+            <button
+              onClick={() => setPassed(true)}
+              className="mt-4 text-sm text-gray-400 underline hover:text-black"
+            >
+              Google 연동 없이 시작
+            </button>
+          </>
+        )}
         {error && <p className="mt-3 text-xs text-danger">{error}</p>}
       </div>
     </div>

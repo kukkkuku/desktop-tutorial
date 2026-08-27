@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { v4 as uuidv4 } from 'uuid'
 import type { TeamMember } from '../../types'
 import { useAppState } from '../../state/AppContext'
-import { useTeamProfile } from '../../state/TeamContext'
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../../utils/promotionImport'
+import {
+  resolveMatchedMember,
+  useApplyPromotionHistory,
+  type PromotionManualPicks,
+} from '../../hooks/useApplyPromotionHistory'
 import Spinner from '../Spinner'
 import IconButton from '../IconButton'
 
@@ -52,8 +55,8 @@ interface PromotionHistoryImportPanelProps {
 // 섞여 있던 경우)에서 이미 고른 파일을 넘겨주면 드래그·선택 단계를
 // 건너뛰고 바로 매칭 미리보기로 시작한다.
 export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss }: PromotionHistoryImportPanelProps) {
-  const { state, dispatch } = useAppState()
-  const { profile, upsertAppraisal } = useTeamProfile()
+  const { state } = useAppState()
+  const applyPromotionHistory = useApplyPromotionHistory()
   const [matches, setMatches] = useState<PromotionImportMatch[] | null>(null)
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,7 +67,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
   // 동명이인이라 자동 연결이 안 된 행에서 사용자가 고른 팀원 id -- matches
   // 배열의 인덱스로 키를 잡는다(같은 이름이 여러 블록일 수 있어 이름만으로는
   // 구분이 안 된다).
-  const [manualPicks, setManualPicks] = useState<Record<number, string>>({})
+  const [manualPicks, setManualPicks] = useState<PromotionManualPicks>({})
 
   useEffect(() => {
     if (initialFile) void handleFile(initialFile)
@@ -94,40 +97,12 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
   }
 
   function resolvedMember(match: PromotionImportMatch, index: number): TeamMember | null {
-    if (match.member) return match.member
-    const pickedId = manualPicks[index]
-    return pickedId ? match.candidates.find((c) => c.id === pickedId) ?? null : null
+    return resolveMatchedMember(match, index, manualPicks)
   }
 
   function handleApply() {
     if (!matches) return
-    let memberCount = 0
-    let yearCount = 0
-    matches.forEach(({ sheet }, index) => {
-      const member = resolvedMember(matches[index], index)
-      if (!member) return
-      memberCount += 1
-      for (const y of sheet.years) {
-        const existing = profile.hrAppraisals.find((r) => r.memberId === member.id && r.year === y.year)
-        upsertAppraisal({
-          id: existing?.id ?? uuidv4(),
-          memberId: member.id,
-          year: y.year,
-          firstHalfGrade: y.firstHalfGrade,
-          secondHalfGrade: y.secondHalfGrade,
-          competencyGrade: y.competencyGrade,
-        })
-        yearCount += 1
-      }
-      if (applyHireDate) {
-        const patch: Partial<TeamMember> = {}
-        if (sheet.hireDate && !member.hireDate) patch.hireDate = sheet.hireDate
-        if (sheet.promotionReviewDate && !member.promotionReviewDate) patch.promotionReviewDate = sheet.promotionReviewDate
-        if (sheet.auxScores && !member.auxScores) patch.auxScores = sheet.auxScores
-        if (Object.keys(patch).length > 0) dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, ...patch } })
-      }
-    })
-    setApplied({ memberCount, yearCount, skipped: matches.length - memberCount })
+    setApplied(applyPromotionHistory(matches, manualPicks, applyHireDate))
   }
 
   useEffect(() => {
