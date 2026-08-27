@@ -4,17 +4,14 @@ import type { TeamMember } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../../utils/promotionImport'
-import { useResizableColumns } from '../../hooks/useResizableColumns'
 import Spinner from '../Spinner'
-import ResizableTh from '../table/ResizableTh'
 import IconButton from '../IconButton'
 
-const PREVIEW_COLUMNS = {
-  sheet: 100,
-  name: 110,
-  match: 150,
-  years: 100,
-}
+// 적용 완료 후 이 시간(ms) 뒤 자동으로 onApplied를 부른다. 초록 버튼을 한 번
+// 더 눌러야 다음으로 넘어가는 구조였는데, 스크롤에 가려 그 버튼을 못 보고
+// "그대로 멈춰있다"고 느끼는 경우가 있었다. 결과를 잠깐 보여줄 시간만 주고
+// 자동으로 진행시키되, 사용자가 먼저 누르면(아래 버튼 onClick) 즉시 진행된다.
+const AUTO_ADVANCE_DELAY_MS = 900
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -57,7 +54,6 @@ interface PromotionHistoryImportPanelProps {
 export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss }: PromotionHistoryImportPanelProps) {
   const { state, dispatch } = useAppState()
   const { profile, upsertAppraisal } = useTeamProfile()
-  const cols = useResizableColumns(PREVIEW_COLUMNS)
   const [matches, setMatches] = useState<PromotionImportMatch[] | null>(null)
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -134,6 +130,13 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
     setApplied({ memberCount, yearCount, skipped: matches.length - memberCount })
   }
 
+  useEffect(() => {
+    if (!applied) return
+    const timer = setTimeout(() => onApplied(), AUTO_ADVANCE_DELAY_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applied])
+
   const matchedCount = matches?.filter((m, i) => resolvedMember(m, i)).length ?? 0
 
   return (
@@ -208,63 +211,38 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
               </button>
             </div>
 
-            <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
-              <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.match }}>
-                <thead className="bg-[#F3F4F6] text-black">
-                  <tr>
-                    {(
-                      [
-                        ['sheet', '시트'],
-                        ['name', '이름'],
-                        ['match', '매칭'],
-                        ['years', '연도 수'],
-                      ] as const
-                    ).map(([key, label]) => (
-                      <ResizableTh
-                        key={key}
-                        width={key === 'match' ? undefined : cols.widths[key]}
-                        resizable={key !== 'years'}
-                        onResizeStart={cols.startResize(key)}
-                        onResizeMove={cols.onResizeMove}
-                        onResizeEnd={cols.onResizeEnd}
-                        className="px-3 py-2 font-semibold"
+            {/* 매칭은 이름 기준 자동 처리라 뺄 수 있는 항목이 없다(동명이인일
+                때만 고르면 됨) -- 시트명은 거의 항상 이름과 같아 별도
+                컬럼으로 반복할 필요가 없다. 표 대신 한 줄짜리 리스트로
+                압축해 자리를 덜 차지하게 했다. */}
+            <ul className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-200">
+              {matches.map(({ sheet, member, candidates }, index) => (
+                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-sm text-black">
+                  <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
+                  <span className="shrink-0">
+                    {member ? (
+                      <span className="text-xs font-medium text-success">연결됨</span>
+                    ) : candidates.length > 1 ? (
+                      <select
+                        value={manualPicks[index] ?? ''}
+                        onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
+                        className="rounded-md border border-accent px-1.5 py-1 text-xs text-black"
                       >
-                        {label}
-                      </ResizableTh>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {matches.map(({ sheet, member, candidates }, index) => (
-                    <tr key={`${sheet.sheetName}-${sheet.name}-${index}`} className="border-t border-gray-200 text-black">
-                      <td className="px-3 py-2 text-gray-400">{sheet.sheetName}</td>
-                      <td className="px-3 py-2 font-medium">{sheet.name}</td>
-                      <td className="px-3 py-2">
-                        {member ? (
-                          <span className="text-success">{member.name}에 연결</span>
-                        ) : candidates.length > 1 ? (
-                          <select
-                            value={manualPicks[index] ?? ''}
-                            onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                            className="w-full rounded-md border border-accent px-1.5 py-1 text-sm text-black"
-                          >
-                            <option value="">동명이인 {candidates.length}명 -- 선택</option>
-                            {candidates.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name} ({c.role || c.level || '역할 미지정'})
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-gray-400">매칭되는 팀원 없음</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">{sheet.years.length}개</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <option value="">동명이인 {candidates.length}명 -- 선택</option>
+                        {candidates.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({c.role || c.level || '역할 미지정'})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-gray-400">매칭 안 됨</span>
+                    )}
+                  </span>
+                  <span className="w-14 shrink-0 text-right text-xs text-gray-400">{sheet.years.length}개 연도</span>
+                </li>
+              ))}
+            </ul>
 
             <label className="mt-3 flex items-center gap-2 text-[13px] text-gray-600">
               <input
