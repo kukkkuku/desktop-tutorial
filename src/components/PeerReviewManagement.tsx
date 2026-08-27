@@ -8,7 +8,7 @@ import { GRADE_COLORS, PERFORMANCE_SCORE } from '../utils/calculations'
 import ConfirmDialog from './ConfirmDialog'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import { downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook } from '../utils/excel'
+import { detectWorkbookKind, downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook, type WorkbookKind } from '../utils/excel'
 import { downloadPeerReviewsPdf } from '../utils/pdfReports'
 import Button from './Button'
 import IconButton from './IconButton'
@@ -17,6 +17,17 @@ interface DraftRow {
   contributionPercent: string
   grade: PerformanceGrade
   comment: string
+}
+
+const WORKBOOK_KIND_LABEL: Record<Exclude<WorkbookKind, 'peer'>, string> = {
+  task: '과제',
+  member: '팀원',
+  history: '이전 성과',
+}
+const WORKBOOK_KIND_UPLOAD_HINT: Record<Exclude<WorkbookKind, 'peer'>, string> = {
+  task: '과제관리 탭',
+  member: '팀원관리 탭',
+  history: '팀원 면담 탭의 "지난 성과 엑셀파일 불러오기"',
 }
 
 export default function PeerReviewManagement() {
@@ -98,6 +109,15 @@ export default function PeerReviewManagement() {
     const errors: string[] = []
     for (const file of files) {
       const buffer = await file.arrayBuffer()
+      // 이 화면은 피어리뷰 전용이라, 과제·팀원·이전 성과 양식이 섞여
+      // 들어오면 parsePeerReviewWorkbook이 "채워진 등급이 없습니다"처럼
+      // 원인을 알기 힘든 메시지를 낸다. 종류를 먼저 확인해서 왜 반려됐는지,
+      // 어디서 올려야 하는지 바로 알려준다.
+      const kind = detectWorkbookKind(buffer)
+      if (kind && kind !== 'peer') {
+        errors.push(`[${file.name}] ${WORKBOOK_KIND_LABEL[kind]} 양식입니다. 여기서는 피어리뷰 파일만 올릴 수 있어요 -- ${WORKBOOK_KIND_UPLOAD_HINT[kind]}에서 올려주세요.`)
+        continue
+      }
       const result = parsePeerReviewWorkbook(buffer, tasks, members, list)
       list = result.peerReviews
       addedCount += result.addedCount
