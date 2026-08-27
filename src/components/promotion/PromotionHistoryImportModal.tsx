@@ -7,7 +7,6 @@ import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatc
 import { useResizableColumns } from '../../hooks/useResizableColumns'
 import Spinner from '../Spinner'
 import ResizableTh from '../table/ResizableTh'
-import Button from '../Button'
 import IconButton from '../IconButton'
 
 const PREVIEW_COLUMNS = {
@@ -267,9 +266,29 @@ export default function PromotionHistoryImportModal({ onClose, initialFile }: { 
                 매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.
               </p>
             ) : (
-              <Button variant="primary" onClick={handleApply} className="mt-4 w-full py-2.5">
-                {matchedCount}명에게 적용
-              </Button>
+              <button
+                type="button"
+                onClick={applied ? onClose : handleApply}
+                className={`mt-4 flex w-full items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-medium text-white transition-colors ${
+                  applied ? 'bg-success' : 'bg-accent hover:opacity-90'
+                }`}
+              >
+                {applied && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4 shrink-0"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+                {applied ? '적용 완료 · 닫기' : `${matchedCount}명에게 적용`}
+              </button>
             )}
 
             {applied && (

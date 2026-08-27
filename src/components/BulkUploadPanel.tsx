@@ -15,7 +15,12 @@ interface BulkSummary {
 
 // 과제·팀원·피어리뷰가 섞인 파일을 한 번에 올리는 블록 -- 데이터 관리 드로어의
 // "로컬 파일" 탭과 빠른 시작 팝업의 "Excel로 시작" 탭 양쪽에서 그대로 쓴다.
-export default function BulkUploadPanel() {
+//
+// onDone -- 빠른 시작 팝업에서만 넘어온다("직접 입력"/"이전 평가 가져오기"
+// 탭처럼 업로드가 끝났을 때 과제관리 탭으로 이동시키는 콜백). 데이터 관리
+// 드로어에서 쓸 때는 넘기지 않아, 그 화면에서는 지금처럼 배너만 뜨고 그
+// 자리에 머무른다.
+export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews } = state
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
@@ -175,14 +180,35 @@ export default function BulkUploadPanel() {
                 </ul>
               )}
             </div>
-            <button onClick={() => setBulkSummary(null)} className="shrink-0 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-black hover:bg-gray-100">
-              닫기
-            </button>
+            <div className="flex shrink-0 gap-2">
+              {onDone && (bulkSummary.addedCount > 0 || bulkSummary.updatedCount > 0) && (
+                <button
+                  onClick={onDone}
+                  className="flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  완료 · 과제관리에서 확인
+                </button>
+              )}
+              <button onClick={() => setBulkSummary(null)} className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-black hover:bg-gray-100">
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {historyFile && <PromotionHistoryImportModal initialFile={historyFile} onClose={() => setHistoryFile(null)} />}
+      {historyFile && (
+        <PromotionHistoryImportModal
+          initialFile={historyFile}
+          onClose={() => {
+            setHistoryFile(null)
+            onDone?.()
+          }}
+        />
+      )}
     </div>
   )
 }
