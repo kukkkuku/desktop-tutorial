@@ -55,23 +55,22 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex gap-6 px-6 py-6">
+      <div className="flex gap-6 px-6 py-4">
         {/* Left Column - Upload (Wider) */}
-        <div className="flex-1 flex flex-col gap-6">
+        <div className="flex-1 flex flex-col gap-4">
           <p className="text-base font-bold text-gray-900">작성한 양식 업로드</p>
 
           {/* Dropzone */}
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-40 cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50"
+            className="flex h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50"
           >
-            <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="text-center text-sm font-bold text-gray-900">작성한 양식 파일을 여기에 드래그</p>
+            <p className="text-center text-xs font-bold text-gray-900">작성한 양식 파일을 여기에 드래그</p>
             <div className="text-center text-xs text-gray-600">
               <p>과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
-              <p>여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
             </div>
           </div>
           <input
@@ -84,39 +83,39 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
 
           {/* Import Modal Section */}
           {uploadedFile && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-8">
-              <div className="mb-4">
-                <p className="text-base font-bold text-gray-900">인사평가 이력 엑셀로 가져오기</p>
-                <p className="mt-2 text-xs text-gray-600">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5">
+              <div className="mb-3">
+                <p className="text-sm font-bold text-gray-900">인사평가 이력 엑셀로 가져오기</p>
+                <p className="mt-1 text-xs text-gray-600">
                   승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어, 이름이 일치하는 현재 팀원에게 바로 적용합니다.
                 </p>
               </div>
 
               {/* File Info */}
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-3 rounded-lg bg-gray-100 px-3 py-2">
-                  <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 rounded-lg bg-gray-100 px-2.5 py-1.5">
+                  <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   </svg>
-                  <p className="text-sm font-medium text-gray-900">{uploadedFile}</p>
+                  <p className="text-xs font-medium text-gray-900">{uploadedFile}</p>
                 </div>
                 <button className="text-xs font-semibold text-blue-600 hover:underline">다른 파일 선택</button>
               </div>
 
               {/* Connected Members */}
-              <div className="mb-4 flex flex-col gap-2 rounded-lg bg-blue-50 p-3">
+              <div className="mb-3 flex flex-wrap gap-2 rounded-lg bg-blue-50 p-2.5">
                 {connectedMembers.map((member, idx) => (
-                  <div key={idx} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 border border-gray-200">
-                    <p className="text-sm font-semibold text-gray-900">{member.name}</p>
+                  <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 border border-gray-200">
+                    <p className="text-xs font-semibold text-gray-900">{member.name}</p>
                     <p className="text-xs font-semibold text-green-600">연결됨</p>
-                    <p className="text-xs text-gray-500">{member.yearCount}개 연도</p>
+                    <p className="text-xs text-gray-500">{member.yearCount}기 연도</p>
                   </div>
                 ))}
               </div>
 
               {/* Checkbox + Apply Button */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex gap-3 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex gap-2.5 flex-1">
                   <input
                     type="checkbox"
                     checked={applyMetadata}
@@ -128,7 +127,7 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
                     <p className="text-xs text-gray-500">(팀원 상세정보에 해당 값이 비어있는 경우만)</p>
                   </div>
                 </div>
-                <button className="rounded-lg bg-blue-600 px-8 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
+                <button className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 whitespace-nowrap">
                   {connectedCount}명에게 적용
                 </button>
               </div>
@@ -137,82 +136,82 @@ export default function HistoryImport({ onComplete }: HistoryImportProps) {
         </div>
 
         {/* Right Column - Download Templates (Narrow Sidebar) */}
-        <div className="w-80 flex flex-col gap-4 bg-gray-50 px-6 py-6 rounded-lg">
+        <div className="w-72 flex flex-col gap-3 bg-gray-50 px-5 py-4 rounded-lg">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <p className="text-base font-bold text-gray-900">양식 다운로드</p>
-            <div className="flex gap-2">
-              <button className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-white">
+            <p className="text-sm font-bold text-gray-900">양식 다운로드</p>
+            <div className="flex gap-1.5">
+              <button className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-600 hover:bg-white">
                 선택 다운로드
               </button>
-              <button className="rounded-lg border-2 border-black bg-white px-3 py-1.5 text-xs font-bold text-black hover:bg-gray-50">
+              <button className="rounded-lg border-2 border-black bg-white px-2 py-1 text-xs font-bold text-black hover:bg-gray-50">
                 전체 ZIP
               </button>
             </div>
           </div>
 
           {/* Template Cards */}
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {/* Task */}
-            <div className="flex gap-3 rounded-xl border border-gray-200 bg-white p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
-                <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 rounded-lg border border-gray-200 bg-white p-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
+                <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900">과제 입력 양식</p>
+                <p className="text-xs font-bold text-gray-900">과제 입력 양식</p>
                 <p className="text-xs text-gray-600">과제명·과제등급·업무량·목표·성과</p>
               </div>
-              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
+              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
                 다운로드
               </button>
             </div>
 
             {/* Member */}
-            <div className="flex gap-3 rounded-xl border border-gray-200 bg-white p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
-                <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 rounded-lg border border-gray-200 bg-white p-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
+                <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900">팀원 입력 양식</p>
+                <p className="text-xs font-bold text-gray-900">팀원 입력 양식</p>
                 <p className="text-xs text-gray-600">이름·직급·연차·역할</p>
               </div>
-              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
+              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
                 다운로드
               </button>
             </div>
 
             {/* History - Highlighted */}
-            <div className="flex gap-3 rounded-xl border-2 border-blue-600 bg-white p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 flex-shrink-0">
-                <svg className="h-5 w-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 rounded-lg border-2 border-blue-600 bg-white p-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 flex-shrink-0">
+                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900">이전 성과 입력 양식</p>
+                <p className="text-xs font-bold text-gray-900">이전 성과 입력 양식</p>
                 <p className="text-xs text-gray-600">팀원별 최근 5년 업적·역량 이력</p>
               </div>
-              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
+              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
                 다운로드
               </button>
             </div>
 
             {/* Review */}
-            <div className="flex gap-3 rounded-xl border border-gray-200 bg-white p-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
-                <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+            <div className="flex gap-2 rounded-lg border border-gray-200 bg-white p-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 flex-shrink-0">
+                <svg className="h-4 w-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900">피어리뷰 입력 양식</p>
+                <p className="text-xs font-bold text-gray-900">피어리뷰 입력 양식</p>
                 <p className="text-xs text-gray-600">과제별 리뷰어·대상팀원·기여도·근거</p>
               </div>
-              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
+              <button className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50 flex-shrink-0">
                 다운로드
               </button>
             </div>
