@@ -15,6 +15,23 @@ import Spinner from './Spinner'
 
 const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
 
+function DocumentIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+    </svg>
+  )
+}
+
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
 const TEMPLATE_INFO: { kind: WorkbookKind; name: string; description: string }[] = [
   { kind: 'task', name: '과제 입력 양식', description: '과제명·과제등급·업무량·목표·성과' },
   { kind: 'member', name: '팀원 입력 양식', description: '이름·직급·연차·역할' },
@@ -196,11 +213,13 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
         <p className="mt-0.5 text-xs text-gray-500">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
       </div>
 
-      {/* 왼쪽(양식)보다 오른쪽(업로드)이 실제로 더 많이 쓰는 영역이라 넓게
-          배정한다(2:3). 왼쪽은 목록형이라 카드 여백을 넉넉히 줄 필요가
-          없어 줄 하나하나를 촘촘한 리스트로 구성했다. */}
-      <div className="grid gap-4 md:grid-cols-5">
-        <div className="md:col-span-2 space-y-2">
+      {/* 왼쪽(양식)보다 오른쪽(업로드)이 실제로 더 많이 쓰는 영역이라 조금
+          더 넓게 배정하지만(5:7), 문구가 잘리지 않도록 왼쪽도 충분히
+          넓힌다. 각 양식은 카드 전체를 눌러 선택되는 큰 히트 영역 +
+          우측의 큼직한 체크 아이콘으로, 작은 네이티브 체크박스보다 훨씬
+          누르기 쉽게 만들었다. */}
+      <div className="grid gap-4 md:grid-cols-12">
+        <div className="md:col-span-5 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-black">양식 다운로드</p>
             <div className="flex shrink-0 gap-1.5">
@@ -217,33 +236,58 @@ export default function BulkUploadPanel({ onDone }: { onDone?: () => void } = {}
             </div>
           </div>
 
-          <ul className="divide-y divide-gray-100 rounded-md border border-gray-200 bg-white">
-            {TEMPLATE_INFO.map((t) => (
-              <li key={t.kind} className="flex items-center gap-2 px-2.5 py-2">
-                <input
-                  type="checkbox"
-                  checked={selectedKinds.has(t.kind)}
-                  onChange={() => toggleKind(t.kind)}
-                  className="h-4 w-4 shrink-0 rounded border-gray-300 text-accent focus:ring-accent"
-                  aria-label={`${t.name} 선택`}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-black">{t.name}</p>
-                  <p className="truncate text-xs text-gray-400">{t.description}</p>
-                </div>
-                <button
-                  onClick={() => handleDownloadOne(t.kind)}
-                  disabled={isBusy}
-                  className="shrink-0 rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  다운로드
-                </button>
-              </li>
-            ))}
+          <ul className="space-y-2">
+            {TEMPLATE_INFO.map((t) => {
+              const checked = selectedKinds.has(t.kind)
+              return (
+                <li key={t.kind}>
+                  <div
+                    role="checkbox"
+                    aria-checked={checked}
+                    tabIndex={0}
+                    onClick={() => toggleKind(t.kind)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        toggleKind(t.kind)
+                      }
+                    }}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition-colors ${
+                      checked ? 'border-accent bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${checked ? 'bg-accent text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      <DocumentIcon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-black">{t.name}</p>
+                      <p className="text-xs leading-snug text-gray-500">{t.description}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDownloadOne(t.kind)
+                      }}
+                      disabled={isBusy}
+                      className="shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      다운로드
+                    </button>
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                        checked ? 'border-accent bg-accent text-white' : 'border-gray-300 bg-white text-transparent'
+                      }`}
+                    >
+                      <CheckIcon className="h-3.5 w-3.5" />
+                    </span>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
 
-        <div className="md:col-span-3 space-y-2">
+        <div className="md:col-span-7 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-semibold text-black">작성한 양식 업로드</p>
             {isBusy && (

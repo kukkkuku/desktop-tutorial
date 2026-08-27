@@ -245,7 +245,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex h-[640px] max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
+      <div className="flex h-[640px] max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 p-6 pb-0">
           <div>
             <h3 className="text-lg font-bold text-black">빠른 시작</h3>
