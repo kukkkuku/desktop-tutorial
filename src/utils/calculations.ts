@@ -274,6 +274,70 @@ export function calcMemberResults(
   return rows.sort((a, b) => b.cumulativeScore - a.cumulativeScore)
 }
 
+// ---------- 피어리뷰 영향도 ----------
+// "피어리뷰가 이번 평가를 실제로 얼마나 움직였는가"를 답하기 위한 계산.
+//
+// calcPeerReviewFactor가 돌려주는 개인 계수(예: 1.032 = +3.2%)를 그대로
+// 보여주는 것은 의미가 없다 -- 등급은 절대 점수가 아니라 팀 평균(expectedScore)
+// 대비 비율로 정해지므로, 전원이 똑같이 +3%를 받으면 평균도 같이 올라가 등급은
+// 하나도 안 바뀐다. 실제 영향은 "피어리뷰를 빼고 계산했을 때와 무엇이 달라지는가"
+// 뿐이라, 같은 계산을 peerReviews 없이 한 번 더 돌려 두 결과를 비교한다.
+export interface PeerReviewImpactRow {
+  member: TeamMember
+  reviewCount: number
+  gradeWithout: EvaluationGrade
+  gradeWith: EvaluationGrade
+  ratioWithout: number
+  ratioWith: number
+  // 등급 경계를 넘지 않았더라도 팀 평균 대비 비율이 어느 방향으로 얼마나
+  // 움직였는지는 보여준다.
+  ratioDeltaPercent: number
+}
+
+export interface PeerReviewImpact {
+  rows: PeerReviewImpactRow[]
+  // 등급 자체가 바뀐 팀원. 이 화면의 헤드라인이다.
+  changed: PeerReviewImpactRow[]
+  // 리뷰를 한 건도 못 받아 동료 의견이 반영되지 않은 팀원.
+  membersWithoutReviews: TeamMember[]
+  reviewCount: number
+  weightPercent: number
+}
+
+export function calcPeerReviewImpact(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerReview[],
+): PeerReviewImpact {
+  const withReviews = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const withoutReviews = calcMemberResults(members, tasks, contributions, criteria, [])
+  const withoutById = new Map(withoutReviews.map((r) => [r.member.id, r]))
+
+  const rows: PeerReviewImpactRow[] = withReviews.map((row) => {
+    const base = withoutById.get(row.member.id)
+    const ratioWithout = base?.ratio ?? row.ratio
+    return {
+      member: row.member,
+      reviewCount: peerReviews.filter((r) => r.targetMemberId === row.member.id).length,
+      gradeWithout: base?.grade ?? row.grade,
+      gradeWith: row.grade,
+      ratioWithout,
+      ratioWith: row.ratio,
+      ratioDeltaPercent: ratioWithout > 0 ? ((row.ratio - ratioWithout) / ratioWithout) * 100 : 0,
+    }
+  })
+
+  return {
+    rows,
+    changed: rows.filter((r) => r.gradeWith !== r.gradeWithout),
+    membersWithoutReviews: rows.filter((r) => r.reviewCount === 0).map((r) => r.member),
+    reviewCount: peerReviews.length,
+    weightPercent: criteria.peerReviewWeight,
+  }
+}
+
 export const GRADE_COLORS: Record<EvaluationGrade, string> = {
   S: 'text-blue-600 bg-blue-50',
   A: 'text-green-600 bg-green-50',

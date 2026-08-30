@@ -4,7 +4,8 @@ import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
-import { GRADE_COLORS, PERFORMANCE_SCORE } from '../utils/calculations'
+import { calcPeerReviewImpact, GRADE_COLORS, PERFORMANCE_SCORE } from '../utils/calculations'
+import PeerReviewImpactSummary from './PeerReviewImpactSummary'
 import ConfirmDialog from './ConfirmDialog'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
@@ -39,6 +40,12 @@ export default function PeerReviewManagement() {
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members])
   const memberNameById = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members])
   const taskNameById = useMemo(() => new Map(tasks.map((t) => [t.id, t.name])), [tasks])
+
+  // 같은 평가 계산을 피어리뷰 있이/없이 두 번 돌려 비교하므로 memo로 묶는다.
+  const peerReviewImpact = useMemo(
+    () => calcPeerReviewImpact(members, tasks, state.contributions, state.criteria, peerReviews),
+    [members, tasks, state.contributions, state.criteria, peerReviews],
+  )
 
   const [deletingReview, setDeletingReview] = useState<PeerReview | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id ?? '')
@@ -161,6 +168,12 @@ export default function PeerReviewManagement() {
         돌려받으면 <span className="font-medium text-black">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
         기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
       </p>
+
+      {/* 리뷰 목록(로우데이터)을 읽기 전에 "그래서 피어리뷰가 이번 평가를
+          바꿨는가"부터 답한다. */}
+      <div className="mt-4">
+        <PeerReviewImpactSummary impact={peerReviewImpact} />
+      </div>
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
         <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
