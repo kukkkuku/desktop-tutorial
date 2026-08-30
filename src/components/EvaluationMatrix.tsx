@@ -275,8 +275,11 @@ export default function EvaluationMatrix() {
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1">
+                                {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼
+                                    'B'가 미리 선택돼 있으면 팀장이 고른 것인지
+                                    앱이 채운 것인지 구분할 수 없다. */}
                                 <select
-                                  value={grade}
+                                  value={grade ?? ''}
                                   disabled={!gradeEnabled}
                                   title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
                                   onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
@@ -284,6 +287,9 @@ export default function EvaluationMatrix() {
                                     gradeEnabled ? 'border-gray-300 text-black' : 'border-gray-200 bg-gray-100 text-gray-400'
                                   }`}
                                 >
+                                  <option value="" disabled>
+                                    미입력
+                                  </option>
                                   {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                                     <option key={opt} value={opt}>
                                       {opt}

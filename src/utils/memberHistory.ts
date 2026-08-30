@@ -20,7 +20,7 @@ export interface MemberPeriodTaskEntry {
   taskName: string
   importance: Importance
   contributionPercent: number
-  personalGrade: PerformanceGrade
+  personalGrade: PerformanceGrade | null
   personalScore: number
 }
 

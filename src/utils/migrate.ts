@@ -67,9 +67,11 @@ function migrateContribution(raw: Record<string, unknown>): Contribution | null 
     contributionPercent = 0
   }
 
+  // 저장된 등급은 그대로 살리고, 없거나 알 수 없으면 null(미입력)로 둔다.
+  // 예전 기본값 'B'로 채우면 팀장이 매긴 적 없는 값이 판단처럼 남는다.
   const personalPerformanceGrade = isPerformanceGrade(raw.personalPerformanceGrade)
     ? raw.personalPerformanceGrade
-    : 'B'
+    : null
 
   return {
     taskId: raw.taskId,

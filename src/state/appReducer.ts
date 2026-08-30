@@ -62,7 +62,9 @@ function upsertContribution(
       taskId,
       memberId,
       contributionPercent: 0,
-      personalPerformanceGrade: 'B',
+      // 팀장이 매기기 전에는 null이다. 예전처럼 'B'를 박아두면 팀장이 한 적
+      // 없는 판단이 데이터에 남는다(docs/DATA-MODEL.md).
+      personalPerformanceGrade: null,
       ...patch,
     },
   ]
@@ -151,7 +153,7 @@ export function syncAutoDistribution(
       memberId: member.id,
       contributionPercent: peerShares ? peerShares.get(member.id) ?? 0 : equalShares[i],
       personalPerformanceGrade:
-        taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? ('B' as PerformanceGrade),
+        taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? null,
       isAutoDistributed: true,
     }))
 

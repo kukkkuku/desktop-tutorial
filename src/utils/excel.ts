@@ -694,7 +694,7 @@ function buildMatrixRows(tasks: Task[], members: TeamMember[], contributions: Co
     for (const member of members.filter((m) => m.active)) {
       const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
       if (!contribution || contribution.contributionPercent <= 0) continue
-      const personalFactor = criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용'
+      const personalFactor = criteria.personalGradeWeight > 0 ? (contribution.personalPerformanceGrade ?? '미입력') : '미사용'
       rows.push([
         task.name,
         member.name,
@@ -968,7 +968,7 @@ function buildMemberDetailRows(
         task.importance,
         task.achievement || '-',
         contribution.contributionPercent,
-        criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+        criteria.personalGradeWeight > 0 ? (contribution.personalPerformanceGrade ?? '미입력') : '미사용',
         Number(weighted.toFixed(1)),
       ])
     }
@@ -1104,7 +1104,7 @@ function buildMemberResultWorkbook(
     taskRows.push([
       task.name,
       contribution.contributionPercent,
-      criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+      criteria.personalGradeWeight > 0 ? (contribution.personalPerformanceGrade ?? '미입력') : '미사용',
       Number(taskScore.toFixed(1)),
       Number(weighted.toFixed(1)),
     ])

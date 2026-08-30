@@ -746,7 +746,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             score={personalScore}
                             gradeSlot={
                               <>
-                                <span className="text-sm font-semibold text-black">{personalGrade}</span>
+                                {/* 아직 안 매긴 등급은 빈칸이 아니라 '—'로
+                                    보여준다 -- 빈칸이면 화면이 깨진 것처럼 보인다. */}
+                                <span className={`text-sm font-semibold ${personalGrade ? 'text-black' : 'text-gray-300'}`}>
+                                  {personalGrade ?? '—'}
+                                </span>
                                 <GradeNoteButton
                                   note={personalGradeNote}
                                   label={task.name}
@@ -782,7 +786,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             name={t.taskName}
                             percent={t.contributionPercent}
                             score={t.personalScore}
-                            gradeSlot={<span className="text-sm font-semibold text-black">{t.personalGrade}</span>}
+                            gradeSlot={
+                              <span className={`text-sm font-semibold ${t.personalGrade ? 'text-black' : 'text-gray-300'}`}>
+                                {t.personalGrade ?? '—'}
+                              </span>
+                            }
                           />
                         ))}
                       </div>

@@ -111,12 +111,14 @@ export function getEffectiveContributionPercent(
   return blendByWeight(equalShare, actual, contributionWeight)
 }
 
+// null = 팀장이 아직 안 매김. 'B'로 대체하지 말 것 -- 그러면 안 매긴 것과
+// B로 매긴 것이 다시 뒤섞인다.
 export function getPersonalPerformanceGrade(
   contributions: Contribution[],
   taskId: string,
   memberId: string,
-): PerformanceGrade {
-  return getContribution(contributions, taskId, memberId)?.personalPerformanceGrade ?? 'B'
+): PerformanceGrade | null {
+  return getContribution(contributions, taskId, memberId)?.personalPerformanceGrade ?? null
 }
 
 export function getTaskContributionSum(
@@ -161,7 +163,9 @@ export function calcPersonalGradeFactor(
   contribution: Contribution | undefined,
   criteria: Criteria,
 ): number {
-  if (!contribution) return 1.0
+  // 아직 안 매긴 등급(null)은 중립으로 둔다 -- B와 같은 1.0배라, 미입력을
+  // null로 구분하기 전과 점수가 달라지지 않는다.
+  if (!contribution?.personalPerformanceGrade) return 1.0
   return blendByWeight(1.0, PERSONAL_GRADE_FACTOR[contribution.personalPerformanceGrade], criteria.personalGradeWeight)
 }
 

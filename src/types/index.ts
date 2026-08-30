@@ -43,7 +43,13 @@ export interface Contribution {
   taskId: string
   memberId: string
   contributionPercent: number
-  personalPerformanceGrade: PerformanceGrade
+  // 팀장이 평가하기 탭에서 직접 매기는 개인수행등급. null = 아직 안 매김.
+  //
+  // 예전에는 행이 생길 때 'B'가 자동으로 박혀서, 팀장이 앱을 한 번도 안 열어도
+  // 전원이 B를 갖고 있었다. 그러면 "팀장은 B로 봤는데 동료는 S다" 같은, 팀장이
+  // 한 적 없는 판단을 화면이 지어내게 된다. 미입력을 null로 두어 구분한다.
+  // 점수 계산에서는 null을 중립(B와 같은 1.0배)으로 취급하므로 결과는 그대로다.
+  personalPerformanceGrade: PerformanceGrade | null
   // 개인수행등급을 준 근거 메모 -- 평가 매트릭스에서 입력하면 팀원 성장
   // 관리의 과제별 성과에도 그대로 노출된다.
   personalGradeNote?: string

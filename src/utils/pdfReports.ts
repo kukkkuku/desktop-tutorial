@@ -139,7 +139,7 @@ export async function downloadMatrixPdf(
     for (const member of activeMembers) {
       const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
       if (!contribution || contribution.contributionPercent <= 0) continue
-      const personalFactor = criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용'
+      const personalFactor = criteria.personalGradeWeight > 0 ? (contribution.personalPerformanceGrade ?? '미입력') : '미사용'
       rows.push([
         task.name,
         member.name,
@@ -210,7 +210,7 @@ export async function downloadResultsPdf(
     for (const c of taskContributions) {
       const member = members.find((m) => m.id === c.memberId)
       if (!member) continue
-      const personalFactor = criteria.personalGradeWeight > 0 ? c.personalPerformanceGrade : '미사용'
+      const personalFactor = criteria.personalGradeWeight > 0 ? (c.personalPerformanceGrade ?? '미입력') : '미사용'
       detailRows.push([member.name, task.name, c.contributionPercent, personalFactor, taskScore.toFixed(1), (taskScore * (c.contributionPercent / 100)).toFixed(1)])
     }
   }
@@ -262,7 +262,7 @@ function buildMemberResultPdfOptions(
     taskRows.push([
       task.name,
       contribution.contributionPercent,
-      criteria.personalGradeWeight > 0 ? contribution.personalPerformanceGrade : '미사용',
+      criteria.personalGradeWeight > 0 ? (contribution.personalPerformanceGrade ?? '미입력') : '미사용',
       taskScore.toFixed(1),
       weighted.toFixed(1),
     ])
