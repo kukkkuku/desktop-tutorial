@@ -4,9 +4,9 @@ import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
-import { calcPeerAlignment, calcPeerReviewImpact } from '../utils/calculations'
+import { calcPeerFeedback, calcPeerReviewImpact } from '../utils/calculations'
 import PeerReviewImpactSummary from './PeerReviewImpactSummary'
-import PeerAlignmentCards from './PeerAlignmentCards'
+import PeerFeedbackCards from './PeerFeedbackCards'
 import ConfirmDialog from './ConfirmDialog'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
@@ -39,7 +39,6 @@ export default function PeerReviewManagement() {
   const { tasks, members, peerReviews } = state
   const activeMembers = useMemo(() => members.filter((m) => m.active), [members])
   const memberNameById = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members])
-  const taskNameById = useMemo(() => new Map(tasks.map((t) => [t.id, t.name])), [tasks])
 
   // 같은 평가 계산을 피어리뷰 있이/없이 두 번 돌려 비교하므로 memo로 묶는다.
   const peerReviewImpact = useMemo(
@@ -136,10 +135,10 @@ export default function PeerReviewManagement() {
     return { addedCount, updatedCount, errors }
   }
 
-  // 팀원별로 "동료가 어떻게 봤고, 그게 팀장 판단과 같은가"를 계산한다.
-  // 원본 리뷰 나열은 카드의 "근거 보기" 팝업으로 옮겼다.
-  const peerAlignment = useMemo(
-    () => calcPeerAlignment(members, tasks, state.contributions, peerReviews),
+  // 팀원별로 "동료들이 이 사람을 어떻게 봤나"를 정리한다. 원본 리뷰 나열은
+  // 카드의 "근거 보기" 팝업으로 옮겼다.
+  const peerFeedback = useMemo(
+    () => calcPeerFeedback(members, tasks, state.contributions, peerReviews),
     [members, tasks, state.contributions, peerReviews],
   )
 
@@ -177,16 +176,12 @@ export default function PeerReviewManagement() {
         )}
       </div>
 
-      {/* 이 화면의 본론 -- 팀원별로 동료가 어떻게 봤고 그게 팀장 판단과
-          같은지. 원본 리뷰는 각 카드의 "근거 보기" 팝업에 있다. */}
+      {/* 이 화면의 본론 -- 동료들이 각 팀원을 어떻게 봤는지. 팀장이 스스로
+          판단할 근거를 주는 것이 목적이라, 팀장에게 무엇을 입력하라고
+          요구하지 않는다. 원본 리뷰는 각 카드의 "근거 보기" 팝업에 있다. */}
       {peerReviews.length > 0 && (
         <div className="mt-5">
-          <PeerAlignmentCards
-            rows={peerAlignment}
-            peerReviews={peerReviews}
-            taskNameById={taskNameById}
-            onDeleteReview={setDeletingReview}
-          />
+          <PeerFeedbackCards rows={peerFeedback} peerReviews={peerReviews} onDeleteReview={setDeletingReview} />
         </div>
       )}
 
