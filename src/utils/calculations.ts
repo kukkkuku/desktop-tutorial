@@ -274,6 +274,151 @@ export function calcMemberResults(
   return rows.sort((a, b) => b.cumulativeScore - a.cumulativeScore)
 }
 
+// ---------- 팀장 평가 vs 동료 평가 대조 ----------
+// 피어리뷰의 값어치는 팀장이 이미 아는 것을 확인해주는 데 있지 않고, 팀장이
+// 못 본 것을 알려주는 데 있다. 그래서 이 화면이 답해야 할 질문은 "평균 몇
+// 점인가"가 아니라 "내 판단과 동료 판단이 어디서 갈리는가"다.
+//
+// 두 값은 이미 같은 척도(S~D)로 같은 단위(과제 x 팀원)에 저장돼 있다 --
+// 팀장은 평가하기 탭에서 Contribution.personalPerformanceGrade로, 동료는
+// PeerReview.grade로. 지금까지 이 둘을 한 번도 맞대보지 않았다.
+
+// 등급 간격은 10점(S100 A90 B80 C70 D60)이므로 5점 = 반 등급이다. 그보다
+// 작은 차이는 표현 차이로 보고 "일치"로 친다.
+export const ALIGNMENT_TOLERANCE = 5
+
+export type AlignmentVerdict = 'no-reviews' | 'aligned' | 'peers-higher' | 'peers-lower'
+
+export interface PeerAlignmentTaskRow {
+  task: Task
+  leadGrade: PerformanceGrade | null
+  leadContributionPercent: number | null
+  peerGrades: PerformanceGrade[]
+  peerAvgScore: number | null
+  peerAvgContributionPercent: number | null
+  // 동료 평균 - 팀장. 양수면 동료가 더 높게 봤다는 뜻.
+  gap: number | null
+}
+
+export interface PeerAlignmentRow {
+  member: TeamMember
+  reviewCount: number
+  reviewerCount: number
+  // 팀장이 준 개인수행등급을 기여도로 가중 평균한 점수 -- 많이 맡은 과제가
+  // 그 사람을 더 대표하므로 단순 평균보다 낫다.
+  leadScore: number | null
+  peerScore: number | null
+  gap: number | null
+  verdict: AlignmentVerdict
+  // 동료끼리도 갈리는 정도(최고-최저 점수 차). 크면 평균 자체를 믿기 어렵다.
+  peerSpread: number
+  tasks: PeerAlignmentTaskRow[]
+  // 팀장-동료 차이가 반 등급 이상인 과제만, 차이가 큰 순으로.
+  divergentTasks: PeerAlignmentTaskRow[]
+  // 동료가 본 기여도 평균 - 팀장이 배분한 기여도(둘 다 있는 과제 기준).
+  contributionGap: number | null
+}
+
+// 점수를 가장 가까운 등급으로 되돌린다(표시용).
+export function scoreToGrade(score: number): PerformanceGrade {
+  let best: PerformanceGrade = 'B'
+  let bestDiff = Infinity
+  for (const g of Object.keys(PERFORMANCE_SCORE) as PerformanceGrade[]) {
+    const diff = Math.abs(PERFORMANCE_SCORE[g] - score)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = g
+    }
+  }
+  return best
+}
+
+function mean(values: number[]): number | null {
+  return values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : null
+}
+
+export function calcPeerAlignment(
+  members: TeamMember[],
+  tasks: Task[],
+  contributions: Contribution[],
+  peerReviews: PeerReview[],
+): PeerAlignmentRow[] {
+  return members
+    .filter((m) => m.active)
+    .map((member) => {
+      const received = peerReviews.filter((r) => r.targetMemberId === member.id)
+
+      const taskRows: PeerAlignmentTaskRow[] = tasks.map((task) => {
+        const contribution = contributions.find((c) => c.taskId === task.id && c.memberId === member.id)
+        const taskReviews = received.filter((r) => r.taskId === task.id)
+        const leadGrade = contribution?.personalPerformanceGrade ?? null
+        const peerAvgScore = mean(taskReviews.map((r) => PERFORMANCE_SCORE[r.grade]))
+        const peerContributions = taskReviews
+          .map((r) => r.contributionPercent)
+          .filter((v): v is number => typeof v === 'number')
+        return {
+          task,
+          leadGrade,
+          leadContributionPercent: contribution?.contributionPercent ?? null,
+          peerGrades: taskReviews.map((r) => r.grade),
+          peerAvgScore,
+          peerAvgContributionPercent: mean(peerContributions),
+          gap: leadGrade && peerAvgScore !== null ? peerAvgScore - PERFORMANCE_SCORE[leadGrade] : null,
+        }
+      })
+
+      // 팀장 점수는 기여도 가중 평균. 기여도가 전부 0이면 단순 평균으로 뒤로 물러선다.
+      const leadEntries = taskRows.filter((r) => r.leadGrade !== null)
+      const weightSum = leadEntries.reduce((s, r) => s + (r.leadContributionPercent ?? 0), 0)
+      const leadScore =
+        leadEntries.length === 0
+          ? null
+          : weightSum > 0
+            ? leadEntries.reduce(
+                (s, r) => s + PERFORMANCE_SCORE[r.leadGrade!] * (r.leadContributionPercent ?? 0),
+                0,
+              ) / weightSum
+            : mean(leadEntries.map((r) => PERFORMANCE_SCORE[r.leadGrade!]))
+
+      const peerScores = received.map((r) => PERFORMANCE_SCORE[r.grade])
+      const peerScore = mean(peerScores)
+      const gap = leadScore !== null && peerScore !== null ? peerScore - leadScore : null
+
+      let verdict: AlignmentVerdict = 'no-reviews'
+      if (received.length > 0 && gap !== null) {
+        if (Math.abs(gap) < ALIGNMENT_TOLERANCE) verdict = 'aligned'
+        else verdict = gap > 0 ? 'peers-higher' : 'peers-lower'
+      } else if (received.length > 0) {
+        // 리뷰는 있는데 팀장 등급이 아직 없는 경우 -- 비교 자체가 불가능하다.
+        verdict = 'aligned'
+      }
+
+      const withBoth = taskRows.filter((r) => r.leadContributionPercent !== null && r.peerAvgContributionPercent !== null)
+      const contributionGap =
+        withBoth.length > 0
+          ? mean(withBoth.map((r) => r.peerAvgContributionPercent! - r.leadContributionPercent!))
+          : null
+
+      return {
+        member,
+        reviewCount: received.length,
+        reviewerCount: new Set(received.map((r) => r.reviewerMemberId ?? r.reviewerName)).size,
+        leadScore,
+        peerScore,
+        gap,
+        verdict,
+        peerSpread: peerScores.length > 1 ? Math.max(...peerScores) - Math.min(...peerScores) : 0,
+        tasks: taskRows,
+        divergentTasks: taskRows
+          .filter((r) => r.gap !== null && Math.abs(r.gap) >= ALIGNMENT_TOLERANCE)
+          .sort((a, b) => Math.abs(b.gap!) - Math.abs(a.gap!)),
+        contributionGap,
+      }
+    })
+    // 팀장이 먼저 봐야 할 사람(격차가 큰 사람)이 위로 온다.
+    .sort((a, b) => Math.abs(b.gap ?? 0) - Math.abs(a.gap ?? 0))
+}
+
 // ---------- 피어리뷰 영향도 ----------
 // "피어리뷰가 이번 평가를 실제로 얼마나 움직였는가"를 답하기 위한 계산.
 //

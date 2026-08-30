@@ -4,15 +4,15 @@ import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
-import { calcPeerReviewImpact, GRADE_COLORS, PERFORMANCE_SCORE } from '../utils/calculations'
+import { calcPeerAlignment, calcPeerReviewImpact } from '../utils/calculations'
 import PeerReviewImpactSummary from './PeerReviewImpactSummary'
+import PeerAlignmentCards from './PeerAlignmentCards'
 import ConfirmDialog from './ConfirmDialog'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { detectWorkbookKind, downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook, type WorkbookKind } from '../utils/excel'
 import { downloadPeerReviewsPdf } from '../utils/pdfReports'
 import Button from './Button'
-import IconButton from './IconButton'
 
 interface DraftRow {
   contributionPercent: string
@@ -48,6 +48,7 @@ export default function PeerReviewManagement() {
   )
 
   const [deletingReview, setDeletingReview] = useState<PeerReview | null>(null)
+  const [howToOpen, setHowToOpen] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState(tasks[0]?.id ?? '')
   const [reviewerId, setReviewerId] = useState(activeMembers[0]?.id ?? '')
   const [drafts, setDrafts] = useState<Record<string, DraftRow>>({})
@@ -135,18 +136,12 @@ export default function PeerReviewManagement() {
     return { addedCount, updatedCount, errors }
   }
 
-  // 팀원별로 "받은" 리뷰를 모아, 과제·리뷰어·기여도·등급이 한눈에 보이게
-  // 정리한다 -- "누구를 기준으로 뭘 받았는지 확인이 안 된다"는 문제를
-  // 여기서 해결한다.
-  const receivedByMember = useMemo(() => {
-    const map = new Map<string, PeerReview[]>()
-    for (const m of members) map.set(m.id, [])
-    for (const r of peerReviews) {
-      if (!map.has(r.targetMemberId)) map.set(r.targetMemberId, [])
-      map.get(r.targetMemberId)!.push(r)
-    }
-    return map
-  }, [members, peerReviews])
+  // 팀원별로 "동료가 어떻게 봤고, 그게 팀장 판단과 같은가"를 계산한다.
+  // 원본 리뷰 나열은 카드의 "근거 보기" 팝업으로 옮겼다.
+  const peerAlignment = useMemo(
+    () => calcPeerAlignment(members, tasks, state.contributions, peerReviews),
+    [members, tasks, state.contributions, peerReviews],
+  )
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId)
 
@@ -162,16 +157,42 @@ export default function PeerReviewManagement() {
           <TitleUploadControls busyLabel="피어리뷰 업로드 중..." onDownload={() => downloadPeerReviewTemplate(tasks, members)} onFiles={handleUploadFiles} />
         </div>
       </div>
-      <p className="mt-1 text-sm text-gray-600">
-        팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-black">'빈양식 다운로드'</span>로 과제·팀원별 빈
-        칸이 다 채워진 엑셀을 받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워
-        돌려받으면 <span className="font-medium text-black">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
-        기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
-      </p>
+      {/* 사용법 안내는 처음 한 번만 필요한 내용이라 접어둔다 -- 매번 결과보다
+          위에 4줄로 깔려 있으면 화면에서 시선이 제일 먼저 가는 곳이
+          인사이트가 아니라 매뉴얼이 된다. */}
+      <div className="mt-1">
+        <button
+          onClick={() => setHowToOpen((v) => !v)}
+          className="text-xs font-medium text-gray-400 hover:text-accent"
+        >
+          {howToOpen ? '사용법 접기' : '이 화면 사용법'}
+        </button>
+        {howToOpen && (
+          <p className="mt-1.5 text-sm text-gray-600">
+            팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-black">'빈양식 다운로드'</span>로 과제·팀원별
+            빈 칸이 다 채워진 엑셀을 받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워
+            돌려받으면 <span className="font-medium text-black">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
+            기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
+          </p>
+        )}
+      </div>
 
-      {/* 리뷰 목록(로우데이터)을 읽기 전에 "그래서 피어리뷰가 이번 평가를
-          바꿨는가"부터 답한다. */}
-      <div className="mt-4">
+      {/* 이 화면의 본론 -- 팀원별로 동료가 어떻게 봤고 그게 팀장 판단과
+          같은지. 원본 리뷰는 각 카드의 "근거 보기" 팝업에 있다. */}
+      {peerReviews.length > 0 && (
+        <div className="mt-5">
+          <PeerAlignmentCards
+            rows={peerAlignment}
+            peerReviews={peerReviews}
+            taskNameById={taskNameById}
+            onDeleteReview={setDeletingReview}
+          />
+        </div>
+      )}
+
+      {/* 계산기가 한 일 -- 위 대조가 팀장의 판단을 돕는다면, 이건 그 판단과
+          무관하게 점수에 이미 반영된 결과다. 보조 정보라 아래에 둔다. */}
+      <div className="mt-5">
         <PeerReviewImpactSummary impact={peerReviewImpact} />
       </div>
 
@@ -264,58 +285,6 @@ export default function PeerReviewManagement() {
           </Button>
         </div>
       )}
-
-      <h4 className="mt-8 text-sm font-semibold text-black">팀원별 받은 리뷰</h4>
-      <p className="mt-1 text-xs text-gray-500">과제별로 누가 어떤 근거(기여도·등급·코멘트)로 남겼는지 확인할 수 있습니다.</p>
-
-      <div className="mt-3 max-w-2xl space-y-3">
-        {activeMembers.length === 0 && <p className="text-sm text-gray-400">활성 팀원이 없습니다.</p>}
-        {activeMembers.map((m) => {
-          const received = receivedByMember.get(m.id) ?? []
-          const avgScore = received.length > 0 ? received.reduce((sum, r) => sum + PERFORMANCE_SCORE[r.grade], 0) / received.length : null
-          return (
-            <div key={m.id} className="rounded-lg border border-gray-200">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
-                <span className="text-sm font-semibold text-black">{m.name}</span>
-                <span className="text-xs text-gray-500">
-                  받은 리뷰 {received.length}건
-                  {avgScore !== null && <span className="ml-2 font-medium text-accent">평균 {avgScore.toFixed(0)}점</span>}
-                </span>
-              </div>
-              {received.length === 0 ? (
-                <p className="px-4 py-3 text-xs text-gray-400">아직 받은 리뷰가 없습니다.</p>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {received.map((r) => (
-                    <li key={r.id} className="px-4 py-2 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="min-w-0 flex-1 truncate text-gray-700">
-                          <span className="font-medium text-black">{r.reviewerName || '(작성자 미상)'}</span>
-                          {' · '}
-                          {r.taskId ? taskNameById.get(r.taskId) ?? '(삭제된 과제)' : '과제 미상(예전 데이터)'}
-                          {typeof r.contributionPercent === 'number' && <span className="ml-1.5 text-gray-400">기여도 {r.contributionPercent}%</span>}
-                        </span>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
-                        <span className="h-4 w-px shrink-0 bg-gray-200" />
-                        <IconButton onClick={() => setDeletingReview(r)} title="삭제" aria-label="삭제" tone="danger" className="shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                          </svg>
-                        </IconButton>
-                      </div>
-                      {r.comment && <p className="mt-1 text-xs text-gray-500">"{r.comment}"</p>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )
-        })}
-      </div>
 
       <ConfirmDialog
         open={deletingReview !== null}
