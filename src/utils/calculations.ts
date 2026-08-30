@@ -1,3 +1,8 @@
+// 새 계산·인사이트를 만들기 전에 docs/DATA-MODEL.md를 먼저 볼 것.
+// 필드 이름만 보고 뜻을 추측하면 틀린다 -- personalPerformanceGrade는 팀장이
+// 매긴 값이 아니라 자동 기본값 'B'가 섞여 있고, PeerReview.contributionPercent는
+// 대상자별로 더하면 아무 의미가 없다(합계 축이 다르다).
+
 import type {
   Contribution,
   Criteria,

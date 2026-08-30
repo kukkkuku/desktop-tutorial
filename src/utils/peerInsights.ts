@@ -1,6 +1,9 @@
 import type { PeerReview, PerformanceGrade } from '../types'
 import { PERFORMANCE_SCORE } from './calculations'
 
+// 여기서 다루는 값들의 정확한 의미(누가 넣었나 / 기본값 / 합계 축)는
+// docs/DATA-MODEL.md 참고.
+
 // 과제 하나에 달린 동료 리뷰들을 사람이 읽는 문장으로 바꾼다.
 //
 // 표를 그려주는 것만으로는 부족하다 -- 리뷰어 5줄을 눈으로 훑어야 "이서연만
