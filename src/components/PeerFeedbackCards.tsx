@@ -3,7 +3,6 @@ import type { PeerReview } from '../types'
 import {
   GRADE_COLORS,
   PERFORMANCE_SCORE,
-  type PeerAgreement,
   type PeerFeedbackRow,
   type PeerStanding,
 } from '../utils/calculations'
@@ -31,22 +30,29 @@ const STANDING_TEXT: Record<PeerStanding, string> = {
   bottom: '팀에서 가장 낮게 평가받습니다',
 }
 
-const STANDING_STYLE: Record<PeerStanding, string> = {
-  none: 'bg-gray-100 text-gray-500',
-  top: 'bg-blue-50 text-blue-700',
-  above: 'bg-blue-50 text-blue-700',
-  average: 'bg-gray-100 text-gray-600',
-  below: 'bg-orange-50 text-orange-700',
-  bottom: 'bg-orange-50 text-orange-700',
-}
+// 카드 첫 줄 -- 팀 안에서 어디쯤인지에 근거를 붙여 한 문장으로 만든다.
+// "평균 82점"은 잘한 건지 알 수 없지만 "팀에서 가장 높다"는 바로 판단에 쓰인다.
+//
+// 근거는 최빈 등급 기준으로 센다. 최고~최저 폭("S부터 D까지 갈립니다")으로
+// 쓰면 한 명만 튄 경우까지 통째로 갈리는 것처럼 말하게 되어, 바로 아래
+// 과제별 문장("4명이 B 이상인데 한 명만 D")과 어긋난다.
+function standingLine(row: PeerFeedbackRow): string {
+  if (row.reviewCount === 0) return '아직 받은 리뷰가 없어 동료 의견을 확인할 수 없습니다.'
 
-// 근거를 얼마나 믿을 수 있는지. 갈리는 평가는 평균을 믿기 어려우니
-// 팀장이 원문을 직접 봐야 한다는 신호다.
-function agreementText(agreement: PeerAgreement, reviewerCount: number): string | null {
-  if (agreement === 'unanimous') return `동료 ${reviewerCount}명 의견 일치`
-  if (agreement === 'mostly') return '한 등급 안에서 일치'
-  if (agreement === 'split') return '동료 간 평가 갈림'
-  return null
+  const head = STANDING_TEXT[row.standing]
+  if (row.gradeCounts.length === 1) {
+    const only = row.gradeCounts[0]
+    return `${head}. 동료 ${only.count}명이 모두 ${only.grade}로 봤습니다.`
+  }
+
+  // gradeCounts는 S~D 순으로 정렬돼 있으므로, 같은 빈도면 높은 등급이 먼저 잡힌다.
+  let modeIndex = 0
+  for (let i = 1; i < row.gradeCounts.length; i += 1) {
+    if (row.gradeCounts[i].count > row.gradeCounts[modeIndex].count) modeIndex = i
+  }
+  const mode = row.gradeCounts[modeIndex]
+  const atOrAbove = row.gradeCounts.slice(0, modeIndex + 1).reduce((n, g) => n + g.count, 0)
+  return `${head}. ${row.reviewCount}건 중 ${atOrAbove}건이 ${mode.grade} 이상입니다.`
 }
 
 function GradeChip({ grade, className = '' }: { grade: string; className?: string }) {
@@ -79,22 +85,23 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
 
       <div className="mt-3 space-y-2">
         {rows.map((row) => {
-          const agreement = agreementText(row.agreement, row.reviewerCount)
-          const topComment = row.comments[0]
+          // 이 팀원이 받은 리뷰를 과제별로 나눠, 가장 눈에 띄는 과제 하나를
+          // 고른다 -- 한 명만 튄 과제가 있으면 그게 1순위, 없으면 평이 통째로
+          // 갈리는 과제. 둘 다 없으면 과제별 얘기는 하지 않는다.
+          const memberReviews = peerReviews.filter((r) => r.targetMemberId === row.member.id)
+          const taskSummaries = row.tasks.map((t) => ({
+            task: t.task,
+            summary: summarizeTaskReviews(memberReviews.filter((r) => r.taskId === t.task.id)),
+          }))
+          const notable =
+            taskSummaries.find((t) => t.summary.outlierComment) ??
+            taskSummaries.find((t) => t.summary.gradeLine?.includes('갈립니다')) ??
+            null
           return (
             <div key={row.member.id} className="rounded-xl border border-gray-200 bg-white p-4">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-[15px] font-bold text-black">{row.member.name}</span>
                 {row.member.level && <span className="text-xs text-gray-400">{row.member.level}</span>}
-                {row.grade && <GradeChip grade={row.grade} />}
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STANDING_STYLE[row.standing]}`}>
-                  {STANDING_TEXT[row.standing]}
-                </span>
-                {row.rank !== null && row.rankTotal > 1 && (
-                  <span className="text-xs text-gray-400">
-                    {row.rankTotal}명 중 {row.rank}위
-                  </span>
-                )}
                 {row.reviewCount > 0 && (
                   <span className="ml-auto text-xs text-gray-400">
                     동료 {row.reviewerCount}명 · 과제 {row.taskCount}개
@@ -102,67 +109,45 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
                 )}
               </div>
 
-              {row.reviewCount > 0 && (
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  {/* 등급 분포 -- 평균 한 값보다 "S 3명, B 1명"이 훨씬 많은 걸
-                      말해준다. 몰려 있으면 믿을 만하고, 퍼져 있으면 아니다. */}
-                  <span className="flex items-center gap-1">
-                    {row.gradeCounts.map(({ grade, count }) => (
-                      <span key={grade} className="flex items-center gap-0.5">
-                        <GradeChip grade={grade} />
-                        <span className="text-xs text-gray-400">{count}</span>
-                      </span>
-                    ))}
-                  </span>
-                  {agreement && (
-                    <span
-                      className={`rounded px-2 py-0.5 text-xs font-medium ${
-                        row.agreement === 'split' ? 'bg-yellow-50 text-yellow-700' : 'text-gray-500'
-                      }`}
-                    >
-                      {agreement}
-                    </span>
+              {/* 칩과 뱃지를 늘어놓으면 결국 읽는 사람이 해석해야 한다. 동료들이
+                  이 사람을 어떻게 봤는지를 문장으로 먼저 말한다. */}
+              <p className="mt-2 text-sm text-black">{standingLine(row)}</p>
+
+              {/* 과제마다 평이 갈리면 그게 이 사람에 대해 가장 많은 것을
+                  말해준다 -- "이 사람은 A다"보다 "이 일엔 강하고 저 일엔
+                  아쉬웠다"가 면담에서 쓸 수 있는 말이다. */}
+              {notable && (
+                <div className="mt-2">
+                  <p className="text-[13px] text-gray-700">
+                    <span className="font-medium text-black">{notable.task.name}</span> — {notable.summary.gradeLine}
+                  </p>
+                  {notable.summary.outlierComment && (
+                    <p className="mt-0.5 text-[13px] text-gray-500">
+                      {notable.summary.outlierComment.reviewerName}의 근거 &mdash; "
+                      {notable.summary.outlierComment.comment}"
+                    </p>
                   )}
                 </div>
               )}
 
-              {/* 같은 사람이라도 과제마다 평이 갈리면 그게 핵심 정보다 --
-                  "이 사람은 A다"보다 "이 일에는 강하고 저 일에는 약하다"가
-                  면담에서 쓸 수 있는 말이다. */}
-              {row.bestTask && row.worstTask && (
+              {/* 동료들이 실제로 쓴 말. 규칙으로 만든 문장보다 이게 면담에서
+                  바로 쓰인다. */}
+              {row.comments.length > 0 && (
                 <p className="mt-2 text-[13px] text-gray-600">
-                  과제별로 갈립니다 · <span className="font-medium text-black">{row.bestTask.task.name}</span>{' '}
-                  {row.bestTask.grades.join('·')} ↔ <span className="font-medium text-black">{row.worstTask.task.name}</span>{' '}
-                  {row.worstTask.grades.join('·')}
+                  동료들이 남긴 말 &mdash;{' '}
+                  {row.comments.slice(0, 2).map((c, i) => (
+                    <span key={i}>
+                      {i > 0 && ' / '}"{c.comment}" <span className="text-gray-400">({c.reviewerName})</span>
+                    </span>
+                  ))}
+                  {row.comments.length > 2 && <span className="text-gray-400"> 외 {row.comments.length - 2}건</span>}
                 </p>
               )}
 
-              {topComment && (
-                <p className="mt-2 text-[13px] text-gray-600">
-                  "{topComment.comment}"{' '}
-                  <span className="text-gray-400">
-                    — {topComment.reviewerName}
-                    {row.comments.length > 1 && ` 외 ${row.comments.length - 1}건`}
-                  </span>
-                </p>
-              )}
-
-              {/* 기여도는 "동료가 본 몫"과 "지금 배분된 값"을 나란히 놓기만
-                  한다. 배분값을 팀장이 직접 넣었는지는 데이터로 구분할 수 없어
-                  (migrate에서 isAutoDistributed가 false로 떨어진다) 사람에게
-                  귀속시키지 않는다. */}
               {row.peerContributionPercent !== null && (
                 <p className="mt-1.5 text-[13px] text-gray-600">
-                  동료가 본 기여도 평균{' '}
-                  <span className="font-medium text-black">{row.peerContributionPercent.toFixed(0)}%</span>
-                  {row.currentContributionPercent !== null &&
-                    Math.abs(row.peerContributionPercent - row.currentContributionPercent) >= 10 && (
-                      <span className="text-gray-500">
-                        {' '}
-                        · 현재 배분 {row.currentContributionPercent.toFixed(0)}%와{' '}
-                        {Math.abs(row.peerContributionPercent - row.currentContributionPercent).toFixed(0)}%p 차이
-                      </span>
-                    )}
+                  동료들이 본 이 사람의 몫은 평균{' '}
+                  <span className="font-medium text-black">{row.peerContributionPercent.toFixed(0)}%</span>입니다.
                 </p>
               )}
 
