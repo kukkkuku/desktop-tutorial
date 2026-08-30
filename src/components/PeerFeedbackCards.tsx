@@ -7,6 +7,7 @@ import {
   type PeerFeedbackRow,
   type PeerStanding,
 } from '../utils/calculations'
+import { summarizeTaskReviews } from '../utils/peerInsights'
 import Button from './Button'
 
 function CloseIcon({ className }: { className?: string }) {
@@ -231,6 +232,7 @@ function EvidenceDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {row.tasks.map((t) => {
             const reviews = peerReviews.filter((r) => r.taskId === t.task.id)
+            const summary = summarizeTaskReviews(reviews)
             return (
               <div key={t.task.id} className="mb-4 rounded-lg border border-gray-200">
                 <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
@@ -244,6 +246,30 @@ function EvidenceDialog({
                     )}
                   </span>
                 </div>
+
+                {/* 표를 읽지 않아도 되도록, 이 과제에서 볼 것을 먼저 문장으로
+                    말한다. 해당하는 상황이 없으면 문장을 만들지 않는다. */}
+                {(summary.gradeLine || summary.contributionLine) && (
+                  <div className="space-y-1 border-b border-gray-100 px-4 py-3">
+                    {summary.gradeLine && <p className="text-[13px] text-black">{summary.gradeLine}</p>}
+                    {summary.outlierComment && (
+                      <p className="text-[13px] text-gray-600">
+                        {summary.outlierComment.reviewerName}의 근거는 "{summary.outlierComment.comment}"
+                        {summary.outlierComment.unique && ' \u2014 다른 리뷰어는 언급하지 않은 지점입니다.'}
+                      </p>
+                    )}
+                    {summary.contributionLine && (
+                      <p
+                        className={`text-[13px] ${
+                          Math.abs(summary.contributionSumGap) >= 2 ? 'text-orange-700' : 'text-gray-600'
+                        }`}
+                      >
+                        {summary.contributionLine}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <ul className="divide-y divide-gray-100">
                   {reviews.map((r) => (
                     <li key={r.id} className="px-4 py-2.5 text-sm">
