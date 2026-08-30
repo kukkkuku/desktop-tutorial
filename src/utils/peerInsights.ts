@@ -4,7 +4,7 @@ import { PERFORMANCE_SCORE } from './calculations'
 // 과제 하나에 달린 동료 리뷰들을 사람이 읽는 문장으로 바꾼다.
 //
 // 표를 그려주는 것만으로는 부족하다 -- 리뷰어 5줄을 눈으로 훑어야 "이서연만
-// D를 줬네", "기여도 합이 97%네"가 나온다. 그건 사람이 아니라 앱이 할 일이다.
+// D를 줬네"가 나온다. 그건 사람이 아니라 앱이 할 일이다.
 // 숫자는 문장 안에 근거로만 넣고, 판단(이견 없음/갈림/한쪽만 다름)은 여기서
 // 내려서 준다.
 //
@@ -16,29 +16,15 @@ const GRADE_ORDER: PerformanceGrade[] = ['S', 'A', 'B', 'C', 'D']
 export interface TaskReviewSummary {
   // 등급에 대한 판단 한 문장.
   gradeLine: string | null
-  // 튄 평가를 남긴 사람의 근거(있을 때만).
-  outlierComment: { reviewerName: string; comment: string; unique: boolean } | null
+  // 튄 평가를 남긴 사람의 근거(있을 때만). 그 사람이 왜 다르게 봤는지가
+  // 팀장이 확인할 지점이라, 원문을 그대로 인용한다.
+  outlierComment: { reviewerName: string; comment: string } | null
   // 기여도에 대한 문장(볼 것이 있을 때만).
   contributionLine: string | null
-  // 합계가 100%에서 벗어난 정도. 0이면 정상.
-  contributionSumGap: number
 }
 
 function gradeIndex(g: PerformanceGrade): number {
   return GRADE_ORDER.indexOf(g)
-}
-
-// 코멘트에서 의미 있는 낱말만 남긴다 -- 다른 리뷰어도 같은 말을 했는지
-// 보려는 것이므로, 조사·일반동사까지 정확히 다룰 필요는 없고 2글자 이상
-// 토큰이 겹치는지만 본다.
-function keywords(text: string): Set<string> {
-  return new Set(
-    text
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .split(/\s+/)
-      .map((w) => w.trim())
-      .filter((w) => w.length >= 2),
-  )
 }
 
 export function summarizeTaskReviews(reviews: PeerReview[]): TaskReviewSummary {
@@ -46,7 +32,6 @@ export function summarizeTaskReviews(reviews: PeerReview[]): TaskReviewSummary {
     gradeLine: null,
     outlierComment: null,
     contributionLine: null,
-    contributionSumGap: 0,
   }
   if (reviews.length === 0) return empty
 
@@ -108,52 +93,32 @@ export function summarizeTaskReviews(reviews: PeerReview[]): TaskReviewSummary {
   }
 
   // --- 튄 평가의 근거 ---
-  let outlierComment: TaskReviewSummary['outlierComment'] = null
-  if (outlier?.comment?.trim()) {
-    const mine = keywords(outlier.comment)
-    const othersText = reviews
-      .filter((r) => r.id !== outlier!.id)
-      .map((r) => r.comment ?? '')
-      .join(' ')
-    const theirs = keywords(othersText)
-    const overlap = [...mine].some((w) => theirs.has(w))
-    outlierComment = {
-      reviewerName: outlier.reviewerName || '(작성자 미상)',
-      comment: outlier.comment.trim(),
-      // 다른 리뷰어가 아무도 안 건드린 얘기라면 그게 새 정보다.
-      unique: !overlap,
-    }
-  }
+  // "다른 리뷰어는 언급하지 않은 지점"까지 단정하지는 않는다 -- 낱말이
+  // 겹치는지로 판정하면 "일정이 늦었다"와 "스케줄 지연"을 다른 얘기로 보게
+  // 되어, 근거 없는 주장을 팀장에게 들이밀게 된다. 인용까지만 한다.
+  const outlierComment: TaskReviewSummary['outlierComment'] = outlier?.comment?.trim()
+    ? { reviewerName: outlier.reviewerName || '(작성자 미상)', comment: outlier.comment.trim() }
+    : null
 
   // --- 기여도 ---
+  // 여기 있는 값들은 "여러 리뷰어가 각자 이 사람 한 명의 몫을 몇 %로 봤는가"다.
+  // 합계는 아무 의미가 없다 -- 100%가 되어야 하는 축은 (과제 + 리뷰어) 고정
+  // 상태에서 팀원들에게 배분한 합이지(handleSaveDrafts), 한 사람에 대한
+  // 리뷰어들의 추정치를 더한 값이 아니다. 그래서 합계는 아예 계산하지 않고,
+  // 리뷰어끼리 얼마나 다르게 봤는지만 말한다.
   const withPercent = reviews.filter((r): r is PeerReview & { contributionPercent: number } =>
     typeof r.contributionPercent === 'number',
   )
   let contributionLine: string | null = null
-  let contributionSumGap = 0
   if (withPercent.length >= 2) {
     const sorted = [...withPercent].sort((a, b) => b.contributionPercent - a.contributionPercent)
     const high = sorted[0]
     const low = sorted[sorted.length - 1]
-    const sum = withPercent.reduce((s, r) => s + r.contributionPercent, 0)
-    contributionSumGap = Math.round(sum - 100)
-
-    const parts: string[] = []
-    // 최고-최저가 10%p 넘게 벌어질 때만 언급한다 -- 비슷하면 볼 것이 없다.
+    // 10%p 넘게 벌어질 때만 말한다 -- 비슷하면 볼 것이 없다.
     if (high.contributionPercent - low.contributionPercent >= 10) {
-      parts.push(
-        `기여도는 ${high.reviewerName}이 ${high.contributionPercent}%로 가장 높게, ${low.reviewerName}이 ${low.contributionPercent}%로 가장 낮게 봤습니다.`,
-      )
+      contributionLine = `이 사람의 몫을 ${low.reviewerName}은 ${low.contributionPercent}%로, ${high.reviewerName}은 ${high.contributionPercent}%로 봤습니다. 같이 일한 사람끼리도 체감이 다릅니다.`
     }
-    if (Math.abs(contributionSumGap) >= 2) {
-      parts.push(
-        contributionSumGap > 0
-          ? `합계가 ${Math.round(sum)}%로 ${contributionSumGap}%p 초과합니다.`
-          : `합계가 ${Math.round(sum)}%라 ${Math.abs(contributionSumGap)}%p가 비어 있습니다.`,
-      )
-    }
-    contributionLine = parts.length > 0 ? parts.join(' ') : null
   }
 
-  return { gradeLine, outlierComment, contributionLine, contributionSumGap }
+  return { gradeLine, outlierComment, contributionLine }
 }

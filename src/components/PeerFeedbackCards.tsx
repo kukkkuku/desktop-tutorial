@@ -254,18 +254,11 @@ function EvidenceDialog({
                     {summary.gradeLine && <p className="text-[13px] text-black">{summary.gradeLine}</p>}
                     {summary.outlierComment && (
                       <p className="text-[13px] text-gray-600">
-                        {summary.outlierComment.reviewerName}의 근거는 "{summary.outlierComment.comment}"
-                        {summary.outlierComment.unique && ' \u2014 다른 리뷰어는 언급하지 않은 지점입니다.'}
+                        {summary.outlierComment.reviewerName}의 근거 &mdash; "{summary.outlierComment.comment}"
                       </p>
                     )}
                     {summary.contributionLine && (
-                      <p
-                        className={`text-[13px] ${
-                          Math.abs(summary.contributionSumGap) >= 2 ? 'text-orange-700' : 'text-gray-600'
-                        }`}
-                      >
-                        {summary.contributionLine}
-                      </p>
+                      <p className="text-[13px] text-gray-600">{summary.contributionLine}</p>
                     )}
                   </div>
                 )}
