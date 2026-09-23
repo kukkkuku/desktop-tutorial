@@ -1,25 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5EDC8C"/>
-      <stop offset="1" stop-color="#169E5B"/>
+      <stop offset="0" stop-color="#62AAFA"/>
+      <stop offset="1" stop-color="#6A5CE6"/>
     </linearGradient>
     <mask id="cut">
       <rect width="1024" height="1024" fill="#fff"/>
-      <circle cx="656" cy="612" r="178" fill="#000"/>
+      <circle cx="640" cy="610" r="150" fill="#000"/>
     </mask>
   </defs>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
-  <g transform="translate(6 42)" fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(11 57)" fill="none" stroke="#fff" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
     <g mask="url(#cut)">
       <rect x="262" y="200" width="340" height="480" rx="60"/>
       <line x1="354" y1="320" x2="510" y2="320"/>
       <line x1="354" y1="400" x2="510" y2="400"/>
-      <line x1="354" y1="480" x2="440" y2="480"/>
     </g>
-    <rect x="606" y="462" width="100" height="156" rx="50"/>
-    <path d="M550 580 A106 106 0 0 0 762 580"/>
-    <line x1="656" y1="686" x2="656" y2="740"/>
-    <line x1="600" y1="740" x2="712" y2="740"/>
+    <circle cx="640" cy="610" r="88"/>
+    <line x1="704" y1="674" x2="740" y2="710"/>
   </g>
 </svg>
