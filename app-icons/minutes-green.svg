@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5EDC8C"/>
+      <stop offset="1" stop-color="#169E5B"/>
+    </linearGradient>
+    <mask id="cut">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <path d="M720 330 L790 400 L560 630 L468 652 L490 560 Z" fill="#000" stroke="#000" stroke-width="100" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- document + lines -->
+  <g fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" mask="url(#cut)">
+    <rect x="296" y="160" width="360" height="500" rx="56"/>
+    <line x1="380" y1="270" x2="572" y2="270"/>
+    <line x1="380" y1="350" x2="572" y2="350"/>
+    <line x1="380" y1="430" x2="500" y2="430"/>
+  </g>
+  <!-- pen -->
+  <g fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M720 330 L790 400 L560 630 L468 652 L490 560 Z"/>
+    <line x1="680" y1="370" x2="750" y2="440"/>
+  </g>
+  <!-- version pill -->
+  <rect x="292" y="720" width="440" height="160" rx="80" fill="#fff"/>
+  <text x="512" y="800" text-anchor="middle" dominant-baseline="central" font-family="'SF Pro Rounded','Arial Rounded MT Bold','DejaVu Sans',sans-serif" font-weight="800" font-size="124" fill="#0E6B3D">v1.2</text>
+</svg>

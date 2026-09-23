@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB347"/>
+      <stop offset="1" stop-color="#F26B1D"/>
+    </linearGradient>
+    <mask id="cut">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <circle cx="668" cy="566" r="150" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- calendar / table -->
+  <g fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round" mask="url(#cut)">
+    <rect x="296" y="196" width="400" height="440" rx="56"/>
+    <line x1="296" y1="316" x2="696" y2="316"/>
+    <line x1="429" y1="316" x2="429" y2="636"/>
+    <line x1="563" y1="316" x2="563" y2="636"/>
+    <line x1="296" y1="424" x2="696" y2="424"/>
+    <line x1="296" y1="530" x2="696" y2="530"/>
+  </g>
+  <g stroke="#fff" stroke-width="36" stroke-linecap="round">
+    <line x1="400" y1="160" x2="400" y2="232"/>
+    <line x1="592" y1="160" x2="592" y2="232"/>
+  </g>
+  <!-- clock -->
+  <g fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="668" cy="566" r="100"/>
+    <polyline points="668,510 668,570 710,598"/>
+  </g>
+  <!-- version pill -->
+  <rect x="292" y="720" width="440" height="160" rx="80" fill="#fff"/>
+  <text x="512" y="800" text-anchor="middle" dominant-baseline="central" font-family="'SF Pro Rounded','Arial Rounded MT Bold','DejaVu Sans',sans-serif" font-weight="800" font-size="124" fill="#9A3C0A">v1.2</text>
+</svg>
