@@ -647,8 +647,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   return (
     <div className="relative">
       <div className="overflow-x-auto rounded-lg border border-[#D6DAE0] bg-white">
-        <div ref={wrapRef} className="relative" style={{ width: tableWidth, minWidth: '100%' }}>
-          <table className="table-fixed border-collapse text-[13.5px]" style={{ width: tableWidth }}>
+        {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
+        <div ref={wrapRef} className="relative" style={{ width: '100%', minWidth: tableWidth }}>
+          <table className="table-fixed border-collapse text-[13.5px]" style={{ width: '100%', minWidth: tableWidth }}>
             <colgroup>
               <col style={{ width: HANDLE_W }} />
               {columns.map((c) => (
@@ -770,7 +771,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           {custom !== undefined ? (
                             custom
                           ) : (
-                            <div className={`${col.type === 'memo' ? 'line-clamp-2 whitespace-pre-line text-[13px] leading-snug' : 'truncate'}`} title={text.length > 20 ? text : undefined}>
+                            <div
+                              className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[13px]' : ''}`}
+                              title={col.type === 'memo' && text.length > 20 ? text : undefined}
+                            >
                               {text}
                             </div>
                           )}

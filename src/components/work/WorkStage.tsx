@@ -627,7 +627,7 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; n
     const names = row.assigneeIds.map((id) => byId.get(id)).filter(Boolean) as string[]
     if (names.length === 0 && row.unmatchedAssignees.length === 0) return null
     return (
-      <div className="flex gap-1 overflow-hidden">
+      <div className="flex flex-wrap gap-1 py-1">
         {names.map((n) => (
           <span key={n} className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
             {n}

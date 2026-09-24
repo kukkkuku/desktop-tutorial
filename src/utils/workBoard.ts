@@ -305,6 +305,62 @@ export function unmatchedAssigneeSummary(board: WorkBoard): { name: string; coun
     .sort((a, b) => b.count - a.count)
 }
 
+// ---------- 시작일·완료일 추정 ----------
+
+// 시트에는 시작일 열이 없고 완료일도 비어 있는 행이 많다. 주차 칸 표시로
+// 대신 채운다: 시작일 = 가장 이른 주차 표시(보통 S)가 있는 주의 첫날, 완료일 =
+// 마지막 완·F가 있는 주의 마지막 날. 한 달을 7일씩 나눈 근사라 "추정"이다.
+function weekRange(month: number, week: number, weeksInMonth: number, year: number): { start: string; end: string } {
+  const days = new Date(year, month, 0).getDate()
+  const startDay = Math.min(days, 1 + (week - 1) * 7)
+  const endDay = week >= weeksInMonth ? days : Math.min(days, week * 7)
+  const mm = String(month).padStart(2, '0')
+  return { start: `${year}-${mm}-${String(startDay).padStart(2, '0')}`, end: `${year}-${mm}-${String(endDay).padStart(2, '0')}` }
+}
+
+export function deriveDates(
+  weeks: Record<string, WeekMark>,
+  weekCols: WeekColumn[],
+  year: number | null,
+): { startDate?: string; doneDate?: string } {
+  if (!year) return {}
+  const perMonth = new Map<number, number>()
+  for (const w of weekCols) perMonth.set(w.month, Math.max(perMonth.get(w.month) ?? 0, w.week))
+  const marked = weekCols.filter((w) => weeks[w.key])
+  if (marked.length === 0) return {}
+  // 가장 이른 표시. 시트에는 완료 뒤에 S를 다시 찍은 행도 있어서 "첫 S"로 잡으면
+  // 시작일이 완료일보다 늦어진다.
+  const first = marked[0]
+  const done = [...marked].reverse().find((w) => weeks[w.key] === '완' || weeks[w.key] === 'F')
+  return {
+    startDate: weekRange(first.month, first.week, perMonth.get(first.month) ?? 4, year).start,
+    doneDate: done ? weekRange(done.month, done.week, perMonth.get(done.month) ?? 4, year).end : undefined,
+  }
+}
+
+export function yearFromTitle(title: string): number | null {
+  const m = title.match(/(20\d{2})/)
+  return m ? Number(m[1]) : null
+}
+
+
+// 이 규칙이 생기기 전에 가져온 행도 다시 가져오지 않고 채워지게, 저장본을 읽을 때
+// 비어 있는(그리고 사람이 고친 적 없는) 시작일·완료일만 추정으로 채운다.
+function fillDerivedDates(items: WorkItem[], weekAxis: WeekColumn[], year: number | null): WorkItem[] {
+  if (!year || weekAxis.length === 0) return items
+  return items.map((i) => {
+    const guess = deriveDates(i.weeks, weekAxis, year)
+    const add: Record<string, string> = {}
+    for (const f of ['startDate', 'doneDate'] as const) {
+      const v = guess[f]
+      if (v && !i.fields[f] && !i.editedAt?.[f]) add[f] = v
+    }
+    const keys = Object.keys(add)
+    if (keys.length === 0) return i
+    return { ...i, fields: { ...i.fields, ...add }, derivedFields: Array.from(new Set([...(i.derivedFields ?? []), ...keys])) }
+  })
+}
+
 // ---------- 저장 데이터 읽기 ----------
 
 function str(v: unknown): string | null {
@@ -414,5 +470,6 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
   const excludedSheetKeys = Array.isArray(r.excludedSheetKeys)
     ? (r.excludedSheetKeys as unknown[]).filter((x): x is string => typeof x === 'string')
     : []
-  return { groups, items, columns, weekAxis, sheetLink, excludedSheetKeys }
+  const filledItems = fillDerivedDates(items, weekAxis, sheetLink ? yearFromTitle(sheetLink.tabName) : null)
+  return { groups, items: filledItems, columns, weekAxis, sheetLink, excludedSheetKeys }
 }

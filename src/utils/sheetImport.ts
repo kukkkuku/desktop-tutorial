@@ -15,7 +15,9 @@ import {
   matchAssignees,
   normalizeSpaces,
   splitNames,
+  deriveDates,
 } from './workBoard'
+export { deriveDates, yearFromTitle } from './workBoard'
 
 // 0부터 세는 행·열, 끝 포함.
 export interface SheetMerge {
@@ -393,41 +395,7 @@ export function collectWarnings(rows: ParsedRow[], members: TeamMember[]): Impor
   return { inferredRows, oddCategory, emptyCategory, unknownAssignees }
 }
 
-// ---------- 시작일·완료일 추정 ----------
-
-// 시트에는 시작일 열이 없고 완료일도 비어 있는 행이 많다. 주차 칸 표시로
-// 대신 채운다: 시작일 = 첫 S(없으면 첫 표시)가 있는 주의 첫날, 완료일 =
-// 마지막 완·F가 있는 주의 마지막 날. 한 달을 7일씩 나눈 근사라 "추정"이다.
-function weekRange(month: number, week: number, weeksInMonth: number, year: number): { start: string; end: string } {
-  const days = new Date(year, month, 0).getDate()
-  const startDay = Math.min(days, 1 + (week - 1) * 7)
-  const endDay = week >= weeksInMonth ? days : Math.min(days, week * 7)
-  const mm = String(month).padStart(2, '0')
-  return { start: `${year}-${mm}-${String(startDay).padStart(2, '0')}`, end: `${year}-${mm}-${String(endDay).padStart(2, '0')}` }
-}
-
-export function deriveDates(
-  weeks: Record<string, WeekMark>,
-  weekCols: WeekColumn[],
-  year: number | null,
-): { startDate?: string; doneDate?: string } {
-  if (!year) return {}
-  const perMonth = new Map<number, number>()
-  for (const w of weekCols) perMonth.set(w.month, Math.max(perMonth.get(w.month) ?? 0, w.week))
-  const marked = weekCols.filter((w) => weeks[w.key])
-  if (marked.length === 0) return {}
-  const first = marked.find((w) => weeks[w.key] === 'S') ?? marked[0]
-  const done = [...marked].reverse().find((w) => weeks[w.key] === '완' || weeks[w.key] === 'F')
-  return {
-    startDate: weekRange(first.month, first.week, perMonth.get(first.month) ?? 4, year).start,
-    doneDate: done ? weekRange(done.month, done.week, perMonth.get(done.month) ?? 4, year).end : undefined,
-  }
-}
-
-export function yearFromTitle(title: string): number | null {
-  const m = title.match(/(20\d{2})/)
-  return m ? Number(m[1]) : null
-}
+// 시작일·완료일 추정은 utils/workBoard.ts (저장본을 읽을 때도 같은 규칙을 쓴다)
 
 // ---------- 보드에 반영 ----------
 
