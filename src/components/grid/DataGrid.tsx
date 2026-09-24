@@ -1002,29 +1002,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             <div
               role="listbox"
               aria-multiselectable="true"
-              className="absolute z-20 w-64 rounded-lg border border-gray-200 bg-white text-sm shadow-lg"
-              style={{ left: sinkBox.left, top: sinkBox.top + sinkBox.height + 2, minWidth: Math.max(sinkBox.width, 220) }}
+              className="absolute z-20 rounded-lg border border-gray-200 bg-white text-sm shadow-lg"
+              style={{ left: sinkBox.left, top: sinkBox.top + sinkBox.height + 2, width: Math.max(sinkBox.width, 280) }}
             >
-              {picked.length > 0 && (
-                <div className="flex flex-wrap gap-1 border-b border-gray-100 px-2.5 py-2">
-                  {picked.map((n) => (
-                    <span key={n} className="inline-flex items-center gap-1 rounded-full bg-blue-50 py-0.5 pl-2 pr-1 text-xs font-medium text-blue-800">
-                      {n}
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          setPicked((cur) => cur.filter((x) => x !== n))
-                        }}
-                        className="rounded-full px-1 text-blue-500 hover:bg-blue-100"
-                        aria-label={`${n} 빼기`}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="max-h-60 overflow-y-auto py-1">
+              {/* 표의 담당자 칸과 같은 칩 모양: 파란 칩 = 선택됨, 흰 칩 = 누르면 선택, 점선 = 팀원 목록에 없는 이름 */}
+              <div className="flex max-h-60 flex-wrap gap-1.5 overflow-y-auto p-2.5">
                 {filteredPeople.map((n, i) => {
                   const on = picked.includes(n)
                   const known = activeCol.people!.includes(n)
@@ -1039,11 +1021,16 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         setPicked((cur) => (on ? cur.filter((x) => x !== n) : [...cur, n]))
                         setSinkValue('')
                       }}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${i === choiceIndex ? 'bg-blue-50' : ''}`}
+                      title={on ? '누르면 빼기' : known ? '누르면 담당자로' : '팀원 목록에 없는 이름'}
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                        on
+                          ? known
+                            ? 'bg-blue-50 text-blue-800 ring-1 ring-blue-300'
+                            : 'border border-dashed border-gray-500 bg-gray-50 text-gray-700'
+                          : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-800'
+                      } ${i === choiceIndex && sinkValue.trim() ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
                     >
-                      <input type="checkbox" readOnly checked={on} tabIndex={-1} className="pointer-events-none" />
-                      <span>{n}</span>
-                      {!known && <span className="ml-auto text-[11px] text-gray-400">팀원 목록에 없음</span>}
+                      {n}
                     </button>
                   )
                 })}
@@ -1055,17 +1042,17 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       setPicked((cur) => (cur.includes(q) ? cur : [...cur, q]))
                       setSinkValue('')
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-accent ${filteredPeople.length === 0 ? 'bg-blue-50' : ''}`}
+                    className="rounded-full border border-dashed border-accent px-2.5 py-1 text-xs font-medium text-accent"
                   >
-                    ＋ “{sinkValue.trim()}” 입력해서 추가
+                    ＋ {sinkValue.trim()}
                   </button>
                 )}
-                {activeCol.people.length === 0 && !sinkValue.trim() && (
-                  <p className="px-3 py-1.5 text-xs text-gray-400">팀원관리에 등록된 팀원이 없습니다. 이름을 입력해 추가하세요.</p>
+                {activeCol.people.length === 0 && !sinkValue.trim() && picked.length === 0 && (
+                  <p className="text-xs text-gray-400">팀원관리에 등록된 팀원이 없습니다. 이름을 입력해 추가하세요.</p>
                 )}
               </div>
               <div className="flex items-center justify-between border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-400">
-                <span>Enter: 선택/추가 · 빈칸에서 Enter: 완료</span>
+                <span>이름을 눌러 선택·해제 · 없으면 입력 후 Enter</span>
                 <button
                   onMouseDown={(e) => {
                     e.preventDefault()
