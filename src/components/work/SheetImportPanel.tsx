@@ -34,7 +34,10 @@ import {
   sheetUrl,
   type XlsxBook,
 } from '../../utils/sheetSources'
-import { COL_NAME, SYSTEM_COLUMNS } from '../../utils/workBoard'
+import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/workBoard'
+
+// 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
+const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
 import Button from '../Button'
 import Spinner from '../Spinner'
 

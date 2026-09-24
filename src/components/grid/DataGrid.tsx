@@ -22,6 +22,8 @@ export interface GridColumn {
   system: boolean
   // 편집할 때 아래에 띄우는 추천 목록(선택형·담당자)
   suggestions?: string[]
+  // 이 값들 중에서만 고르는 칸(드롭다운). 편집하면 목록이 열리고, 목록에 없는 값은 넣을 수 없다.
+  choices?: string[]
 }
 
 export interface CellEdit {
@@ -153,6 +155,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const [sinkBox, setSinkBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [sinkValue, setSinkValue] = useState('')
   const composing = useRef(false)
+  // 드롭다운 칸에서 강조된 항목
+  const [choiceIndex, setChoiceIndex] = useState(0)
 
   // 행/열 수가 줄면 선택을 안쪽으로 당긴다.
   useEffect(() => {
@@ -215,6 +219,15 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   function startEdit(initial?: string) {
     if (!activeRow || !activeCol) return
+    // 드롭다운 칸은 빈 검색어로 열어 전체 목록을 보여 주고, 지금 값을 강조한다.
+    if (activeCol.choices && initial === undefined) {
+      const cur = getText(activeRow, activeCol.id)
+      setChoiceIndex(Math.max(0, activeCol.choices.indexOf(cur)))
+      setSinkValue('')
+      setEditing(true)
+      requestAnimationFrame(() => sinkRef.current?.focus())
+      return
+    }
     const text = initial ?? getText(activeRow, activeCol.id)
     setSinkValue(text)
     setEditing(true)
@@ -227,6 +240,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   }
 
   function commitEdit(move?: 'down' | 'right' | 'left' | 'up') {
+    // 드롭다운 칸은 목록에서 고른 것만 들어간다 -- 그냥 벗어나면 취소.
+    if (editing && activeCol?.choices) {
+      setEditing(false)
+      setSinkValue('')
+      if (move && active) moveActive(move)
+      requestAnimationFrame(focusSink)
+      return
+    }
     if (editing && activeRow && activeCol) {
       const before = getText(activeRow, activeCol.id)
       if (sinkValue !== before) props.onCommit([{ rowId: activeRow.id, colId: activeCol.id, text: sinkValue }])
@@ -328,6 +349,22 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function onSinkKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     const mod = e.metaKey || e.ctrlKey
     if (e.nativeEvent.isComposing || composing.current) return
+    if (editing && activeCol?.choices) {
+      const list = filteredChoices
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (list.length) setChoiceIndex((i) => (i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length)
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault()
+        const picked = list[Math.min(choiceIndex, list.length - 1)]
+        if (picked !== undefined) pickChoice(picked, e.key === 'Tab' ? (e.shiftKey ? 'left' : 'right') : 'down')
+        else cancelEdit()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelEdit()
+      }
+      return
+    }
     if (editing) {
       const memoLike = activeCol?.type === 'memo'
       if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !(memoLike && mod)) {
@@ -617,7 +654,22 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   // ---------- 렌더 ----------
 
-  const suggestions = editing && activeCol?.suggestions ? activeCol.suggestions : null
+  const filteredChoices = useMemo(() => {
+    if (!editing || !activeCol?.choices) return []
+    const q = sinkValue.trim()
+    return q ? activeCol.choices.filter((c) => c.includes(q)) : activeCol.choices
+  }, [editing, activeCol, sinkValue])
+
+  function pickChoice(value: string, move?: 'down' | 'right' | 'left') {
+    if (!activeRow || !activeCol) return
+    if (value !== getText(activeRow, activeCol.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol.id, text: value }])
+    setEditing(false)
+    setSinkValue('')
+    if (move) moveActive(move)
+    requestAnimationFrame(focusSink)
+  }
+
+  const suggestions = editing && activeCol?.suggestions && !activeCol.choices ? activeCol.suggestions : null
   const filteredSuggestions = useMemo(() => {
     if (!suggestions) return []
     // 담당자처럼 여러 값을 쉼표로 넣는 칸은 마지막 조각으로 거른다.
@@ -768,16 +820,38 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             inRange && !isActive ? 'bg-blue-50' : ''
                           } ${isActive ? 'shadow-[inset_0_0_0_2px_#2563EB]' : ''} ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
-                          {custom !== undefined ? (
-                            custom
-                          ) : (
-                            <div
-                              className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[13px]' : ''}`}
-                              title={col.type === 'memo' && text.length > 20 ? text : undefined}
-                            >
-                              {text}
-                            </div>
-                          )}
+                          <div className={col.choices ? 'flex items-center justify-between gap-1' : ''}>
+                            {custom !== undefined ? (
+                              custom
+                            ) : (
+                              <div
+                                className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[13px]' : ''}`}
+                                title={col.type === 'memo' && text.length > 20 ? text : undefined}
+                              >
+                                {text}
+                              </div>
+                            )}
+                            {col.choices && (
+                              <span
+                                onMouseDown={(e) => {
+                                  // ▾를 누르면 바로 목록을 연다.
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  if (editing) commitEdit()
+                                  select(r, c)
+                                  setChoiceIndex(Math.max(0, col.choices!.indexOf(text)))
+                                  setSinkValue('')
+                                  setEditing(true)
+                                  wantFocus.current = true
+                                  requestAnimationFrame(() => sinkRef.current?.focus())
+                                }}
+                                className="ml-auto shrink-0 cursor-pointer rounded px-1 text-[11px] text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                title="목록에서 고르기"
+                              >
+                                ▾
+                              </span>
+                            )}
+                          </div>
                         </td>
                       )
                     })}
@@ -831,7 +905,37 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 minHeight: sinkBox.height,
               }}
               aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
+              placeholder={editing && activeCol?.choices && activeRow ? getText(activeRow, activeCol.id) || '고르세요' : undefined}
             />
+          )}
+
+          {editing && sinkBox && activeCol?.choices && (
+            <div
+              role="listbox"
+              className="absolute z-20 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg"
+              style={{ left: sinkBox.left, top: sinkBox.top + sinkBox.height + 2, minWidth: Math.max(sinkBox.width, 140) }}
+            >
+              {filteredChoices.length === 0 && <p className="px-3 py-1.5 text-xs text-gray-400">고를 수 있는 값: {activeCol.choices.join(', ')}</p>}
+              {filteredChoices.map((c, i) => {
+                const current = activeRow ? getText(activeRow, activeCol.id) === c : false
+                return (
+                  <button
+                    key={c}
+                    role="option"
+                    aria-selected={i === choiceIndex}
+                    onMouseEnter={() => setChoiceIndex(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      pickChoice(c)
+                    }}
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left ${i === choiceIndex ? 'bg-blue-50' : ''}`}
+                  >
+                    <span>{c}</span>
+                    {current && <span className="text-xs text-accent">✓</span>}
+                  </button>
+                )
+              })}
+            </div>
           )}
 
           {editing && sinkBox && filteredSuggestions.length > 0 && (

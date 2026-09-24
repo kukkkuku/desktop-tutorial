@@ -16,6 +16,27 @@ import type {
 } from '../types'
 import { TASK_CATEGORY_OPTIONS } from '../types'
 
+// 상태는 네 가지로만 쓴다(드롭다운).
+export const STATUS_OPTIONS = ['대기', '진행중', '완료', '중단'] as const
+
+// 시트 '상태' 원문 + 주차 표시로 상태를 정한다.
+//  - 완료는 주차 칸에 완·F 표시가 있을 때만. 시트가 '완료'여도 표시가 없으면 진행중.
+//  - 보류·중단 → 중단
+//  - 진행중이거나 S 표시가 있으면 진행중, 그 밖('-', 빈칸, '일상' 등)은 대기
+//    (단, 완·F 표시가 있으면 완료)
+export function normalizeStatus(raw: string | undefined, weeks: Record<string, WeekMark>): string {
+  const marks = Object.values(weeks)
+  const done = marks.some((m) => m === '완' || m === 'F')
+  const started = marks.includes('S')
+  const v = (raw ?? '').replace(/\s/g, '')
+  if (v === '중단' || v === '보류') return '중단'
+  if (v === '완료') return done ? '완료' : '진행중'
+  if (v === '진행중') return '진행중'
+  if (v === '대기') return '대기'
+  if (done) return '완료'
+  return started ? '진행중' : '대기'
+}
+
 // 이름·담당자·분류는 WorkItem의 전용 필드에, 나머지 시스템 열은 fields[id]에 산다.
 export const COL_NAME = 'name'
 export const COL_ASSIGNEES = 'assignees'
@@ -29,7 +50,7 @@ export const COL_CATEGORY = 'category'
 export const SYSTEM_COLUMNS: (ColumnDef & { sheetHeaders: string[] })[] = [
   { id: COL_NAME, label: 'L3 과제명', type: 'text', system: true, width: 360, sheetHeaders: ['L3'] },
   { id: COL_CATEGORY, label: '분류', type: 'select', system: true, width: 76, options: [...TASK_CATEGORY_OPTIONS], sheetHeaders: ['분류'] },
-  { id: 'status', label: '상태', type: 'select', system: true, width: 84, sheetHeaders: ['상태', '진행상태'] },
+  { id: 'status', label: '상태', type: 'select', system: true, width: 92, options: [...STATUS_OPTIONS], sheetHeaders: ['상태', '진행상태'] },
   { id: COL_ASSIGNEES, label: '담당자', type: 'person', system: true, width: 180, sheetHeaders: ['담당자'] },
   { id: 'startDate', label: '시작일', type: 'date', system: true, width: 132, sheetHeaders: ['시작일', '착수일'] },
   { id: 'doneDate', label: '완료일', type: 'date', system: true, width: 132, sheetHeaders: ['완료일'] },
@@ -43,6 +64,8 @@ export const SYSTEM_COLUMNS: (ColumnDef & { sheetHeaders: string[] })[] = [
   { id: 'stageHandoff', label: '디자인이관', type: 'memo', system: true, width: 160, hidden: true, sheetHeaders: ['디자인이관'] },
   { id: 'dbUpload', label: 'DB 업로드', type: 'text', system: true, width: 90, hidden: true, sheetHeaders: ['DB업로드'] },
   { id: 'note', label: '비고', type: 'memo', system: true, width: 180, hidden: true, sheetHeaders: ['비고'] },
+  // 시트 '상태' 원문. 화면의 상태는 아래 normalizeStatus로 정리한 값이다.
+  { id: 'statusRaw', label: '상태(시트 원문)', type: 'text', system: true, width: 110, hidden: true, sheetHeaders: [] },
   { id: 'url', label: 'URL, LINK', type: 'link', system: true, width: 160, hidden: true, sheetHeaders: ['URL,LINK', 'URL', 'LINK'] },
 ]
 
@@ -347,8 +370,20 @@ export function yearFromTitle(title: string): number | null {
 // 이 규칙이 생기기 전에 가져온 행도 다시 가져오지 않고 채워지게, 저장본을 읽을 때
 // 비어 있는(그리고 사람이 고친 적 없는) 시작일·완료일만 추정으로 채운다.
 function fillDerivedDates(items: WorkItem[], weekAxis: WeekColumn[], year: number | null): WorkItem[] {
-  if (!year || weekAxis.length === 0) return items
   return items.map((i) => {
+    // 상태: 사람이 고친 적 없는 시트 행이면 원문과 주차 표시로 다시 정한다
+    // (이 규칙 이전에 가져온 행은 시트 원문이 그대로 status에 들어 있다).
+    if (i.source === 'sheet' && !i.editedAt?.status) {
+      const raw = i.fields.statusRaw ?? i.fields.status ?? ''
+      const status = normalizeStatus(raw, i.weeks)
+      if (i.fields.status !== status || i.fields.statusRaw !== raw) {
+        const fields: Record<string, string> = { ...i.fields, status }
+        if (raw) fields.statusRaw = raw
+        else delete fields.statusRaw
+        i = { ...i, fields }
+      }
+    }
+    if (!year || weekAxis.length === 0) return i
     const guess = deriveDates(i.weeks, weekAxis, year)
     const add: Record<string, string> = {}
     for (const f of ['startDate', 'doneDate'] as const) {

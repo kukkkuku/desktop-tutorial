@@ -16,6 +16,7 @@ import {
   normalizeSpaces,
   splitNames,
   deriveDates,
+  normalizeStatus,
 } from './workBoard'
 export { deriveDates, yearFromTitle } from './workBoard'
 
@@ -469,6 +470,10 @@ export function applySheetImport(
     const { ids, unmatched } = matchAssignees(splitNames(r.values[COL_ASSIGNEES] ?? ''), members)
     const sheetFields: Record<string, string> = {}
     for (const [k, v] of Object.entries(r.values)) if (k !== COL_CATEGORY && k !== COL_ASSIGNEES) sheetFields[k] = v
+    // 상태는 네 가지로 정리하고(완료는 완·F 표시가 있을 때만) 시트 원문은 statusRaw에 둔다.
+    const rawStatus = sheetFields.status ?? ''
+    sheetFields.status = normalizeStatus(rawStatus, r.weeks)
+    if (rawStatus) sheetFields.statusRaw = rawStatus
     // 시트에 날짜가 없으면 주차 표시로 추정해서 채우고 추정이라고 표시해 둔다.
     const derived: string[] = []
     const guess = deriveDates(r.weeks, header.weekCols, year)

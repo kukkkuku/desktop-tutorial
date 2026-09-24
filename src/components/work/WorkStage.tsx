@@ -5,9 +5,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, TaskGroup, WorkBoard, WorkItem } from '../../types'
+import { TASK_CATEGORY_OPTIONS } from '../../types'
 import {
   COL_ASSIGNEES,
   COL_CATEGORY,
+  STATUS_OPTIONS,
   addColumn,
   addGroup,
   deleteColumns,
@@ -176,9 +178,24 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     width: c.width ?? 140,
     system: c.system,
     suggestions: c.type === 'select' ? optionsForColumn(board, c) : c.type === 'person' ? memberNames : undefined,
+    // 상태·분류는 정해진 값 중에서만 고른다(드롭다운).
+    choices: c.id === 'status' ? [...STATUS_OPTIONS] : c.id === COL_CATEGORY ? [...TASK_CATEGORY_OPTIONS] : undefined,
   }))
 
+  // 드롭다운 칸(상태·분류)에 목록에 없는 값이 들어오면(붙여넣기 등) 그 칸은 건너뛴다.
+  function allowed(colId: string, text: string): boolean {
+    if (text === '') return true
+    if (colId === 'status') return (STATUS_OPTIONS as readonly string[]).includes(text)
+    if (colId === COL_CATEGORY) return (TASK_CATEGORY_OPTIONS as string[]).includes(text)
+    return true
+  }
+
   function commit(edits: CellEdit[]) {
+    const skipped = edits.filter((e) => !allowed(e.colId, e.text))
+    if (skipped.length) {
+      showToast(`상태는 ${STATUS_OPTIONS.join('/')}, 분류는 ${TASK_CATEGORY_OPTIONS.join('/')} 중에서만 넣을 수 있어 ${skipped.length}칸을 건너뛰었습니다.`)
+      edits = edits.filter((e) => allowed(e.colId, e.text))
+    }
     const byId = new Map(board.items.map((i) => [i.id, i]))
     const updates = new Map<string, WorkItem>()
     for (const e of edits) {
@@ -212,7 +229,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const col = visibleCols[colIndex + j]
-        if (col) item = setCellText(item, col.id, text, members)
+        if (col && allowed(col.id, text.trim())) item = setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members)
       })
       if (existing) updates.set(existing.id, item)
       else created.push(item)
@@ -616,9 +633,10 @@ const CATEGORY_STYLE: Record<string, string> = {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  완료: 'text-green-700',
+  대기: 'text-gray-500',
   진행중: 'text-accent',
-  보류: 'text-gray-400',
+  완료: 'text-green-700',
+  중단: 'text-red-600',
 }
 
 function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; name: string }[]) {
@@ -678,13 +696,6 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; n
   if (col.type === 'date') {
     const v = row.fields[col.id]
     if (!v) return null
-    if (row.derivedFields?.includes(col.id))
-      return (
-        <span className="whitespace-nowrap tabular-nums text-gray-400" title="시트에 날짜가 없어 주차 칸 표시(S·완)로 추정한 날짜입니다. 고치면 그 값을 씁니다.">
-          {v}
-          <span className="ml-1 align-super text-[10px]">추정</span>
-        </span>
-      )
     return <span className="tabular-nums">{v}</span>
   }
   return undefined
