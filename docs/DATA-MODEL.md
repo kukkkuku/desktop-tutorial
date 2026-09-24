@@ -153,6 +153,11 @@
 단계에서 `Task` 쪽에 붙인다(docs/PLAN-TASK-MANAGEMENT.md 6장). 편집 함수는
 `utils/workBoard.ts`, 시트 해석은 `utils/sheetImport.ts`.
 
+- **평가과제 묶음** (`fields.evalGroup`, "평가과제" 열): 팀장이 정한 이름. 이름이 같은 L3끼리
+  (보드 전체) 평가과제 하나로 내보낸다. 앱 전용 열이라 시트 다시 가져오기에 영향받지 않는다.
+  내보낸 뒤(`Task.workItemIds`에 들어간 L3)에는 바꿀 수 없다. 내보낼 때 과제등급은 묶인 L3의
+  분류가 모두 같을 때만 그 값을 쓰고, 섞였거나 비었으면 팀장이 고른다(`utils/evalExport.ts`).
+
 ### `TaskGroup` (L2)
 
 - **누가**: 시트에서 가져오거나(`source: 'sheet'`) 팀장이 앱에서 만든다(`'app'`).

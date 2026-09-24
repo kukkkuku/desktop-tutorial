@@ -68,6 +68,13 @@ interface DataGridProps<R extends { id: string }> {
   onSelectionChange?: (rowIds: string[]) => void
   // 우클릭 메뉴 맨 위에 붙일 부모 전용 동작(선택 범위에 걸친 행 id를 받는다). 빈 배열이면 안 붙임.
   rowActions?: (rowIds: string[]) => RowAction[]
+  // 행 앞 체크박스(셀 선택과 별개). 넘기면 체크 열이 생긴다.
+  check?: {
+    isChecked: (row: R) => boolean
+    isDisabled?: (row: R) => boolean
+    title?: (row: R) => string | undefined
+    onToggle: (rows: R[], on: boolean) => void
+  }
   addRowLabel?: string
   emptyText?: string
 }
@@ -779,7 +786,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     }
   }, [editing, activeCol, active, rows])
 
-  const tableWidth = HANDLE_W + columns.reduce((s, c) => s + c.width, 0) + 44
+  const check = props.check
+  const CHECK_W = check ? 36 : 0
+  const checkable = check ? rows.filter((r) => !check.isDisabled?.(r)) : []
+  const allChecked = checkable.length > 0 && checkable.every((r) => check!.isChecked(r))
+  const someChecked = checkable.some((r) => check!.isChecked(r))
+  const tableWidth = HANDLE_W + CHECK_W + columns.reduce((s, c) => s + c.width, 0) + 44
   const menuRows = range ? range.r2 - range.r1 + 1 : 0
   const canDeleteCols = selectedColIds.length > 0 && columns.filter((c) => selectedColIds.includes(c.id)).every((c) => !c.system)
 
@@ -791,6 +803,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           <table className="table-fixed border-collapse text-[13.5px]" style={{ width: '100%', minWidth: tableWidth }}>
             <colgroup>
               <col style={{ width: HANDLE_W }} />
+              {check && <col style={{ width: CHECK_W }} />}
               {columns.map((c) => (
                 <col key={c.id} style={{ width: c.width }} />
               ))}
@@ -799,6 +812,21 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             <thead>
               <tr className="bg-[#14161A] text-white">
                 <th className="h-9 border-r border-white/10 text-center text-xs font-medium text-[#9AA1AC]">#</th>
+                {check && (
+                  <th className="h-9 border-r border-white/10 text-center">
+                    <input
+                      type="checkbox"
+                      aria-label="보이는 행 모두 선택"
+                      checked={allChecked}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someChecked && !allChecked
+                      }}
+                      disabled={checkable.length === 0}
+                      onChange={() => check.onToggle(checkable, !allChecked)}
+                      className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle"
+                    />
+                  </th>
+                )}
                 {columns.map((col, c) => {
                   const colSelected = sel?.t === 'cols' && c >= lo(sel.a, sel.b) && c <= hi(sel.a, sel.b)
                   return (
@@ -886,6 +914,21 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         {props.rowMarker?.(row)}
                       </span>
                     </td>
+                    {check && (
+                      <td
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="border-b border-r border-dotted border-[#C9CDD3] text-center"
+                        title={check.title?.(row)}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={check.isChecked(row)}
+                          disabled={check.isDisabled?.(row)}
+                          onChange={(e) => check.onToggle([row], e.target.checked)}
+                          className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                        />
+                      </td>
+                    )}
                     {columns.map((col, c) => {
                       const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
                       const isActive = active?.r === r && active?.c === c
@@ -944,7 +987,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               })}
               {dragInsert?.kind === 'row' && dragInsert.index === nR && (
                 <tr>
-                  <td colSpan={nC + 2} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
+                  <td colSpan={nC + 2 + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
                 </tr>
               )}
             </tbody>

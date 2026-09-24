@@ -8,6 +8,7 @@ import type { SheetLink, TaskCategory, TaskGroup, TeamMember, WeekColumn, WeekMa
 import {
   COL_ASSIGNEES,
   COL_CATEGORY,
+  COL_EVAL_GROUP,
   COL_NAME,
   SYSTEM_COLUMNS,
   isTaskCategory,
@@ -521,7 +522,7 @@ export function applySheetImport(
       changed = true
     }
     const fields = { ...prev.fields }
-    const mappedIds = SYSTEM_COLUMNS.map((c) => c.id).filter((id) => id !== COL_NAME && id !== COL_CATEGORY && id !== COL_ASSIGNEES)
+    const mappedIds = SYSTEM_COLUMNS.map((c) => c.id).filter((id) => id !== COL_NAME && id !== COL_CATEGORY && id !== COL_ASSIGNEES && id !== COL_EVAL_GROUP)
     for (const id of mappedIds) {
       const sv = sheetFields[id] ?? ''
       const pv = fields[id] ?? ''

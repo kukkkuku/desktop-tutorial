@@ -4,12 +4,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
-import type { ColumnDef, TaskGroup, WorkBoard, WorkItem } from '../../types'
+import type { ColumnDef, Importance, TaskGroup, WorkBoard, WorkItem } from '../../types'
 import { TASK_CATEGORY_OPTIONS } from '../../types'
 import {
   COL_ASSIGNEES,
   COL_CATEGORY,
+  COL_EVAL_GROUP,
   STATUS_OPTIONS,
+  evalGroupOf,
+  newEvalGroupName,
+  renameEvalGroup,
+  setEvalGroup,
   addColumn,
   addGroup,
   deleteColumns,
@@ -28,10 +33,12 @@ import {
   updateGroup,
   updateItems,
 } from '../../utils/workBoard'
+import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
-import EvalTaskDialog from './EvalTaskDialog'
+import EvalGroupStrip from './EvalGroupStrip'
+import EvalExportBar from './EvalExportBar'
 
 const HISTORY_LIMIT = 60
 
@@ -145,23 +152,72 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // ---------- 표 ----------
   const [search, setSearch] = useState('')
-  // 표에서 고른 L3 -- "평가 과제로 만들기"에 쓴다.
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [evalDialog, setEvalDialog] = useState<'single' | 'group' | null>(null)
-  // 우클릭 메뉴에서 연 순간의 선택(대화상자가 열린 뒤 선택이 바뀌어도 대상이 흔들리지 않게).
-  const [evalIds, setEvalIds] = useState<string[]>([])
-  function openEval(mode: 'single' | 'group', ids: string[]) {
-    setEvalIds(ids)
-    setEvalDialog(mode)
-  }
+  // 평가과제로 내보낼 L3(체크박스). 묶인 행은 묶음 단위로 함께 켜지고 꺼진다.
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  // 섞인 분류 묶음 등 과제등급을 팀장이 골라야 하는 단위: unit key -> 등급
+  const [exportGrades, setExportGrades] = useState<Record<string, Importance>>({})
+  // 묶음 이름을 그 자리에서 고치는 중인 평가과제 묶음
+  const [renamingEval, setRenamingEval] = useState<string | null>(null)
   // L3 id -> 그 L3가 들어간 평가 과제 이름들
   const linkedTasks = useMemo(() => {
     const m = new Map<string, string[]>()
     for (const t of state.tasks) for (const id of t.workItemIds ?? []) m.set(id, [...(m.get(id) ?? []), t.name])
     return m
   }, [state.tasks])
-  const selectedItems = board.items.filter((i) => (evalDialog ? evalIds : selectedIds).includes(i.id))
-  const selectableItems = selectedItems.filter((i) => !linkedTasks.has(i.id))
+  const exportedIds = useMemo(() => new Set(linkedTasks.keys()), [linkedTasks])
+  const units = useMemo(() => exportUnits(board, checked, exportedIds), [board, checked, exportedIds])
+  const needGrade = units.filter((u) => !u.grade)
+  const canExport = units.length > 0 && needGrade.every((u) => exportGrades[u.key])
+
+  function toggleCheck(rows: WorkItem[], on: boolean) {
+    setChecked((cur) => {
+      const next = new Set(cur)
+      for (const row of rows) {
+        const g = evalGroupOf(row)
+        const ids = g ? board.items.filter((i) => evalGroupOf(i) === g && !exportedIds.has(i.id)).map((i) => i.id) : [row.id]
+        for (const id of ids) {
+          if (on) next.add(id)
+          else next.delete(id)
+        }
+      }
+      return next
+    })
+  }
+
+  function exportChecked() {
+    if (!canExport) return
+    const { tasks, participants } = unitsToTasks(units, exportGrades)
+    dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
+    setChecked(new Set())
+    setExportGrades({})
+    showToast(`평가과제 ${tasks.length}개를 내보냈습니다. 평가과제 탭에서 성과등급을 매기세요.`)
+  }
+
+  // 우클릭 → 평가과제로 묶기: 고른 행 중 이미 묶음이 하나 있으면 그 묶음에 합치고, 없으면 새 이름.
+  function groupRows(ids: string[]) {
+    const free = board.items.filter((i) => ids.includes(i.id) && !exportedIds.has(i.id))
+    if (free.length < 2) return
+    const existing = Array.from(new Set(free.map(evalGroupOf).filter(Boolean)))
+    const name = existing.length === 1 ? existing[0] : newEvalGroupName(board, free)
+    apply(setEvalGroup(board, free.map((i) => i.id), name, members))
+    // 묶음 일부만 체크돼 있으면 체크가 어긋나므로 묶은 행의 체크를 맞춘다.
+    if (free.some((i) => checked.has(i.id))) toggleCheck(free, true)
+    showToast(`L3 ${free.length}건을 「${name}」로 묶었습니다. 위 묶음 이름을 눌러 바꿀 수 있습니다.`, true)
+  }
+
+  function ungroupRows(ids: string[]) {
+    const free = board.items.filter((i) => ids.includes(i.id) && !exportedIds.has(i.id) && evalGroupOf(i))
+    if (free.length === 0) return
+    apply(setEvalGroup(board, free.map((i) => i.id), '', members))
+    showToast(`L3 ${free.length}건을 묶음에서 뺐습니다.`, true)
+  }
+
+  function renameGroup(from: string, to: string) {
+    setRenamingEval(null)
+    const v = to.trim()
+    if (!v || v === from) return
+    apply(renameEvalGroup(board, from, v, members))
+  }
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
 
@@ -206,6 +262,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   function commit(edits: CellEdit[]) {
+    const locked = edits.filter((e) => e.colId === COL_EVAL_GROUP && exportedIds.has(e.rowId))
+    if (locked.length) {
+      showToast('이미 평가과제로 내보낸 L3는 묶음을 바꿀 수 없습니다. 평가과제 탭에서 과제를 지운 뒤 다시 묶어 주세요.')
+      edits = edits.filter((e) => !(e.colId === COL_EVAL_GROUP && exportedIds.has(e.rowId)))
+    }
     const skipped = edits.filter((e) => !allowed(e.colId, e.text))
     if (skipped.length) {
       showToast(`상태는 ${STATUS_OPTIONS.join('/')}, 분류는 ${TASK_CATEGORY_OPTIONS.join('/')} 중에서만 넣을 수 있어 ${skipped.length}칸을 건너뛰었습니다.`)
@@ -244,6 +305,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const col = visibleCols[colIndex + j]
+        if (col?.id === COL_EVAL_GROUP && existing && exportedIds.has(existing.id)) return
         if (col && allowed(col.id, text.trim())) item = setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members)
       })
       if (existing) updates.set(existing.id, item)
@@ -484,16 +546,37 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </div>
           </div>
 
+          <EvalGroupStrip
+            board={board}
+            groupItems={groupItems}
+            exportedIds={exportedIds}
+            renaming={renamingEval}
+            onStartRename={setRenamingEval}
+            onRename={renameGroup}
+            onUngroup={(name) => ungroupRows(board.items.filter((i) => evalGroupOf(i) === name).map((i) => i.id))}
+            tone={(name) => evalGroupTone(name)}
+          />
+
           <DataGrid
-            onSelectionChange={setSelectedIds}
             rowActions={(ids) => {
-              const free = board.items.filter((i) => ids.includes(i.id) && !linkedTasks.has(i.id))
+              const free = board.items.filter((i) => ids.includes(i.id) && !exportedIds.has(i.id))
               const taken = ids.length - free.length
-              const note = taken > 0 ? `이미 들어간 ${taken}건 제외` : undefined
+              const grouped = free.filter((i) => evalGroupOf(i))
               return [
-                { label: `평가과제로 묶기 (${free.length}건 → 1개)`, hint: note, disabled: free.length < 2, onClick: () => openEval('group', ids) },
-                { label: free.length > 1 ? `하나씩 평가과제로 (${free.length}개)` : '평가과제로 만들기', disabled: free.length === 0, onClick: () => openEval('single', ids) },
+                {
+                  label: `평가과제로 묶기 (${free.length}건)`,
+                  hint: taken > 0 ? `내보낸 ${taken}건 제외` : undefined,
+                  disabled: free.length < 2,
+                  onClick: () => groupRows(ids),
+                },
+                { label: '묶음에서 빼기', disabled: grouped.length === 0, onClick: () => ungroupRows(ids) },
               ]
+            }}
+            check={{
+              isChecked: (row) => checked.has(row.id),
+              isDisabled: (row) => exportedIds.has(row.id),
+              title: (row) => (exportedIds.has(row.id) ? `이미 내보냄: ${linkedTasks.get(row.id)!.join(', ')}` : '평가과제로 내보낼 행'),
+              onToggle: toggleCheck,
             }}
             columns={gridColumns}
             rows={viewRows}
@@ -532,10 +615,21 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-gray-400">
-            파란 점 = 평가 과제에 들어간 L3 · 여러 행을 고르고 우클릭 → 평가과제로 묶기 · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
+            체크 = 평가과제로 내보낼 행 · 파란 점 = 이미 내보낸 L3 · 여러 행을 고르고 우클릭 → 평가과제로 묶기(평가과제 열에 같은 이름을 넣어도 묶임) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
             머리글 우클릭으로 열 추가·숨기기
           </p>
         </>
+      )}
+
+      {units.length > 0 && (
+        <EvalExportBar
+          units={units}
+          grades={exportGrades}
+          onGrade={(key, g) => setExportGrades((cur) => ({ ...cur, [key]: g }))}
+          canExport={canExport}
+          onExport={exportChecked}
+          onClear={() => setChecked(new Set())}
+        />
       )}
 
       {tabMenu && (
@@ -573,21 +667,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         </div>
       )}
 
-      {evalDialog && selectableItems.length > 0 && (
-        <EvalTaskDialog
-          mode={evalDialog}
-          items={selectableItems}
-          onCancel={() => setEvalDialog(null)}
-          onCreate={(tasks, participants) => {
-            dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
-            setEvalDialog(null)
-            showToast(`평가 과제 ${tasks.length}개를 만들었습니다. 평가과제 탭에서 성과등급을 매기세요.`)
-          }}
-        />
-      )}
-
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#14161A] px-4 py-2 text-sm text-white shadow-lg">
+        <div className={`fixed ${units.length > 0 ? "bottom-40" : "bottom-6"} left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#14161A] px-4 py-2 text-sm text-white shadow-lg`}>
           {toast.text}
           {toast.undo && (
             <button
@@ -642,8 +723,26 @@ const PERSON_TONE = 'bg-sky-50 text-sky-800'
 const UNKNOWN_TONE = 'border border-dashed border-gray-400 bg-white text-gray-600'
 const DEFAULT_TONE = 'bg-gray-100 text-gray-700'
 
+// 평가과제 묶음 색: 이름으로 고정(같은 묶음은 어디서나 같은 색).
+const GROUP_TONES = [
+  'bg-amber-100 text-amber-900',
+  'bg-teal-100 text-teal-900',
+  'bg-pink-100 text-pink-900',
+  'bg-indigo-100 text-indigo-900',
+  'bg-lime-100 text-lime-900',
+  'bg-cyan-100 text-cyan-900',
+  'bg-orange-100 text-orange-900',
+  'bg-fuchsia-100 text-fuchsia-900',
+]
+export function evalGroupTone(name: string): string {
+  let h = 0
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return GROUP_TONES[h % GROUP_TONES.length]
+}
+
 function toneFor(colId: string) {
   return (value: string, known: boolean): string => {
+    if (colId === COL_EVAL_GROUP) return evalGroupTone(value)
     if (colId === COL_ASSIGNEES) return known ? PERSON_TONE : UNKNOWN_TONE
     return TONES[colId]?.[value] ?? DEFAULT_TONE
   }

@@ -41,6 +41,7 @@ export function normalizeStatus(raw: string | undefined, weeks: Record<string, W
 export const COL_NAME = 'name'
 export const COL_ASSIGNEES = 'assignees'
 export const COL_CATEGORY = 'category'
+export const COL_EVAL_GROUP = 'evalGroup'
 
 // 시트 「추진현황」 탭의 열 순서를 따른다. sheetHeaders는 헤더 자동 매칭용
 // 별칭(공백 제거 후 비교).
@@ -54,6 +55,8 @@ export const SYSTEM_COLUMNS: (ColumnDef & { sheetHeaders: string[] })[] = [
   { id: COL_ASSIGNEES, label: '담당자', type: 'person', system: true, width: 180, sheetHeaders: ['담당자'] },
   { id: 'startDate', label: '시작일', type: 'date', system: true, width: 132, sheetHeaders: ['시작일', '착수일'] },
   { id: 'doneDate', label: '완료일', type: 'date', system: true, width: 132, sheetHeaders: ['완료일'] },
+  // 앱에서만 쓰는 열: 같은 이름끼리 평가과제 하나로 묶는다(시트에는 없음, 다시 가져와도 유지).
+  { id: COL_EVAL_GROUP, label: '평가과제', type: 'select', system: true, width: 200, sheetHeaders: [] },
   { id: 'attr', label: '속성', type: 'select', system: true, width: 90, hidden: true, sheetHeaders: ['속성'] },
   { id: 'team', label: '담당팀', type: 'select', system: true, width: 130, hidden: true, sheetHeaders: ['담당팀'] },
   { id: 'demandDept', label: '수요부서', type: 'text', system: true, width: 100, hidden: true, sheetHeaders: ['수요부서'] },
@@ -149,6 +152,38 @@ export function setCellText(item: WorkItem, colId: string, text: string, members
   // 사람이 고친 값은 더 이상 추정값이 아니다.
   const derivedFields = item.derivedFields?.filter((f) => f !== colId)
   return { ...item, fields, editedAt, derivedFields: derivedFields?.length ? derivedFields : undefined }
+}
+
+// ---------- 평가과제 묶음 ----------
+// L3의 fields.evalGroup 이름이 같으면 한 묶음(보드 전체 기준). 비어 있으면 L3 하나 = 평가과제 하나.
+
+export function evalGroupOf(item: WorkItem): string {
+  return item.fields[COL_EVAL_GROUP]?.trim() ?? ''
+}
+
+export function evalGroupNames(board: WorkBoard): string[] {
+  return Array.from(new Set(board.items.map(evalGroupOf).filter(Boolean)))
+}
+
+// "첫 L3 외 N건" -- 이미 있는 이름이면 뒤에 (2), (3)…
+export function newEvalGroupName(board: WorkBoard, items: WorkItem[]): string {
+  const base = items.length > 1 ? `${items[0].name || '(이름 없음)'} 외 ${items.length - 1}건` : items[0]?.name || '평가과제'
+  const taken = new Set(evalGroupNames(board))
+  if (!taken.has(base)) return base
+  let n = 2
+  while (taken.has(`${base} (${n})`)) n += 1
+  return `${base} (${n})`
+}
+
+export function setEvalGroup(board: WorkBoard, ids: string[], name: string, members: TeamMember[]): WorkBoard {
+  const set = new Set(ids)
+  const updates = new Map<string, WorkItem>()
+  for (const i of board.items) if (set.has(i.id)) updates.set(i.id, setCellText(i, COL_EVAL_GROUP, name, members))
+  return updateItems(board, updates)
+}
+
+export function renameEvalGroup(board: WorkBoard, from: string, to: string, members: TeamMember[]): WorkBoard {
+  return setEvalGroup(board, board.items.filter((i) => evalGroupOf(i) === from).map((i) => i.id), to.trim(), members)
 }
 
 // ---------- 보드 조작 ----------
@@ -497,6 +532,12 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
       ...defaultColumns().map((d) => ({ ...d, width: byId.get(d.id)?.width ?? d.width })),
       ...savedCols.filter((c) => !c.system),
     ]
+  }
+  // 평가과제 열이 생기기 전 저장본: 완료일 바로 뒤에 끼운다.
+  if (!columns.some((c) => c.id === COL_EVAL_GROUP)) {
+    const def = defaultColumns().find((c) => c.id === COL_EVAL_GROUP)!
+    const at = columns.findIndex((c) => c.id === 'doneDate')
+    columns = at >= 0 ? [...columns.slice(0, at + 1), def, ...columns.slice(at + 1)] : [...columns, def]
   }
   for (const def of defaultColumns()) if (!columns.some((c) => c.id === def.id)) columns.push(def)
   const weekAxis: WeekColumn[] = Array.isArray(r.weekAxis)
