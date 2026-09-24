@@ -7,6 +7,7 @@ import type {
   MeetingNote,
   PeerReview,
   PerformanceGrade,
+  RankReview,
   Task,
   TeamMember,
 } from '../types'
@@ -255,6 +256,33 @@ export function migrateAppState(raw: unknown): AppState | null {
 
   // 과제관리 보드는 이 기능 이전 데이터에는 없다 -- 빈 보드로 읽는다.
   const workBoard = migrateWorkBoard(r.workBoard)
+  const memberIds = new Set(members.map((m) => m.id))
+  const rankReviews: RankReview[] = Array.isArray(r.rankReviews)
+    ? (r.rankReviews as Record<string, unknown>[])
+        .filter(
+          (x) =>
+            (x.mode === 'simple' || x.mode === 'task') &&
+            typeof x.reviewerMemberId === 'string' &&
+            typeof x.targetMemberId === 'string' &&
+            memberIds.has(x.reviewerMemberId) &&
+            memberIds.has(x.targetMemberId) &&
+            typeof x.rank === 'number' &&
+            typeof x.groupSize === 'number' &&
+            typeof x.reason === 'string',
+        )
+        .map((x) => ({
+          id: typeof x.id === 'string' ? x.id : `${x.reviewerMemberId}-${x.targetMemberId}-${x.taskId ?? ''}`,
+          mode: x.mode as RankReview['mode'],
+          taskId: typeof x.taskId === 'string' ? x.taskId : undefined,
+          reviewerMemberId: x.reviewerMemberId as string,
+          targetMemberId: x.targetMemberId as string,
+          rank: x.rank as number,
+          groupSize: x.groupSize as number,
+          reason: x.reason as string,
+          source: x.source === 'app' ? 'app' : 'excel',
+          updatedAt: typeof x.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+    : []
 
-  return { workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
+  return { rankReviews, workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }

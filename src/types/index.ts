@@ -235,7 +235,29 @@ export interface WorkBoard {
   excludedSheetKeys: string[]
 }
 
+// ---------- 순위 피어리뷰 ----------
+// 팀원이 다른 팀원에게 1위부터 순위를 매기고 근거를 적는다. 두 방식:
+//  - simple: 과제와 무관하게 팀원 전체(본인 제외)에 순위
+//  - task:   평가과제마다 그 과제 참여자끼리(본인 제외) 순위
+// 기존 PeerReview(과제별 등급·기여도)와는 따로 저장한다 -- 등급이 없는 리뷰라서
+// 등급 기반 계산(calcPeerReviewFactor)에 섞으면 안 된다.
+export type RankReviewMode = 'simple' | 'task'
+
+export interface RankReview {
+  id: string
+  mode: RankReviewMode
+  taskId?: string
+  reviewerMemberId: string
+  targetMemberId: string
+  rank: number // 1 = 가장 높음. 평가자가 직접 매긴 값
+  groupSize: number // 그 목록에서 순위를 매긴 대상 수(N). 과제마다 다르다
+  reason: string // 순위 근거. 필수 -- 비어 있으면 저장하지 않는다
+  source: 'excel' | 'app'
+  updatedAt: string
+}
+
 export interface AppState {
+  rankReviews: RankReview[]
   workBoard: WorkBoard
   tasks: Task[]
   members: TeamMember[]

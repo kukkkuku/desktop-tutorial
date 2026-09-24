@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
+import RankPeerReview from './RankPeerReview'
 
-type TeamSubTab = 'members' | 'peer'
+type TeamSubTab = 'members' | 'rank' | 'peer'
 
 export interface TeamSubTabRequest {
   subTab: TeamSubTab
@@ -11,7 +12,9 @@ export interface TeamSubTabRequest {
 
 const SUB_TABS: { key: TeamSubTab; label: string }[] = [
   { key: 'members', label: '팀원' },
-  { key: 'peer', label: '피어리뷰' },
+  { key: 'rank', label: '피어리뷰' },
+  // 예전 방식(과제별 등급·기여도). 순위 방식과 따로 저장·계산된다.
+  { key: 'peer', label: '피어리뷰(등급·기여도)' },
 ]
 
 interface TeamStageProps {
@@ -47,6 +50,7 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}
+        {sub === 'rank' && <RankPeerReview />}
         {sub === 'peer' && <PeerReviewManagement />}
       </div>
     </div>

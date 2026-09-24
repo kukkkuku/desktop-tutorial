@@ -1,10 +1,13 @@
-import type { AppState, Contribution, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember, WorkBoard } from '../types'
+import type { AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember, WorkBoard } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
   // 과제관리(L2/L3) 보드는 통째로 교체한다 -- 되돌리기가 스냅샷 방식이라서(utils/workBoard.ts).
   | { type: 'SET_WORK_BOARD'; payload: WorkBoard }
+  // 한 평가자의 한 방식 순위 리뷰를 통째로 바꾼다(다시 올리거나 다시 입력하면 덮어씀).
+  | { type: 'SET_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode; reviews: RankReview[] } }
+  | { type: 'DELETE_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode } }
   // 과제관리 L3로 평가 과제를 만든다. participants[taskId]에 있는 팀원(L3 담당자)
   // 끼리만 기여도를 똑같이 나누고 나머지는 0 -- 담당자가 없으면 기존 자동 배분.
   | { type: 'ADD_TASKS_FROM_WORK'; payload: { tasks: Task[]; participants: Record<string, string[]> } }
@@ -34,6 +37,7 @@ export type AppAction =
 export function createEmptyState(): AppState {
   return {
     workBoard: createEmptyBoard(),
+    rankReviews: [],
     tasks: [],
     members: [],
     contributions: [],
@@ -185,6 +189,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_WORK_BOARD':
       return { ...state, workBoard: action.payload }
 
+    case 'SET_RANK_REVIEWS': {
+      const { reviewerMemberId, mode, reviews } = action.payload
+      const rest = state.rankReviews.filter((r) => !(r.reviewerMemberId === reviewerMemberId && r.mode === mode))
+      return { ...state, rankReviews: [...rest, ...reviews] }
+    }
+
+    case 'DELETE_RANK_REVIEWS': {
+      const { reviewerMemberId, mode } = action.payload
+      return { ...state, rankReviews: state.rankReviews.filter((r) => !(r.reviewerMemberId === reviewerMemberId && r.mode === mode)) }
+    }
+
     case 'ADD_TASKS_FROM_WORK': {
       const tasks = [...state.tasks, ...action.payload.tasks]
       const active = state.members.filter((m) => m.active)
@@ -260,6 +275,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const removed = state.members.find((m) => m.id === action.payload.id)
       return {
         ...state,
+        rankReviews: state.rankReviews.filter((r) => r.reviewerMemberId !== action.payload.id && r.targetMemberId !== action.payload.id),
         members,
         workBoard: removed ? detachMember(state.workBoard, removed) : state.workBoard,
         meetingNotes,
