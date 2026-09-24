@@ -47,7 +47,7 @@ export function defaultColumns(): ColumnDef[] {
 }
 
 export function createEmptyBoard(): WorkBoard {
-  return { groups: [], items: [], columns: defaultColumns(), weekAxis: [], sheetLink: null }
+  return { groups: [], items: [], columns: defaultColumns(), weekAxis: [], sheetLink: null, excludedSheetKeys: [] }
 }
 
 export function normalizeSpaces(s: string): string {
@@ -141,11 +141,17 @@ export function updateGroup(board: WorkBoard, groupId: string, patch: Partial<Ta
   return { ...board, groups: board.groups.map((g) => (g.id === groupId ? { ...g, ...patch } : g)) }
 }
 
+// 시트에서 온 L2를 지우면 시트 연결의 선택 목록에서도 빼서, 다시 가져오기가
+// 되살리지 않게 한다. 다시 필요하면 데이터 관리에서 L2를 다시 고르면 된다.
 export function deleteGroup(board: WorkBoard, groupId: string): WorkBoard {
+  const group = board.groups.find((g) => g.id === groupId)
+  const sheetLink =
+    board.sheetLink && group ? { ...board.sheetLink, selectedGroups: board.sheetLink.selectedGroups.filter((n) => n !== group.name) } : board.sheetLink
   return {
     ...board,
     groups: board.groups.filter((g) => g.id !== groupId),
     items: board.items.filter((i) => i.groupId !== groupId),
+    sheetLink,
   }
 }
 
@@ -171,9 +177,15 @@ export function insertItems(board: WorkBoard, groupId: string, index: number, ne
   return { ...board, items }
 }
 
+// 시트에서 온 행을 지우면 그 키를 기억해 두고 다시 가져올 때 건너뛴다.
 export function deleteItems(board: WorkBoard, ids: string[]): WorkBoard {
   const set = new Set(ids)
-  return { ...board, items: board.items.filter((i) => !set.has(i.id)) }
+  const keys = board.items.filter((i) => set.has(i.id) && i.sheetKey && !i.missingInSheet).map((i) => i.sheetKey!)
+  return {
+    ...board,
+    items: board.items.filter((i) => !set.has(i.id)),
+    excludedSheetKeys: keys.length ? Array.from(new Set([...board.excludedSheetKeys, ...keys])) : board.excludedSheetKeys,
+  }
 }
 
 export function moveItems(board: WorkBoard, groupId: string, ids: string[], toIndex: number): WorkBoard {
@@ -381,5 +393,8 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
       }
     }
   }
-  return { groups, items, columns, weekAxis, sheetLink }
+  const excludedSheetKeys = Array.isArray(r.excludedSheetKeys)
+    ? (r.excludedSheetKeys as unknown[]).filter((x): x is string => typeof x === 'string')
+    : []
+  return { groups, items, columns, weekAxis, sheetLink, excludedSheetKeys }
 }

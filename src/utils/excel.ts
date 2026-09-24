@@ -255,12 +255,14 @@ const MEMBER_COLUMNS: StyledColumn[] = [
   { header: '연차', width: 8, role: 'freetext' },
   { header: '역할', width: 16, role: 'freetext' },
   { header: '코멘트', width: 30, role: 'freetext' },
+  { header: '담당팀', width: 18, role: 'category' },
+  { header: '이메일', width: 26, role: 'freetext' },
 ]
 
 function buildMemberTemplateWorkbook(): ExcelJS.Workbook {
   const rows: (string | number)[][] = [
-    ['김민준', '과장', 7, '리드', ''],
-    ['이서연', '대리', 3, '디자인', ''],
+    ['김민준', '과장', 7, '리드', '', '제품디자인팀', 'minjun.kim@example.com'],
+    ['이서연', '대리', 3, '디자인', '', '제품디자인팀', ''],
   ]
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '팀원양식', MEMBER_COLUMNS, rows)
@@ -277,6 +279,8 @@ const CURRENT_MEMBER_COLUMNS: StyledColumn[] = [
   { header: '직급', width: 8, role: 'category' },
   { header: '연차', width: 10, role: 'metric' },
   { header: '역할', width: 16, role: 'freetext' },
+  { header: '담당팀', width: 18, role: 'category' },
+  { header: '이메일', width: 26, role: 'freetext' },
   { header: '참여 과제 수', width: 12, role: 'metric' },
   { header: '받은 피어리뷰', width: 12, role: 'metric' },
   { header: '활성여부', width: 10, role: 'category' },
@@ -299,6 +303,8 @@ function buildMemberRows(
       member.level || '-',
       levelTenure !== null ? `${levelTenure}년차` : '-',
       member.role || '-',
+      member.team || '-',
+      member.email || '-',
       count,
       peerReviewCount,
       member.active ? '활성' : '비활성',
@@ -342,6 +348,8 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
     const yearsRaw = row['연차']
     const role = String(row['역할'] ?? '').trim()
     const comment = String(row['코멘트'] ?? '').trim()
+    const team = String(row['담당팀'] ?? '').trim()
+    const email = String(row['이메일'] ?? '').trim()
 
     if (!name) {
       errors.push(`${rowNum}행: 이름이 비어 있어 건너뛰었습니다.`)
@@ -358,7 +366,10 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
     }
 
     const existing = byName.get(name)
+    // 기존 팀원이면 양식에 없는 값(입사일, 승급심사일, 보조점수 등)은 그대로 둔다.
+    // 예전에는 여기서 새 객체를 만들어 그 값들이 업로드 때마다 지워졌다.
     const member: TeamMember = {
+      ...existing,
       id: existing?.id ?? uuidv4(),
       name,
       active: existing?.active ?? true,
@@ -366,6 +377,8 @@ export function parseMemberWorkbook(buffer: ArrayBuffer, existingMembers: TeamMe
       yearsOfService,
       role,
       comment,
+      team: team || existing?.team,
+      email: email || existing?.email,
     }
     byName.set(name, member)
     importedCount += 1

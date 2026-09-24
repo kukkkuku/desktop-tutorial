@@ -218,6 +218,8 @@ export interface WorkBoard {
   columns: ColumnDef[]
   weekAxis: WeekColumn[]
   sheetLink: SheetLink | null
+  // 앱에서 지운 시트 행의 sheetKey -- 다시 가져와도 되살리지 않는다.
+  excludedSheetKeys: string[]
 }
 
 export interface AppState {

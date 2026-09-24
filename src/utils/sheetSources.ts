@@ -4,7 +4,7 @@
 // 둘 다 같은 RawSheet를 돌려주고, 해석은 sheetImport.ts가 한다.
 
 import * as XLSX from 'xlsx'
-import type { RawSheet, SheetMerge } from './sheetImport'
+import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
 import { getConnectedEmail, loadGis } from './googleDrive'
 
 // ---------- 링크 ----------
@@ -103,10 +103,23 @@ export async function fetchSheetTab(spreadsheetId: string, title: string): Promi
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(quoteTab(title))}&fields=sheets(properties(sheetId,title,hidden),merges)`,
   )
   const sheet = meta.sheets[0]
-  // 날짜는 일련번호로 받아서 직접 바꾼다(표시 형식·로케일에 따라 "2025. 1. 31"
-  // 같은 문자열이 되는 걸 피한다). xlsx 경로와 같은 값이 나온다.
-  const values = await sheetsFetch<{ values?: unknown[][] }>(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(quoteTab(title))}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`,
+  // 값을 두 번 받는다: 표시 문자열(사람이 본 그대로)과 원래 값(날짜는 일련번호).
+  // 날짜 서식 칸은 "1/31"처럼 연도 없이 보이는 경우가 많아 둘 다 있어야
+  // xlsx 경로와 같은 결과가 나온다.
+  const base = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(quoteTab(title))}`
+  const [formatted, unformatted] = await Promise.all([
+    sheetsFetch<{ values?: unknown[][] }>(`${base}?valueRenderOption=FORMATTED_VALUE`),
+    sheetsFetch<{ values?: unknown[][] }>(`${base}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`),
+  ])
+  const rows = (formatted.values ?? []).map((row, r) =>
+    row.map((text, c) => {
+      const raw = unformatted.values?.[r]?.[c]
+      // 숫자인데 표시가 숫자가 아니고 날짜처럼 생겼으면 날짜 칸이다.
+      if (typeof raw === 'number' && typeof text === 'string' && text !== String(raw) && /\d[/.\-월]\s*\d/.test(text) && raw > 20000 && raw < 80000) {
+        return { kind: 'date', serial: raw, text } satisfies DateCell
+      }
+      return text
+    }),
   )
   const merges: SheetMerge[] = (sheet?.merges ?? []).map((m) => ({
     r1: m.startRowIndex ?? 0,
@@ -114,7 +127,7 @@ export async function fetchSheetTab(spreadsheetId: string, title: string): Promi
     r2: (m.endRowIndex ?? 1) - 1,
     c2: (m.endColumnIndex ?? 1) - 1,
   }))
-  return { title, hidden: sheet?.properties.hidden === true, rows: values.values ?? [], merges }
+  return { title, hidden: sheet?.properties.hidden === true, rows, merges }
 }
 
 // ---------- B) xlsx ----------
@@ -125,7 +138,8 @@ export interface XlsxBook {
 }
 
 export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: false })
+  // cellNF: 칸 서식을 같이 읽어 날짜 서식 칸을 알아본다.
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: false, cellNF: true })
   const sheets: RawSheet[] = wb.SheetNames.map((name, idx) => {
     const ws = wb.Sheets[name]
     const hidden = Boolean(wb.Workbook?.Sheets?.[idx]?.Hidden)
@@ -137,7 +151,9 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
         const row: unknown[] = []
         for (let c = 0; c <= range.e.c; c++) {
           const cell = ws[XLSX.utils.encode_cell({ r, c })]
-          row.push(cell ? cell.v : null)
+          if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
+            row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
+          } else row.push(cell ? cell.v : null)
         }
         rows.push(row)
       }

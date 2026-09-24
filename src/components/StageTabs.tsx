@@ -4,15 +4,21 @@ import IconButton from './IconButton'
 import Spinner from './Spinner'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 
-export type Stage = 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
+export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
 // 상단 메뉴는 데이터 관리(드로어) - 과제관리 - 팀원관리 - 평가하기 - 평가결과 -
 // 팀원 면담 순서로 한 줄에 평평하게 나열한다. 예전에는 "데이터"라는 상위
 // 탭 아래 과제/팀원/피어리뷰가 서브탭으로 숨어 있었는데, 자주 쓰는 과제관리·
 // 팀원관리를 한 클릭에 바로 갈 수 있도록 최상위로 끌어올렸다.
+//
+// 과제관리는 구글시트와 연동되는 L2/L3 보드(WorkStage)다. 예전 과제관리
+// 화면(평가용 과제 목록)은 "평가과제"로 이름을 바꿔 평가하기 앞에 둔다 --
+// L3를 하나씩 또는 묶어서 평가 과제로 만드는 흐름은 다음 단계에서 붙인다
+// (docs/PLAN-TASK-MANAGEMENT.md 6.1).
 const STAGE_TABS: { key: Stage; label: string }[] = [
-  { key: 'tasks', label: '과제관리' },
+  { key: 'work', label: '과제관리' },
   { key: 'members', label: '팀원관리' },
+  { key: 'tasks', label: '평가과제' },
   { key: 'evaluate', label: '평가하기' },
   { key: 'results', label: '평가결과' },
 ]

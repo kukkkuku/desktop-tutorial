@@ -7,6 +7,7 @@ import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcYearsSince } from '../utils/tenure'
+import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ConfirmDialog from './ConfirmDialog'
 import ResizableTh from './table/ResizableTh'
@@ -28,6 +29,9 @@ const TEAM_COLUMNS = {
   level: 90,
   levelTenure: 190,
   role: 140,
+  team: 140,
+  email: 200,
+  work: 100,
   tasks: 110,
   peer: 130,
   active: 100,
@@ -40,9 +44,11 @@ interface MemberFormValues {
   role: string
   hireDate: string
   currentLevelSince: string
+  team: string
+  email: string
 }
 
-const EMPTY_FORM: MemberFormValues = { name: '', level: '', role: '', hireDate: '', currentLevelSince: '' }
+const EMPTY_FORM: MemberFormValues = { name: '', level: '', role: '', hireDate: '', currentLevelSince: '', team: '', email: '' }
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
 // yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
@@ -77,6 +83,7 @@ export default function TeamManagement() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<MemberFormValues>(EMPTY_FORM)
   const [editFormError, setEditFormError] = useState('')
+  const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
 
   function handleQuickAdd() {
     const trimmedName = newForm.name.trim()
@@ -98,6 +105,8 @@ export default function TeamManagement() {
       comment: '',
       hireDate: newForm.hireDate || null,
       currentLevelSince: newForm.currentLevelSince || null,
+      team: newForm.team.trim() || undefined,
+      email: newForm.email.trim() || undefined,
     }
     dispatch({ type: 'ADD_MEMBER', payload: member })
     setNewForm(EMPTY_FORM)
@@ -112,6 +121,8 @@ export default function TeamManagement() {
       role: member.role,
       hireDate: member.hireDate ?? '',
       currentLevelSince: member.currentLevelSince ?? '',
+      team: member.team ?? '',
+      email: member.email ?? '',
     })
     setEditFormError('')
   }
@@ -140,6 +151,8 @@ export default function TeamManagement() {
         role: editForm.role.trim(),
         hireDate: editForm.hireDate || null,
         currentLevelSince: editForm.currentLevelSince || null,
+        team: editForm.team.trim() || undefined,
+        email: editForm.email.trim() || undefined,
       },
     })
     setEditingId(null)
@@ -184,6 +197,32 @@ export default function TeamManagement() {
     return { addedCount, updatedCount, errors }
   }
 
+  // 과제관리(시트)에 담당자로 나오지만 팀원 목록에 없는 사람들
+  const unmatched = unmatchedAssigneeSummary(state.workBoard)
+  const boardTeams = Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort()
+  function workCountOf(member: TeamMember) {
+    return state.workBoard.items.filter((i) => i.assigneeIds.includes(member.id)).length
+  }
+  function addFromWork(names: string[]) {
+    const existingNames = new Set(state.members.map((m) => m.name))
+    const added: TeamMember[] = unmatched
+      .filter((u) => names.includes(u.name) && !existingNames.has(u.name))
+      .map((u) => ({
+        id: uuidv4(),
+        name: u.name,
+        active: true,
+        level: '',
+        yearsOfService: null,
+        role: '',
+        comment: '',
+        hireDate: null,
+        currentLevelSince: null,
+        team: u.team ?? undefined,
+      }))
+    if (added.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
+    setPickedUnmatched(new Set())
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -207,7 +246,7 @@ export default function TeamManagement() {
             둘째 줄로 밀려서 두 줄짜리 폼이었다). 필드 순서도 아래 표
             컬럼 순서(이름-근속(입사일)-직급-연차(현 직급 발령일)-역할)와
             맞췄다. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1.4fr_1fr_1.4fr_1.6fr_auto]">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.5fr_1.4fr_0.9fr_1.4fr_1.2fr_1.3fr_1.7fr_auto]">
           <div>
             <label className="block text-sm font-medium text-black">
               이름 <span className="text-danger">*</span>
@@ -265,6 +304,27 @@ export default function TeamManagement() {
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-black">담당팀</label>
+            <input
+              type="text"
+              list="team-options"
+              value={newForm.team}
+              onChange={(e) => setNewForm((f) => ({ ...f, team: e.target.value }))}
+              placeholder="시트의 담당팀"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-black">이메일</label>
+            <input
+              type="email"
+              value={newForm.email}
+              onChange={(e) => setNewForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="권한 연결용 (선택)"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            />
+          </div>
           <div className="flex items-end">
             <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
               + 팀원 추가
@@ -272,7 +332,48 @@ export default function TeamManagement() {
           </div>
         </div>
         {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
+        <datalist id="team-options">
+          {boardTeams.map((t) => (
+            <option key={t} value={t} />
+          ))}
+        </datalist>
       </div>
+
+      {unmatched.length > 0 && (
+        <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-[#FAFAFB] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-black">과제관리 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만 추가하세요.
+              </p>
+            </div>
+            <Button onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} className="px-3 py-1.5 text-xs">
+              선택한 {pickedUnmatched.size}명 추가
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {unmatched.map((u) => {
+              const on = pickedUnmatched.has(u.name)
+              return (
+                <button
+                  key={u.name}
+                  onClick={() => {
+                    const next = new Set(pickedUnmatched)
+                    if (on) next.delete(u.name)
+                    else next.add(u.name)
+                    setPickedUnmatched(next)
+                  }}
+                  className={`rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-blue-50 font-semibold text-accent' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
+                >
+                  {on ? '✓ ' : ''}
+                  {u.name} <span className="text-gray-400">{u.team ? `${u.team} · ` : ''}L3 {u.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {state.members.length === 0 ? (
         <EmptyStateDropzone
@@ -284,7 +385,7 @@ export default function TeamManagement() {
         />
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.role }}>
+        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-black">
             <tr>
               {(
@@ -294,7 +395,10 @@ export default function TeamManagement() {
                   ['level', '직급'],
                   ['levelTenure', '연차 (발령일)'],
                   ['role', '역할'],
-                  ['tasks', '참여 과제 수'],
+                  ['team', '담당팀'],
+                  ['email', '이메일'],
+                  ['work', '담당 L3'],
+                  ['tasks', '평가 과제 수'],
                   ['peer', '받은 피어리뷰'],
                   ['active', '활성여부'],
                   ['manage', '관리'],
@@ -302,7 +406,7 @@ export default function TeamManagement() {
               ).map(([key, label]) => (
                 <ResizableTh
                   key={key}
-                  width={key === 'role' ? undefined : cols.widths[key]}
+                  width={cols.widths[key]}
                   resizable={key !== 'manage'}
                   onResizeStart={cols.startResize(key)}
                   onResizeMove={cols.onResizeMove}
@@ -371,6 +475,24 @@ export default function TeamManagement() {
                         className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
                       />
                     </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="text"
+                        list="team-options"
+                        value={editForm.team}
+                        onChange={(e) => setEditForm((f) => ({ ...f, team: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-2 align-top">
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                      />
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-500">{workCountOf(member)}건</td>
                     <td className="px-4 py-3 align-top text-gray-500">{count}건</td>
                     <td className="px-4 py-3 align-top text-gray-500">{peerReviewCount}건</td>
                     <td className="px-4 py-3 align-top">
@@ -415,6 +537,9 @@ export default function TeamManagement() {
                   <td className="px-4 py-3">{member.level || '-'}</td>
                   <td className="px-4 py-3">{formatTenureOnly(levelTenureYears)}</td>
                   <td className="px-4 py-3">{member.role || '-'}</td>
+                  <td className="truncate px-4 py-3">{member.team || '-'}</td>
+                  <td className="truncate px-4 py-3 text-gray-700" title={member.email}>{member.email || '-'}</td>
+                  <td className="px-4 py-3">{workCountOf(member)}건</td>
                   <td className="px-4 py-3">{count}건</td>
                   <td className="px-4 py-3">
                     <button

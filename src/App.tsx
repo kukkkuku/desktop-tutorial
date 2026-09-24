@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { AppProvider, useAppState } from './state/AppContext'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
 import { MemberDetailProvider } from './state/MemberDetailContext'
@@ -12,30 +12,19 @@ import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import GoogleSignInGate from './components/GoogleSignInGate'
-import DataManagerDrawer from './components/DataManagerDrawer'
+import DataManagerDrawer, { type DataManagerTab } from './components/DataManagerDrawer'
+import WorkStage from './components/work/WorkStage'
 import QuickStartModal from './components/QuickStartModal'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 
-// 새 평가를 막 만들어 과제가 하나도 없는 워크스페이스를 열면, 빠른 시작
-// 팝업을 자동으로 띄워 첫 화면부터 시작 방법을 고르게 한다. AppProvider
-// 안(useAppState 접근 필요)이면서 stage 전환과 무관하게 워크스페이스가
-// 열려 있는 동안 딱 한 번만 마운트되는 지점에 둬야, 탭을 왔다갔다 할 때마다
-// 다시 뜨는 일이 없다.
-function AutoOpenQuickStart({ onOpen }: { onOpen: () => void }) {
-  const { state } = useAppState()
-  const triggered = useRef(false)
-  useEffect(() => {
-    if (triggered.current) return
-    triggered.current = true
-    if (state.tasks.length === 0) onOpen()
-  }, [state.tasks.length, onOpen])
-  return null
-}
-
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
-  const [stage, setStage] = useState<Stage>('tasks')
+  const [stage, setStage] = useState<Stage>('work')
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
+  const [dataManagerTab, setDataManagerTab] = useState<{ tab: DataManagerTab; token: number } | null>(null)
+  // 빠른 시작은 헤더 버튼으로만 연다. 예전에는 과제가 없으면 자동으로 떴는데,
+  // 이제 첫 화면인 과제관리의 빈 상태가 시작 안내(구글시트에서 가져오기 / L2
+  // 직접 만들기)를 맡는다.
   const [quickStartOpen, setQuickStartOpen] = useState(false)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
@@ -110,7 +99,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
 
   return (
     <AppProvider workspaceId={workspaceId}>
-      <AutoOpenQuickStart onOpen={() => setQuickStartOpen(true)} />
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <div className="flex min-h-screen flex-col bg-white">
@@ -135,8 +123,16 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               />
             </div>
             <div className="flex min-h-0 flex-1">
-              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
+              {stage !== 'notes' && stage !== 'work' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                {stage === 'work' && (
+                  <WorkStage
+                    onOpenSheetImport={() => {
+                      setDataManagerTab({ tab: 'sheet', token: Date.now() })
+                      setDataManagerOpen(true)
+                    }}
+                  />
+                )}
                 {stage === 'tasks' && <TasksStage />}
                 {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
@@ -150,6 +146,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             onClose={() => setDataManagerOpen(false)}
             onAccountChange={handleAccountChange}
             onSaveStatusChange={setSaveStatus}
+            tabRequest={dataManagerTab}
+            onGoToWork={() => handleStageChange('work')}
           />
           {quickStartOpen && (
             <QuickStartModal

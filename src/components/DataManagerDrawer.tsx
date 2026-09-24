@@ -18,6 +18,7 @@ import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import Spinner from './Spinner'
+import SheetImportPanel from './work/SheetImportPanel'
 
 interface DataManagerDrawerProps {
   open: boolean
@@ -27,9 +28,15 @@ interface DataManagerDrawerProps {
   onAccountChange?: () => void
   // 전체 데이터 저장 진행 상태를 알려준다 -- 헤더의 "저장 중"/"저장 실패" 배지용.
   onSaveStatusChange?: (status: 'saving' | 'saved' | 'error') => void
+  // 과제관리의 "구글시트에서 가져오기"처럼 특정 탭을 열어 달라는 요청.
+  // token이 바뀔 때마다 그 탭으로 간다.
+  tabRequest?: { tab: DataManagerTab; token: number } | null
+  // 구글시트 가져오기를 마치고 "과제관리에서 보기"를 누르면.
+  onGoToWork?: () => void
 }
 
-type Tab = 'local' | 'drive' | 'admin' | 'reset'
+export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'admin' | 'reset'
+type Tab = DataManagerTab
 
 // 로컬 파일/Google Drive 탭 라벨 앞 아이콘. Figma는 래스터 이미지를 쓰지만,
 // 이 프로젝트는 모든 아이콘을 currentColor 획선 SVG로 통일해서 쓰므로(다른
@@ -49,6 +56,15 @@ function LocalFileIcon({ className }: { className?: string }) {
   )
 }
 
+function SheetIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M3 15h18M9 3v18" />
+    </svg>
+  )
+}
+
 function DriveIcon({ className }: { className?: string }) {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -62,11 +78,14 @@ function DriveIcon({ className }: { className?: string }) {
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
 // 흩어져 있었다. 여기 하나로 모으고, 화면 가운데 모달로 연다.
-export default function DataManagerDrawer({ open, onClose, onAccountChange, onSaveStatusChange }: DataManagerDrawerProps) {
+export default function DataManagerDrawer({ open, onClose, onAccountChange, onSaveStatusChange, tabRequest, onGoToWork }: DataManagerDrawerProps) {
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews, contributions, criteria } = state
   const { currentWorkspace, workspaces } = useWorkspaces()
-  const [tab, setTab] = useState<Tab>('local')
+  const [tab, setTab] = useState<Tab>('sheet')
+  useEffect(() => {
+    if (tabRequest) setTab(tabRequest.tab)
+  }, [tabRequest])
   // "팀원 초대" 탭 자체를 관리자 계정으로 이 앱에 로그인했을 때만 보여준다
   // (다른 사람에게는 탭이 아예 보이지 않는다). 이 앱의 전체 진입 게이트가
   // 이미 Google 로그인을 요구하므로, 그때 연결된 이메일을 그대로 쓴다 --
@@ -163,7 +182,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         onClick={onClose}
       />
       <div
-        className={`relative flex h-[640px] max-h-[85vh] w-full max-w-3xl transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+        className={`relative flex max-h-[85vh] w-full ${tab === 'sheet' ? 'h-[85vh] max-w-5xl' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
@@ -181,6 +200,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           <div className="flex items-center">
             {(
               [
+                { key: 'sheet' as const, label: '구글시트 연결', Icon: SheetIcon },
                 { key: 'local' as const, label: '로컬 파일', Icon: LocalFileIcon },
                 { key: 'drive' as const, label: 'Google Drive', Icon: DriveIcon },
                 ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대', Icon: undefined }] : []),
@@ -209,6 +229,21 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
+          {tab === 'sheet' && (
+            <div className="mx-auto max-w-4xl">
+              <SheetImportPanel
+                onDone={
+                  onGoToWork
+                    ? () => {
+                        onGoToWork()
+                        onClose()
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
           {tab === 'local' && (
             <div className="mx-auto max-w-lg space-y-4">
               {isDirectoryPickerSupported() && (

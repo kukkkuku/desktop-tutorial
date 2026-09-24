@@ -25,6 +25,20 @@ export interface SheetMerge {
   c2: number
 }
 
+// 날짜 서식이 걸린 칸. 시트에는 "1/31"처럼 연도 없이 보이는 서식이 많아서
+// 표시 문자열만으로는 날짜를 복원할 수 없다 -- 일련번호와 표시 문자열을 같이 들고
+// 온다. 날짜 열(완료요청 등)은 일련번호로 YYYY-MM-DD를, 메모 열은 사람이 본
+// 그대로의 표시 문자열을 쓴다.
+export interface DateCell {
+  kind: 'date'
+  serial: number
+  text: string
+}
+
+function isDateCell(v: unknown): v is DateCell {
+  return typeof v === 'object' && v !== null && (v as DateCell).kind === 'date'
+}
+
 export interface RawSheet {
   title: string
   hidden?: boolean
@@ -87,6 +101,7 @@ export function normalizeDateText(s: string): string {
 
 export function cellText(v: unknown): string {
   if (v === null || v === undefined) return ''
+  if (isDateCell(v)) return v.text.trim()
   if (v instanceof Date) return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`
   if (typeof v === 'number') return Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000)
   if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
@@ -94,6 +109,7 @@ export function cellText(v: unknown): string {
 }
 
 function dateCellText(v: unknown): string {
+  if (isDateCell(v)) return serialToIso(v.serial)
   if (typeof v === 'number' && v > 20000 && v < 80000) return serialToIso(v)
   return normalizeDateText(cellText(v))
 }
@@ -381,6 +397,7 @@ export interface ImportResult {
   updated: number
   keptEdits: number // 앱에서 고친 값이라 시트 값으로 안 덮은 칸 수
   missing: number // 이번 시트에 없어서 "시트에 없음" 표시한 행
+  skippedDeleted: number // 앱에서 지운 행이라 건너뜀
   newGroups: number
 }
 
@@ -416,6 +433,8 @@ export function applySheetImport(
   }
 
   const byKey = new Map(board.items.filter((i) => i.sheetKey).map((i) => [i.sheetKey!, i]))
+  const excluded = new Set(board.excludedSheetKeys)
+  let skippedDeleted = 0
   const seen = new Set<string>()
   let added = 0
   let updated = 0
@@ -427,6 +446,10 @@ export function applySheetImport(
     const key = sheetKeyOf(r.l2, r.l3)
     if (seen.has(key)) continue // 시트에 같은 L2·L3가 두 번 있으면 첫 행만
     seen.add(key)
+    if (excluded.has(key) && !byKey.has(key)) {
+      skippedDeleted += 1
+      continue
+    }
     const group = groupByName.get(r.l2)!
     const catRaw = r.values[COL_CATEGORY] ?? ''
     const category: TaskCategory | null = isTaskCategory(catRaw) ? catRaw : null
@@ -521,6 +544,7 @@ export function applySheetImport(
     updated,
     keptEdits,
     missing,
+    skippedDeleted,
     newGroups,
   }
 }
