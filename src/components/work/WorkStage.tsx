@@ -28,7 +28,7 @@ import {
   updateGroup,
   updateItems,
 } from '../../utils/workBoard'
-import DataGrid, { type CellEdit, type GridColumn } from '../grid/DataGrid'
+import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import EvalTaskDialog from './EvalTaskDialog'
@@ -177,11 +177,18 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     type: c.type,
     width: c.width ?? 140,
     system: c.system,
-    suggestions: c.type === 'select' ? optionsForColumn(board, c) : undefined,
-    // 담당자: 팀원 목록에서 여러 명 고르기(없으면 입력)
-    people: c.type === 'person' ? memberNames : undefined,
-    // 상태·분류는 정해진 값 중에서만 고른다(드롭다운).
-    choices: c.id === 'status' ? [...STATUS_OPTIONS] : c.id === COL_CATEGORY ? [...TASK_CATEGORY_OPTIONS] : undefined,
+    // 선택 칸은 모두 같은 칩 팝업으로 고른다. 상태·분류는 정해진 값만, 담당자는 여러 명 +
+    // 목록에 없는 이름 입력, 그 밖의 선택형(속성·담당팀 등)은 한 개 + 입력.
+    picker:
+      c.id === 'status'
+        ? { options: [...STATUS_OPTIONS], tone: toneFor('status') }
+        : c.id === COL_CATEGORY
+          ? { options: [...TASK_CATEGORY_OPTIONS], tone: toneFor(COL_CATEGORY) }
+          : c.type === 'person'
+            ? { options: memberNames, multi: true, allowNew: true, tone: toneFor(COL_ASSIGNEES) }
+            : c.type === 'select'
+              ? { options: optionsForColumn(board, c), allowNew: true, tone: toneFor(c.id) }
+              : undefined,
   }))
 
   // 드롭다운 칸(상태·분류)에 목록에 없는 값이 들어오면(붙여넣기 등) 그 칸은 건너뛴다.
@@ -628,17 +635,28 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   )
 }
 
-const CATEGORY_STYLE: Record<string, string> = {
-  과제: 'bg-[#14161A] text-white',
-  일반: 'bg-gray-200 text-gray-800',
-  일상: 'bg-gray-100 text-gray-500',
+// 뱃지는 모두 같은 모양(CHIP_BASE)이고 색만 다르다. 선택 팝업의 칩도 같은 색을 쓴다.
+const TONES: Record<string, Record<string, string>> = {
+  [COL_CATEGORY]: { 과제: 'bg-violet-100 text-violet-800', 일반: 'bg-slate-100 text-slate-700', 일상: 'bg-stone-100 text-stone-600' },
+  status: { 대기: 'bg-gray-100 text-gray-600', 진행중: 'bg-blue-100 text-blue-800', 완료: 'bg-emerald-100 text-emerald-800', 중단: 'bg-red-100 text-red-700' },
+}
+const PERSON_TONE = 'bg-sky-50 text-sky-800'
+const UNKNOWN_TONE = 'border border-dashed border-gray-400 bg-white text-gray-600'
+const DEFAULT_TONE = 'bg-gray-100 text-gray-700'
+
+function toneFor(colId: string) {
+  return (value: string, known: boolean): string => {
+    if (colId === COL_ASSIGNEES) return known ? PERSON_TONE : UNKNOWN_TONE
+    return TONES[colId]?.[value] ?? DEFAULT_TONE
+  }
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  대기: 'text-gray-500',
-  진행중: 'text-accent',
-  완료: 'text-green-700',
-  중단: 'text-red-600',
+function Chip({ tone, title, children }: { tone: string; title?: string; children: React.ReactNode }) {
+  return (
+    <span className={`${CHIP_BASE} ${tone}`} title={title}>
+      {children}
+    </span>
+  )
 }
 
 function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; name: string }[]) {
@@ -649,36 +667,32 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; n
     return (
       <div className="flex flex-wrap gap-1 py-1">
         {names.map((n) => (
-          <span key={n} className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
+          <Chip key={n} tone={PERSON_TONE}>
             {n}
-          </span>
+          </Chip>
         ))}
         {row.unmatchedAssignees.map((n) => (
-          <span
-            key={n}
-            className="shrink-0 rounded-full border border-dashed border-gray-400 px-2 py-0.5 text-xs text-gray-600"
-            title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다."
-          >
+          <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.">
             {n}
-          </span>
+          </Chip>
         ))}
       </div>
     )
   }
   if (col.id === COL_CATEGORY) {
-    if (row.category) return <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${CATEGORY_STYLE[row.category]}`}>{row.category}</span>
+    if (row.category) return <Chip tone={toneFor(COL_CATEGORY)(row.category, true)}>{row.category}</Chip>
     if (row.categoryRaw)
       return (
-        <span className="text-xs text-orange-600" title="과제/일반/일상이 아닌 값입니다. 시트 원문을 그대로 보여 줍니다.">
-          ⚠ {row.categoryRaw}
-        </span>
+        <Chip tone="bg-orange-50 text-orange-700" title="과제/일반/일상이 아닌 값입니다. 시트 원문을 그대로 보여 줍니다.">
+          {row.categoryRaw}
+        </Chip>
       )
-    return <span className="text-xs text-gray-300">미입력</span>
+    return null
   }
-  if (col.id === 'status') {
-    const v = row.fields.status
+  if (col.picker && !col.picker.multi) {
+    const v = row.fields[col.id]
     if (!v) return null
-    return <span className={`text-[13px] font-semibold ${STATUS_STYLE[v] ?? 'text-gray-700'}`}>{v}</span>
+    return <Chip tone={toneFor(col.id)(v, true)}>{v}</Chip>
   }
   if (col.type === 'link') {
     const v = row.fields[col.id]
