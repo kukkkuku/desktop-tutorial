@@ -361,6 +361,15 @@ export function deriveDates(
   }
 }
 
+// 주차 표시로 추정한 시작일이 완료일보다 늦으면 쓰지 않는다(시트에 완료일은 따로 적혀
+// 있고 주차 표시는 나중에 찍은 경우 -- 어느 쪽이 맞는지 앱이 알 수 없으므로 비워 둔다).
+function isIsoDate(v: string | undefined): v is string {
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
+}
+export function startAfterDone(start: string | undefined, done: string | undefined): boolean {
+  return isIsoDate(start) && isIsoDate(done) && start > done
+}
+
 export function yearFromTitle(title: string): number | null {
   const m = title.match(/(20\d{2})/)
   return m ? Number(m[1]) : null
@@ -383,6 +392,12 @@ function fillDerivedDates(items: WorkItem[], weekAxis: WeekColumn[], year: numbe
         i = { ...i, fields }
       }
     }
+    // 예전에 채워 둔 추정 시작일이 완료일보다 늦으면 걷어 낸다.
+    if (i.derivedFields?.includes('startDate') && !i.editedAt?.startDate && startAfterDone(i.fields.startDate, i.fields.doneDate)) {
+      const fields = { ...i.fields }
+      delete fields.startDate
+      i = { ...i, fields, derivedFields: i.derivedFields.filter((f) => f !== 'startDate') }
+    }
     if (!year || weekAxis.length === 0) return i
     const guess = deriveDates(i.weeks, weekAxis, year)
     const add: Record<string, string> = {}
@@ -390,6 +405,7 @@ function fillDerivedDates(items: WorkItem[], weekAxis: WeekColumn[], year: numbe
       const v = guess[f]
       if (v && !i.fields[f] && !i.editedAt?.[f]) add[f] = v
     }
+    if (add.startDate && startAfterDone(add.startDate, add.doneDate ?? i.fields.doneDate)) delete add.startDate
     const keys = Object.keys(add)
     if (keys.length === 0) return i
     return { ...i, fields: { ...i.fields, ...add }, derivedFields: Array.from(new Set([...(i.derivedFields ?? []), ...keys])) }

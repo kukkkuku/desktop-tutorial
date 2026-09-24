@@ -148,13 +148,19 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // 표에서 고른 L3 -- "평가 과제로 만들기"에 쓴다.
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [evalDialog, setEvalDialog] = useState<'single' | 'group' | null>(null)
+  // 우클릭 메뉴에서 연 순간의 선택(대화상자가 열린 뒤 선택이 바뀌어도 대상이 흔들리지 않게).
+  const [evalIds, setEvalIds] = useState<string[]>([])
+  function openEval(mode: 'single' | 'group', ids: string[]) {
+    setEvalIds(ids)
+    setEvalDialog(mode)
+  }
   // L3 id -> 그 L3가 들어간 평가 과제 이름들
   const linkedTasks = useMemo(() => {
     const m = new Map<string, string[]>()
     for (const t of state.tasks) for (const id of t.workItemIds ?? []) m.set(id, [...(m.get(id) ?? []), t.name])
     return m
   }, [state.tasks])
-  const selectedItems = board.items.filter((i) => selectedIds.includes(i.id))
+  const selectedItems = board.items.filter((i) => (evalDialog ? evalIds : selectedIds).includes(i.id))
   const selectableItems = selectedItems.filter((i) => !linkedTasks.has(i.id))
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
@@ -478,25 +484,17 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </div>
           </div>
 
-          {selectedItems.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/30 bg-blue-50/60 px-3 py-2 text-sm">
-              <span className="font-semibold text-black">선택한 L3 {selectedItems.length}건</span>
-              {selectableItems.length < selectedItems.length && (
-                <span className="text-xs text-gray-500">(이미 평가 과제에 들어간 {selectedItems.length - selectableItems.length}건은 제외)</span>
-              )}
-              <span className="ml-auto flex gap-2">
-                <Button variant="secondary" onClick={() => setEvalDialog('single')} disabled={selectableItems.length === 0} className="px-3 py-1.5 text-xs">
-                  하나씩 평가 과제로
-                </Button>
-                <Button variant="primary" onClick={() => setEvalDialog('group')} disabled={selectableItems.length < 2} className="px-3 py-1.5 text-xs">
-                  묶어서 평가 과제 1개로
-                </Button>
-              </span>
-            </div>
-          )}
-
           <DataGrid
             onSelectionChange={setSelectedIds}
+            rowActions={(ids) => {
+              const free = board.items.filter((i) => ids.includes(i.id) && !linkedTasks.has(i.id))
+              const taken = ids.length - free.length
+              const note = taken > 0 ? `이미 들어간 ${taken}건 제외` : undefined
+              return [
+                { label: `평가과제로 묶기 (${free.length}건 → 1개)`, hint: note, disabled: free.length < 2, onClick: () => openEval('group', ids) },
+                { label: free.length > 1 ? `하나씩 평가과제로 (${free.length}개)` : '평가과제로 만들기', disabled: free.length === 0, onClick: () => openEval('single', ids) },
+              ]
+            }}
             columns={gridColumns}
             rows={viewRows}
             getText={(row, colId) => getCellText(row, colId, members)}
@@ -534,7 +532,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-gray-400">
-            파란 점 = 평가 과제에 들어간 L3 · 여러 행을 고르면 평가 과제로 묶을 수 있습니다 · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
+            파란 점 = 평가 과제에 들어간 L3 · 여러 행을 고르고 우클릭 → 평가과제로 묶기 · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
             머리글 우클릭으로 열 추가·숨기기
           </p>
         </>

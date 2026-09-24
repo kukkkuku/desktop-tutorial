@@ -66,8 +66,17 @@ interface DataGridProps<R extends { id: string }> {
   onRedo: () => void
   // 선택 범위에 걸친 행 id -- 부모가 "선택한 행으로 무엇을 하기" 버튼을 띄울 때 쓴다.
   onSelectionChange?: (rowIds: string[]) => void
+  // 우클릭 메뉴 맨 위에 붙일 부모 전용 동작(선택 범위에 걸친 행 id를 받는다). 빈 배열이면 안 붙임.
+  rowActions?: (rowIds: string[]) => RowAction[]
   addRowLabel?: string
   emptyText?: string
+}
+
+export interface RowAction {
+  label: string
+  hint?: string
+  disabled?: boolean
+  onClick: () => void
 }
 
 type Sel =
@@ -894,9 +903,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
+                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive) }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
                             inRange && !isActive ? 'bg-blue-50' : ''
-                          } ${isActive ? 'shadow-[inset_0_0_0_2px_#2563EB]' : ''} ${col.id === 'name' ? 'font-semibold' : ''}`}
+                          } ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
                           <div className={col.picker ? 'flex items-center justify-between gap-1' : ''}>
                             {custom !== undefined ? (
@@ -1096,6 +1106,27 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         >
           {(menu.kind === 'cell' || menu.kind === 'row') && range && (
             <>
+              {(() => {
+                const actions = props.rowActions?.(selectedRowIds) ?? []
+                if (actions.length === 0) return null
+                return (
+                  <>
+                    {actions.map((a) => (
+                      <MenuItem
+                        key={a.label}
+                        label={a.label}
+                        hint={a.hint}
+                        disabled={a.disabled}
+                        onClick={() => {
+                          setMenu(null)
+                          a.onClick()
+                        }}
+                      />
+                    ))}
+                    <div className="my-1 h-px bg-gray-100" />
+                  </>
+                )
+              })()}
               <MenuItem
                 label="위에 행 추가"
                 onClick={() => {
@@ -1204,6 +1235,19 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       )}
     </div>
   )
+}
+
+// 선택 범위는 엑셀처럼 바깥 테두리로 한 덩어리로 보이게, 현재 칸은 굵은 테두리.
+const SEL_BLUE = '#2563EB'
+function cellShadow(range: { r1: number; r2: number; c1: number; c2: number } | null, r: number, c: number, active: boolean): string | undefined {
+  if (active) return `inset 0 0 0 2px ${SEL_BLUE}`
+  if (!range || (range.r1 === range.r2 && range.c1 === range.c2)) return undefined
+  const parts: string[] = []
+  if (r === range.r1) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
+  if (r === range.r2) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
+  if (c === range.c1) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
+  if (c === range.c2) parts.push(`inset -2px 0 0 ${SEL_BLUE}`)
+  return parts.length ? parts.join(', ') : undefined
 }
 
 function MenuItem({ label, hint, onClick, danger, disabled }: { label: string; hint?: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {

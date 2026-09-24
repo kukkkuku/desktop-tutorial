@@ -17,6 +17,7 @@ import {
   splitNames,
   deriveDates,
   normalizeStatus,
+  startAfterDone,
 } from './workBoard'
 export { deriveDates, yearFromTitle } from './workBoard'
 
@@ -477,7 +478,7 @@ export function applySheetImport(
     // 시트에 날짜가 없으면 주차 표시로 추정해서 채우고 추정이라고 표시해 둔다.
     const derived: string[] = []
     const guess = deriveDates(r.weeks, header.weekCols, year)
-    if (!sheetFields.startDate && guess.startDate) {
+    if (!sheetFields.startDate && guess.startDate && !startAfterDone(guess.startDate, sheetFields.doneDate ?? guess.doneDate)) {
       sheetFields.startDate = guess.startDate
       derived.push('startDate')
     }
