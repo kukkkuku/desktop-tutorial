@@ -24,6 +24,9 @@ export interface GridColumn {
   suggestions?: string[]
   // 이 값들 중에서만 고르는 칸(드롭다운). 편집하면 목록이 열리고, 목록에 없는 값은 넣을 수 없다.
   choices?: string[]
+  // 여러 명을 고르는 칸(담당자). 편집하면 체크 목록이 열리고, 목록에 없는 이름은
+  // 입력해서 Enter로 추가한다. 값은 "이름, 이름" 문자열로 주고받는다.
+  people?: string[]
 }
 
 export interface CellEdit {
@@ -157,6 +160,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const composing = useRef(false)
   // 드롭다운 칸에서 강조된 항목
   const [choiceIndex, setChoiceIndex] = useState(0)
+  // 담당자 칸 편집 중 고른 이름들
+  const [picked, setPicked] = useState<string[]>([])
+  function splitPeople(text: string): string[] {
+    return text
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)
+  }
 
   // 행/열 수가 줄면 선택을 안쪽으로 당긴다.
   useEffect(() => {
@@ -219,6 +230,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   function startEdit(initial?: string) {
     if (!activeRow || !activeCol) return
+    if (activeCol.people && initial === undefined) {
+      setPicked(splitPeople(getText(activeRow, activeCol.id)))
+      setChoiceIndex(0)
+      setSinkValue('')
+      setEditing(true)
+      requestAnimationFrame(() => sinkRef.current?.focus())
+      return
+    }
     // 드롭다운 칸은 빈 검색어로 열어 전체 목록을 보여 주고, 지금 값을 강조한다.
     if (activeCol.choices && initial === undefined) {
       const cur = getText(activeRow, activeCol.id)
@@ -240,6 +259,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   }
 
   function commitEdit(move?: 'down' | 'right' | 'left' | 'up') {
+    // 담당자 칸은 고른 이름들을 그대로 넣는다(입력칸에 남은 글자가 있으면 그것도 추가).
+    if (editing && activeCol?.people && activeRow) {
+      const extra = sinkValue.trim()
+      const list = extra && !picked.includes(extra) ? [...picked, extra] : picked
+      const text = list.join(', ')
+      if (text !== getText(activeRow, activeCol.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol.id, text }])
+      setEditing(false)
+      setSinkValue('')
+      if (move && active) moveActive(move)
+      requestAnimationFrame(focusSink)
+      return
+    }
     // 드롭다운 칸은 목록에서 고른 것만 들어간다 -- 그냥 벗어나면 취소.
     if (editing && activeCol?.choices) {
       setEditing(false)
@@ -349,6 +380,36 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function onSinkKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     const mod = e.metaKey || e.ctrlKey
     if (e.nativeEvent.isComposing || composing.current) return
+    if (editing && activeCol?.people) {
+      const list = filteredPeople
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        if (list.length) setChoiceIndex((i) => (i + (e.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length)
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const q = sinkValue.trim()
+        if (!q) {
+          commitEdit('down')
+          return
+        }
+        // 목록에 있으면 그 사람을 체크/해제, 없으면 입력한 이름을 새로 추가
+        const hit = list[Math.min(choiceIndex, list.length - 1)]
+        const name = hit ?? q
+        setPicked((cur) => (cur.includes(name) ? cur.filter((x) => x !== name) : [...cur, name]))
+        setSinkValue('')
+        setChoiceIndex(0)
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        commitEdit(e.shiftKey ? 'left' : 'right')
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelEdit()
+      } else if (e.key === 'Backspace' && sinkValue === '' && picked.length > 0) {
+        e.preventDefault()
+        setPicked((cur) => cur.slice(0, -1))
+      }
+      return
+    }
     if (editing && activeCol?.choices) {
       const list = filteredChoices
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -449,6 +510,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function onSinkChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!editing) {
       if (!activeRow || !activeCol) return
+      if (activeCol.people) setPicked(splitPeople(getText(activeRow, activeCol.id)))
+      setChoiceIndex(0)
       setEditing(true)
     }
     setSinkValue(e.target.value)
@@ -552,6 +615,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     } else {
       select(r, c)
       drag.current = { kind: 'cells', anchor: r, anchorC: c }
+      // 담당자 칸은 누르면 바로 팀원 목록을 연다.
+      const col = columns[c]
+      const row = rows[r]
+      if (col?.people && row) {
+        setPicked(splitPeople(getText(row, col.id)))
+        setChoiceIndex(0)
+        setSinkValue('')
+        setEditing(true)
+        wantFocus.current = true
+        requestAnimationFrame(() => sinkRef.current?.focus())
+        return
+      }
     }
     requestAnimationFrame(focusSink)
   }
@@ -654,6 +729,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   // ---------- 렌더 ----------
 
+  const filteredPeople = useMemo(() => {
+    if (!editing || !activeCol?.people) return []
+    const all = Array.from(new Set([...activeCol.people, ...picked]))
+    const q = sinkValue.trim()
+    return q ? all.filter((n) => n.includes(q)) : all
+  }, [editing, activeCol, sinkValue, picked])
+
   const filteredChoices = useMemo(() => {
     if (!editing || !activeCol?.choices) return []
     const q = sinkValue.trim()
@@ -669,7 +751,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     requestAnimationFrame(focusSink)
   }
 
-  const suggestions = editing && activeCol?.suggestions && !activeCol.choices ? activeCol.suggestions : null
+  const suggestions = editing && activeCol?.suggestions && !activeCol.choices && !activeCol.people ? activeCol.suggestions : null
   const filteredSuggestions = useMemo(() => {
     if (!suggestions) return []
     // 담당자처럼 여러 값을 쉼표로 넣는 칸은 마지막 조각으로 거른다.
@@ -820,7 +902,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             inRange && !isActive ? 'bg-blue-50' : ''
                           } ${isActive ? 'shadow-[inset_0_0_0_2px_#2563EB]' : ''} ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
-                          <div className={col.choices ? 'flex items-center justify-between gap-1' : ''}>
+                          <div className={col.choices || col.people ? 'flex items-center justify-between gap-1' : ''}>
                             {custom !== undefined ? (
                               custom
                             ) : (
@@ -831,7 +913,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                 {text}
                               </div>
                             )}
-                            {col.choices && (
+                            {(col.choices || col.people) && (
                               <span
                                 onMouseDown={(e) => {
                                   // ▾를 누르면 바로 목록을 연다.
@@ -839,7 +921,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                   e.stopPropagation()
                                   if (editing) commitEdit()
                                   select(r, c)
-                                  setChoiceIndex(Math.max(0, col.choices!.indexOf(text)))
+                                  if (col.people) setPicked(splitPeople(text))
+                                  setChoiceIndex(col.choices ? Math.max(0, col.choices.indexOf(text)) : 0)
                                   setSinkValue('')
                                   setEditing(true)
                                   wantFocus.current = true
@@ -905,8 +988,95 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 minHeight: sinkBox.height,
               }}
               aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
-              placeholder={editing && activeCol?.choices && activeRow ? getText(activeRow, activeCol.id) || '고르세요' : undefined}
+              placeholder={
+                editing && activeCol?.choices && activeRow
+                  ? getText(activeRow, activeCol.id) || '고르세요'
+                  : editing && activeCol?.people
+                    ? '이름 검색 · 없으면 입력 후 Enter'
+                    : undefined
+              }
             />
+          )}
+
+          {editing && sinkBox && activeCol?.people && (
+            <div
+              role="listbox"
+              aria-multiselectable="true"
+              className="absolute z-20 w-64 rounded-lg border border-gray-200 bg-white text-sm shadow-lg"
+              style={{ left: sinkBox.left, top: sinkBox.top + sinkBox.height + 2, minWidth: Math.max(sinkBox.width, 220) }}
+            >
+              {picked.length > 0 && (
+                <div className="flex flex-wrap gap-1 border-b border-gray-100 px-2.5 py-2">
+                  {picked.map((n) => (
+                    <span key={n} className="inline-flex items-center gap-1 rounded-full bg-blue-50 py-0.5 pl-2 pr-1 text-xs font-medium text-blue-800">
+                      {n}
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          setPicked((cur) => cur.filter((x) => x !== n))
+                        }}
+                        className="rounded-full px-1 text-blue-500 hover:bg-blue-100"
+                        aria-label={`${n} 빼기`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="max-h-60 overflow-y-auto py-1">
+                {filteredPeople.map((n, i) => {
+                  const on = picked.includes(n)
+                  const known = activeCol.people!.includes(n)
+                  return (
+                    <button
+                      key={n}
+                      role="option"
+                      aria-selected={on}
+                      onMouseEnter={() => setChoiceIndex(i)}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        setPicked((cur) => (on ? cur.filter((x) => x !== n) : [...cur, n]))
+                        setSinkValue('')
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left ${i === choiceIndex ? 'bg-blue-50' : ''}`}
+                    >
+                      <input type="checkbox" readOnly checked={on} tabIndex={-1} className="pointer-events-none" />
+                      <span>{n}</span>
+                      {!known && <span className="ml-auto text-[11px] text-gray-400">팀원 목록에 없음</span>}
+                    </button>
+                  )
+                })}
+                {sinkValue.trim() && !filteredPeople.includes(sinkValue.trim()) && (
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      const q = sinkValue.trim()
+                      setPicked((cur) => (cur.includes(q) ? cur : [...cur, q]))
+                      setSinkValue('')
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-accent ${filteredPeople.length === 0 ? 'bg-blue-50' : ''}`}
+                  >
+                    ＋ “{sinkValue.trim()}” 입력해서 추가
+                  </button>
+                )}
+                {activeCol.people.length === 0 && !sinkValue.trim() && (
+                  <p className="px-3 py-1.5 text-xs text-gray-400">팀원관리에 등록된 팀원이 없습니다. 이름을 입력해 추가하세요.</p>
+                )}
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-400">
+                <span>Enter: 선택/추가 · 빈칸에서 Enter: 완료</span>
+                <button
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    commitEdit()
+                  }}
+                  className="font-semibold text-accent"
+                >
+                  완료
+                </button>
+              </div>
+            </div>
           )}
 
           {editing && sinkBox && activeCol?.choices && (

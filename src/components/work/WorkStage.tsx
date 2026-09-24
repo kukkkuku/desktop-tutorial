@@ -177,7 +177,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     type: c.type,
     width: c.width ?? 140,
     system: c.system,
-    suggestions: c.type === 'select' ? optionsForColumn(board, c) : c.type === 'person' ? memberNames : undefined,
+    suggestions: c.type === 'select' ? optionsForColumn(board, c) : undefined,
+    // 담당자: 팀원 목록에서 여러 명 고르기(없으면 입력)
+    people: c.type === 'person' ? memberNames : undefined,
     // 상태·분류는 정해진 값 중에서만 고른다(드롭다운).
     choices: c.id === 'status' ? [...STATUS_OPTIONS] : c.id === COL_CATEGORY ? [...TASK_CATEGORY_OPTIONS] : undefined,
   }))
