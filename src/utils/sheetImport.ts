@@ -313,24 +313,32 @@ export interface GroupSummary {
   l1: string | null
   count: number
   teams: { team: string; count: number }[]
+  // 담당자 이름(많이 맡은 순)과 L3 과제명(시트 순서) -- 고르기 화면 미리보기용
+  assignees: string[]
+  l3Names: string[]
   inferred: boolean
 }
 
 export function summarizeGroups(rows: ParsedRow[]): GroupSummary[] {
-  const map = new Map<string, GroupSummary & { teamMap: Map<string, number> }>()
+  const map = new Map<string, GroupSummary & { teamMap: Map<string, number>; personMap: Map<string, number> }>()
   for (const r of rows) {
     let g = map.get(r.l2)
     if (!g) {
-      g = { name: r.l2, tag: r.l2Tag, h: r.h, l1: r.l1, count: 0, teams: [], inferred: false, teamMap: new Map() }
+      g = { name: r.l2, tag: r.l2Tag, h: r.h, l1: r.l1, count: 0, teams: [], assignees: [], l3Names: [], inferred: false, teamMap: new Map(), personMap: new Map() }
       map.set(r.l2, g)
     }
     g.count += 1
+    g.l3Names.push(r.l3)
+    for (const n of splitNames(r.values[COL_ASSIGNEES] ?? '')) g.personMap.set(n, (g.personMap.get(n) ?? 0) + 1)
     if (r.hierarchyInferred) g.inferred = true
     const t = r.values.team
     if (t) g.teamMap.set(t, (g.teamMap.get(t) ?? 0) + 1)
   }
-  return Array.from(map.values()).map(({ teamMap, ...g }) => ({
+  return Array.from(map.values()).map(({ teamMap, personMap, ...g }) => ({
     ...g,
+    assignees: Array.from(personMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([n]) => n),
     teams: Array.from(teamMap.entries())
       .map(([team, count]) => ({ team, count }))
       .sort((a, b) => b.count - a.count),

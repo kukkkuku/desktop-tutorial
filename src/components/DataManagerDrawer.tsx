@@ -230,8 +230,9 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === 'sheet' && (
-            <div className="mx-auto max-w-4xl">
+            <div className="mx-auto flex min-h-full max-w-5xl flex-col">
               <SheetImportPanel
+                onCancel={onClose}
                 onDone={
                   onGoToWork
                     ? () => {

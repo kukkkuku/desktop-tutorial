@@ -265,7 +265,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           L2는 탭으로, 그 아래 L3 과제는 표로 편집합니다.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button onClick={onOpenSheetImport}>구글시트에서 가져오기</Button>
+          <Button variant="primary" onClick={onOpenSheetImport}>구글시트에서 가져오기</Button>
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>

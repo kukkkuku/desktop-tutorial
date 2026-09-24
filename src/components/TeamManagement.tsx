@@ -348,7 +348,7 @@ export default function TeamManagement() {
                 시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만 추가하세요.
               </p>
             </div>
-            <Button onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} className="px-3 py-1.5 text-xs">
+            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} className="px-3 py-1.5 text-xs">
               선택한 {pickedUnmatched.size}명 추가
             </Button>
           </div>
