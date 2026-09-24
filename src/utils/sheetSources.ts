@@ -60,17 +60,48 @@ async function getSheetsToken(): Promise<string> {
   })
 }
 
+// 구글이 돌려준 오류 이유를 사람이 할 일로 바꾼다. 403 하나에도 "API가 꺼져
+// 있음"과 "이 계정에 시트 권한 없음"이 섞여 있어서, 뭉뚱그리면 뭘 고쳐야
+// 할지 알 수 없다(실제로 그랬다).
+interface GoogleApiError {
+  error?: {
+    code?: number
+    message?: string
+    status?: string
+    details?: { reason?: string; metadata?: { activationUrl?: string; consumer?: string } ; links?: { url?: string }[] }[]
+  }
+}
+
 async function sheetsFetch<T>(url: string): Promise<T> {
   const token = await getSheetsToken()
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) {
-    if (res.status === 401) sheetsToken = null
-    const body = await res.text().catch(() => '')
-    if (res.status === 403 || res.status === 404)
-      throw new Error('이 계정으로는 시트를 열 수 없습니다. 링크가 맞는지, 지금 로그인한 계정에 시트 보기 권한이 있는지 확인해 주세요.')
-    throw new Error(`시트를 읽지 못했습니다 (${res.status}) ${body.slice(0, 200)}`)
+  if (res.ok) return (await res.json()) as T
+  if (res.status === 401) sheetsToken = null
+  const text = await res.text().catch(() => '')
+  let parsed: GoogleApiError = {}
+  try {
+    parsed = JSON.parse(text) as GoogleApiError
+  } catch {
+    // 본문이 JSON이 아니면 원문 일부를 그대로 보여 준다.
   }
-  return (await res.json()) as T
+  const err = parsed.error
+  const reasons = (err?.details ?? []).map((d) => d.reason).filter(Boolean)
+  const activation =
+    err?.details?.find((d) => d.metadata?.activationUrl)?.metadata?.activationUrl ??
+    err?.details?.flatMap((d) => d.links ?? []).find((l) => l.url?.includes('console'))?.url
+  const who = getConnectedEmail()
+  if (reasons.includes('SERVICE_DISABLED') || /has not been used|is disabled/i.test(err?.message ?? '')) {
+    throw new Error(
+      `구글 클라우드 프로젝트에서 "Google Sheets API"가 꺼져 있습니다. 앱 관리자가 한 번 켜 주면 됩니다${activation ? `: ${activation}` : ' (구글 클라우드 콘솔 › API 및 서비스 › 라이브러리 › Google Sheets API › 사용)'}. 켠 뒤 몇 분 지나 다시 시도해 주세요.`,
+    )
+  }
+  if (res.status === 404) throw new Error('시트를 찾지 못했습니다. 링크가 맞는지 확인해 주세요.')
+  if (res.status === 403) {
+    throw new Error(
+      `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 볼 권한이 없습니다. 시트를 볼 수 있는 계정으로 로그인하거나, 시트 공유에 이 계정을 추가해 주세요. (구글 응답: ${err?.message ?? res.status})`,
+    )
+  }
+  throw new Error(`시트를 읽지 못했습니다 (${res.status}) ${err?.message ?? text.slice(0, 200)}`)
 }
 
 export interface SheetTabInfo {
