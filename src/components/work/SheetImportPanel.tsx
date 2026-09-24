@@ -14,7 +14,6 @@ import {
   collectWarnings,
   columnMapFromNames,
   columnMapToNames,
-  distinctTeams,
   fillMerges,
   filterRows,
   parseHeader,
@@ -70,8 +69,6 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
   const [mapOpen, setMapOpen] = useState(false)
   const [columnMap, setColumnMap] = useState<Record<string, number | null>>({})
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [teamFilter, setTeamFilter] = useState<string | null>(null)
-  const [onlyTeamRows, setOnlyTeamRows] = useState(false)
   const [addNames, setAddNames] = useState<Set<string>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
 
@@ -144,24 +141,20 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
     const sameTab = link && link.tabName === raw.title
     setColumnMap(sameTab ? columnMapFromNames(header, link.columnMap) : columnMapFromNames(header, {}))
     setSelected(new Set(sameTab ? link.selectedGroups : []))
-    setTeamFilter(sameTab ? link.teamFilter : null)
-    setOnlyTeamRows(Boolean(sameTab && link.teamFilter))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header, raw])
 
   const rows = useMemo(() => (filled && header ? parseRows(filled, header, columnMap) : []), [filled, header, columnMap])
   const groups = useMemo(() => summarizeGroups(rows), [rows])
-  const teams = useMemo(() => distinctTeams(rows), [rows])
-  const importRows = useMemo(() => filterRows(rows, Array.from(selected), onlyTeamRows ? teamFilter : null), [rows, selected, onlyTeamRows, teamFilter])
+  const importRows = useMemo(() => filterRows(rows, Array.from(selected), null), [rows, selected])
   const warnings = useMemo(() => collectWarnings(importRows, state.members), [importRows, state.members])
 
-  // 기본으로 체크할 새 팀원: 고른 담당팀 과제를 2건 이상 맡은 사람만. 다른 팀
-  // 사람까지 팀원으로 넣으면 평가의 기여도 자동 배분에도 들어가고, 담당자 칸에는
-  // "방인용\n국내"처럼 이름이 아닌 값도 섞여 있어서 한 번만 나온 이름은 사람이
-  // 직접 고르게 둔다.
+  // 기본으로 체크할 새 팀원: 고른 L2에서 2건 이상 맡은 사람만. 팀원으로 넣으면
+  // 평가의 기여도 자동 배분에도 들어가고, 담당자 칸에는 "방인용\n국내"처럼
+  // 이름이 아닌 값도 섞여 있어서 한 번만 나온 이름은 사람이 직접 고르게 둔다.
   useEffect(() => {
-    setAddNames(new Set(teamFilter ? warnings.unknownAssignees.filter((u) => u.team === teamFilter && u.count >= 2).map((u) => u.name) : []))
-  }, [warnings.unknownAssignees, teamFilter])
+    setAddNames(new Set(warnings.unknownAssignees.filter((u) => u.count >= 2).map((u) => u.name)))
+  }, [warnings.unknownAssignees])
 
   // L1을 탭으로, 그 아래 L2 목록 (시트 순서 유지)
   const l1Tabs = useMemo(() => {
@@ -183,10 +176,6 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
     setSelected(next)
   }
 
-  function selectByTeam(team: string | null) {
-    setTeamFilter(team)
-    if (team) setSelected(new Set(groups.filter((g) => g.teams.some((t) => t.team === team)).map((g) => g.name)))
-  }
 
   // ---------- ⑤ 가져오기 ----------
 
@@ -212,7 +201,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       tabName: raw.title,
       columnMap: columnMapToNames(header, columnMap),
       selectedGroups: Array.from(selected),
-      teamFilter: onlyTeamRows ? teamFilter : null,
+      teamFilter: null,
       lastFetchedAt: new Date().toISOString(),
     }
     const res = applySheetImport(board, importRows, header, members, nextLink)
@@ -385,30 +374,35 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto flex flex-wrap items-center gap-3 border-t border-gray-100 bg-white pt-4">
-            <span className="text-sm text-gray-600">
-              선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <select
-                value={teamFilter ?? ''}
-                onChange={(e) => selectByTeam(e.target.value || null)}
-                className="h-7 rounded border border-gray-300 px-1 text-xs"
-                title="이 담당팀이 맡은 L3가 있는 L2를 한 번에 고릅니다"
-              >
-                <option value="">담당팀으로 한 번에 고르기</option>
-                {teams.map((t) => (
-                  <option key={t.team} value={t.team}>
-                    {t.team} ({t.count})
-                  </option>
-                ))}
-              </select>
-              {teamFilter && (
-                <label className="flex items-center gap-1">
-                  <input type="checkbox" checked={onlyTeamRows} onChange={(e) => setOnlyTeamRows(e.target.checked)} />이 팀 담당 L3만
-                </label>
+          <div className="sticky bottom-0 mt-auto flex flex-wrap items-end gap-3 border-t border-gray-100 bg-white pt-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-gray-600">
+                선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
+              </p>
+              {selectedGroups.length > 0 && (
+                <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+                  {selectedGroups.map((g) => (
+                    <span
+                      key={g.name}
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 py-1 pl-3 pr-1.5 text-xs font-medium text-orange-900"
+                    >
+                      <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
+                        {g.name}
+                        {g.tag ? ` [${g.tag}]` : ''}
+                      </button>
+                      <button
+                        onClick={() => toggle([g.name], false)}
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-orange-700 hover:bg-orange-200"
+                        aria-label={`${g.name} 선택 해제`}
+                        title="선택 해제"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
-            </span>
+            </div>
             <span className="ml-auto flex gap-2">
               {onCancel && (
                 <Button variant="secondary" onClick={onCancel}>

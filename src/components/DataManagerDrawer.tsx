@@ -182,7 +182,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         onClick={onClose}
       />
       <div
-        className={`relative flex max-h-[85vh] w-full ${tab === 'sheet' ? 'h-[85vh] max-w-5xl' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
@@ -230,7 +230,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === 'sheet' && (
-            <div className="mx-auto flex min-h-full max-w-5xl flex-col">
+            <div className="flex min-h-full flex-col">
               <SheetImportPanel
                 onCancel={onClose}
                 onDone={
