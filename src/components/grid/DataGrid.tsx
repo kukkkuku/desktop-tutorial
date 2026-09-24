@@ -51,6 +51,8 @@ interface DataGridProps<R extends { id: string }> {
   onMoveColumns?: (colIds: string[], toIndex: number) => void
   onUndo: () => void
   onRedo: () => void
+  // 선택 범위에 걸친 행 id -- 부모가 "선택한 행으로 무엇을 하기" 버튼을 띄울 때 쓴다.
+  onSelectionChange?: (rowIds: string[]) => void
   addRowLabel?: string
   emptyText?: string
 }
@@ -266,6 +268,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (!range) return []
     return rows.slice(range.r1, range.r2 + 1).map((r) => r.id)
   }, [range, rows])
+
+  const onSelectionChange = props.onSelectionChange
+  const selectionKey = selectedRowIds.join('|')
+  useEffect(() => {
+    onSelectionChange?.(selectionKey ? selectionKey.split('|') : [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionKey])
 
   const selectedColIds = useMemo(() => {
     if (!sel || sel.t !== 'cols') return []

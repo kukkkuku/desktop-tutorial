@@ -29,6 +29,7 @@ import {
 import DataGrid, { type CellEdit, type GridColumn } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
+import EvalTaskDialog from './EvalTaskDialog'
 
 const HISTORY_LIMIT = 60
 
@@ -142,6 +143,17 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // ---------- 표 ----------
   const [search, setSearch] = useState('')
+  // 표에서 고른 L3 -- "평가 과제로 만들기"에 쓴다.
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [evalDialog, setEvalDialog] = useState<'single' | 'group' | null>(null)
+  // L3 id -> 그 L3가 들어간 평가 과제 이름들
+  const linkedTasks = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const t of state.tasks) for (const id of t.workItemIds ?? []) m.set(id, [...(m.get(id) ?? []), t.name])
+    return m
+  }, [state.tasks])
+  const selectedItems = board.items.filter((i) => selectedIds.includes(i.id))
+  const selectableItems = selectedItems.filter((i) => !linkedTasks.has(i.id))
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
 
@@ -440,17 +452,40 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </div>
           </div>
 
+          {selectedItems.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/30 bg-blue-50/60 px-3 py-2 text-sm">
+              <span className="font-semibold text-black">선택한 L3 {selectedItems.length}건</span>
+              {selectableItems.length < selectedItems.length && (
+                <span className="text-xs text-gray-500">(이미 평가 과제에 들어간 {selectedItems.length - selectableItems.length}건은 제외)</span>
+              )}
+              <span className="ml-auto flex gap-2">
+                <Button variant="secondary" onClick={() => setEvalDialog('single')} disabled={selectableItems.length === 0} className="px-3 py-1.5 text-xs">
+                  하나씩 평가 과제로
+                </Button>
+                <Button variant="primary" onClick={() => setEvalDialog('group')} disabled={selectableItems.length < 2} className="px-3 py-1.5 text-xs">
+                  묶어서 평가 과제 1개로
+                </Button>
+              </span>
+            </div>
+          )}
+
           <DataGrid
+            onSelectionChange={setSelectedIds}
             columns={gridColumns}
             rows={viewRows}
             getText={(row, colId) => getCellText(row, colId, members)}
             renderCell={(row, col) => renderWorkCell(row, col, members)}
             rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : '')}
-            rowMarker={(row) =>
-              row.missingInSheet ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" title="시트에 없음 -- 지난 가져오기 때 시트에서 찾지 못했습니다" />
-              ) : null
-            }
+            rowMarker={(row) => (
+              <>
+                {linkedTasks.has(row.id) && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" title={`평가 과제: ${linkedTasks.get(row.id)!.join(', ')}`} />
+                )}
+                {row.missingInSheet && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500" title="시트에 없음 -- 지난 가져오기 때 시트에서 찾지 못했습니다" />
+                )}
+              </>
+            )}
             onCommit={commit}
             onPaste={paste}
             onInsertRows={insertRows}
@@ -473,7 +508,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-gray-400">
-            칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
+            파란 점 = 평가 과제에 들어간 L3 · 여러 행을 고르면 평가 과제로 묶을 수 있습니다 · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
             머리글 우클릭으로 열 추가·숨기기
           </p>
         </>
@@ -512,6 +547,19 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             )
           })()}
         </div>
+      )}
+
+      {evalDialog && selectableItems.length > 0 && (
+        <EvalTaskDialog
+          mode={evalDialog}
+          items={selectableItems}
+          onCancel={() => setEvalDialog(null)}
+          onCreate={(tasks, participants) => {
+            dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
+            setEvalDialog(null)
+            showToast(`평가 과제 ${tasks.length}개를 만들었습니다. 평가과제 탭에서 성과등급을 매기세요.`)
+          }}
+        />
       )}
 
       {toast && (
@@ -629,7 +677,15 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; n
   }
   if (col.type === 'date') {
     const v = row.fields[col.id]
-    return v ? <span className="tabular-nums">{v}</span> : null
+    if (!v) return null
+    if (row.derivedFields?.includes(col.id))
+      return (
+        <span className="whitespace-nowrap tabular-nums text-gray-400" title="시트에 날짜가 없어 주차 칸 표시(S·완)로 추정한 날짜입니다. 고치면 그 값을 씁니다.">
+          {v}
+          <span className="ml-1 align-super text-[10px]">추정</span>
+        </span>
+      )
+    return <span className="tabular-nums">{v}</span>
   }
   return undefined
 }

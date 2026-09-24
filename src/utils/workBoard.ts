@@ -23,23 +23,27 @@ export const COL_CATEGORY = 'category'
 
 // 시트 「추진현황」 탭의 열 순서를 따른다. sheetHeaders는 헤더 자동 매칭용
 // 별칭(공백 제거 후 비교).
+// 기본으로 보이는 열은 과제명·분류·상태·담당자·시작일·완료일뿐이고, 나머지는
+// 가져오되 숨겨 둔다("열 표시"에서 켤 수 있다). 시작일은 시트에 열이 없어
+// 주차 칸의 첫 표시(S)로 추정한다(sheetImport.ts의 deriveDates).
 export const SYSTEM_COLUMNS: (ColumnDef & { sheetHeaders: string[] })[] = [
-  { id: COL_NAME, label: 'L3 과제명', type: 'text', system: true, width: 320, sheetHeaders: ['L3'] },
-  { id: 'attr', label: '속성', type: 'select', system: true, width: 90, sheetHeaders: ['속성'] },
+  { id: COL_NAME, label: 'L3 과제명', type: 'text', system: true, width: 360, sheetHeaders: ['L3'] },
   { id: COL_CATEGORY, label: '분류', type: 'select', system: true, width: 76, options: [...TASK_CATEGORY_OPTIONS], sheetHeaders: ['분류'] },
-  { id: 'status', label: '상태', type: 'select', system: true, width: 80, sheetHeaders: ['상태', '진행상태'] },
-  { id: 'demandDept', label: '수요부서', type: 'text', system: true, width: 100, sheetHeaders: ['수요부서'] },
-  { id: 'team', label: '담당팀', type: 'select', system: true, width: 130, sheetHeaders: ['담당팀'] },
-  { id: COL_ASSIGNEES, label: '담당자', type: 'person', system: true, width: 150, sheetHeaders: ['담당자'] },
-  { id: 'inout', label: '내/외', type: 'select', system: true, width: 70, sheetHeaders: ['내/외'] },
-  { id: 'dueDate', label: '완료요청', type: 'date', system: true, width: 110, sheetHeaders: ['완료요청'] },
-  { id: 'stageIntake', label: '디자인접수/start', type: 'memo', system: true, width: 180, sheetHeaders: ['디자인접수/start'] },
-  { id: 'stageDev', label: '디자인개발', type: 'memo', system: true, width: 220, sheetHeaders: ['디자인개발'] },
-  { id: 'stageHandoff', label: '디자인이관', type: 'memo', system: true, width: 160, sheetHeaders: ['디자인이관'] },
-  { id: 'doneDate', label: '완료일', type: 'date', system: true, width: 110, sheetHeaders: ['완료일'] },
-  { id: 'dbUpload', label: 'DB 업로드', type: 'text', system: true, width: 90, sheetHeaders: ['DB업로드'] },
-  { id: 'note', label: '비고', type: 'memo', system: true, width: 180, sheetHeaders: ['비고'] },
-  { id: 'url', label: 'URL, LINK', type: 'link', system: true, width: 160, sheetHeaders: ['URL,LINK', 'URL', 'LINK'] },
+  { id: 'status', label: '상태', type: 'select', system: true, width: 84, sheetHeaders: ['상태', '진행상태'] },
+  { id: COL_ASSIGNEES, label: '담당자', type: 'person', system: true, width: 180, sheetHeaders: ['담당자'] },
+  { id: 'startDate', label: '시작일', type: 'date', system: true, width: 132, sheetHeaders: ['시작일', '착수일'] },
+  { id: 'doneDate', label: '완료일', type: 'date', system: true, width: 132, sheetHeaders: ['완료일'] },
+  { id: 'attr', label: '속성', type: 'select', system: true, width: 90, hidden: true, sheetHeaders: ['속성'] },
+  { id: 'team', label: '담당팀', type: 'select', system: true, width: 130, hidden: true, sheetHeaders: ['담당팀'] },
+  { id: 'demandDept', label: '수요부서', type: 'text', system: true, width: 100, hidden: true, sheetHeaders: ['수요부서'] },
+  { id: 'inout', label: '내/외', type: 'select', system: true, width: 70, hidden: true, sheetHeaders: ['내/외'] },
+  { id: 'dueDate', label: '완료요청', type: 'date', system: true, width: 110, hidden: true, sheetHeaders: ['완료요청'] },
+  { id: 'stageIntake', label: '디자인접수/start', type: 'memo', system: true, width: 180, hidden: true, sheetHeaders: ['디자인접수/start'] },
+  { id: 'stageDev', label: '디자인개발', type: 'memo', system: true, width: 220, hidden: true, sheetHeaders: ['디자인개발'] },
+  { id: 'stageHandoff', label: '디자인이관', type: 'memo', system: true, width: 160, hidden: true, sheetHeaders: ['디자인이관'] },
+  { id: 'dbUpload', label: 'DB 업로드', type: 'text', system: true, width: 90, hidden: true, sheetHeaders: ['DB업로드'] },
+  { id: 'note', label: '비고', type: 'memo', system: true, width: 180, hidden: true, sheetHeaders: ['비고'] },
+  { id: 'url', label: 'URL, LINK', type: 'link', system: true, width: 160, hidden: true, sheetHeaders: ['URL,LINK', 'URL', 'LINK'] },
 ]
 
 export function defaultColumns(): ColumnDef[] {
@@ -119,7 +123,9 @@ export function setCellText(item: WorkItem, colId: string, text: string, members
   const fields = { ...item.fields }
   if (text === '') delete fields[colId]
   else fields[colId] = text
-  return { ...item, fields, editedAt }
+  // 사람이 고친 값은 더 이상 추정값이 아니다.
+  const derivedFields = item.derivedFields?.filter((f) => f !== colId)
+  return { ...item, fields, editedAt, derivedFields: derivedFields?.length ? derivedFields : undefined }
 }
 
 // ---------- 보드 조작 ----------
@@ -355,6 +361,9 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
             weeks,
             editedAt: Object.keys(editedAt).length > 0 ? editedAt : undefined,
             missingInSheet: i.missingInSheet === true ? true : undefined,
+            derivedFields: Array.isArray(i.derivedFields)
+              ? (i.derivedFields as unknown[]).filter((x): x is string => typeof x === 'string')
+              : undefined,
           } satisfies WorkItem
         })
     : []
@@ -372,7 +381,16 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
           options: Array.isArray(c.options) ? (c.options as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
         }))
     : []
-  const columns = savedCols.length > 0 ? savedCols : defaultColumns()
+  let columns = savedCols.length > 0 ? savedCols : defaultColumns()
+  // 시작일 열이 없는 저장본은 "기본 표시 열 6개" 규칙 이전 것이다 -- 시스템 열의
+  // 순서·표시 여부를 새 기본값으로 한 번 맞추고, 사용자 열은 뒤에 그대로 둔다.
+  if (savedCols.length > 0 && !savedCols.some((c) => c.id === 'startDate')) {
+    const byId = new Map(savedCols.map((c) => [c.id, c]))
+    columns = [
+      ...defaultColumns().map((d) => ({ ...d, width: byId.get(d.id)?.width ?? d.width })),
+      ...savedCols.filter((c) => !c.system),
+    ]
+  }
   for (const def of defaultColumns()) if (!columns.some((c) => c.id === def.id)) columns.push(def)
   const weekAxis: WeekColumn[] = Array.isArray(r.weekAxis)
     ? (r.weekAxis as Record<string, unknown>[])

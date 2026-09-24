@@ -10,7 +10,7 @@ import type {
   Task,
   TeamMember,
 } from '../types'
-import { PERFORMANCE_GRADE_OPTIONS } from '../types'
+import { ALL_IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
 import { migrateWorkBoard } from './workBoard'
 
 const EVALUATION_STATUS_OPTIONS: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
@@ -27,11 +27,13 @@ function migrateTask(raw: Record<string, unknown>): Task | null {
   return {
     id: raw.id,
     name: raw.name,
-    importance: raw.importance as Task['importance'],
-    performanceGrade: raw.performanceGrade as Task['performanceGrade'],
+    importance: (ALL_IMPORTANCE_OPTIONS as unknown[]).includes(raw.importance) ? (raw.importance as Task['importance']) : '일반',
+    // 저장된 등급은 그대로, 없거나 알 수 없으면 null(미입력).
+    performanceGrade: isPerformanceGrade(raw.performanceGrade) ? raw.performanceGrade : null,
     workload: raw.workload as Task['workload'],
     objective: typeof raw.objective === 'string' ? raw.objective : '',
     achievement: typeof raw.achievement === 'string' ? raw.achievement : '',
+    workItemIds: Array.isArray(raw.workItemIds) ? (raw.workItemIds as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
   }
 }
 

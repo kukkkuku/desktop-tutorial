@@ -275,7 +275,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   const taskGradeDescription =
     tw === 0
       ? '사용 안 함 — 모든 과제의 과제등급 점수를 항상 100점으로 간주합니다.'
-      : `중점 ${fmt(blendByWeight(100, 130, tw))} / 핵심 ${fmt(blendByWeight(100, 110, tw))} / 일반 ${fmt(blendByWeight(100, 100, tw))} / 지원 ${fmt(blendByWeight(100, 80, tw))}점`
+      : `과제 ${fmt(blendByWeight(100, 120, tw))} / 일반 ${fmt(blendByWeight(100, 100, tw))} / 일상 ${fmt(blendByWeight(100, 80, tw))}점`
 
   const ww = criteria.workloadWeight
   const workloadDescription =
@@ -305,7 +305,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
 
   const TASK_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
     { key: 'taskGradeWeight', label: '과제등급 사용', desc: taskGradeDescription },
-    { key: 'workloadWeight', label: '업무량 사용', desc: workloadDescription },
+    // 업무량은 쓰지 않는다. 이전 기준으로 켜 둔 평가에서만 보여 줘서 끌 수 있게 한다.
+    ...(ww > 0 ? [{ key: 'workloadWeight' as const, label: '업무량 사용 (이전 기준)', desc: workloadDescription }] : []),
     { key: 'performanceGradeWeight', label: '성과등급 사용', desc: performanceGradeDescription },
   ]
   const MEMBER_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
@@ -338,7 +339,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         <div className="flex h-full flex-col items-center gap-1.5 px-2 py-3">
           <ExpandIconButton />
           <span className="my-0.5 h-px w-full bg-gray-100" />
-          {ICON_GROUP_1.map((item) => (
+          {ICON_GROUP_1.filter((item) => item.key !== 'workloadWeight' || criteria.workloadWeight > 0).map((item) => (
             <CriteriaIconButton key={item.key} item={item} />
           ))}
           <span className="my-0.5 h-px w-full bg-gray-100" />

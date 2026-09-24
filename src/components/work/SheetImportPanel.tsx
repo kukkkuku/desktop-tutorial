@@ -19,6 +19,7 @@ import {
   parseHeader,
   parseRows,
   summarizeGroups,
+  yearFromTitle,
   type ImportResult,
   type ParsedHeader,
   type RawSheet,
@@ -204,7 +205,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       teamFilter: null,
       lastFetchedAt: new Date().toISOString(),
     }
-    const res = applySheetImport(board, importRows, header, members, nextLink)
+    const res = applySheetImport(board, importRows, header, members, nextLink, yearFromTitle(raw.title) ?? currentWorkspace?.evaluationYear ?? null)
     if (newMembers.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: members })
     dispatch({ type: 'SET_WORK_BOARD', payload: res.board })
     setResult(res)

@@ -12,7 +12,7 @@ import { saveBlobLocally } from './localSave'
 export async function downloadTasksPdf(teamName: string, periodName: string, tasks: Task[], criteria: Criteria) {
   const scores = tasks.map((t) => calcTaskScore(t, criteria))
   const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
-  const coreCount = tasks.filter((t) => t.importance === '핵심').length
+  const coreCount = tasks.filter((t) => t.importance === '과제' || t.importance === '핵심').length
 
   const section: ReportSection = {
     title: '과제 목록',
@@ -24,7 +24,7 @@ export async function downloadTasksPdf(teamName: string, periodName: string, tas
       task.workload,
       task.objective || '-',
       task.achievement || '-',
-      task.performanceGrade,
+      task.performanceGrade ?? '미입력',
       scores[i].toFixed(1),
     ]),
     emptyLabel: '등록된 과제가 없습니다.',
@@ -36,7 +36,7 @@ export async function downloadTasksPdf(teamName: string, periodName: string, tas
     title: '과제 현황 리포트',
     stats: [
       { label: '등록 과제 수', value: `${tasks.length}건` },
-      { label: '핵심 과제 수', value: `${coreCount}건`, emphasize: coreCount > 0 },
+      { label: '과제등급 "과제" 수', value: `${coreCount}건`, emphasize: coreCount > 0 },
       { label: '평균 과제 점수', value: avg.toFixed(1) },
     ],
     sections: [section],

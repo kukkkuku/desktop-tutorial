@@ -393,6 +393,42 @@ export function collectWarnings(rows: ParsedRow[], members: TeamMember[]): Impor
   return { inferredRows, oddCategory, emptyCategory, unknownAssignees }
 }
 
+// ---------- 시작일·완료일 추정 ----------
+
+// 시트에는 시작일 열이 없고 완료일도 비어 있는 행이 많다. 주차 칸 표시로
+// 대신 채운다: 시작일 = 첫 S(없으면 첫 표시)가 있는 주의 첫날, 완료일 =
+// 마지막 완·F가 있는 주의 마지막 날. 한 달을 7일씩 나눈 근사라 "추정"이다.
+function weekRange(month: number, week: number, weeksInMonth: number, year: number): { start: string; end: string } {
+  const days = new Date(year, month, 0).getDate()
+  const startDay = Math.min(days, 1 + (week - 1) * 7)
+  const endDay = week >= weeksInMonth ? days : Math.min(days, week * 7)
+  const mm = String(month).padStart(2, '0')
+  return { start: `${year}-${mm}-${String(startDay).padStart(2, '0')}`, end: `${year}-${mm}-${String(endDay).padStart(2, '0')}` }
+}
+
+export function deriveDates(
+  weeks: Record<string, WeekMark>,
+  weekCols: WeekColumn[],
+  year: number | null,
+): { startDate?: string; doneDate?: string } {
+  if (!year) return {}
+  const perMonth = new Map<number, number>()
+  for (const w of weekCols) perMonth.set(w.month, Math.max(perMonth.get(w.month) ?? 0, w.week))
+  const marked = weekCols.filter((w) => weeks[w.key])
+  if (marked.length === 0) return {}
+  const first = marked.find((w) => weeks[w.key] === 'S') ?? marked[0]
+  const done = [...marked].reverse().find((w) => weeks[w.key] === '완' || weeks[w.key] === 'F')
+  return {
+    startDate: weekRange(first.month, first.week, perMonth.get(first.month) ?? 4, year).start,
+    doneDate: done ? weekRange(done.month, done.week, perMonth.get(done.month) ?? 4, year).end : undefined,
+  }
+}
+
+export function yearFromTitle(title: string): number | null {
+  const m = title.match(/(20\d{2})/)
+  return m ? Number(m[1]) : null
+}
+
 // ---------- 보드에 반영 ----------
 
 export function sheetKeyOf(l2: string, l3: string): string {
@@ -419,6 +455,7 @@ export function applySheetImport(
   header: ParsedHeader,
   members: TeamMember[],
   link: SheetLink,
+  year: number | null = null,
 ): ImportResult {
   let groups = [...board.groups]
   let newGroups = 0
@@ -464,6 +501,17 @@ export function applySheetImport(
     const { ids, unmatched } = matchAssignees(splitNames(r.values[COL_ASSIGNEES] ?? ''), members)
     const sheetFields: Record<string, string> = {}
     for (const [k, v] of Object.entries(r.values)) if (k !== COL_CATEGORY && k !== COL_ASSIGNEES) sheetFields[k] = v
+    // 시트에 날짜가 없으면 주차 표시로 추정해서 채우고 추정이라고 표시해 둔다.
+    const derived: string[] = []
+    const guess = deriveDates(r.weeks, header.weekCols, year)
+    if (!sheetFields.startDate && guess.startDate) {
+      sheetFields.startDate = guess.startDate
+      derived.push('startDate')
+    }
+    if (!sheetFields.doneDate && guess.doneDate) {
+      sheetFields.doneDate = guess.doneDate
+      derived.push('doneDate')
+    }
 
     const prev = byKey.get(key)
     if (!prev) {
@@ -479,6 +527,7 @@ export function applySheetImport(
         unmatchedAssignees: unmatched,
         fields: sheetFields,
         weeks: r.weeks,
+        derivedFields: derived.length ? derived : undefined,
       })
       added += 1
       continue
@@ -513,7 +562,10 @@ export function applySheetImport(
     }
     // 주차 기호는 시트가 원본이다(1단계에서는 앱에서 편집하지 않는다).
     if (JSON.stringify(prev.weeks) !== JSON.stringify(r.weeks)) changed = true
-    next = { ...next, fields, weeks: r.weeks }
+    // 추정 표시: 앱에서 고친 날짜는 사람이 넣은 값이므로 추정 목록에서 뺀다.
+    const nextDerived = derived.filter((f) => !edited[f])
+    if ((prev.derivedFields ?? []).join() !== nextDerived.join()) changed = true
+    next = { ...next, fields, weeks: r.weeks, derivedFields: nextDerived.length ? nextDerived : undefined }
     if (changed) {
       updates.set(prev.id, next)
       updated += 1

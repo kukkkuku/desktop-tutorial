@@ -18,10 +18,14 @@ import type {
 // Task-grade score, on the same 0-100+ point scale as PERFORMANCE_SCORE
 // (100 = neutral/no-effect), rather than a raw multiplier — easier to read
 // at a glance than a "1.3배" style factor.
+// 과제 120 / 일반 100 / 일상 80. 중점·핵심·지원은 이전 기준 평가의 점수가
+// 바뀌지 않도록 원래 값 그대로 남긴다.
 export const IMPORTANCE_SCORE: Record<Importance, number> = {
+  과제: 120,
+  일반: 100,
+  일상: 80,
   중점: 130,
   핵심: 110,
-  일반: 100,
   지원: 80,
 }
 
@@ -57,7 +61,10 @@ export function blendByWeight(neutral: number, actual: number, weightPercent: nu
   return neutral + (actual - neutral) * ratio
 }
 
+// 성과등급을 아직 안 매긴 과제(null)는 점수 0 -- 누구의 누적점수에도 들어가지
+// 않는다. 임시로 B를 넣어 계산하면 팀장이 매기지 않은 등급이 결과에 섞인다.
 export function calcTaskScore(task: Task, criteria: Criteria): number {
+  if (task.performanceGrade === null) return 0
   const performanceScore = blendByWeight(
     PERFORMANCE_SCORE.S,
     PERFORMANCE_SCORE[task.performanceGrade],

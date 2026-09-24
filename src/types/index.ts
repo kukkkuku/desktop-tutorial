@@ -1,4 +1,7 @@
-export type Importance = '중점' | '핵심' | '일반' | '지원'
+// 과제등급. 지금 기준은 과제/일반/일상 3단계(회사 「업무구분 정의」, 시트 '분류' 열).
+// 중점/핵심/지원은 이전 기준으로 만든 평가의 저장값을 그대로 읽기 위해서만 남긴다
+// -- 새로 고를 수는 없고, 그 평가들의 점수가 바뀌지 않도록 점수표에도 남아 있다.
+export type Importance = '과제' | '일반' | '일상' | '중점' | '핵심' | '지원'
 export type PerformanceGrade = 'S' | 'A' | 'B' | 'C' | 'D'
 export type Workload = '대' | '중' | '소'
 export type EvaluationGrade = 'S' | 'A' | 'B' | 'C' | 'D'
@@ -8,10 +11,17 @@ export interface Task {
   id: string
   name: string
   importance: Importance
-  performanceGrade: PerformanceGrade
+  // 팀장이 매기는 성과등급. null = 아직 안 매김 -- 점수에 넣지 않고 결과 화면에
+  // "미입력"으로 알린다. 예전처럼 'B'를 기본으로 박으면 팀장이 한 적 없는 판단이
+  // 된다(docs/DATA-MODEL.md).
+  performanceGrade: PerformanceGrade | null
+  // 업무량은 더 이상 쓰지 않는다(기본 반영 비율 0). 이전 평가의 저장값 보존용.
   workload: Workload
   objective: string
   achievement: string
+  // 과제관리 L3와의 연결. 1개 = L3 하나를 그대로 평가, 2개 이상 = 여러 L3를
+  // 묶은 평가 과제. 없거나 빈 배열 = 과제관리와 연결 없이 만든 과제.
+  workItemIds?: string[]
 }
 
 export interface TeamMember {
@@ -181,6 +191,9 @@ export interface WorkItem {
   editedAt?: Record<string, string>
   // 시트에서 온 행인데 마지막 가져오기 때 시트에 없었다. 지우지 않고 표시만.
   missingInSheet?: boolean
+  // 시트에 값이 없어 앱이 추정해서 채운 필드 id(시작일·완료일을 주차 표시로).
+  // 사람이 입력한 값이 아니므로 화면에서 흐리게, "추정"으로 보여 준다.
+  derivedFields?: string[]
 }
 
 export type ColumnType = 'text' | 'memo' | 'select' | 'date' | 'person' | 'link'
@@ -301,7 +314,9 @@ export interface TeamProfile {
   personalNotes: PersonalNote[]
 }
 
-export const IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '일반', '지원']
+export const IMPORTANCE_OPTIONS: Importance[] = ['과제', '일반', '일상']
+export const LEGACY_IMPORTANCE_OPTIONS: Importance[] = ['중점', '핵심', '지원']
+export const ALL_IMPORTANCE_OPTIONS: Importance[] = [...IMPORTANCE_OPTIONS, ...LEGACY_IMPORTANCE_OPTIONS]
 export const PERFORMANCE_GRADE_OPTIONS: PerformanceGrade[] = ['S', 'A', 'B', 'C', 'D']
 export const WORKLOAD_OPTIONS: Workload[] = ['대', '중', '소']
 export const LEVEL_OPTIONS: Level[] = ['사원', '대리', '과장', '차장', '부장']

@@ -31,7 +31,7 @@ interface TaskFormValues {
   name: string
   importance: Importance
   workload: Workload
-  performanceGrade: PerformanceGrade
+  performanceGrade: PerformanceGrade | null
   objective: string
   achievement: string
 }
@@ -47,7 +47,7 @@ export default function TaskManagement() {
   const [newName, setNewName] = useState('')
   const [newImportance, setNewImportance] = useState<Importance>('일반')
   const [newWorkload, setNewWorkload] = useState<Workload>('중')
-  const [newPerformanceGrade, setNewPerformanceGrade] = useState<PerformanceGrade>('B')
+  const [newPerformanceGrade, setNewPerformanceGrade] = useState<PerformanceGrade | null>(null)
   const [newObjective, setNewObjective] = useState('')
   const [newAchievement, setNewAchievement] = useState('')
   const [newFormError, setNewFormError] = useState('')
@@ -57,7 +57,7 @@ export default function TaskManagement() {
     name: '',
     importance: '일반',
     workload: '중',
-    performanceGrade: 'B',
+    performanceGrade: null,
     objective: '',
     achievement: '',
   })
@@ -150,7 +150,7 @@ export default function TaskManagement() {
     setNewName('')
     setNewImportance('일반')
     setNewWorkload('중')
-    setNewPerformanceGrade('B')
+    setNewPerformanceGrade(null)
     setNewObjective('')
     setNewAchievement('')
     setNewFormError('')
@@ -221,6 +221,7 @@ export default function TaskManagement() {
               ))}
             </select>
           </div>
+          {isWorkloadUsed && (
           <div>
             <label className="block text-sm font-medium text-black">업무량</label>
             <select
@@ -236,14 +237,16 @@ export default function TaskManagement() {
               ))}
             </select>
           </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-black">성과등급</label>
             <select
-              value={newPerformanceGrade}
-              onChange={(e) => setNewPerformanceGrade(e.target.value as PerformanceGrade)}
+              value={newPerformanceGrade ?? ''}
+              onChange={(e) => setNewPerformanceGrade(e.target.value ? (e.target.value as PerformanceGrade) : null)}
               disabled={!isPerformanceGradeUsed}
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
             >
+              <option value="">미입력</option>
               {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
@@ -314,7 +317,7 @@ export default function TaskManagement() {
                   ['achievement', '성과'],
                   ['manage', '관리'],
                 ] as const
-              ).map(([key, label]) => (
+              ).filter(([key]) => key !== 'workload' || isWorkloadUsed).map(([key, label]) => (
                 <ResizableTh
                   key={key}
                   width={cols.widths[key]}
@@ -353,22 +356,24 @@ export default function TaskManagement() {
                         disabled={!isImportanceUsed}
                         className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                       >
-                        {IMPORTANCE_OPTIONS.map((opt) => (
+                        {(IMPORTANCE_OPTIONS.includes(editForm.importance) ? IMPORTANCE_OPTIONS : [...IMPORTANCE_OPTIONS, editForm.importance]).map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
+                            {IMPORTANCE_OPTIONS.includes(opt) ? '' : ' (이전 기준)'}
                           </option>
                         ))}
                       </select>
                     </td>
                     <td className="px-4 py-2 align-top">
                       <select
-                        value={editForm.performanceGrade}
+                        value={editForm.performanceGrade ?? ''}
                         onChange={(e) =>
-                          setEditForm((f) => ({ ...f, performanceGrade: e.target.value as PerformanceGrade }))
+                          setEditForm((f) => ({ ...f, performanceGrade: e.target.value ? (e.target.value as PerformanceGrade) : null }))
                         }
                         disabled={!isPerformanceGradeUsed}
                         className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
                       >
+                        <option value="">미입력</option>
                         {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
@@ -376,6 +381,7 @@ export default function TaskManagement() {
                         ))}
                       </select>
                     </td>
+                    {isWorkloadUsed && (
                     <td className="px-4 py-2 align-top">
                       <select
                         value={editForm.workload}
@@ -390,6 +396,7 @@ export default function TaskManagement() {
                         ))}
                       </select>
                     </td>
+                    )}
                     <td className="px-4 py-2 align-top">
                       <input
                         type="text"
@@ -441,6 +448,17 @@ export default function TaskManagement() {
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
                       {participantCountByTaskId.get(task.id) ?? 0}명
                     </span>
+                    {(task.workItemIds?.length ?? 0) > 0 && (
+                      <span
+                        className="rounded-full bg-[#14161A] px-2 py-0.5 text-[11px] font-semibold text-white"
+                        title={state.workBoard.items
+                          .filter((i) => task.workItemIds!.includes(i.id))
+                          .map((i) => i.name)
+                          .join('\n')}
+                      >
+                        {task.workItemIds!.length > 1 ? `L3 ${task.workItemIds!.length}건 묶음` : 'L3 연결'}
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -455,12 +473,14 @@ export default function TaskManagement() {
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-bold ${
-                      isPerformanceGradeUsed ? GRADE_COLORS[task.performanceGrade] : 'bg-gray-100 text-gray-400'
+                      isPerformanceGradeUsed && task.performanceGrade ? GRADE_COLORS[task.performanceGrade] : 'bg-gray-100 text-gray-400'
                     }`}
+                    title={task.performanceGrade ? undefined : '아직 안 매김 -- 점수에 들어가지 않습니다'}
                   >
-                    {task.performanceGrade}
+                    {task.performanceGrade ?? '미입력'}
                   </span>
                 </td>
+                {isWorkloadUsed && (
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
@@ -470,6 +490,7 @@ export default function TaskManagement() {
                     {task.workload}
                   </span>
                 </td>
+                )}
                 <td className="px-4 py-3 text-gray-600">{task.objective || '-'}</td>
                 <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">

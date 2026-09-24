@@ -5,6 +5,9 @@ export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
   // 과제관리(L2/L3) 보드는 통째로 교체한다 -- 되돌리기가 스냅샷 방식이라서(utils/workBoard.ts).
   | { type: 'SET_WORK_BOARD'; payload: WorkBoard }
+  // 과제관리 L3로 평가 과제를 만든다. participants[taskId]에 있는 팀원(L3 담당자)
+  // 끼리만 기여도를 똑같이 나누고 나머지는 0 -- 담당자가 없으면 기존 자동 배분.
+  | { type: 'ADD_TASKS_FROM_WORK'; payload: { tasks: Task[]; participants: Record<string, string[]> } }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: { id: string } }
@@ -40,7 +43,8 @@ export function createEmptyState(): AppState {
     criteria: {
       performanceGradeWeight: 100,
       taskGradeWeight: 100,
-      workloadWeight: 100,
+      // 업무량은 쓰지 않는다(과제등급 3단계 + 성과등급으로 평가).
+      workloadWeight: 0,
       personalGradeWeight: 0,
       peerReviewWeight: 0,
       contributionWeight: 100,
@@ -180,6 +184,29 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_WORK_BOARD':
       return { ...state, workBoard: action.payload }
+
+    case 'ADD_TASKS_FROM_WORK': {
+      const tasks = [...state.tasks, ...action.payload.tasks]
+      const active = state.members.filter((m) => m.active)
+      let contributions = state.contributions
+      for (const task of action.payload.tasks) {
+        const ids = (action.payload.participants[task.id] ?? []).filter((id) => active.some((m) => m.id === id))
+        if (ids.length === 0) continue
+        const shares = distributeEqually(ids.length)
+        // isAutoDistributed를 켜 두면 다음 동기화 때 전원 균등으로 다시 나뉘므로 끈다.
+        contributions = [
+          ...contributions,
+          ...active.map((m) => ({
+            taskId: task.id,
+            memberId: m.id,
+            contributionPercent: ids.includes(m.id) ? shares[ids.indexOf(m.id)] : 0,
+            personalPerformanceGrade: null,
+            isAutoDistributed: false,
+          })),
+        ]
+      }
+      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) }
+    }
 
     case 'ADD_TASK': {
       const tasks = [...state.tasks, action.payload]

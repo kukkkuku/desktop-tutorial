@@ -136,9 +136,9 @@ export default function EvaluationResults() {
   const insights = useMemo(() => {
     const list: { priority: 1 | 2 | 3; label: string; title: string; desc: string }[] = []
 
-    // P1 즉시 조치: 중점·핵심 과제인데 성과등급이 C 이하
+    // P1 즉시 조치: 과제(이전 기준 중점·핵심) 등급인데 성과등급이 C 이하
     tasks
-      .filter((t) => (t.importance === '중점' || t.importance === '핵심') && (t.performanceGrade === 'C' || t.performanceGrade === 'D'))
+      .filter((t) => (t.importance === '과제' || t.importance === '중점' || t.importance === '핵심') && (t.performanceGrade === 'C' || t.performanceGrade === 'D'))
       .forEach((t) => {
         list.push({ priority: 1, label: '즉시 조치', title: '핵심 과제 성과 미달', desc: `${t.importance} "${t.name}" ${t.performanceGrade} — 원인 파악 및 재발 방지 필요` })
       })
@@ -218,6 +218,11 @@ export default function EvaluationResults() {
         <div>
           <h2 className="text-xl font-bold text-black">평가결과</h2>
           <p className="mt-1 text-sm text-gray-600">기준설정 가중치가 실시간으로 반영됩니다.</p>
+          {tasks.some((t) => t.performanceGrade === null) && (
+            <p className="mt-1 text-sm font-medium text-orange-600">
+              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 평가과제에서 매겨 주세요.
+            </p>
+          )}
         </div>
         <div className={`flex flex-wrap items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
           <Button variant="primary" onClick={() => setConfirmAllOpen(true)} className="px-3 py-1.5">
@@ -477,10 +482,10 @@ export default function EvaluationResults() {
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
                             {task.importance}
                           </span>
-                          <span className="shrink-0 text-xs text-gray-400">{task.workload}</span>
+                          {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-gray-400">{task.workload}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-sm font-black ${gradeTextColor(task.performanceGrade as EvaluationGrade)}`}>{task.performanceGrade}</span>
+                          <span className={`text-sm font-black ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-gray-300'}`}>{task.performanceGrade ?? '미입력'}</span>
                           <span className="text-xs text-gray-300">/</span>
                           <span className="font-mono text-xs font-bold text-gray-500">{score.toFixed(0)}점</span>
                         </div>

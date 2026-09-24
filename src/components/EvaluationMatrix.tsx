@@ -242,7 +242,7 @@ export default function EvaluationMatrix() {
                       <td className="sticky left-0 z-10 truncate bg-white px-4 py-3">
                         <div className="truncate font-medium">{task.name}</div>
                         <div className="mt-0.5 truncate text-xs text-gray-500">
-                          {task.importance} · 업무량 {task.workload} · 점수 {taskScore.toFixed(1)}
+                          {task.importance}{criteria.workloadWeight > 0 ? ` · 업무량 ${task.workload}` : ''} · 점수 {taskScore.toFixed(1)}{task.performanceGrade === null ? ' · 성과등급 미입력' : ''}
                         </div>
                       </td>
                       <td

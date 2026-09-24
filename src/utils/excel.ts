@@ -16,7 +16,7 @@ import type {
   WorkspaceMeta,
   Workload,
 } from '../types'
-import { IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
+import { ALL_IMPORTANCE_OPTIONS, LEVEL_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import { calcAllTaskScores, calcMemberParticipation, calcMemberResults, calcTaskScore } from './calculations'
 import { calcYearsSince } from './tenure'
 import { applySheetStyle, type StyledColumn } from './excelStyle'
@@ -140,7 +140,7 @@ const TASK_COLUMNS: StyledColumn[] = [
 
 function buildTaskTemplateWorkbook(): ExcelJS.Workbook {
   const rows: (string | number)[][] = [
-    ['신규 랜딩페이지 제작', '핵심', '대', '전환율 15% 개선', '전환율 18% 달성', 'A'],
+    ['신규 랜딩페이지 제작', '과제', '대', '전환율 15% 개선', '전환율 18% 달성', 'A'],
     ['내부 협업툴 정비', '일반', '소', '', '', ''],
   ]
   const wb = new ExcelJS.Workbook()
@@ -161,7 +161,7 @@ function buildTaskRows(tasks: Task[], criteria: Criteria): (string | number)[][]
     task.workload,
     task.objective || '-',
     task.achievement || '-',
-    task.performanceGrade,
+    task.performanceGrade ?? '미입력',
     Number(calcTaskScore(task, criteria).toFixed(1)),
   ])
 }
@@ -205,27 +205,29 @@ export function parseTaskWorkbook(buffer: ArrayBuffer, existingTasks: Task[]): T
 
     const importance = (importanceRaw || '일반') as Importance
     const workload = (workloadRaw || '중') as Workload
-    const performanceGrade = (performanceGradeRaw || 'B') as PerformanceGrade
+    // 비어 있으면 미입력(null) -- 'B'로 채우면 팀장이 매기지 않은 등급이 된다.
+    const performanceGrade = (performanceGradeRaw || null) as PerformanceGrade | null
 
     if (!name) {
       errors.push(`${rowNum}행: 과제명이 비어 있어 건너뛰었습니다.`)
       return
     }
-    if (importanceRaw && !IMPORTANCE_OPTIONS.includes(importance)) {
-      errors.push(`${rowNum}행 '${name}': 과제등급 '${row['과제등급']}'은(는) 유효하지 않습니다. (중점/핵심/일반/지원)`)
+    if (importanceRaw && !ALL_IMPORTANCE_OPTIONS.includes(importance)) {
+      errors.push(`${rowNum}행 '${name}': 과제등급 '${row['과제등급']}'은(는) 유효하지 않습니다. (과제/일반/일상)`)
       return
     }
     if (workloadRaw && !WORKLOAD_OPTIONS.includes(workload)) {
       errors.push(`${rowNum}행 '${name}': 업무량 '${row['업무량']}'은(는) 유효하지 않습니다. (대/중/소)`)
       return
     }
-    if (performanceGradeRaw && !PERFORMANCE_GRADE_OPTIONS.includes(performanceGrade)) {
+    if (performanceGrade && !PERFORMANCE_GRADE_OPTIONS.includes(performanceGrade)) {
       errors.push(`${rowNum}행 '${name}': 성과등급 '${row['성과등급']}'은(는) 유효하지 않습니다. (S/A/B/C/D)`)
       return
     }
 
     const existing = byName.get(name)
     const task: Task = {
+      ...existing,
       id: existing?.id ?? uuidv4(),
       name,
       importance,
