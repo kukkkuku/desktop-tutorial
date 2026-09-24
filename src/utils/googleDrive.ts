@@ -17,6 +17,7 @@
 // 비활성 상태로만 보여주면 된다.
 
 import type { AppState, EvaluationCycle, WorkspaceMeta } from '../types'
+import { PREVIEW_NAMESPACE } from './previewMode'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // drive.file: 이 앱이 만들었거나 사용자가 직접 연 파일에만 접근한다(드라이브
@@ -30,8 +31,9 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // 스코프가 필요하다.
 const DRIVE_SCOPE =
   'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar'
-const APP_TAG = 'team-performance-evaluation'
-const ROOT_FOLDER_NAME = '성장관리'
+// 미리보기 빌드는 운영 저장본을 목록에 보이거나 덮어쓰지 않도록 태그와 폴더를 따로 쓴다.
+const APP_TAG = PREVIEW_NAMESPACE ? `team-performance-evaluation-${PREVIEW_NAMESPACE}` : 'team-performance-evaluation'
+const ROOT_FOLDER_NAME = PREVIEW_NAMESPACE ? '성장관리(미리보기)' : '성장관리'
 
 export function isGoogleDriveConfigured(): boolean {
   return Boolean(CLIENT_ID)

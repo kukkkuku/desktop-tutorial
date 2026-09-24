@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { WorkspaceMeta } from '../types'
 import { isUntouchedLegacySample, migrateAppState } from './migrate'
 import { accountScope, ANONYMOUS_SCOPE } from './accountScope'
+import { IS_PREVIEW } from './previewMode'
 import {
   LEGACY_CURRENT_KEY,
   LEGACY_CYCLE_PREF_KEY,
@@ -27,6 +28,9 @@ const MIGRATION_FLAG = 'ux-performance-evaluation-legacy-migrated-once'
 // 그러면 나중에 다른 계정이 로그인했을 때도 첫 계정 데이터를 그대로
 // 이어받아버려서 "계정별 분리"가 무의미해지기 때문이다.
 export function migrateLegacyDataOnce(): void {
+  // 미리보기는 옛 데이터를 옮기지 않는다 -- 옮기면서 옛 키를 지우므로 운영
+  // 쪽이 옮겨 갈 데이터를 미리보기가 가져가 버린다.
+  if (IS_PREVIEW) return
   const scope = accountScope()
   if (scope === ANONYMOUS_SCOPE) return
   try {

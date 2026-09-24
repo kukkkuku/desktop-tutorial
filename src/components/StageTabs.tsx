@@ -3,6 +3,7 @@ import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
+import { IS_PREVIEW } from '../utils/previewMode'
 
 export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
@@ -115,6 +116,14 @@ export default function StageTabs({
           onOpenProjectManagement={onExit}
         />
 
+        {IS_PREVIEW && (
+          <span
+            className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-700"
+            title="개발 중인 버전입니다. 운영 버전과 데이터가 분리돼 있어 여기서 바꾼 내용은 운영에 반영되지 않습니다."
+          >
+            미리보기
+          </span>
+        )}
         <span className="hidden h-5 w-px bg-gray-200 sm:inline-block" />
         <nav className="flex flex-wrap items-center gap-1">
           <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리" className="shrink-0">

@@ -8,6 +8,7 @@
 // 캘린더 앱에서 그 캘린더만 따로 보이거나 숨길 수 있고, 이 앱이 다른
 // 개인 일정 사이에 섞여 들어가지 않는다.
 import { getAccessToken, isGoogleDriveConfigured } from './googleDrive'
+import { IS_PREVIEW } from './previewMode'
 
 export function isCalendarConfigured(): boolean {
   return isGoogleDriveConfigured()
@@ -33,7 +34,8 @@ async function calendarFetch(url: string, init?: RequestInit): Promise<Response>
 // 나면 캐시를 지우고 한 번 더 찾아본다(ensureTeamCalendarId의 retry 인자).
 
 function calendarName(teamName: string): string {
-  return `${teamName.trim() || '팀'} 면담`
+  // 미리보기 빌드는 운영 면담 캘린더에 일정을 만들지 않도록 이름을 따로 쓴다.
+  return `${teamName.trim() || '팀'} 면담${IS_PREVIEW ? '(미리보기)' : ''}`
 }
 
 function calendarIdCacheKey(teamName: string): string {

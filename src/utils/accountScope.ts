@@ -1,4 +1,5 @@
 import { getConnectedEmail } from './googleDrive'
+import { PREVIEW_NAMESPACE } from './previewMode'
 
 // 이 앱은 데이터를 서버가 아니라 브라우저(localStorage)에 저장하고, Google
 // 로그인은 원래 "들어올 자격이 있는지"만 확인하는 문이었다. 그래서 로그인
@@ -12,5 +13,7 @@ export const ANONYMOUS_SCOPE = '__anonymous__'
 
 export function accountScope(): string {
   const email = getConnectedEmail()
-  return email ? email.toLowerCase() : ANONYMOUS_SCOPE
+  const base = email ? email.toLowerCase() : ANONYMOUS_SCOPE
+  // 미리보기 빌드는 운영과 같은 브라우저 저장소를 쓰므로 키를 따로 쓴다.
+  return PREVIEW_NAMESPACE ? `${PREVIEW_NAMESPACE}|${base}` : base
 }
