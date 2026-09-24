@@ -162,6 +162,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const [choiceIndex, setChoiceIndex] = useState(0)
   // 담당자 칸 편집 중 고른 이름들
   const [picked, setPicked] = useState<string[]>([])
+  // 편집을 시작할 때 들어 있던 이름 -- 팀원 목록에 없는 이름도 빼고 난 뒤 다시
+  // 넣을 수 있게 팝업에 계속 보여 준다.
+  const [pickedAtStart, setPickedAtStart] = useState<string[]>([])
+  function beginPeople(text: string) {
+    const list = splitPeople(text)
+    setPicked(list)
+    setPickedAtStart(list)
+  }
   function splitPeople(text: string): string[] {
     return text
       .split(',')
@@ -231,7 +239,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function startEdit(initial?: string) {
     if (!activeRow || !activeCol) return
     if (activeCol.people && initial === undefined) {
-      setPicked(splitPeople(getText(activeRow, activeCol.id)))
+      beginPeople(getText(activeRow, activeCol.id))
       setChoiceIndex(0)
       setSinkValue('')
       setEditing(true)
@@ -404,7 +412,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       } else if (e.key === 'Escape') {
         e.preventDefault()
         cancelEdit()
-      } else if (e.key === 'Backspace' && sinkValue === '' && picked.length > 0) {
+      } else if ((e.key === 'Backspace' || e.key === 'Delete') && sinkValue === '' && picked.length > 0) {
         e.preventDefault()
         setPicked((cur) => cur.slice(0, -1))
       }
@@ -510,7 +518,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function onSinkChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!editing) {
       if (!activeRow || !activeCol) return
-      if (activeCol.people) setPicked(splitPeople(getText(activeRow, activeCol.id)))
+      if (activeCol.people) beginPeople(getText(activeRow, activeCol.id))
       setChoiceIndex(0)
       setEditing(true)
     }
@@ -619,7 +627,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const col = columns[c]
       const row = rows[r]
       if (col?.people && row) {
-        setPicked(splitPeople(getText(row, col.id)))
+        beginPeople(getText(row, col.id))
         setChoiceIndex(0)
         setSinkValue('')
         setEditing(true)
@@ -731,10 +739,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   const filteredPeople = useMemo(() => {
     if (!editing || !activeCol?.people) return []
-    const all = Array.from(new Set([...activeCol.people, ...picked]))
+    const all = Array.from(new Set([...activeCol.people, ...pickedAtStart, ...picked]))
     const q = sinkValue.trim()
     return q ? all.filter((n) => n.includes(q)) : all
-  }, [editing, activeCol, sinkValue, picked])
+  }, [editing, activeCol, sinkValue, picked, pickedAtStart])
 
   const filteredChoices = useMemo(() => {
     if (!editing || !activeCol?.choices) return []
@@ -921,7 +929,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                   e.stopPropagation()
                                   if (editing) commitEdit()
                                   select(r, c)
-                                  if (col.people) setPicked(splitPeople(text))
+                                  if (col.people) beginPeople(text)
                                   setChoiceIndex(col.choices ? Math.max(0, col.choices.indexOf(text)) : 0)
                                   setSinkValue('')
                                   setEditing(true)
@@ -1031,6 +1039,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       } ${i === choiceIndex && sinkValue.trim() ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
                     >
                       {n}
+                      {on && <span className="ml-1 text-[11px] opacity-60">×</span>}
                     </button>
                   )
                 })}
@@ -1052,7 +1061,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 )}
               </div>
               <div className="flex items-center justify-between border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-400">
-                <span>이름을 눌러 선택·해제 · 없으면 입력 후 Enter</span>
+                <span>이름을 눌러 선택·해제(×) · 없으면 입력 후 Enter · Delete로 마지막 빼기</span>
                 <button
                   onMouseDown={(e) => {
                     e.preventDefault()
