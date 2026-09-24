@@ -37,6 +37,10 @@ export interface TeamMember {
     tenure?: number
     education?: number
   } | null
+  // 과제관리(구글시트) 연동용. email은 나중에 팀원 권한(본인 L3만 편집)을
+  // 가리는 데 쓰고, team은 시트의 '담당팀' 값이다. 둘 다 선택 입력.
+  email?: string
+  team?: string
 }
 
 export interface Contribution {
@@ -127,7 +131,97 @@ export interface Criteria {
 // 팀장이 검토를 마치면 '검토완료', 그 해의 공식 결과로 못박으면 '확정'으로 올린다.
 export type EvaluationStatus = 'evaluating' | 'reviewed' | 'confirmed'
 
+// ---------- 과제관리(L2/L3) ----------
+// 회사 과제관리 구글시트(「YYYY 추진현황」 탭)를 원본으로 삼는다. L2는 과제
+// 그룹(팀장이 관리), L3는 실제 업무 한 건이다. 평가 과제(Task)와는 별개다 --
+// 평가는 L3 하나 또는 여러 L3를 묶어서 하므로(docs/PLAN-TASK-MANAGEMENT.md 6장)
+// 연결은 이후 단계에서 Task 쪽에 붙인다. 필드 의미는 docs/DATA-MODEL.md 참고.
+
+// 시트 '분류' 열 = 과제등급. 「업무구분 정의」 탭의 3단계.
+export type TaskCategory = '과제' | '일반' | '일상'
+export const TASK_CATEGORY_OPTIONS: TaskCategory[] = ['과제', '일반', '일상']
+
+// 주차 칸 기호. S = 시작, 완·F = 완료(Finish). F는 시트 원문 보존용이라
+// 앱에서 새로 찍을 때는 '완'만 쓴다.
+export type WeekMark = 'S' | '완' | 'F'
+
+export interface TaskGroup {
+  id: string
+  // "[중점]" 같은 태그를 뗀 이름. 시트와 다시 맞출 때 공백을 정규화한 이 이름이 키다.
+  name: string
+  tag: string | null
+  h: string | null
+  l1: string | null
+  // 시트에서 H/L1 병합이 끊겨 비어 있던 걸 위 행에서 이어받았으면 true.
+  hierarchyInferred?: boolean
+  source: 'sheet' | 'app'
+}
+
+export interface WorkItem {
+  id: string
+  groupId: string
+  name: string
+  source: 'sheet' | 'app'
+  // 시트에서 온 행이면 "L2이름␟L3이름" -- 다시 가져올 때 같은 행을 찾는 키.
+  // 시트 행 번호는 행 삽입으로 바뀌므로 쓰지 않는다.
+  sheetKey?: string
+  // 과제등급. 시트 값이 과제/일반/일상이 아니면 null, 원문은 categoryRaw에.
+  category: TaskCategory | null
+  categoryRaw?: string
+  assigneeIds: string[]
+  // 팀원 목록에 없는 담당자 이름 -- 지어내지도 버리지도 않고 그대로 둔다.
+  unmatchedAssignees: string[]
+  // 시스템 열(속성·상태·담당팀…)과 사용자 열의 값. 키는 ColumnDef.id.
+  fields: Record<string, string>
+  // 키 "월-주" (예: "1-1" = 1월 1주차). 시트 헤더의 주 구성을 그대로 따른다.
+  weeks: Record<string, WeekMark>
+  // 필드별로 앱에서 마지막으로 고친 시각. 있으면 다시 가져오기가 그 필드를
+  // 시트 값으로 덮지 않는다. 없으면 "앱에서 안 고침"이 아니라 "모름"이다
+  // -- 이 기능 전에 만들어진 행은 없을 수 있다.
+  editedAt?: Record<string, string>
+  // 시트에서 온 행인데 마지막 가져오기 때 시트에 없었다. 지우지 않고 표시만.
+  missingInSheet?: boolean
+}
+
+export type ColumnType = 'text' | 'memo' | 'select' | 'date' | 'person' | 'link'
+
+export interface ColumnDef {
+  id: string
+  label: string
+  type: ColumnType
+  // 시트와 매핑되는 열. 숨길 수는 있어도 지우지 않는다(다시 가져오면 생긴다).
+  system: boolean
+  width?: number
+  hidden?: boolean
+  options?: string[]
+}
+
+export interface WeekColumn {
+  key: string // "월-주"
+  month: number
+  week: number
+}
+
+export interface SheetLink {
+  spreadsheetId: string
+  tabName: string
+  // 앱 열 id -> 시트 헤더 이름(정규화 전 원문)
+  columnMap: Record<string, string>
+  selectedGroups: string[] // L2 이름
+  teamFilter: string | null // 선택한 L2 안에서도 이 담당팀 L3만
+  lastFetchedAt?: string
+}
+
+export interface WorkBoard {
+  groups: TaskGroup[]
+  items: WorkItem[]
+  columns: ColumnDef[]
+  weekAxis: WeekColumn[]
+  sheetLink: SheetLink | null
+}
+
 export interface AppState {
+  workBoard: WorkBoard
   tasks: Task[]
   members: TeamMember[]
   contributions: Contribution[]

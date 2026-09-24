@@ -23,6 +23,7 @@ import {
 import Button from './Button'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import Spinner from './Spinner'
+import { migrateAppState } from '../utils/migrate'
 
 function CheckCircleIcon({ className }: { className?: string }) {
   return (
@@ -141,7 +142,9 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
     await withBusy('restoring', async () => {
       if (backupFirst) await runSave('update')
       const payload = await fetchSyncPayload(target.fileId)
-      dispatch({ type: 'LOAD_STATE', payload: payload.state })
+      // 예전 버전이 저장한 파일일 수 있으니(과제관리 보드가 없는 등) 로컬 저장본과
+      // 같은 migrate를 거쳐 읽는다.
+      dispatch({ type: 'LOAD_STATE', payload: migrateAppState(payload.state) ?? payload.state })
       setRestoreTarget(null)
       setRestoreList(null)
     })

@@ -1,7 +1,10 @@
-import type { AppState, Contribution, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember } from '../types'
+import type { AppState, Contribution, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember, WorkBoard } from '../types'
+import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
+  // 과제관리(L2/L3) 보드는 통째로 교체한다 -- 되돌리기가 스냅샷 방식이라서(utils/workBoard.ts).
+  | { type: 'SET_WORK_BOARD'; payload: WorkBoard }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
   | { type: 'DELETE_TASK'; payload: { id: string } }
@@ -27,6 +30,7 @@ export type AppAction =
 
 export function createEmptyState(): AppState {
   return {
+    workBoard: createEmptyBoard(),
     tasks: [],
     members: [],
     contributions: [],
@@ -174,6 +178,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'LOAD_STATE':
       return action.payload
 
+    case 'SET_WORK_BOARD':
+      return { ...state, workBoard: action.payload }
+
     case 'ADD_TASK': {
       const tasks = [...state.tasks, action.payload]
       return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, state.contributions, state.peerReviews) }
@@ -200,7 +207,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'ADD_MEMBER': {
       const members = [...state.members, action.payload]
-      return { ...state, members, contributions: syncAutoDistribution(state.tasks, members, state.contributions, state.peerReviews) }
+      return { ...state, members, workBoard: rematchAssignees(state.workBoard, members), contributions: syncAutoDistribution(state.tasks, members, state.contributions, state.peerReviews) }
     }
 
     case 'UPDATE_MEMBER': {
@@ -213,6 +220,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         members,
+        workBoard: rematchAssignees(state.workBoard, members),
         contributions: syncAutoDistribution(state.tasks, members, state.contributions, state.peerReviews, forceTaskIds),
       }
     }
@@ -222,9 +230,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const contributions = state.contributions.filter((c) => c.memberId !== action.payload.id)
       const meetingNotes = state.meetingNotes.filter((n) => n.memberId !== action.payload.id)
       const peerReviews = state.peerReviews.filter((r) => r.targetMemberId !== action.payload.id)
+      const removed = state.members.find((m) => m.id === action.payload.id)
       return {
         ...state,
         members,
+        workBoard: removed ? detachMember(state.workBoard, removed) : state.workBoard,
         meetingNotes,
         peerReviews,
         contributions: syncAutoDistribution(state.tasks, members, contributions, state.peerReviews),
@@ -235,6 +245,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         members: action.payload,
+        workBoard: rematchAssignees(state.workBoard, action.payload),
         contributions: syncAutoDistribution(state.tasks, action.payload, state.contributions, state.peerReviews),
       }
 

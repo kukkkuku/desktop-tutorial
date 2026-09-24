@@ -11,6 +11,7 @@ import type {
   TeamMember,
 } from '../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../types'
+import { migrateWorkBoard } from './workBoard'
 
 const EVALUATION_STATUS_OPTIONS: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
 function isEvaluationStatus(value: unknown): value is EvaluationStatus {
@@ -51,6 +52,8 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
       raw.auxScores && typeof raw.auxScores === 'object'
         ? (raw.auxScores as TeamMember['auxScores'])
         : null,
+    email: typeof raw.email === 'string' && raw.email ? raw.email : undefined,
+    team: typeof raw.team === 'string' && raw.team ? raw.team : undefined,
   }
 }
 
@@ -248,5 +251,8 @@ export function migrateAppState(raw: unknown): AppState | null {
     if (isEvaluationStatus(value)) evaluationStatus[member.id] = value
   }
 
-  return { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
+  // 과제관리 보드는 이 기능 이전 데이터에는 없다 -- 빈 보드로 읽는다.
+  const workBoard = migrateWorkBoard(r.workBoard)
+
+  return { workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }
