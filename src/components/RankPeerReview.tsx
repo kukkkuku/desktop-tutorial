@@ -1,4 +1,4 @@
-// 순위 피어리뷰 화면. 방식 두 가지(단순 / 과제별)를 골라서
+// 피어리뷰 › 단순 순위. 과제와 상관없이 팀원 전체(본인 제외)에 순위와 근거를 매긴다.
 //   1) 팀원별 엑셀 양식을 ZIP으로 내려받아 나눠 주고, 작성한 파일을 올리거나
 //   2) 앱에서 평가자를 골라 바로 입력한다.
 // 모든 순위에는 근거가 필요하다(없으면 저장하지 않음). 결과는 대상자별 평균.
@@ -26,7 +26,7 @@ export default function RankPeerReview() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const periodLabel = currentWorkspace ? `${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : ''
-  const [mode, setMode] = useState<RankReviewMode>('simple')
+  const mode: RankReviewMode = 'simple'
   const activeMembers = state.members.filter((m) => m.active)
   const reviews = state.rankReviews.filter((r) => r.mode === mode)
 
@@ -43,9 +43,7 @@ export default function RankPeerReview() {
       const { files, skipped } = await downloadRankForms(activeMembers, mode, state, periodLabel)
       setNotice(
         files === 0
-          ? mode === 'task'
-            ? '만들 양식이 없습니다. 평가과제에 참여자(기여도)가 2명 이상인 과제가 있어야 합니다.'
-            : '만들 양식이 없습니다. 활성 팀원이 2명 이상이어야 합니다.'
+          ? '만들 양식이 없습니다. 활성 팀원이 2명 이상이어야 합니다.'
           : `${files}명용 ${RANK_MODE_LABEL[mode]} 양식을 내려받았습니다.${skipped.length ? ` (함께한 팀원이 없어 제외: ${skipped.join(', ')})` : ''}`,
       )
     } finally {
@@ -74,8 +72,6 @@ export default function RankPeerReview() {
       results.push({ ...parsed, saved })
     }
     setUploads(results)
-    const m = results.find((r) => r.saved)?.mode
-    if (m) setMode(m)
     setBusy(null)
   }
 
@@ -117,42 +113,10 @@ export default function RankPeerReview() {
   const submitted = new Set(reviews.map((r) => r.reviewerMemberId))
   const expected = activeMembers.filter((m) => rankGroupsFor(m, mode, state).length > 0)
   const summary = useMemo(() => summarizeRanks(state.rankReviews, mode, state), [state, mode])
-  const taskIds = useMemo(() => Array.from(new Set(reviews.map((r) => r.taskId).filter(Boolean))) as string[], [reviews])
+
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-black">순위 피어리뷰</h3>
-        <p className="mt-1 text-sm text-gray-600">
-          팀원이 다른 팀원에게 1위부터 순위를 매기고 근거를 적습니다. 엑셀 양식을 나눠 받아 올리거나 여기서 바로 입력할 수 있고, 결과는 대상자별 평균입니다.
-        </p>
-      </div>
-
-      {/* 방식 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1 rounded-lg bg-gray-100 p-1 text-sm">
-          {(['simple', 'task'] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => {
-                setMode(m)
-                setReviewerId('')
-                setNotice(null)
-                setUploads([])
-              }}
-              className={`rounded-md px-4 py-1.5 font-medium ${mode === m ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-black'}`}
-            >
-              {RANK_MODE_LABEL[m]}
-            </button>
-          ))}
-        </div>
-        <span className="text-xs text-gray-500">
-          {mode === 'simple'
-            ? '과제와 상관없이 팀원 전체(본인 제외)에게 순위를 매깁니다.'
-            : '평가과제마다 그 과제를 함께한 팀원(기여도가 있는 사람, 본인 제외)끼리 순위를 매깁니다.'}
-        </span>
-      </div>
-
       {/* 엑셀 */}
       <section className="rounded-lg border border-gray-200 p-4">
         <p className="text-sm font-semibold text-black">엑셀로 나눠 받기</p>
@@ -233,7 +197,7 @@ export default function RankPeerReview() {
               </button>
             )
           })}
-          {expected.length === 0 && <p className="text-xs text-gray-400">{mode === 'task' ? '참여자가 2명 이상인 평가과제가 없습니다.' : '활성 팀원이 2명 이상 필요합니다.'}</p>}
+          {expected.length === 0 && <p className="text-xs text-gray-400">활성 팀원이 2명 이상 필요합니다.</p>}
         </div>
 
         {reviewer && (
@@ -253,22 +217,9 @@ export default function RankPeerReview() {
       <section>
         <p className="text-sm font-semibold text-black">피어리뷰 결과 · {RANK_MODE_LABEL[mode]}</p>
         <p className="mt-0.5 text-xs text-gray-500">
-          {mode === 'simple'
-            ? '대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.'
-            : '과제마다 인원이 달라 순위를 그대로 더할 수 없어서, 종합은 "상대 위치"(1위 0% ~ 꼴찌 100%)의 평균으로 줄 세웁니다. 과제별 평균 순위는 아래에 따로 있습니다.'}
+          대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.
         </p>
         <SummaryTable rows={summary} mode={mode} />
-        {mode === 'task' &&
-          taskIds.map((tid) => {
-            const task = state.tasks.find((t) => t.id === tid)
-            if (!task) return null
-            return (
-              <div key={tid} className="mt-5">
-                <p className="text-sm font-semibold text-black">{task.name}</p>
-                <SummaryTable rows={summarizeRanks(state.rankReviews, 'task', state, tid).filter((r) => r.count > 0)} mode="simple" compact />
-              </div>
-            )
-          })}
       </section>
     </div>
   )

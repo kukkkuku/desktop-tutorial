@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
-import RankPeerReview from './RankPeerReview'
+import PeerReviewHub from './PeerReviewHub'
 
 type TeamSubTab = 'members' | 'rank' | 'peer'
 
@@ -50,7 +50,7 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}
-        {sub === 'rank' && <RankPeerReview />}
+        {sub === 'rank' && <PeerReviewHub />}
         {sub === 'peer' && <PeerReviewManagement />}
       </div>
     </div>

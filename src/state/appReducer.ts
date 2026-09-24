@@ -8,6 +8,8 @@ export type AppAction =
   // 한 평가자의 한 방식 순위 리뷰를 통째로 바꾼다(다시 올리거나 다시 입력하면 덮어씀).
   | { type: 'SET_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode; reviews: RankReview[] } }
   | { type: 'DELETE_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode } }
+  // 과제별 피어리뷰 양식: 한 평가자가 낸 과제들의 리뷰를 통째로 바꾼다(다시 내면 덮어씀).
+  | { type: 'SET_PEER_REVIEWS_FOR'; payload: { reviewerMemberId: string; reviewerName: string; taskIds: string[]; reviews: PeerReview[] } }
   // 과제관리 L3로 평가 과제를 만든다. participants[taskId]에 있는 팀원(L3 담당자)
   // 끼리만 기여도를 똑같이 나누고 나머지는 0 -- 담당자가 없으면 기존 자동 배분.
   | { type: 'ADD_TASKS_FROM_WORK'; payload: { tasks: Task[]; participants: Record<string, string[]> } }
@@ -193,6 +195,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const { reviewerMemberId, mode, reviews } = action.payload
       const rest = state.rankReviews.filter((r) => !(r.reviewerMemberId === reviewerMemberId && r.mode === mode))
       return { ...state, rankReviews: [...rest, ...reviews] }
+    }
+
+    case 'SET_PEER_REVIEWS_FOR': {
+      const { reviewerMemberId, reviewerName, taskIds, reviews } = action.payload
+      const tasks = new Set(taskIds)
+      const mine = (r: PeerReview) => (r.reviewerMemberId ? r.reviewerMemberId === reviewerMemberId : r.reviewerName === reviewerName)
+      const peerReviews = [...state.peerReviews.filter((r) => !(mine(r) && r.taskId && tasks.has(r.taskId))), ...reviews]
+      return { ...state, peerReviews, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews) }
     }
 
     case 'DELETE_RANK_REVIEWS': {
