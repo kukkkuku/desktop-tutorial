@@ -1,33 +1,45 @@
-// 피어리뷰 › 과제별. 평가자마다 참여한 평가과제별로, 참여자 전원(본인 포함)의
-// 기여도(%)·수행등급·근거를 적는다. 과제마다 기여도 합계 100%, 근거 필수.
-// 저장은 기존 PeerReview 구조 그대로(과제 + 리뷰어 고정 → 대상자 합계 100%).
+// 피어리뷰 › 과제별. 평가과제마다 참여자 전원(본인 포함)을 순위 또는 기여도(합계 100%)로
+// 평가하고 근거를 적는다. 과제마다 어느 쪽으로 받을지는 팀장이 여기서 고른다(Task.peerMethod).
+// 저장은 TaskPeerReview(점수 계산과는 아직 연결하지 않음).
 
 import { useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import type { PerformanceGrade, TeamMember } from '../types'
-import { PERFORMANCE_GRADE_OPTIONS } from '../types'
-import { PERFORMANCE_SCORE } from '../utils/calculations'
+import type { TaskPeerMethod, TeamMember } from '../types'
 import {
+  TASK_PEER_METHOD_LABEL,
   downloadTaskPeerForms,
   draftFor,
   parseTaskPeerWorkbook,
+  peerMethodOf,
+  summarizeTaskPeer,
   taskPeerGroupsFor,
-  toPeerReviews,
+  toTaskPeerReviews,
   validateTaskPeer,
   type ParsedTaskPeerFile,
   type TaskPeerEntry,
 } from '../utils/taskPeerForm'
+import { taskParticipants } from '../utils/rankReview'
 import Button from './Button'
 import Spinner from './Spinner'
 
-const SCORE_TO_GRADE: [number, PerformanceGrade][] = [
-  [95, 'S'],
-  [85, 'A'],
-  [75, 'B'],
-  [65, 'C'],
-  [0, 'D'],
-]
+const METHODS: TaskPeerMethod[] = ['rank', 'contribution']
+
+function MethodToggle({ value, onChange }: { value: TaskPeerMethod; onChange: (m: TaskPeerMethod) => void }) {
+  return (
+    <div className="inline-flex rounded-md bg-gray-100 p-0.5">
+      {METHODS.map((m) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          className={`rounded px-3 py-1 text-xs font-medium ${value === m ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+        >
+          {m === 'rank' ? '순위' : '기여도(합계 100%)'}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function TaskPeerPanel() {
   const { state, dispatch } = useAppState()
@@ -54,11 +66,25 @@ export default function TaskPeerPanel() {
     }
   }
 
-  function save(reviewer: TeamMember, groups: ReturnType<typeof taskPeerGroupsFor>, entries: TaskPeerEntry[]) {
+  function save(reviewer: TeamMember, groups: ReturnType<typeof taskPeerGroupsFor>, entries: TaskPeerEntry[], source: 'excel' | 'app') {
     dispatch({
-      type: 'SET_PEER_REVIEWS_FOR',
-      payload: { reviewerMemberId: reviewer.id, reviewerName: reviewer.name, taskIds: groups.map((g) => g.taskId), reviews: toPeerReviews(reviewer, groups, entries) },
+      type: 'SET_TASK_PEER_REVIEWS',
+      payload: { reviewerMemberId: reviewer.id, taskIds: groups.map((g) => g.taskId), reviews: toTaskPeerReviews(reviewer, groups, entries, source) },
     })
+  }
+
+  // ---------- 과제별 방식 ----------
+  const peerTasks = state.tasks.filter((t) => taskParticipants(t, state).length >= 2)
+  function setMethod(taskIds: string[], method: TaskPeerMethod) {
+    const stale = state.taskPeerReviews.filter((r) => taskIds.includes(r.taskId) && r.method !== method)
+    if (stale.length > 0) {
+      const ok = window.confirm(
+        `이미 받은 ${TASK_PEER_METHOD_LABEL[method === 'rank' ? 'contribution' : 'rank']} 리뷰 ${stale.length}건은 결과에서 빠집니다(지우지는 않음). 방식을 바꾸면 해당 팀원은 다시 입력해야 합니다. 바꿀까요?`,
+      )
+      if (!ok) return
+    }
+    dispatch({ type: 'SET_TASK_PEER_METHOD', payload: { taskIds, method } })
+    setReviewerId('')
   }
 
   async function handleFiles(files: FileList) {
@@ -68,7 +94,7 @@ export default function TaskPeerPanel() {
       const parsed = parseTaskPeerWorkbook(await f.arrayBuffer(), f.name, state)
       // 오류가 하나라도 있으면 그 파일은 반영하지 않는다(합계가 어긋난 채 일부만 들어가지 않게).
       const ok = parsed.reviewer !== null && parsed.errors.length === 0
-      if (ok) save(parsed.reviewer!, parsed.groups, parsed.entries)
+      if (ok) save(parsed.reviewer!, parsed.groups, parsed.entries, 'excel')
       results.push({ ...parsed, saved: ok })
     }
     setUploads(results)
@@ -85,7 +111,7 @@ export default function TaskPeerPanel() {
   function openReviewer(m: TeamMember) {
     setReviewerId(m.id)
     setFormErrors([])
-    setDraft(draftFor(m, taskPeerGroupsFor(m, state), state.peerReviews))
+    setDraft(draftFor(m, taskPeerGroupsFor(m, state), state.taskPeerReviews))
   }
 
   function patch(taskId: string, targetId: string, p: Partial<TaskPeerEntry>) {
@@ -97,23 +123,59 @@ export default function TaskPeerPanel() {
     const errors = groups.flatMap((g) => validateTaskPeer(g, draft, reviewer.id))
     setFormErrors(errors)
     if (errors.length) return
-    save(reviewer, groups, draft)
+    save(reviewer, groups, draft, 'app')
     setNotice(`${reviewer.name}의 과제별 피어리뷰를 저장했습니다.`)
     setReviewerId('')
   }
 
   // ---------- 현황·결과 ----------
   const expected = activeMembers.filter((m) => taskPeerGroupsFor(m, state).length > 0)
-  const submitted = new Set(state.peerReviews.filter((r) => r.taskId && r.comment).map((r) => r.reviewerMemberId))
-  const resultTasks = state.tasks.filter((t) => state.peerReviews.some((r) => r.taskId === t.id))
+  // 제출 = 자기가 참여한 과제를 지금 방식으로 전부 냈음.
+  const submittedAll = (m: TeamMember) =>
+    taskPeerGroupsFor(m, state).every((g) => state.taskPeerReviews.some((r) => r.reviewerMemberId === m.id && r.taskId === g.taskId && r.method === g.method))
+  const submitted = new Set(expected.filter(submittedAll).map((m) => m.id))
+  const resultTasks = state.tasks.filter((t) => state.taskPeerReviews.some((r) => r.taskId === t.id && r.method === peerMethodOf(t)))
 
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-gray-200 p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-black">과제별 평가 방식</p>
+          {peerTasks.length > 1 && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              전체를
+              <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'rank')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
+                순위로
+              </button>
+              <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'contribution')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
+                기여도로
+              </button>
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-gray-500">
+          과제마다 참여자를 순위(1위 = 가장 높음, 중복 없이)로 받을지, 기여도(합계 100%)로 받을지 고릅니다. 어느 쪽이든 근거는 꼭 적어야 합니다. 양식을 나눠 주기 전에 정해 주세요.
+        </p>
+        {peerTasks.length === 0 ? (
+          <p className="mt-3 text-xs text-gray-400">참여자가 2명 이상인 평가과제가 없습니다. 평가과제·평가하기에서 참여자(기여도)를 먼저 정해 주세요.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200">
+            {peerTasks.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
+                <span className="min-w-0 flex-1 text-sm font-medium text-gray-900">{t.name}</span>
+                <span className="text-xs text-gray-400">참여 {taskParticipants(t, state).length}명</span>
+                <MethodToggle value={peerMethodOf(t)} onChange={(m) => m !== peerMethodOf(t) && setMethod([t.id], m)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-gray-200 p-4">
         <p className="text-sm font-semibold text-black">엑셀로 나눠 받기</p>
         <p className="mt-0.5 text-xs text-gray-500">
-          평가자마다 참여한 과제별 시트가 든 파일을 ZIP으로 받습니다. 과제마다 참여자 전원(본인 포함)의 기여도·수행등급·근거를 적고, 기여도 합계가 100%인지 시트 아래 "검증"
-          칸에서 확인합니다. 합계가 100%가 아니거나 등급·근거가 빈 파일은 반영하지 않고 이유를 보여 줍니다.
+          평가자마다 참여한 과제별 시트가 든 파일을 ZIP으로 받습니다. 과제마다 정한 방식대로 참여자 전원(본인 포함)의 순위 또는 기여도와 근거를 적고, 시트 아래 "검증" 칸에서
+          확인합니다. 순위가 겹치거나 기여도 합계가 100%가 아니거나 근거가 빈 파일은 반영하지 않고 이유를 보여 줍니다.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={handleDownload} disabled={busy !== null}>
@@ -195,17 +257,35 @@ export default function TaskPeerPanel() {
             <p className="text-sm font-bold text-black">평가자: {reviewer.name}</p>
             <div className="mt-3 space-y-4">
               {groups.map((g) => {
-                const sum = draft.filter((e) => e.taskId === g.taskId).reduce((s, e) => s + (e.contribution ?? 0), 0)
+                const isRank = g.method === 'rank'
+                const n = g.people.length
+                const vals = draft.filter((e) => e.taskId === g.taskId).map((e) => e.value)
+                const sum = vals.reduce<number>((acc, v) => acc + (v ?? 0), 0)
+                const filled = vals.filter((v) => v !== null) as number[]
+                const dup = new Set(filled).size !== filled.length
+                const check = isRank
+                  ? filled.length < n
+                    ? { ok: false, text: '빈칸 확인' }
+                    : dup
+                      ? { ok: false, text: '순위 중복 확인' }
+                      : { ok: true, text: '정상' }
+                  : Math.abs(sum - 100) < 0.01
+                    ? { ok: true, text: '정상' }
+                    : { ok: false, text: '100% 확인' }
                 return (
                   <div key={g.taskId}>
-                    <p className="mb-1.5 text-sm font-semibold text-gray-800">과제: {g.taskName}</p>
+                    <p className="mb-1.5 text-sm font-semibold text-gray-800">
+                      과제: {g.taskName}
+                      <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200">
+                        {isRank ? `순위 · 1~${n} 중복 없이` : '기여도 · 합계 100%'}
+                      </span>
+                    </p>
                     <div className="overflow-x-auto rounded-md border border-gray-200 bg-white">
                       <table className="w-full text-sm">
                         <thead className="bg-[#3A4150] text-left text-white">
                           <tr>
                             <th className="w-36 px-3 py-2 font-semibold">평가 대상</th>
-                            <th className="w-28 px-3 py-2 font-semibold">기여도(%)</th>
-                            <th className="w-28 px-3 py-2 font-semibold">수행등급</th>
+                            <th className="w-32 px-3 py-2 font-semibold">{isRank ? '순위' : '기여도(%)'}</th>
                             <th className="px-3 py-2 font-semibold">근거</th>
                           </tr>
                         </thead>
@@ -219,35 +299,36 @@ export default function TaskPeerPanel() {
                                   {p.id === reviewer.id && <span className="ml-1 text-xs text-gray-400">(본인)</span>}
                                 </td>
                                 <td className="px-3 py-2">
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={e?.contribution ?? ''}
-                                    onChange={(ev) => patch(g.taskId, p.id, { contribution: ev.target.value === '' ? null : Number(ev.target.value) })}
-                                    className="w-full rounded-md border border-gray-300 bg-[#FFF7ED] px-2 py-1.5 tabular-nums"
-                                  />
-                                </td>
-                                <td className="px-3 py-2">
-                                  <select
-                                    value={e?.grade ?? ''}
-                                    onChange={(ev) => patch(g.taskId, p.id, { grade: (ev.target.value || null) as PerformanceGrade | null })}
-                                    className="w-full rounded-md border border-gray-300 bg-[#FFF7ED] px-2 py-1.5"
-                                  >
-                                    <option value="">-</option>
-                                    {PERFORMANCE_GRADE_OPTIONS.map((o) => (
-                                      <option key={o} value={o}>
-                                        {o}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  {isRank ? (
+                                    <select
+                                      value={e?.value ?? ''}
+                                      onChange={(ev) => patch(g.taskId, p.id, { value: ev.target.value === '' ? null : Number(ev.target.value) })}
+                                      className="w-full rounded-md border border-gray-300 bg-[#FFF7ED] px-2 py-1.5"
+                                    >
+                                      <option value="">-</option>
+                                      {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
+                                        <option key={r} value={r}>
+                                          {r}위
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      value={e?.value ?? ''}
+                                      onChange={(ev) => patch(g.taskId, p.id, { value: ev.target.value === '' ? null : Number(ev.target.value) })}
+                                      className="w-full rounded-md border border-gray-300 bg-[#FFF7ED] px-2 py-1.5 tabular-nums"
+                                    />
+                                  )}
                                 </td>
                                 <td className="px-3 py-2">
                                   <textarea
                                     rows={2}
                                     value={e?.reason ?? ''}
                                     onChange={(ev) => patch(g.taskId, p.id, { reason: ev.target.value })}
-                                    placeholder="이 기여도·등급을 준 근거"
+                                    placeholder={isRank ? '이 순위를 준 근거' : '이 기여도를 준 근거'}
                                     className="w-full resize-y rounded-md border border-gray-300 bg-[#FFF7ED] px-2 py-1.5"
                                   />
                                 </td>
@@ -255,10 +336,9 @@ export default function TaskPeerPanel() {
                             )
                           })}
                           <tr className="border-t border-gray-200 bg-[#F3F4F6] font-semibold">
-                            <td className="px-3 py-2">기여도 합계</td>
-                            <td className="px-3 py-2 tabular-nums">{sum}%</td>
-                            <td className="px-3 py-2">검증</td>
-                            <td className={`px-3 py-2 ${Math.abs(sum - 100) < 0.01 ? 'text-emerald-700' : 'text-danger'}`}>{Math.abs(sum - 100) < 0.01 ? '정상' : '100% 확인'}</td>
+                            <td className="px-3 py-2">{isRank ? '순위 검증' : '기여도 합계'}</td>
+                            <td className="px-3 py-2 tabular-nums">{isRank ? `${filled.length}/${n}명` : `${sum}%`}</td>
+                            <td className={`px-3 py-2 ${check.ok ? 'text-emerald-700' : 'text-danger'}`}>{check.text}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -289,56 +369,55 @@ export default function TaskPeerPanel() {
       <section>
         <p className="text-sm font-semibold text-black">피어리뷰 결과 · 과제별</p>
         <p className="mt-0.5 text-xs text-gray-500">
-          과제마다 대상자가 받은 기여도의 평균과 수행등급 평균입니다. 기여도 평균은 과제의 기여도 자동 배분 기본값으로도 쓰입니다(평가하기에서 조정).
+          과제마다 대상자가 받은 순위 또는 기여도의 평균입니다(본인이 매긴 값 포함). 지금 정해진 방식으로 받은 리뷰만 셉니다.
         </p>
         {resultTasks.length === 0 && <p className="mt-3 text-sm text-gray-400">아직 받은 리뷰가 없습니다.</p>}
         {resultTasks.map((t) => {
-          const reviews = state.peerReviews.filter((r) => r.taskId === t.id)
-          const targets = Array.from(new Set(reviews.map((r) => r.targetMemberId)))
+          const isRank = peerMethodOf(t) === 'rank'
+          const rows = summarizeTaskPeer(t, state)
           return (
             <div key={t.id} className="mt-4">
-              <p className="text-sm font-semibold text-black">{t.name}</p>
+              <p className="text-sm font-semibold text-black">
+                {t.name}
+                <span className="ml-2 text-xs font-normal text-gray-500">{isRank ? '순위' : '기여도'}</span>
+              </p>
               <div className="mt-1.5 overflow-x-auto rounded-lg border border-gray-200">
                 <table className="w-full min-w-[640px] text-sm">
                   <thead className="bg-[#F3F4F6] text-left">
                     <tr>
                       <th className="w-32 px-4 py-2.5 font-semibold">대상</th>
-                      <th className="w-28 px-4 py-2.5 font-semibold">평균 기여도</th>
-                      <th className="w-28 px-4 py-2.5 font-semibold">평균 등급</th>
+                      <th className="w-28 px-4 py-2.5 font-semibold">{isRank ? '평균 순위' : '평균 기여도'}</th>
                       <th className="w-20 px-4 py-2.5 font-semibold">응답 수</th>
                       <th className="px-4 py-2.5 font-semibold">근거</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {targets.map((tid) => {
-                      const mine = reviews.filter((r) => r.targetMemberId === tid)
-                      const withC = mine.filter((r) => typeof r.contributionPercent === 'number')
-                      const avgC = withC.length ? withC.reduce((s, r) => s + (r.contributionPercent ?? 0), 0) / withC.length : null
-                      const avgScore = mine.reduce((s, r) => s + PERFORMANCE_SCORE[r.grade], 0) / mine.length
-                      const avgGrade = SCORE_TO_GRADE.find(([min]) => avgScore >= min)![1]
-                      const name = state.members.find((m) => m.id === tid)?.name ?? '(삭제된 팀원)'
-                      return (
-                        <tr key={tid} className="border-t border-gray-100 align-top">
-                          <td className="px-4 py-2.5 font-medium">{name}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{avgC !== null ? `${avgC.toFixed(1)}%` : '-'}</td>
-                          <td className="px-4 py-2.5 tabular-nums">
-                            {avgGrade} <span className="text-xs text-gray-400">({avgScore.toFixed(0)}점)</span>
-                          </td>
-                          <td className="px-4 py-2.5 tabular-nums">{mine.length}명</td>
-                          <td className="space-y-1 px-4 py-2.5">
-                            {mine.map((r) => (
-                              <p key={r.id} className="text-[13px] leading-snug text-gray-800">
-                                <span className="font-semibold">
-                                  {r.reviewerName}
-                                  {r.reviewerMemberId === tid ? '(본인)' : ''} · {r.contributionPercent ?? '-'}% · {r.grade}
-                                </span>{' '}
-                                {r.comment || <span className="text-gray-400">근거 없음</span>}
-                              </p>
-                            ))}
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {rows.map((row) => (
+                      <tr key={row.memberId} className="border-t border-gray-100 align-top">
+                        <td className="px-4 py-2.5 font-medium">{row.member?.name ?? '(삭제된 팀원)'}</td>
+                        <td className="px-4 py-2.5 tabular-nums">
+                          {isRank ? (
+                            <>
+                              {row.avg.toFixed(1)}위 <span className="text-xs text-gray-400">/ {row.reviews[0]?.groupSize}명</span>
+                            </>
+                          ) : (
+                            `${row.avg.toFixed(1)}%`
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.count}명</td>
+                        <td className="space-y-1 px-4 py-2.5">
+                          {row.reviews.map((r) => (
+                            <p key={r.id} className="text-[13px] leading-snug text-gray-800">
+                              <span className="font-semibold">
+                                {state.members.find((m) => m.id === r.reviewerMemberId)?.name ?? '(삭제된 팀원)'}
+                                {r.reviewerMemberId === row.memberId ? '(본인)' : ''} · {isRank ? `${r.value}위` : `${r.value}%`}
+                              </span>{' '}
+                              {r.reason}
+                            </p>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

@@ -22,6 +22,8 @@ export interface Task {
   // 과제관리 L3와의 연결. 1개 = L3 하나를 그대로 평가, 2개 이상 = 여러 L3를
   // 묶은 평가 과제. 없거나 빈 배열 = 과제관리와 연결 없이 만든 과제.
   workItemIds?: string[]
+  // 과제별 피어리뷰를 무엇으로 받을지. 없으면 'contribution'(기여도, 합계 100%).
+  peerMethod?: TaskPeerMethod
 }
 
 export interface TeamMember {
@@ -238,7 +240,7 @@ export interface WorkBoard {
 // ---------- 순위 피어리뷰 ----------
 // 팀원이 다른 팀원에게 1위부터 순위를 매기고 근거를 적는다. 두 방식:
 //  - simple: 과제와 무관하게 팀원 전체(본인 제외)에 순위
-//  - task:   평가과제마다 그 과제 참여자끼리(본인 제외) 순위
+//  - task:   (예전 방식, 더 이상 만들지 않음) 과제별은 TaskPeerReview로 옮김
 // 기존 PeerReview(과제별 등급·기여도)와는 따로 저장한다 -- 등급이 없는 리뷰라서
 // 등급 기반 계산(calcPeerReviewFactor)에 섞으면 안 된다.
 export type RankReviewMode = 'simple' | 'task'
@@ -256,8 +258,28 @@ export interface RankReview {
   updatedAt: string
 }
 
+// ---------- 과제별 피어리뷰 ----------
+// 평가과제마다 참여자 전원(본인 포함)을 순위(1..N) 또는 기여도(%, 합계 100)로
+// 평가하고 근거를 적는다. 과제마다 방식은 Task.peerMethod(팀장이 고름).
+// 기존 PeerReview(등급)와 따로 저장하고 점수 계산에는 아직 넣지 않는다.
+export type TaskPeerMethod = 'rank' | 'contribution'
+
+export interface TaskPeerReview {
+  id: string
+  taskId: string
+  method: TaskPeerMethod
+  reviewerMemberId: string
+  targetMemberId: string
+  value: number // method='rank' → 순위(1 = 가장 높음), 'contribution' → 기여도(%)
+  groupSize: number // 그 과제에서 평가한 대상 수(본인 포함)
+  reason: string // 근거. 필수
+  source: 'excel' | 'app'
+  updatedAt: string
+}
+
 export interface AppState {
   rankReviews: RankReview[]
+  taskPeerReviews: TaskPeerReview[]
   workBoard: WorkBoard
   tasks: Task[]
   members: TeamMember[]

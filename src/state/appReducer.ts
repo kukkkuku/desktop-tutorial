@@ -1,4 +1,4 @@
-import type { AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TeamMember, WorkBoard } from '../types'
+import type { AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
 export type AppAction =
@@ -8,8 +8,9 @@ export type AppAction =
   // 한 평가자의 한 방식 순위 리뷰를 통째로 바꾼다(다시 올리거나 다시 입력하면 덮어씀).
   | { type: 'SET_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode; reviews: RankReview[] } }
   | { type: 'DELETE_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode } }
-  // 과제별 피어리뷰 양식: 한 평가자가 낸 과제들의 리뷰를 통째로 바꾼다(다시 내면 덮어씀).
-  | { type: 'SET_PEER_REVIEWS_FOR'; payload: { reviewerMemberId: string; reviewerName: string; taskIds: string[]; reviews: PeerReview[] } }
+  // 과제별 피어리뷰: 한 평가자가 낸 과제들의 리뷰를 통째로 바꾼다(다시 내면 덮어씀).
+  | { type: 'SET_TASK_PEER_REVIEWS'; payload: { reviewerMemberId: string; taskIds: string[]; reviews: TaskPeerReview[] } }
+  | { type: 'SET_TASK_PEER_METHOD'; payload: { taskIds: string[]; method: TaskPeerMethod } }
   // 과제관리 L3로 평가 과제를 만든다. participants[taskId]에 있는 팀원(L3 담당자)
   // 끼리만 기여도를 똑같이 나누고 나머지는 0 -- 담당자가 없으면 기존 자동 배분.
   | { type: 'ADD_TASKS_FROM_WORK'; payload: { tasks: Task[]; participants: Record<string, string[]> } }
@@ -40,6 +41,7 @@ export function createEmptyState(): AppState {
   return {
     workBoard: createEmptyBoard(),
     rankReviews: [],
+    taskPeerReviews: [],
     tasks: [],
     members: [],
     contributions: [],
@@ -197,12 +199,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, rankReviews: [...rest, ...reviews] }
     }
 
-    case 'SET_PEER_REVIEWS_FOR': {
-      const { reviewerMemberId, reviewerName, taskIds, reviews } = action.payload
+    case 'SET_TASK_PEER_REVIEWS': {
+      const { reviewerMemberId, taskIds, reviews } = action.payload
       const tasks = new Set(taskIds)
-      const mine = (r: PeerReview) => (r.reviewerMemberId ? r.reviewerMemberId === reviewerMemberId : r.reviewerName === reviewerName)
-      const peerReviews = [...state.peerReviews.filter((r) => !(mine(r) && r.taskId && tasks.has(r.taskId))), ...reviews]
-      return { ...state, peerReviews, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews) }
+      const rest = state.taskPeerReviews.filter((r) => !(r.reviewerMemberId === reviewerMemberId && tasks.has(r.taskId)))
+      return { ...state, taskPeerReviews: [...rest, ...reviews] }
+    }
+
+    case 'SET_TASK_PEER_METHOD': {
+      const ids = new Set(action.payload.taskIds)
+      return { ...state, tasks: state.tasks.map((t) => (ids.has(t.id) ? { ...t, peerMethod: action.payload.method } : t)) }
     }
 
     case 'DELETE_RANK_REVIEWS': {
@@ -247,7 +253,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'DELETE_TASK': {
       const tasks = state.tasks.filter((t) => t.id !== action.payload.id)
       const contributions = state.contributions.filter((c) => c.taskId !== action.payload.id)
-      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) }
+      const taskPeerReviews = state.taskPeerReviews.filter((r) => r.taskId !== action.payload.id)
+      return { ...state, tasks, taskPeerReviews, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) }
     }
 
     case 'IMPORT_TASKS':
@@ -286,6 +293,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         rankReviews: state.rankReviews.filter((r) => r.reviewerMemberId !== action.payload.id && r.targetMemberId !== action.payload.id),
+        taskPeerReviews: state.taskPeerReviews.filter((r) => r.reviewerMemberId !== action.payload.id && r.targetMemberId !== action.payload.id),
         members,
         workBoard: removed ? detachMember(state.workBoard, removed) : state.workBoard,
         meetingNotes,

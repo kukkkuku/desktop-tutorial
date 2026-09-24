@@ -8,6 +8,7 @@ import type {
   PeerReview,
   PerformanceGrade,
   RankReview,
+  TaskPeerReview,
   Task,
   TeamMember,
 } from '../types'
@@ -35,6 +36,7 @@ function migrateTask(raw: Record<string, unknown>): Task | null {
     objective: typeof raw.objective === 'string' ? raw.objective : '',
     achievement: typeof raw.achievement === 'string' ? raw.achievement : '',
     workItemIds: Array.isArray(raw.workItemIds) ? (raw.workItemIds as unknown[]).filter((x): x is string => typeof x === 'string') : undefined,
+    peerMethod: raw.peerMethod === 'rank' || raw.peerMethod === 'contribution' ? raw.peerMethod : undefined,
   }
 }
 
@@ -284,5 +286,35 @@ export function migrateAppState(raw: unknown): AppState | null {
         }))
     : []
 
-  return { rankReviews, workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
+  const taskIds = new Set(tasks.map((t) => t.id))
+  const taskPeerReviews: TaskPeerReview[] = Array.isArray(r.taskPeerReviews)
+    ? (r.taskPeerReviews as Record<string, unknown>[])
+        .filter(
+          (x) =>
+            (x.method === 'rank' || x.method === 'contribution') &&
+            typeof x.taskId === 'string' &&
+            taskIds.has(x.taskId) &&
+            typeof x.reviewerMemberId === 'string' &&
+            typeof x.targetMemberId === 'string' &&
+            memberIds.has(x.reviewerMemberId) &&
+            memberIds.has(x.targetMemberId) &&
+            typeof x.value === 'number' &&
+            typeof x.groupSize === 'number' &&
+            typeof x.reason === 'string',
+        )
+        .map((x) => ({
+          id: typeof x.id === 'string' ? x.id : `${x.reviewerMemberId}-${x.targetMemberId}-${x.taskId}`,
+          taskId: x.taskId as string,
+          method: x.method as TaskPeerReview['method'],
+          reviewerMemberId: x.reviewerMemberId as string,
+          targetMemberId: x.targetMemberId as string,
+          value: x.value as number,
+          groupSize: x.groupSize as number,
+          reason: x.reason as string,
+          source: x.source === 'app' ? 'app' : 'excel',
+          updatedAt: typeof x.updatedAt === 'string' ? x.updatedAt : '',
+        }))
+    : []
+
+  return { rankReviews, taskPeerReviews, workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
 }
