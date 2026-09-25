@@ -690,8 +690,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   return (
     <div className="space-y-3">
-      {/* L2 탭 */}
-      <div className="flex items-end gap-1 overflow-x-auto border-b border-[#D6DAE0] pt-1">
+      {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
+      <div className="flex items-end shadow-[inset_0_-1px_0_#D6DAE0]">
+      <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {board.groups.map((g, idx) => {
           const on = g.id === activeGroup?.id
           const count = itemsOfGroup(board, g.id).length
@@ -721,7 +722,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative -mb-px flex max-w-[280px] shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-sm transition-colors ${
+              className={`group relative flex max-w-[280px] shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-sm transition-colors ${
                 on
                   ? 'border-[#D6DAE0] border-b-white bg-white font-bold text-black'
                   : 'border-transparent bg-[#E7EAF0] font-medium text-gray-600 hover:bg-[#DDE1E8]'
@@ -777,10 +778,34 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <button
           onClick={handleAddGroup}
           title="L2 추가"
-          className="-mb-px shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-gray-400 hover:bg-[#E7EAF0] hover:text-black"
+          className="shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-gray-400 hover:bg-[#E7EAF0] hover:text-black"
         >
           ＋ L2
         </button>
+      </div>
+      {board.sheetLink && (
+        <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-gray-600">
+          <span className="max-w-[180px] truncate font-medium" title={`구글시트 탭 「${board.sheetLink.tabName}」`}>
+            {board.sheetLink.tabName}
+          </span>
+          <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">{timeAgo(board.sheetLink.lastFetchedAt)}</span>
+          <span className="group/reload relative">
+            <button
+              onClick={onOpenSheetImport}
+              aria-label="다시 가져오기"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-accent"
+            >
+              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
+                <path d="M13.5 2.5v3h-3" />
+              </svg>
+            </button>
+            <span className="pointer-events-none absolute right-0 top-full z-40 mt-1 whitespace-nowrap rounded-md bg-[#14161A] px-2 py-1 text-[11px] text-white opacity-0 shadow transition-opacity group-hover/reload:opacity-100">
+              다시 가져오기
+            </span>
+          </span>
+        </div>
+      )}
       </div>
 
       {activeGroup && (
@@ -797,16 +822,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="truncate text-lg font-bold text-black">{activeGroup.name}</h2>
-              {board.sheetLink && activeGroup.source === 'sheet' && (
-                <button
-                  onClick={onOpenSheetImport}
-                  title="구글시트에서 다시 가져오기"
-                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-black"
-                >
-                  <span>구글시트 「{board.sheetLink.tabName}」 · {timeAgo(board.sheetLink.lastFetchedAt)}</span>
-                  <span className="font-medium text-accent">⟳ 다시 가져오기</span>
-                </button>
-              )}
               {missingCount > 0 && (
                 <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700" title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다.">
                   시트에 없음 {missingCount}
