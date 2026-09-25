@@ -105,6 +105,29 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // ---------- 토스트 ----------
   const [toast, setToast] = useState<{ text: string; undo?: boolean } | null>(null)
   const toastTimer = useRef<number>()
+  // ⌘Z / ⌘⇧Z / ⌘Y: 표 밖(체크박스·버튼을 누른 뒤 등)에서도 되돌리기. 표 안 입력칸은
+  // 표가 먼저 처리하고(preventDefault), 다른 입력칸에서는 그 칸의 되돌리기를 쓴다.
+  const undoRef = useRef<{ undo: () => void; redo: () => void }>({ undo: () => {}, redo: () => {} })
+  undoRef.current = { undo, redo }
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.defaultPrevented || !(e.metaKey || e.ctrlKey)) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+      const k = e.key.toLowerCase()
+      if (k === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) undoRef.current.redo()
+        else undoRef.current.undo()
+      } else if (k === 'y') {
+        e.preventDefault()
+        undoRef.current.redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   function showToast(text: string, withUndo = false) {
     setToast({ text, undo: withUndo })
     window.clearTimeout(toastTimer.current)
@@ -529,6 +552,13 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     apply(moveItems(board, activeGroup.id, ids, groupIndexOfView(viewTo)))
   }
 
+  // 묶음 머리 행 기준 이동: beforeId(보드 순서상 그 L3) 앞으로, null이면 맨 끝.
+  function moveRowsBefore(ids: string[], beforeId: string | null) {
+    if (!activeGroup || (beforeId && ids.includes(beforeId))) return
+    const to = beforeId ? groupItems.findIndex((i) => i.id === beforeId) : groupItems.length
+    apply(moveItems(board, activeGroup.id, ids, to < 0 ? groupItems.length : to))
+  }
+
   function boardColIndexOfVisible(visIndex: number): number {
     if (visIndex < visibleCols.length) return board.columns.indexOf(visibleCols[visIndex])
     return board.columns.length
@@ -804,6 +834,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onInsertRows={insertRows}
             onDeleteRows={removeRows}
             onMoveRows={filtered ? undefined : moveRows}
+            onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
             onInsertColumn={insertColumn}
             onDeleteColumns={requestDeleteColumns}
             onHideColumns={(ids) => {
@@ -817,6 +848,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onMoveColumns={(ids, visTo) => apply(moveColumns(board, ids, boardColIndexOfVisible(visTo)))}
             onUndo={undo}
             onRedo={redo}
+            storageKey="work"
             addRowLabel="L3 추가"
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />

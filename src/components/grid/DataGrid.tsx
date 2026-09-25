@@ -56,6 +56,8 @@ interface DataGridProps<R extends { id: string }> {
   onInsertRows: (index: number, count: number) => void
   onDeleteRows: (ids: string[]) => void
   onMoveRows?: (ids: string[], toIndex: number) => void
+  // 묶음 머리 행 기준 이동: beforeId 행 앞으로(null = 맨 끝). 묶음 머리 행을 쓰면 필요.
+  onMoveRowsBefore?: (ids: string[], beforeId: string | null) => void
   onInsertColumn: (index: number) => void
   onDeleteColumns: (colIds: string[]) => void
   onHideColumns: (colIds: string[]) => void
@@ -80,6 +82,8 @@ interface DataGridProps<R extends { id: string }> {
     title?: (row: R) => string | undefined
     onToggle: (rows: R[], on: boolean) => void
   }
+  // 번호 칸 너비 등 화면 설정을 브라우저에 기억할 때 쓰는 이름
+  storageKey?: string
   addRowLabel?: string
   emptyText?: string
 }
@@ -110,7 +114,7 @@ type Sel =
 interface Menu {
   x: number
   y: number
-  kind: 'cell' | 'row' | 'col'
+  kind: 'cell' | 'row' | 'col' | 'head'
 }
 
 const HANDLE_W = 52
@@ -187,7 +191,20 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const [editing, setEditing] = useState(false)
   const [menu, setMenu] = useState<Menu | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
-  const [dragInsert, setDragInsert] = useState<{ kind: 'row' | 'col'; index: number } | null>(null)
+  // 행 삽입 위치: index = 이 데이터 행 앞, headKey가 있으면 그 묶음 머리 행 앞(beforeId = 그 묶음의 첫 행)
+  const [dragInsert, setDragInsert] = useState<{ kind: 'row' | 'col'; index: number; headKey?: string; beforeId?: string | null } | null>(null)
+  const headRowRefs = useRef(new Map<string, { el: HTMLTableRowElement; anchor: number; firstId: string }>())
+  // 접힌 묶음 머리 행 선택(데이터 행이 화면에 없어 행 선택 범위로 못 나타냄)
+  const [headSel, setHeadSel] = useState<{ key: string; ids: string[] } | null>(null)
+  // 번호 칸 너비(사용자가 조절, 브라우저에 기억)
+  const [handleW, setHandleW] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem(`grid.numW.${props.storageKey ?? 'default'}`))
+      return v >= 36 && v <= 200 ? v : HANDLE_W
+    } catch {
+      return HANDLE_W
+    }
+  })
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const sinkRef = useRef<HTMLTextAreaElement>(null)
@@ -352,6 +369,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (extend && sel?.t === 'cells') setSel({ ...sel, r2: r, c2: c })
     else select(r, c)
   }
+
+  useEffect(() => {
+    if (sel) setHeadSel(null)
+  }, [sel])
 
   // ---------- 선택 범위 ----------
 
@@ -588,17 +609,20 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       if (!d) return
       if (d.kind === 'rows' && d.moving) {
         // 행 드래그 이동: 마우스 아래 행 경계에 삽입선
-        let index = nR
-        for (let r = 0; r < nR; r++) {
-          const tr = rowRefs.current.get(r)
-          if (!tr) continue
+        // 데이터 행과 묶음 머리 행(접힌 묶음 포함)을 화면 순서대로 놓고 경계를 찾는다.
+        const slots: { top: number; mid: number; index: number; headKey?: string; beforeId: string | null }[] = []
+        rowRefs.current.forEach((tr, r) => {
+          if (r >= nR) return
           const box = tr.getBoundingClientRect()
-          if (e.clientY < box.top + box.height / 2) {
-            index = r
-            break
-          }
-        }
-        setDragInsert({ kind: 'row', index })
+          slots.push({ top: box.top, mid: box.top + box.height / 2, index: r, beforeId: rows[r]?.id ?? null })
+        })
+        headRowRefs.current.forEach((h, key) => {
+          const box = h.el.getBoundingClientRect()
+          slots.push({ top: box.top, mid: box.top + box.height / 2, index: h.anchor, headKey: key, beforeId: h.firstId })
+        })
+        slots.sort((a, b) => a.top - b.top)
+        const hit = slots.find((x) => e.clientY < x.mid)
+        setDragInsert(hit ? { kind: 'row', index: hit.index, headKey: hit.headKey, beforeId: hit.beforeId } : { kind: 'row', index: nR, beforeId: null })
       } else if (d.kind === 'cols' && d.moving) {
         let index = nC
         for (let c = 0; c < nC; c++) {
@@ -617,9 +641,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const d = drag.current
       drag.current = null
       if (d?.moving && dragInsert) {
-        if (d.kind === 'rows' && d.ids && dragInsert.kind === 'row' && props.onMoveRows) {
-          // 묶음 머리 행을 끌어 옮김: 묶음 전체(접힌 하위 포함). 자리가 바뀌므로 선택은 푼다.
-          props.onMoveRows(d.ids, dragInsert.index)
+        if (d.kind === 'rows' && dragInsert.kind === 'row' && (d.ids || dragInsert.headKey) && props.onMoveRowsBefore) {
+          // 묶음 머리 행을 끌어 옮기거나(접힌 하위 포함 묶음 전체), 묶음 머리 행 앞에 놓음.
+          // 자리가 크게 바뀌므로 선택은 푼다.
+          props.onMoveRowsBefore(d.ids ?? selectedRowIds, dragInsert.beforeId ?? null)
           setSel(null)
           setActive(null)
         } else if (d.kind === 'rows' && dragInsert.kind === 'row' && props.onMoveRows && range) {
@@ -697,8 +722,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (editing) commitEdit()
     setMenu(null)
     if (h.rowRange) {
+      setHeadSel(null)
       setSel({ t: 'rows', a: h.rowRange[0], b: h.rowRange[1] })
       setActive({ r: h.rowRange[0], c: active?.c ?? 0 })
+    } else {
+      setSel(null)
+      setActive(null)
+      setHeadSel({ key: h.key, ids: h.rowIds })
     }
     if (props.onMoveRows) drag.current = { kind: 'rows', anchor: h.rowRange?.[0] ?? 0, moving: true, ids: h.rowIds }
     requestAnimationFrame(focusSink)
@@ -706,8 +736,15 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   function onGroupHeadContextMenu(e: React.MouseEvent, h: GroupHeaderRow) {
     e.preventDefault()
-    if (!h.rowRange) return
     if (editing) commitEdit()
+    if (!h.rowRange) {
+      setSel(null)
+      setActive(null)
+      setHeadSel({ key: h.key, ids: h.rowIds })
+      setMenu({ x: e.clientX, y: e.clientY, kind: 'head' })
+      return
+    }
+    setHeadSel(null)
     setSel({ t: 'rows', a: h.rowRange[0], b: h.rowRange[1] })
     setActive({ r: h.rowRange[0], c: active?.c ?? 0 })
     setMenu({ x: e.clientX, y: e.clientY, kind: 'row' })
@@ -729,6 +766,29 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       if (nR > 0) setActive({ r: active?.r ?? 0, c })
     }
     requestAnimationFrame(focusSink)
+  }
+
+  function onResizeNumberStart(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startW = handleW
+    let latest = startW
+    function move(ev: MouseEvent) {
+      latest = Math.max(36, Math.min(200, startW + ev.clientX - startX))
+      setHandleW(latest)
+    }
+    function up() {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      try {
+        localStorage.setItem(`grid.numW.${props.storageKey ?? 'default'}`, String(latest))
+      } catch {
+        // 기억 못 해도 이번 화면에서는 적용된다
+      }
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
   }
 
   function onResizeStart(e: React.MouseEvent, col: GridColumn) {
@@ -849,14 +909,32 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     const list = props.groupHeaders?.(anchor)
     if (!list?.length) return null
     return list.map((h) => {
-      const inside = headInside(h)
-      const top = inside && h.rowRange![0] === selLo
+      const picked = headSel?.key === h.key
+      const inside = headInside(h) || picked
+      const top = picked || (inside && h.rowRange![0] === selLo)
       const edge = (left: boolean, right = false) =>
         inside
-          ? [top && `inset 0 2px 0 ${SEL_BLUE}`, left && `inset 2px 0 0 ${SEL_BLUE}`, right && `inset -2px 0 0 ${SEL_BLUE}`].filter(Boolean).join(', ') || undefined
+          ? [
+              top && `inset 0 2px 0 ${SEL_BLUE}`,
+              picked && `inset 0 -2px 0 ${SEL_BLUE}`,
+              left && `inset 2px 0 0 ${SEL_BLUE}`,
+              right && `inset -2px 0 0 ${SEL_BLUE}`,
+            ]
+              .filter(Boolean)
+              .join(', ') || undefined
           : undefined
       return (
-        <tr key={`gh:${h.key}`} data-group-head className={`group/row ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'}`}>
+        <tr
+          key={`gh:${h.key}`}
+          data-group-head
+          ref={(el) => {
+            if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
+            else headRowRefs.current.delete(h.key)
+          }}
+          className={`group/row ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'} ${
+            dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
+          }`}
+        >
           <td
             onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
             onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
@@ -885,22 +963,28 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               )}
             </td>
           )}
-          {columns.map((col, c) => (
-            <td
-              key={col.id}
-              style={{ boxShadow: edge(false, c === nC - 1) }}
-              className="h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle"
-            >
-              {h.cell(col.id)}
-            </td>
-          ))}
+          {columns.map((col, c) => {
+            const colIn = sel?.t === 'cols' && c >= lo(sel.a, sel.b) && c <= hi(sel.a, sel.b)
+            const colEdge = colIn
+              ? [c === lo(sel!.a, sel!.b) && `inset 2px 0 0 ${SEL_BLUE}`, c === hi(sel!.a, sel!.b) && `inset -2px 0 0 ${SEL_BLUE}`].filter(Boolean).join(', ')
+              : ''
+            return (
+              <td
+                key={col.id}
+                style={{ boxShadow: [edge(false, c === nC - 1), colEdge].filter(Boolean).join(', ') || undefined }}
+                className={`h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${colIn ? 'bg-blue-50' : ''}`}
+              >
+                {h.cell(col.id)}
+              </td>
+            )
+          })}
           <td className="border-b border-dotted border-[#C9CDD3]" />
         </tr>
       )
     })
   }
 
-  const tableWidth = HANDLE_W + CHECK_W + columns.reduce((s, c) => s + c.width, 0) + 44
+  const tableWidth = handleW + CHECK_W + columns.reduce((s, c) => s + c.width, 0) + 44
   const menuRows = range ? range.r2 - range.r1 + 1 : 0
   const canDeleteCols = selectedColIds.length > 0 && columns.filter((c) => selectedColIds.includes(c.id)).every((c) => !c.system)
 
@@ -915,7 +999,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             style={{ width: '100%', minWidth: tableWidth }}
           >
             <colgroup>
-              <col style={{ width: HANDLE_W }} />
+              <col style={{ width: handleW }} />
               {check && <col style={{ width: CHECK_W }} />}
               {columns.map((c) => (
                 <col key={c.id} style={{ width: c.width }} />
@@ -924,7 +1008,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             </colgroup>
             <thead>
               <tr className="bg-[#14161A] text-white">
-                <th className="h-9 border-r border-white/10 text-center text-xs font-medium text-[#9AA1AC]">#</th>
+                <th className="relative h-9 border-r border-white/10 text-center text-xs font-medium text-[#9AA1AC]">
+                  #
+                  <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-white/20" />
+                </th>
                 {check && (
                   <th className="h-9 border-r border-white/10 text-center">
                     <input
@@ -952,6 +1039,17 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseDown={(e) => onHeadMouseDown(e, c)}
                       onDoubleClick={() => setRenaming(col.id)}
                       onContextMenu={(e) => openMenu(e, 'col', undefined, c)}
+                      style={{
+                        boxShadow: colSelected
+                          ? [
+                              `inset 0 2px 0 ${SEL_BLUE}`,
+                              c === lo(sel!.a, sel!.b) && `inset 2px 0 0 ${SEL_BLUE}`,
+                              c === hi(sel!.a, sel!.b) && `inset -2px 0 0 ${SEL_BLUE}`,
+                            ]
+                              .filter(Boolean)
+                              .join(', ')
+                          : undefined,
+                      }}
                       className={`relative h-9 select-none border-r border-white/10 px-2 text-left text-[13px] font-semibold ${
                         colSelected ? 'bg-[#2C3440]' : ''
                       } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
@@ -1010,7 +1108,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       else rowRefs.current.delete(r)
                     }}
                     className={`group/row ${props.rowClassName?.(row) ?? ''} ${
-                      dragInsert?.kind === 'row' && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
+                      dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
                     }`}
                   >
                     <td
@@ -1062,9 +1160,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t === 'rows', coveredTop(r)) }}
+                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
-                            inRange && (!isActive || sel?.t === 'rows') ? 'bg-blue-50' : ''
+                            inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
                           <div className={col.picker ? 'flex items-center justify-between gap-1' : ''}>
@@ -1103,7 +1201,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 )
               })}
               {renderHeaders(nR)}
-              {dragInsert?.kind === 'row' && dragInsert.index === nR && (
+              {dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === nR && (
                 <tr>
                   <td colSpan={nC + 2 + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
                 </tr>
@@ -1265,6 +1363,32 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           className="fixed z-50 min-w-[200px] rounded-xl border border-gray-200 bg-white py-1.5 text-sm shadow-[0_8px_24px_rgba(17,19,24,.12),0_2px_6px_rgba(17,19,24,.06)]"
           style={{ left: Math.min(menu.x, window.innerWidth - 220), top: Math.min(menu.y, window.innerHeight - 320) }}
         >
+          {menu.kind === 'head' && headSel && (
+            <>
+              {(props.rowActions?.(headSel.ids) ?? []).map((a) => (
+                <MenuItem
+                  key={a.label}
+                  label={a.label}
+                  hint={a.hint}
+                  disabled={a.disabled}
+                  onClick={() => {
+                    setMenu(null)
+                    a.onClick()
+                  }}
+                />
+              ))}
+              <div className="my-1 h-px bg-gray-100" />
+              <MenuItem
+                danger
+                label={`묶음 행 ${headSel.ids.length}개 삭제`}
+                onClick={() => {
+                  props.onDeleteRows(headSel.ids)
+                  setHeadSel(null)
+                  setMenu(null)
+                }}
+              />
+            </>
+          )}
           {(menu.kind === 'cell' || menu.kind === 'row') && range && (
             <>
               {(() => {
@@ -1415,15 +1539,17 @@ function cellShadow(
   r: number,
   c: number,
   active: boolean,
-  rowsMode = false,
+  mode: Sel['t'] = 'cells',
   noTop = false,
 ): string | undefined {
-  if (active && !rowsMode) return `inset 0 0 0 2px ${SEL_BLUE}`
-  if (!range || (range.r1 === range.r2 && range.c1 === range.c2 && !rowsMode)) return undefined
+  // 행·열 선택은 번호 칸/머리글까지 한 덩어리 상자로: 현재 칸 상자는 그리지 않고,
+  // 행 선택의 왼쪽 선은 번호 칸이, 열 선택의 위쪽 선은 머리글이 맡는다.
+  if (active && mode === 'cells') return `inset 0 0 0 2px ${SEL_BLUE}`
+  if (!range || (range.r1 === range.r2 && range.c1 === range.c2 && mode === 'cells')) return undefined
   const parts: string[] = []
-  if (r === range.r1 && !noTop) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
+  if (r === range.r1 && !noTop && mode !== 'cols') parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
   if (r === range.r2) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
-  if (c === range.c1 && !rowsMode) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
+  if (c === range.c1 && mode !== 'rows') parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
   if (c === range.c2) parts.push(`inset -2px 0 0 ${SEL_BLUE}`)
   return parts.length ? parts.join(', ') : undefined
 }
