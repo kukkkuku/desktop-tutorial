@@ -45,9 +45,14 @@ import Button from '../Button'
 import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
 
+// 연결된 시트가 없을 때 기본으로 채워 두는 팀 과제관리 시트(바꿔 넣을 수 있음)
+const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1wnE6O8uldCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o/edit'
+
 interface Props {
   onDone?: () => void
   onCancel?: () => void
+  // 시트 목록을 불러와 L2 고르기 화면이 됐는지(창을 넓히는 데 씀)
+  onLoadedChange?: (loaded: boolean) => void
 }
 
 
@@ -57,13 +62,13 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange }: Props) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
   const link = board.sheetLink
 
-  const [urlInput, setUrlInput] = useState(link ? sheetUrl(link.spreadsheetId) : '')
+  const [urlInput, setUrlInput] = useState(link?.spreadsheetId ? sheetUrl(link.spreadsheetId) : DEFAULT_SHEET_URL)
   const [spreadsheetId, setSpreadsheetId] = useState<string | null>(null)
   const [book, setBook] = useState<XlsxBook | null>(null)
   const [bookTitle, setBookTitle] = useState('')
@@ -223,6 +228,11 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
   }
 
   const unmapped = SYSTEM_COLUMNS.filter((c) => c.id !== COL_NAME && (columnMap[c.id] === null || columnMap[c.id] === undefined))
+  const loaded = !!header
+  useEffect(() => {
+    onLoadedChange?.(loaded)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded])
   const selectedGroups = groups.filter((g) => selected.has(g.name))
 
   // ---------- 화면 ----------
@@ -306,8 +316,16 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                 <span className="text-label-3">·</span>
                 <span>시트 L2 분류 {groups.length}개</span>
                 <span className="text-label-3">·</span>
-                <button onClick={() => setMapOpen((v) => !v)} className={`text-[13px] hover:underline ${unmapped.length ? 'text-warning' : 'text-label-2'}`}>
-                  열 매칭 {unmapped.length ? `(못 찾은 열 ${unmapped.length})` : '확인'}
+                <button
+                  onClick={() => setMapOpen((v) => !v)}
+                  title={
+                    unmapped.length
+                      ? '앱의 이 열과 같은 이름의 머리글을 시트에서 찾지 못해 그 칸은 가져오지 않습니다(시작일은 주차 칸의 첫 표시로 추정). 눌러서 시트의 다른 열과 짝지을 수 있습니다.'
+                      : '앱의 열과 시트 머리글이 모두 짝지어졌습니다'
+                  }
+                  className={`text-[13px] hover:underline ${unmapped.length ? 'text-warning' : 'text-label-2'}`}
+                >
+                  {unmapped.length ? `시트에 없는 열: ${unmapped.map((c) => c.label).join(', ')} · 열 매칭` : '열 매칭 확인'}
                 </button>
               </>
             )}

@@ -7,6 +7,7 @@ import BulkUploadPanel from './BulkUploadPanel'
 import ImportFromPreviousPanel from './ImportFromPreviousPanel'
 import Button from './Button'
 import SheetImportPanel from './work/SheetImportPanel'
+import SheetsIcon from './SheetsIcon'
 import IconButton from './IconButton'
 import Segmented from './ui/Segmented'
 import { ic } from './ui/icon'
@@ -235,6 +236,8 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
 export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', onSheetImported }: QuickStartModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab)
+  // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
+  const [sheetLoaded, setSheetLoaded] = useState(false)
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
     { key: 'sheet', label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' },
@@ -249,9 +252,9 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
       <div
         className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
         style={
-          tab === 'sheet'
-            ? { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
-            : { width: 'min(1024px, calc(100vw - 2rem))', height: 'min(640px, 85vh)' }
+          tab === 'sheet' && sheetLoaded
+            ? { width: 'min(1600px, calc(100vw - 2rem))', height: 'min(900px, 92vh)' }
+            : { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
         }
       >
         <div className="flex items-start justify-between gap-4 px-6 pb-0 pt-5">
@@ -268,7 +271,19 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
           <Segmented<Tab>
             value={tab}
             onChange={setTab}
-            items={tabs.map((t) => ({ key: t.key, label: t.label, title: t.hint }))}
+            items={tabs.map((t) => ({
+              key: t.key,
+              label:
+                t.key === 'sheet' ? (
+                  <span className="flex items-center gap-1.5">
+                    <SheetsIcon className="h-3.5 w-3.5" />
+                    {t.label}
+                  </span>
+                ) : (
+                  t.label
+                ),
+              title: t.hint,
+            }))}
           />
           <span className="text-[13px] text-label-3">{tabs.find((t) => t.key === tab)?.hint}</span>
         </div>
@@ -276,7 +291,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'sheet' && (
             <div className="flex min-h-full flex-col">
-              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} />
+              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} />
             </div>
           )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
