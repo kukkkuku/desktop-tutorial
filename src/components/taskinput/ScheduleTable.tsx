@@ -728,9 +728,13 @@ export default function ScheduleTable({
       )}
 
       {menu && menuView && (
-        <div className="mac-pop fixed z-50 w-[240px] py-1 text-[13px]" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+        <div
+          className={`mac-pop fixed z-50 py-1 text-[13px] ${paletteFor ? 'w-[268px]' : 'w-[240px]'}`}
+          style={{ left: Math.min(menu.x, window.innerWidth - (paletteFor ? 276 : 248)), top: menu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {paletteFor ? (
-            <div className="px-2 py-1">
+            <div className="px-3 py-1.5">
               <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
                 ‹ {paletteFor === 'cell' ? '칸 색' : '행 색 (L3 · 입력 열 전체)'}
               </button>
