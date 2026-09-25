@@ -671,3 +671,17 @@ export async function getPeriodFolderLink(workspace: WorkspaceMeta): Promise<str
   const folderData = (await folderRes.json()) as { webViewLink: string }
   return folderData.webViewLink
 }
+
+// 구글 웹(드라이브·캘린더·메일·시트) 링크에 이 앱에 연결된 계정을 붙인다(authuser=이메일).
+// 브라우저에 구글 계정이 여러 개 로그인돼 있으면 붙이지 않은 링크는 브라우저 기본 계정으로 열린다.
+export function withGoogleAccount(url: string, email: string | null = getConnectedEmail()): string {
+  if (!email || !url) return url
+  try {
+    const u = new URL(url)
+    if (!/(^|\.)google\.com$/.test(u.hostname)) return url
+    u.searchParams.set('authuser', email)
+    return u.toString()
+  } catch {
+    return url
+  }
+}

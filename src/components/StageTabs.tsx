@@ -7,6 +7,7 @@ import { IS_PREVIEW } from '../utils/previewMode'
 import { sheetUrl } from '../utils/sheetSources'
 import { useAppState } from '../state/AppContext'
 import SheetsIcon from './SheetsIcon'
+import { withGoogleAccount } from '../utils/googleDrive'
 import { BarChart3, ChevronDown, Database, LayoutList, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 
@@ -132,7 +133,7 @@ export default function StageTabs({
               onAccountChange={onAccountChange}
               extraLinks={
                 sheetLink?.spreadsheetId
-                  ? [{ label: '구글시트 과제로 이동', href: sheetUrl(sheetLink.spreadsheetId, sheetLink.gid), icon: <SheetsIcon className="h-4 w-4 shrink-0" /> }]
+                  ? [{ label: '구글시트 과제로 이동', href: withGoogleAccount(sheetUrl(sheetLink.spreadsheetId, sheetLink.gid)), icon: <SheetsIcon className="h-4 w-4 shrink-0" /> }]
                   : []
               }
             >

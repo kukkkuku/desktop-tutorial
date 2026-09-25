@@ -40,6 +40,7 @@ import {
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
 import SheetsIcon from '../SheetsIcon'
+import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
@@ -844,7 +845,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-label-2">
           {board.sheetLink.spreadsheetId ? (
             <a
-              href={sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)}
+              href={withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid))}
               target="_blank"
               rel="noreferrer"
               title="구글시트에서 열기"

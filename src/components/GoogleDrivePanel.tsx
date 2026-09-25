@@ -19,6 +19,7 @@ import {
   type SaveAllResult,
   type SaveMode,
   type SavedPeriodSummary,
+  withGoogleAccount,
 } from '../utils/googleDrive'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import Button from './Button'
@@ -213,13 +214,13 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
             <div className="space-y-0.5">
               <p>{fmtTime(lastSave.at)}에 저장 완료</p>
               <div className="flex flex-wrap gap-x-3">
-                <a href={lastSave.xlsxLink} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+                <a href={withGoogleAccount(lastSave.xlsxLink)} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
                   Excel
                 </a>
-                <a href={lastSave.sheetLink} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+                <a href={withGoogleAccount(lastSave.sheetLink)} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
                   Google 시트
                 </a>
-                <a href={lastSave.folderLink} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+                <a href={withGoogleAccount(lastSave.folderLink)} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
                   폴더 열기
                 </a>
               </div>
@@ -292,7 +293,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
         )}
         {folderLink === null && <p className="mt-2 text-[13px] text-label-3">아직 이 평가를 Drive에 저장한 적이 없습니다.</p>}
         {folderLink && (
-          <a href={folderLink} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+          <a href={withGoogleAccount(folderLink)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
             Drive에서 폴더 열기 <ArrowRight {...icSm} />
           </a>
         )}

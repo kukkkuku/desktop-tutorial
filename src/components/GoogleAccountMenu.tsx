@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Calendar, HardDrive, Mail, Plus } from 'lucide-react'
 import { icSm } from './ui/icon'
-import { connectDifferentAccount, getConnectedEmail } from '../utils/googleDrive'
+import { connectDifferentAccount, getConnectedEmail, withGoogleAccount } from '../utils/googleDrive'
 
 const ACCOUNT_LINKS = [
   { label: '캘린더 이동', href: 'https://calendar.google.com/', Icon: Calendar },
@@ -105,7 +105,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
             {extraLinks.map(({ label, href, icon }) => (
               <a
                 key={href}
-                href={href}
+                href={withGoogleAccount(href)}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}
@@ -118,7 +118,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
             {ACCOUNT_LINKS.map(({ label, href, Icon }) => (
               <a
                 key={href}
-                href={href}
+                href={withGoogleAccount(href)}
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}
