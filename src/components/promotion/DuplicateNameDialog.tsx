@@ -19,10 +19,10 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
   const pickedCount = matches.filter((_, i) => picks[i]).length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
       <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-black">같은 이름의 팀원이 있습니다</h3>
-        <p className="mt-1 text-[13px] text-gray-500">
+        <h3 className="text-lg font-bold text-label">같은 이름의 팀원이 있습니다</h3>
+        <p className="mt-1 text-[13px] text-label-2">
           아래 이름은 팀에 같은 이름이 여러 명이라 인사평가 이력을 자동으로 연결하지 못했습니다.
           어느 팀원인지 골라주세요. 고르지 않으면 해당 이름만 건너뜁니다.
         </p>
@@ -30,13 +30,13 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
         <ul className="mt-4 space-y-2">
           {matches.map(({ sheet, candidates }, index) => {
             return (
-              <li key={index} className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-black">{sheet.name}</span>
-                <span className="shrink-0 text-xs text-gray-400">{sheet.years.length}개 연도</span>
+              <li key={index} className="flex items-center gap-2 rounded-lg border border-separator px-3 py-2">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-label">{sheet.name}</span>
+                <span className="shrink-0 text-xs text-label-3">{sheet.years.length}개 연도</span>
                 <select
                   value={picks[index] ?? ''}
                   onChange={(e) => setPicks((p) => ({ ...p, [index]: e.target.value }))}
-                  className="shrink-0 rounded-md border border-accent px-1.5 py-1 text-xs text-black"
+                  className="shrink-0 rounded-md border border-accent px-1.5 py-1 text-xs text-label"
                 >
                   <option value="">{candidates.length}명 중 선택</option>
                   {candidates.map((c) => (

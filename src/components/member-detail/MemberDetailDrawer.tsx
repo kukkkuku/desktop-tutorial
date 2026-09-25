@@ -60,12 +60,12 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/25" onClick={onClose} />
       <div className="relative flex h-full w-full flex-col bg-white shadow-xl sm:w-[400px] md:w-[420px]">
-        <div className="flex items-start justify-between gap-3 border-b border-gray-200 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-separator px-5 py-4">
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-black">{member.name}</p>
-            <p className="truncate text-xs text-gray-400">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
+            <p className="truncate text-lg font-bold text-label">{member.name}</p>
+            <p className="truncate text-xs text-label-3">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <CloseIcon className="h-5 w-5" />

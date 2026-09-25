@@ -182,7 +182,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   }
 
   const insightsBlock = insights.length > 0 && (
-    <div className="rounded-lg bg-gray-50">
+    <div className="rounded-lg bg-[#F7F7F9]">
       <div className="flex items-center gap-1.5 px-4 py-2.5">
         <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
         <span className="text-sm font-bold text-accent">면담 인사이트</span>
@@ -190,7 +190,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
       {insightsOpen && (
         <ul className="space-y-0.5 px-4 pb-3">
           {insights.map((line, i) => (
-            <li key={i} className="text-[13px] text-gray-700">
+            <li key={i} className="text-[13px] text-label">
               · {line}
             </li>
           ))}
@@ -208,7 +208,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           쌓은 좁은 칸을 나란히 붙인다(따로 "코멘트"/"분위기" 라벨 없이
           placeholder와 아이콘 그 자체로 의미가 드러난다). */}
       <div className="flex items-center gap-2">
-        <h3 className="shrink-0 text-sm font-bold text-black">면담일지</h3>
+        <h3 className="shrink-0 text-sm font-bold text-label">면담일지</h3>
         <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
       </div>
 
@@ -229,7 +229,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           placeholder="면담 내용을 입력하세요."
-          className="min-h-[72px] min-w-[240px] flex-1 resize-y rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+          className="min-h-[72px] min-w-[240px] flex-1 resize-y rounded-md border border-separator px-3 py-2 text-sm text-label"
         />
         <div className="flex shrink-0 flex-col items-center gap-2">
           <MoodPicker value={mood} onChange={setMood} compact={moodCompact} />
@@ -244,7 +244,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           있게 한다. */}
       <div className="mt-3 flex items-center gap-1.5">
         <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
-        <button onClick={() => setDetailsOpen((v) => !v)} className="text-xs font-medium text-gray-400 hover:text-accent">
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-xs font-medium text-label-3 hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
       </div>
@@ -252,26 +252,26 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
       {detailsOpen && (
         <div className="mt-2 flex flex-col gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-gray-400">강점</label>
-            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+            <label className="block text-[11px] font-medium text-label-3">강점</label>
+            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-400">보완 필요</label>
-            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+            <label className="block text-[11px] font-medium text-label-3">보완 필요</label>
+            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-400">다음 도전 경험</label>
+            <label className="block text-[11px] font-medium text-label-3">다음 도전 경험</label>
             <input
               type="text"
               value={nextExperience}
               onChange={(e) => setNextExperience(e.target.value)}
               placeholder="도전해 보고 싶은 경험 입력"
-              className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+              className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-gray-400">Career Goal</label>
-            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="mt-0.5 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black" />
+            <label className="block text-[11px] font-medium text-label-3">Career Goal</label>
+            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
           </div>
         </div>
       )}
@@ -284,13 +284,13 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
       <div className="flex flex-wrap items-center gap-1.5">
         <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
-        <h4 className="text-sm font-bold text-black">면담 기록</h4>
-        <span className="rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">최근 {notes.length}건</span>
+        <h4 className="text-sm font-bold text-label">면담 기록</h4>
+        <span className="rounded bg-black/[0.05] px-2 py-0.5 text-[11px] font-semibold text-label-2">최근 {notes.length}건</span>
       </div>
 
       {pastOpen && (
         <div className="mt-2">
-          {notes.length === 0 && <p className="text-[13px] text-gray-400">아직 면담 기록이 없습니다.</p>}
+          {notes.length === 0 && <p className="text-[13px] text-label-3">아직 면담 기록이 없습니다.</p>}
           {notes.map((note, i) =>
             editingNoteId === note.id ? (
               <div key={note.id} className="flex items-stretch gap-4 pb-4">
@@ -301,11 +301,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                   {note.mood ? (
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F7F7F9] ring-1 ring-separator">
                       <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
                     </span>
                   )}
-                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
+                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
@@ -314,7 +314,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
                         <XIcon className="h-4 w-4" />
                       </IconButton>
-                      <span className="h-4 w-px bg-gray-200" />
+                      <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton
                         onClick={() => {
                           setEditingNoteId(null)
@@ -337,7 +337,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       rows={3}
-                      className="min-h-[72px] min-w-[160px] flex-1 resize-y rounded-lg border border-gray-200 px-3 py-2 text-sm text-black"
+                      className="min-h-[72px] min-w-[160px] flex-1 resize-y rounded-lg border border-separator px-3 py-2 text-sm text-label"
                     />
                     <div className="flex shrink-0 flex-col items-center gap-2">
                       <div className="grid grid-cols-3 gap-0.5">
@@ -349,7 +349,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                             title={opt.label}
                             aria-label={opt.label}
                             className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
-                              editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-gray-50'
+                              editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-black/[0.03]'
                             }`}
                           >
                             <MoodIcon mood={opt.value} className="h-5 w-5" />
@@ -369,17 +369,17 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                   {note.mood ? (
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 ring-1 ring-gray-200">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F7F7F9] ring-1 ring-separator">
                       <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
                     </span>
                   )}
-                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-gray-200" />}
+                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
                 </div>
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
-                      <span className="text-sm font-normal text-black">{note.date}</span>
-                      {i === 0 && <span className="text-xs text-gray-400">최근 면담</span>}
+                      <span className="text-sm font-normal text-label">{note.date}</span>
+                      {i === 0 && <span className="text-xs text-label-3">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
                         <span title="Google 캘린더에 등록됨" className="flex h-5 w-5 shrink-0 flex-col overflow-hidden rounded-[3px] border border-[#bcc1cd]">
@@ -404,7 +404,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
                         </svg>
                       </IconButton>
-                      <span className="h-4 w-px bg-gray-200" />
+                      <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton onClick={() => setDeletingNote(note)} title="삭제" aria-label="삭제" tone="danger">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                           <path d="M3 6h18" />
@@ -416,12 +416,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       </IconButton>
                     </div>
                   </div>
-                  <div className="mt-0.5 space-y-0.5 text-[13px] text-black">
+                  <div className="mt-0.5 space-y-0.5 text-[13px] text-label">
                     <p className="whitespace-pre-wrap break-words">{note.comment}</p>
-                    {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">강점 : {note.strengths}</p>}
-                    {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">보완 : {note.improvements}</p>}
-                    {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">다음도전 : {note.nextExperience}</p>}
-                    {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-gray-500">Career Goal : {note.careerInterest}</p>}
+                    {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">강점 : {note.strengths}</p>}
+                    {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">보완 : {note.improvements}</p>}
+                    {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">다음도전 : {note.nextExperience}</p>}
+                    {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">Career Goal : {note.careerInterest}</p>}
                   </div>
                 </div>
               </div>

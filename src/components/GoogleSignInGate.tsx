@@ -92,24 +92,24 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const working = busy !== null
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white px-10 py-12 text-center shadow-sm">
-        <h1 className="text-3xl font-extrabold text-black">성과·성장관리</h1>
-        <p className="mt-3 text-sm text-gray-500">팀과 평가기간별 데이터를 개인 Google Drive에서 안전하게 관리합니다.</p>
+    <div className="flex min-h-screen items-center justify-center bg-window px-4">
+      <div className="w-full max-w-md rounded-[12px] bg-white px-10 py-12 text-center shadow-dialog">
+        <h1 className="text-[26px] font-semibold tracking-tight text-label">성과·성장관리</h1>
+        <p className="mt-3 text-[13px] text-label-2">팀과 평가기간별 데이터를 개인 Google Drive에서 안전하게 관리합니다.</p>
 
         {/* 이 브라우저에 마지막 로그인 계정이 남아 있으면 그 계정으로 바로
             들어갈지 먼저 물어본다 -- 계정을 바꿔야 할 때도 있으니 자동으로
             넘기지 않고, 아래에 다른 계정으로 가는 길을 같이 둔다. */}
         {configured && rememberedEmail ? (
           <>
-            <p className="mt-8 truncate rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-              최근 로그인 · <span className="font-medium text-black">{rememberedEmail}</span>
+            <p className="mt-8 truncate rounded-card bg-[#F7F7F9] px-3 py-2 text-[13px] text-label-2">
+              최근 로그인 · <span className="font-medium text-label">{rememberedEmail}</span>
             </p>
             <Button
               variant="primary"
               onClick={() => handleStart(false)}
               disabled={working}
-              className="mt-3 flex w-full items-center justify-center gap-2 px-6 py-3 text-base"
+              className="mt-3 h-10 w-full text-[14px]"
             >
               {busy === 'same' && <Spinner className="h-4 w-4 text-white" />}
               {busy === 'same' ? '연결하는 중...' : '이 계정으로 계속'}
@@ -117,7 +117,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             <button
               onClick={() => handleStart(true)}
               disabled={working}
-              className="mt-3 w-full text-sm text-gray-500 underline hover:text-black disabled:opacity-50"
+              className="mt-3 w-full text-[13px] text-accent hover:underline disabled:opacity-50"
             >
               {busy === 'other' ? '계정 선택 중...' : '다른 계정으로 로그인'}
             </button>
@@ -127,7 +127,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             variant="primary"
             onClick={() => handleStart(false)}
             disabled={working || !configured}
-            className="mt-8 flex w-full items-center justify-center gap-2 px-6 py-3 text-base"
+            className="mt-8 h-10 w-full text-[14px]"
           >
             {busy === 'same' && <Spinner className="h-4 w-4 text-white" />}
             {busy === 'same' ? '연결하는 중...' : 'Google 계정으로 시작'}
@@ -135,12 +135,11 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
         )}
 
         {configured && (
-          <label className="mt-5 flex items-center justify-center gap-2 text-sm text-gray-600">
+          <label className="mt-5 flex items-center justify-center gap-2 text-[13px] text-label-2">
             <input
               type="checkbox"
               checked={keepLogin}
               onChange={(e) => setKeepLogin(e.target.checked)}
-              className="h-4 w-4"
             />
             이 브라우저에서 로그인 유지
           </label>
@@ -148,19 +147,19 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
 
         {!configured && (
           <>
-            <p className="mt-3 text-xs text-danger">
+            <p className="mt-3 text-[13px] text-danger">
               이 빌드에 Google Client ID가 없습니다. 프로젝트 루트 .env.local에
               VITE_GOOGLE_CLIENT_ID를 넣고 dev 서버를 다시 시작하세요.
             </p>
             <button
               onClick={() => setPassed(true)}
-              className="mt-4 text-sm text-gray-400 underline hover:text-black"
+              className="mt-4 text-[13px] text-accent hover:underline"
             >
               Google 연동 없이 시작
             </button>
           </>
         )}
-        {error && <p className="mt-3 text-xs text-danger">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
       </div>
     </div>
   )

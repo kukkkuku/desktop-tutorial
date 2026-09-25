@@ -118,8 +118,8 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
     <div>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold text-black">인사평가 이력 엑셀로 가져오기</h3>
-          <p className="mt-1 text-[13px] text-gray-500">
+          <h3 className="text-lg font-bold text-label">인사평가 이력 엑셀로 가져오기</h3>
+          <p className="mt-1 text-[13px] text-label-2">
             승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
             이름이 일치하는 현재 팀원에게 바로 적용합니다.
           </p>
@@ -143,17 +143,17 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
               if (f) handleFile(f)
             }}
             className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
-              dragActive ? 'border-accent bg-blue-50' : 'border-gray-300 hover:border-accent'
+              dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent'
             }`}
           >
             {loading ? (
               <Spinner className="h-6 w-6 text-accent" />
             ) : (
               <>
-                <span className="text-sm font-medium text-black">
+                <span className="text-sm font-medium text-label">
                   {dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}
                 </span>
-                <span className="text-xs text-gray-400">.xlsx</span>
+                <span className="text-xs text-label-3">.xlsx</span>
               </>
             )}
             <input
@@ -173,7 +173,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
 
         {matches && (
           <div className="mt-4">
-            <div className="flex items-center justify-between gap-2 text-[13px] text-gray-500">
+            <div className="flex items-center justify-between gap-2 text-[13px] text-label-2">
               <span>{fileName}</span>
               <button
                 onClick={() => {
@@ -190,9 +190,9 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                 때만 고르면 됨) -- 시트명은 거의 항상 이름과 같아 별도
                 컬럼으로 반복할 필요가 없다. 표 대신 한 줄짜리 리스트로
                 압축해 자리를 덜 차지하게 했다. */}
-            <ul className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-200">
+            <ul className="mt-3 divide-y divide-separator rounded-lg border border-separator">
               {matches.map(({ sheet, member, candidates }, index) => (
-                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-sm text-black">
+                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-sm text-label">
                   <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
                   <span className="shrink-0">
                     {member ? (
@@ -201,7 +201,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                       <select
                         value={manualPicks[index] ?? ''}
                         onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                        className="rounded-md border border-accent px-1.5 py-1 text-xs text-black"
+                        className="rounded-md border border-accent px-1.5 py-1 text-xs text-label"
                       >
                         <option value="">동명이인 {candidates.length}명 -- 선택</option>
                         {candidates.map((c) => (
@@ -211,15 +211,15 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                         ))}
                       </select>
                     ) : (
-                      <span className="text-xs text-gray-400">매칭 안 됨</span>
+                      <span className="text-xs text-label-3">매칭 안 됨</span>
                     )}
                   </span>
-                  <span className="w-14 shrink-0 text-right text-xs text-gray-400">{sheet.years.length}개 연도</span>
+                  <span className="w-14 shrink-0 text-right text-xs text-label-3">{sheet.years.length}개 연도</span>
                 </li>
               ))}
             </ul>
 
-            <label className="mt-3 flex items-center gap-2 text-[13px] text-gray-600">
+            <label className="mt-3 flex items-center gap-2 text-[13px] text-label-2">
               <input
                 type="checkbox"
                 checked={applyHireDate}
@@ -229,7 +229,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
             </label>
 
             {matchedCount === 0 ? (
-              <p className="mt-3 text-[13px] text-gray-400">
+              <p className="mt-3 text-[13px] text-label-3">
                 매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.
               </p>
             ) : (
@@ -275,7 +275,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
 // PromotionHistoryImportPanel 그대로 재사용한다.
 export default function PromotionHistoryImportModal({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
       <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <PromotionHistoryImportPanel initialFile={initialFile} onApplied={onClose} onDismiss={onClose} />
       </div>

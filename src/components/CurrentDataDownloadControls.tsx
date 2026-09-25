@@ -1,16 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Spinner from './Spinner'
+import { Download } from 'lucide-react'
 import Button from './Button'
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
+import { ic } from './ui/icon'
 
 interface CurrentDataDownloadControlsProps {
   label?: string
@@ -55,29 +47,27 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
 
   return (
     <div ref={rootRef} className="relative shrink-0">
-      <Button variant="secondary" onClick={() => setOpen((v) => !v)} disabled={disabled} className="flex items-center gap-1.5 px-3 py-1.5">
-        <DownloadIcon className="h-4 w-4" /> {label}
+      <Button variant="secondary" onClick={() => setOpen((v) => !v)} disabled={disabled}>
+        <Download {...ic} /> {label}
       </Button>
 
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-2 w-56 rounded-md border border-gray-200 bg-white p-3 shadow-md">
-          <p className="text-xs font-semibold text-gray-500">받을 형식 선택</p>
+        <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-56 p-3">
+          <p className="text-[13px] font-semibold text-label-2">받을 형식 선택</p>
           <div className="mt-2 space-y-1.5">
-            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm text-black hover:bg-gray-50">
+            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.05]">
               <input
                 type="checkbox"
                 checked={wantExcel}
                 onChange={(e) => setWantExcel(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
               />
               엑셀
             </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm text-black hover:bg-gray-50">
+            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.05]">
               <input
                 type="checkbox"
                 checked={wantPdf}
                 onChange={(e) => setWantPdf(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
               />
               PDF
             </label>
@@ -86,7 +76,7 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
             variant="primary"
             onClick={handleDownload}
             disabled={busy || (!wantExcel && !wantPdf)}
-            className="mt-3 flex w-full items-center justify-center gap-1.5 px-3 py-1.5"
+            className="mt-3 w-full"
           >
             {busy && <Spinner className="h-3.5 w-3.5 text-white" />}
             {busy ? '생성 중...' : '다운로드'}

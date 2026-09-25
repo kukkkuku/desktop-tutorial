@@ -47,7 +47,7 @@ export default function ResizableTh({
           aria-hidden="true"
           className="group absolute inset-y-0 right-0 z-10 flex w-2 cursor-col-resize select-none items-center justify-end"
         >
-          <span className="h-4 w-px bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+          <span className="h-4 w-px bg-black/15 transition-colors group-hover:bg-accent group-active:bg-accent" />
         </div>
       )}
     </th>

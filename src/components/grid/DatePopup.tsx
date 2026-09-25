@@ -1,7 +1,9 @@
-// 날짜 칸 달력 팝업. 날짜를 누르면 바로 넣고, 가운데 "YYYY년 M월"을 누르면 월 고르기로 바뀐다.
-// 값은 'YYYY-MM-DD' 문자열(시트·엑셀과 같은 형식).
+// 앱의 유일한 달력(표 날짜 칸·DatePicker 모두 이것). 날짜를 누르면 바로 넣고,
+// 가운데 제목을 누르면 날짜 → 월 → 연도 순으로 올라간다. 값은 'YYYY-MM-DD'.
 
 import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { icSm } from '../ui/icon'
 
 const WEEK = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -21,32 +23,33 @@ function parseIso(v: string): Date | null {
 interface Props {
   value: string
   onPick: (iso: string) => void
-  onClear: () => void
+  onClear?: () => void
+  // 표 칸처럼 타이핑도 되는 곳에서만 안내 문구를 보인다
+  typingHint?: boolean
 }
 
 function Arrow({ dir, onClick, label }: { dir: 'l' | 'r'; onClick: () => void; label: string }) {
+  const I = dir === 'l' ? ChevronLeft : ChevronRight
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
+      className="flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
     >
-      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d={dir === 'l' ? 'M10 3 5 8l5 5' : 'M6 3l5 5-5 5'} />
-      </svg>
+      <I {...icSm} />
     </button>
   )
 }
 
-export default function DatePopup({ value, onPick, onClear }: Props) {
+export default function DatePopup({ value, onPick, onClear, typingHint = false }: Props) {
   const selected = parseIso(value)
   const today = new Date()
   const [view, setView] = useState(() => {
     const base = selected ?? today
     return { y: base.getFullYear(), m: base.getMonth() }
   })
-  const [mode, setMode] = useState<'days' | 'months'>('days')
+  const [mode, setMode] = useState<'days' | 'months' | 'years'>('days')
   // 입력칸에 날짜를 쳐 넣으면 달력도 그 달로 따라간다.
   const selKey = selected ? toIso(selected) : ''
   useEffect(() => {
@@ -60,10 +63,11 @@ export default function DatePopup({ value, onPick, onClear }: Props) {
   const same = (a: Date | null, b: Date) => !!a && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
   const move = (dm: number) => setView((v) => ({ y: v.y + Math.floor((v.m + dm) / 12), m: (((v.m + dm) % 12) + 12) % 12 }))
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  const yearStart = view.y - (((view.y % 12) + 12) % 12)
 
   return (
     <div className="w-[280px] p-3 text-sm">
-      <div className="mb-2 flex gap-1.5">
+      <div className="mb-2 flex gap-1">
         {[
           ['오늘', today],
           ['내일', tomorrow],
@@ -72,34 +76,42 @@ export default function DatePopup({ value, onPick, onClear }: Props) {
             key={label as string}
             type="button"
             onClick={() => onPick(toIso(d as Date))}
-            className="rounded-md px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-control px-2.5 py-1 text-[13px] font-medium text-label hover:bg-black/[0.05]"
           >
             {label as string}
           </button>
         ))}
-        <button type="button" onClick={onClear} className="ml-auto rounded-md px-2.5 py-1 text-xs text-gray-500 hover:bg-gray-100">
-          지우기
-        </button>
+        {onClear && (
+          <button type="button" onClick={onClear} className="ml-auto rounded-control px-2.5 py-1 text-[13px] text-label-2 hover:bg-black/[0.05]">
+            지우기
+          </button>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
-        <Arrow dir="l" label={mode === 'days' ? '이전 달' : '이전 해'} onClick={() => (mode === 'days' ? move(-1) : setView((v) => ({ ...v, y: v.y - 1 })))} />
+        <Arrow
+          dir="l"
+          label="이전"
+          onClick={() => (mode === 'days' ? move(-1) : setView((v) => ({ ...v, y: v.y - (mode === 'years' ? 12 : 1) })))}
+        />
         <button
           type="button"
-          onClick={() => setMode((m) => (m === 'days' ? 'months' : 'days'))}
-          className="flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-black hover:bg-gray-100"
+          onClick={() => setMode((m) => (m === 'days' ? 'months' : m === 'months' ? 'years' : 'days'))}
+          className="flex items-center gap-1 rounded-control px-2 py-1 text-[13px] font-semibold text-label hover:bg-black/[0.05]"
         >
-          {mode === 'days' ? `${view.y}년 ${view.m + 1}월` : `${view.y}년`}
-          <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={mode === 'months' ? 'rotate-180' : ''}>
-            <path d="M4 6l4 4 4-4" />
-          </svg>
+          {mode === 'days' ? `${view.y}년 ${view.m + 1}월` : mode === 'months' ? `${view.y}년` : `${yearStart}–${yearStart + 11}`}
+          <ChevronDown size={12} strokeWidth={2} className="text-label-2" />
         </button>
-        <Arrow dir="r" label={mode === 'days' ? '다음 달' : '다음 해'} onClick={() => (mode === 'days' ? move(1) : setView((v) => ({ ...v, y: v.y + 1 })))} />
+        <Arrow
+          dir="r"
+          label="다음"
+          onClick={() => (mode === 'days' ? move(1) : setView((v) => ({ ...v, y: v.y + (mode === 'years' ? 12 : 1) })))}
+        />
       </div>
 
       {mode === 'days' ? (
         <>
-          <div className="mt-2 grid grid-cols-7 text-center text-[11px] text-gray-400">
+          <div className="mt-2 grid grid-cols-7 text-center text-[11px] font-medium text-label-3">
             {WEEK.map((w) => (
               <span key={w} className="py-1">
                 {w}
@@ -120,10 +132,10 @@ export default function DatePopup({ value, onPick, onClear }: Props) {
                     isSel
                       ? 'bg-accent font-semibold text-white'
                       : isToday
-                        ? 'font-bold text-accent hover:bg-blue-50'
+                        ? 'font-semibold text-accent hover:bg-accent-soft'
                         : inMonth
-                          ? 'text-gray-800 hover:bg-gray-100'
-                          : 'text-gray-300 hover:bg-gray-50'
+                          ? 'text-label hover:bg-black/[0.05]'
+                          : 'text-label-3/70 hover:bg-black/[0.03]'
                   }`}
                 >
                   {d.getDate()}
@@ -132,8 +144,8 @@ export default function DatePopup({ value, onPick, onClear }: Props) {
             })}
           </div>
         </>
-      ) : (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+      ) : mode === 'months' ? (
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
           {Array.from({ length: 12 }, (_, m) => {
             const isSel = selected && selected.getFullYear() === view.y && selected.getMonth() === m
             const isNow = today.getFullYear() === view.y && today.getMonth() === m
@@ -145,15 +157,35 @@ export default function DatePopup({ value, onPick, onClear }: Props) {
                   setView((v) => ({ ...v, m }))
                   setMode('days')
                 }}
-                className={`rounded-md py-2 text-[13px] ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-bold text-accent hover:bg-blue-50' : 'text-gray-700 hover:bg-gray-100'}`}
+                className={`rounded-control py-2 text-[13px] ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
               >
                 {m + 1}월
               </button>
             )
           })}
         </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {Array.from({ length: 12 }, (_, i) => yearStart + i).map((y) => {
+            const isSel = selected && selected.getFullYear() === y
+            const isNow = today.getFullYear() === y
+            return (
+              <button
+                key={y}
+                type="button"
+                onClick={() => {
+                  setView((v) => ({ ...v, y }))
+                  setMode('months')
+                }}
+                className={`rounded-control py-2 text-[13px] tabular-nums ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
+              >
+                {y}
+              </button>
+            )
+          })}
+        </div>
       )}
-      <p className="mt-2 text-center text-[11px] text-gray-400">직접 입력도 됩니다 (예: 2026-05-14) · Esc 취소</p>
+      {typingHint &&       <p className="mt-2 text-center text-[11px] text-label-3">직접 입력도 됩니다 (예: 2026-05-14) · Esc 취소</p>}
     </div>
   )
 }

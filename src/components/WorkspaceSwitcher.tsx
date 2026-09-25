@@ -1,22 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Check, ChevronDown, Folder } from 'lucide-react'
 import type { WorkspaceMeta } from '../types'
-
-function FolderIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  )
-}
+import { ic, icLg, icSm } from './ui/icon'
 
 interface WorkspaceSwitcherProps {
   teamName: string
@@ -81,15 +67,15 @@ export default function WorkspaceSwitcher({
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex shrink-0 items-center gap-2 rounded-lg px-2 py-1.5 text-xl font-bold text-black transition-colors hover:bg-gray-50 ${
-          open ? 'bg-gray-50' : ''
+        className={`flex h-8 shrink-0 items-center gap-2 rounded-control px-2 text-[17px] font-semibold text-label transition-colors hover:bg-black/[0.05] ${
+          open ? 'bg-black/[0.05]' : ''
         }`}
       >
-        <FolderIcon className="h-5 w-5 shrink-0 text-accent" />
+        <Folder {...icLg} className="shrink-0 text-accent" />
         <span className="whitespace-nowrap">
           {displayTeamName} {current ? `${current.evaluationYear} ${current.periodName}` : ''}
         </span>
-        <ChevronDownIcon className={`h-5 w-5 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown {...ic} className={`shrink-0 text-label-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open &&
@@ -98,10 +84,10 @@ export default function WorkspaceSwitcher({
           <div
             ref={menuRef}
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="z-50 w-60 overflow-hidden rounded-lg border border-gray-200 bg-white py-1.5 shadow-xl"
+            className="mac-pop z-50 w-60 overflow-hidden py-1"
           >
-            <p className="px-3 pb-1 pt-1.5 text-xs font-medium text-gray-400">{displayTeamName}</p>
-            <div className="px-1">
+            <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">{displayTeamName}</p>
+            <div>
               {periods.map((p) => {
                 const selected = p.id === currentWorkspaceId
                 return (
@@ -112,25 +98,25 @@ export default function WorkspaceSwitcher({
                       onSelectPeriod(p.id)
                       setOpen(false)
                     }}
-                    className={`block w-full rounded-md px-2.5 py-2 text-left text-sm transition-colors ${
-                      selected ? 'bg-blue-50 font-bold text-accent' : 'font-medium text-gray-700 hover:bg-gray-50 hover:text-black'
-                    }`}
+                    className={`mac-menu-item ${selected ? 'font-semibold' : ''}`}
                   >
+                    <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
                     {p.evaluationYear} {p.periodName}
                   </button>
                 )
               })}
             </div>
-            <div className="mt-1 border-t border-gray-100 pt-1">
+            <div className="mac-menu-sep" />
+            <div>
               <button
                 type="button"
                 onClick={() => {
                   setOpen(false)
                   onOpenProjectManagement()
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-black"
+                className="mac-menu-item"
               >
-                <FolderIcon className="h-4 w-4 shrink-0 text-gray-400" />
+                <Folder {...icSm} className="shrink-0" />
                 프로젝트 관리
               </button>
             </div>

@@ -30,7 +30,7 @@ export default function TrendSparkline({ points: allPoints, width = DEFAULT_WIDT
   const points = allPoints.slice(-maxPoints)
 
   if (points.length === 0) {
-    return <span className={`text-xs text-gray-300 ${className ?? ''}`}>-</span>
+    return <span className={`text-xs text-label-3 ${className ?? ''}`}>-</span>
   }
 
   if (points.length === 1) {
@@ -54,7 +54,7 @@ export default function TrendSparkline({ points: allPoints, width = DEFAULT_WIDT
       {coords.map((c, i) => {
         const isLast = i === coords.length - 1
         return (
-          <circle key={i} cx={c.x} cy={c.y} r={isLast ? 3.5 : 2} className={isLast ? 'fill-accent' : 'fill-gray-300'}>
+          <circle key={i} cx={c.x} cy={c.y} r={isLast ? 3.5 : 2} className={isLast ? 'fill-accent' : 'fill-label-3'}>
             <title>{`${c.point.period}: ${c.point.grade}`}</title>
           </circle>
         )

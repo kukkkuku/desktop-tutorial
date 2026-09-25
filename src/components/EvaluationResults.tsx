@@ -41,9 +41,9 @@ const STATUS_ORDER: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
 // 등급을 색상 있는 글자로만 표시(배지 아님) -- 참고 디자인의 순위/과제 등급 표기.
 function gradeTextColor(grade: EvaluationGrade): string {
   if (grade === 'S') return 'text-accent'
-  if (grade === 'A') return 'text-emerald-600'
-  if (grade === 'B') return 'text-gray-500'
-  return 'text-red-500'
+  if (grade === 'A') return 'text-success'
+  if (grade === 'B') return 'text-label-2'
+  return 'text-danger'
 }
 
 // 업무량 등급을 과부하 인사이트 계산용 대략적인 수치로 환산.
@@ -219,10 +219,10 @@ export default function EvaluationResults() {
       {/* 헤더 */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-black">평가결과</h2>
-          <p className="mt-1 text-sm text-gray-600">기준설정 가중치가 실시간으로 반영됩니다.</p>
+          <h2 className="text-[17px] font-semibold text-label">평가결과</h2>
+          <p className="mt-1 text-[13px] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
           {tasks.some((t) => t.performanceGrade === null) && (
-            <p className="mt-1 text-sm font-medium text-orange-600">
+            <p className="mt-1 text-[13px] font-medium text-warning">
               성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 평가과제에서 매겨 주세요.
             </p>
           )}
@@ -267,16 +267,16 @@ export default function EvaluationResults() {
       </div>
 
       {noData ? (
-        <p className="rounded-md bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+        <p className="rounded-control bg-black/[0.03] px-4 py-8 text-center text-[13px] text-label-2">
           활성화된 팀원이 없습니다. 과제관리·팀원관리에서 팀원과 과제를 등록하고 평가를 입력하세요.
         </p>
       ) : (
         <>
           {/* 팀원 결과 테이블 — 이 화면의 중심. */}
-          <div className="overflow-x-auto rounded-md border border-gray-200">
-            <table className="w-full min-w-[860px] text-sm">
+          <div className="overflow-x-auto rounded-control border border-separator">
+            <table className="w-full min-w-[860px] text-[13px]">
               <thead>
-                <tr className="border-b border-gray-200 bg-[#F9FAFB]">
+                <tr className="border-b border-separator bg-[#F7F7F9]">
                   <th className="w-8 px-3 py-2.5">
                     <input
                       type="checkbox"
@@ -285,21 +285,21 @@ export default function EvaluationResults() {
                       onChange={(e) =>
                         setSelectedIds(e.target.checked ? new Set(results.map((r) => r.member.id)) : new Set())
                       }
-                      className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                      className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                     />
                   </th>
-                  <th className="w-8 px-2 py-2.5 text-center text-xs font-semibold text-gray-400">#</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">팀원</th>
-                  <th className="w-16 px-4 py-2.5 text-left text-xs font-semibold text-gray-500">직급</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">
+                  <th className="w-8 px-2 py-2.5 text-center text-xs font-semibold text-label-3">#</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-label-2">팀원</th>
+                  <th className="w-16 px-4 py-2.5 text-left text-xs font-semibold text-label-2">직급</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-label-2">
                     <span>성과점수</span>
-                    <span className="ml-2 font-normal text-gray-300">평균 {avg.toFixed(1)}점</span>
+                    <span className="ml-2 font-normal text-label-3">평균 {avg.toFixed(1)}점</span>
                   </th>
-                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-gray-500">최종 고과</th>
-                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-gray-500">전년도</th>
-                  <th className="w-14 px-4 py-2.5 text-center text-xs font-semibold text-gray-500">변화</th>
-                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-gray-500">상태</th>
-                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-gray-500">리포트</th>
+                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">최종 고과</th>
+                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">전년도</th>
+                  <th className="w-14 px-4 py-2.5 text-center text-xs font-semibold text-label-2">변화</th>
+                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-label-2">상태</th>
+                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-label-2">리포트</th>
                 </tr>
               </thead>
               <tbody>
@@ -313,7 +313,7 @@ export default function EvaluationResults() {
                     <tr
                       key={r.member.id}
                       onClick={() => setHighlightId(isHL ? null : r.member.id)}
-                      className="cursor-pointer border-b border-gray-200 transition-colors last:border-0 hover:bg-gray-50"
+                      className="cursor-pointer border-b border-separator transition-colors last:border-0 hover:bg-black/[0.03]"
                       style={isHL ? { outline: '1px solid #2563EB', outlineOffset: '-1px' } : undefined}
                     >
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
@@ -321,11 +321,11 @@ export default function EvaluationResults() {
                           type="checkbox"
                           checked={selectedIds.has(r.member.id)}
                           onChange={() => toggleSelect(r.member.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-accent focus:ring-accent"
+                          className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                         />
                       </td>
                       <td className="px-2 py-3 text-center">
-                        <span className="font-mono text-xs text-gray-400">{i + 1}</span>
+                        <span className="font-mono text-xs text-label-3">{i + 1}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <button
@@ -336,40 +336,40 @@ export default function EvaluationResults() {
                           className="flex items-center gap-2 text-left"
                         >
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                          <span className="font-semibold text-gray-900 hover:text-accent hover:underline">{r.member.name}</span>
-                          <span className="text-xs text-gray-400">
+                          <span className="font-semibold text-label hover:text-accent hover:underline">{r.member.name}</span>
+                          <span className="text-xs text-label-3">
                             {r.member.role || '-'} · {r.participatedTaskCount}건
                           </span>
                         </button>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{r.member.level || '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-[13px] text-label">{r.member.level || '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-gray-200">
+                          <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-black/[0.08]">
                             <div
                               className="h-full rounded transition-all duration-500"
                               style={{ width: `${(r.cumulativeScore / maxScore) * 100}%`, background: pastelForIndex(idx) }}
                             />
-                            <div className="absolute bottom-0 top-0 z-10 w-px bg-gray-400" style={{ left: `${(avg / maxScore) * 100}%` }} />
+                            <div className="absolute bottom-0 top-0 z-10 w-px bg-label-3" style={{ left: `${(avg / maxScore) * 100}%` }} />
                           </div>
-                          <span className="shrink-0 font-mono text-sm font-bold" style={{ color: pastelTextForIndex(idx) }}>
+                          <span className="shrink-0 font-mono text-[13px] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
                             {r.cumulativeScore.toFixed(1)}
                           </span>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <span className={`text-sm font-black ${gradeTextColor(r.grade)}`}>{r.grade}</span>
+                        <span className={`text-[13px] font-black ${gradeTextColor(r.grade)}`}>{r.grade}</span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-400">{prevGrade ?? '-'}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-sm font-bold">
+                      <td className="whitespace-nowrap px-4 py-3 text-center text-[13px] text-label-3">{prevGrade ?? '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center text-[13px] font-semibold">
                         {delta === null ? (
-                          <span className="text-gray-300">-</span>
+                          <span className="text-label-3">-</span>
                         ) : delta > 0 ? (
                           <span className="text-accent">▲</span>
                         ) : delta < 0 ? (
-                          <span className="text-red-500">▼</span>
+                          <span className="text-danger">▼</span>
                         ) : (
-                          <span className="text-gray-400">–</span>
+                          <span className="text-label-3">–</span>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
@@ -401,14 +401,14 @@ export default function EvaluationResults() {
           </div>
 
           {insights.length > 0 && (
-            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-lg border border-gray-200 px-5 py-3.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-card border border-separator px-5 py-3.5">
               {insights.map((ins, idx) => {
-                const lc = ins.priority === 1 ? 'text-red-500' : ins.priority === 2 ? 'text-accent' : 'text-gray-400'
+                const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
                 return (
                   <div key={idx} className="flex items-baseline gap-2">
-                    <span className={`w-12 shrink-0 text-[10px] font-bold ${lc}`}>{ins.label}</span>
-                    <p className="min-w-0 text-xs leading-relaxed text-gray-600">
-                      <span className="mr-1 font-semibold text-gray-800">{ins.title}</span>
+                    <span className={`w-12 shrink-0 text-[10px] font-semibold ${lc}`}>{ins.label}</span>
+                    <p className="min-w-0 text-xs leading-relaxed text-label-2">
+                      <span className="mr-1 font-semibold text-label">{ins.title}</span>
                       {ins.desc}
                     </p>
                   </div>
@@ -421,8 +421,8 @@ export default function EvaluationResults() {
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-sm font-semibold text-gray-800">과제별 성과</h3>
-                <p className="mt-0.5 text-xs text-gray-500">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
+                <h3 className="text-[13px] font-semibold text-label">과제별 성과</h3>
+                <p className="mt-0.5 text-xs text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {results.map(({ member: m }) => {
@@ -448,24 +448,24 @@ export default function EvaluationResults() {
             </div>
 
             {taskScores.length === 0 ? (
-              <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">등록된 과제가 없습니다.</p>
+              <p className="rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">등록된 과제가 없습니다.</p>
             ) : (
-              <div ref={taskTableRef} className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+              <div ref={taskTableRef} className="divide-y divide-separator overflow-hidden rounded-card border border-separator">
                 {/* 컬럼 헤더 */}
-                <div className="flex select-none items-stretch border-b border-gray-200 bg-[#F9FAFB]">
-                  <div style={{ width: `${colWidths[0]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-gray-500">
+                <div className="flex select-none items-stretch border-b border-separator bg-[#F7F7F9]">
+                  <div style={{ width: `${colWidths[0]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
                     과제 / 성과
                   </div>
                   <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(0, e)}>
-                    <div className="h-full w-px bg-gray-200 transition-colors group-hover:bg-accent/40" />
+                    <div className="h-full w-px bg-black/[0.08] transition-colors group-hover:bg-accent/40" />
                   </div>
-                  <div style={{ width: `${colWidths[1]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-gray-500">
+                  <div style={{ width: `${colWidths[1]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
                     목표 · 성과
                   </div>
                   <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(1, e)}>
-                    <div className="h-full w-px bg-gray-200 transition-colors group-hover:bg-accent/40" />
+                    <div className="h-full w-px bg-black/[0.08] transition-colors group-hover:bg-accent/40" />
                   </div>
-                  <div style={{ width: `${colWidths[2]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-gray-500">
+                  <div style={{ width: `${colWidths[2]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
                     기여도
                   </div>
                 </div>
@@ -477,58 +477,58 @@ export default function EvaluationResults() {
                   const hlPct = highlightId ? getContributionPercent(contributions, task.id, highlightId) : 0
                   const hlNote = highlightId ? getContribution(contributions, task.id, highlightId)?.personalGradeNote : undefined
                   return (
-                    <div key={task.id} className="flex items-stretch transition-colors hover:bg-gray-50/70">
+                    <div key={task.id} className="flex items-stretch transition-colors hover:bg-black/[0.03]">
                       {/* 1열: 과제 정보 + 성과등급/점수 */}
                       <div style={{ width: `${colWidths[0]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-sm font-bold leading-snug text-gray-900">{task.name}</p>
+                          <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-snug text-label">{task.name}</p>
                           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
                             {task.importance}
                           </span>
-                          {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-gray-400">{task.workload}</span>}
+                          {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-label-3">{task.workload}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-sm font-black ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-gray-300'}`}>{task.performanceGrade ?? '미입력'}</span>
-                          <span className="text-xs text-gray-300">/</span>
-                          <span className="font-mono text-xs font-bold text-gray-500">{score.toFixed(0)}점</span>
+                          <span className={`text-[13px] font-black ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
+                          <span className="text-xs text-label-3">/</span>
+                          <span className="font-mono text-xs font-semibold text-label-2">{score.toFixed(0)}점</span>
                         </div>
                       </div>
 
                       <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(0, e)}>
-                        <div className="h-full w-px bg-gray-100 transition-colors group-hover:bg-accent/30" />
+                        <div className="h-full w-px bg-black/[0.05] transition-colors group-hover:bg-accent/30" />
                       </div>
 
                       {/* 2열: 목표 & 성과 */}
                       <div style={{ width: `${colWidths[1]}%` }} className="flex min-w-0 flex-col justify-center gap-1 px-4 py-3.5">
-                        <p className="truncate text-xs text-gray-600">
-                          <span className="mr-1 font-semibold text-gray-400">목표 :</span>
+                        <p className="truncate text-xs text-label-2">
+                          <span className="mr-1 font-semibold text-label-3">목표 :</span>
                           {task.objective || '-'}
                         </p>
-                        <p className="truncate text-xs text-gray-700">
-                          <span className="mr-1 font-semibold text-emerald-600">성과 :</span>
+                        <p className="truncate text-xs text-label">
+                          <span className="mr-1 font-semibold text-success">성과 :</span>
                           {task.achievement || '-'}
                         </p>
                       </div>
 
                       <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(1, e)}>
-                        <div className="h-full w-px bg-gray-100 transition-colors group-hover:bg-accent/30" />
+                        <div className="h-full w-px bg-black/[0.05] transition-colors group-hover:bg-accent/30" />
                       </div>
 
                       {/* 3열: 기여도 stacked bar -- 컬럼 헤더에 이미 "기여도"가 있으므로
                           막대 위 라벨은 두지 않는다. 대신 팀원을 선택했을 때만 그 자리에
                           "{팀원} {%}"를 표시한다(높이는 항상 예약해 행이 늘어나지 않게). */}
                       <div style={{ width: `${colWidths[2]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
-                        <p className="flex h-4 items-baseline whitespace-nowrap text-xs font-bold leading-4" style={{ gap: '20px' }}>
+                        <p className="flex h-4 items-baseline whitespace-nowrap text-xs font-semibold leading-4" style={{ gap: '20px' }}>
                           {highlightId !== null &&
                             (hlPct > 0 ? (
                               <>
                                 <span className="shrink-0" style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
                                   {members.find((m) => m.id === highlightId)?.name} {hlPct}%
                                 </span>
-                                {hlNote?.trim() && <span className="min-w-0 truncate font-normal text-black">{hlNote.trim()}</span>}
+                                {hlNote?.trim() && <span className="min-w-0 truncate font-normal text-label">{hlNote.trim()}</span>}
                               </>
                             ) : (
-                              <span className="font-normal text-gray-300">미참여</span>
+                              <span className="font-normal text-label-3">미참여</span>
                             ))}
                         </p>
                         {participants.length > 0 ? (
@@ -555,8 +555,8 @@ export default function EvaluationResults() {
                             })}
                           </div>
                         ) : (
-                          <div className="flex h-5 items-center rounded bg-gray-100 px-2">
-                            <span className="text-xs text-gray-300">미입력</span>
+                          <div className="flex h-5 items-center rounded bg-black/[0.05] px-2">
+                            <span className="text-xs text-label-3">미입력</span>
                           </div>
                         )}
                       </div>

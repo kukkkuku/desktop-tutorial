@@ -4,10 +4,10 @@
 export type BadgeTone = 'neutral' | 'accent' | 'success' | 'danger' | 'navy'
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
-  neutral: 'bg-gray-100 text-gray-600',
-  accent: 'bg-blue-50 text-accent',
-  success: 'bg-emerald-50 text-emerald-600',
-  danger: 'bg-red-50 text-red-600',
+  neutral: 'bg-black/[0.05] text-label-2',
+  accent: 'bg-accent-soft text-accent',
+  success: 'bg-success/10 text-success',
+  danger: 'bg-danger/10 text-danger',
   navy: 'bg-promo/10 text-promo',
 }
 
@@ -20,7 +20,7 @@ interface BadgeProps {
 export default function Badge({ tone = 'neutral', children, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[11px] font-bold leading-none ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[11px] font-semibold leading-none ${TONE_CLASSES[tone]} ${className}`}
     >
       {children}
     </span>

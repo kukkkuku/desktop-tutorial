@@ -33,13 +33,13 @@ type Tab = 'direct' | 'excel' | 'import'
 // 자리에서 뺄 수 있다.
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="flex items-center gap-1 rounded-full bg-gray-100 py-1 pl-2.5 pr-1.5 text-sm text-black">
+    <span className="flex items-center gap-1 rounded-full bg-black/[0.05] py-1 pl-2.5 pr-1.5 text-sm text-label">
       {label}
       <button
         type="button"
         onClick={onRemove}
         aria-label={`${label} 삭제`}
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-gray-200 hover:text-black"
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.08] hover:text-label"
       >
         <XIcon className="h-3 w-3" />
       </button>
@@ -80,10 +80,10 @@ function EntryPanel({
   return (
     <div
       onClick={() => inputRef.current?.focus()}
-      className="flex h-full flex-col gap-2 rounded-lg border-2 border-gray-200 bg-white p-3 transition-colors focus-within:border-accent focus-within:bg-blue-50/20"
+      className="flex h-full flex-col gap-2 rounded-lg border-2 border-separator bg-white p-3 transition-colors focus-within:border-accent focus-within:bg-accent-soft/20"
     >
-      <p className="shrink-0 text-sm font-semibold text-black">
-        {title} {items.length > 0 && <span className="font-normal text-gray-400">{items.length}개</span>}
+      <p className="shrink-0 text-sm font-semibold text-label">
+        {title} {items.length > 0 && <span className="font-normal text-label-3">{items.length}개</span>}
       </p>
       <div className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
         {items.map((name, i) => (
@@ -100,7 +100,7 @@ function EntryPanel({
         onClick={(e) => e.stopPropagation()}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full shrink-0 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-black outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+        className="w-full shrink-0 rounded-md border border-separator px-2.5 py-1.5 text-sm text-label outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
       />
     </div>
   )
@@ -244,19 +244,19 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
       <div className="flex h-[640px] max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 p-6 pb-0">
           <div>
-            <h3 className="text-lg font-bold text-black">빠른 시작</h3>
-            <p className="mt-1 text-sm text-gray-500">과제와 팀원을 빠르게 준비합니다. 닫으면 기존 화면에서 각각 입력할 수 있습니다.</p>
+            <h3 className="text-lg font-bold text-label">빠른 시작</h3>
+            <p className="mt-1 text-sm text-label-2">과제와 팀원을 빠르게 준비합니다. 닫으면 기존 화면에서 각각 입력할 수 있습니다.</p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <XIcon className="h-5 w-5" />
           </IconButton>
         </div>
 
-        <div className="mt-4 flex gap-6 border-b border-gray-200 px-6">
+        <div className="mt-4 flex gap-6 border-b border-separator px-6">
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -266,8 +266,8 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
                 tab === t.key ? 'border-accent' : 'border-transparent'
               }`}
             >
-              <span className={`text-sm font-semibold ${tab === t.key ? 'text-accent' : 'text-black'}`}>{t.label}</span>
-              <span className="text-xs text-gray-400">{t.hint}</span>
+              <span className={`text-sm font-semibold ${tab === t.key ? 'text-accent' : 'text-label'}`}>{t.label}</span>
+              <span className="text-xs text-label-3">{t.hint}</span>
             </button>
           ))}
         </div>

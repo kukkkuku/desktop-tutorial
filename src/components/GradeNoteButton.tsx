@@ -84,11 +84,11 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
         onClick={() => setOpen((v) => !v)}
         title={hasNote ? `근거: ${note}` : editable ? '근거 메모 입력' : '근거 메모 없음'}
         className={`inline-flex shrink-0 items-center gap-1 rounded px-1 py-1 ${
-          hasNote ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-gray-500'
+          hasNote ? 'text-warning hover:text-warning' : 'text-label-3 hover:text-label-2'
         }`}
       >
         {hasNote ? <MemoIcon className="h-4 w-4 shrink-0" /> : <PencilIcon className="h-4 w-4 shrink-0" />}
-        {preview && <span className="text-[11px] font-normal normal-case text-amber-600">{preview}</span>}
+        {preview && <span className="text-[11px] font-normal normal-case text-warning">{preview}</span>}
       </button>
 
       {open &&
@@ -97,9 +97,9 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
           <div
             ref={popoverRef}
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="z-50 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-xl"
+            className="z-50 w-72 rounded-card border border-separator bg-white p-3 shadow-pop"
           >
-            <p className="truncate text-xs font-semibold text-gray-500">{label}</p>
+            <p className="truncate text-xs font-semibold text-label-2">{label}</p>
             {editable ? (
               <>
                 <textarea
@@ -108,22 +108,22 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
                   onChange={(e) => setDraft(e.target.value)}
                   rows={3}
                   placeholder="이 등급을 준 근거를 입력하세요"
-                  className="mt-1.5 w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
                 />
                 <div className="mt-2 flex justify-end gap-1.5">
                   <button
                     onClick={() => setOpen(false)}
-                    className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-black hover:bg-gray-100"
+                    className="rounded-control border border-separator px-2.5 py-1 text-xs font-medium text-label hover:bg-black/[0.05]"
                   >
                     취소
                   </button>
-                  <button onClick={handleSave} className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-white hover:opacity-90">
+                  <button onClick={handleSave} className="rounded-control bg-accent px-2.5 py-1 text-xs font-medium text-white hover:opacity-90">
                     저장
                   </button>
                 </div>
               </>
             ) : (
-              <p className="mt-1.5 whitespace-pre-wrap break-words text-sm text-black">{note?.trim() || '입력된 근거가 없습니다.'}</p>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] text-label">{note?.trim() || '입력된 근거가 없습니다.'}</p>
             )}
           </div>,
           document.body,

@@ -39,6 +39,8 @@ import {
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
 import SheetsIcon from '../SheetsIcon'
+import { ChevronRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
+import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -394,22 +396,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={toggle}
                 title={isOpen ? '접기' : '펼치기'}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-700 hover:bg-gray-200 hover:text-black"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label hover:bg-black/[0.07] hover:text-label"
               >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="16"
-                  height="16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                  aria-hidden
-                >
-                  <path d="M6 3.5 10.5 8 6 12.5" />
-                </svg>
+                <ChevronRight size={16} strokeWidth={2} className={`transition-transform ${isOpen ? 'rotate-90' : ''}`} />
               </button>
               {renamingEval === g ? (
                 <input
@@ -421,12 +410,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                     if (e.key === 'Escape') renameGroup(g, g)
                   }}
-                  className="h-7 min-w-0 flex-1 rounded-md border border-accent px-2 text-sm font-bold outline-none"
+                  className="h-7 min-w-0 flex-1 rounded-control border border-accent px-2 text-sm font-bold outline-none"
                 />
               ) : (
                 <span
                   onDoubleClick={() => !done && setRenamingEval(g)}
-                  className="min-w-0 break-words font-bold text-black"
+                  className="min-w-0 break-words font-bold text-label"
                   title={done ? undefined : '두 번 눌러 이름 바꾸기'}
                 >
                   {g}
@@ -438,7 +427,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </span>
               ) : (
                 <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
-                  <button onClick={() => ungroupRows(free.map((i) => i.id))} title="묶음 풀기(하위 과제를 모두 낱개로)" className="rounded px-1.5 text-gray-500 hover:bg-gray-200 hover:text-black">
+                  <button onClick={() => ungroupRows(free.map((i) => i.id))} title="묶음 풀기(하위 과제를 모두 낱개로)" className="rounded px-1.5 text-label-2 hover:bg-black/[0.07] hover:text-label">
                     <UngroupIcon />
                   </button>
                 </span>
@@ -453,7 +442,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               value={exportGrades[key] ?? ''}
               onChange={(e) => setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))}
               title="하위 과제의 분류가 섞였거나 비어 있어 과제등급을 골라야 내보낼 수 있습니다"
-              className={`h-7 w-full rounded-md border bg-white px-1 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-gray-300'}`}
+              className={`h-7 w-full rounded-control border bg-white px-1 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-hairline'}`}
             >
               <option value="">등급 선택</option>
               {IMPORTANCE_OPTIONS.map((o) => (
@@ -464,7 +453,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </select>
           )
         }
-        if (colId === 'status') return <span className="text-xs text-gray-500">완료 {doneCount}/{all.length}</span>
+        if (colId === 'status') return <span className="text-xs text-label-2">완료 {doneCount}/{all.length}</span>
         if (colId === COL_ASSIGNEES)
           return (
             <div className="flex flex-wrap gap-1 py-1">
@@ -475,8 +464,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               ))}
             </div>
           )
-        if (colId === 'startDate') return <span className="text-gray-500">{starts[0] ?? ''}</span>
-        if (colId === 'doneDate') return <span className="text-gray-500">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
+        if (colId === 'startDate') return <span className="text-label-2">{starts[0] ?? ''}</span>
+        if (colId === 'doneDate') return <span className="text-label-2">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
         return null
       },
     }
@@ -498,7 +487,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       const locked = exportedIds.has(row.id)
       return (
         <div className="group/child flex items-start gap-1 py-1.5 pl-5 leading-snug">
-          <span className="shrink-0 text-gray-400">ㄴ</span>
+          <span className="shrink-0 text-label-3">ㄴ</span>
           <span className="min-w-0 flex-1 whitespace-pre-line break-words">
             {row.name}
             {dot}
@@ -508,7 +497,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => ungroupRows([row.id])}
               title="묶음에서 빼기"
-              className="shrink-0 rounded px-1 text-gray-300 hover:bg-gray-200 hover:text-black group-hover/child:text-gray-500"
+              className="shrink-0 rounded px-1 text-label-3 hover:bg-black/[0.07] hover:text-label group-hover/child:text-label-2"
             >
               <UngroupIcon />
             </button>
@@ -713,8 +702,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   if (board.groups.length === 0) {
     return (
       <div className="mx-auto max-w-2xl py-16 text-center">
-        <h2 className="text-xl font-bold text-black">과제관리</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-500">
+        <h2 className="text-xl font-bold text-label">과제관리</h2>
+        <p className="mt-2 text-sm leading-relaxed text-label-2">
           회사 과제관리 구글시트에서 필요한 L2만 골라 가져오거나, L2를 직접 만들어 시작하세요.
           <br />
           L2는 탭으로, 그 아래 L3 과제는 표로 편집합니다.
@@ -732,7 +721,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   return (
     <div className="space-y-3">
       {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
-      <div className="flex items-end shadow-[inset_0_-1px_0_#D6DAE0]">
+      <div className="flex items-end shadow-[inset_0_-1px_0_#E3E3E8]">
       <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {board.groups.map((g, idx) => {
           const on = g.id === activeGroup?.id
@@ -765,8 +754,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               }}
               className={`group relative flex max-w-[280px] shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-sm transition-colors ${
                 on
-                  ? 'border-[#D6DAE0] border-b-white bg-white font-bold text-black'
-                  : 'border-transparent bg-[#E7EAF0] font-medium text-gray-600 hover:bg-[#DDE1E8]'
+                  ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
+                  : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
               } ${dragTab?.over === idx && dragTab.id !== g.id ? 'shadow-[inset_3px_0_0_#F97316]' : ''} ${
                 rowDropTab === g.id ? '!border-orange-400 !bg-orange-50 ring-2 ring-orange-300' : ''
               }`}
@@ -791,9 +780,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 />
               ) : (
                 <>
-                  {g.tag && <span className="shrink-0 rounded bg-[#14161A] px-1.5 text-[11px] font-bold leading-5 text-white">{g.tag}</span>}
+                  {g.tag && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[11px] font-semibold leading-5 text-white">{g.tag}</span>}
                   <span className="truncate">{g.name}</span>
-                  <span className={`shrink-0 text-xs tabular-nums ${on ? 'text-gray-400' : 'text-gray-400'}`}>{count}</span>
+                  <span className={`shrink-0 text-xs tabular-nums ${on ? 'text-label-3' : 'text-label-3'}`}>{count}</span>
                   {!on && moved?.groupId === g.id && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="옮겨 온 과제가 있습니다" />}
                   <button
                     draggable={false}
@@ -803,13 +792,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                       openDeleteGroup(g)
                     }}
                     title="이 L2 삭제(과제관리에서만, 구글시트는 그대로)"
-                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-200 hover:text-black ${
+                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
                       on ? '' : 'opacity-0 group-hover:opacity-100'
                     }`}
                   >
-                    <svg viewBox="0 0 12 12" width="10" height="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                      <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
-                    </svg>
+                    <X size={12} strokeWidth={2} />
                   </button>
                 </>
               )}
@@ -819,20 +806,20 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <button
           onClick={handleAddGroup}
           title="L2 추가"
-          className="shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-gray-400 hover:bg-[#E7EAF0] hover:text-black"
+          className="shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
         >
-          ＋ L2
+          <span className="flex items-center gap-1"><Plus {...icSm} />L2</span>
         </button>
       </div>
       {board.sheetLink && (
-        <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-gray-600">
+        <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-label-2">
           {board.sheetLink.spreadsheetId ? (
             <a
               href={sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)}
               target="_blank"
               rel="noreferrer"
               title="구글시트에서 열기"
-              className="flex max-w-[200px] items-center gap-1.5 rounded-md px-1 py-0.5 font-medium hover:bg-gray-100 hover:text-black"
+              className="flex max-w-[200px] items-center gap-1.5 rounded-control px-1 py-0.5 font-medium hover:bg-black/[0.05] hover:text-label"
             >
               <SheetsIcon className="h-4 w-3.5 shrink-0" />
               <span className="truncate">{board.sheetLink.tabName}</span>
@@ -843,19 +830,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               <span className="truncate">{board.sheetLink.tabName}</span>
             </span>
           )}
-          <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">{timeAgo(board.sheetLink.lastFetchedAt)}</span>
+          <span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>
           <span className="group/reload relative">
             <button
               onClick={onOpenSheetImport}
               aria-label="다시 가져오기"
-              className="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 hover:text-accent"
+              className="flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-accent"
             >
-              <svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
-                <path d="M13.5 2.5v3h-3" />
-              </svg>
+              <RotateCw {...icSm} />
             </button>
-            <span className="pointer-events-none absolute right-0 top-full z-40 mt-1 whitespace-nowrap rounded-md bg-[#14161A] px-2 py-1 text-[11px] text-white opacity-0 shadow transition-opacity group-hover/reload:opacity-100">
+            <span className="pointer-events-none absolute right-0 top-full z-40 mt-1 whitespace-nowrap rounded-control bg-label/90 px-2 py-1 text-[11px] text-white backdrop-blur opacity-0 shadow transition-opacity group-hover/reload:opacity-100">
               다시 가져오기
             </span>
           </span>
@@ -867,7 +851,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <>
           {/* 정보 줄: 위치(H › L1), 제목 + 시트 연결 */}
           <div className="min-w-0">
-            <p className="truncate text-xs text-gray-500">
+            <p className="truncate text-xs text-label-2">
               {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
               {activeGroup.hierarchyInferred && (
                 <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
@@ -876,7 +860,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               )}
             </p>
             <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h2 className="truncate text-lg font-bold text-black">{activeGroup.name}</h2>
+              <h2 className="truncate text-[17px] font-semibold text-label">{activeGroup.name}</h2>
               {missingCount > 0 && (
                 <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700" title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다.">
                   시트에 없음 {missingCount}
@@ -887,9 +871,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
           {/* 도구 줄 -- 체크한 행이 있으면 선택 동작 줄로 바뀐다 */}
           {checkedFree.length > 0 ? (
-            <div className="flex min-h-[40px] flex-wrap items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-1.5">
-              <span className="text-sm font-semibold text-black">{checkedFree.length}건 선택</span>
-              <span className="text-xs text-gray-500">→ 평가과제 {units.length}개</span>
+            <div className="flex min-h-[40px] flex-wrap items-center gap-2 rounded-card bg-accent-soft px-3 py-1.5">
+              <span className="text-sm font-semibold text-label">{checkedFree.length}건 선택</span>
+              <span className="text-xs text-label-2">→ 평가과제 {units.length}개</span>
               <span className="mx-1 h-4 w-px bg-gray-300" />
               <Button variant="secondary" onClick={() => groupRows(checkedFree.map((i) => i.id))} disabled={checkedFree.length < 2} className="h-8 px-3 text-xs">
                 평가과제로 묶기
@@ -910,7 +894,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   과제등급을 정해야 내보낼 수 있어요 {needGrade.length}개 -- 묶음은 머리 행에서, 낱개 L3는 분류 칸에서 고르세요
                 </span>
               )}
-              <button onClick={() => setChecked(new Set())} className="ml-auto rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-white hover:text-black">
+              <button onClick={() => setChecked(new Set())} className="ml-auto rounded-control px-2 py-1 text-xs text-label-2 hover:bg-white hover:text-label">
                 선택 해제
               </button>
             </div>
@@ -920,34 +904,34 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="이 L2에서 찾기"
-              className="h-8 w-56 rounded-md border border-gray-300 px-2.5 text-sm outline-none focus:border-accent"
+              className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[13px]"
             />
-            {filtered && <span className="text-xs text-gray-500">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
+            {filtered && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
                 onClick={undo}
                 disabled={undoStack.current.length === 0}
                 title="되돌리기 (⌘Z)"
-                className="h-8 rounded-md px-2.5 text-base text-gray-600 hover:bg-gray-100 disabled:text-gray-300 disabled:hover:bg-transparent"
+                className="flex h-8 w-8 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label disabled:text-label-3/60 disabled:hover:bg-transparent"
               >
-                ↶
+                <Undo2 {...ic} />
               </button>
               <button
                 onClick={redo}
                 disabled={redoStack.current.length === 0}
                 title="다시 하기 (⌘⇧Z)"
-                className="h-8 rounded-md px-2.5 text-base text-gray-600 hover:bg-gray-100 disabled:text-gray-300 disabled:hover:bg-transparent"
+                className="flex h-8 w-8 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label disabled:text-label-3/60 disabled:hover:bg-transparent"
               >
-                ↷
+                <Redo2 {...ic} />
               </button>
               <div className="relative">
                 <Button variant="secondary" onClick={() => setColMenuOpen((v) => !v)} className="h-8 px-3 text-xs">
                   열 표시{hiddenCols.length > 0 ? ` · 숨김 ${hiddenCols.length}` : ''}
                 </Button>
                 {colMenuOpen && (
-                  <div className="absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 text-sm shadow-lg">
+                  <div className="mac-pop absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto py-1 text-[13px]">
                     {board.columns.map((c) => (
-                      <label key={c.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-gray-50">
+                      <label key={c.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
                         <input
                           type="checkbox"
                           checked={!c.hidden}
@@ -955,7 +939,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                           onChange={() => apply(updateColumn(board, c.id, { hidden: !c.hidden }))}
                         />
                         <span className="truncate">{c.label}</span>
-                        {!c.system && <span className="ml-auto text-[11px] text-gray-400">추가</span>}
+                        {!c.system && <span className="ml-auto text-[11px] text-label-3">추가</span>}
                       </label>
                     ))}
                   </div>
@@ -996,7 +980,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               viewingMoved && moved!.bg && moved!.ids.has(row.id)
                 ? 'bg-orange-50'
                 : row.missingInSheet
-                  ? 'bg-orange-50/50 text-gray-500'
+                  ? 'bg-orange-50/50 text-label-2'
                   : evalGroupOf(row)
                     ? 'bg-[#FAFBFD]'
                     : ''
@@ -1035,7 +1019,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             addRowLabel="L3 추가"
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-label-3">
             행을 체크하면 표 위에서 평가과제로 묶기·내보내기 · 파란 점 = 이미 내보낸 L3 · 묶음 이름은 머리 행 ✎ (이름을 붙여넣어 묶으려면 "열 표시"에서 평가과제 열을 켜기) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
             머리글 우클릭으로 열 추가·숨기기
           </p>
@@ -1045,7 +1029,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       {tabMenu && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
-          className="fixed z-50 min-w-[180px] rounded-xl border border-gray-200 bg-white py-1.5 text-sm shadow-lg"
+          className="mac-pop fixed z-50 min-w-[190px] py-1"
           style={{ left: tabMenu.x, top: tabMenu.y }}
         >
           {(() => {
@@ -1059,7 +1043,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   onClick()
                   setTabMenu(null)
                 }}
-                className={`block w-full px-3.5 py-1.5 text-left disabled:text-gray-300 ${opts.danger ? 'text-danger hover:bg-red-50' : 'hover:bg-gray-50'}`}
+                className={`mac-menu-item ${opts.danger ? 'mac-menu-item-danger' : ''}`}
               >
                 {label}
               </button>
@@ -1069,7 +1053,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 {item('이름 바꾸기', () => setRenamingGroup(g.id))}
                 {item('왼쪽으로 이동', () => apply(moveGroup(board, g.id, idx - 1)), { disabled: idx === 0 })}
                 {item('오른쪽으로 이동', () => apply(moveGroup(board, g.id, idx + 1)), { disabled: idx === board.groups.length - 1 })}
-                <div className="my-1 h-px bg-gray-100" />
+                <div className="my-1 h-px bg-black/[0.05]" />
                 {item('L2 삭제', () => openDeleteGroup(g), { danger: true })}
               </>
             )
@@ -1078,7 +1062,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#14161A] px-4 py-2 text-sm text-white shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-label/90 px-4 py-2 text-[13px] text-white shadow-pop backdrop-blur-xl">
           {toast.text}
           {toast.undo && (
             <button
@@ -1123,14 +1107,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         onCancel={() => setDeletingGroup(null)}
       >
         {deleteUsage.length > 0 && (
-          <div className="mt-4 rounded-md border border-gray-200 bg-[#F7F8FA] p-3 text-sm">
-            <p className="font-semibold text-black">팀원도 함께 삭제 <span className="font-normal text-gray-500">(선택)</span></p>
+          <div className="mt-4 rounded-card bg-black/[0.03] p-3 text-[13px]">
+            <p className="font-semibold text-label">팀원도 함께 삭제 <span className="font-normal text-label-2">(선택)</span></p>
             {deleteCandidates.length > 0 ? (
               <>
-                <p className="mt-0.5 text-xs text-gray-500">이 L2에만 담당자로 있는 팀원입니다. 체크한 팀원만 팀원 목록에서 지웁니다(되돌리기 불가).</p>
+                <p className="mt-0.5 text-xs text-label-2">이 L2에만 담당자로 있는 팀원입니다. 체크한 팀원만 팀원 목록에서 지웁니다(되돌리기 불가).</p>
                 <div className="mt-2 space-y-1">
                   {deleteCandidates.length > 1 && (
-                    <label className="flex cursor-pointer items-center gap-2 border-b border-gray-200 pb-1 text-xs text-gray-600">
+                    <label className="flex cursor-pointer items-center gap-2 border-b border-separator pb-1 text-xs text-label-2">
                       <input
                         type="checkbox"
                         checked={deleteCandidates.every((m) => removeMemberIds.has(m.id))}
@@ -1155,8 +1139,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                         }
                         className="h-4 w-4 accent-[#DC2626]"
                       />
-                      <span className="text-gray-800">{m.name}</span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-label">{m.name}</span>
+                      <span className="text-xs text-label-3">
                         담당 L3 {board.items.filter((i) => i.groupId === deletingGroup!.id && i.assigneeIds.includes(m.id)).length}건
                       </span>
                     </label>
@@ -1164,14 +1148,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </div>
               </>
             ) : (
-              <p className="mt-0.5 text-xs text-gray-500">이 L2에만 있는 팀원이 없어 팀원 목록은 그대로 둡니다.</p>
+              <p className="mt-0.5 text-xs text-label-2">이 L2에만 있는 팀원이 없어 팀원 목록은 그대로 둡니다.</p>
             )}
             {deleteUsage.some((u) => u.reason) && (
-              <div className="mt-2 space-y-0.5 text-xs text-gray-500">
-                <p className="font-medium text-gray-600">그대로 남는 팀원</p>
+              <div className="mt-2 space-y-0.5 text-xs text-label-2">
+                <p className="font-medium text-label-2">그대로 남는 팀원</p>
                 {Array.from(new Set(deleteUsage.map((u) => u.reason).filter(Boolean))).map((reason) => (
                   <p key={reason}>
-                    <span className="text-gray-400">{reason}:</span>{' '}
+                    <span className="text-label-3">{reason}:</span>{' '}
                     {deleteUsage
                       .filter((u) => u.reason === reason)
                       .map((u) => u.member.name)
@@ -1200,11 +1184,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 // 뱃지는 모두 같은 모양(CHIP_BASE)이고 색만 다르다. 선택 팝업의 칩도 같은 색을 쓴다.
 const TONES: Record<string, Record<string, string>> = {
   [COL_CATEGORY]: { 과제: 'bg-violet-100 text-violet-800', 일반: 'bg-slate-100 text-slate-700', 일상: 'bg-stone-100 text-stone-600' },
-  status: { 대기: 'bg-gray-100 text-gray-600', 진행중: 'bg-blue-100 text-blue-800', 완료: 'bg-emerald-100 text-emerald-800', 중단: 'bg-red-100 text-red-700' },
+  status: { 대기: 'bg-black/[0.05] text-label-2', 진행중: 'bg-accent-soft text-accent', 완료: 'bg-emerald-100 text-emerald-800', 중단: 'bg-red-100 text-red-700' },
 }
 const PERSON_TONE = 'bg-sky-50 text-sky-800'
-const UNKNOWN_TONE = 'border border-dashed border-gray-400 bg-white text-gray-600'
-const DEFAULT_TONE = 'bg-gray-100 text-gray-700'
+const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'
+const DEFAULT_TONE = 'bg-black/[0.05] text-label'
 
 // 평가과제 묶음 색: 이름으로 고정(같은 묶음은 어디서나 같은 색).
 const GROUP_TONES = [
@@ -1232,12 +1216,7 @@ function toneFor(colId: string) {
 }
 
 function UngroupIcon() {
-  return (
-    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M6 3H3v10h3" />
-      <path d="M9 8h5M11.5 5.5 14 8l-2.5 2.5" />
-    </svg>
-  )
+  return <Ungroup {...icSm} />
 }
 
 function Chip({ tone, title, children }: { tone: string; title?: string; children: React.ReactNode }) {
@@ -1291,7 +1270,7 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; n
       <div className="flex items-center gap-1 truncate">
         <span className="truncate text-accent">{v}</span>
         {href && (
-          <a href={href} target="_blank" rel="noreferrer" onMouseDown={(e) => e.stopPropagation()} className="shrink-0 text-gray-400 hover:text-accent" title="새 탭에서 열기">
+          <a href={href} target="_blank" rel="noreferrer" onMouseDown={(e) => e.stopPropagation()} className="shrink-0 text-label-3 hover:text-accent" title="새 탭에서 열기">
             ↗
           </a>
         )}

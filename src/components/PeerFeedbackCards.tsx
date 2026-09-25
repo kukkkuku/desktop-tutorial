@@ -57,7 +57,7 @@ function standingLine(row: PeerFeedbackRow): string {
 
 function GradeChip({ grade, className = '' }: { grade: string; className?: string }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${GRADE_COLORS[grade as 'S']} ${className}`}>
+    <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[grade as 'S']} ${className}`}>
       {grade}
     </span>
   )
@@ -79,8 +79,8 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <h4 className="text-sm font-bold text-black">동료가 본 팀원</h4>
-        <span className="text-xs text-gray-400">동료 평가가 높은 순</span>
+        <h4 className="text-[13px] font-semibold text-label">동료가 본 팀원</h4>
+        <span className="text-xs text-label-3">동료 평가가 높은 순</span>
       </div>
 
       <div className="mt-3 space-y-2">
@@ -98,12 +98,12 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
             taskSummaries.find((t) => t.summary.gradeLine?.includes('갈립니다')) ??
             null
           return (
-            <div key={row.member.id} className="rounded-xl border border-gray-200 bg-white p-4">
+            <div key={row.member.id} className="rounded-card border border-separator bg-white p-4">
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-[15px] font-bold text-black">{row.member.name}</span>
-                {row.member.level && <span className="text-xs text-gray-400">{row.member.level}</span>}
+                <span className="text-[15px] font-semibold text-label">{row.member.name}</span>
+                {row.member.level && <span className="text-xs text-label-3">{row.member.level}</span>}
                 {row.reviewCount > 0 && (
-                  <span className="ml-auto text-xs text-gray-400">
+                  <span className="ml-auto text-xs text-label-3">
                     동료 {row.reviewerCount}명 · 과제 {row.taskCount}개
                   </span>
                 )}
@@ -111,18 +111,18 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
 
               {/* 칩과 뱃지를 늘어놓으면 결국 읽는 사람이 해석해야 한다. 동료들이
                   이 사람을 어떻게 봤는지를 문장으로 먼저 말한다. */}
-              <p className="mt-2 text-sm text-black">{standingLine(row)}</p>
+              <p className="mt-2 text-[13px] text-label">{standingLine(row)}</p>
 
               {/* 과제마다 평이 갈리면 그게 이 사람에 대해 가장 많은 것을
                   말해준다 -- "이 사람은 A다"보다 "이 일엔 강하고 저 일엔
                   아쉬웠다"가 면담에서 쓸 수 있는 말이다. */}
               {notable && (
                 <div className="mt-2">
-                  <p className="text-[13px] text-gray-700">
-                    <span className="font-medium text-black">{notable.task.name}</span> — {notable.summary.gradeLine}
+                  <p className="text-[13px] text-label">
+                    <span className="font-medium text-label">{notable.task.name}</span> — {notable.summary.gradeLine}
                   </p>
                   {notable.summary.outlierComment && (
-                    <p className="mt-0.5 text-[13px] text-gray-500">
+                    <p className="mt-0.5 text-[13px] text-label-2">
                       {notable.summary.outlierComment.reviewerName}의 근거 &mdash; "
                       {notable.summary.outlierComment.comment}"
                     </p>
@@ -133,21 +133,21 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
               {/* 동료들이 실제로 쓴 말. 규칙으로 만든 문장보다 이게 면담에서
                   바로 쓰인다. */}
               {row.comments.length > 0 && (
-                <p className="mt-2 text-[13px] text-gray-600">
+                <p className="mt-2 text-[13px] text-label-2">
                   동료들이 남긴 말 &mdash;{' '}
                   {row.comments.slice(0, 2).map((c, i) => (
                     <span key={i}>
-                      {i > 0 && ' / '}"{c.comment}" <span className="text-gray-400">({c.reviewerName})</span>
+                      {i > 0 && ' / '}"{c.comment}" <span className="text-label-3">({c.reviewerName})</span>
                     </span>
                   ))}
-                  {row.comments.length > 2 && <span className="text-gray-400"> 외 {row.comments.length - 2}건</span>}
+                  {row.comments.length > 2 && <span className="text-label-3"> 외 {row.comments.length - 2}건</span>}
                 </p>
               )}
 
               {row.peerContributionPercent !== null && (
-                <p className="mt-1.5 text-[13px] text-gray-600">
+                <p className="mt-1.5 text-[13px] text-label-2">
                   동료들이 본 이 사람의 몫은 평균{' '}
-                  <span className="font-medium text-black">{row.peerContributionPercent.toFixed(0)}%</span>입니다.
+                  <span className="font-medium text-label">{row.peerContributionPercent.toFixed(0)}%</span>입니다.
                 </p>
               )}
 
@@ -165,9 +165,9 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
       </div>
 
       {noReviews.length > 0 && (
-        <p className="mt-2 rounded-md bg-gray-50 px-3 py-2 text-[13px] text-gray-500">
+        <p className="mt-2 rounded-control bg-black/[0.03] px-3 py-2 text-[13px] text-label-2">
           아직 리뷰를 받지 못한 팀원 {noReviews.length}명 ·{' '}
-          <span className="font-medium text-gray-700">{noReviews.map((r) => r.member.name).join(', ')}</span>
+          <span className="font-medium text-label">{noReviews.map((r) => r.member.name).join(', ')}</span>
         </p>
       )}
 
@@ -199,17 +199,17 @@ function EvidenceDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-separator px-6 py-4">
           <div>
-            <h3 className="text-lg font-bold text-black">{row.member.name} · 동료 리뷰 원문</h3>
-            <p className="mt-0.5 text-[13px] text-gray-500">
+            <h3 className="text-[17px] font-semibold text-label">{row.member.name} · 동료 리뷰 원문</h3>
+            <p className="mt-0.5 text-[13px] text-label-2">
               {STANDING_TEXT[row.standing]} · 동료 {row.reviewerCount}명 · 리뷰 {row.reviewCount}건
             </p>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="shrink-0 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-black">
+          <button onClick={onClose} aria-label="닫기" className="shrink-0 rounded p-1 text-label-3 hover:bg-black/[0.05] hover:text-label">
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
@@ -219,10 +219,10 @@ function EvidenceDialog({
             const reviews = peerReviews.filter((r) => r.taskId === t.task.id)
             const summary = summarizeTaskReviews(reviews)
             return (
-              <div key={t.task.id} className="mb-4 rounded-lg border border-gray-200">
-                <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2.5">
-                  <span className="text-sm font-semibold text-black">{t.task.name}</span>
-                  <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
+              <div key={t.task.id} className="mb-4 rounded-card border border-separator">
+                <div className="flex flex-wrap items-center gap-2 border-b border-separator bg-black/[0.03] px-4 py-2.5">
+                  <span className="text-[13px] font-semibold text-label">{t.task.name}</span>
+                  <span className="ml-auto flex items-center gap-1 text-xs text-label-2">
                     {t.grades.map((g, i) => (
                       <GradeChip key={i} grade={g} />
                     ))}
@@ -235,36 +235,36 @@ function EvidenceDialog({
                 {/* 표를 읽지 않아도 되도록, 이 과제에서 볼 것을 먼저 문장으로
                     말한다. 해당하는 상황이 없으면 문장을 만들지 않는다. */}
                 {(summary.gradeLine || summary.contributionLine) && (
-                  <div className="space-y-1 border-b border-gray-100 px-4 py-3">
-                    {summary.gradeLine && <p className="text-[13px] text-black">{summary.gradeLine}</p>}
+                  <div className="space-y-1 border-b border-separator px-4 py-3">
+                    {summary.gradeLine && <p className="text-[13px] text-label">{summary.gradeLine}</p>}
                     {summary.outlierComment && (
-                      <p className="text-[13px] text-gray-600">
+                      <p className="text-[13px] text-label-2">
                         {summary.outlierComment.reviewerName}의 근거 &mdash; "{summary.outlierComment.comment}"
                       </p>
                     )}
                     {summary.contributionLine && (
-                      <p className="text-[13px] text-gray-600">{summary.contributionLine}</p>
+                      <p className="text-[13px] text-label-2">{summary.contributionLine}</p>
                     )}
                   </div>
                 )}
 
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-separator">
                   {reviews.map((r) => (
-                    <li key={r.id} className="px-4 py-2.5 text-sm">
+                    <li key={r.id} className="px-4 py-2.5 text-[13px]">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium text-black">{r.reviewerName || '(작성자 미상)'}</span>
+                        <span className="font-medium text-label">{r.reviewerName || '(작성자 미상)'}</span>
                         {typeof r.contributionPercent === 'number' && (
-                          <span className="text-xs text-gray-400">기여도 {r.contributionPercent}%</span>
+                          <span className="text-xs text-label-3">기여도 {r.contributionPercent}%</span>
                         )}
-                        <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>
+                        <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.grade]}`}>
                           {r.grade}
                         </span>
-                        <span className="text-xs text-gray-300">{PERFORMANCE_SCORE[r.grade]}점</span>
-                        <button onClick={() => onDeleteReview(r)} className="text-xs text-gray-400 hover:text-danger">
+                        <span className="text-xs text-label-3">{PERFORMANCE_SCORE[r.grade]}점</span>
+                        <button onClick={() => onDeleteReview(r)} className="text-xs text-label-3 hover:text-danger">
                           삭제
                         </button>
                       </div>
-                      {r.comment && <p className="mt-1 text-[13px] text-gray-600">"{r.comment}"</p>}
+                      {r.comment && <p className="mt-1 text-[13px] text-label-2">"{r.comment}"</p>}
                     </li>
                   ))}
                 </ul>
@@ -273,18 +273,18 @@ function EvidenceDialog({
           })}
 
           {orphans.length > 0 && (
-            <div className="rounded-lg border border-gray-200">
-              <p className="border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-black">
+            <div className="rounded-card border border-separator">
+              <p className="border-b border-separator bg-black/[0.03] px-4 py-2.5 text-[13px] font-semibold text-label">
                 과제 미상 (예전 데이터)
               </p>
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-separator">
                 {orphans.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
-                    <span className="font-medium text-black">{r.reviewerName || '(작성자 미상)'}</span>
-                    <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[r.grade]}`}>
+                  <li key={r.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-[13px]">
+                    <span className="font-medium text-label">{r.reviewerName || '(작성자 미상)'}</span>
+                    <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.grade]}`}>
                       {r.grade}
                     </span>
-                    <button onClick={() => onDeleteReview(r)} className="text-xs text-gray-400 hover:text-danger">
+                    <button onClick={() => onDeleteReview(r)} className="text-xs text-label-3 hover:text-danger">
                       삭제
                     </button>
                   </li>
@@ -294,7 +294,7 @@ function EvidenceDialog({
           )}
         </div>
 
-        <div className="flex justify-end border-t border-gray-200 px-6 py-3">
+        <div className="flex justify-end border-t border-separator px-6 py-3">
           <Button variant="secondary" onClick={onClose}>
             닫기
           </Button>

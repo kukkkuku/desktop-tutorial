@@ -38,7 +38,7 @@ interface NotesStageProps {
 // 통합 상세(요약·최근 성과·성장 시뮬레이션·면담하기) + 우측 면담 일정.
 // 팀원 전환은 세로 목록이 아니라 상단에 나란히 붙은 탭으로 처리해서, 지금
 // 보고 있는 팀원이 브라우저 탭처럼 본문 위에 얹혀 있는 느낌을 준다. 우측
-// 면담 일정은 옅은 회색 배경(bg-gray-50)에 담아 흰색 중앙 콘텐츠와
+// 면담 일정은 옅은 회색 배경(bg-[#F7F7F9])에 담아 흰색 중앙 콘텐츠와
 // 구분하고, 컬럼 사이 여백 없이 구분선(border)만으로 붙여서 <main>의
 // 좌우/상하 여백을 상쇄한 채(-mx/-my) 화면 끝까지 채운다. 중앙 컬럼
 // 자체에는 패딩을 주지 않는다 -- 프로필 요약 바(MemberGrowthDetail
@@ -74,7 +74,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   // 3rem(48px)씩 짧아진다.
   return (
     <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] flex-col sm:-mx-6 lg:-mx-8">
-      <div className="shrink-0 border-b border-gray-200 bg-gray-100">
+      <div className="shrink-0 border-b border-separator bg-black/[0.05]">
         <MemberGrowthRail
           selectedMemberId={selectedMemberId}
           onSelectMember={setSelectedMemberId}
@@ -92,9 +92,9 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
             />
           ) : activeMembers.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-              <MembersIcon className="h-10 w-10 text-gray-300" />
-              <p className="text-sm font-semibold text-black">아직 등록된 팀원이 없습니다</p>
-              <p className="text-[13px] text-gray-500">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
+              <MembersIcon className="h-10 w-10 text-label-3" />
+              <p className="text-sm font-semibold text-label">아직 등록된 팀원이 없습니다</p>
+              <p className="text-[13px] text-label-2">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
               <button
                 onClick={onManageTeam}
                 className="mt-1 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
@@ -103,13 +103,13 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
               </button>
             </div>
           ) : (
-            <p className="rounded-lg border border-gray-200 px-4 py-10 text-center text-sm text-gray-500 m-6">
+            <p className="rounded-lg border border-separator px-4 py-10 text-center text-sm text-label-2 m-6">
               위에서 팀원을 선택하세요.
             </p>
           )}
         </div>
 
-        <div className="shrink-0 border-l border-gray-200 bg-gray-50 p-4">
+        <div className="shrink-0 border-l border-separator bg-[#F7F7F9] p-4">
           <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
         </div>
       </div>

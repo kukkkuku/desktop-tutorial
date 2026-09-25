@@ -119,7 +119,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-black">과제 관리</h3>
+        <h3 className="text-[17px] font-semibold text-label">과제 관리</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
             disabled={state.tasks.length === 0}
@@ -133,15 +133,15 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           )}
         </div>
       </div>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-[13px] text-label-2">
         과제관리에서 내보낸 평가과제입니다. 등급과 이름은 여기서 고치고, 새 과제는 과제관리에서 묶어 내보내세요. 삭제하면 그 과제의 평가 데이터도 함께 지워집니다.
       </p>
 
 
       {state.tasks.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-gray-300 px-6 py-12 text-center">
-          <p className="text-sm font-medium text-gray-800">아직 평가과제가 없습니다</p>
-          <p className="mt-1 text-xs text-gray-500">과제관리에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
+        <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
+          <p className="text-[13px] font-medium text-label">아직 평가과제가 없습니다</p>
+          <p className="mt-1 text-xs text-label-2">과제관리에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
           {onGoToWork && (
             <Button variant="primary" onClick={onGoToWork} className="mt-4">
               과제관리로 이동
@@ -149,7 +149,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           )}
         </div>
       ) : (
-      <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-4 overflow-x-auto rounded-card border border-separator">
         {/* 팀원관리 표와 같은 규칙 -- 컨테이너를 꽉 채우되(width 100%), 너무
             좁아지면 가로 스크롤로 넘긴다(minWidth). 예전에는 폭을 컬럼 너비의
             합(cols.totalWidth = 980px)으로 고정해서, 넓은 화면에서는 표가 화면
@@ -158,10 +158,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             등급·업무량 같은 짧은 칸이 줄어드는 것보다 낫기 때문이다(팀원관리도
             같은 이유로 역할 컬럼을 뺀다). */}
         <table
-          className="table-fixed text-left text-sm"
+          className="table-fixed text-left text-[13px]"
           style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.achievement }}
         >
-          <thead className="bg-[#F3F4F6] text-black">
+          <thead className="bg-[#F7F7F9] text-label">
             <tr>
               {(
                 [
@@ -193,14 +193,14 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
 
               if (isEditing) {
                 return (
-                  <tr key={task.id} className="border-t border-gray-200 bg-blue-50/40 text-black">
+                  <tr key={task.id} className="border-t border-separator bg-accent-soft/40 text-label">
                     <td className="px-4 py-2 align-top">
                       <input
                         type="text"
                         value={editForm.name}
                         onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                        className={`w-full rounded-md border px-2 py-1.5 text-sm text-black ${
-                          editFormError ? 'border-danger' : 'border-gray-300'
+                        className={`w-full rounded-control border px-2 py-1.5 text-[13px] text-label ${
+                          editFormError ? 'border-danger' : 'border-separator'
                         }`}
                       />
                       {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
@@ -210,7 +210,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         value={editForm.importance}
                         onChange={(e) => setEditForm((f) => ({ ...f, importance: e.target.value as Importance }))}
                         disabled={!isImportanceUsed}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
                       >
                         {(IMPORTANCE_OPTIONS.includes(editForm.importance) ? IMPORTANCE_OPTIONS : [...IMPORTANCE_OPTIONS, editForm.importance]).map((opt) => (
                           <option key={opt} value={opt}>
@@ -227,7 +227,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                           setEditForm((f) => ({ ...f, performanceGrade: e.target.value ? (e.target.value as PerformanceGrade) : null }))
                         }
                         disabled={!isPerformanceGradeUsed}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
                       >
                         <option value="">미입력</option>
                         {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
@@ -243,7 +243,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         value={editForm.workload}
                         onChange={(e) => setEditForm((f) => ({ ...f, workload: e.target.value as Workload }))}
                         disabled={!isWorkloadUsed}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
                       >
                         {WORKLOAD_OPTIONS.map((opt) => (
                           <option key={opt} value={opt}>
@@ -258,7 +258,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         type="text"
                         value={editForm.objective}
                         onChange={(e) => setEditForm((f) => ({ ...f, objective: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
                       />
                     </td>
                     <td className="px-4 py-2 align-top">
@@ -266,7 +266,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         type="text"
                         value={editForm.achievement}
                         onChange={(e) => setEditForm((f) => ({ ...f, achievement: e.target.value }))}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
                       />
                     </td>
                     <td className="px-4 py-2 align-top">
@@ -289,12 +289,12 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
               }
 
               return (
-              <tr key={task.id} className="border-t border-gray-200 text-black">
+              <tr key={task.id} className="border-t border-separator text-label">
                 <td className="px-4 py-3 font-medium">
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
                     {!task.workItemIds?.length && (
-                      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500" title="과제관리에서 내보내지 않고 직접 만든 과제입니다">
+                      <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-label-2" title="과제관리에서 내보내지 않고 직접 만든 과제입니다">
                         과제관리 연결 없음
                       </span>
                     )}
@@ -303,10 +303,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         N
                       </span>
                     )}
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">
                       {(scoreByTaskId.get(task.id) ?? 0).toFixed(1)}점
                     </span>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                    <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] font-medium text-label-2">
                       {participantCountByTaskId.get(task.id) ?? 0}명
                     </span>
                     {(task.workItemIds?.length ?? 0) > 0 && (
@@ -325,7 +325,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : 'bg-gray-100 text-gray-400'
+                      isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : 'bg-black/[0.05] text-label-3'
                     }`}
                   >
                     {task.importance}
@@ -333,8 +333,8 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                 </td>
                 <td className="px-4 py-3">
                   <span
-                    className={`rounded-full px-2 py-1 text-xs font-bold ${
-                      isPerformanceGradeUsed && task.performanceGrade ? GRADE_COLORS[task.performanceGrade] : 'bg-gray-100 text-gray-400'
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                      isPerformanceGradeUsed && task.performanceGrade ? GRADE_COLORS[task.performanceGrade] : 'bg-black/[0.05] text-label-3'
                     }`}
                     title={task.performanceGrade ? undefined : '아직 안 매김 -- 점수에 들어가지 않습니다'}
                   >
@@ -345,15 +345,15 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      isWorkloadUsed ? WORKLOAD_COLORS[task.workload] : 'bg-gray-100 text-gray-400'
+                      isWorkloadUsed ? WORKLOAD_COLORS[task.workload] : 'bg-black/[0.05] text-label-3'
                     }`}
                   >
                     {task.workload}
                   </span>
                 </td>
                 )}
-                <td className="px-4 py-3 text-gray-600">{task.objective || '-'}</td>
-                <td className="px-4 py-3 text-gray-600">{task.achievement || '-'}</td>
+                <td className="px-4 py-3 text-label-2">{task.objective || '-'}</td>
+                <td className="px-4 py-3 text-label-2">{task.achievement || '-'}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <IconButton onClick={() => startEdit(task)} title="수정" aria-label="수정">
@@ -362,7 +362,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
                       </svg>
                     </IconButton>
-                    <span className="h-4 w-px bg-gray-200" />
+                    <span className="h-4 w-px bg-black/[0.08]" />
                     <IconButton onClick={() => setDeletingTask(task)} title="삭제" aria-label="삭제" tone="danger">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                         <path d="M3 6h18" />

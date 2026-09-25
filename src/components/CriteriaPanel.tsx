@@ -204,8 +204,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
       <button
         onClick={() => toggleActive(item.key)}
         title={`${item.label} — ${active ? `${value}%` : '미사용'} (클릭해서 전환)`}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${
-          active ? 'border-blue-200 bg-blue-50 text-accent hover:border-blue-300' : 'border-gray-200 bg-gray-50 text-gray-400 hover:border-gray-300'
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-control border transition-colors ${
+          active ? 'border-accent/40 bg-accent-soft text-accent hover:border-accent/40' : 'border-separator bg-black/[0.03] text-label-3 hover:border-separator'
         }`}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -232,17 +232,17 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
     const value = criteria[itemKey]
     const checked = value > 0
     return (
-      <div className="rounded-md border border-gray-200 p-3">
+      <div className="rounded-control border border-separator p-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-black">
+          <p className="text-[13px] font-semibold text-label">
             {label}
-            {checked && <span className="ml-2 font-mono text-[13px] font-bold text-accent">{value}%</span>}
+            {checked && <span className="ml-2 font-mono text-[13px] font-semibold text-accent">{value}%</span>}
           </p>
           <button
             onClick={() => set(itemKey, checked ? 0 : 100)}
             title="클릭해서 사용 여부 전환"
             className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-              checked ? 'bg-accent text-white hover:opacity-90' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              checked ? 'bg-accent text-white hover:opacity-90' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
             }`}
           >
             {checked ? '사용' : '미사용'}
@@ -260,7 +260,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
             className="criteria-slider mt-2.5 w-full"
           />
         )}
-        <p className="mt-2 text-[13px] font-medium leading-relaxed text-gray-600">{desc}</p>
+        <p className="mt-2 text-[13px] font-medium leading-relaxed text-label-2">{desc}</p>
       </div>
     )
   }
@@ -317,7 +317,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
 
   return (
     <div
-      className={`sticky relative shrink-0 self-start overflow-y-auto border-r border-gray-200 bg-white ${
+      className={`sticky relative shrink-0 self-start overflow-y-auto border-r border-separator bg-white ${
         dragWidth === null ? 'transition-[width] duration-200' : ''
       }`}
       style={{ width: dragWidth ?? PANEL_WIDTH[size], top: headerHeight, height: `calc(100vh - ${headerHeight}px)` }}
@@ -332,17 +332,17 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         aria-label="패널 너비 조절"
         className="group absolute inset-y-0 z-10 flex w-3 cursor-col-resize items-center justify-center"
       >
-        <span className="h-10 w-1 shrink-0 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+        <span className="h-10 w-1 shrink-0 rounded-full bg-black/15 transition-colors group-hover:bg-accent group-active:bg-accent" />
       </div>
 
       {size === 'icon' && (
         <div className="flex h-full flex-col items-center gap-1.5 px-2 py-3">
           <ExpandIconButton />
-          <span className="my-0.5 h-px w-full bg-gray-100" />
+          <span className="my-0.5 h-px w-full bg-black/[0.05]" />
           {ICON_GROUP_1.filter((item) => item.key !== 'workloadWeight' || criteria.workloadWeight > 0).map((item) => (
             <CriteriaIconButton key={item.key} item={item} />
           ))}
-          <span className="my-0.5 h-px w-full bg-gray-100" />
+          <span className="my-0.5 h-px w-full bg-black/[0.05]" />
           {ICON_GROUP_2.map((item) => (
             <CriteriaIconButton key={item.key} item={item} />
           ))}
@@ -351,17 +351,17 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
 
       {size === 'full' && (
         <div className="flex h-full flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-3">
+          <div className="flex shrink-0 items-center gap-2 border-b border-separator px-3 py-3">
             <CollapseButton />
-            <span className="text-sm font-semibold text-black">기준 설정</span>
+            <span className="text-[13px] font-semibold text-label">기준 설정</span>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            <p className="text-[13px] leading-relaxed text-gray-400">
+            <p className="text-[13px] leading-relaxed text-label-3">
               켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.
             </p>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-gray-400">과제 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-label-3">과제 평가 기준</p>
               <div className="space-y-2">
                 {TASK_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
@@ -370,7 +370,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
             </div>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-gray-400">팀원 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-label-3">팀원 평가 기준</p>
               <div className="space-y-2">
                 {MEMBER_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />

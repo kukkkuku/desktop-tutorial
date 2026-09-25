@@ -3,6 +3,7 @@ import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
 import PeerReviewHub from './PeerReviewHub'
 import { useAppState } from '../state/AppContext'
+import Segmented from './ui/Segmented'
 
 type TeamSubTab = 'members' | 'rank' | 'peer'
 
@@ -38,19 +39,7 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
   return (
     <div>
-      <div className="flex items-center border-b border-gray-200">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setSub(tab.key)}
-            className={`border-b-2 px-5 py-2.5 text-sm font-medium transition-colors ${
-              sub === tab.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Segmented items={tabs} value={sub} onChange={setSub} />
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}

@@ -89,7 +89,7 @@ function AvatarRow({ names }: { names: string[] }) {
     return () => resizeObserver.disconnect()
   }, [itemCount])
 
-  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-600 ${
+  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-xs font-semibold text-label-2 ${
     overlapped ? 'border-2 border-white' : ''
   }`
   const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
@@ -103,7 +103,7 @@ function AvatarRow({ names }: { names: string[] }) {
       ))}
       {overflow > 0 && (
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500 ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-xs font-semibold text-label-2 ${
             overlapped ? 'border-2 border-white' : ''
           }`}
           style={overlapStyle(visible.length)}
@@ -134,7 +134,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
       className={`flex cursor-pointer flex-col gap-3 rounded-2xl border bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)] ${
-        isCurrent ? 'border-accent ring-1 ring-accent/30' : 'border-gray-100'
+        isCurrent ? 'border-accent ring-1 ring-accent/30' : 'border-separator'
       }`}
     >
       {isCurrent && (
@@ -144,7 +144,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
         </span>
       )}
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-lg font-bold text-black">
+        <p className="min-w-0 truncate text-lg font-bold text-label">
           {workspace.evaluationYear} {workspace.periodName}
         </p>
         <div className="flex shrink-0 items-center gap-1">
@@ -172,8 +172,8 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-600">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-        <span className="shrink-0 text-[11px] text-gray-300">팀원 {counts.memberCount}명</span>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
+        <span className="shrink-0 text-[11px] text-label-3">팀원 {counts.memberCount}명</span>
       </div>
       <AvatarRow names={counts.memberNames} />
     </div>
@@ -254,22 +254,22 @@ export default function WorkspaceLanding() {
 
   return (
     <div className="min-h-screen bg-white">
-      <header className="border-b border-gray-100 bg-white px-6 py-5 sm:px-10">
+      <header className="border-b border-separator bg-white px-6 py-5 sm:px-10">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-          <p className="whitespace-nowrap text-[22px] font-extrabold text-black">성과·성장관리</p>
+          <p className="whitespace-nowrap text-[22px] font-extrabold text-label">성과·성장관리</p>
           {accountEmail && (
             <div className="flex shrink-0 items-center gap-3">
               <GoogleAccountMenu
-                className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black"
+                className="flex items-center gap-1.5 text-sm text-label hover:text-label"
                 onAccountChange={handleAccountChange}
               >
                 {accountEmail}
                 {isAdminUser && (
-                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">관리자</span>
+                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">관리자</span>
                 )}
-                <ChevronDownIcon className="h-3.5 w-3.5 text-gray-400" />
+                <ChevronDownIcon className="h-3.5 w-3.5 text-label-3" />
               </GoogleAccountMenu>
-              <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-black">
+              <button onClick={handleLogout} className="text-sm text-label-3 hover:text-label">
                 로그아웃
               </button>
             </div>
@@ -277,10 +277,10 @@ export default function WorkspaceLanding() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
-        <p className="text-sm text-gray-500">진행할 팀과 평가기간을 선택하세요.</p>
+        <p className="text-sm text-label-2">진행할 팀과 평가기간을 선택하세요.</p>
 
         {existingTeamNames.length > 0 ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-8">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-8">
             <div className="flex flex-wrap items-center gap-3">
               {existingTeamNames.map((name) => {
                 const teamWs = workspaces.filter((w) => w.teamName === name)
@@ -292,7 +292,7 @@ export default function WorkspaceLanding() {
                     key={name}
                     onClick={() => setTeamName(name)}
                     className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 py-2.5 text-sm transition-colors ${
-                      active ? 'border-accent text-accent' : 'border-gray-300 text-gray-500 hover:border-gray-400'
+                      active ? 'border-accent text-accent' : 'border-separator text-label-2 hover:border-black/25'
                     }`}
                   >
                     <span className="font-bold">{name}</span>
@@ -315,8 +315,8 @@ export default function WorkspaceLanding() {
             </Button>
           </div>
         ) : (
-          <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-gray-200 px-6 py-16 text-center">
-            <p className="text-sm text-gray-500">첫 팀을 만들어 성과관리를 시작하세요.</p>
+          <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-separator px-6 py-16 text-center">
+            <p className="text-sm text-label-2">첫 팀을 만들어 성과관리를 시작하세요.</p>
             <Button
               variant="primary"
               onClick={() => {
@@ -334,8 +334,8 @@ export default function WorkspaceLanding() {
           <div className="mt-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex items-end gap-3">
-                <h2 className="text-xl font-bold text-black">{teamName}</h2>
-                <span className="text-sm text-gray-500">평가 프로젝트 {teamWorkspaces.length}개</span>
+                <h2 className="text-xl font-bold text-label">{teamName}</h2>
+                <span className="text-sm text-label-2">평가 프로젝트 {teamWorkspaces.length}개</span>
               </div>
               <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)} className="flex items-center gap-1.5">
                 <PlusIcon className="h-3.5 w-3.5" /> 새 평가 만들기
@@ -343,8 +343,8 @@ export default function WorkspaceLanding() {
             </div>
 
             {teamWorkspaces.length === 0 ? (
-              <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-gray-200 px-6 py-16 text-center">
-                <p className="text-sm text-gray-500">첫 평가를 만들어 시작하세요.</p>
+              <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-separator px-6 py-16 text-center">
+                <p className="text-sm text-label-2">첫 평가를 만들어 시작하세요.</p>
               </div>
             ) : (
               <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -366,13 +366,13 @@ export default function WorkspaceLanding() {
 
       {teamNameModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
           onClick={() => setTeamNameModalOpen(false)}
         >
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-black">새 팀 만들기</h3>
+            <h3 className="text-lg font-bold text-label">새 팀 만들기</h3>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-black">팀명</label>
+              <label className="block text-sm font-medium text-label">팀명</label>
               <input
                 type="text"
                 autoFocus
@@ -382,13 +382,13 @@ export default function WorkspaceLanding() {
                   if (e.key === 'Enter') confirmTeamName()
                 }}
                 placeholder="예: UX팀"
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-black"
+                className="mt-1 w-full rounded-md border border-separator px-3 py-2.5 text-sm text-label"
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setTeamNameModalOpen(false)}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                className="rounded-md border border-separator px-4 py-2 text-sm font-medium text-label hover:bg-black/[0.05]"
               >
                 취소
               </button>
@@ -406,12 +406,12 @@ export default function WorkspaceLanding() {
 
       {periodModalTeam && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
           onClick={() => setPeriodModalTeam(null)}
         >
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-black">새 평가 프로젝트</h3>
+              <h3 className="text-lg font-bold text-label">새 평가 프로젝트</h3>
               <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
                 <XIcon className="h-4 w-4" />
               </IconButton>
@@ -431,34 +431,34 @@ export default function WorkspaceLanding() {
       )}
 
       {renamingWorkspace && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
           <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-black">평가 정보 수정</h3>
+            <h3 className="text-lg font-bold text-label">평가 정보 수정</h3>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-black">팀 이름</label>
+                <label className="block text-sm font-medium text-label">팀 이름</label>
                 <input
                   type="text"
                   value={renameTeamName}
                   onChange={(e) => setRenameTeamName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                  className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-black">평가 기간 표시명</label>
+                <label className="block text-sm font-medium text-label">평가 기간 표시명</label>
                 <input
                   type="text"
                   value={renamePeriodName}
                   onChange={(e) => setRenamePeriodName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                  className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
                 />
-                <p className="mt-1 text-xs text-gray-400">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
+                <p className="mt-1 text-xs text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
               <button
                 onClick={() => setRenamingWorkspace(null)}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                className="rounded-md border border-separator px-4 py-2 text-sm font-medium text-label hover:bg-black/[0.05]"
               >
                 취소
               </button>

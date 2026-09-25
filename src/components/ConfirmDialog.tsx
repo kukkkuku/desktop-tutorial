@@ -27,12 +27,12 @@ export default function ConfirmDialog({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-lg bg-white p-6 shadow-xl`}>
-        <h3 className="text-lg font-bold text-black">{title}</h3>
-        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">{message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]">
+      <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-[12px] bg-white/95 p-5 shadow-dialog backdrop-blur-xl`}>
+        <h3 className="text-[15px] font-semibold text-label">{title}</h3>
+        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-label-2">{message}</p>
         {children}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>
             취소
           </Button>

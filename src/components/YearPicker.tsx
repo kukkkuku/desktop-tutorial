@@ -1,24 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import IconButton from './IconButton'
-
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4" />
-      <path d="M8 2v4" />
-      <path d="M3 10h18" />
-    </svg>
-  )
-}
-
-function ChevronIcon({ className, direction }: { className?: string; direction: 'left' | 'right' }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polyline points={direction === 'left' ? '15 18 9 12 15 6' : '9 18 15 12 9 6'} />
-    </svg>
-  )
-}
+import { icSm } from './ui/icon'
 
 const YEAR_GRID_SIZE = 10
 
@@ -58,23 +41,26 @@ export default function YearPicker({
   return (
     <div className={`relative inline-block shrink-0 ${className ?? ''}`} ref={ref}>
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-black hover:bg-gray-50"
+        className={`flex h-8 items-center gap-1.5 rounded-control bg-white px-2.5 text-[13px] text-label shadow-control hover:bg-[#FAFAFA] ${
+          open ? 'shadow-focus' : ''
+        }`}
       >
-        <CalendarIcon className="h-4 w-4 text-gray-400" />
-        {year}
+        <Calendar {...icSm} className="shrink-0 text-label-2" />
+        <span className="tabular-nums">{year}</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-md border border-gray-200 bg-white p-2 shadow-md">
+        <div className="mac-pop absolute left-0 top-full z-30 mt-1.5 w-64 p-2">
           <div className="flex items-center justify-between px-1 pb-1.5">
             <IconButton onClick={() => setRangeStart((s) => s - YEAR_GRID_SIZE)} aria-label="이전 연대" title="이전 연대">
-              <ChevronIcon direction="left" className="h-4 w-4" />
+              <ChevronLeft {...icSm} />
             </IconButton>
-            <span className="text-xs font-semibold text-gray-400">
+            <span className="text-[13px] font-semibold text-label-2 tabular-nums">
               {rangeStart} – {rangeStart + YEAR_GRID_SIZE - 1}
             </span>
             <IconButton onClick={() => setRangeStart((s) => s + YEAR_GRID_SIZE)} aria-label="다음 연대" title="다음 연대">
-              <ChevronIcon direction="right" className="h-4 w-4" />
+              <ChevronRight {...icSm} />
             </IconButton>
           </div>
           <div className="grid grid-cols-5 gap-1">
@@ -85,8 +71,9 @@ export default function YearPicker({
                   onChange(y)
                   setOpen(false)
                 }}
-                className={`relative rounded-md py-1.5 text-sm ${
-                  y === year ? 'bg-accent font-bold text-white' : y === thisYear ? 'font-semibold text-accent hover:bg-blue-50' : 'text-black hover:bg-gray-50'
+                type="button"
+                className={`relative rounded-control py-1.5 text-[13px] tabular-nums ${
+                  y === year ? 'bg-accent font-semibold text-white' : y === thisYear ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'
                 }`}
               >
                 {y}

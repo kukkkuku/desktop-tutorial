@@ -22,7 +22,7 @@ const APPRAISAL_COLUMNS = {
 }
 
 const GRADE_BADGE: Record<EvaluationGrade, string> = {
-  S: 'text-blue-600 bg-blue-50',
+  S: 'text-accent bg-accent-soft',
   A: 'text-green-600 bg-green-50',
   B: 'text-yellow-600 bg-yellow-50',
   C: 'text-orange-600 bg-orange-50',
@@ -63,11 +63,11 @@ function GradeScoreCell({
   gradeScores: Record<EvaluationGrade, number>
   multiplier?: number
 }) {
-  if (!grade) return <span className="text-gray-300">-</span>
+  if (!grade) return <span className="text-label-3">-</span>
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
-      <span className="font-mono text-xs text-gray-500">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
+      <span className="font-mono text-xs text-label-2">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
     </span>
   )
 }
@@ -90,7 +90,7 @@ function InlineGradeSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
-        className="w-16 rounded-md border border-gray-300 px-1.5 py-1 text-sm text-black"
+        className="w-16 rounded-md border border-separator px-1.5 py-1 text-sm text-label"
       >
         <option value="">-</option>
         {PERFORMANCE_GRADE_OPTIONS.map((g) => (
@@ -99,7 +99,7 @@ function InlineGradeSelect({
           </option>
         ))}
       </select>
-      <span className="font-mono text-xs text-gray-500">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
+      <span className="font-mono text-xs text-label-2">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
     </div>
   )
 }
@@ -184,19 +184,19 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   return (
     <div>
-      <p className="text-[13px] text-gray-500">
+      <p className="text-[13px] text-label-2">
         <input
           type="number"
           value={reviewYear}
           onChange={(e) => changeReviewYear(Number(e.target.value))}
-          className="mx-0.5 w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-[13px] text-black"
+          className="mx-0.5 w-14 rounded border border-separator px-1 py-0.5 text-center text-[13px] text-label"
         />
         년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 데이터를 보여줍니다.
       </p>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-gray-200">
+      <div className="mt-3 overflow-x-auto rounded-lg border border-separator">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth }}>
-          <thead className="bg-[#F3F4F6] text-black">
+          <thead className="bg-[#F3F4F6] text-label">
             <tr>
               {(
                 [
@@ -229,7 +229,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
               if (isEditing) {
                 return (
-                  <tr key={`edit-${year}`} className="border-t border-gray-200 bg-blue-50/40 text-black">
+                  <tr key={`edit-${year}`} className="border-t border-separator bg-accent-soft/40 text-label">
                     <td className="px-3 py-2 font-medium">{year}</td>
                     <td className="px-3 py-2">
                       <InlineGradeSelect
@@ -275,8 +275,8 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
               if (!r) {
                 return (
-                  <tr key={`empty-${year}`} className="border-t border-gray-200 text-gray-300">
-                    <td className="px-3 py-2 font-medium text-gray-400">{year}</td>
+                  <tr key={`empty-${year}`} className="border-t border-separator text-label-3">
+                    <td className="px-3 py-2 font-medium text-label-3">{year}</td>
                     <td className="px-3 py-2">-</td>
                     <td className="px-3 py-2">-</td>
                     <td className="px-3 py-2">-</td>
@@ -293,7 +293,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
               }
 
               return (
-                <tr key={r.id} className="border-t border-gray-200 text-black">
+                <tr key={r.id} className="border-t border-separator text-label">
                   <td className="px-3 py-2 font-medium">{r.year}</td>
                   <td className="px-3 py-2">
                     <GradeScoreCell grade={r.firstHalfGrade} gradeScores={profile.gradeScores} />
@@ -313,7 +313,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
                         </svg>
                       </IconButton>
-                      <span className="h-4 w-px bg-gray-200" />
+                      <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton onClick={() => setDeleting(r)} title="삭제" aria-label="삭제" tone="danger">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                           <path d="M3 6h18" />
@@ -330,7 +330,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t border-gray-200 bg-gray-50 text-black">
+            <tr className="border-t border-separator bg-[#F7F7F9] text-label">
               <td className="px-3 py-2 font-semibold" colSpan={4}>
                 최근 5개년 총합
               </td>
@@ -341,33 +341,33 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
         </table>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-        <p className="shrink-0 text-[11px] font-semibold text-gray-500">보조지표</p>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-separator bg-[#F7F7F9] px-3 py-2.5">
+        <p className="shrink-0 text-[11px] font-semibold text-label-2">보조지표</p>
         {AUX_KEYS.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-1.5 text-[11px] text-gray-400">
+          <label key={key} className="flex items-center gap-1.5 text-[11px] text-label-3">
             {label}
             <input
               type="number"
               value={member.auxScores?.[key] ?? ''}
               onChange={(e) => setAux(key, e.target.value)}
               placeholder="0"
-              className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+              className="w-16 rounded-md border border-separator px-2 py-1 text-sm text-label"
             />
           </label>
         ))}
-        <span className="ml-auto shrink-0 text-[11px] text-gray-400">합계 {auxSum}점</span>
+        <span className="ml-auto shrink-0 text-[11px] text-label-3">합계 {auxSum}점</span>
       </div>
 
       {extraYears.length > 0 && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-gray-400 hover:text-accent">
+        <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-label-3 hover:text-accent">
           {showAll ? '− 이전 기록 접기' : `이전 기록 ${extraYears.length}개 더보기 →`}
         </button>
       )}
 
       {records.length > 0 && (
-        <div className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-black">
-          <span className="text-gray-500">업적</span> {achievementTrend} &nbsp;&nbsp;
-          <span className="text-gray-500">역량</span> {competencyTrend}
+        <div className="mt-2 rounded-md border border-separator bg-[#F7F7F9] px-3 py-2 text-[13px] text-label">
+          <span className="text-label-2">업적</span> {achievementTrend} &nbsp;&nbsp;
+          <span className="text-label-2">역량</span> {competencyTrend}
         </div>
       )}
 

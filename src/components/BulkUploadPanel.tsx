@@ -279,8 +279,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-black">전체 일괄 업로드</p>
-        <p className="mt-0.5 text-xs text-gray-500">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
+        <p className="text-sm font-semibold text-label">전체 일괄 업로드</p>
+        <p className="mt-0.5 text-xs text-label-2">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
       </div>
 
       {/* wide일 때만 좌우 2단(5:7, 왼쪽도 문구가 안 잘릴 만큼 넉넉히).
@@ -291,12 +291,12 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
       <div className={wide ? 'grid gap-4 md:grid-cols-12' : 'space-y-4'}>
         <div className={wide ? 'md:col-span-5 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-black">양식 다운로드</p>
+            <p className="text-sm font-semibold text-label">양식 다운로드</p>
             <div className="flex shrink-0 gap-1.5">
               <button
                 onClick={handleDownloadSelected}
                 disabled={isBusy || selectedKinds.size === 0}
-                className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-md border border-separator px-2 py-1 text-xs font-medium text-label hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 선택 다운로드{selectedKinds.size > 0 && ` (${selectedKinds.size})`}
               </button>
@@ -323,15 +323,15 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
                       }
                     }}
                     className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition-colors ${
-                      checked ? 'border-accent bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
+                      checked ? 'border-accent bg-accent-soft' : 'border-separator bg-white hover:border-separator'
                     }`}
                   >
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${checked ? 'bg-accent text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${checked ? 'bg-accent text-white' : 'bg-black/[0.05] text-label-3'}`}>
                       <DocumentIcon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-black">{t.name}</p>
-                      <p className="text-xs leading-snug text-gray-500">{t.description}</p>
+                      <p className="text-sm font-semibold text-label">{t.name}</p>
+                      <p className="text-xs leading-snug text-label-2">{t.description}</p>
                     </div>
                     <button
                       onClick={(e) => {
@@ -339,13 +339,13 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
                         handleDownloadOne(t.kind)
                       }}
                       disabled={isBusy}
-                      className="shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-black hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="shrink-0 rounded-md border border-separator bg-white px-2.5 py-1.5 text-xs font-medium text-label hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       다운로드
                     </button>
                     <span
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                        checked ? 'border-accent bg-accent text-white' : 'border-gray-300 bg-white text-transparent'
+                        checked ? 'border-accent bg-accent text-white' : 'border-separator bg-white text-transparent'
                       }`}
                     >
                       <CheckIcon className="h-3.5 w-3.5" />
@@ -359,9 +359,9 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
 
         <div className={wide ? 'md:col-span-7 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-black">작성한 양식 업로드</p>
+            <p className="text-sm font-semibold text-label">작성한 양식 업로드</p>
             {isBusy && (
-              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5 text-xs text-label-2">
                 <Spinner className="h-3.5 w-3.5 text-accent" />
                 {loadingLabel}
               </span>
@@ -377,15 +377,15 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
             onDrop={onDrop}
             onClick={() => !isBusy && bulkInputRef.current?.click()}
             className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
-              isDragOver ? 'border-accent bg-blue-50' : 'border-gray-300 bg-white hover:bg-gray-50'
+              isDragOver ? 'border-accent bg-accent-soft' : 'border-separator bg-white hover:bg-black/[0.03]'
             } ${isBusy ? 'pointer-events-none opacity-60' : ''}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-label-3">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <path d="M14 2v6h6" />
             </svg>
-            <p className="text-sm text-gray-600">작성한 양식 파일을 여기에 드래그</p>
-            <p className="text-xs text-gray-400">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
+            <p className="text-sm text-label-2">작성한 양식 파일을 여기에 드래그</p>
+            <p className="text-xs text-label-3">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
           </div>
           <input ref={bulkInputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onBulkInputChange} />
         </div>
@@ -396,10 +396,10 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
           중간에 끼어 보였다. 종류가 많아야 4개(과제/팀원/피어리뷰/인사평가)뿐이라
           칩으로 늘어놔도 스크롤 없이 한 줄 안에 다 들어온다. */}
       {bulkSummary && (
-        <div className="rounded-md border border-gray-200 bg-white p-3">
+        <div className="rounded-md border border-separator bg-white p-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {bulkSummary.kinds.length === 0 ? (
-              <span className="text-sm text-gray-400">변경된 건이 없습니다.</span>
+              <span className="text-sm text-label-3">변경된 건이 없습니다.</span>
             ) : (
               bulkSummary.kinds.map((k) => (
                 <span
@@ -428,7 +428,7 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
               )}
               <button
                 onClick={() => setBulkSummary(null)}
-                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-black hover:bg-gray-100"
+                className="rounded-md border border-separator bg-white px-2 py-1 text-xs font-medium text-label hover:bg-black/[0.05]"
               >
                 닫기
               </button>

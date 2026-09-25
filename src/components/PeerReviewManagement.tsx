@@ -147,7 +147,7 @@ export default function PeerReviewManagement() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold text-black">피어리뷰 관리</h3>
+        <h3 className="text-[17px] font-semibold text-label">피어리뷰 관리</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
             onExcelDownload={() => downloadCurrentPeerReviewsExcel(peerReviews, members, tasks)}
@@ -162,15 +162,15 @@ export default function PeerReviewManagement() {
       <div className="mt-1">
         <button
           onClick={() => setHowToOpen((v) => !v)}
-          className="text-xs font-medium text-gray-400 hover:text-accent"
+          className="text-[13px] font-medium text-label-2 hover:text-accent"
         >
           {howToOpen ? '사용법 접기' : '이 화면 사용법'}
         </button>
         {howToOpen && (
-          <p className="mt-1.5 text-sm text-gray-600">
-            팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-black">'빈양식 다운로드'</span>로 과제·팀원별
+          <p className="mt-1.5 text-[13px] text-label-2">
+            팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-label">'빈양식 다운로드'</span>로 과제·팀원별
             빈 칸이 다 채워진 엑셀을 받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워
-            돌려받으면 <span className="font-medium text-black">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
+            돌려받으면 <span className="font-medium text-label">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
             기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
           </p>
         )}
@@ -192,23 +192,23 @@ export default function PeerReviewManagement() {
       </div>
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
-        <p className="mt-4 rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">
+        <p className="mt-4 rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">
           과제와 활성 팀원이 있어야 피어리뷰 양식을 만들 수 있습니다.
         </p>
       ) : (
-        <div className="mt-4 max-w-2xl rounded-lg border border-gray-200 p-4">
-          <p className="text-sm font-semibold text-black">받아온 내용 확인·조정</p>
-          <p className="mt-0.5 text-xs text-gray-500">
+        <div className="mac-card mt-4 max-w-2xl p-4">
+          <p className="text-[13px] font-semibold text-label">받아온 내용 확인·조정</p>
+          <p className="mt-0.5 text-[13px] text-label-2">
             팀원에게 받은 엑셀을 업로드한 뒤, 또는 직접 몇 건만 빠르게 넣거나 고칠 때 여기서 과제·리뷰어를 골라 확인·수정합니다.
           </p>
 
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-black">과제</label>
+              <label className="block text-[13px] font-medium text-label">과제</label>
               <select
                 value={selectedTaskId}
                 onChange={(e) => setSelectedTaskId(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="h-8 mt-1 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
               >
                 {tasks.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -218,11 +218,11 @@ export default function PeerReviewManagement() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-black">리뷰어 (본인)</label>
+              <label className="block text-[13px] font-medium text-label">리뷰어 (본인)</label>
               <select
                 value={reviewerId}
                 onChange={(e) => setReviewerId(e.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+                className="h-8 mt-1 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
               >
                 {activeMembers.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -233,16 +233,16 @@ export default function PeerReviewManagement() {
             </div>
           </div>
 
-          <p className="mt-3 text-xs text-gray-500">
+          <p className="mt-3 text-xs text-label-2">
             '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)에게 매긴 기여도·등급·근거입니다. 같이 일하지 않은 사람은 기여도를 비워두면 됩니다.
           </p>
 
-          <div className="mt-3 divide-y divide-gray-100 overflow-hidden rounded-md border border-gray-200">
+          <div className="mt-3 divide-y divide-separator overflow-hidden rounded-control border border-separator">
             {activeMembers.map((m) => (
               <div key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                <span className="w-24 shrink-0 truncate text-sm font-medium text-black">
+                <span className="w-24 shrink-0 truncate text-[13px] font-medium text-label">
                   {m.name}
-                  {m.id === reviewerId && <span className="ml-1 text-xs font-normal text-gray-400">(본인)</span>}
+                  {m.id === reviewerId && <span className="ml-1 text-xs font-normal text-label-3">(본인)</span>}
                 </span>
                 <input
                   type="number"
@@ -251,12 +251,12 @@ export default function PeerReviewManagement() {
                   value={drafts[m.id]?.contributionPercent ?? ''}
                   onChange={(e) => updateDraft(m.id, { contributionPercent: e.target.value })}
                   placeholder="기여도 %"
-                  className="w-24 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="w-24 shrink-0 h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
                 />
                 <select
                   value={drafts[m.id]?.grade ?? 'B'}
                   onChange={(e) => updateDraft(m.id, { grade: e.target.value as PerformanceGrade })}
-                  className="w-20 shrink-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="w-20 shrink-0 h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
                 >
                   {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
                     <option key={opt} value={opt}>
@@ -269,7 +269,7 @@ export default function PeerReviewManagement() {
                   value={drafts[m.id]?.comment ?? ''}
                   onChange={(e) => updateDraft(m.id, { comment: e.target.value })}
                   placeholder="근거(선택)"
-                  className="min-w-[10rem] flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-black"
+                  className="min-w-[10rem] flex-1 h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
                 />
               </div>
             ))}

@@ -60,7 +60,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   return (
     <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2">
       {activeMembers.length === 0 ? (
-        <p className="px-2 py-2.5 text-[13px] text-gray-400">등록된 팀원이 없습니다.</p>
+        <p className="px-2 py-2.5 text-[13px] text-label-3">등록된 팀원이 없습니다.</p>
       ) : (
         activeMembers.map((member) => {
           const isSelected = selectedMemberId === member.id
@@ -71,13 +71,13 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
               key={member.id}
               onClick={() => onSelectMember(member.id)}
               className={`flex min-w-[88px] flex-[1_1_200px] items-center gap-1.5 overflow-hidden rounded-t-lg px-3 py-2.5 text-left transition-colors ${
-                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-gray-100 hover:bg-gray-200/70'
+                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-black/[0.05] hover:bg-black/[0.08]/70'
               }`}
             >
-              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-gray-200 text-gray-400'}`}>
+              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
                 {grade ?? '-'}
               </span>
-              <span className={`min-w-0 truncate text-[13px] font-semibold ${isSelected ? 'text-black' : 'text-gray-500'}`}>{member.name}</span>
+              <span className={`min-w-0 truncate text-[13px] font-semibold ${isSelected ? 'text-label' : 'text-label-2'}`}>{member.name}</span>
               {eligible && (
                 <Badge tone="accent" className="shrink-0">
                   승진 가능
@@ -89,7 +89,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
       )}
       <button
         onClick={onManageTeam}
-        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-gray-400 hover:bg-white/60 hover:text-accent"
+        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-label-3 hover:bg-white/60 hover:text-accent"
       >
         팀원 관리
       </button>

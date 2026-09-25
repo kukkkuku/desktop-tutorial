@@ -69,7 +69,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
   return createPortal(
     <div
       style={{ position: 'fixed', top: pos.top, left: pos.left, width: PANEL_WIDTH }}
-      className="z-40 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl"
+      className="z-40 overflow-hidden rounded-card border border-separator bg-white shadow-pop"
     >
       <div
         onPointerDown={onDragStart}
@@ -77,38 +77,38 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
         onPointerUp={onDragEnd}
         onPointerCancel={onDragEnd}
         style={{ touchAction: 'none' }}
-        className="flex cursor-grab items-center gap-1.5 border-b border-gray-100 bg-gray-50 px-2.5 py-2 active:cursor-grabbing"
+        className="flex cursor-grab items-center gap-1.5 border-b border-separator bg-black/[0.03] px-2.5 py-2 active:cursor-grabbing"
       >
-        <DragHandleIcon className="h-3.5 w-3.5 shrink-0 text-gray-300" />
-        <span className="flex-1 text-xs font-semibold text-gray-600">실시간 순위</span>
+        <DragHandleIcon className="h-3.5 w-3.5 shrink-0 text-label-3" />
+        <span className="flex-1 text-xs font-semibold text-label-2">실시간 순위</span>
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onClose}
           title="닫기"
           aria-label="닫기"
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-200 hover:text-black"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.08] hover:text-label"
         >
           <CloseIcon className="h-3.5 w-3.5" />
         </button>
       </div>
 
       {results.length === 0 ? (
-        <p className="px-3 py-4 text-center text-xs text-gray-400">활성 팀원이 없습니다.</p>
+        <p className="px-3 py-4 text-center text-xs text-label-3">활성 팀원이 없습니다.</p>
       ) : (
         <div className="max-h-80 overflow-y-auto">
-          <div className="grid grid-cols-[1fr_40px_44px] gap-1 px-2.5 pt-2 text-[11px] font-semibold text-gray-400">
+          <div className="grid grid-cols-[1fr_40px_44px] gap-1 px-2.5 pt-2 text-[11px] font-semibold text-label-3">
             <span>팀원</span>
             <span className="text-center">순위</span>
             <span className="text-center">등급</span>
           </div>
-          <div className="divide-y divide-gray-50 px-2.5 pb-2">
+          <div className="divide-y divide-separator px-2.5 pb-2">
             {results.map((r, i) => (
               <div key={r.member.id} className="grid grid-cols-[1fr_40px_44px] items-center gap-1 py-1.5">
-                <span className="truncate text-sm font-medium text-black">{r.member.name}</span>
-                <span className="text-center text-sm font-mono text-gray-500">{i + 1}위</span>
+                <span className="truncate text-[13px] font-medium text-label">{r.member.name}</span>
+                <span className="text-center text-[13px] font-mono text-label-2">{i + 1}위</span>
                 <span className="flex justify-center">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
                 </span>
               </div>
             ))}

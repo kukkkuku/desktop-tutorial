@@ -20,7 +20,7 @@ export default function PromotionDatePicker({
       <select
         value={month}
         onChange={(e) => onChange(year, Number(e.target.value))}
-        className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm font-medium text-black hover:bg-gray-50"
+        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
       >
         {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
           <option key={m} value={m}>

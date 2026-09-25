@@ -14,7 +14,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
 
   if (!criteria) {
-    return <p className="text-sm text-gray-400">{member.level || '이 직급'}에 대한 승진 기준이 설정되지 않았습니다.</p>
+    return <p className="text-sm text-label-3">{member.level || '이 직급'}에 대한 승진 기준이 설정되지 않았습니다.</p>
   }
 
   return <HRAppraisalHistoryPanel member={member} />

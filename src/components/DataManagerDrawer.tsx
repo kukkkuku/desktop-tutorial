@@ -179,7 +179,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
         onClick={onClose}
       />
       <div
@@ -187,9 +187,9 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <h2 className="text-base font-bold text-black">데이터 관리</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-black" aria-label="닫기">
+        <div className="flex items-center justify-between border-b border-separator px-5 py-4">
+          <h2 className="text-base font-bold text-label">데이터 관리</h2>
+          <button onClick={onClose} className="text-label-3 hover:text-label" aria-label="닫기">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
               <path d="M18 6 6 18" />
               <path d="M6 6l12 12" />
@@ -197,7 +197,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           </button>
         </div>
 
-        <div className="flex items-stretch justify-between border-b border-gray-200 px-5">
+        <div className="flex items-stretch justify-between border-b border-separator px-5">
           <div className="flex items-center">
             {(
               [
@@ -211,7 +211,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  tab === t.key ? 'border-accent text-accent' : 'border-transparent text-gray-400 hover:text-black'
+                  tab === t.key ? 'border-accent text-accent' : 'border-transparent text-label-3 hover:text-label'
                 }`}
               >
                 {t.Icon && <t.Icon className="h-4 w-4 shrink-0" />}
@@ -222,7 +222,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           <button
             onClick={() => setTab('reset')}
             className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'reset' ? 'border-danger text-danger' : 'border-transparent text-gray-400 hover:text-black'
+              tab === 'reset' ? 'border-danger text-danger' : 'border-transparent text-label-3 hover:text-label'
             }`}
           >
             데이터 초기화
@@ -249,14 +249,14 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           {tab === 'local' && (
             <div className="mx-auto max-w-lg space-y-4">
               {isDirectoryPickerSupported() && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-separator bg-[#F7F7F9] px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-black">저장 위치</p>
-                    <p className="mt-0.5 text-xs text-gray-500">
+                    <p className="text-sm font-semibold text-label">저장 위치</p>
+                    <p className="mt-0.5 text-xs text-label-2">
                       {saveDirName ? (
                         <>
-                          <span className="font-medium text-black">{saveDirName}</span> 폴더 안의{' '}
-                          <span className="font-medium text-black">{LOCAL_SAVE_SUBFOLDER}</span>에 저장됩니다.
+                          <span className="font-medium text-label">{saveDirName}</span> 폴더 안의{' '}
+                          <span className="font-medium text-label">{LOCAL_SAVE_SUBFOLDER}</span>에 저장됩니다.
                         </>
                       ) : (
                         '지정하지 않으면 브라우저 기본 다운로드 폴더에 저장됩니다.'
@@ -281,9 +281,9 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   용도다 -- 새 데이터를 올리는 "전체 일괄 업로드"는 온보딩
                   성격이라 빠른 시작(Excel로 시작 탭)에만 두고 여기서는
                   뺐다. */}
-              <div className="rounded-md border border-gray-200 p-4">
-                <p className="text-sm font-semibold text-black">지금 데이터 백업</p>
-                <p className="mt-0.5 text-xs text-gray-500">
+              <div className="rounded-md border border-separator p-4">
+                <p className="text-sm font-semibold text-label">지금 데이터 백업</p>
+                <p className="mt-0.5 text-xs text-label-2">
                   현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -294,18 +294,18 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                     엑셀로 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-1.5 text-xs text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-gray-500">
+                <p className="mt-2 text-xs leading-relaxed text-label-2">
                   JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님).
                 </p>
               </div>
 
-              <div className="rounded-md bg-gray-50 px-4 py-3 text-xs text-gray-500">
+              <div className="rounded-md bg-[#F7F7F9] px-4 py-3 text-xs text-label-2">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
             </div>
@@ -324,7 +324,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
-                <p className="px-1 py-6 text-center text-sm text-gray-400">평가를 먼저 선택해주세요.</p>
+                <p className="px-1 py-6 text-center text-sm text-label-3">평가를 먼저 선택해주세요.</p>
               )}
             </div>
           )}
@@ -358,14 +358,14 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                     엑셀로 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <span className="flex items-center gap-1.5 text-xs text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs leading-relaxed text-gray-600">
+                <p className="text-xs leading-relaxed text-label-2">
                   JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님). 프로젝트가 여러 개면 프로젝트별로 각각 담깁니다.
                 </p>
               </div>

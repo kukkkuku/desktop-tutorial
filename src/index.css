@@ -9,10 +9,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- 디자인 시스템 (macOS 스타일) ----------
+   토큰은 tailwind.config.js, 규칙은 docs/DESIGN-SYSTEM.md. */
+:root {
+  --accent: #007aff;
+  --label: #1d1d1f;
+  --label-2: #6e6e73;
+  --hairline: rgba(0, 0, 0, 0.14);
+}
+
 html {
   color-scheme: light;
   background-color: #ffffff;
-  color: #000000;
+  color: var(--label);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 기본 폰트 규칙: 프리텐다드, 바디(명시적 사이즈가 없는 텍스트) 기본
@@ -23,8 +34,9 @@ html {
 body {
   color-scheme: light;
   background-color: #ffffff;
-  color: #000000;
+  color: var(--label);
   font-size: 14px;
+  letter-spacing: -0.005em;
 }
 
 /* overflow-x: clip (not hidden) so this only clips visual overflow without
@@ -65,7 +77,7 @@ body {
   height: 18px;
   margin-top: -6px;
   border-radius: 9999px;
-  background: #2563eb;
+  background: var(--accent);
   cursor: pointer;
 }
 .criteria-slider::-moz-range-thumb {
@@ -73,6 +85,91 @@ body {
   height: 18px;
   border: none;
   border-radius: 9999px;
-  background: #2563eb;
+  background: var(--accent);
   cursor: pointer;
+}
+
+
+/* ---------- 입력 컨트롤 기본 모양 ----------
+   :where()로 우선순위를 0으로 둬서, 화면마다 붙인 Tailwind 클래스가 항상 이긴다. */
+@layer base {
+  :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea) {
+    border-radius: 6px;
+    border-color: var(--hairline);
+    background-color: #fff;
+    color: var(--label);
+    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea):focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+  }
+  :where(input, select, textarea)::placeholder {
+    color: #aeaeb2;
+  }
+  /* 드롭다운: macOS 팝업 버튼처럼 오른쪽에 위아래 화살표 */
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%236e6e73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 9px 13px;
+    padding-right: 26px !important;
+  }
+  select:disabled {
+    background-color: #f5f5f7;
+    color: #aeaeb2;
+  }
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: var(--accent);
+  }
+  button:focus-visible,
+  a:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.35);
+  }
+  /* 얇은 스크롤바 */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.22) transparent;
+  }
+}
+
+/* ---------- 공통 조각 ---------- */
+@layer components {
+  /* 팝오버·메뉴·달력·목록 팝업 */
+  .mac-pop {
+    @apply rounded-pop bg-white/95 shadow-pop backdrop-blur-xl;
+  }
+  /* 메뉴 한 줄: 마우스를 올리면 파랗게(macOS 메뉴) */
+  .mac-menu-item {
+    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[5px] px-2.5 py-[5px] text-left text-[13px] text-label hover:bg-accent hover:text-white disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
+  }
+  .mac-menu-item-danger {
+    @apply text-danger hover:bg-danger hover:text-white;
+  }
+  .mac-menu-sep {
+    @apply mx-2.5 my-1 h-px bg-separator;
+  }
+  /* 세그먼트 컨트롤(탭·방식 고르기) */
+  .mac-seg {
+    @apply inline-flex items-center gap-0.5 rounded-lg bg-black/[0.055] p-[3px];
+  }
+  .mac-seg-item {
+    @apply rounded-[6px] px-3 py-[5px] text-[13px] font-medium text-label-2 transition-colors hover:text-label;
+  }
+  .mac-seg-item-on {
+    @apply bg-white text-label shadow-[0_0_0_0.5px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.12)];
+  }
+  /* 카드(구역 묶음) */
+  .mac-card {
+    @apply rounded-card bg-white shadow-card;
+  }
+  /* 작은 라벨·배지 */
+  .mac-badge {
+    @apply inline-flex items-center rounded-full px-2 py-[1px] text-[11px] font-semibold;
+  }
 }

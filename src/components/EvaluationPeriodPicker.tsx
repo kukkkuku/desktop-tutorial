@@ -2,18 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { EvaluationCycle, WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { CYCLE_LABELS, customPeriodCode, findWorkspace, periodOptionsForCycle } from '../utils/period'
+import { ArrowRight, Check, Settings } from 'lucide-react'
 import Button from './Button'
 import IconButton from './IconButton'
 import YearPicker from './YearPicker'
-
-function GearIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
-    </svg>
-  )
-}
+import { ic, icSm } from './ui/icon'
 
 interface EvaluationPeriodPickerProps {
   teamName: string
@@ -100,13 +93,13 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
             value={customLabel}
             onChange={(e) => setCustomLabel(e.target.value)}
             placeholder="예: 특별 평가"
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
+            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
           />
         ) : (
           <select
             value={periodCode}
             onChange={(e) => setPeriodCode(e.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-black"
+            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
           >
             {fixedOptions.map((o) => (
               <option key={o.code} value={o.code}>
@@ -118,19 +111,18 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
 
         <div className="relative shrink-0" ref={settingsRef}>
           <IconButton onClick={() => setSettingsOpen((v) => !v)} title="평가 주기 설정" aria-label="평가 주기 설정">
-            <GearIcon className="h-4 w-4" />
+            <Settings {...ic} />
           </IconButton>
           {settingsOpen && (
-            <div className="absolute right-0 top-full z-10 mt-2 w-44 rounded-md border border-gray-200 bg-white p-2 shadow-md">
-              <p className="px-1.5 py-1 text-xs font-semibold text-gray-400">평가 주기</p>
+            <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-44 py-1">
+              <p className="px-3.5 py-1 text-[13px] font-semibold text-label-3">평가 주기</p>
               {(['half', 'quarter', 'month', 'custom'] as EvaluationCycle[]).map((c) => (
                 <button
                   key={c}
                   onClick={() => handleCycleChange(c)}
-                  className={`block w-full rounded-md px-2.5 py-1.5 text-left text-sm ${
-                    cycle === c ? 'bg-accent font-semibold text-white' : 'text-black hover:bg-gray-50'
-                  }`}
+                  className="mac-menu-item"
                 >
+                  <Check {...icSm} className={cycle === c ? '' : 'invisible'} />
                   {CYCLE_LABELS[c]}
                 </button>
               ))}
@@ -148,7 +140,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
                 setYear(w.evaluationYear)
                 setCustomLabel(w.periodName)
               }}
-              className="rounded-full border border-gray-200 px-2.5 py-1 text-xs text-gray-500 hover:border-accent hover:text-accent"
+              className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[13px] text-label-2 hover:bg-accent-soft hover:text-accent"
             >
               {w.evaluationYear} {w.periodName}
             </button>
@@ -156,52 +148,52 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
         </div>
       )}
 
-      <div className="mt-4 rounded-lg border border-gray-200 p-4">
+      <div className="mt-4 rounded-card border border-separator p-4">
         {matched ? (
           <>
             <div className="flex items-baseline justify-between">
-              <span className="font-semibold text-black">
+              <span className="text-[13px] font-semibold text-label">
                 {year} {effectiveLabel}
               </span>
-              <span className="text-xs text-gray-400">최근 수정 {fmtWorkspaceDate(matched.updatedAt)}</span>
+              <span className="text-[13px] text-label-3">최근 수정 {fmtWorkspaceDate(matched.updatedAt)}</span>
             </div>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-[13px] text-label-2">
               과제 {readWorkspaceCounts(matched.id).taskCount}개 · 팀원 {readWorkspaceCounts(matched.id).memberCount}명
             </p>
             <Button variant="primary" onClick={handleSubmit} className="mt-3 w-full">
-              평가 계속하기 →
+              평가 계속하기 <ArrowRight {...icSm} />
             </Button>
           </>
         ) : (
           <>
-            <p className="text-sm text-gray-500">
+            <p className="text-[13px] text-label-2">
               {year} {effectiveLabel || '평가'}가 없습니다.
             </p>
             {mostRecent && (
-              <div className="mt-3 space-y-1.5 border-t border-gray-100 pt-3">
-                <p className="text-xs font-semibold text-gray-400">'{mostRecent.periodName}'에서 가져오기</p>
-                <label className="flex items-center gap-2 text-xs text-black">
+              <div className="mt-3 space-y-1.5 border-t border-separator pt-3">
+                <p className="text-[13px] font-semibold text-label-3">'{mostRecent.periodName}'에서 가져오기</p>
+                <label className="flex items-center gap-2 text-[13px] text-label">
                   <input
                     type="checkbox"
                     checked={copyMembers}
                     onChange={(e) => setCopyMembers(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                    
                   />
                   팀원 정보 복사
                 </label>
-                <label className="flex items-center gap-2 text-xs text-black">
+                <label className="flex items-center gap-2 text-[13px] text-label">
                   <input
                     type="checkbox"
                     checked={copyTaskNames}
                     onChange={(e) => setCopyTaskNames(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-accent focus:ring-accent"
+                    
                   />
                   과제명 복사 (등급·목표·성과는 새로 입력)
                 </label>
               </div>
             )}
             <Button variant="primary" onClick={handleSubmit} disabled={!canSubmit} className="mt-3 w-full">
-              {year} {effectiveLabel || ''} 평가 만들기 →
+              {year} {effectiveLabel || ''} 평가 만들기 <ArrowRight {...icSm} />
             </Button>
           </>
         )}

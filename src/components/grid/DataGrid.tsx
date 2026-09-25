@@ -14,6 +14,8 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import DatePopup from './DatePopup'
+import { Calendar, ChevronDown, GripVertical, Plus } from 'lucide-react'
+import { icSm } from '../ui/icon'
 import type { ColumnType } from '../../types'
 
 export interface GridColumn {
@@ -1006,7 +1008,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
             else headRowRefs.current.delete(h.key)
           }}
-          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'} ${
+          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#F7F7F9]'} ${
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
@@ -1014,7 +1016,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
             onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
             style={{ boxShadow: edge(true) }}
-            className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
+            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
               inside ? 'font-semibold text-accent' : 'text-gray-500 hover:bg-gray-100'
             }`}
             title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
@@ -1023,7 +1025,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             {h.number}
           </td>
           {check && (
-            <td style={{ boxShadow: edge(false) }} className="border-b border-r border-dotted border-[#C9CDD3] text-center" title={h.check?.title}>
+            <td style={{ boxShadow: edge(false) }} className="border-b border-r border-[#EBEBEF] text-center" title={h.check?.title}>
               {h.check && (
                 <input
                   type="checkbox"
@@ -1033,7 +1035,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     if (el) el.indeterminate = !!h.check?.indeterminate && !h.check.checked
                   }}
                   onChange={(e) => h.check!.onChange(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
                 />
               )}
             </td>
@@ -1047,13 +1049,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <td
                 key={col.id}
                 style={{ boxShadow: [edge(false, c === nC - 1), colEdge].filter(Boolean).join(', ') || undefined }}
-                className={`h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${colIn ? 'bg-blue-50' : ''}`}
+                className={`h-9 overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${colIn ? 'bg-blue-50' : ''}`}
               >
                 {h.cell(col.id)}
               </td>
             )
           })}
-          <td className="border-b border-dotted border-[#C9CDD3]" />
+          <td className="border-b border-[#EBEBEF]" />
         </tr>
       )
     })
@@ -1068,9 +1070,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       {/* 왼쪽 여백(-ml/pl)은 표 밖에 뜨는 행 이동 손잡이(⋮⋮) 자리 */}
       <div className="-ml-7 overflow-x-auto pl-7">
         {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
-        <div ref={wrapRef} className="relative rounded-lg border border-[#D6DAE0] bg-white" style={{ width: '100%', minWidth: tableWidth }}>
+        <div ref={wrapRef} className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" style={{ width: '100%', minWidth: tableWidth }}>
           <table
-            className="table-fixed border-separate border-spacing-0 text-[13.5px] [&_thead_th:first-child]:rounded-tl-[7px] [&_thead_th:last-child]:rounded-tr-[7px]"
+            className="table-fixed border-separate border-spacing-0 text-[13.5px] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
             style={{ width: '100%', minWidth: tableWidth }}
           >
             <colgroup>
@@ -1082,13 +1084,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <col style={{ width: 44 }} />
             </colgroup>
             <thead>
-              <tr className="bg-[#14161A] text-white">
-                <th className="relative h-9 border-r border-white/10 text-center text-xs font-medium text-[#9AA1AC]">
+              <tr className="bg-[#F7F7F9] text-label-2">
+                <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
                   #
-                  <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-white/20" />
+                  <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
                 </th>
                 {check && (
-                  <th className="h-9 border-r border-white/10 text-center">
+                  <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
                     <input
                       type="checkbox"
                       aria-label="보이는 행 모두 선택"
@@ -1098,7 +1100,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       }}
                       disabled={checkable.length === 0}
                       onChange={() => check.onToggle(checkable, !allChecked)}
-                      className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle"
+                      className="h-4 w-4 cursor-pointer accent-accent align-middle"
                     />
                   </th>
                 )}
@@ -1125,8 +1127,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               .join(', ')
                           : undefined,
                       }}
-                      className={`relative h-9 select-none border-r border-white/10 px-2 text-left text-[13px] font-semibold ${
-                        colSelected ? 'bg-[#2C3440]' : ''
+                      className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[13px] font-semibold ${
+                        colSelected ? 'bg-accent-soft text-accent' : ''
                       } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
                       title={col.system ? `${col.label} (시트 열)` : col.label}
                     >
@@ -1150,12 +1152,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       ) : (
                         <span className="flex items-center gap-1 truncate">
                           <span className="truncate">{col.label}</span>
-                          {!col.system && <span className="shrink-0 text-[11px] font-normal text-[#9AA1AC]">추가</span>}
+                          {!col.system && <span className="shrink-0 text-[11px] font-normal text-label-3">추가</span>}
                         </span>
                       )}
                       <span
                         onMouseDown={(e) => onResizeStart(e, col)}
-                        className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-white/20"
+                        className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30"
                       />
                     </th>
                   )
@@ -1164,9 +1166,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   <button
                     onClick={() => props.onInsertColumn(nC)}
                     title="열 추가"
-                    className="h-9 w-full text-lg leading-none text-[#9AA1AC] hover:bg-white/10 hover:text-white"
+                    className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
                   >
-                    ＋
+                    <Plus {...icSm} />
                   </button>
                 </th>
               </tr>
@@ -1191,7 +1193,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
                       onContextMenu={(e) => openMenu(e, 'row', r)}
                       style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
-                      className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
+                      className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
                         rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                       }`}
                       title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
@@ -1206,7 +1208,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       <td
                         onMouseDown={(e) => e.stopPropagation()}
                         style={{ boxShadow: rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined }}
-                        className={`border-b border-r border-dotted border-[#C9CDD3] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
+                        className={`border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
                         title={check.title?.(row)}
                       >
                         <input
@@ -1214,7 +1216,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           checked={check.isChecked(row)}
                           disabled={check.isDisabled?.(row)}
                           onChange={(e) => check.onToggle([row], e.target.checked)}
-                          className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                          className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
                         />
                       </td>
                     )}
@@ -1236,9 +1238,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
                           style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
-                          className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
+                          className={`h-9 cursor-cell overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
                             inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
-                          } ${col.id === 'name' ? 'font-semibold' : ''}`}
+                          } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
                         >
                           <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
                             {custom !== undefined ? (
@@ -1266,10 +1268,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                 className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
                                 title="달력에서 고르기"
                               >
-                                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                                  <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
-                                  <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
-                                </svg>
+                                <Calendar {...icSm} />
                               </span>
                             )}
                             {col.picker && (
@@ -1281,17 +1280,17 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                   if (editing) commitEdit()
                                   openPicker(r, c)
                                 }}
-                                className="ml-auto shrink-0 cursor-pointer rounded px-1 text-[11px] text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                className="ml-auto flex shrink-0 cursor-pointer items-center rounded p-0.5 text-label-3 hover:bg-black/[0.05] hover:text-label-2"
                                 title="목록에서 고르기"
                               >
-                                ▾
+                                <ChevronDown {...icSm} />
                               </span>
                             )}
                           </div>
                         </td>
                       )
                     })}
-                    <td className="border-b border-dotted border-[#C9CDD3]" />
+                    <td className="border-b border-[#EBEBEF]" />
                   </tr>
                   </Fragment>
                 )
@@ -1332,7 +1331,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               spellCheck={false}
               className={`absolute z-10 resize-none px-2 py-[7px] text-[13.5px] leading-snug outline-none ${
                 editing
-                  ? 'bg-white text-black shadow-[0_0_0_2px_#2563EB,0_8px_24px_rgba(17,19,24,.12)]'
+                  ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
                   : 'pointer-events-none bg-transparent text-transparent caret-transparent'
               }`}
               style={{
@@ -1360,10 +1359,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <div
                 data-grid-popup
                 onMouseDown={(e) => e.preventDefault()}
-                className="fixed z-[60] rounded-xl border border-gray-200 bg-white shadow-[0_8px_24px_rgba(17,19,24,.14),0_2px_6px_rgba(17,19,24,.06)]"
+                className="mac-pop fixed z-[60]"
                 style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom }}
               >
                 <DatePopup
+                  typingHint
                   value={sinkValue}
                   onPick={(iso) => {
                     if (iso !== getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: iso }])
@@ -1391,7 +1391,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 role="listbox"
                 aria-multiselectable={activeCol.picker.multi ? 'true' : undefined}
                 onMouseDown={(e) => e.preventDefault()}
-                className="fixed z-[60] rounded-lg border border-gray-200 bg-white text-sm shadow-[0_8px_24px_rgba(17,19,24,.14),0_2px_6px_rgba(17,19,24,.06)]"
+                className="mac-pop fixed z-[60] text-sm"
                 style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: popPos.width }}
               >
                 <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto p-2.5">
@@ -1478,9 +1478,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           select(nR, 0)
           wantFocus.current = true
         }}
-        className="mt-1 w-full rounded-md py-2 text-left text-sm font-medium text-gray-400 hover:bg-gray-50 hover:text-accent"
+        className="mt-1 flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-[13px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-accent"
       >
-        ＋ {props.addRowLabel ?? '행 추가'}
+        <Plus {...icSm} />
+        {props.addRowLabel ?? '행 추가'}
       </button>
 
       {ghost && (
@@ -1490,7 +1491,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           className="pointer-events-none fixed left-0 top-0 z-[60] flex max-w-[560px] items-center gap-2 rounded-md border border-gray-200 bg-white/90 px-3 py-1.5 text-[13px] font-semibold text-gray-800 opacity-90 shadow-[0_6px_20px_rgba(17,19,24,.18)]"
         >
           {ghost.hint != null && (
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold leading-none text-white">+</span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Plus size={13} strokeWidth={2.5} /></span>
           )}
           <span className="min-w-[60px] max-w-[260px] truncate">{ghost.label || '(이름 없음)'}</span>
           {ghost.count > 1 && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[11px] text-gray-500">{ghost.count}건</span>}
@@ -1501,7 +1502,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       {menu && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
-          className="fixed z-50 min-w-[200px] rounded-xl border border-gray-200 bg-white py-1.5 text-sm shadow-[0_8px_24px_rgba(17,19,24,.12),0_2px_6px_rgba(17,19,24,.06)]"
+          className="mac-pop fixed z-50 min-w-[210px] py-1"
           style={{ left: Math.min(menu.x, window.innerWidth - 220), top: Math.min(menu.y, window.innerHeight - 320) }}
         >
           {menu.kind === 'head' && headSel && (
@@ -1518,7 +1519,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   }}
                 />
               ))}
-              <div className="my-1 h-px bg-gray-100" />
+              <div className="mac-menu-sep" />
               <MenuItem
                 danger
                 label={headSel.keys.length > 1 ? `묶음 ${headSel.keys.length}개 (행 ${headSel.ids.length}개) 삭제` : `묶음 행 ${headSel.ids.length}개 삭제`}
@@ -1549,7 +1550,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         }}
                       />
                     ))}
-                    <div className="my-1 h-px bg-gray-100" />
+                    <div className="mac-menu-sep" />
                   </>
                 )
               })()}
@@ -1599,7 +1600,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   }}
                 />
               )}
-              <div className="my-1 h-px bg-gray-100" />
+              <div className="mac-menu-sep" />
               <MenuItem
                 danger
                 label={menuRows > 1 ? `행 ${menuRows}개 삭제` : '행 삭제'}
@@ -1643,7 +1644,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   setMenu(null)
                 }}
               />
-              <div className="my-1 h-px bg-gray-100" />
+              <div className="mac-menu-sep" />
               <MenuItem
                 danger
                 disabled={!canDeleteCols}
@@ -1664,7 +1665,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 }
 
 // 선택 범위는 엑셀처럼 바깥 테두리로 한 덩어리로 보이게, 현재 칸은 굵은 테두리.
-const SEL_BLUE = '#2563EB'
+const SEL_BLUE = '#007AFF'
 // 행 선택: 번호 칸부터 한 덩어리로 테두리를 두르므로 첫 열의 왼쪽 선은 번호 칸이 맡는다.
 function rowShadow(sel: Sel | null, r: number, leftEdge: boolean, noTop = false): string | undefined {
   if (!sel || sel.t !== 'rows') return undefined
@@ -1700,33 +1701,20 @@ function DragGrip({ active }: { active: boolean }) {
   return (
     <span
       aria-hidden
-      className={`absolute -left-[26px] -mt-[5px] flex h-7 w-5 cursor-grab items-center justify-center rounded-md transition-opacity ${
-        active ? 'bg-blue-100 text-accent' : 'bg-gray-100 text-gray-400 opacity-0 hover:bg-gray-200 hover:text-gray-600 group-hover/row:opacity-100'
+      className={`absolute -left-[26px] -mt-[5px] flex h-7 w-5 cursor-grab items-center justify-center rounded-control transition-opacity ${
+        active ? 'bg-accent-soft text-accent' : 'bg-black/[0.05] text-label-3 opacity-0 hover:bg-black/[0.09] hover:text-label-2 group-hover/row:opacity-100'
       }`}
     >
-      <svg viewBox="0 0 10 16" width="10" height="16" fill="currentColor">
-        <circle cx="2.5" cy="3" r="1.4" />
-        <circle cx="7.5" cy="3" r="1.4" />
-        <circle cx="2.5" cy="8" r="1.4" />
-        <circle cx="7.5" cy="8" r="1.4" />
-        <circle cx="2.5" cy="13" r="1.4" />
-        <circle cx="7.5" cy="13" r="1.4" />
-      </svg>
+      <GripVertical {...icSm} />
     </span>
   )
 }
 
 function MenuItem({ label, hint, onClick, danger, disabled }: { label: string; hint?: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {
   return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex w-full items-center justify-between gap-4 px-3.5 py-1.5 text-left disabled:cursor-not-allowed disabled:text-gray-300 ${
-        danger ? 'text-danger hover:bg-red-50' : 'text-gray-800 hover:bg-gray-50'
-      }`}
-    >
+    <button disabled={disabled} onClick={onClick} className={`group/mi mac-menu-item justify-between gap-4 ${danger ? 'mac-menu-item-danger' : ''}`}>
       <span>{label}</span>
-      {hint && <span className="text-xs text-gray-400">{hint}</span>}
+      {hint && <span className="text-[12px] text-label-3 group-hover/mi:text-white/80">{hint}</span>}
     </button>
   )
 }

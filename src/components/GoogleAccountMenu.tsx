@@ -1,38 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { Calendar, HardDrive, Mail, Plus } from 'lucide-react'
+import { icSm } from './ui/icon'
 import { connectDifferentAccount, getConnectedEmail } from '../utils/googleDrive'
 
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  )
-}
-
-function MailIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m22 6-10 7L2 6" />
-    </svg>
-  )
-}
-
-function DriveIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M7.5 3h9L22 12l-4.5 8h-11L2 12z" />
-      <path d="M7.5 3 12 12l-4.5 8M16.5 3 12 12l4.5 8M2 12h20" />
-    </svg>
-  )
-}
-
 const ACCOUNT_LINKS = [
-  { label: '캘린더 이동', href: 'https://calendar.google.com/', Icon: CalendarIcon },
-  { label: '구글메일 이동', href: 'https://mail.google.com/', Icon: MailIcon },
-  { label: '구글 드라이브로 이동', href: 'https://drive.google.com/', Icon: DriveIcon },
+  { label: '캘린더 이동', href: 'https://calendar.google.com/', Icon: Calendar },
+  { label: '구글메일 이동', href: 'https://mail.google.com/', Icon: Mail },
+  { label: '구글 드라이브로 이동', href: 'https://drive.google.com/', Icon: HardDrive },
 ] as const
 
 interface GoogleAccountMenuProps {
@@ -110,21 +85,22 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
           <div
             ref={menuRef}
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="z-50 w-56 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-xl"
+            className="mac-pop z-50 w-60 overflow-hidden py-1"
           >
-            <div className="border-b border-gray-100 px-3 py-2">
-              <p className="truncate text-xs text-gray-400">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
+            <div className="px-3.5 py-1.5">
+              <p className="truncate text-[13px] text-label-2">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
               <button
                 type="button"
                 onClick={() => void handleConnectDifferentAccount()}
                 disabled={switching}
-                className="mt-1.5 flex w-full items-center gap-1.5 whitespace-nowrap text-sm font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 flex w-full items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span className="text-base leading-none">+</span>
+                <Plus {...icSm} className="shrink-0" />
                 {switching ? '전환하는 중...' : '다른 Google 계정 연결'}
               </button>
-              {switchError && <p className="mt-1 text-[11px] text-danger">{switchError}</p>}
+              {switchError && <p className="mt-1 text-[13px] text-danger">{switchError}</p>}
             </div>
+            <div className="mac-menu-sep" />
 
             {extraLinks.map(({ label, href, icon }) => (
               <a
@@ -133,7 +109,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black"
+                className="mac-menu-item whitespace-nowrap"
               >
                 {icon}
                 {label}
@@ -146,9 +122,9 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
                 target="_blank"
                 rel="noreferrer"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black"
+                className="mac-menu-item whitespace-nowrap"
               >
-                <Icon className="h-4 w-4 shrink-0 text-gray-400" />
+                <Icon {...icSm} className="shrink-0" />
                 {label}
               </a>
             ))}

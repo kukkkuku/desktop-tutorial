@@ -1,25 +1,9 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { Download, Upload, X } from 'lucide-react'
+import Button from './Button'
+import IconButton from './IconButton'
 import Spinner from './Spinner'
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
-
-function UploadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
+import { ic, icSm } from './ui/icon'
 
 interface UploadSummary {
   addedCount: number
@@ -60,49 +44,36 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
   return (
     <div className="relative flex shrink-0 flex-wrap items-center gap-2">
       {busy && (
-        <span className="flex items-center gap-1.5 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5 text-[13px] text-label-2">
           <Spinner className="h-3.5 w-3.5 text-accent" />
           {busyLabel}
         </span>
       )}
-      <button
-        onClick={() => onDownload()}
-        disabled={busy}
-        className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <DownloadIcon className="h-4 w-4" /> 빈양식 다운로드
-      </button>
-      <button
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        className="flex items-center gap-1.5 rounded-md border-2 border-accent px-3 py-1.5 text-sm font-semibold text-accent hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        <UploadIcon className="h-4 w-4" /> 엑셀데이터 업로드
-      </button>
+      <Button onClick={() => onDownload()} disabled={busy}>
+        <Download {...ic} /> 빈양식 다운로드
+      </Button>
+      <Button variant="primary" onClick={() => inputRef.current?.click()} disabled={busy}>
+        <Upload {...ic} /> 엑셀데이터 업로드
+      </Button>
       <input ref={inputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onInputChange} />
 
       {summary && (
         <div
-          className={`absolute right-0 top-full z-10 mt-2 w-80 rounded-md border px-3 py-2.5 shadow-md ${
-            summary.errors.length > 0 ? 'border-danger/30 bg-red-50' : 'border-success/30 bg-green-50'
-          }`}
+          className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-80 px-3 py-2.5"
         >
           <div className="flex items-start justify-between gap-3">
-            <p className={`text-xs font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
+            <p className={`text-[13px] font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
               {summary.addedCount > 0 || summary.updatedCount > 0
                 ? `신규 ${summary.addedCount}건 추가, 기존 ${summary.updatedCount}건 업데이트되었습니다.`
                 : '변경된 건이 없습니다.'}
               {summary.errors.length > 0 && ` (${summary.errors.length}건 오류)`}
             </p>
-            <button
-              onClick={() => setSummary(null)}
-              className="shrink-0 rounded-md border border-gray-300 bg-white px-1.5 py-0.5 text-[11px] font-medium text-black hover:bg-gray-100"
-            >
-              닫기
-            </button>
+            <IconButton onClick={() => setSummary(null)} title="닫기" aria-label="닫기" className="-mr-1 -mt-1 shrink-0">
+              <X {...icSm} />
+            </IconButton>
           </div>
           {summary.errors.length > 0 && (
-            <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-danger">
+            <ul className="mt-2 list-inside list-disc space-y-1 text-[13px] text-danger">
               {summary.errors.map((err, i) => (
                 <li key={i}>{err}</li>
               ))}

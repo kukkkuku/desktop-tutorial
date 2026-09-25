@@ -71,12 +71,12 @@ export default function PromotionCriteriaManager({
   const isEdit = mode === 'edit'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-black">승진 기준</h3>
-            <p className="mt-1 text-[13px] text-gray-500">
+            <h3 className="text-lg font-bold text-label">승진 기준</h3>
+            <p className="mt-1 text-[13px] text-label-2">
               성과평가 기준(기준 설정)과는 별개인 승진 제도 기준입니다. 첨부된 승진 제도 자료를 기준으로 합니다.
             </p>
           </div>
@@ -86,10 +86,10 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-black">직급별 승진자격기준</h4>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+          <h4 className="text-sm font-semibold text-label">직급별 승진자격기준</h4>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-separator">
             <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
-              <thead className="bg-[#F3F4F6] text-black">
+              <thead className="bg-[#F3F4F6] text-label">
                 <tr>
                   {(
                     [
@@ -114,7 +114,7 @@ export default function PromotionCriteriaManager({
               </thead>
               <tbody>
                 {criteria.map((row, i) => (
-                  <tr key={`${row.fromLevel}-${row.toLevel}`} className="border-t border-gray-200 text-black">
+                  <tr key={`${row.fromLevel}-${row.toLevel}`} className="border-t border-separator text-label">
                     <td className="px-3 py-2 font-medium">{row.fromLevel}</td>
                     <td className="px-3 py-2">{row.toLevel}</td>
                     <td className="px-3 py-2">
@@ -125,7 +125,7 @@ export default function PromotionCriteriaManager({
                             min={0}
                             value={row.tenureYears}
                             onChange={(e) => updateCriteriaField(i, 'tenureYears', Number(e.target.value))}
-                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                            className="w-16 rounded-md border border-separator px-2 py-1 text-sm text-label"
                           />
                           년
                         </>
@@ -141,7 +141,7 @@ export default function PromotionCriteriaManager({
                             min={0}
                             value={row.requiredScore}
                             onChange={(e) => updateCriteriaField(i, 'requiredScore', Number(e.target.value))}
-                            className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
+                            className="w-16 rounded-md border border-separator px-2 py-1 text-sm text-label"
                           />
                           점
                         </>
@@ -157,16 +157,16 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-black">평가 등급 점수</h4>
-          <p className="mt-0.5 text-[13px] text-gray-500">
-            인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다. <strong className="text-black">역량 등급은 이 점수의 2배</strong>로
+          <h4 className="text-sm font-semibold text-label">평가 등급 점수</h4>
+          <p className="mt-0.5 text-[13px] text-label-2">
+            인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다. <strong className="text-label">역량 등급은 이 점수의 2배</strong>로
             반영됩니다(업적(상)·업적(하)는 그대로, 역량만 ×2 — 인사평가 히스토리의 "역량 (×2)" 컬럼과 같은 계산입니다).
           </p>
           {isEdit ? (
             <div className="mt-2 grid grid-cols-5 gap-2">
               {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
                 <div key={grade}>
-                  <label className="block text-center text-xs font-semibold text-gray-500">{grade}</label>
+                  <label className="block text-center text-xs font-semibold text-label-2">{grade}</label>
                   <input
                     type="number"
                     min={0}
@@ -174,15 +174,15 @@ export default function PromotionCriteriaManager({
                     onChange={(e) =>
                       setLocalGradeScores((prev: Record<EvaluationGrade, number>) => ({ ...prev, [grade]: Number(e.target.value) }))
                     }
-                    className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-center text-sm text-black"
+                    className="mt-1 w-full rounded-md border border-separator px-2 py-1.5 text-center text-sm text-label"
                   />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+            <div className="mt-2 overflow-x-auto rounded-lg border border-separator">
               <table className="w-full text-left text-[13px]">
-                <thead className="bg-[#F3F4F6] text-black">
+                <thead className="bg-[#F3F4F6] text-label">
                   <tr>
                     <th className="px-3 py-2 font-semibold">구분</th>
                     {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
@@ -193,15 +193,15 @@ export default function PromotionCriteriaManager({
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-t border-gray-200 text-black">
+                  <tr className="border-t border-separator text-label">
                     <td className="px-3 py-2 font-medium">업적(상/하)</td>
                     {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
-                      <td key={grade} className="px-3 py-2 text-center font-mono text-gray-600">
+                      <td key={grade} className="px-3 py-2 text-center font-mono text-label-2">
                         {gradeScores[grade].toFixed(1)}
                       </td>
                     ))}
                   </tr>
-                  <tr className="border-t border-gray-200 text-black">
+                  <tr className="border-t border-separator text-label">
                     <td className="px-3 py-2 font-medium">역량 (×2)</td>
                     {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
                       <td key={grade} className="px-3 py-2 text-center font-mono font-semibold text-accent">
@@ -216,13 +216,13 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-black">연차별 가중치</h4>
-          <p className="mt-0.5 text-[13px] text-gray-500">
+          <h4 className="text-sm font-semibold text-label">연차별 가중치</h4>
+          <p className="mt-0.5 text-[13px] text-label-2">
             체류년수(정기/발탁 승진 트랙)에 따라 최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).
           </p>
-          <div className="mt-2 overflow-x-auto rounded-lg border border-gray-200">
+          <div className="mt-2 overflow-x-auto rounded-lg border border-separator">
             <table className="w-full text-left text-[13px]">
-              <thead className="bg-[#F3F4F6] text-black">
+              <thead className="bg-[#F3F4F6] text-label">
                 <tr>
                   <th className="px-3 py-2 font-semibold">체류년수</th>
                   {['최근 1년차', '2년차', '3년차', '4년차', '5년차'].map((label) => (
@@ -235,14 +235,14 @@ export default function PromotionCriteriaManager({
               </thead>
               <tbody>
                 {Object.entries(YEAR_WEIGHTS_BY_TENURE).map(([years, weights]) => (
-                  <tr key={years} className="border-t border-gray-200 text-black">
+                  <tr key={years} className="border-t border-separator text-label">
                     <td className="px-3 py-2 font-medium">{years}년</td>
                     {Array.from({ length: 5 }, (_, i) => weights[i]).map((w, i) => (
-                      <td key={i} className="px-3 py-2 text-center font-mono text-gray-600">
+                      <td key={i} className="px-3 py-2 text-center font-mono text-label-2">
                         {w !== undefined ? `${(w * 100).toFixed(0)}%` : '-'}
                       </td>
                     ))}
-                    <td className="px-3 py-2 text-gray-500">{TENURE_APPLIES_TO[years] ?? '-'}</td>
+                    <td className="px-3 py-2 text-label-2">{TENURE_APPLIES_TO[years] ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>

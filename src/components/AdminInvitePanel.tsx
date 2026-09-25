@@ -53,7 +53,7 @@ export default function AdminInvitePanel() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!configured) {
-    return <p className="px-1 py-6 text-center text-sm text-gray-400">Google 연동이 설정되지 않았습니다. 관리자에게 설정을 요청해주세요.</p>
+    return <p className="px-1 py-6 text-center text-sm text-label-3">Google 연동이 설정되지 않았습니다. 관리자에게 설정을 요청해주세요.</p>
   }
 
   async function handleConnect() {
@@ -131,8 +131,8 @@ export default function AdminInvitePanel() {
   if (!connected) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-gray-600">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
-        <p className="text-xs text-gray-400">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
+        <p className="text-sm text-label-2">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
+        <p className="text-xs text-label-3">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
         <Button
           variant="primary"
           onClick={() => void handleConnect()}
@@ -149,8 +149,8 @@ export default function AdminInvitePanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2">
-        <span className="flex items-center gap-2 text-sm text-gray-700">
+      <div className="flex items-center justify-between rounded-md bg-[#F7F7F9] px-3 py-2">
+        <span className="flex items-center gap-2 text-sm text-label">
           {getAdminEmail()}
           <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">관리자 연결됨</span>
         </span>
@@ -160,8 +160,8 @@ export default function AdminInvitePanel() {
         {/* 왼쪽: 받는 사람 추가 + 목록 */}
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-black">받는 사람 추가</p>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="text-sm font-semibold text-label">받는 사람 추가</p>
+            <p className="mt-0.5 text-xs text-label-2">
               모두 Gmail이면 아이디만 적어도 됩니다(@gmail.com 자동 추가). 줄바꿈/쉼표로 구분해 붙여넣거나, 엑셀 파일을 업로드하세요.
             </p>
             <textarea
@@ -169,7 +169,7 @@ export default function AdminInvitePanel() {
               onChange={(e) => setPasteText(e.target.value)}
               placeholder={'hong.gildong\nkim.cheolsu'}
               rows={3}
-              className="mt-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className="mt-2 w-full rounded-md border border-separator px-3 py-2 text-sm focus:border-accent focus:outline-none"
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button variant="primary" onClick={handleAddPaste} disabled={!pasteText.trim()} className="px-3 py-1.5 text-sm">
@@ -183,9 +183,9 @@ export default function AdminInvitePanel() {
             {parseError && <p className="mt-1.5 text-xs text-danger">{parseError}</p>}
           </div>
 
-          <div className="border-t border-gray-100 pt-3">
+          <div className="border-t border-separator pt-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-black">받는 사람 목록 ({list.length}명)</p>
+              <p className="text-sm font-semibold text-label">받는 사람 목록 ({list.length}명)</p>
               {list.length > 0 && (
                 <button onClick={() => void handleCopyList()} className="text-xs font-medium text-accent hover:underline">
                   {copyDone ? '복사됨' : '목록 복사'}
@@ -193,23 +193,23 @@ export default function AdminInvitePanel() {
               )}
             </div>
             {list.length === 0 ? (
-              <p className="mt-2 text-xs text-gray-400">아직 추가된 받는 사람이 없습니다.</p>
+              <p className="mt-2 text-xs text-label-3">아직 추가된 받는 사람이 없습니다.</p>
             ) : (
               <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
                 {list.map((r) => (
-                  <li key={r.email} className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs">
+                  <li key={r.email} className="flex items-center justify-between gap-2 rounded-md border border-separator px-2.5 py-1.5 text-xs">
                     <div className="min-w-0">
-                      <p className="truncate text-black">{r.email}</p>
-                      <p className="text-[11px] text-gray-400">{r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}` : '미발송'}</p>
+                      <p className="truncate text-label">{r.email}</p>
+                      <p className="text-[11px] text-label-3">{r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}` : '미발송'}</p>
                     </div>
-                    <button onClick={() => handleRemove(r.email)} className="shrink-0 text-gray-400 hover:text-danger">
+                    <button onClick={() => handleRemove(r.email)} className="shrink-0 text-label-3 hover:text-danger">
                       삭제
                     </button>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="mt-2 rounded-md bg-blue-50 px-2.5 py-2 text-[11px] text-gray-600">
+            <div className="mt-2 rounded-md bg-accent-soft px-2.5 py-2 text-[11px] text-label-2">
               <p>
                 메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야
                 합니다. 위 "목록 복사"로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
@@ -227,18 +227,18 @@ export default function AdminInvitePanel() {
         </div>
 
         {/* 오른쪽: 메일 내용 + 발송 */}
-        <div className="space-y-3 border-l border-gray-100 pl-6">
-          <p className="text-sm font-semibold text-black">초대 메일 내용</p>
+        <div className="space-y-3 border-l border-separator pl-6">
+          <p className="text-sm font-semibold text-label">초대 메일 내용</p>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
+            className="w-full rounded-md border border-separator px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            className="w-full rounded-md border border-separator px-3 py-2 text-sm focus:border-accent focus:outline-none"
           />
           <Button
             variant="primary"
