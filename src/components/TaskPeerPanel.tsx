@@ -91,6 +91,20 @@ export default function TaskPeerPanel() {
     setDraft((cur) => cur.map((e) => (e.taskId === taskId && e.targetMemberId === targetId ? { ...e, ...p } : e)))
   }
 
+  // 순위는 과제 안에서 겹칠 수 없다 -- 이미 그 순위인 사람과 맞바꾼다.
+  function patchRank(taskId: string, targetId: string, value: number | null) {
+    setDraft((cur) => {
+      const old = cur.find((e) => e.taskId === taskId && e.targetMemberId === targetId)?.value ?? null
+      return cur.map((e) =>
+        e.taskId === taskId && e.targetMemberId === targetId
+          ? { ...e, value }
+          : value != null && e.taskId === taskId && e.value === value
+            ? { ...e, value: old }
+            : e,
+      )
+    })
+  }
+
   function saveForm() {
     if (!reviewer) return
     const errors = groups.flatMap((g) => validateTaskPeer(g, draft, reviewer.id))
@@ -239,15 +253,20 @@ export default function TaskPeerPanel() {
                                   {isRank ? (
                                     <select
                                       value={e?.value ?? ''}
-                                      onChange={(ev) => patch(g.taskId, p.id, { value: ev.target.value === '' ? null : Number(ev.target.value) })}
+                                      onChange={(ev) => patchRank(g.taskId, p.id, ev.target.value === '' ? null : Number(ev.target.value))}
                                       className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px]"
                                     >
                                       <option value="">-</option>
-                                      {Array.from({ length: n }, (_, i) => i + 1).map((r) => (
-                                        <option key={r} value={r}>
-                                          {r}위
-                                        </option>
-                                      ))}
+                                      {Array.from({ length: n }, (_, i) => i + 1).map((r) => {
+                                        const holder = g.people.find(
+                                          (o) => o.id !== p.id && draft.some((x) => x.taskId === g.taskId && x.targetMemberId === o.id && x.value === r),
+                                        )
+                                        return (
+                                          <option key={r} value={r}>
+                                            {r}위{holder ? ` (지금 ${holder.name} · 고르면 맞바꿈)` : ''}
+                                          </option>
+                                        )
+                                      })}
                                     </select>
                                   ) : (
                                     <input

@@ -94,8 +94,14 @@ export default function RankPeerReview() {
   function setEntry(taskId: string | undefined, targetId: string, patch: Partial<RankEntry>) {
     setDraft((cur) => {
       const i = cur.findIndex((e) => e.targetMemberId === targetId && (e.taskId ?? '') === (taskId ?? ''))
-      if (i < 0) return [...cur, { taskId, targetMemberId: targetId, rank: null, reason: '', ...patch }]
-      const next = [...cur]
+      // 같은 순위는 둘일 수 없다 -- 이미 그 순위를 가진 사람과 순위를 맞바꾼다.
+      const oldRank = i >= 0 ? cur[i].rank : null
+      const swapped =
+        patch.rank != null
+          ? cur.map((e, k) => (k !== i && (e.taskId ?? '') === (taskId ?? '') && e.rank === patch.rank ? { ...e, rank: oldRank } : e))
+          : cur
+      if (i < 0) return [...swapped, { taskId, targetMemberId: targetId, rank: null, reason: '', ...patch }]
+      const next = [...swapped]
       next[i] = { ...next[i], ...patch }
       return next
     })
@@ -268,11 +274,14 @@ function RankForm({
                             className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px]"
                           >
                             <option value="">-</option>
-                            {g.targets.map((_, i) => (
-                              <option key={i + 1} value={i + 1}>
-                                {i + 1}위
-                              </option>
-                            ))}
+                            {g.targets.map((_, i) => {
+                              const holder = g.targets.find((o) => o.id !== t.id && get(g.taskId, o.id)?.rank === i + 1)
+                              return (
+                                <option key={i + 1} value={i + 1}>
+                                  {i + 1}위{holder ? ` (지금 ${holder.name} · 고르면 맞바꿈)` : ''}
+                                </option>
+                              )
+                            })}
                           </select>
                         </td>
                         <td className="px-3 py-2">
