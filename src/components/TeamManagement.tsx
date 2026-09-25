@@ -16,9 +16,10 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
+import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { Check, ChevronDown, ChevronRight, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -51,6 +52,14 @@ export default function TeamManagement() {
   const [notice, setNotice] = useState('')
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
+  const [hrOpen, setHrOpen] = useState(false)
+  function applyHRCards(updates: TeamMember[], adds: TeamMember[]) {
+    history.record()
+    for (const m of updates) dispatch({ type: 'UPDATE_MEMBER', payload: m })
+    for (const m of adds) dispatch({ type: 'ADD_MEMBER', payload: m })
+    setHrOpen(false)
+    setNotice('')
+  }
   const [widths, setWidths] = useState<Record<string, number>>({})
 
   const boardTeams = useMemo(
@@ -348,6 +357,10 @@ export default function TeamManagement() {
             onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
             onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
           />
+          <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
+            <IdCard {...ic} />
+            인사기록 불러오기
+          </Button>
           <TitleUploadControls busyLabel="팀원 업로드 중..." onDownload={downloadMemberTemplate} onFiles={handleUploadFiles} />
         </div>
       </div>
@@ -425,6 +438,8 @@ export default function TeamManagement() {
           emptyText="등록된 팀원이 없습니다. 아래 '팀원 추가'를 누르거나 엑셀로 올리세요."
         />
       </div>
+
+      {hrOpen && <HRCardImportModal members={state.members} onApply={applyHRCards} onClose={() => setHrOpen(false)} />}
 
       <ConfirmDialog
         open={deleting !== null}
