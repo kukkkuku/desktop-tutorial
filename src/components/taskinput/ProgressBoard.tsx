@@ -10,7 +10,7 @@ import { icSm } from '../ui/icon'
 import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
 import {
   chooseSheetsAccountNext,
-  fetchSheetFills,
+  fetchSheetFormats,
   fetchSheetTab,
   fetchSpreadsheetTabs,
   isSheetsApiConfigured,
@@ -34,14 +34,18 @@ import {
   countDrafts,
   currentWeekKey,
   effectiveCells,
+  effectiveBg,
   effectiveField,
+  effectiveNote,
   loadProgress,
   makeNewRow,
   newRowAsRow,
   saveDrafts,
   saveProgressData,
   setCellEdit,
+  setBgEdit,
   setFieldEdit,
+  setNoteEdit,
   toProgressRows,
   type Drafts,
   type FieldDef,
@@ -52,7 +56,7 @@ import {
 import RowPanel from './RowPanel'
 import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, cellLabel, categoryTone, type ScheduleRowView } from './ScheduleTable'
 
 const CATEGORIES = ['과제', '일반', '일상']
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
@@ -96,7 +100,7 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
     fields,
     headerStyle: buildHeaderStyle(parsed.header, raw, fields),
-    rows: toProgressRows(parsed.rows, raw, fields),
+    rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols),
   }
 }
 
@@ -109,19 +113,12 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
   const raw: RawSheet = await fetchSheetTab(spreadsheetId, title)
   const first = parseSheet(raw)
   if ('error' in first) throw new Error(first.error)
-  // 칸 배경색: 머리글 줄(모든 열, 머리글 색) + 주차 칸(계획 회색 / 실적 분홍)
   const cols = first.header.weekCols.map((w) => w.col)
   const lastCol = Math.max(0, ...cols, ...Object.values(first.columnMap).filter((v): v is number => v !== null), (raw.rows[first.header.headerRow]?.length ?? 1) - 1)
-  const [headFills, weekFills] = await Promise.all([
-    fetchSheetFills(spreadsheetId, title, 0, first.header.dataStartRow - 1, 0, lastCol),
-    cols.length > 0 && raw.rows.length > first.header.dataStartRow
-      ? fetchSheetFills(spreadsheetId, title, first.header.dataStartRow, raw.rows.length - 1, Math.min(...cols), Math.max(...cols))
-      : Promise.resolve([] as (string | null)[][]),
-  ])
-  const fills: (string | null)[][] = []
-  headFills.forEach((row, r) => (fills[r] = row))
-  weekFills.forEach((row, r) => row && (fills[r] = row))
-  raw.fills = fills
+  // 머리글 색 · 칸 색(계획/실적, 행·칸 강조) · 메모를 한 번에 읽는다.
+  const fmt = await fetchSheetFormats(spreadsheetId, title, 0, Math.max(0, raw.rows.length - 1), 0, lastCol)
+  raw.fills = fmt.fills
+  raw.notes = fmt.notes
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
   return { ...toData(parsed, raw, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
@@ -152,6 +149,40 @@ export default function ProgressBoard() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   const [tool, setTool] = useState<PaintTool>('S')
+  // 행 지브라(기본 흰색) · 열 폭 -- 이 브라우저에 기억
+  const [zebra, setZebraState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('progress-board:zebra') === '1'
+    } catch {
+      return false
+    }
+  })
+  function setZebra(v: boolean) {
+    setZebraState(v)
+    try {
+      localStorage.setItem('progress-board:zebra', v ? '1' : '0')
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+  const [widths, setWidths] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('progress-board:widths') ?? '{}') as Record<string, number>
+    } catch {
+      return {}
+    }
+  })
+  function resizeCol(key: string, w: number) {
+    setWidths((cur) => {
+      const next = { ...cur, [key]: w }
+      try {
+        localStorage.setItem('progress-board:widths', JSON.stringify(next))
+      } catch {
+        // 위와 같음
+      }
+      return next
+    })
+  }
   // 일정(주차 칸) 접기 -- 접으면 계획·실적 기간 요약 한 칸만 보인다
   const [scheduleOpen, setScheduleOpen] = useState(true)
   // 표 글자 크기(가▲/가▼) -- 이 브라우저에 기억
@@ -271,6 +302,26 @@ export default function ProgressBoard() {
       return { ...d, edits: setFieldEdit(d.edits, row, id, value) }
     })
   }
+  function setBg(row: ProgressRow, ids: string[], hex: string) {
+    updateDrafts((d) => {
+      if (row.isNew) {
+        const nid = row.key.slice(NEW_PREFIX.length)
+        return { ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, bg: { ...(n.bg ?? {}), ...Object.fromEntries(ids.map((id) => [id, hex])) } } : n)) }
+      }
+      let edits = d.edits
+      for (const id of ids) edits = setBgEdit(edits, row, id, hex)
+      return { ...d, edits }
+    })
+  }
+  function setNote(row: ProgressRow, key: string, note: string) {
+    updateDrafts((d) => {
+      if (row.isNew) {
+        const nid = row.key.slice(NEW_PREFIX.length)
+        return { ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, notes: { ...(n.notes ?? {}), [key]: note.trim() } } : n)) }
+      }
+      return { ...d, edits: setNoteEdit(d.edits, row, key, note) }
+    })
+  }
   function addRow(l2: string) {
     const src = (data?.rows ?? []).find((r) => r.l2 === l2 && r.l1 === l1)
     if (!src) return
@@ -370,12 +421,24 @@ export default function ProgressBoard() {
     const e = row.isNew ? undefined : edits[row.key]
     const vals: Record<string, string> = {}
     for (const id of fieldIds) vals[id] = effectiveField(row, e, id)
+    const bg: Record<string, string> = {}
+    for (const id of fieldIds) {
+      const hex = effectiveBg(row, e, id)
+      if (hex) bg[id] = hex
+    }
+    const notes: Record<string, string> = {}
+    for (const k of new Set([...Object.keys(row.notes), ...Object.keys(e?.notes ?? {})])) {
+      const n = effectiveNote(row, e, k)
+      if (n) notes[k] = n
+    }
     return {
       row,
       cells: effectiveCells(row, e),
       vals,
+      bg,
+      notes,
       editedCells: new Set(Object.keys(e?.cells ?? {})),
-      editedFields: new Set(Object.keys(e?.fields ?? {})),
+      editedFields: new Set([...Object.keys(e?.fields ?? {}), ...Object.keys(e?.bg ?? {}), ...Object.keys(e?.notes ?? {})]),
     }
   }
   const views: ScheduleRowView[] = ordered.map(viewOf).filter((v) => {
@@ -549,7 +612,7 @@ export default function ProgressBoard() {
                     return next
                   })
                 }
-                className={`h-7 rounded-full border px-2.5 text-[12px] font-medium ${on ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-3'}`}
+                className={`h-7 rounded-full border px-2.5 text-[12px] font-medium ${on ? `border-transparent ${categoryTone(c)}` : 'border-hairline bg-white text-label-3'}`}
               >
                 {c}
               </button>
@@ -559,6 +622,10 @@ export default function ProgressBoard() {
         <label className="flex items-center gap-1.5 text-label-2">
           <input type="checkbox" checked={hideDone} onChange={(e) => setHideDone(e.target.checked)} />
           완료 숨기기
+        </label>
+        <label className="flex items-center gap-1.5 text-label-2" title="행 배경을 한 줄씩 번갈아 연한 회색으로">
+          <input type="checkbox" checked={zebra} onChange={(e) => setZebra(e.target.checked)} />
+          지브라
         </label>
         <span className="ml-auto flex items-center gap-2">
           {editCount > 0 && (
@@ -681,6 +748,11 @@ export default function ProgressBoard() {
             scheduleOpen={scheduleOpen}
             onToggleSchedule={() => setScheduleOpen((v) => !v)}
             allWeekCols={data.weekCols}
+            onBg={setBg}
+            onNote={setNote}
+            zebra={zebra}
+            widths={widths}
+            onResize={resizeCol}
           />
         )}
       </div>

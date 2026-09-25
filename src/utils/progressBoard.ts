@@ -25,6 +25,10 @@ export interface ProgressRow {
   values: Record<string, string> // 열 id -> 시트 원문 (status, category, assignees, note, col12 …)
   weeks: Record<string, WeekMark>
   fills: Record<string, WeekFill>
+  // L3·입력 열 칸의 배경색(RRGGBB, 시트 그대로 · 흰색 제외). 키는 열 id('name' = L3)
+  bg: Record<string, string>
+  // 칸 메모. 키는 열 id 또는 주차 키
+  notes: Record<string, string>
   isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
 }
 
@@ -74,6 +78,8 @@ export interface ProgressData {
 export interface RowEdit {
   cells?: Record<string, CellState>
   fields?: Record<string, string> // 'name'이면 L3 이름
+  bg?: Record<string, string> // 칸 배경색. '' = 색 없음(흰색)
+  notes?: Record<string, string> // 칸 메모. '' = 지움
 }
 export type ProgressEdits = Record<string, RowEdit>
 
@@ -86,6 +92,8 @@ export interface NewRow {
   h: string | null
   fields: Record<string, string> // 'name' 포함
   cells: Record<string, CellState>
+  bg?: Record<string, string>
+  notes?: Record<string, string>
 }
 
 export interface Drafts {
@@ -161,7 +169,7 @@ export function buildHeaderStyle(header: ParsedHeader, raw: RawSheet, fields: Fi
   return { l2: at(top, header.l2Col), l3: at(top, header.l3Col), months, weeks, fields: fieldBg, groups }
 }
 
-export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldDef[] = []): ProgressRow[] {
+export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldDef[] = [], weekCols: (WeekColumn & { col: number })[] = []): ProgressRow[] {
   const seen = new Map<string, number>()
   const extra = fields.filter((f) => f.id.startsWith('col'))
   return rows.map((r) => {
@@ -172,6 +180,18 @@ export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldD
     for (const f of extra) {
       const t = cellText(raw?.rows[r.row]?.[f.col])
       if (t) values[f.id] = t
+    }
+    const bg: Record<string, string> = {}
+    const notes: Record<string, string> = {}
+    for (const f of fields) {
+      const hex = raw?.fills?.[r.row]?.[f.col]
+      if (hex && hex !== 'FFFFFF') bg[f.id] = hex
+      const n = raw?.notes?.[r.row]?.[f.col]
+      if (n) notes[f.id] = n
+    }
+    for (const w of weekCols) {
+      const n = raw?.notes?.[r.row]?.[w.col]
+      if (n) notes[w.key] = n
     }
     return {
       key: rowKeyOf(r.l2, r.l3, n),
@@ -184,9 +204,13 @@ export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldD
       values,
       weeks: r.weeks,
       fills: r.fills ?? {},
+      bg,
+      notes,
     }
   })
 }
+
+
 
 // ---------- 연결 시트 ----------
 
@@ -228,7 +252,7 @@ export function loadProgress(): { data: ProgressData | null; drafts: Drafts } {
     const data = JSON.parse(localStorage.getItem(dataKey()) ?? 'null') as ProgressData | null
     const drafts = JSON.parse(localStorage.getItem(draftsKey()) ?? 'null') as Drafts | null
     // 열 정의가 없는 예전 형식은 다시 불러오게 한다.
-    const ok = data && Array.isArray(data.rows) && Array.isArray(data.fields)
+    const ok = data && Array.isArray(data.rows) && Array.isArray(data.fields) && data.rows.every((r) => r.bg && r.notes)
     return { data: ok ? data : null, drafts: drafts && drafts.edits && Array.isArray(drafts.newRows) ? drafts : { edits: {}, newRows: [] } }
   } catch {
     return { data: null, drafts: { edits: {}, newRows: [] } }
@@ -276,6 +300,16 @@ export function effectiveField(row: ProgressRow, edit: RowEdit | undefined, id: 
   return edit?.fields?.[id] ?? baseField(row, id)
 }
 
+export function effectiveBg(row: ProgressRow, edit: RowEdit | undefined, id: string): string {
+  const v = edit?.bg?.[id]
+  return v !== undefined ? v : (row.bg[id] ?? '')
+}
+
+export function effectiveNote(row: ProgressRow, edit: RowEdit | undefined, key: string): string {
+  const v = edit?.notes?.[key]
+  return v !== undefined ? v : (row.notes[key] ?? '')
+}
+
 // 새 과제를 표에 그리기 위한 행 모양
 export function newRowAsRow(n: NewRow): ProgressRow {
   const weeks: Record<string, WeekMark> = {}
@@ -285,7 +319,7 @@ export function newRowAsRow(n: NewRow): ProgressRow {
     if (c.f) fills[k] = c.f
   }
   const { name = '', ...values } = n.fields
-  return { key: NEW_PREFIX + n.id, row: -1, h: n.h, l1: n.l1, l2: n.l2, l2Tag: n.l2Tag, l3: name, values, weeks, fills, isNew: true }
+  return { key: NEW_PREFIX + n.id, row: -1, h: n.h, l1: n.l1, l2: n.l2, l2Tag: n.l2Tag, l3: name, values, weeks, fills, bg: { ...(n.bg ?? {}) }, notes: { ...(n.notes ?? {}) }, isNew: true }
 }
 
 export function makeNewRow(from: { l1: string; l2: string; l2Tag: string | null; h: string | null }): NewRow {
@@ -308,7 +342,7 @@ export const TOOL_CELL: Record<PaintTool, CellState> = {
 
 function pruneEdit(edits: ProgressEdits, key: string, cur: RowEdit): ProgressEdits {
   const next = { ...edits }
-  if (!cur.cells && !cur.fields) delete next[key]
+  if (!cur.cells && !cur.fields && !cur.bg && !cur.notes) delete next[key]
   else next[key] = cur
   return next
 }
@@ -332,9 +366,28 @@ export function setFieldEdit(edits: ProgressEdits, row: ProgressRow, id: string,
   return pruneEdit(edits, row.key, cur)
 }
 
+function setMapEdit(edits: ProgressEdits, row: ProgressRow, which: 'bg' | 'notes', id: string, value: string): ProgressEdits {
+  const cur = { ...(edits[row.key] ?? {}) }
+  const map = { ...(cur[which] ?? {}) }
+  const base = (which === 'bg' ? row.bg[id] : row.notes[id]) ?? ''
+  if (base === value) delete map[id]
+  else map[id] = value
+  cur[which] = Object.keys(map).length ? map : undefined
+  return pruneEdit(edits, row.key, cur)
+}
+export function setBgEdit(edits: ProgressEdits, row: ProgressRow, id: string, hex: string): ProgressEdits {
+  return setMapEdit(edits, row, 'bg', id, hex)
+}
+export function setNoteEdit(edits: ProgressEdits, row: ProgressRow, key: string, note: string): ProgressEdits {
+  return setMapEdit(edits, row, 'notes', key, note.trim())
+}
+
 export function countDrafts(d: Drafts): number {
   return (
-    Object.values(d.edits).reduce((n, e) => n + Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length, 0) + d.newRows.length
+    Object.values(d.edits).reduce(
+      (n, e) => n + Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length,
+      0,
+    ) + d.newRows.length
   )
 }
 
@@ -391,7 +444,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     const fr = freshByKey.get(key)
     if (!b || !fr) {
       kept.edits[key] = e
-      conflicts += Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length
+      conflicts += Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length
       continue
     }
     const keep: RowEdit = {}
@@ -415,7 +468,25 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       }
       writes.push({ row: fr.row, col: f.col, ...fieldWrite(f, value) })
     }
-    if (keep.cells || keep.fields) kept.edits[key] = keep
+    for (const [id, hex] of Object.entries(e.bg ?? {})) {
+      const f = fieldById.get(id)
+      if (!f || (fr.bg[id] ?? '') !== (b.bg[id] ?? '')) {
+        keep.bg = { ...(keep.bg ?? {}), [id]: hex }
+        conflicts++
+        continue
+      }
+      writes.push({ row: fr.row, col: f.col, fill: hex || null })
+    }
+    for (const [k, note] of Object.entries(e.notes ?? {})) {
+      const col = fieldById.get(k)?.col ?? weekCol.get(k)
+      if (col === undefined || (fr.notes[k] ?? '') !== (b.notes[k] ?? '')) {
+        keep.notes = { ...(keep.notes ?? {}), [k]: note }
+        conflicts++
+        continue
+      }
+      writes.push({ row: fr.row, col, note })
+    }
+    if (keep.cells || keep.fields || keep.bg || keep.notes) kept.edits[key] = keep
   }
 
   // 새 과제
@@ -434,7 +505,21 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       const f = fieldById.get(id)
       if (f && value.trim()) cells.push({ col: f.col, ...fieldWrite(f, value.trim()) })
     }
-    // 끼워 넣은 줄은 위 줄의 서식(배경색 포함)을 물려받으므로 주차 칸은 전부 새로 칠한다.
+    // 끼워 넣은 줄은 위 줄의 서식(배경색 포함)을 물려받으므로 칸 색을 전부 새로 정한다.
+    for (const f of fresh.fields) {
+      const hex = n.bg?.[f.id]
+      const ex = cells.find((c) => c.col === f.col)
+      if (ex) ex.fill = hex || null
+      else cells.push({ col: f.col, fill: hex || null })
+    }
+    for (const [k, note] of Object.entries(n.notes ?? {})) {
+      const col = fieldById.get(k)?.col ?? weekCol.get(k)
+      if (col === undefined || !note) continue
+      const ex = cells.find((c) => c.col === col)
+      if (ex) ex.note = note
+      else cells.push({ col, note })
+    }
+    // 주차 칸도 전부 새로 칠한다.
     for (const w of fresh.weekCols) {
       const c = n.cells[w.key]
       cells.push({ col: w.col, value: c?.m ?? '', fill: c?.f ? FILL_HEX[c.f] : null })

@@ -52,6 +52,8 @@ export interface RawSheet {
   merges: SheetMerge[]
   // 칸 배경색(RRGGBB, 흰색·없음은 null). 추진현황 주차 칸의 계획(회색)/실적(분홍)을 가르는 데 쓴다.
   fills?: (string | null)[][]
+  // 칸 메모(구글시트 "메모" / 엑셀 메모). 없으면 null.
+  notes?: (string | null)[][]
 }
 
 export interface ParsedHeader {

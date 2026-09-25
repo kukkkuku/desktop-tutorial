@@ -1,89 +1,47 @@
-// 추진현황 일정표 -- 첨부된 "일정표 빌더"의 표 모양(검은 머리 띠 · 월/주 칸 · 구분 병합 · 현재 선)을 따르고,
-// 주차 칸은 시트와 똑같이 칠한다: 회색 = 계획, 분홍 = 실적, 글자 S / F / 완.
-// 입력 중에는 고른 도구로 칸을 누르거나 한 줄 안에서 끌어 칠한다.
+// 추진현황 일정표 -- 구글시트 추진현황 탭을 그대로 펼친 표.
+//   · 머리글 색·묶음 머리글, 칸 배경색, 칸 메모를 시트 그대로 보여 준다.
+//   · 주차 칸은 회색 = 계획, 분홍 = 실적, 글자 S / F / 완. 입력 중에는 고른 도구로 누르거나 끌어 칠한다.
+//   · 입력 열(속성·분류·상태…)은 칸을 눌러 그 자리에서 입력한다.
+//   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
+//   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
-import type { WeekColumn } from '../../types'
+import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
+import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 
 export interface ScheduleRowView {
   row: ProgressRow
   cells: Record<string, CellState>
   vals: Record<string, string> // 고친 값을 얹은 열 값(name, status, assignees, category, note …)
+  bg: Record<string, string> // 고친 값을 얹은 칸 배경색(열 id → RRGGBB)
+  notes: Record<string, string> // 고친 값을 얹은 칸 메모(열 id 또는 주차 키 → 메모)
   editedCells: Set<string>
-  editedFields: Set<string>
+  editedFields: Set<string> // 값·색·메모 중 무엇이든 고친 열 id / 주차 키
 }
 
-const STATUS_TONE: Record<string, string> = {
+// 과제관리 표와 같은 칩 색
+export const STATUS_TONE: Record<string, string> = {
+  대기: 'bg-black/[0.05] text-label-2',
   진행중: 'bg-accent-soft text-accent',
   완료: 'bg-emerald-100 text-emerald-800',
   보류: 'bg-red-100 text-red-700',
   중단: 'bg-red-100 text-red-700',
 }
+export function categoryTone(v: string): string {
+  return IMPORTANCE_COLORS[v as Importance] ?? 'bg-black/[0.05] text-label-2'
+}
 
-// 열 종류별 기본 폭(px, 글자 13px 기준)
+// 칸/행 색 팔레트(구글시트에서 자주 쓰는 연한 색 + 시트에 있던 노랑·초록). '' = 색 없음
+export const ROW_COLORS = ['', 'FFFF00', 'FFF2CC', 'FCE5CD', 'F4CCCC', 'EAD1DC', 'D9D2E9', 'CFE2F3', 'D9EAD3', '00FF00', 'EFEFEF', 'D9D9D9']
+
+// 열 종류별 기본 폭(px)
 const FIELD_WIDTH: Record<FieldDef['kind'], number> = { memo: 200, date: 96, select: 78, person: 110, link: 130, text: 100 }
+export const DEFAULT_WIDTHS = { l2: 150, l3: 260, week: 24 }
+const HEADER_FONT = 13 // 머리글 글자는 고정, 본문만 가▲/가▼로 바뀐다
 
-// 시트 칸 하나 -- 누르면 그 자리에서 입력(Enter/바깥 누르면 반영, Esc 취소).
-function FieldCell({ f, value, edited, fontSize, onCommit }: { f: FieldDef; value: string; edited: boolean; fontSize: number; onCommit: (v: string) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const cancelled = useRef(false)
-  function start() {
-    setDraft(value)
-    cancelled.current = false
-    setEditing(true)
-  }
-  function finish() {
-    setEditing(false)
-    if (!cancelled.current && draft !== value) onCommit(draft)
-  }
-  const keys = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      cancelled.current = true
-      ;(e.target as HTMLElement).blur()
-    }
-    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) (e.target as HTMLElement).blur()
-  }
-  const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
-  let display: React.ReactNode = value
-  if (f.id === 'status' && value) display = <span className={`inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
-  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(2).replace(/-/g, '.')
-  return (
-    <td
-      onClick={editing ? undefined : start}
-      title={value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력`}
-      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-[2px] align-middle text-[0.92em] text-label hover:bg-accent/[0.06]"
-    >
-      <div className="truncate">{typeof display === 'string' ? display.replace(/\s*\n\s*/g, ' · ') : display}</div>
-      {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
-      {editing &&
-        (f.kind === 'memo' ? (
-          <textarea
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={finish}
-            onKeyDown={keys}
-            placeholder="⌘/Ctrl+Enter로 반영"
-            className="absolute left-0 top-0 z-30 rounded-control border-2 border-accent bg-white p-1.5 text-[1em] text-label shadow-dialog outline-none"
-            style={{ width: Math.max(260, (FIELD_WIDTH.memo * fontSize) / 13), height: fontSize * 9 }}
-          />
-        ) : f.kind === 'date' ? (
-          <input
-            autoFocus
-            type="date"
-            value={/^\d{4}-\d{2}-\d{2}$/.test(draft) ? draft : ''}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={finish}
-            onKeyDown={keys}
-            className={inputCls}
-          />
-        ) : (
-          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={keys} list={`pb-opts-${f.id}`} className={inputCls} />
-        ))}
-    </td>
-  )
+export function fieldDefaultWidth(f: FieldDef) {
+  return FIELD_WIDTH[f.kind]
 }
 
 export function cellLabel(c: CellState | undefined): string {
@@ -105,6 +63,125 @@ export function CellSwatch({ cell, size = 18 }: { cell: CellState; size?: number
   )
 }
 
+// 구글시트처럼 메모가 있는 칸의 오른쪽 위 검은 삼각형
+function NoteMark() {
+  return <span className="pointer-events-none absolute right-0 top-0 h-0 w-0 border-l-[7px] border-t-[7px] border-l-transparent border-t-[#14161A]" />
+}
+
+// 시트 칸 하나 -- 누르면 그 자리에서 입력(Enter/바깥 누르면 반영, Esc 취소).
+function FieldCell({
+  f,
+  value,
+  bg,
+  note,
+  edited,
+  onCommit,
+  onMenu,
+  onHoverNote,
+}: {
+  f: FieldDef
+  value: string
+  bg: string
+  note: string
+  edited: boolean
+  onCommit: (v: string) => void
+  onMenu: (e: React.MouseEvent) => void
+  onHoverNote: (e: React.MouseEvent | null) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const cancelled = useRef(false)
+  function start() {
+    setDraft(value)
+    cancelled.current = false
+    setEditing(true)
+  }
+  function finish() {
+    setEditing(false)
+    if (!cancelled.current && draft !== value) onCommit(draft)
+  }
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      cancelled.current = true
+      ;(e.target as HTMLElement).blur()
+    }
+    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) (e.target as HTMLElement).blur()
+  }
+  const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
+  const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
+  let display: React.ReactNode = value.replace(/\s*\n\s*/g, ' · ')
+  if (f.id === 'status' && value) display = <span className={`${chip} ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
+  else if (f.id === 'category' && value) display = <span className={`${chip} ${categoryTone(value)}`}>{value}</span>
+  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(2).replace(/-/g, '.')
+  return (
+    <td
+      onClick={editing ? undefined : start}
+      onContextMenu={onMenu}
+      onMouseEnter={note ? (e) => onHoverNote(e) : undefined}
+      onMouseLeave={note ? () => onHoverNote(null) : undefined}
+      title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력 · 우클릭: 메모·색`}
+      style={bg ? { background: `#${bg}` } : undefined}
+      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-[2px] align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
+    >
+      {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만(전체는 칸을 누르거나 오른쪽 L3 패널에서) */}
+      <div className={`whitespace-normal break-words ${f.kind === 'memo' ? 'line-clamp-2' : ''}`}>{display}</div>
+      {note && <NoteMark />}
+      {edited && <span className="pointer-events-none absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
+      {editing &&
+        (f.kind === 'memo' ? (
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={finish}
+            onKeyDown={keys}
+            placeholder="⌘/Ctrl+Enter로 반영"
+            className="absolute left-0 top-0 z-30 h-[9em] w-[max(100%,260px)] rounded-control border-2 border-accent bg-white p-1.5 text-[1em] text-label shadow-dialog outline-none"
+          />
+        ) : f.kind === 'date' ? (
+          <input
+            autoFocus
+            type="date"
+            value={/^\d{4}-\d{2}-\d{2}$/.test(draft) ? draft : ''}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={finish}
+            onKeyDown={keys}
+            className={inputCls}
+          />
+        ) : (
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={keys} list={`pb-opts-${f.id}`} className={inputCls} />
+        ))}
+    </td>
+  )
+}
+
+// 머리글 오른쪽 끝을 끌어 열 폭 바꾸기
+function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number) => void }) {
+  return (
+    <span
+      onMouseDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const x0 = e.clientX
+        const move = (ev: MouseEvent) => onResize(Math.max(36, Math.round(width + ev.clientX - x0)))
+        const up = () => {
+          window.removeEventListener('mousemove', move)
+          window.removeEventListener('mouseup', up)
+          document.documentElement.classList.remove('cursor-col-resize')
+        }
+        document.documentElement.classList.add('cursor-col-resize')
+        window.addEventListener('mousemove', move)
+        window.addEventListener('mouseup', up)
+      }}
+      onClick={(e) => e.stopPropagation()}
+      title="끌어서 열 폭 조절"
+      className="absolute -right-[3px] top-0 z-10 h-full w-[6px] cursor-col-resize hover:bg-accent/50"
+    />
+  )
+}
+
+type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week'; x: number; y: number }
+
 export default function ScheduleTable({
   weekCols,
   rows,
@@ -114,6 +191,8 @@ export default function ScheduleTable({
   onField,
   onOpenRow,
   onAddRow,
+  onBg,
+  onNote,
   fontSize = 13,
   fields = [],
   optionsOf,
@@ -121,6 +200,9 @@ export default function ScheduleTable({
   scheduleOpen = true,
   onToggleSchedule,
   allWeekCols = weekCols,
+  zebra = false,
+  widths = {},
+  onResize,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -130,6 +212,8 @@ export default function ScheduleTable({
   onField: (row: ProgressRow, id: string, value: string) => void
   onOpenRow: (row: ProgressRow) => void
   onAddRow?: (l2: string) => void
+  onBg: (row: ProgressRow, ids: string[], hex: string) => void
+  onNote: (row: ProgressRow, key: string, note: string) => void
   fontSize?: number
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
@@ -137,18 +221,27 @@ export default function ScheduleTable({
   scheduleOpen?: boolean
   onToggleSchedule?: () => void
   allWeekCols?: WeekColumn[] // 접었을 때 요약에 쓰는 전체 주차
+  zebra?: boolean
+  widths?: Record<string, number>
+  onResize?: (key: string, w: number) => void
 }) {
+  const cols = fields.filter((f) => f.id !== 'name')
+  const w = (key: string, def: number) => widths[key] ?? def
+  const wL2 = w('l2', DEFAULT_WIDTHS.l2)
+  const wL3 = w('l3', DEFAULT_WIDTHS.l3)
+  const wWeek = w('week', DEFAULT_WIDTHS.week)
+  const wSummary = w('summary', 220)
+  const colW = (f: FieldDef) => w(f.id, fieldDefaultWidth(f))
+  const months = Array.from(new Set(weekCols.map((x) => x.month)))
+  const curIdx = currentKey ? weekCols.findIndex((x) => x.key === currentKey) : -1
+  const monthStart = new Set(months.map((m) => weekCols.find((x) => x.month === m)!.key))
   // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
   const thStyle = (hex: string | null | undefined): React.CSSProperties =>
     hs ? { background: hex ? `#${hex}` : '#FFFFFF', color: '#14161A' } : { background: '#14161A', color: '#FFFFFF' }
   const thBorder = hs ? 'border border-[#A6A6A6]' : 'border-l border-white/25'
   const groupOf = new Map((hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => [id, g] as const)))
-  const cols = fields.filter((f) => f.id !== 'name')
-  const colW = (f: FieldDef) => Math.round((FIELD_WIDTH[f.kind] * fontSize) / 13)
-  const col1 = Math.round(fontSize * 11.5) // 구분 열 폭(항목 열이 이만큼 왼쪽에 붙는다)
-  const months = Array.from(new Set(weekCols.map((w) => w.month)))
-  const curIdx = currentKey ? weekCols.findIndex((w) => w.key === currentKey) : -1
-  const monthStart = new Set(months.map((m) => weekCols.find((w) => w.month === m)!.key))
+  const allIds = ['name', ...cols.map((f) => f.id)]
+
   // 끌어 칠하기: 누른 줄 안에서만 칠한다.
   const dragRow = useRef<string | null>(null)
   useEffect(() => {
@@ -157,6 +250,34 @@ export default function ScheduleTable({
     return () => window.removeEventListener('mouseup', up)
   }, [])
 
+  // 우클릭 메뉴 · 메모 편집 · 메모 미리보기(표 밖에 떠서 잘리지 않게 fixed)
+  const [menu, setMenu] = useState<Menu | null>(null)
+  const [noteEdit, setNoteEdit] = useState<(Menu & { text: string }) | null>(null)
+  const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', key)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', key)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [menu])
+  function openMenu(e: React.MouseEvent, row: ProgressRow, key: string, kind: Menu['kind']) {
+    e.preventDefault()
+    setHoverNote(null)
+    setMenu({ row, key, kind, x: Math.min(e.clientX, window.innerWidth - 250), y: Math.min(e.clientY, window.innerHeight - 230) })
+  }
+  function showNote(e: React.MouseEvent | null, text: string) {
+    if (!e) return setHoverNote(null)
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setHoverNote({ text, x: Math.min(r.right + 4, window.innerWidth - 300), y: r.top })
+  }
+
   // 같은 L2끼리 묶어 "구분" 칸을 합친다(시트 순서 그대로).
   const groups: { l2: string; tag: string | null; rows: ScheduleRowView[] }[] = []
   for (const r of rows) {
@@ -164,177 +285,204 @@ export default function ScheduleTable({
     if (last && last.l2 === r.row.l2) last.rows.push(r)
     else groups.push({ l2: r.row.l2, tag: r.row.l2Tag, rows: [r] })
   }
+  const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
+  const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : wSummary) + cols.reduce((n, f) => n + colW(f), 0)
+  let rowIndex = 0
 
   return (
-    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: col1 + fontSize * 20 + (scheduleOpen ? weekCols.length * 24 : fontSize * 17) + cols.reduce((n, f) => n + colW(f), 0), fontSize }}>
-      <colgroup>
-        <col style={{ width: col1 }} />
-        <col style={{ width: Math.round(fontSize * 20) }} />
-        {scheduleOpen ? weekCols.map((w) => <col key={w.key} />) : <col style={{ width: Math.round(fontSize * 17) }} />}
-        {cols.map((f) => (
-          <col key={f.id} style={{ width: colW(f) }} />
-        ))}
-      </colgroup>
-      <thead className="sticky top-0 z-10">
-        <tr>
-          <th rowSpan={2} style={thStyle(hs?.l2)} className={`sticky left-0 z-20 px-2 py-2 text-[1em] font-bold ${thBorder}`}>
-            구분
-          </th>
-          <th rowSpan={2} style={{ left: col1, ...thStyle(hs?.l3) }} className={`sticky z-20 px-2 py-2 text-[1em] font-bold ${thBorder}`}>
-            항목
-          </th>
-          {scheduleOpen ? (
-            months.map((m, i) => (
-              <th key={m} colSpan={weekCols.filter((w) => w.month === m).length} style={thStyle(hs?.months[m])} className={`pb-0.5 pt-2 text-[1em] font-bold ${thBorder}`}>
-                {i === 0 && onToggleSchedule ? (
-                  <span className="flex items-center justify-center gap-1">
-                    <button onClick={onToggleSchedule} title="일정 접기" aria-label="일정 접기" className="rounded px-0.5 text-[0.85em] opacity-60 hover:opacity-100">
-                      ◂
-                    </button>
-                    {m}월
-                  </span>
-                ) : (
-                  `${m}월`
-                )}
-              </th>
-            ))
-          ) : (
-            <th rowSpan={2} style={thStyle(hs?.months[months[0]])} className={`px-1.5 py-2 text-[0.92em] font-bold ${thBorder}`}>
-              <button onClick={onToggleSchedule} title="일정 펼치기" className="flex w-full items-center justify-center gap-1 hover:text-accent">
-                일정 ▸
-              </button>
+    <>
+      <table className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize }}>
+        <colgroup>
+          <col style={{ width: wL2 }} />
+          <col style={{ width: wL3 }} />
+          {scheduleOpen ? weekCols.map((x) => <col key={x.key} style={{ width: wWeek }} />) : <col style={{ width: wSummary }} />}
+          {cols.map((f) => (
+            <col key={f.id} style={{ width: colW(f) }} />
+          ))}
+        </colgroup>
+        <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
+          <tr>
+            <th rowSpan={2} style={thStyle(hs?.l2)} className={`sticky left-0 z-20 px-2 py-2 font-bold ${thBorder}`}>
+              구분(L2)
+              {onResize && <ResizeHandle width={wL2} onResize={(v) => onResize('l2', v)} />}
             </th>
-          )}
-          {cols.map((f) => {
-            const g = groupOf.get(f.id)
-            if (g) {
-              if (g.fieldIds[0] !== f.id) return null
+            <th rowSpan={2} style={{ left: wL2, ...thStyle(hs?.l3) }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
+              과제(L3)
+              {onResize && <ResizeHandle width={wL3} onResize={(v) => onResize('l3', v)} />}
+            </th>
+            {scheduleOpen ? (
+              months.map((m, i) => (
+                <th key={m} colSpan={weekCols.filter((x) => x.month === m).length} style={thStyle(hs?.months[m])} className={`pb-0.5 pt-2 font-bold ${thBorder}`}>
+                  {i === 0 && onToggleSchedule ? (
+                    <span className="flex items-center justify-center gap-1">
+                      <button onClick={onToggleSchedule} title="일정 접기" aria-label="일정 접기" className="rounded px-0.5 text-[0.85em] opacity-60 hover:opacity-100">
+                        ◂
+                      </button>
+                      {m}월
+                    </span>
+                  ) : (
+                    `${m}월`
+                  )}
+                </th>
+              ))
+            ) : (
+              <th rowSpan={2} style={thStyle(hs?.months[months[0]])} className={`relative px-1.5 py-2 font-bold ${thBorder}`}>
+                <button onClick={onToggleSchedule} title="일정 펼치기" className="flex w-full items-center justify-center gap-1 hover:text-accent">
+                  일정 ▸
+                </button>
+                {onResize && <ResizeHandle width={wSummary} onResize={(v) => onResize('summary', v)} />}
+              </th>
+            )}
+            {cols.map((f) => {
+              const g = groupOf.get(f.id)
+              if (g) {
+                if (g.fieldIds[0] !== f.id) return null
+                return (
+                  <th key={`g-${f.id}`} colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length} style={thStyle(g.bg ?? hs?.fields[f.id])} className={`px-1.5 pb-0.5 pt-2 font-bold ${thBorder}`}>
+                    {g.label}
+                  </th>
+                )
+              }
               return (
-                <th key={`g-${f.id}`} colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length} style={thStyle(g.bg ?? hs?.fields[f.id])} className={`px-1.5 pb-0.5 pt-2 text-[0.92em] font-bold ${thBorder}`}>
-                  {g.label}
+                <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`relative px-1.5 py-2 font-bold ${thBorder}`} title={f.label}>
+                  <span className="break-keep">{f.label}</span>
+                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
                 </th>
               )
-            }
-            return (
-              <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`px-1.5 py-2 text-[0.92em] font-bold ${thBorder}`} title={f.label}>
-                <span className="line-clamp-2 break-keep">{f.label}</span>
-              </th>
-            )
-          })}
-        </tr>
-        <tr>
-          {scheduleOpen &&
-            weekCols.map((w, i) => (
-              <th key={w.key} style={thStyle(hs?.weeks[w.key])} className={`pb-1.5 text-[0.85em] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
-                {i === curIdx ? '▼' : w.week}
-              </th>
-            ))}
-          {cols
-            .filter((f) => groupOf.has(f.id))
-            .map((f) => (
-              <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`px-1.5 pb-1.5 text-[0.92em] font-bold ${thBorder}`} title={f.label}>
-                <span className="line-clamp-2 break-keep">{f.label}</span>
-              </th>
-            ))}
-        </tr>
-      </thead>
-      <tbody>
-        {groups.map((g, gi) => (
-          <Fragment key={`${g.l2}-${gi}`}>
-            {g.rows.map((v, ri) => {
-              const zebra = gi % 2 === 0 ? 'bg-[#F4F5F7]' : 'bg-white'
-              return (
-                <tr key={v.row.key} className={`${zebra} leading-snug`}>
-                  {ri === 0 && (
-                    <td
-                      rowSpan={g.rows.length}
-                      className={`sticky left-0 z-[5] border-b border-r border-[#C9CDD3] px-2 py-2 text-center align-top text-[1em] font-bold text-label ${zebra}`}
-                    >
-                      {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리 띠 아래에 머문다. */}
-                      <div className="sticky py-1" style={{ top: Math.round(fontSize * 4.8) }}>
-                        <span className="whitespace-pre-line break-keep">{g.l2}</span>
-                        {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
-                        <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
-                        {onAddRow && (
-                          <button onClick={() => onAddRow(g.l2)} className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline" title="이 L2에 과제(L3) 추가">
-                            + 추가
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                  <td style={{ left: col1 }} className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${zebra}`}>
-                    <button onClick={() => onOpenRow(v.row)} className="flex w-full min-w-0 items-center gap-1 text-left" title={`${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기·입력`}>
-                      {v.row.isNew && <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
-                      <span className={`truncate font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
-                      {(v.editedFields.size > 0 || v.row.isNew) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
-                    </button>
-                  </td>
-                  {scheduleOpen ? (
-                    <>
-                  {weekCols.map((w, i) => {
-                      const c = v.cells[w.key]
-                      const edited = v.editedCells.has(w.key)
-                      return (
-                        <td
-                          key={w.key}
-                          onMouseDown={
-                            editing
-                              ? (e) => {
-                                  e.preventDefault()
-                                  dragRow.current = v.row.key
-                                  onPaint(v.row, w.key)
-                                }
-                              : undefined
-                          }
-                          onMouseEnter={editing ? () => dragRow.current === v.row.key && onPaint(v.row, w.key) : undefined}
-                          title={`${w.month}월 ${w.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 이 화면에서 고침(아직 시트에 저장 안 됨)' : ''}`}
-                          style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
-                          className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
-                            monthStart.has(w.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
-                          } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
-                        >
-                          {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
-                          <span className="relative">{c?.m}</span>
-                          {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
-                        </td>
-                      )
-                    })}
-                    </>
-                  ) : (
-                    <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-[2px] text-[0.85em] leading-tight text-label-2">
-                      {(() => {
-                        const pr = planRange(v.cells, allWeekCols)
-                        const wk = (k: string | null) => {
-                          const w = k ? allWeekCols.find((x) => x.key === k) : null
-                          return w ? `${w.month}/${w.week}주` : '-'
-                        }
-                        const plan = pr.planStart || pr.planEnd ? `${wk(pr.planStart)}~${wk(pr.planEnd)}` : '-'
-                        const act = pr.started ? `${wk(pr.started)}~${pr.done ? wk(pr.done) : ''}` : '-'
-                        return (
-                          <p className="truncate" title={`계획 ${plan} · 실적 ${act}`}>
-                            <span className="text-label-3">계획</span> {plan} <span className="text-label-3">실적</span> {act}
-                          </p>
-                        )
-                      })()}
-                    </td>
-                  )}
-                  {cols.map((f) => (
-                    <FieldCell
-                      key={f.id}
-                      f={f}
-                      value={v.vals[f.id] ?? ''}
-                      edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
-                      fontSize={fontSize}
-                      onCommit={(val) => onField(v.row, f.id, val)}
-                    />
-                  ))}
-                </tr>
-              )
             })}
-          </Fragment>
-        ))}
-      </tbody>
+          </tr>
+          <tr>
+            {scheduleOpen &&
+              weekCols.map((x, i) => (
+                <th key={x.key} style={thStyle(hs?.weeks[x.key])} className={`relative pb-1.5 text-[11px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
+                  {i === curIdx ? '▼' : x.week}
+                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(16, v))} />}
+                </th>
+              ))}
+            {cols
+              .filter((f) => groupOf.has(f.id))
+              .map((f) => (
+                <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`relative px-1.5 pb-1.5 font-bold ${thBorder}`} title={f.label}>
+                  <span className="break-keep">{f.label}</span>
+                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
+                </th>
+              ))}
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g, gi) => (
+            <Fragment key={`${g.l2}-${gi}`}>
+              {g.rows.map((v, ri) => {
+                const rowBg = zebra && rowIndex++ % 2 === 1 ? 'bg-[#F7F8FA]' : 'bg-white'
+                const l3Bg = v.bg.name
+                const l3Note = v.notes.name
+                return (
+                  <tr key={v.row.key} className={`${rowBg} leading-snug`}>
+                    {ri === 0 && (
+                      <td rowSpan={g.rows.length} className="sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label">
+                        {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
+                        <div className="sticky top-[64px] py-1">
+                          <span className="whitespace-pre-line break-words">{g.l2}</span>
+                          {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
+                          <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
+                          {onAddRow && (
+                            <button onClick={() => onAddRow(g.l2)} className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline" title="이 L2에 과제(L3) 추가">
+                              + 추가
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                    <td
+                      onContextMenu={(e) => openMenu(e, v.row, 'name', 'field')}
+                      onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
+                      onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
+                      style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
+                      className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${l3Bg ? '' : rowBg}`}
+                    >
+                      <button onClick={() => onOpenRow(v.row)} className="flex w-full min-w-0 items-start gap-1 text-left" title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기 · 우클릭: 메모·색`}>
+                        {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
+                        <span className={`whitespace-normal break-words font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
+                        {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
+                      </button>
+                      {l3Note && <NoteMark />}
+                    </td>
+                    {scheduleOpen ? (
+                      weekCols.map((x, i) => {
+                        const c = v.cells[x.key]
+                        const edited = v.editedCells.has(x.key) || v.editedFields.has(x.key)
+                        const note = v.notes[x.key]
+                        return (
+                          <td
+                            key={x.key}
+                            onMouseDown={
+                              editing
+                                ? (e) => {
+                                    if (e.button !== 0) return
+                                    e.preventDefault()
+                                    dragRow.current = v.row.key
+                                    onPaint(v.row, x.key)
+                                  }
+                                : undefined
+                            }
+                            onMouseEnter={(e) => {
+                              if (editing && dragRow.current === v.row.key) onPaint(v.row, x.key)
+                              if (note) showNote(e, note)
+                            }}
+                            onMouseLeave={note ? () => showNote(null, '') : undefined}
+                            onContextMenu={(e) => openMenu(e, v.row, x.key, 'week')}
+                            title={note ? undefined : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`}
+                            style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
+                            className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
+                              monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
+                            } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
+                          >
+                            {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
+                            <span className="relative">{c?.m}</span>
+                            {note && <NoteMark />}
+                            {edited && <span className="pointer-events-none absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
+                          </td>
+                        )
+                      })
+                    ) : (
+                      <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-[2px] text-[0.85em] leading-tight text-label-2">
+                        {(() => {
+                          const pr = planRange(v.cells, allWeekCols)
+                          const wk = (k: string | null) => {
+                            const x = k ? allWeekCols.find((y) => y.key === k) : null
+                            return x ? `${x.month}/${x.week}주` : '-'
+                          }
+                          const plan = pr.planStart || pr.planEnd ? `${wk(pr.planStart)}~${wk(pr.planEnd)}` : '-'
+                          const act = pr.started ? `${wk(pr.started)}~${pr.done ? wk(pr.done) : ''}` : '-'
+                          return (
+                            <p className="whitespace-normal break-words">
+                              <span className="text-label-3">계획</span> {plan} <span className="text-label-3">실적</span> {act}
+                            </p>
+                          )
+                        })()}
+                      </td>
+                    )}
+                    {cols.map((f) => (
+                      <FieldCell
+                        key={f.id}
+                        f={f}
+                        value={v.vals[f.id] ?? ''}
+                        bg={v.bg[f.id] ?? ''}
+                        note={v.notes[f.id] ?? ''}
+                        edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
+                        onCommit={(val) => onField(v.row, f.id, val)}
+                        onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
+                        onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
+                      />
+                    ))}
+                  </tr>
+                )
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+
       {/* 입력 칸 제안값(시트에 이미 있는 값) */}
       {optionsOf &&
         cols.map((f) => {
@@ -347,6 +495,108 @@ export default function ScheduleTable({
             </datalist>
           ) : null
         })}
-    </table>
+
+      {hoverNote && !menu && !noteEdit && (
+        <div
+          className="pointer-events-none fixed z-50 max-w-[300px] whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[12px] leading-relaxed text-label shadow-dialog"
+          style={{ left: hoverNote.x, top: hoverNote.y }}
+        >
+          {hoverNote.text}
+        </div>
+      )}
+
+      {menu && menuView && (
+        <div className="mac-pop fixed z-50 w-[240px] py-1 text-[13px]" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => {
+              setNoteEdit({ ...menu, text: menuView.notes[menu.key] ?? '' })
+              setMenu(null)
+            }}
+            className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+          >
+            {menuView.notes[menu.key] ? '메모 수정' : '메모 추가'}
+          </button>
+          {menuView.notes[menu.key] && (
+            <button
+              onClick={() => {
+                onNote(menu.row, menu.key, '')
+                setMenu(null)
+              }}
+              className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
+            >
+              메모 삭제
+            </button>
+          )}
+          {menu.kind === 'field' && (
+            <>
+              <div className="mac-menu-sep" />
+              {(
+                [
+                  ['칸 색', [menu.key]],
+                  ['행 색 (L3 · 입력 열 전체)', allIds],
+                ] as const
+              ).map(([label, ids]) => (
+                <div key={label} className="px-3 py-1.5">
+                  <p className="text-[12px] text-label-2">{label}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {ROW_COLORS.map((hex) => (
+                      <button
+                        key={hex || 'none'}
+                        onClick={() => {
+                          onBg(menu.row, [...ids], hex)
+                          setMenu(null)
+                        }}
+                        title={hex ? `#${hex}` : '색 없음'}
+                        className="flex h-5 w-5 items-center justify-center rounded-[3px] border border-black/15 text-[10px] text-label-3 hover:scale-110"
+                        style={{ background: hex ? `#${hex}` : '#FFFFFF' }}
+                      >
+                        {hex ? '' : '✕'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {noteEdit && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setNoteEdit(null)}>
+          <div className="mac-pop absolute w-[300px] p-2.5" style={{ left: noteEdit.x, top: noteEdit.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <p className="text-[12px] font-semibold text-label">메모</p>
+            <textarea
+              autoFocus
+              value={noteEdit.text}
+              onChange={(e) => setNoteEdit({ ...noteEdit, text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setNoteEdit(null)
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  onNote(noteEdit.row, noteEdit.key, noteEdit.text)
+                  setNoteEdit(null)
+                }
+              }}
+              rows={5}
+              placeholder="메모를 입력하세요 (⌘/Ctrl+Enter로 넣기)"
+              className="mt-1.5 w-full resize-y rounded-control border border-hairline px-2 py-1.5 text-[13px] text-label"
+            />
+            <div className="mt-2 flex justify-end gap-1.5">
+              <button onClick={() => setNoteEdit(null)} className="h-7 rounded-control px-2.5 text-[12px] text-label-2 hover:bg-black/[0.05]">
+                취소
+              </button>
+              <button
+                onClick={() => {
+                  onNote(noteEdit.row, noteEdit.key, noteEdit.text)
+                  setNoteEdit(null)
+                }}
+                className="h-7 rounded-control bg-accent px-3 text-[12px] font-medium text-white hover:bg-accent-hover"
+              >
+                메모 넣기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
