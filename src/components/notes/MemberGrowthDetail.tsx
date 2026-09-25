@@ -3,10 +3,11 @@ import { ArrowRight, Info, Plus, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import type { EvaluationGrade, Importance, PersonalNoteColor } from '../../types'
+import type { EvaluationGrade, Importance, Level, PersonalNoteColor } from '../../types'
+import { LEVEL_OPTIONS } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear } from '../../utils/promotion'
-import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
+import { calcYearsSince } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -514,7 +515,22 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             <div className="shrink-0">
               <p className="flex items-baseline gap-2">
                 <span className="text-[17px] font-semibold text-label">{member.name}</span>
-                <span className="text-[13px] text-label-2">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
+                {/* 직급은 여기서 바로 바꾼다(잘못 고른 직급도 고칠 수 있게). 팀원관리 표와 같은 값. */}
+                <select
+                  aria-label="직급"
+                  title="직급 바꾸기"
+                  value={member.level}
+                  onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, level: e.target.value as Level | '' } })}
+                  className="h-7 rounded-control border border-hairline !py-0 !pl-2 text-[13px] text-label-2"
+                >
+                  <option value="">직급 없음</option>
+                  {LEVEL_OPTIONS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+                {levelTenureYears !== null && <span className="text-[13px] text-label-3">{levelTenureYears === 0 ? '1년차 미만' : `${levelTenureYears}년차`}</span>}
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
