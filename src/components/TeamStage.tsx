@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
 import PeerReviewHub from './PeerReviewHub'
+import { useAppState } from '../state/AppContext'
 
 type TeamSubTab = 'members' | 'rank' | 'peer'
 
@@ -13,8 +14,9 @@ export interface TeamSubTabRequest {
 const SUB_TABS: { key: TeamSubTab; label: string }[] = [
   { key: 'members', label: '팀원' },
   { key: 'rank', label: '피어리뷰' },
-  // 예전 방식(과제별 등급·기여도). 순위 방식과 따로 저장·계산된다.
-  { key: 'peer', label: '피어리뷰(등급·기여도)' },
+  // 예전 방식(과제별 등급·기여도). 순위 방식과 따로 저장되고, 점수의 "피어리뷰 반영 비율"은
+  // 이 데이터를 쓴다. 새로 쓰지 않으므로 예전 데이터가 있을 때만 탭을 보여 준다.
+  { key: 'peer', label: '이전 피어리뷰(등급)' },
 ]
 
 interface TeamStageProps {
@@ -25,6 +27,8 @@ interface TeamStageProps {
 
 export default function TeamStage({ subTabRequest }: TeamStageProps) {
   const [sub, setSub] = useState<TeamSubTab>(subTabRequest?.subTab ?? 'members')
+  const hasLegacyPeer = useAppState().state.peerReviews.length > 0
+  const tabs = SUB_TABS.filter((t) => t.key !== 'peer' || hasLegacyPeer || sub === 'peer')
 
   useEffect(() => {
     if (!subTabRequest) return
@@ -35,7 +39,7 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
   return (
     <div>
       <div className="flex items-center border-b border-gray-200">
-        {SUB_TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setSub(tab.key)}

@@ -47,6 +47,7 @@ export default function TaskPeerPanel() {
   const periodLabel = currentWorkspace ? `${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : ''
   const activeMembers = state.members.filter((m) => m.active)
   const [busy, setBusy] = useState<string | null>(null)
+  const [methodOpen, setMethodOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [uploads, setUploads] = useState<(ParsedTaskPeerFile & { saved: boolean })[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
@@ -138,71 +139,103 @@ export default function TaskPeerPanel() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold text-black">과제별 평가 방식</p>
-          {peerTasks.length > 1 && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              전체를
-              <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'rank')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
-                순위로
-              </button>
-              <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'contribution')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
-                기여도로
-              </button>
+      {/* 과제별 평가 방식: 평소엔 한 줄 요약, 눌러야 과제 목록이 펼쳐진다 */}
+      {peerTasks.length === 0 ? (
+        <p className="text-sm text-gray-400">참여자가 2명 이상인 평가과제가 없습니다. 과제관리에서 평가과제를 먼저 만들어 주세요.</p>
+      ) : (
+        <div className="rounded-lg border border-gray-200">
+          <button onClick={() => setMethodOpen((v) => !v)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm">
+            <span className="font-semibold text-black">평가 방식</span>
+            <span className="text-gray-500">
+              {(['rank', 'contribution'] as const)
+                .map((m) => [m, peerTasks.filter((t) => peerMethodOf(t) === m).length] as const)
+                .filter(([, n]) => n > 0)
+                .map(([m, n]) => `${m === 'rank' ? '순위' : '기여도'} ${n}개 과제`)
+                .join(' · ')}
             </span>
+            <span className="ml-auto text-xs text-accent">{methodOpen ? '접기' : '과제별로 바꾸기'}</span>
+          </button>
+          {methodOpen && (
+            <div className="border-t border-gray-100 px-4 pb-3 pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                <span>순위 = 1위부터 겹치지 않게 · 기여도 = 합계 100%. 양식을 나눠 주기 전에 정해 주세요.</span>
+                {peerTasks.length > 1 && (
+                  <span className="flex items-center gap-1.5">
+                    전체를
+                    <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'rank')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
+                      순위로
+                    </button>
+                    <button onClick={() => setMethod(peerTasks.map((t) => t.id), 'contribution')} className="rounded border border-gray-200 px-2 py-0.5 hover:border-gray-400">
+                      기여도로
+                    </button>
+                  </span>
+                )}
+              </div>
+              <ul className="mt-2 divide-y divide-gray-100 rounded-md border border-gray-200">
+                {peerTasks.map((t) => (
+                  <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
+                    <span className="min-w-0 flex-1 text-sm font-medium text-gray-900">{t.name}</span>
+                    <span className="text-xs text-gray-400">참여 {taskParticipants(t, state).length}명</span>
+                    <MethodToggle value={peerMethodOf(t)} onChange={(m) => m !== peerMethodOf(t) && setMethod([t.id], m)} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
-        <p className="mt-0.5 text-xs text-gray-500">
-          과제마다 참여자를 순위(1위 = 가장 높음, 중복 없이)로 받을지, 기여도(합계 100%)로 받을지 고릅니다. 어느 쪽이든 근거는 꼭 적어야 합니다. 양식을 나눠 주기 전에 정해 주세요.
-        </p>
-        {peerTasks.length === 0 ? (
-          <p className="mt-3 text-xs text-gray-400">참여자가 2명 이상인 평가과제가 없습니다. 평가과제·평가하기에서 참여자(기여도)를 먼저 정해 주세요.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-gray-100 rounded-md border border-gray-200">
-            {peerTasks.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
-                <span className="min-w-0 flex-1 text-sm font-medium text-gray-900">{t.name}</span>
-                <span className="text-xs text-gray-400">참여 {taskParticipants(t, state).length}명</span>
-                <MethodToggle value={peerMethodOf(t)} onChange={(m) => m !== peerMethodOf(t) && setMethod([t.id], m)} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      )}
+
 
       <section className="rounded-lg border border-gray-200 p-4">
-        <p className="text-sm font-semibold text-black">엑셀로 나눠 받기</p>
-        <p className="mt-0.5 text-xs text-gray-500">
-          평가자마다 참여한 과제별 시트가 든 파일을 ZIP으로 받습니다. 과제마다 정한 방식대로 참여자 전원(본인 포함)의 순위 또는 기여도와 근거를 적고, 시트 아래 "검증" 칸에서
-          확인합니다. 순위가 겹치거나 기여도 합계가 100%가 아니거나 근거가 빈 파일은 반영하지 않고 이유를 보여 줍니다.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={handleDownload} disabled={busy !== null}>
-            팀원별 Excel 양식 다운로드 (과제별)
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files?.length) void handleFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
-          <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
-            작성한 Excel 올리기
-          </Button>
-          {busy && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Spinner className="h-3.5 w-3.5 text-accent" />
-              {busy}
-            </span>
-          )}
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-black">
+            응답 현황 {expected.filter((m) => submitted.has(m.id)).length}/{expected.length}명
+          </p>
+          <span className="flex items-center gap-1.5">
+            {busy && (
+              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Spinner className="h-3.5 w-3.5 text-accent" />
+                {busy}
+              </span>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) void handleFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <Button variant="secondary" onClick={handleDownload} disabled={busy !== null} className="h-8 px-3 text-xs" title="팀원별 엑셀 양식을 ZIP으로 받아 나눠 줍니다">
+              엑셀 양식 받기
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy !== null} className="h-8 px-3 text-xs" title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)">
+              엑셀 올리기
+            </Button>
+          </span>
         </div>
-        {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {expected.map((m) => {
+            const done = submitted.has(m.id)
+            return (
+              <button
+                key={m.id}
+                onClick={() => openReviewer(m)}
+                className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${reviewerId === m.id ? 'ring-2 ring-accent' : ''} ${
+                  done ? 'bg-emerald-100 text-emerald-800' : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400'
+                }`}
+              >
+                {m.name}
+                <span className="ml-1 opacity-60">{done ? '제출' : '미제출'}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-sm">
             {uploads.map((u) => (
@@ -224,34 +257,6 @@ export default function TaskPeerPanel() {
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold text-black">
-            응답 현황 {expected.filter((m) => submitted.has(m.id)).length}/{expected.length}명
-          </p>
-          <span className="text-xs text-gray-500">이름을 누르면 그 팀원의 과제별 리뷰를 여기서 바로 입력·수정합니다.</span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {expected.map((m) => {
-            const done = submitted.has(m.id)
-            return (
-              <button
-                key={m.id}
-                onClick={() => openReviewer(m)}
-                className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${reviewerId === m.id ? 'ring-2 ring-accent' : ''} ${
-                  done ? 'bg-emerald-100 text-emerald-800' : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400'
-                }`}
-              >
-                {m.name}
-                <span className="ml-1 opacity-60">{done ? '제출' : '미제출'}</span>
-              </button>
-            )
-          })}
-          {expected.length === 0 && <p className="text-xs text-gray-400">참여자가 2명 이상인 평가과제가 없습니다. 평가과제·평가하기에서 참여자(기여도)를 먼저 정해 주세요.</p>}
-        </div>
-
         {reviewer && (
           <div className="mt-4 rounded-lg bg-[#F7F8FA] p-4">
             <p className="text-sm font-bold text-black">평가자: {reviewer.name}</p>
@@ -369,7 +374,7 @@ export default function TaskPeerPanel() {
       <section>
         <p className="text-sm font-semibold text-black">피어리뷰 결과 · 과제별</p>
         <p className="mt-0.5 text-xs text-gray-500">
-          과제마다 대상자가 받은 순위 또는 기여도의 평균입니다(본인이 매긴 값 포함). 지금 정해진 방식으로 받은 리뷰만 셉니다.
+          과제마다 대상자가 받은 평균(본인이 매긴 값 포함).
         </p>
         {resultTasks.length === 0 && <p className="mt-3 text-sm text-gray-400">아직 받은 리뷰가 없습니다.</p>}
         {resultTasks.map((t) => {

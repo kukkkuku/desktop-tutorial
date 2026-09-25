@@ -117,39 +117,59 @@ export default function RankPeerReview() {
 
   return (
     <div className="space-y-6">
-      {/* 엑셀 */}
+
+      {/* 응답 현황 + 직접 입력 */}
       <section className="rounded-lg border border-gray-200 p-4">
-        <p className="text-sm font-semibold text-black">엑셀로 나눠 받기</p>
-        <p className="mt-0.5 text-xs text-gray-500">
-          팀원별 파일을 ZIP으로 내려받아 각자에게 보내고, 작성해 돌려받은 파일을 한꺼번에 올리세요. 같은 평가자가 다시 올리면 덮어씁니다. 순위가 겹치거나 근거가 빈 파일은
-          반영하지 않고 이유를 보여 줍니다.
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button variant="secondary" onClick={handleDownload} disabled={busy !== null}>
-            팀원별 Excel 양식 다운로드 ({RANK_MODE_LABEL[mode]})
-          </Button>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files?.length) void handleFiles(e.target.files)
-              e.target.value = ''
-            }}
-          />
-          <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={busy !== null}>
-            작성한 Excel 올리기
-          </Button>
-          {busy && (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <Spinner className="h-3.5 w-3.5 text-accent" />
-              {busy}
-            </span>
-          )}
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-black">
+            응답 현황 {submitted.size}/{expected.length}명
+          </p>
+          <span className="flex items-center gap-1.5">
+            {busy && (
+              <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Spinner className="h-3.5 w-3.5 text-accent" />
+                {busy}
+              </span>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) void handleFiles(e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <Button variant="secondary" onClick={handleDownload} disabled={busy !== null} className="h-8 px-3 text-xs" title="팀원별 엑셀 양식을 ZIP으로 받아 나눠 줍니다">
+              엑셀 양식 받기
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy !== null} className="h-8 px-3 text-xs" title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)">
+              엑셀 올리기
+            </Button>
+          </span>
         </div>
-        {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {expected.map((m) => {
+            const done = submitted.has(m.id)
+            return (
+              <button
+                key={m.id}
+                onClick={() => openReviewer(m.id)}
+                className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  reviewerId === m.id ? 'ring-2 ring-accent' : ''
+                } ${done ? 'bg-emerald-100 text-emerald-800' : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400'}`}
+              >
+                {m.name}
+                <span className="ml-1 opacity-60">{done ? '제출' : '미제출'}</span>
+              </button>
+            )
+          })}
+          {expected.length === 0 && <p className="text-xs text-gray-400">활성 팀원이 2명 이상 필요합니다.</p>}
+        </div>
+
+        {notice && <p className="mt-3 text-sm text-green-700">{notice}</p>}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-sm">
             {uploads.map((u) => (
@@ -171,35 +191,6 @@ export default function RankPeerReview() {
             ))}
           </ul>
         )}
-      </section>
-
-      {/* 응답 현황 + 직접 입력 */}
-      <section className="rounded-lg border border-gray-200 p-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold text-black">
-            응답 현황 {submitted.size}/{expected.length}명
-          </p>
-          <span className="text-xs text-gray-500">이름을 누르면 그 팀원의 순위를 여기서 바로 입력·수정합니다.</span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {expected.map((m) => {
-            const done = submitted.has(m.id)
-            return (
-              <button
-                key={m.id}
-                onClick={() => openReviewer(m.id)}
-                className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  reviewerId === m.id ? 'ring-2 ring-accent' : ''
-                } ${done ? 'bg-emerald-100 text-emerald-800' : 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400'}`}
-              >
-                {m.name}
-                <span className="ml-1 opacity-60">{done ? '제출' : '미제출'}</span>
-              </button>
-            )
-          })}
-          {expected.length === 0 && <p className="text-xs text-gray-400">활성 팀원이 2명 이상 필요합니다.</p>}
-        </div>
-
         {reviewer && (
           <RankForm
             reviewer={reviewer}
@@ -219,7 +210,7 @@ export default function RankPeerReview() {
         <p className="mt-0.5 text-xs text-gray-500">
           대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.
         </p>
-        <SummaryTable rows={summary} mode={mode} />
+        {state.rankReviews.some((r) => r.mode === mode) ? <SummaryTable rows={summary} mode={mode} /> : <p className="mt-3 text-sm text-gray-400">아직 받은 리뷰가 없습니다.</p>}
       </section>
     </div>
   )
