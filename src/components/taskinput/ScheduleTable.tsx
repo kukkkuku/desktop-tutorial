@@ -9,9 +9,9 @@ import { FILL_HEX } from '../../utils/progressBoard'
 export interface ScheduleRowView {
   row: ProgressRow
   cells: Record<string, CellState>
-  status: string
+  vals: Record<string, string> // 고친 값을 얹은 열 값(name, status, assignees, category, note …)
   editedCells: Set<string>
-  statusEdited: boolean
+  editedFields: Set<string>
 }
 
 const STATUS_TONE: Record<string, string> = {
@@ -20,7 +20,7 @@ const STATUS_TONE: Record<string, string> = {
   보류: 'bg-red-100 text-red-700',
   중단: 'bg-red-100 text-red-700',
 }
-export const STATUS_CHOICES = ['진행중', '완료', '보류', '-']
+export const STATUS_CHOICES = ['진행중', '완료', '보류', '일상', '-']
 
 export function cellLabel(c: CellState | undefined): string {
   if (!c) return ''
@@ -47,15 +47,22 @@ export default function ScheduleTable({
   editing,
   currentKey,
   onPaint,
-  onStatus,
+  onField,
+  onOpenRow,
+  onAddRow,
+  fontSize = 13,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
   editing: boolean
   currentKey: string | null
   onPaint: (row: ProgressRow, weekKey: string) => void
-  onStatus: (row: ProgressRow, status: string) => void
+  onField: (row: ProgressRow, id: string, value: string) => void
+  onOpenRow: (row: ProgressRow) => void
+  onAddRow?: (l2: string) => void
+  fontSize?: number
 }) {
+  const col1 = Math.round(fontSize * 11.5) // 구분 열 폭(항목 열이 이만큼 왼쪽에 붙는다)
   const months = Array.from(new Set(weekCols.map((w) => w.month)))
   const curIdx = currentKey ? weekCols.findIndex((w) => w.key === currentKey) : -1
   const monthStart = new Set(months.map((m) => weekCols.find((w) => w.month === m)!.key))
@@ -76,10 +83,10 @@ export default function ScheduleTable({
   }
 
   return (
-    <table className="w-full table-fixed border-collapse select-none text-[13px]" style={{ minWidth: 560 + weekCols.length * 24 }}>
+    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: 560 + weekCols.length * 24, fontSize }}>
       <colgroup>
-        <col style={{ width: 150 }} />
-        <col style={{ width: 260 }} />
+        <col style={{ width: col1 }} />
+        <col style={{ width: Math.round(fontSize * 20) }} />
         {weekCols.map((w) => (
           <col key={w.key} />
         ))}
@@ -87,24 +94,24 @@ export default function ScheduleTable({
       </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="bg-[#14161A] text-white">
-          <th rowSpan={2} className="sticky left-0 z-20 bg-[#14161A] px-2 py-2 text-[13px] font-bold">
+          <th rowSpan={2} className="sticky left-0 z-20 bg-[#14161A] px-2 py-2 text-[1em] font-bold">
             구분
           </th>
-          <th rowSpan={2} className="sticky left-[150px] z-20 bg-[#14161A] px-2 py-2 text-[13px] font-bold">
+          <th rowSpan={2} style={{ left: col1 }} className="sticky z-20 bg-[#14161A] px-2 py-2 text-[1em] font-bold">
             항목
           </th>
           {months.map((m) => (
-            <th key={m} colSpan={weekCols.filter((w) => w.month === m).length} className="border-l border-white/25 pb-0.5 pt-2 text-[13px] font-bold">
+            <th key={m} colSpan={weekCols.filter((w) => w.month === m).length} className="border-l border-white/25 pb-0.5 pt-2 text-[1em] font-bold">
               {m}월
             </th>
           ))}
-          <th rowSpan={2} className="border-l border-white/25 px-2 py-2 text-[13px] font-bold">
+          <th rowSpan={2} className="border-l border-white/25 px-2 py-2 text-[1em] font-bold">
             상태 / 비고
           </th>
         </tr>
         <tr className="bg-[#14161A] text-[#9AA1AC]">
           {weekCols.map((w, i) => (
-            <th key={w.key} className={`pb-1.5 text-[11px] font-medium ${monthStart.has(w.key) ? 'border-l border-white/25' : ''} ${i === curIdx ? 'text-[#FF6F63]' : ''}`}>
+            <th key={w.key} className={`pb-1.5 text-[0.85em] font-medium ${monthStart.has(w.key) ? 'border-l border-white/25' : ''} ${i === curIdx ? 'text-[#FF6F63]' : ''}`}>
               {i === curIdx ? '▼' : w.week}
             </th>
           ))}
@@ -115,30 +122,39 @@ export default function ScheduleTable({
           <Fragment key={`${g.l2}-${gi}`}>
             {g.rows.map((v, ri) => {
               const zebra = gi % 2 === 0 ? 'bg-[#F4F5F7]' : 'bg-white'
-              const assignees = v.row.values.assignees ?? ''
-              const category = v.row.values.category ?? ''
-              const note = v.row.values.note ?? ''
+              const assignees = v.vals.assignees ?? ''
+              const category = v.vals.category ?? ''
+              const note = v.vals.note ?? ''
+              const status = v.vals.status ?? ''
+              const statusEdited = v.editedFields.has('status')
               return (
-                <tr key={v.row.key} className={`${zebra} h-11`}>
+                <tr key={v.row.key} className={zebra} style={{ height: Math.round(fontSize * 3.4) }}>
                   {ri === 0 && (
                     <td
                       rowSpan={g.rows.length}
-                      className={`sticky left-0 z-[5] border-b border-r border-[#C9CDD3] px-2 py-2 text-center align-top text-[13px] font-bold text-label ${zebra}`}
+                      className={`sticky left-0 z-[5] border-b border-r border-[#C9CDD3] px-2 py-2 text-center align-top text-[1em] font-bold text-label ${zebra}`}
                     >
                       {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리 띠 아래에 머문다. */}
-                      <div className="sticky top-[64px] py-1">
+                      <div className="sticky py-1" style={{ top: Math.round(fontSize * 4.8) }}>
                         <span className="whitespace-pre-line break-keep">{g.l2}</span>
-                        {g.tag && <span className="mt-1 block text-[11px] font-semibold text-[#E8342A]">[{g.tag}]</span>}
-                        <span className="mt-1 block text-[11px] font-medium text-label-3">{g.rows.length}건</span>
+                        {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
+                        <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
+                        {onAddRow && (
+                          <button onClick={() => onAddRow(g.l2)} className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline" title="이 L2에 과제(L3) 추가">
+                            + 추가
+                          </button>
+                        )}
                       </div>
                     </td>
                   )}
-                  <td className={`sticky left-[150px] z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2.5 py-1.5 ${zebra}`}>
-                    <p className="truncate font-semibold text-label" title={v.row.l3}>
-                      {v.row.l3}
-                    </p>
+                  <td style={{ left: col1 }} className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2.5 py-1.5 ${zebra}`}>
+                    <button onClick={() => onOpenRow(v.row)} className="flex w-full min-w-0 items-center gap-1 text-left" title={`${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기·입력`}>
+                      {v.row.isNew && <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
+                      <span className={`truncate font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
+                      {(v.editedFields.size > 0 || v.row.isNew) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
+                    </button>
                     {(assignees || category) && (
-                      <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-label-3">
+                      <p className="mt-0.5 flex items-center gap-1.5 truncate text-[0.85em] text-label-3">
                         {category && <span className="rounded-[3px] bg-black/[0.06] px-1 text-label-2">{category}</span>}
                         <span className="truncate">{assignees}</span>
                       </p>
@@ -162,7 +178,7 @@ export default function ScheduleTable({
                         onMouseEnter={editing ? () => dragRow.current === v.row.key && onPaint(v.row, w.key) : undefined}
                         title={`${w.month}월 ${w.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 이 화면에서 고침(아직 시트에 저장 안 됨)' : ''}`}
                         style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
-                        className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[12px] font-bold text-[#14161A] ${
+                        className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
                           monthStart.has(w.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                         } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
                       >
@@ -175,13 +191,13 @@ export default function ScheduleTable({
                   <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-2 py-1">
                     {editing ? (
                       <select
-                        value={v.status}
-                        onChange={(e) => onStatus(v.row, e.target.value)}
-                        className={`h-6 rounded-full border-0 px-2 text-[11px] font-semibold ${STATUS_TONE[v.status] ?? 'bg-black/[0.05] text-label-2'} ${
-                          v.statusEdited ? 'ring-2 ring-orange-400' : ''
+                        value={status}
+                        onChange={(e) => onField(v.row, 'status', e.target.value)}
+                        className={`h-6 rounded-full border-0 px-2 text-[0.85em] font-semibold ${STATUS_TONE[status] ?? 'bg-black/[0.05] text-label-2'} ${
+                          statusEdited ? 'ring-2 ring-orange-400' : ''
                         }`}
                       >
-                        {!STATUS_CHOICES.includes(v.status) && <option value={v.status}>{v.status || '(빈칸)'}</option>}
+                        {!STATUS_CHOICES.includes(status) && <option value={status}>{status || '(빈칸)'}</option>}
                         {STATUS_CHOICES.map((s) => (
                           <option key={s} value={s}>
                             {s}
@@ -189,18 +205,18 @@ export default function ScheduleTable({
                         ))}
                       </select>
                     ) : (
-                      v.status && (
+                      status && (
                         <span
-                          className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold ${STATUS_TONE[v.status] ?? 'bg-black/[0.05] text-label-2'} ${
-                            v.statusEdited ? 'ring-2 ring-orange-400' : ''
+                          className={`inline-flex h-5 items-center rounded-full px-2 text-[0.85em] font-semibold ${STATUS_TONE[status] ?? 'bg-black/[0.05] text-label-2'} ${
+                            statusEdited ? 'ring-2 ring-orange-400' : ''
                           }`}
                         >
-                          {v.status}
+                          {status}
                         </span>
                       )
                     )}
                     {note && (
-                      <p className="mt-0.5 truncate text-[11px] text-label-3" title={note}>
+                      <p className="mt-0.5 truncate text-[0.85em] text-label-3" title={note}>
                         {note}
                       </p>
                     )}

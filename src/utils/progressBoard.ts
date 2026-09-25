@@ -1,15 +1,18 @@
-// 과제 입력 › 추진현황 -- 구글시트 「YYYY 추진현황」 탭 전체(모든 L1)를 읽어 일정표로 보여 준다.
+// 과제 입력 › 추진현황 -- 구글시트 「YYYY 추진현황」 탭 전체(모든 L1)를 읽어 일정표로 보여 주고,
+// 시트에서 입력하던 것(L3 이름, 속성·분류·상태·담당자·날짜·단계 메모·비고… 모든 열, 주차 칸)을 그대로 입력한다.
 // 성과관리 쪽 과제리스트(팀장이 고른 L2만 담음)와는 따로 저장한다.
-// 시트에서 읽은 값(base)과 이 화면에서 고친 값(edits)을 나눠 두어, 시트를 다시 불러와도
-// 고친 내용이 덮이지 않고 "고친 칸"을 따로 표시하고, 저장할 때 바뀐 칸만 시트에 쓴다.
+// 시트에서 읽은 값(base)과 이 화면에서 고친 값(drafts)을 나눠 두어, 다시 불러와도 고친 내용이
+// 덮이지 않고 "고친 칸"을 따로 표시하고, 저장할 때 바뀐 칸만 시트에 쓴다.
 //
 // 주차 칸 규칙(시트 그대로): 회색 배경 = 계획, 분홍 배경 = 실적.
 //   회색 S = 착수 계획, 회색 F = 완료 계획, 분홍 S = 착수(시작함), 분홍 완 = 완료.
 //   글자 없는 회색/분홍 칸은 그 사이 기간 막대.
+import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
-import type { ParsedRow, WeekFill } from './sheetImport'
-import type { SheetCellWrite } from './sheetSources'
+import { cellText, type ParsedHeader, type ParsedRow, type RawSheet, type WeekFill } from './sheetImport'
+import type { SheetCellWrite, SheetInsert } from './sheetSources'
+import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
 
 export interface ProgressRow {
   key: string // L2␟L3 (시트 행 번호는 행 삽입으로 바뀌므로 쓰지 않음)
@@ -19,9 +22,10 @@ export interface ProgressRow {
   l2: string
   l2Tag: string | null
   l3: string
-  values: Record<string, string> // 앱 열 id -> 시트 원문 (status, category, assignees, note …)
+  values: Record<string, string> // 열 id -> 시트 원문 (status, category, assignees, note, col12 …)
   weeks: Record<string, WeekMark>
   fills: Record<string, WeekFill>
+  isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
 }
 
 // 주차 칸 하나: 글자(S/완/F) + 배경(계획 회색 / 실적 분홍)
@@ -32,6 +36,16 @@ export interface CellState {
 
 export const FILL_HEX: Record<WeekFill, string> = { plan: 'D9D9D9', actual: 'F4CCCC' }
 
+// 시트의 입력 열 하나(L3 오른쪽, 주차 칸이 아닌 열)
+export type FieldKind = 'text' | 'memo' | 'date' | 'select' | 'person' | 'link'
+export interface FieldDef {
+  id: string // 'name'(L3) · 시스템 열 id · 그 밖의 열은 'col<번호>'
+  col: number
+  label: string // 시트 머리글 그대로
+  kind: FieldKind
+  options?: string[]
+}
+
 export interface ProgressData {
   spreadsheetId: string | null
   source: string // 탭 이름 또는 파일 이름
@@ -41,30 +55,82 @@ export interface ProgressData {
   year: number | null
   fetchedAt: string
   weekCols: (WeekColumn & { col: number })[]
-  statusCol: number | null
+  fields: FieldDef[]
   rows: ProgressRow[]
 }
 
-// 화면에서 고친 값(칸 단위). 시트 값과 같아지면 지운다.
+// 기존 행에서 고친 값. 시트 값과 같아지면 지운다.
 export interface RowEdit {
   cells?: Record<string, CellState>
-  status?: string
+  fields?: Record<string, string> // 'name'이면 L3 이름
 }
 export type ProgressEdits = Record<string, RowEdit>
 
+// 새로 추가한 과제(시트에 아직 없음)
+export interface NewRow {
+  id: string
+  l1: string
+  l2: string
+  l2Tag: string | null
+  h: string | null
+  fields: Record<string, string> // 'name' 포함
+  cells: Record<string, CellState>
+}
+
+export interface Drafts {
+  edits: ProgressEdits
+  newRows: NewRow[]
+}
+
 export const NO_L1 = '(L1 없음)'
+export const NEW_PREFIX = 'new:'
 
 export function rowKeyOf(l2: string, l3: string, n = 1): string {
   const base = `${l2}␟${l3}`
   return n > 1 ? `${base}␟${n}` : base
 }
 
-export function toProgressRows(rows: ParsedRow[]): ProgressRow[] {
+// ---------- 시트 → 데이터 ----------
+
+// 시트 머리글의 들쭉날쭉한 공백 정리: "비      고" → "비고", "URL,  LINK" → "URL, LINK"
+export function cleanLabel(label: string): string {
+  const t = label.replace(/\s+/g, ' ').trim()
+  return t.split(' ').every((w) => w.length === 1) ? t.replace(/ /g, '') : t
+}
+
+const KIND_OF: Record<string, FieldKind> = { date: 'date', memo: 'memo', select: 'select', person: 'person', link: 'link', text: 'text' }
+
+export function buildFieldDefs(header: ParsedHeader, columnMap: Record<string, number | null>): FieldDef[] {
+  const defs: FieldDef[] = [{ id: COL_NAME, col: header.l3Col, label: cleanLabel(header.labels[header.l3Col] || 'L3'), kind: 'text' }]
+  const used = new Set<number>([header.l3Col])
+  for (const sys of SYSTEM_COLUMNS) {
+    const col = columnMap[sys.id]
+    if (sys.id === COL_NAME || sys.id === COL_EVAL_GROUP || col === null || col === undefined || used.has(col)) continue
+    used.add(col)
+    defs.push({ id: sys.id, col, label: cleanLabel(header.labels[col] ?? '') || sys.label, kind: KIND_OF[sys.type] ?? 'text', options: sys.options })
+  }
+  // 앱이 모르는 열도 머리글이 있으면 그대로 입력할 수 있게 한다.
+  const weekSet = new Set(header.weekCols.map((w) => w.col))
+  header.labels.forEach((label, col) => {
+    if (col <= header.l3Col || used.has(col) || weekSet.has(col) || !label?.trim()) return
+    used.add(col)
+    defs.push({ id: `col${col}`, col, label: cleanLabel(label), kind: 'text' })
+  })
+  return defs.sort((a, b) => a.col - b.col)
+}
+
+export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldDef[] = []): ProgressRow[] {
   const seen = new Map<string, number>()
+  const extra = fields.filter((f) => f.id.startsWith('col'))
   return rows.map((r) => {
     const base = rowKeyOf(r.l2, r.l3)
     const n = (seen.get(base) ?? 0) + 1
     seen.set(base, n)
+    const values = { ...r.values }
+    for (const f of extra) {
+      const t = cellText(raw?.rows[r.row]?.[f.col])
+      if (t) values[f.id] = t
+    }
     return {
       key: rowKeyOf(r.l2, r.l3, n),
       row: r.row,
@@ -73,12 +139,14 @@ export function toProgressRows(rows: ParsedRow[]): ProgressRow[] {
       l2: r.l2,
       l2Tag: r.l2Tag,
       l3: r.l3,
-      values: r.values,
+      values,
       weeks: r.weeks,
       fills: r.fills ?? {},
     }
   })
 }
+
+// ---------- 연결 시트 ----------
 
 // 운영 중인 팀 구글시트 -- 과제 입력은 여기서 읽기만 하고 절대 쓰지 않는다(테스트 시트를 따로 연결해 저장).
 // 운영 시트에 저장을 허용하려면 이 목록에서 빼야 한다.
@@ -108,18 +176,20 @@ export function writeLinkedSheet(url: string | null) {
   }
 }
 
-const dataKey = () => `progress-board:data:${accountScope()}`
-const editsKey = () => `progress-board:edits:${accountScope()}`
+// ---------- 저장(브라우저) ----------
 
-export function loadProgress(): { data: ProgressData | null; edits: ProgressEdits } {
+const dataKey = () => `progress-board:data:${accountScope()}`
+const draftsKey = () => `progress-board:drafts:${accountScope()}`
+
+export function loadProgress(): { data: ProgressData | null; drafts: Drafts } {
   try {
     const data = JSON.parse(localStorage.getItem(dataKey()) ?? 'null') as ProgressData | null
-    const edits = JSON.parse(localStorage.getItem(editsKey()) ?? '{}') as ProgressEdits
-    // 칸 색을 읽기 전 형식으로 저장된 것은 다시 불러오게 한다.
-    const ok = data && Array.isArray(data.rows) && data.rows.every((r) => r.fills) && 'statusCol' in data
-    return { data: ok ? data : null, edits: edits && typeof edits === 'object' ? edits : {} }
+    const drafts = JSON.parse(localStorage.getItem(draftsKey()) ?? 'null') as Drafts | null
+    // 열 정의가 없는 예전 형식은 다시 불러오게 한다.
+    const ok = data && Array.isArray(data.rows) && Array.isArray(data.fields)
+    return { data: ok ? data : null, drafts: drafts && drafts.edits && Array.isArray(drafts.newRows) ? drafts : { edits: {}, newRows: [] } }
   } catch {
-    return { data: null, edits: {} }
+    return { data: null, drafts: { edits: {}, newRows: [] } }
   }
 }
 
@@ -131,16 +201,22 @@ export function saveProgressData(data: ProgressData) {
   }
 }
 
-export function saveProgressEdits(edits: ProgressEdits) {
+export function saveDrafts(drafts: Drafts) {
   try {
-    localStorage.setItem(editsKey(), JSON.stringify(edits))
+    localStorage.setItem(draftsKey(), JSON.stringify(drafts))
   } catch {
     // 위와 같음
   }
 }
 
+// ---------- 값 읽기 ----------
+
 export function baseCell(row: ProgressRow, key: string): CellState {
   return { m: row.weeks[key] ?? '', f: row.fills[key] ?? null }
+}
+
+export function baseField(row: ProgressRow, id: string): string {
+  return id === COL_NAME ? row.l3 : (row.values[id] ?? '')
 }
 
 // 시트 값에 고친 값을 얹은 최종 칸 상태(글자나 배경이 있는 칸만)
@@ -154,9 +230,27 @@ export function effectiveCells(row: ProgressRow, edit: RowEdit | undefined): Rec
   return out
 }
 
-export function effectiveStatus(row: ProgressRow, edit: RowEdit | undefined): string {
-  return edit?.status ?? row.values.status ?? ''
+export function effectiveField(row: ProgressRow, edit: RowEdit | undefined, id: string): string {
+  return edit?.fields?.[id] ?? baseField(row, id)
 }
+
+// 새 과제를 표에 그리기 위한 행 모양
+export function newRowAsRow(n: NewRow): ProgressRow {
+  const weeks: Record<string, WeekMark> = {}
+  const fills: Record<string, WeekFill> = {}
+  for (const [k, c] of Object.entries(n.cells)) {
+    if (c.m) weeks[k] = c.m
+    if (c.f) fills[k] = c.f
+  }
+  const { name = '', ...values } = n.fields
+  return { key: NEW_PREFIX + n.id, row: -1, h: n.h, l1: n.l1, l2: n.l2, l2Tag: n.l2Tag, l3: name, values, weeks, fills, isNew: true }
+}
+
+export function makeNewRow(from: { l1: string; l2: string; l2Tag: string | null; h: string | null }): NewRow {
+  return { id: uuidv4(), ...from, fields: { name: '' }, cells: {} }
+}
+
+// ---------- 고치기 ----------
 
 // 칠하기 도구
 export type PaintTool = 'plan' | 'S-plan' | 'F' | 'actual' | 'S' | '완' | 'erase'
@@ -170,6 +264,13 @@ export const TOOL_CELL: Record<PaintTool, CellState> = {
   erase: { m: '', f: null },
 }
 
+function pruneEdit(edits: ProgressEdits, key: string, cur: RowEdit): ProgressEdits {
+  const next = { ...edits }
+  if (!cur.cells && !cur.fields) delete next[key]
+  else next[key] = cur
+  return next
+}
+
 export function setCellEdit(edits: ProgressEdits, row: ProgressRow, key: string, cell: CellState): ProgressEdits {
   const cur = { ...(edits[row.key] ?? {}) }
   const cells = { ...(cur.cells ?? {}) }
@@ -180,22 +281,22 @@ export function setCellEdit(edits: ProgressEdits, row: ProgressRow, key: string,
   return pruneEdit(edits, row.key, cur)
 }
 
-export function setStatusEdit(edits: ProgressEdits, row: ProgressRow, status: string): ProgressEdits {
+export function setFieldEdit(edits: ProgressEdits, row: ProgressRow, id: string, value: string): ProgressEdits {
   const cur = { ...(edits[row.key] ?? {}) }
-  cur.status = (row.values.status ?? '') === status ? undefined : status
+  const fields = { ...(cur.fields ?? {}) }
+  if (baseField(row, id) === value) delete fields[id]
+  else fields[id] = value
+  cur.fields = Object.keys(fields).length ? fields : undefined
   return pruneEdit(edits, row.key, cur)
 }
 
-function pruneEdit(edits: ProgressEdits, key: string, cur: RowEdit): ProgressEdits {
-  const next = { ...edits }
-  if (!cur.cells && cur.status === undefined) delete next[key]
-  else next[key] = cur
-  return next
+export function countDrafts(d: Drafts): number {
+  return (
+    Object.values(d.edits).reduce((n, e) => n + Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length, 0) + d.newRows.length
+  )
 }
 
-export function countEdits(edits: ProgressEdits): number {
-  return Object.values(edits).reduce((n, e) => n + Object.keys(e.cells ?? {}).length + (e.status !== undefined ? 1 : 0), 0)
-}
+// ---------- 기간 ----------
 
 // 오늘이 몇 월 몇 주차인지(그 달 주 칸 수를 넘지 않게). 시트 연도와 올해가 다르면 null.
 export function currentWeekKey(weekCols: WeekColumn[], year: number | null, today = new Date()): string | null {
@@ -222,26 +323,38 @@ export function planRange(cells: Record<string, CellState>, weekCols: WeekColumn
   }
 }
 
+// ---------- 시트에 쓰기 ----------
+
+// 날짜 열은 날짜(일련번호)로 써야 시트에서 날짜로 남는다.
+export function fieldWrite(f: FieldDef, value: string): Pick<SheetCellWrite, 'value' | 'num'> {
+  const m = f.kind === 'date' ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null
+  if (m) return { value, num: Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 + 25569 }
+  return { value }
+}
+
 // 저장할 칸 고르기: 방금 다시 읽은 시트(fresh)에서 행을 L2·L3 키로 다시 찾는다.
 // 불러올 때(base)와 지금 시트 값이 다르면 그사이 누가 바꾼 것이므로 쓰지 않고 남긴다.
-export function buildSheetWrites(base: ProgressData, fresh: ProgressData, edits: ProgressEdits) {
+// 새 과제는 그 L2의 마지막 행 바로 아래에 줄을 끼워 넣는다(아래쪽 L2부터 넣어 행 번호가 밀리지 않게).
+export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts: Drafts) {
   const freshByKey = new Map(fresh.rows.map((r) => [r.key, r]))
   const baseByKey = new Map(base.rows.map((r) => [r.key, r]))
-  const colOf = new Map(fresh.weekCols.map((w) => [w.key, w.col]))
+  const weekCol = new Map(fresh.weekCols.map((w) => [w.key, w.col]))
+  const fieldById = new Map(fresh.fields.map((f) => [f.id, f]))
   const writes: SheetCellWrite[] = []
-  const kept: ProgressEdits = {}
+  const kept: Drafts = { edits: {}, newRows: [] }
   let conflicts = 0
-  for (const [key, e] of Object.entries(edits)) {
+
+  for (const [key, e] of Object.entries(drafts.edits)) {
     const b = baseByKey.get(key)
     const fr = freshByKey.get(key)
     if (!b || !fr) {
-      kept[key] = e
-      conflicts += Object.keys(e.cells ?? {}).length + (e.status !== undefined ? 1 : 0)
+      kept.edits[key] = e
+      conflicts += Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length
       continue
     }
     const keep: RowEdit = {}
     for (const [wk, cell] of Object.entries(e.cells ?? {})) {
-      const col = colOf.get(wk)
+      const col = weekCol.get(wk)
       const before = baseCell(b, wk)
       const now = baseCell(fr, wk)
       if (col === undefined || before.m !== now.m || before.f !== now.f) {
@@ -251,13 +364,42 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, edits:
       }
       writes.push({ row: fr.row, col, value: cell.m, fill: cell.f ? FILL_HEX[cell.f] : null })
     }
-    if (e.status !== undefined) {
-      if (fresh.statusCol === null || (fr.values.status ?? '') !== (b.values.status ?? '')) {
-        keep.status = e.status
+    for (const [id, value] of Object.entries(e.fields ?? {})) {
+      const f = fieldById.get(id)
+      if (!f || baseField(fr, id) !== baseField(b, id)) {
+        keep.fields = { ...(keep.fields ?? {}), [id]: value }
         conflicts++
-      } else writes.push({ row: fr.row, col: fresh.statusCol, value: e.status })
+        continue
+      }
+      writes.push({ row: fr.row, col: f.col, ...fieldWrite(f, value) })
     }
-    if (keep.cells || keep.status !== undefined) kept[key] = keep
+    if (keep.cells || keep.fields) kept.edits[key] = keep
   }
-  return { writes, kept, conflicts }
+
+  // 새 과제
+  const lastRowOfL2 = new Map<string, number>()
+  for (const r of fresh.rows) lastRowOfL2.set(r.l2, Math.max(lastRowOfL2.get(r.l2) ?? -1, r.row))
+  const inserts: SheetInsert[] = []
+  drafts.newRows.forEach((n, order) => {
+    const last = lastRowOfL2.get(n.l2)
+    if (last === undefined || !n.fields.name?.trim()) {
+      kept.newRows.push(n)
+      conflicts++
+      return
+    }
+    const cells: SheetInsert['cells'] = []
+    for (const [id, value] of Object.entries(n.fields)) {
+      const f = fieldById.get(id)
+      if (f && value.trim()) cells.push({ col: f.col, ...fieldWrite(f, value.trim()) })
+    }
+    // 끼워 넣은 줄은 위 줄의 서식(배경색 포함)을 물려받으므로 주차 칸은 전부 새로 칠한다.
+    for (const w of fresh.weekCols) {
+      const c = n.cells[w.key]
+      cells.push({ col: w.col, value: c?.m ?? '', fill: c?.f ? FILL_HEX[c.f] : null })
+    }
+    inserts.push({ at: last + 1, cells, order })
+  })
+  // 아래쪽부터 넣는다. 같은 자리면 나중에 추가한 것을 먼저 넣어야 최종 순서가 추가한 순서가 된다.
+  inserts.sort((a, b) => b.at - a.at || b.order - a.order)
+  return { writes, inserts, kept, conflicts }
 }

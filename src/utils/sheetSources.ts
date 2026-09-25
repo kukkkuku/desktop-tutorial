@@ -259,7 +259,15 @@ export interface SheetCellWrite {
   row: number // 0-based
   col: number // 0-based
   value: string // '' = 지움
+  num?: number // 있으면 숫자(날짜 일련번호)로 쓴다
   fill?: string | null // RRGGBB, null = 흰색. undefined면 배경은 건드리지 않음
+}
+
+// 줄 끼워 넣기: at(0-based) 자리에 빈 줄을 넣고 그 줄의 칸들을 쓴다.
+export interface SheetInsert {
+  at: number
+  cells: Omit<SheetCellWrite, 'row'>[]
+  order: number
 }
 
 function fromHex(hex: string | null) {
@@ -267,17 +275,16 @@ function fromHex(hex: string | null) {
   return { red: parseInt(v.slice(0, 2), 16) / 255, green: parseInt(v.slice(2, 4), 16) / 255, blue: parseInt(v.slice(4, 6), 16) / 255 }
 }
 
-// 칸 단위로 값(과 배경색)을 쓴다. 쓰기 권한 동의를 한 번 받는다.
-export async function writeSheetCells(spreadsheetId: string, sheetGid: number, cells: SheetCellWrite[]): Promise<void> {
-  if (cells.length === 0) return
-  const requests = cells.map((c) => ({
+function cellRequest(sheetGid: number, c: SheetCellWrite) {
+  const value = c.num !== undefined ? { numberValue: c.num } : c.value ? { stringValue: c.value } : null
+  return {
     updateCells: {
       range: { sheetId: sheetGid, startRowIndex: c.row, endRowIndex: c.row + 1, startColumnIndex: c.col, endColumnIndex: c.col + 1 },
       rows: [
         {
           values: [
             {
-              ...(c.value ? { userEnteredValue: { stringValue: c.value } } : {}),
+              ...(value ? { userEnteredValue: value } : {}),
               ...(c.fill !== undefined ? { userEnteredFormat: { backgroundColor: fromHex(c.fill) } } : {}),
             },
           ],
@@ -285,7 +292,25 @@ export async function writeSheetCells(spreadsheetId: string, sheetGid: number, c
       ],
       fields: c.fill !== undefined ? 'userEnteredValue,userEnteredFormat.backgroundColor' : 'userEnteredValue',
     },
-  }))
+  }
+}
+
+// 한 번의 요청으로: 칸 쓰기(기존 행 번호 기준) → 줄 끼워 넣기(주어진 순서대로, 아래쪽부터).
+// 쓰기 권한 동의를 한 번 받는다.
+export function sheetWriteRequests(sheetGid: number, cells: SheetCellWrite[], inserts: SheetInsert[] = []) {
+  const requests: object[] = cells.map((c) => cellRequest(sheetGid, c))
+  for (const ins of inserts) {
+    requests.push({
+      insertDimension: { range: { sheetId: sheetGid, dimension: 'ROWS', startIndex: ins.at, endIndex: ins.at + 1 }, inheritFromBefore: ins.at > 0 },
+    })
+    for (const c of ins.cells) requests.push(cellRequest(sheetGid, { ...c, row: ins.at }))
+  }
+  return requests
+}
+
+export async function writeSheetCells(spreadsheetId: string, sheetGid: number, cells: SheetCellWrite[], inserts: SheetInsert[] = []): Promise<void> {
+  const requests = sheetWriteRequests(sheetGid, cells, inserts)
+  if (requests.length === 0) return
   await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
 }
 

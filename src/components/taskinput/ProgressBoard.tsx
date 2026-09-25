@@ -2,7 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useMemo, useRef, useState } from 'react'
-import { CloudUpload, Eraser, Pencil, RefreshCw, RotateCcw, Search, Upload } from 'lucide-react'
+import { CloudUpload, Eraser, Pencil, Plus, RefreshCw, RotateCcw, Search, Upload } from 'lucide-react'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Spinner from '../Spinner'
@@ -28,31 +28,40 @@ import {
   TASK_INPUT_SHEET_URL,
   readLinkedSheet,
   writeLinkedSheet,
-  countEdits,
+  NEW_PREFIX,
+  buildFieldDefs,
+  countDrafts,
   currentWeekKey,
   effectiveCells,
-  effectiveStatus,
+  effectiveField,
   loadProgress,
+  makeNewRow,
+  newRowAsRow,
+  saveDrafts,
   saveProgressData,
-  saveProgressEdits,
   setCellEdit,
-  setStatusEdit,
+  setFieldEdit,
   toProgressRows,
+  type Drafts,
+  type FieldDef,
   type PaintTool,
   type ProgressData,
-  type ProgressEdits,
   type ProgressRow,
 } from '../../utils/progressBoard'
+import RowPanel from './RowPanel'
 import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
 
 const CATEGORIES = ['과제', '일반', '일상']
-const PERIODS: { label: string; start: number; months: number }[] = [
-  { label: '전체', start: 1, months: 12 },
-  { label: '상반기', start: 1, months: 6 },
-  { label: '하반기', start: 7, months: 6 },
+// 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
+type Period = { start: number; months: number }
+const PERIOD_BUTTONS: { label: string; p: Period }[] = [
+  { label: '전체', p: { start: 1, months: 12 } },
+  { label: '상반기', p: { start: 1, months: 6 } },
+  { label: '하반기', p: { start: 7, months: 6 } },
 ]
+const QUARTERS: { label: string; p: Period }[] = [1, 2, 3, 4].map((q) => ({ label: `${q}분기`, p: { start: (q - 1) * 3 + 1, months: 3 } }))
 const TOOLS: PaintTool[] = ['S-plan', 'plan', 'F', 'S', 'actual', '완']
 
 function splitPeople(raw: string): string[] {
@@ -62,20 +71,30 @@ function splitPeople(raw: string): string[] {
     .filter(Boolean)
 }
 
+function timeAgo(iso: string): string {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return '방금'
+  if (min < 60) return `${min}분 전`
+  const h = Math.round(min / 60)
+  if (h < 24) return `${h}시간 전`
+  return `${Math.round(h / 24)}일 전`
+}
+
 function fmt(iso: string) {
   const d = new Date(iso)
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-function toData(parsed: ParsedSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
+function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
+  const fields = buildFieldDefs(parsed.header, parsed.columnMap)
   return {
     ...meta,
     year: Number(meta.tabTitle.match(/(20\d{2})/)?.[1]) || null,
     fetchedAt: new Date().toISOString(),
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
-    statusCol: parsed.columnMap.status ?? null,
-    rows: toProgressRows(parsed.rows),
+    fields,
+    rows: toProgressRows(parsed.rows, raw, fields),
   }
 }
 
@@ -93,13 +112,15 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
     raw.fills = await fetchSheetFills(spreadsheetId, title, first.header.dataStartRow, raw.rows.length - 1, Math.min(...cols), Math.max(...cols))
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
-  return { ...toData(parsed, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
+  return { ...toData(parsed, raw, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
 }
 
 export default function ProgressBoard() {
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
-  const [edits, setEdits] = useState<ProgressEdits>(initial.edits)
+  const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
+  const edits = drafts.edits
+  const [openKey, setOpenKey] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [confirmSave, setConfirmSave] = useState(false)
@@ -112,13 +133,31 @@ export default function ProgressBoard() {
   const l1 = activeL1 && l1s.includes(activeL1) ? activeL1 : (l1s[0] ?? null)
 
   const now = new Date()
-  const [period, setPeriod] = useState<{ start: number; months: number }>({ start: 1, months: 12 })
+  const [period, setPeriod] = useState<Period>({ start: 1, months: 12 })
   const [person, setPerson] = useState('')
   const [cats, setCats] = useState<Set<string>>(new Set(CATEGORIES))
   const [hideDone, setHideDone] = useState(false)
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   const [tool, setTool] = useState<PaintTool>('S')
+  // 표 글자 크기(가▲/가▼) -- 이 브라우저에 기억
+  const [fontSize, setFontSizeState] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem('progress-board:font'))
+      return v >= 10 && v <= 18 ? v : 13
+    } catch {
+      return 13
+    }
+  })
+  function setFontSize(v: number) {
+    const n = Math.max(10, Math.min(18, v))
+    setFontSizeState(n)
+    try {
+      localStorage.setItem('progress-board:font', String(n))
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
 
   function accept(next: ProgressData) {
     setData(next)
@@ -141,7 +180,8 @@ export default function ProgressBoard() {
     setSheetLink(clean)
     writeLinkedSheet(clean === TASK_INPUT_SHEET_URL ? null : clean)
     setLinkOpen(false)
-    updateEdits({})
+    setOpenKey(null)
+    updateDrafts({ edits: {}, newRows: [] })
     await loadFromSheet(false, clean)
   }
 
@@ -172,7 +212,7 @@ export default function ProgressBoard() {
       if (!sheet) throw new Error('파일에서 「추진현황」 탭을 찾지 못했습니다.')
       const parsed = parseSheet(sheet)
       if ('error' in parsed) throw new Error(parsed.error)
-      accept(toData(parsed, { spreadsheetId: null, source: `${file.name} · ${sheet.title}`, tabTitle: sheet.title, sheetGid: null }))
+      accept(toData(parsed, sheet, { spreadsheetId: null, source: `${file.name} · ${sheet.title}`, tabTitle: sheet.title, sheetGid: null }))
     } catch (e) {
       setError(e instanceof Error ? e.message : '파일을 읽지 못했습니다.')
     } finally {
@@ -180,9 +220,49 @@ export default function ProgressBoard() {
     }
   }
 
-  function updateEdits(next: ProgressEdits) {
-    setEdits(next)
-    saveProgressEdits(next)
+  function updateDrafts(next: Drafts | ((cur: Drafts) => Drafts)) {
+    setDrafts((cur) => {
+      const v = typeof next === 'function' ? next(cur) : next
+      saveDrafts(v)
+      return v
+    })
+  }
+
+  // 한 줄의 칸·열 값 고치기(기존 행은 edits, 새 과제는 newRows에)
+  function paintCell(row: ProgressRow, key: string) {
+    const cell = TOOL_CELL[tool]
+    updateDrafts((d) => {
+      if (row.isNew) {
+        const id = row.key.slice(NEW_PREFIX.length)
+        return {
+          ...d,
+          newRows: d.newRows.map((n) => {
+            if (n.id !== id) return n
+            const cells = { ...n.cells }
+            if (cell.m || cell.f) cells[key] = cell
+            else delete cells[key]
+            return { ...n, cells }
+          }),
+        }
+      }
+      return { ...d, edits: setCellEdit(d.edits, row, key, cell) }
+    })
+  }
+  function setField(row: ProgressRow, id: string, value: string) {
+    updateDrafts((d) => {
+      if (row.isNew) {
+        const nid = row.key.slice(NEW_PREFIX.length)
+        return { ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, fields: { ...n.fields, [id]: value } } : n)) }
+      }
+      return { ...d, edits: setFieldEdit(d.edits, row, id, value) }
+    })
+  }
+  function addRow(l2: string) {
+    const src = (data?.rows ?? []).find((r) => r.l2 === l2 && r.l1 === l1)
+    if (!src) return
+    const n = makeNewRow({ l1: src.l1, l2: src.l2, l2Tag: src.l2Tag, h: src.h })
+    updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
+    setOpenKey(NEW_PREFIX + n.id)
   }
 
   // 고친 칸만 시트에 쓴다. 쓰기 직전에 시트를 다시 읽어 행을 L2·L3로 다시 찾고,
@@ -200,14 +280,15 @@ export default function ProgressBoard() {
     try {
       const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
-      const { writes, kept, conflicts } = buildSheetWrites(data, fresh, edits)
-      await writeSheetCells(data.spreadsheetId, data.sheetGid, writes)
+      const { writes, inserts, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
+      await writeSheetCells(data.spreadsheetId, data.sheetGid, writes, inserts)
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
-      updateEdits(kept)
+      updateDrafts(kept)
+      setOpenKey(null)
       setMessage(
-        `${writes.length}칸을 구글시트에 저장했습니다.` +
-          (conflicts ? ` ${conflicts}칸은 불러온 뒤 시트에서 먼저 바뀌어 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).` : ''),
+        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}.` +
+          (conflicts ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).` : ''),
       )
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트에 저장하지 못했습니다.')
@@ -263,26 +344,54 @@ export default function ProgressBoard() {
   const weekCols = data.weekCols.filter((w) => w.month >= period.start && w.month < period.start + period.months)
   const currentKey = currentWeekKey(data.weekCols, data.year, now)
   const q = query.trim().toLowerCase()
-  const views: ScheduleRowView[] = tabRows
-    .map((row: ProgressRow) => {
-      const e = edits[row.key]
-      return {
-        row,
-        cells: effectiveCells(row, e),
-        status: effectiveStatus(row, e),
-        editedCells: new Set(Object.keys(e?.cells ?? {})),
-        statusEdited: e?.status !== undefined,
-      }
-    })
-    .filter((v) => {
-      const cat = v.row.values.category ?? ''
-      if (CATEGORIES.includes(cat) && !cats.has(cat)) return false
-      if (hideDone && v.status === '완료') return false
-      if (person && !splitPeople(v.row.values.assignees ?? '').includes(person)) return false
-      if (q && !`${v.row.l2} ${v.row.l3} ${v.row.values.assignees ?? ''}`.toLowerCase().includes(q)) return false
-      return true
-    })
-  const editCount = countEdits(edits)
+  // 새 과제는 그 L2의 마지막 줄 바로 아래에 보여 준다(저장하면 시트에서도 그 자리).
+  const newRowsHere = drafts.newRows.filter((n) => n.l1 === l1).map(newRowAsRow)
+  const ordered: ProgressRow[] = []
+  tabRows.forEach((r, i) => {
+    ordered.push(r)
+    if (tabRows[i + 1]?.l2 !== r.l2) ordered.push(...newRowsHere.filter((n) => n.l2 === r.l2))
+  })
+  const fieldIds = data.fields.map((f) => f.id)
+  const viewOf = (row: ProgressRow): ScheduleRowView => {
+    const e = row.isNew ? undefined : edits[row.key]
+    const vals: Record<string, string> = {}
+    for (const id of fieldIds) vals[id] = effectiveField(row, e, id)
+    return {
+      row,
+      cells: effectiveCells(row, e),
+      vals,
+      editedCells: new Set(Object.keys(e?.cells ?? {})),
+      editedFields: new Set(Object.keys(e?.fields ?? {})),
+    }
+  }
+  const views: ScheduleRowView[] = ordered.map(viewOf).filter((v) => {
+    if (v.row.isNew) return true
+    const cat = v.vals.category ?? ''
+    if (CATEGORIES.includes(cat) && !cats.has(cat)) return false
+    if (hideDone && v.vals.status === '완료') return false
+    if (person && !splitPeople(v.vals.assignees ?? '').includes(person)) return false
+    if (q && !`${v.row.l2} ${v.vals.name} ${v.vals.assignees ?? ''}`.toLowerCase().includes(q)) return false
+    return true
+  })
+  // 입력 칸 제안값: 시스템 선택지 + 시트에 이미 있는 값(서로 다른 값이 너무 많으면 제안하지 않음)
+  const optionsOf = (f: FieldDef): string[] => {
+    if (f.kind === 'memo' || f.kind === 'date' || f.id === 'name') return []
+    if (f.kind === 'person') return people
+    const seen = new Set<string>(f.options ?? [])
+    for (const r of data.rows) {
+      const v = r.values[f.id]
+      if (v && v.length <= 30) seen.add(v)
+    }
+    return seen.size <= 60 ? Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko')) : []
+  }
+  const openRow = openKey
+    ? openKey.startsWith(NEW_PREFIX)
+      ? (drafts.newRows.filter((n) => NEW_PREFIX + n.id === openKey).map(newRowAsRow)[0] ?? null)
+      : (data.rows.find((r) => r.key === openKey) ?? null)
+    : null
+  const openView = openRow ? viewOf(openRow) : null
+  const l2OfTab = Array.from(new Map(tabRows.map((r) => [r.l2, r])).values())
+  const editCount = countDrafts(drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
   const h = tabRows.find((r) => r.h)?.h
@@ -290,50 +399,6 @@ export default function ProgressBoard() {
 
   return (
     <div>
-      {/* 연결된 시트(눌러서 링크 바꾸기) · 다시 불러오기 */}
-      <div className="flex flex-wrap items-center gap-2 text-[13px] text-label-2">
-        {data.spreadsheetId ? (
-          <SheetLinkChip
-            label={data.fileTitle || data.source}
-            sub={data.fileTitle ? data.tabTitle : undefined}
-            meta={
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="text-label-3">{fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건</span>
-                {protectedSheet ? (
-                  <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
-                    운영 시트 · 읽기 전용
-                  </span>
-                ) : (
-                  <span className="mac-badge bg-success/15 text-success">
-                    {data.spreadsheetId === parseSheetUrl(TASK_INPUT_SHEET_URL)?.spreadsheetId ? '테스트 시트 · 저장 가능' : '저장 가능한 시트'}
-                  </span>
-                )}
-              </span>
-            }
-            currentUrl={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)}
-            openUrl={withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined))}
-            note="다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다."
-            onConnect={(url) => connectSheet(url)}
-            onReload={isSheetsApiConfigured() ? () => loadFromSheet() : undefined}
-            reloadDisabled={saving}
-            reloading={loading}
-          />
-        ) : (
-          <span>
-            <span className="font-medium text-label">{data.source}</span> · {fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건
-            <button onClick={() => { setLinkInput(''); setLinkOpen((v) => !v) }} className="ml-2 font-medium text-accent hover:underline">
-              구글시트 연결
-            </button>
-          </span>
-        )}
-        <span className="ml-auto flex items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={loading || saving} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)">
-            <Upload {...icSm} />
-            xlsx
-          </Button>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
-        </span>
-      </div>
       {linkOpen && (
         <SheetLinkForm
           value={linkInput}
@@ -346,8 +411,9 @@ export default function ProgressBoard() {
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       {message && <p className="mt-3 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">{message}</p>}
 
-      {/* L1 탭 */}
-      <div className="mt-4 flex items-end gap-1 overflow-x-auto border-b border-separator">
+      {/* L1 탭 + 오른쪽에 연결된 시트(과제관리와 같은 모양) */}
+      <div className="flex items-end gap-2 border-b border-separator">
+        <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
         {l1s.map((name) => {
           const n = data.rows.filter((r) => r.l1 === name).length
           const on = name === l1
@@ -364,46 +430,80 @@ export default function ProgressBoard() {
             </button>
           )
         })}
+        </div>
+        <div className="shrink-0 pb-1.5">
+          <SheetLinkChip
+            label={data.fileTitle || data.source}
+            sub={data.fileTitle ? data.tabTitle : undefined}
+            meta={
+              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2" title={`${fmt(data.fetchedAt)} 불러옴`}>
+                  {timeAgo(data.fetchedAt)}
+                </span>
+                {protectedSheet && (
+                  <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
+                    읽기 전용
+                  </span>
+                )}
+              </span>
+            }
+            currentUrl={data.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : null}
+            openUrl={data.spreadsheetId ? withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)) : null}
+            note="다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다."
+            onConnect={(url) => connectSheet(url)}
+            onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
+            reloadDisabled={saving}
+            reloading={loading}
+            extra={
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={loading || saving}
+                className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
+                title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+              >
+                <Upload {...icSm} />
+                xlsx 파일로 보기
+              </button>
+            }
+          />
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
+        </div>
       </div>
 
       {/* 제목 + 기간 */}
       <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-[24px] font-bold leading-tight text-label">{l1 === NO_L1 ? 'L1 없음' : l1}</h2>
-          <p className="mt-1 text-[13px] text-label-2">{[h, `L2 ${l2Count}개`, `L3 ${tabRows.length}건`].filter(Boolean).join(' · ')}</p>
+          <p className="mt-1 text-[13px] text-label-2">{[h, `L2 ${l2Count}개`].filter(Boolean).join(' · ')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
           <div className="flex overflow-hidden rounded-control border border-hairline">
-            {PERIODS.map((p) => {
+            {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
               const on = period.start === p.start && period.months === p.months
               return (
-                <button key={p.label} onClick={() => setPeriod(p)} className={`px-2.5 py-1 ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}>
-                  {p.label}
+                <button
+                  key={label}
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
+                >
+                  {label}
                 </button>
               )
             })}
           </div>
-          <label className="flex items-center gap-1 text-label-2">
-            시작
-            <select
-              value={period.start}
-              onChange={(e) => setPeriod((p) => ({ start: Number(e.target.value), months: Math.min(p.months, 13 - Number(e.target.value)) }))}
-              className="h-7 rounded-control border border-hairline px-1.5"
-            >
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {i + 1}월
-                </option>
-              ))}
-            </select>
-            <select value={period.months} onChange={(e) => setPeriod((p) => ({ ...p, months: Number(e.target.value) }))} className="h-7 rounded-control border border-hairline px-1.5">
-              {Array.from({ length: 13 - period.start }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {i + 1}개월
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            value={period.months === 1 ? period.start : ''}
+            onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
+            className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
+            title="월별로 보기"
+          >
+            <option value="">월별</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1}월
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -450,9 +550,9 @@ export default function ProgressBoard() {
           {editCount > 0 && (
             <>
               <span className="text-label-2">
-                고친 칸 <b className="text-orange-600">{editCount}</b>
+                저장 안 한 변경 <b className="text-orange-600">{editCount}</b>
               </span>
-              <Button variant="secondary" size="sm" onClick={() => updateEdits({})} title="이 화면에서 고친 내용을 모두 지우고 시트 값으로 되돌립니다" disabled={saving}>
+              <Button variant="secondary" size="sm" onClick={() => updateDrafts({ edits: {}, newRows: [] })} title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다" disabled={saving}>
                 <RotateCcw {...icSm} />
                 모두 되돌리기
               </Button>
@@ -474,6 +574,18 @@ export default function ProgressBoard() {
               </Button>
             </>
           )}
+          <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
+            <button onClick={() => setFontSize(fontSize + 1)} disabled={fontSize >= 18} className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30" aria-label="표 글자 크게">
+              가<span className="text-[9px] text-accent">▲</span>
+            </button>
+            <button onClick={() => setFontSize(fontSize - 1)} disabled={fontSize <= 10} className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30" aria-label="표 글자 작게">
+              가<span className="text-[9px] text-accent">▼</span>
+            </button>
+          </span>
+          <Button variant="secondary" size="sm" onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)} disabled={!l2OfTab.length} title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다">
+            <Plus {...icSm} />
+            과제 추가
+          </Button>
           <Button variant={editing ? 'primary' : 'secondary'} size="sm" onClick={() => setEditing((v) => !v)}>
             <Pencil {...icSm} />
             {editing ? '입력 끝내기' : '입력하기'}
@@ -544,28 +656,66 @@ export default function ProgressBoard() {
             rows={views}
             editing={editing}
             currentKey={currentKey}
-            onPaint={(row, key) => setEdits((cur) => {
-              const next = setCellEdit(cur, row, key, TOOL_CELL[tool])
-              saveProgressEdits(next)
-              return next
-            })}
-            onStatus={(row, s) => updateEdits(setStatusEdit(edits, row, s))}
+            onPaint={paintCell}
+            onField={setField}
+            onOpenRow={(row) => setOpenKey(row.key)}
+            onAddRow={addRow}
+            fontSize={fontSize}
           />
         )}
       </div>
+      {openRow && openView && (
+        <RowPanel
+          key={openRow.key}
+          row={openRow}
+          fields={data.fields}
+          value={(id) => openView.vals[id] ?? ''}
+          edited={openRow.isNew ? new Set(Object.keys(openView.vals).filter((k) => openView.vals[k])) : openView.editedFields}
+          optionsOf={optionsOf}
+          cells={openView.cells}
+          weekCols={data.weekCols}
+          l2Choices={openRow.isNew ? l2OfTab.map((r) => ({ l2: r.l2, label: r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2 })) : undefined}
+          onChange={(id, v) => setField(openRow, id, v)}
+          onChangeL2={(l2) => {
+            const src = l2OfTab.find((r) => r.l2 === l2)
+            const nid = openRow.key.slice(NEW_PREFIX.length)
+            if (src) updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, l2: src.l2, l2Tag: src.l2Tag, h: src.h } : n)) }))
+          }}
+          onRevert={openRow.isNew ? undefined : () => updateDrafts((d) => {
+            const next = { ...d.edits }
+            delete next[openRow.key]
+            return { ...d, edits: next }
+          })}
+          onDelete={openRow.isNew ? () => {
+            const nid = openRow.key.slice(NEW_PREFIX.length)
+            updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
+            setOpenKey(null)
+          } : undefined}
+          onClose={() => setOpenKey(null)}
+        />
+      )}
       <p className="mt-2 text-[12px] text-label-3">
-        고친 칸은 "구글시트에 저장"을 누르기 전까지 이 브라우저에만 남습니다. 저장할 때 시트를 다시 읽어, 그사이 다른 사람이 바꾼 칸은 덮어쓰지 않습니다.
+        고친 내용과 새 과제는 "구글시트에 저장"을 누르기 전까지 이 브라우저에만 남습니다. 저장할 때 시트를 다시 읽어, 그사이 다른 사람이 바꾼 칸은 덮어쓰지 않습니다.
       </p>
 
       <ConfirmDialog
         open={confirmSave}
         title="구글시트에 저장"
-        message={`고친 ${editCount}칸을 「${data.tabTitle}」 탭에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
+        message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
         confirmLabel="저장"
         tone="accent"
         onConfirm={saveToSheet}
         onCancel={() => setConfirmSave(false)}
-      />
+      >
+        {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
+        <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
+          <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
+          <p className="mt-0.5 break-all text-[14px] font-bold text-label">
+            {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
+          </p>
+          {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제는 그 L2의 마지막 줄 아래에 줄을 넣어 씁니다.</p>}
+        </div>
+      </ConfirmDialog>
     </div>
   )
 }

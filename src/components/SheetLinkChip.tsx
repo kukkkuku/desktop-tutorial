@@ -18,6 +18,7 @@ export default function SheetLinkChip({
   onReload,
   reloadDisabled,
   reloading,
+  extra,
 }: {
   label: string // 시트 파일 이름
   sub?: string // 탭 이름(마우스를 올리면 보임)
@@ -29,6 +30,7 @@ export default function SheetLinkChip({
   onReload?: () => void
   reloadDisabled?: boolean
   reloading?: boolean
+  extra?: ReactNode // 팝오버 맨 아래 추가 동작(예: xlsx 올리기)
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState(currentUrl ?? '')
@@ -86,18 +88,6 @@ export default function SheetLinkChip({
           <RotateCw {...icSm} className={reloading ? 'animate-spin' : ''} />
         </button>
       )}
-      {openUrl && (
-        <a
-          href={openUrl}
-          target="_blank"
-          rel="noreferrer"
-          title="구글시트로 바로 가기"
-          aria-label="구글시트로 바로 가기"
-          className="-ml-1 flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-accent"
-        >
-          <ExternalLink {...icSm} />
-        </a>
-      )}
 
       {open && (
         <div className="mac-pop absolute right-0 top-full z-50 mt-1.5 w-[440px] p-3 text-[13px]">
@@ -127,6 +117,19 @@ export default function SheetLinkChip({
             </Button>
           </form>
           {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
+          {(openUrl || extra) && (
+            <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-separator pt-2">
+              {openUrl ? (
+                <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
+                  <ExternalLink {...icSm} />
+                  구글시트로 바로 가기
+                </a>
+              ) : (
+                <span />
+              )}
+              {extra}
+            </div>
+          )}
         </div>
       )}
     </div>
