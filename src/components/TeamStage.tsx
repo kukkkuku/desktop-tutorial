@@ -3,7 +3,7 @@ import TeamManagement from './TeamManagement'
 import PeerReviewManagement from './PeerReviewManagement'
 import PeerReviewHub from './PeerReviewHub'
 import { useAppState } from '../state/AppContext'
-import Segmented from './ui/Segmented'
+import UnderlineTabs from './ui/UnderlineTabs'
 
 type TeamSubTab = 'members' | 'rank' | 'peer'
 
@@ -39,7 +39,7 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
   return (
     <div>
-      <Segmented items={tabs} value={sub} onChange={setSub} />
+      <UnderlineTabs items={tabs} value={sub} onChange={setSub} />
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}

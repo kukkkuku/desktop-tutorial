@@ -15,7 +15,7 @@ import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer, { type DataManagerTab } from './components/DataManagerDrawer'
 import WorkStage from './components/work/WorkStage'
 import QuickStartModal from './components/QuickStartModal'
-import Segmented from './components/ui/Segmented'
+import UnderlineTabs from './components/ui/UnderlineTabs'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 
@@ -127,7 +127,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               {stage !== 'notes' && stage !== 'work' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {(stage === 'work' || stage === 'tasks') && (
-                  <Segmented
+                  <UnderlineTabs
                     className="mb-5"
                     items={[
                       { key: 'work', label: '과제리스트', title: '구글시트와 연결된 L2/L3 과제' },

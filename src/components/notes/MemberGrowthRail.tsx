@@ -50,7 +50,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   }
 
   return (
-    <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2">
+    <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2 shadow-[inset_0_-1px_0_#E3E3E8] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {activeMembers.length === 0 ? (
         <p className="px-2 py-2.5 text-[13px] text-label-3">등록된 팀원이 없습니다.</p>
       ) : (
@@ -62,14 +62,16 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
             <button
               key={member.id}
               onClick={() => onSelectMember(member.id)}
-              className={`flex min-w-[88px] flex-[1_1_200px] items-center gap-1.5 overflow-hidden rounded-t-lg px-3 py-2.5 text-left transition-colors ${
-                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-black/[0.04] hover:bg-black/[0.07]'
+              className={`flex max-w-[280px] shrink-0 select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-left text-sm transition-colors ${
+                isSelected
+                  ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
+                  : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
               }`}
             >
               <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
                 {grade ?? '-'}
               </span>
-              <span className={`min-w-0 truncate text-[13px] font-semibold ${isSelected ? 'text-label' : 'text-label-2'}`}>{member.name}</span>
+              <span className="min-w-0 truncate">{member.name}</span>
               {eligible && (
                 <Badge tone="accent" className="shrink-0">
                   승진 가능

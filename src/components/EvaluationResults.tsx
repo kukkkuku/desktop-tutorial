@@ -25,6 +25,7 @@ import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
 import Segmented from './ui/Segmented'
+import UnderlineTabs from './ui/UnderlineTabs'
 import IconButton from './IconButton'
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, Eye, Minus, X } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
@@ -404,7 +405,7 @@ export default function EvaluationResults() {
             </div>
           )}
           {view === 'tabs' && (
-            <Segmented
+            <UnderlineTabs
               items={[
                 { key: 'members', label: '팀원별 성과' },
                 { key: 'tasks', label: '과제별 성과' },
