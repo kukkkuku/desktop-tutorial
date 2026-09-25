@@ -86,6 +86,10 @@ interface DataGridProps<R extends { id: string }> {
 
 export interface GroupHeaderRow {
   key: string
+  // 펼친 묶음의 데이터 행 범위(번호 칸을 누르면 이 범위를 행 선택). 접혀 있으면 null.
+  rowRange: [number, number] | null
+  // 번호 칸을 잡고 끌면 옮길 행 id(접혀 있어도 묶음 전체)
+  rowIds: string[]
   number?: ReactNode // 왼쪽 번호 칸
   check?: { checked: boolean; indeterminate?: boolean; disabled?: boolean; title?: string; onChange: (on: boolean) => void }
   cell: (colId: string) => ReactNode // 열마다 보여 줄 내용(편집 대상 아님)
@@ -190,7 +194,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>())
   const headRefs = useRef(new Map<number, HTMLTableCellElement>())
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>())
-  const drag = useRef<null | { kind: 'cells' | 'rows' | 'cols'; anchor: number; anchorC?: number; moving?: boolean; start?: { x: number; y: number } }>(null)
+  const drag = useRef<null | { kind: 'cells' | 'rows' | 'cols'; anchor: number; anchorC?: number; moving?: boolean; ids?: string[]; start?: { x: number; y: number } }>(null)
   const [sinkBox, setSinkBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [sinkValue, setSinkValue] = useState('')
   const composing = useRef(false)
@@ -613,7 +617,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const d = drag.current
       drag.current = null
       if (d?.moving && dragInsert) {
-        if (d.kind === 'rows' && dragInsert.kind === 'row' && props.onMoveRows && range) {
+        if (d.kind === 'rows' && d.ids && dragInsert.kind === 'row' && props.onMoveRows) {
+          // 묶음 머리 행을 끌어 옮김: 묶음 전체(접힌 하위 포함). 자리가 바뀌므로 선택은 푼다.
+          props.onMoveRows(d.ids, dragInsert.index)
+          setSel(null)
+          setActive(null)
+        } else if (d.kind === 'rows' && dragInsert.kind === 'row' && props.onMoveRows && range) {
           props.onMoveRows(selectedRowIds, dragInsert.index)
           const count = range.r2 - range.r1 + 1
           const newStart = dragInsert.index > range.r1 ? dragInsert.index - count : dragInsert.index
@@ -680,6 +689,28 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       drag.current = { kind: 'rows', anchor: r }
     }
     requestAnimationFrame(focusSink)
+  }
+
+  function onGroupHeadMouseDown(e: React.MouseEvent, h: GroupHeaderRow) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    if (editing) commitEdit()
+    setMenu(null)
+    if (h.rowRange) {
+      setSel({ t: 'rows', a: h.rowRange[0], b: h.rowRange[1] })
+      setActive({ r: h.rowRange[0], c: active?.c ?? 0 })
+    }
+    if (props.onMoveRows) drag.current = { kind: 'rows', anchor: h.rowRange?.[0] ?? 0, moving: true, ids: h.rowIds }
+    requestAnimationFrame(focusSink)
+  }
+
+  function onGroupHeadContextMenu(e: React.MouseEvent, h: GroupHeaderRow) {
+    e.preventDefault()
+    if (!h.rowRange) return
+    if (editing) commitEdit()
+    setSel({ t: 'rows', a: h.rowRange[0], b: h.rowRange[1] })
+    setActive({ r: h.rowRange[0], c: active?.c ?? 0 })
+    setMenu({ x: e.clientX, y: e.clientY, kind: 'row' })
   }
 
   function onHeadMouseDown(e: React.MouseEvent, c: number) {
@@ -803,36 +834,70 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const checkable = check ? rows.filter((r) => !check.isDisabled?.(r)) : []
   const allChecked = checkable.length > 0 && checkable.every((r) => check!.isChecked(r))
   const someChecked = checkable.some((r) => check!.isChecked(r))
+  // 선택 범위가 묶음 하위 행을 모두 덮으면 머리 행도 선택된 것으로 그린다.
+  const selLo = sel?.t === 'rows' ? lo(sel.a, sel.b) : -1
+  const selHi = sel?.t === 'rows' ? hi(sel.a, sel.b) : -1
+  function headInside(h: GroupHeaderRow) {
+    return !!h.rowRange && sel?.t === 'rows' && selLo <= h.rowRange[0] && selHi >= h.rowRange[1]
+  }
+  // 이 데이터 행 바로 위에 선택된 머리 행이 있으면 위쪽 선은 머리 행이 맡는다.
+  function coveredTop(r: number) {
+    return r === selLo && (props.groupHeaders?.(r) ?? []).some((h) => headInside(h))
+  }
+
   function renderHeaders(anchor: number) {
     const list = props.groupHeaders?.(anchor)
     if (!list?.length) return null
-    return list.map((h) => (
-      <tr key={`gh:${h.key}`} data-group-head className="bg-[#F3F5F8]">
-        <td className="h-9 border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums text-gray-500">{h.number}</td>
-        {check && (
-          <td className="border-b border-r border-dotted border-[#C9CDD3] text-center" title={h.check?.title}>
-            {h.check && (
-              <input
-                type="checkbox"
-                checked={h.check.checked}
-                disabled={h.check.disabled}
-                ref={(el) => {
-                  if (el) el.indeterminate = !!h.check?.indeterminate && !h.check.checked
-                }}
-                onChange={(e) => h.check!.onChange(e.target.checked)}
-                className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
-              />
-            )}
+    return list.map((h) => {
+      const inside = headInside(h)
+      const top = inside && h.rowRange![0] === selLo
+      const edge = (left: boolean, right = false) =>
+        inside
+          ? [top && `inset 0 2px 0 ${SEL_BLUE}`, left && `inset 2px 0 0 ${SEL_BLUE}`, right && `inset -2px 0 0 ${SEL_BLUE}`].filter(Boolean).join(', ') || undefined
+          : undefined
+      return (
+        <tr key={`gh:${h.key}`} data-group-head className={`group/row ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'}`}>
+          <td
+            onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
+            onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
+            style={{ boxShadow: edge(true) }}
+            className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
+              inside ? 'font-semibold text-accent' : 'text-gray-500 hover:bg-gray-100'
+            }`}
+            title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
+          >
+            <DragGrip active={inside} />
+            {h.number}
           </td>
-        )}
-        {columns.map((col) => (
-          <td key={col.id} className="h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle">
-            {h.cell(col.id)}
-          </td>
-        ))}
-        <td className="border-b border-dotted border-[#C9CDD3]" />
-      </tr>
-    ))
+          {check && (
+            <td style={{ boxShadow: edge(false) }} className="border-b border-r border-dotted border-[#C9CDD3] text-center" title={h.check?.title}>
+              {h.check && (
+                <input
+                  type="checkbox"
+                  checked={h.check.checked}
+                  disabled={h.check.disabled}
+                  ref={(el) => {
+                    if (el) el.indeterminate = !!h.check?.indeterminate && !h.check.checked
+                  }}
+                  onChange={(e) => h.check!.onChange(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                />
+              )}
+            </td>
+          )}
+          {columns.map((col, c) => (
+            <td
+              key={col.id}
+              style={{ boxShadow: edge(false, c === nC - 1) }}
+              className="h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle"
+            >
+              {h.cell(col.id)}
+            </td>
+          ))}
+          <td className="border-b border-dotted border-[#C9CDD3]" />
+        </tr>
+      )
+    })
   }
 
   const tableWidth = HANDLE_W + CHECK_W + columns.reduce((s, c) => s + c.width, 0) + 44
@@ -952,21 +1017,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
                       onContextMenu={(e) => openMenu(e, 'row', r)}
-                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true) : undefined }}
+                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
                       className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
                         rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                       }`}
                       title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                     >
-                      {/* 표 밖 왼쪽에 뜨는 이동 손잡이(행에 마우스를 올리거나 선택하면 보임) */}
-                      <span
-                        className={`absolute -left-[22px] mt-[3px] flex h-5 w-4 cursor-grab items-center justify-center rounded text-[13px] leading-none tracking-[-3px] ${
-                          rowSelected ? 'text-accent' : 'text-gray-300 opacity-0 hover:text-gray-600 group-hover/row:opacity-100'
-                        }`}
-                        aria-hidden
-                      >
-                        ⋮⋮
-                      </span>
+                      <DragGrip active={rowSelected} />
                       <span className="inline-flex items-center gap-1">
                         {props.rowNumber ? props.rowNumber(row, r) : r + 1}
                         {props.rowMarker?.(row)}
@@ -975,7 +1032,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     {check && (
                       <td
                         onMouseDown={(e) => e.stopPropagation()}
-                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false) : undefined }}
+                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined }}
                         className={`border-b border-r border-dotted border-[#C9CDD3] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
                         title={check.title?.(row)}
                       >
@@ -1005,7 +1062,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t === 'rows') }}
+                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t === 'rows', coveredTop(r)) }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
                             inRange && (!isActive || sel?.t === 'rows') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
@@ -1344,24 +1401,52 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 // 선택 범위는 엑셀처럼 바깥 테두리로 한 덩어리로 보이게, 현재 칸은 굵은 테두리.
 const SEL_BLUE = '#2563EB'
 // 행 선택: 번호 칸부터 한 덩어리로 테두리를 두르므로 첫 열의 왼쪽 선은 번호 칸이 맡는다.
-function rowShadow(sel: Sel | null, r: number, leftEdge: boolean): string | undefined {
+function rowShadow(sel: Sel | null, r: number, leftEdge: boolean, noTop = false): string | undefined {
   if (!sel || sel.t !== 'rows') return undefined
   const parts: string[] = []
-  if (r === lo(sel.a, sel.b)) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
+  if (r === lo(sel.a, sel.b) && !noTop) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
   if (r === hi(sel.a, sel.b)) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
   if (leftEdge) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
   return parts.length ? parts.join(', ') : undefined
 }
 
-function cellShadow(range: { r1: number; r2: number; c1: number; c2: number } | null, r: number, c: number, active: boolean, rowsMode = false): string | undefined {
+function cellShadow(
+  range: { r1: number; r2: number; c1: number; c2: number } | null,
+  r: number,
+  c: number,
+  active: boolean,
+  rowsMode = false,
+  noTop = false,
+): string | undefined {
   if (active && !rowsMode) return `inset 0 0 0 2px ${SEL_BLUE}`
-  if (!range || (range.r1 === range.r2 && range.c1 === range.c2)) return undefined
+  if (!range || (range.r1 === range.r2 && range.c1 === range.c2 && !rowsMode)) return undefined
   const parts: string[] = []
-  if (r === range.r1) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
+  if (r === range.r1 && !noTop) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
   if (r === range.r2) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
   if (c === range.c1 && !rowsMode) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
   if (c === range.c2) parts.push(`inset -2px 0 0 ${SEL_BLUE}`)
   return parts.length ? parts.join(', ') : undefined
+}
+
+// 표 밖 왼쪽에 뜨는 행 이동 손잡이(점 6개). 행에 마우스를 올리거나 선택하면 보인다.
+function DragGrip({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`absolute -left-[26px] -mt-[5px] flex h-7 w-5 cursor-grab items-center justify-center rounded-md transition-opacity ${
+        active ? 'bg-blue-100 text-accent' : 'bg-gray-100 text-gray-400 opacity-0 hover:bg-gray-200 hover:text-gray-600 group-hover/row:opacity-100'
+      }`}
+    >
+      <svg viewBox="0 0 10 16" width="10" height="16" fill="currentColor">
+        <circle cx="2.5" cy="3" r="1.4" />
+        <circle cx="7.5" cy="3" r="1.4" />
+        <circle cx="2.5" cy="8" r="1.4" />
+        <circle cx="7.5" cy="8" r="1.4" />
+        <circle cx="2.5" cy="13" r="1.4" />
+        <circle cx="7.5" cy="13" r="1.4" />
+      </svg>
+    </span>
+  )
 }
 
 function MenuItem({ label, hint, onClick, danger, disabled }: { label: string; hint?: string; onClick: () => void; danger?: boolean; disabled?: boolean }) {

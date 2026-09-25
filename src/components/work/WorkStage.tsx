@@ -225,7 +225,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const groupItems = useMemo(() => (activeGroup ? itemsOfGroup(board, activeGroup.id) : []), [board, activeGroup])
   // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const { viewRows, headerAt, numbers } = useMemo(() => {
+  const { viewRows, headerAt, numbers, ranges } = useMemo(() => {
     const gathered: WorkItem[] = []
     const done = new Set<string>()
     for (const i of groupItems) {
@@ -264,7 +264,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       }
       if (!g || !collapsed.has(g)) rows.push(i)
     }
-    return { viewRows: rows, headerAt: heads, numbers }
+    // 펼친 묶음이 차지하는 보이는 행 범위(머리 행을 누르면 이 범위를 선택)
+    const ranges = new Map<string, [number, number]>()
+    rows.forEach((i, idx) => {
+      const g = evalGroupOf(i)
+      if (!g) return
+      const cur = ranges.get(g)
+      ranges.set(g, cur ? [cur[0], idx] : [idx, idx])
+    })
+    return { viewRows: rows, headerAt: heads, numbers, ranges }
   }, [groupItems, search, board.columns, members, collapsed])
   const filtered = search.trim() !== ''
 
@@ -293,6 +301,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     return {
       key: g,
       number: numbers.get(key),
+      rowRange: collapsed.has(g) ? null : ranges.get(g) ?? null,
+      rowIds: here.map((i) => i.id),
       check: {
         checked: !done && on === free.length,
         indeterminate: on > 0,
@@ -304,8 +314,26 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         if (colId === COL_NAME)
           return (
             <div className="group/gh flex items-center gap-1.5 py-1">
-              <button onClick={toggle} title={isOpen ? '접기' : '펼치기'} className="h-6 w-5 shrink-0 rounded text-gray-500 hover:bg-gray-200">
-                {isOpen ? '▾' : '▸'}
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={toggle}
+                title={isOpen ? '접기' : '펼치기'}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-700 hover:bg-gray-200 hover:text-black"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                  aria-hidden
+                >
+                  <path d="M6 3.5 10.5 8 6 12.5" />
+                </svg>
               </button>
               {renamingEval === g ? (
                 <input
@@ -328,19 +356,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   {g}
                 </span>
               )}
-              <span className="shrink-0 rounded bg-white px-1.5 text-[11px] font-semibold text-gray-500 ring-1 ring-gray-200">
-                하위 {here.length}
-                {all.length !== here.length && ` · 전체 ${all.length}`}
-              </span>
               {done ? (
                 <span className="shrink-0 rounded bg-accent/10 px-1.5 text-[11px] font-semibold text-accent" title={taskNames.join(', ')}>
                   내보냄
                 </span>
               ) : (
                 <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
-                  <button onClick={() => setRenamingEval(g)} title="묶음 이름 바꾸기" className="rounded px-1.5 text-gray-500 hover:bg-gray-200 hover:text-black">
-                    ✎
-                  </button>
                   <button onClick={() => ungroupRows(free.map((i) => i.id))} title="묶음 풀기(하위 과제를 모두 낱개로)" className="rounded px-1.5 text-gray-500 hover:bg-gray-200 hover:text-black">
                     <UngroupIcon />
                   </button>
