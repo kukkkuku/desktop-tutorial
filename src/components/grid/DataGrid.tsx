@@ -24,6 +24,8 @@ export interface GridColumn {
   type: ColumnType
   width: number
   system: boolean
+  // 읽기 전용 칸(점수처럼 계산된 값). 선택·복사는 되지만 편집은 안 된다.
+  readOnly?: boolean
   // 목록에서 고르는 칸(상태·분류·담당자 등). 칸을 누르면 표 바깥에 칩 목록이 뜬다.
   // 모든 선택 칸이 같은 방식이다 -- 차이는 여러 개를 고르는지, 목록에 없는 값을
   // 입력할 수 있는지, 칩 색뿐.
@@ -56,15 +58,18 @@ interface DataGridProps<R extends { id: string }> {
   onCommit: (edits: CellEdit[]) => void
   // 붙여넣기: 시작 칸(보이는 행·열 index)과 TSV 격자. 행이 모자라면 부모가 추가한다.
   onPaste: (rowIndex: number, colIndex: number, matrix: string[][]) => void
-  onInsertRows: (index: number, count: number) => void
+  // 없으면 행 추가(버튼·메뉴)를 보이지 않는다(예: 과제관리에서만 만드는 평가과제).
+  onInsertRows?: (index: number, count: number) => void
   onDeleteRows: (ids: string[]) => void
   onMoveRows?: (ids: string[], toIndex: number) => void
   // 묶음 머리 행 기준 이동: beforeId 행 앞으로(null = 맨 끝). 묶음 머리 행을 쓰면 필요.
   onMoveRowsBefore?: (ids: string[], beforeId: string | null, wholeGroups: boolean) => void
-  onInsertColumn: (index: number) => void
-  onDeleteColumns: (colIds: string[]) => void
-  onHideColumns: (colIds: string[]) => void
-  onRenameColumn: (colId: string, label: string) => void
+  // 열 구성을 고정한 표(평가과제·팀원)는 fixedColumns로 열 추가·삭제·숨기기·이름 바꾸기를 끈다.
+  fixedColumns?: boolean
+  onInsertColumn?: (index: number) => void
+  onDeleteColumns?: (colIds: string[]) => void
+  onHideColumns?: (colIds: string[]) => void
+  onRenameColumn?: (colId: string, label: string) => void
   onResizeColumn: (colId: string, width: number) => void
   onMoveColumns?: (colIds: string[], toIndex: number) => void
   onUndo: () => void
@@ -91,6 +96,8 @@ interface DataGridProps<R extends { id: string }> {
   onRowDragOutside?: { move: (ids: string[], x: number, y: number) => string | null; drop: (ids: string[], x: number, y: number) => boolean }
   // 번호 칸 너비 등 화면 설정을 브라우저에 기억할 때 쓰는 이름
   storageKey?: string
+  // 행 바로 아래에 펼쳐 보일 내용(아코디언). null이면 접힘.
+  rowDetail?: (row: R) => ReactNode | null
   addRowLabel?: string
   emptyText?: string
 }
@@ -250,7 +257,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function openPicker(r: number, c: number) {
     const col = columns[c]
     const row = rows[r]
-    if (!col?.picker || !row) return
+    if (!col?.picker || col.readOnly || !row) return
     select(r, c)
     beginPicker(col, getText(row, col.id))
     setSinkValue('')
@@ -319,7 +326,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   }
 
   function startEdit(initial?: string) {
-    if (!activeRow || !activeCol) return
+    if (!activeRow || !activeCol || activeCol.readOnly) return
     if (activeCol.picker && initial === undefined) {
       beginPicker(activeCol, getText(activeRow, activeCol.id))
       setSinkValue('')
@@ -585,7 +592,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       case 'Backspace':
         e.preventDefault()
         if (sel?.t === 'rows') deleteSelectedRows()
-        else if (sel?.t === 'cols') props.onDeleteColumns(selectedColIds)
+        else if (sel?.t === 'cols') {
+          if (!props.fixedColumns) props.onDeleteColumns?.(selectedColIds)
+        }
         else clearRange()
         return
       case 'Escape':
@@ -597,7 +606,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 선택 상태에서 글자가 들어오면 그 글자로 새로 쓰기 시작한다.
   function onSinkChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!editing) {
-      if (!activeRow || !activeCol) return
+      if (!activeRow || !activeCol || activeCol.readOnly) return
       if (activeCol.picker) beginPicker(activeCol, getText(activeRow, activeCol.id))
       setChoiceIndex(0)
       setEditing(true)
@@ -1008,7 +1017,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
             else headRowRefs.current.delete(h.key)
           }}
-          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#F7F7F9]'} ${
+          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#EDF1F7]'} ${
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
@@ -1016,8 +1025,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
             onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
             style={{ boxShadow: edge(true) }}
-            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
-              inside ? 'font-semibold text-accent' : 'text-gray-500 hover:bg-gray-100'
+            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums shadow-[inset_3px_0_0_#7FA7E8] ${
+              inside ? 'font-semibold text-accent' : 'font-semibold text-label-2 hover:bg-black/[0.04]'
             }`}
             title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
           >
@@ -1114,8 +1123,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         else headRefs.current.delete(c)
                       }}
                       onMouseDown={(e) => onHeadMouseDown(e, c)}
-                      onDoubleClick={() => setRenaming(col.id)}
-                      onContextMenu={(e) => openMenu(e, 'col', undefined, c)}
+                      onDoubleClick={() => !props.fixedColumns && setRenaming(col.id)}
+                      onContextMenu={(e) => (props.fixedColumns ? e.preventDefault() : openMenu(e, 'col', undefined, c))}
                       style={{
                         boxShadow: colSelected
                           ? [
@@ -1130,7 +1139,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[13px] font-semibold ${
                         colSelected ? 'bg-accent-soft text-accent' : ''
                       } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
-                      title={col.system ? `${col.label} (시트 열)` : col.label}
+                      title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
                     >
                       {renaming === col.id ? (
                         <input
@@ -1140,7 +1149,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseDown={(e) => e.stopPropagation()}
                           onBlur={(e) => {
                             const v = e.target.value.trim()
-                            if (v && v !== col.label) props.onRenameColumn(col.id, v)
+                            if (v && v !== col.label) props.onRenameColumn?.(col.id, v)
                             setRenaming(null)
                           }}
                           onKeyDown={(e) => {
@@ -1162,14 +1171,16 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     </th>
                   )
                 })}
-                <th className="h-9 p-0 text-center">
+                <th className="h-9 border-b border-[#E3E3E8] p-0 text-center">
+                  {!props.fixedColumns && props.onInsertColumn && (
                   <button
-                    onClick={() => props.onInsertColumn(nC)}
+                    onClick={() => props.onInsertColumn!(nC)}
                     title="열 추가"
                     className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
                   >
                     <Plus {...icSm} />
                   </button>
+                  )}
                 </th>
               </tr>
             </thead>
@@ -1253,7 +1264,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                 {text}
                               </div>
                             )}
-                            {col.type === 'date' && !col.picker && (
+                            {col.type === 'date' && !col.picker && !col.readOnly && (
                               <span
                                 onMouseDown={(e) => {
                                   // 달력 아이콘을 누르면 바로 달력을 연다.
@@ -1271,7 +1282,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                 <Calendar {...icSm} />
                               </span>
                             )}
-                            {col.picker && (
+                            {col.picker && !col.readOnly && (
                               <span
                                 onMouseDown={(e) => {
                                   // ▾를 누르면 바로 목록을 연다.
@@ -1292,6 +1303,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     })}
                     <td className="border-b border-[#EBEBEF]" />
                   </tr>
+                  {(() => {
+                    const detail = props.rowDetail?.(row)
+                    if (detail == null) return null
+                    return (
+                      <tr data-row-detail>
+                        <td className="border-b border-r border-[#EBEBEF] bg-[#FAFAFC]" />
+                        <td colSpan={nC + 1 + (check ? 1 : 0)} className="border-b border-[#EBEBEF] bg-[#FAFAFC] px-3 py-2">
+                          {detail}
+                        </td>
+                      </tr>
+                    )
+                  })()}
                   </Fragment>
                 )
               })}
@@ -1317,7 +1340,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               onKeyDown={onSinkKeyDown}
               onCompositionStart={() => {
                 composing.current = true
-                if (!editing) setEditing(true)
+                if (!editing && !activeCol?.readOnly) setEditing(true)
               }}
               onCompositionEnd={() => {
                 composing.current = false
@@ -1472,9 +1495,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         </div>
       </div>
 
+      {props.onInsertRows && (
       <button
         onClick={() => {
-          props.onInsertRows(nR, 1)
+          props.onInsertRows!(nR, 1)
           select(nR, 0)
           wantFocus.current = true
         }}
@@ -1483,6 +1507,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         <Plus {...icSm} />
         {props.addRowLabel ?? '행 추가'}
       </button>
+      )}
 
       {ghost && (
         <div
@@ -1554,20 +1579,24 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   </>
                 )
               })()}
-              <MenuItem
-                label="위에 행 추가"
-                onClick={() => {
-                  props.onInsertRows(range.r1, 1)
-                  setMenu(null)
-                }}
-              />
-              <MenuItem
-                label="아래에 행 추가"
-                onClick={() => {
-                  props.onInsertRows(range.r2 + 1, 1)
-                  setMenu(null)
-                }}
-              />
+              {props.onInsertRows && (
+                <>
+                  <MenuItem
+                    label="위에 행 추가"
+                    onClick={() => {
+                      props.onInsertRows!(range.r1, 1)
+                      setMenu(null)
+                    }}
+                  />
+                  <MenuItem
+                    label="아래에 행 추가"
+                    onClick={() => {
+                      props.onInsertRows!(range.r2 + 1, 1)
+                      setMenu(null)
+                    }}
+                  />
+                </>
+              )}
               {props.onMoveRows && (
                 <>
                   <MenuItem
@@ -1616,14 +1645,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <MenuItem
                 label="왼쪽에 열 추가"
                 onClick={() => {
-                  props.onInsertColumn(lo(sel.a, sel.b))
+                  props.onInsertColumn?.(lo(sel.a, sel.b))
                   setMenu(null)
                 }}
               />
               <MenuItem
                 label="오른쪽에 열 추가"
                 onClick={() => {
-                  props.onInsertColumn(hi(sel.a, sel.b) + 1)
+                  props.onInsertColumn?.(hi(sel.a, sel.b) + 1)
                   setMenu(null)
                 }}
               />
@@ -1639,7 +1668,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <MenuItem
                 label="열 숨기기"
                 onClick={() => {
-                  props.onHideColumns(selectedColIds)
+                  props.onHideColumns?.(selectedColIds)
                   setSel(null)
                   setMenu(null)
                 }}
@@ -1651,7 +1680,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 label="열 삭제"
                 hint={canDeleteCols ? undefined : '시트 열은 숨기기만'}
                 onClick={() => {
-                  props.onDeleteColumns(selectedColIds)
+                  props.onDeleteColumns?.(selectedColIds)
                   setSel(null)
                   setMenu(null)
                 }}

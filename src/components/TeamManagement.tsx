@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
@@ -8,49 +8,18 @@ import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcYearsSince } from '../utils/tenure'
 import { unmatchedAssigneeSummary } from '../utils/workBoard'
-import { useResizableColumns } from '../hooks/useResizableColumns'
+import { useStateHistory } from '../hooks/useStateHistory'
+import { normalizeDateText } from '../utils/sheetImport'
 import ConfirmDialog from './ConfirmDialog'
-import ResizableTh from './table/ResizableTh'
 import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import EmptyStateDropzone from './EmptyStateDropzone'
 import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
-import DatePicker from './DatePicker'
+import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-
-// service/levelTenure는 수정 모드에서 DatePicker가 들어가는데, 셀 자체의
-// px-4(32px) 패딩을 빼고도 "YYYY.MM.DD" + 달력 아이콘이 잘리지 않을 만큼
-// 넉넉히 잡아야 한다(150px로는 마지막 자리가 잘려 보였다).
-const TEAM_COLUMNS = {
-  name: 140,
-  service: 190,
-  level: 90,
-  levelTenure: 190,
-  role: 140,
-  team: 140,
-  email: 200,
-  work: 100,
-  tasks: 110,
-  peer: 130,
-  active: 100,
-  manage: 100,
-}
-
-interface MemberFormValues {
-  name: string
-  level: Level | ''
-  role: string
-  hireDate: string
-  currentLevelSince: string
-  team: string
-  email: string
-}
-
-const EMPTY_FORM: MemberFormValues = { name: '', level: '', role: '', hireDate: '', currentLevelSince: '', team: '', email: '' }
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
 // yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
@@ -73,102 +42,240 @@ export default function TeamManagement() {
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
-  const cols = useResizableColumns(TEAM_COLUMNS)
   const { openMemberDetail } = useMemberDetail()
-  const [deletingMember, setDeletingMember] = useState<TeamMember | null>(null)
+  const history = useStateHistory()
+  const [deleting, setDeleting] = useState<TeamMember[] | null>(null)
   const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
-
-  const [newForm, setNewForm] = useState<MemberFormValues>(EMPTY_FORM)
-  const [newFormError, setNewFormError] = useState('')
-
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<MemberFormValues>(EMPTY_FORM)
-  const [editFormError, setEditFormError] = useState('')
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
+  const [notice, setNotice] = useState('')
+  const [widths, setWidths] = useState<Record<string, number>>({})
 
-  function handleQuickAdd() {
-    const trimmedName = newForm.name.trim()
-    if (!trimmedName) {
-      setNewFormError('이름을 입력하세요.')
-      return
+  const boardTeams = useMemo(
+    () => Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort(),
+    [state.workBoard.items],
+  )
+  const workCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of state.workBoard.items) for (const id of i.assigneeIds) m.set(id, (m.get(id) ?? 0) + 1)
+    return m
+  }, [state.workBoard.items])
+  const peerCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of state.peerReviews) m.set(r.targetMemberId, (m.get(r.targetMemberId) ?? 0) + 1)
+    return m
+  }, [state.peerReviews])
+
+  const baseColumns: GridColumn[] = [
+    { id: 'name', label: '이름', type: 'text', width: 110, system: true },
+    { id: 'hireDate', label: '입사일', type: 'date', width: 110, system: true },
+    { id: 'service', label: '근속', type: 'text', width: 70, system: true, readOnly: true },
+    { id: 'level', label: '직급', type: 'select', width: 80, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
+    { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 115, system: true },
+    { id: 'levelTenure', label: '직급 연차', type: 'text', width: 80, system: true, readOnly: true },
+    { id: 'role', label: '역할', type: 'text', width: 100, system: true },
+    { id: 'team', label: '담당팀', type: 'select', width: 125, system: true, picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' } },
+    { id: 'email', label: '이메일', type: 'text', width: 170, system: true },
+    {
+      id: 'active',
+      label: '상태',
+      type: 'select',
+      width: 80,
+      system: true,
+      picker: { options: ['활성', '비활성'], tone: (v) => (v === '활성' ? 'bg-success/10 text-success' : 'bg-black/[0.05] text-label-2') },
+    },
+    { id: 'work', label: '담당 L3', type: 'text', width: 75, system: true, readOnly: true },
+    { id: 'tasks', label: '평가과제', type: 'text', width: 80, system: true, readOnly: true },
+    { id: 'peer', label: '피어리뷰', type: 'text', width: 95, system: true, readOnly: true },
+  ]
+  const columns = baseColumns.map((c) => (widths[c.id] ? { ...c, width: widths[c.id] } : c))
+
+  function textOf(m: TeamMember, colId: string): string {
+    switch (colId) {
+      case 'name':
+        return m.name
+      case 'hireDate':
+        return m.hireDate ?? ''
+      case 'service':
+        return displayServiceYears(m)
+      case 'level':
+        return m.level
+      case 'currentLevelSince':
+        return m.currentLevelSince ?? ''
+      case 'levelTenure':
+        return formatTenureOnly(calcYearsSince(m.currentLevelSince))
+      case 'role':
+        return m.role
+      case 'team':
+        return m.team ?? ''
+      case 'email':
+        return m.email ?? ''
+      case 'active':
+        return m.active ? '활성' : '비활성'
+      case 'work':
+        return `${workCount.get(m.id) ?? 0}건`
+      case 'tasks':
+        return `${calcMemberParticipation(m, state.tasks, state.contributions).count}건`
+      case 'peer':
+        return `${peerCount.get(m.id) ?? 0}건`
+      default:
+        return ''
     }
-    if (state.members.some((m) => m.name === trimmedName)) {
-      setNewFormError(`팀원명 '${trimmedName}'은(는) 이미 존재합니다.`)
-      return
-    }
-    const member: TeamMember = {
-      id: uuidv4(),
-      name: trimmedName,
-      active: true,
-      level: newForm.level,
-      yearsOfService: null,
-      role: newForm.role.trim(),
-      comment: '',
-      hireDate: newForm.hireDate || null,
-      currentLevelSince: newForm.currentLevelSince || null,
-      team: newForm.team.trim() || undefined,
-      email: newForm.email.trim() || undefined,
-    }
-    dispatch({ type: 'ADD_MEMBER', payload: member })
-    setNewForm(EMPTY_FORM)
-    setNewFormError('')
   }
 
-  function startEdit(member: TeamMember) {
-    setEditingId(member.id)
-    setEditForm({
-      name: member.name,
-      level: member.level,
-      role: member.role,
-      hireDate: member.hireDate ?? '',
-      currentLevelSince: member.currentLevelSince ?? '',
-      team: member.team ?? '',
-      email: member.email ?? '',
+  // 이름은 비울 수 없고 겹치면 안 된다. 새 행은 "새 팀원"으로 만들어 두고 바로 덮어쓰게 한다.
+  function freshName(taken: Set<string>): string {
+    let name = '새 팀원'
+    for (let n = 2; taken.has(name); n += 1) name = `새 팀원 ${n}`
+    taken.add(name)
+    return name
+  }
+  function blankMember(name: string): TeamMember {
+    return { id: uuidv4(), name, active: true, level: '', yearsOfService: null, role: '', comment: '', hireDate: null, currentLevelSince: null }
+  }
+
+  // edits를 list에 적용한 새 목록. 맞지 않는 값은 건너뛰고 problems에 적는다.
+  function withEdits(list: TeamMember[], edits: CellEdit[], problems: string[]): TeamMember[] {
+    const next = list.map((m) => ({ ...m }))
+    const byId = new Map(next.map((m) => [m.id, m]))
+    for (const e of edits) {
+      const m = byId.get(e.rowId)
+      if (!m) continue
+      const v = e.text.trim()
+      switch (e.colId) {
+        case 'name':
+          if (!v) problems.push('이름은 비울 수 없습니다')
+          else if (next.some((o) => o.id !== m.id && o.name === v)) problems.push(`'${v}' 팀원이 이미 있습니다`)
+          else m.name = v
+          break
+        case 'hireDate':
+        case 'currentLevelSince': {
+          const d = v ? normalizeDateText(v) : ''
+          if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) problems.push(`'${v}'은(는) 날짜로 읽을 수 없습니다 (예: 2024-03-02)`)
+          else m[e.colId] = d || null
+          break
+        }
+        case 'level':
+          if (!v || LEVEL_OPTIONS.includes(v as Level)) m.level = v as Level | ''
+          else problems.push(`직급 '${v}'은(는) 없는 값입니다`)
+          break
+        case 'role':
+          m.role = v
+          break
+        case 'team':
+          m.team = v || undefined
+          break
+        case 'email':
+          m.email = v || undefined
+          break
+        case 'active':
+          if (v === '활성' || v === '비활성') m.active = v === '활성'
+          break
+      }
+    }
+    return next
+  }
+
+  function save(next: TeamMember[], problems: string[]) {
+    setNotice(problems.length ? Array.from(new Set(problems)).join(' · ') : '')
+    if (JSON.stringify(next) === JSON.stringify(state.members)) return
+    history.record()
+    // 활성 여부가 바뀐 팀원은 기여도 자동 배분을 다시 해야 해서 UPDATE_MEMBER로 보낸다.
+    const prev = new Map(state.members.map((m) => [m.id, m]))
+    const sameSet = next.length === state.members.length && next.every((m) => prev.has(m.id))
+    if (sameSet) {
+      for (const m of next) if (JSON.stringify(m) !== JSON.stringify(prev.get(m.id))) dispatch({ type: 'UPDATE_MEMBER', payload: m })
+    } else dispatch({ type: 'IMPORT_MEMBERS', payload: next })
+  }
+
+  function commit(edits: CellEdit[]) {
+    const problems: string[] = []
+    save(withEdits(state.members, edits, problems), problems)
+  }
+
+  function insertRows(index: number, count: number) {
+    const taken = new Set(state.members.map((m) => m.name))
+    const added = Array.from({ length: count }, () => blankMember(freshName(taken)))
+    history.record()
+    dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members.slice(0, index), ...added, ...state.members.slice(index)] })
+  }
+
+  // 붙여넣기: 표보다 긴 줄은 새 팀원으로 추가한다.
+  function paste(rowIndex: number, colIndex: number, matrix: string[][]) {
+    const taken = new Set(state.members.map((m) => m.name))
+    const nameCol = columns.findIndex((c) => c.id === 'name')
+    const list = [...state.members]
+    const edits: CellEdit[] = []
+    matrix.forEach((line, i) => {
+      let m = list[rowIndex + i]
+      if (!m) {
+        const typed = nameCol >= colIndex ? (line[nameCol - colIndex] ?? '').trim() : ''
+        m = blankMember(typed && !taken.has(typed) ? typed : freshName(taken))
+        taken.add(m.name)
+        list.push(m)
+      }
+      line.forEach((text, j) => {
+        const col = columns[colIndex + j]
+        if (col && !col.readOnly) edits.push({ rowId: m!.id, colId: col.id, text })
+      })
     })
-    setEditFormError('')
+    const problems: string[] = []
+    save(withEdits(list, edits, problems), problems)
   }
 
-  function cancelEdit() {
-    setEditingId(null)
-    setEditFormError('')
+  function moveRows(ids: string[], toIndex: number) {
+    const set = new Set(ids)
+    const moving = state.members.filter((m) => set.has(m.id))
+    const rest = state.members.filter((m) => !set.has(m.id))
+    const at = state.members.slice(0, toIndex).filter((m) => !set.has(m.id)).length
+    history.record()
+    dispatch({ type: 'IMPORT_MEMBERS', payload: [...rest.slice(0, at), ...moving, ...rest.slice(at)] })
   }
 
-  function saveEdit(member: TeamMember) {
-    const trimmedName = editForm.name.trim()
-    if (!trimmedName) {
-      setEditFormError('이름을 입력하세요.')
-      return
-    }
-    if (state.members.some((m) => m.name === trimmedName && m.id !== member.id)) {
-      setEditFormError(`팀원명 '${trimmedName}'은(는) 이미 존재합니다.`)
-      return
-    }
-    dispatch({
-      type: 'UPDATE_MEMBER',
-      payload: {
-        ...member,
-        name: trimmedName,
-        level: editForm.level,
-        role: editForm.role.trim(),
-        hireDate: editForm.hireDate || null,
-        currentLevelSince: editForm.currentLevelSince || null,
-        team: editForm.team.trim() || undefined,
-        email: editForm.email.trim() || undefined,
-      },
-    })
-    setEditingId(null)
+  function confirmDelete() {
+    if (!deleting) return
+    history.record()
+    for (const m of deleting) dispatch({ type: 'DELETE_MEMBER', payload: { id: m.id } })
+    setDeleting(null)
   }
 
-  function toggleActive(member: TeamMember) {
-    dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, active: !member.active } })
-  }
-
-  function handleDeleteConfirm() {
-    if (deletingMember) {
-      dispatch({ type: 'DELETE_MEMBER', payload: { id: deletingMember.id } })
-      setDeletingMember(null)
-    }
+  function renderCell(m: TeamMember, col: GridColumn) {
+    if (col.id === 'name')
+      return (
+        <div className="group/name flex items-center gap-1 py-1.5">
+          <span className="min-w-0 flex-1 truncate">{m.name}</span>
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => openMemberDetail(m.id)}
+            title="팀원 상세 열기"
+            className="shrink-0 rounded-control p-0.5 text-label-3 opacity-0 hover:bg-black/[0.07] hover:text-label group-hover/row:opacity-100"
+          >
+            <PanelRightOpen {...icSm} />
+          </button>
+        </div>
+      )
+    if (col.id === 'level') return m.level ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.level}</span> : null
+    if (col.id === 'team') return m.team ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.team}</span> : null
+    if (col.id === 'active')
+      return (
+        <span className={`${CHIP_BASE} gap-1.5 ${m.active ? 'bg-success/10 text-success' : 'bg-black/[0.05] text-label-2'}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${m.active ? 'bg-success' : 'bg-label-3'}`} />
+          {m.active ? '활성' : '비활성'}
+        </span>
+      )
+    if (col.id === 'service' || col.id === 'levelTenure' || col.id === 'work' || col.id === 'tasks')
+      return <span className="tabular-nums text-label-2">{textOf(m, col.id)}</span>
+    if (col.id === 'peer')
+      return (
+        <button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setViewingPeerReviewsFor(m)}
+          className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-xs font-medium text-label-2 hover:bg-black/[0.08]"
+        >
+          {textOf(m, 'peer')} 확인
+        </button>
+      )
+    return undefined
   }
 
   function handleDeletePeerReviewConfirm() {
@@ -201,10 +308,6 @@ export default function TeamManagement() {
 
   // 과제관리(시트)에 담당자로 나오지만 팀원 목록에 없는 사람들
   const unmatched = unmatchedAssigneeSummary(state.workBoard)
-  const boardTeams = Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort()
-  function workCountOf(member: TeamMember) {
-    return state.workBoard.items.filter((i) => i.assigneeIds.includes(member.id)).length
-  }
   function addFromWork(names: string[]) {
     const existingNames = new Set(state.members.map((m) => m.name))
     const added: TeamMember[] = unmatched
@@ -228,7 +331,15 @@ export default function TeamManagement() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[17px] font-semibold text-label">팀원 관리</h3>
+        <div className="flex items-center gap-1">
+          <h3 className="mr-2 text-[17px] font-semibold text-label">팀원 관리</h3>
+          <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
+            <Undo2 {...ic} />
+          </IconButton>
+          <IconButton onClick={history.redo} disabled={!history.canRedo} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
+            <Redo2 {...ic} />
+          </IconButton>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
             disabled={state.members.length === 0}
@@ -239,108 +350,8 @@ export default function TeamManagement() {
         </div>
       </div>
       <p className="mt-1 text-[13px] text-label-2">
-        팀원을 추가/삭제하면 평가 매트릭스의 열(컬럼)이 자동으로 반영됩니다. 삭제 시 해당 팀원의 모든 평가 데이터도 함께 제거됩니다.
+        칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께 지워집니다.
       </p>
-
-      <div className="mac-card mt-4 p-4">
-        {/* 과제 관리의 빠른 추가 폼과 같은 구조: 한 줄짜리 그리드에 모든
-            필드 + 버튼을 나란히 배치한다(예전엔 입사일/현 직급 발령일이
-            둘째 줄로 밀려서 두 줄짜리 폼이었다). 필드 순서도 아래 표
-            컬럼 순서(이름-근속(입사일)-직급-연차(현 직급 발령일)-역할)와
-            맞췄다. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[1.5fr_1.4fr_0.9fr_1.4fr_1.2fr_1.3fr_1.7fr_auto]">
-          <div>
-            <label className="block text-[13px] font-medium text-label">
-              이름 <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={newForm.name}
-              onChange={(e) => setNewForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="예: 홍길동"
-              className={`mt-1 h-8 w-full rounded-control border px-2.5 text-[13px] text-label ${
-                newFormError ? 'border-danger' : 'border-hairline'
-              }`}
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">입사일</label>
-            <DatePicker
-              value={newForm.hireDate}
-              onChange={(v) => setNewForm((f) => ({ ...f, hireDate: v }))}
-              ariaLabel="입사일"
-              className="mt-1 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">직급</label>
-            <select
-              value={newForm.level}
-              onChange={(e) => setNewForm((f) => ({ ...f, level: e.target.value as Level | '' }))}
-              className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-            >
-              <option value="">-</option>
-              {LEVEL_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">현 직급 발령일</label>
-            <DatePicker
-              value={newForm.currentLevelSince}
-              onChange={(v) => setNewForm((f) => ({ ...f, currentLevelSince: v }))}
-              ariaLabel="현 직급 발령일"
-              className="mt-1 w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">역할</label>
-            <input
-              type="text"
-              value={newForm.role}
-              onChange={(e) => setNewForm((f) => ({ ...f, role: e.target.value }))}
-              placeholder="예: 리드, 기획, 디자인"
-              className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">담당팀</label>
-            <input
-              type="text"
-              list="team-options"
-              value={newForm.team}
-              onChange={(e) => setNewForm((f) => ({ ...f, team: e.target.value }))}
-              placeholder="시트의 담당팀"
-              className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-            />
-          </div>
-          <div>
-            <label className="block text-[13px] font-medium text-label">이메일</label>
-            <input
-              type="email"
-              value={newForm.email}
-              onChange={(e) => setNewForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="권한 연결용 (선택)"
-              className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
-              <Plus {...ic} />
-              팀원 추가
-            </Button>
-          </div>
-        </div>
-        {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
-        <datalist id="team-options">
-          {boardTeams.map((t) => (
-            <option key={t} value={t} />
-          ))}
-        </datalist>
-      </div>
 
       {unmatched.length > 0 && (
         <div className="mt-4 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
@@ -378,212 +389,42 @@ export default function TeamManagement() {
         </div>
       )}
 
-      {state.members.length === 0 ? (
-        <EmptyStateDropzone
-          title="등록된 팀원이 없습니다"
-          addHint="위의 '+ 팀원 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
-          busyLabel="팀원 업로드 중..."
-          onDownloadTemplate={downloadMemberTemplate}
-          onFiles={handleUploadFiles}
+      <div className="mt-4">
+        {notice && <p className="mb-2 text-[13px] text-danger">{notice}</p>}
+        <DataGrid
+          columns={columns}
+          rows={state.members}
+          fixedColumns
+          getText={textOf}
+          renderCell={renderCell}
+          rowClassName={(m) => (m.active ? '' : 'text-label-2')}
+          onCommit={commit}
+          onPaste={paste}
+          onInsertRows={insertRows}
+          onDeleteRows={(ids) => setDeleting(state.members.filter((m) => ids.includes(m.id)))}
+          onMoveRows={moveRows}
+          onResizeColumn={(id, w) => setWidths((cur) => ({ ...cur, [id]: w }))}
+          onUndo={history.undo}
+          onRedo={history.redo}
+          storageKey="members"
+          addRowLabel="팀원 추가"
+          emptyText="등록된 팀원이 없습니다. 아래 '팀원 추가'를 누르거나 엑셀로 올리세요."
         />
-      ) : (
-      <div className="mt-4 overflow-x-auto rounded-card border border-separator bg-white">
-        <table className="table-fixed text-left text-[13px]" style={{ width: '100%', minWidth: cols.totalWidth }}>
-          <thead className="bg-[#F7F7F9] text-label">
-            <tr>
-              {(
-                [
-                  ['name', '이름'],
-                  ['service', '근속 (입사일)'],
-                  ['level', '직급'],
-                  ['levelTenure', '연차 (발령일)'],
-                  ['role', '역할'],
-                  ['team', '담당팀'],
-                  ['email', '이메일'],
-                  ['work', '담당 L3'],
-                  ['tasks', '평가 과제 수'],
-                  ['peer', '받은 피어리뷰'],
-                  ['active', '활성여부'],
-                  ['manage', '관리'],
-                ] as const
-              ).map(([key, label]) => (
-                <ResizableTh
-                  key={key}
-                  width={cols.widths[key]}
-                  resizable={key !== 'manage'}
-                  onResizeStart={cols.startResize(key)}
-                  onResizeMove={cols.onResizeMove}
-                  onResizeEnd={cols.onResizeEnd}
-                >
-                  {label}
-                </ResizableTh>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {state.members.map((member) => {
-              const { count } = calcMemberParticipation(member, state.tasks, state.contributions)
-              const peerReviewCount = state.peerReviews.filter((r) => r.targetMemberId === member.id).length
-              const isEditing = editingId === member.id
-
-              if (isEditing) {
-                return (
-                  <tr key={member.id} className="border-t border-separator bg-accent-soft/50 text-label">
-                    <td className="px-4 py-2 align-top">
-                      <input
-                        type="text"
-                        value={editForm.name}
-                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                        className={`h-8 w-full rounded-control border px-2.5 text-[13px] text-label ${
-                          editFormError ? 'border-danger' : 'border-hairline'
-                        }`}
-                      />
-                      {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <DatePicker
-                        value={editForm.hireDate}
-                        onChange={(v) => setEditForm((f) => ({ ...f, hireDate: v }))}
-                        ariaLabel="입사일"
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <select
-                        value={editForm.level}
-                        onChange={(e) => setEditForm((f) => ({ ...f, level: e.target.value as Level | '' }))}
-                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-                      >
-                        <option value="">-</option>
-                        {LEVEL_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <DatePicker
-                        value={editForm.currentLevelSince}
-                        onChange={(v) => setEditForm((f) => ({ ...f, currentLevelSince: v }))}
-                        ariaLabel="현 직급 발령일"
-                        className="w-full"
-                      />
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <input
-                        type="text"
-                        value={editForm.role}
-                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
-                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-                      />
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <input
-                        type="text"
-                        list="team-options"
-                        value={editForm.team}
-                        onChange={(e) => setEditForm((f) => ({ ...f, team: e.target.value }))}
-                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-                      />
-                    </td>
-                    <td className="px-4 py-2 align-top">
-                      <input
-                        type="email"
-                        value={editForm.email}
-                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                        className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
-                      />
-                    </td>
-                    <td className="px-4 py-3 align-top text-label-2">{workCountOf(member)}건</td>
-                    <td className="px-4 py-3 align-top text-label-2">{count}건</td>
-                    <td className="px-4 py-3 align-top text-label-2">{peerReviewCount}건</td>
-                    <td className="px-4 py-3 align-top">
-                      <button
-                        onClick={() => toggleActive(member)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                          member.active ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
-                        }`}
-                      >
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${member.active ? 'bg-success' : 'bg-label-3'}`} />
-                        {member.active ? '활성' : '비활성'}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex items-center gap-1">
-                        <IconButton onClick={() => saveEdit(member)} title="저장" aria-label="저장">
-                          <Check {...ic} />
-                        </IconButton>
-                        <IconButton onClick={cancelEdit} title="취소" aria-label="취소" tone="danger">
-                          <X {...ic} />
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              }
-
-              const levelTenureYears = calcYearsSince(member.currentLevelSince)
-              return (
-                <tr key={member.id} className="border-t border-separator text-label">
-                  <td className="px-4 py-3 font-medium">
-                    <button onClick={() => openMemberDetail(member.id)} className="text-left hover:text-accent hover:underline">
-                      {member.name}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">{displayServiceYears(member)}</td>
-                  <td className="px-4 py-3">{member.level || '-'}</td>
-                  <td className="px-4 py-3">{formatTenureOnly(levelTenureYears)}</td>
-                  <td className="px-4 py-3">{member.role || '-'}</td>
-                  <td className="truncate px-4 py-3">{member.team || '-'}</td>
-                  <td className="truncate px-4 py-3 text-label" title={member.email}>{member.email || '-'}</td>
-                  <td className="px-4 py-3">{workCountOf(member)}건</td>
-                  <td className="px-4 py-3">{count}건</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => setViewingPeerReviewsFor(member)}
-                      className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-xs font-medium text-label-2 hover:bg-black/[0.08]"
-                    >
-                      {peerReviewCount}건 확인
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => toggleActive(member)}
-                      title="클릭해서 활성/비활성 전환"
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                        member.active ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
-                      }`}
-                    >
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${member.active ? 'bg-success' : 'bg-label-3'}`} />
-                      {member.active ? '활성' : '비활성'}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <IconButton onClick={() => startEdit(member)} title="수정" aria-label="수정">
-                        <Pencil {...ic} />
-                      </IconButton>
-                      <span className="h-4 w-px bg-separator" />
-                      <IconButton onClick={() => setDeletingMember(member)} title="삭제" aria-label="삭제" tone="danger">
-                        <Trash2 {...ic} />
-                      </IconButton>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
       </div>
-      )}
 
       <ConfirmDialog
-        open={deletingMember !== null}
-        title="팀원 삭제"
-        message={`'${deletingMember?.name}' 팀원을 삭제하시겠습니까? 관련된 기여도 데이터도 함께 삭제됩니다.`}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeletingMember(null)}
+        open={deleting !== null}
+        title={deleting && deleting.length > 1 ? `팀원 ${deleting.length}명 삭제` : '팀원 삭제'}
+        message={
+          deleting
+            ? `${deleting
+                .slice(0, 8)
+                .map((m) => m.name)
+                .join(', ')}${deleting.length > 8 ? ` 외 ${deleting.length - 8}명` : ''}\n\n기여도·피어리뷰·면담 기록도 함께 지워집니다.\n과제관리의 담당자 표시는 이름만 남습니다.\n⌘Z로 되돌릴 수 있습니다.`
+            : ''
+        }
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleting(null)}
       />
 
       {viewingPeerReviewsFor && (

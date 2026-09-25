@@ -48,7 +48,7 @@
 | 확인 창 | `ConfirmDialog` (macOS 알림 모양) |
 | 구역 묶음 | `.mac-card` 또는 `rounded-card border border-separator` |
 | 배지 | `.mac-badge` + 색(`bg-accent-soft text-accent`, `bg-black/[0.05] text-label-2` 등) |
-| 표(편집) | `grid/DataGrid` — 엑셀식 선택·복사/붙여넣기·행/열 추가·삭제·끌어 옮기기·되돌리기 |
+| 표(편집) | `grid/DataGrid` — 엑셀식 선택·복사/붙여넣기·행/열 추가·삭제·끌어 옮기기·되돌리기. 열이 정해진 표는 `fixedColumns`, 계산 칸은 `readOnly`, 펼침 내용은 `rowDetail`. 과제관리·평가과제·팀원 표가 모두 이것 |
 
 ## 4. 레이아웃
 

@@ -7,7 +7,7 @@ import { IS_PREVIEW } from '../utils/previewMode'
 import { sheetUrl } from '../utils/sheetSources'
 import { useAppState } from '../state/AppContext'
 import SheetsIcon from './SheetsIcon'
-import { BarChart3, ChevronDown, Database, LayoutList, ListChecks, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
+import { BarChart3, ChevronDown, Database, LayoutList, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 
 export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
@@ -21,10 +21,10 @@ export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'not
 // 화면(평가용 과제 목록)은 "평가과제"로 이름을 바꿔 평가하기 앞에 둔다 --
 // L3를 하나씩 또는 묶어서 평가 과제로 만드는 흐름은 다음 단계에서 붙인다
 // (docs/PLAN-TASK-MANAGEMENT.md 6.1).
-const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon }[] = [
-  { key: 'work', label: '과제관리', Icon: LayoutList },
+// 과제관리(L2/L3 보드)와 평가과제는 한 메뉴 "과제" 안의 두 화면이다(화면 위 세그먼트로 전환).
+const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[] }[] = [
+  { key: 'work', label: '과제', Icon: LayoutList, also: ['tasks'] },
   { key: 'members', label: '팀원관리', Icon: Users },
-  { key: 'tasks', label: '평가과제', Icon: ListChecks },
   { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal },
   { key: 'results', label: '평가결과', Icon: BarChart3 },
   { key: 'notes', label: '팀원 면담', Icon: MessageCircle },
@@ -108,18 +108,21 @@ export default function StageTabs({
           <Zap {...ic} />
         </IconButton>
         <nav className="mac-seg" role="tablist">
-          {STAGE_TABS.map(({ key, label, Icon }) => (
+          {STAGE_TABS.map(({ key, label, Icon, also }) => {
+            const on = stage === key || !!also?.includes(stage)
+            return (
             <button
               key={key}
               role="tab"
-              aria-selected={stage === key}
-              onClick={() => onStageChange(key)}
-              className={`mac-seg-item flex items-center gap-1.5 !px-3.5 !py-[6px] ${stage === key ? 'mac-seg-item-on !text-accent' : ''}`}
+              aria-selected={on}
+              onClick={() => !on && onStageChange(key)}
+              className={`mac-seg-item flex items-center gap-1.5 !px-3.5 !py-[6px] ${on ? 'mac-seg-item-on !text-accent' : ''}`}
             >
               <Icon {...icSm} />
               {label}
             </button>
-          ))}
+            )
+          })}
         </nav>
 
         {accountEmail && (

@@ -15,6 +15,7 @@ import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer, { type DataManagerTab } from './components/DataManagerDrawer'
 import WorkStage from './components/work/WorkStage'
 import QuickStartModal from './components/QuickStartModal'
+import Segmented from './components/ui/Segmented'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 
@@ -125,6 +126,17 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             <div className="flex min-h-0 flex-1">
               {stage !== 'notes' && stage !== 'work' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                {(stage === 'work' || stage === 'tasks') && (
+                  <Segmented
+                    className="mb-5"
+                    items={[
+                      { key: 'work', label: '과제관리', title: '구글시트와 연결된 L2/L3 과제' },
+                      { key: 'tasks', label: '평가과제', title: '과제관리에서 내보낸 평가용 과제' },
+                    ]}
+                    value={stage}
+                    onChange={(k) => handleStageChange(k)}
+                  />
+                )}
                 {stage === 'work' && (
                   <WorkStage
                     onOpenSheetImport={() => {

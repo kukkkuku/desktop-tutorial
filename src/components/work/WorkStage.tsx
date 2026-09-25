@@ -39,7 +39,7 @@ import {
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
 import SheetsIcon from '../SheetsIcon'
-import { ChevronRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
+import { ChevronRight, CornerDownRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -486,8 +486,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     if (col.id === COL_NAME && evalGroupOf(row)) {
       const locked = exportedIds.has(row.id)
       return (
-        <div className="group/child flex items-start gap-1 py-1.5 pl-5 leading-snug">
-          <span className="shrink-0 text-label-3">ㄴ</span>
+        <div className="group/child flex items-start gap-1.5 py-1.5 pl-6 leading-snug">
+          <CornerDownRight size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-[#7FA7E8]" />
           <span className="min-w-0 flex-1 whitespace-pre-line break-words">
             {row.name}
             {dot}
@@ -982,7 +982,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 : row.missingInSheet
                   ? 'bg-orange-50/50 text-label-2'
                   : evalGroupOf(row)
-                    ? 'bg-[#FAFBFD]'
+                    ? '[&>td:first-child]:shadow-[inset_3px_0_0_#7FA7E8]'
                     : ''
             }
             rowMarker={(row) => (
