@@ -173,3 +173,9 @@ body {
     @apply inline-flex items-center rounded-full px-2 py-[1px] text-[11px] font-semibold;
   }
 }
+
+/* 표 행을 끌어 옮기는 동안 커서를 잡은 손으로 고정 */
+.grid-grabbing,
+.grid-grabbing * {
+  cursor: grabbing !important;
+}

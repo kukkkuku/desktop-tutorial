@@ -669,6 +669,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         d.pending = false
         d.moving = true
       }
+      // 옮기는 동안은 어디서나 "잡은 손" 커서
+      if (d.moving) document.documentElement.classList.add('grid-grabbing')
       let outside = false
       if (d.kind === 'rows' && d.moving) {
         const ids = d.ids ?? selectedRowIds
@@ -713,6 +715,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     function onUp(e: MouseEvent) {
       const d = drag.current
       drag.current = null
+      document.documentElement.classList.remove('grid-grabbing')
       setGhost(null)
       if (d?.pending) {
         d.onClick?.()
@@ -1308,7 +1311,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
                           style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
-                          className={`h-9 cursor-cell overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
+                          className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
                             inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
                         >
