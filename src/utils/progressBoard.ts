@@ -35,6 +35,7 @@ export const FILL_HEX: Record<WeekFill, string> = { plan: 'D9D9D9', actual: 'F4C
 export interface ProgressData {
   spreadsheetId: string | null
   source: string // 탭 이름 또는 파일 이름
+  fileTitle?: string // 구글시트 파일 이름
   tabTitle: string
   sheetGid: number | null
   year: number | null

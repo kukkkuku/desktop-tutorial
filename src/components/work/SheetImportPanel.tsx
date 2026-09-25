@@ -227,6 +227,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       selectedGroups: Array.from(selected),
       teamFilter: null,
       lastFetchedAt: new Date().toISOString(),
+      fileTitle: bookTitle || link?.fileTitle,
     }
     const res = applySheetImport(board, importRows, header, members, nextLink, yearFromTitle(raw.title) ?? currentWorkspace?.evaluationYear ?? null)
     if (newMembers.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: members })

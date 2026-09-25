@@ -245,6 +245,7 @@ export interface SheetLink {
   selectedGroups: string[] // L2 이름
   teamFilter: string | null // 선택한 L2 안에서도 이 담당팀 L3만
   lastFetchedAt?: string
+  fileTitle?: string // 시트 파일 이름(탭 이름 아님) -- 칩에 보여 준다
 }
 
 export interface WorkBoard {

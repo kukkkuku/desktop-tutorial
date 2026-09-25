@@ -9,6 +9,7 @@ import { parseSheetUrl } from '../utils/sheetSources'
 
 export default function SheetLinkChip({
   label,
+  sub,
   meta,
   currentUrl,
   openUrl,
@@ -16,8 +17,10 @@ export default function SheetLinkChip({
   onConnect,
   onReload,
   reloadDisabled,
+  reloading,
 }: {
-  label: string // 탭 이름 등
+  label: string // 시트 파일 이름
+  sub?: string // 탭 이름(마우스를 올리면 보임)
   meta?: ReactNode // 옆에 붙는 작은 표시(예: "3시간 전")
   currentUrl: string | null // 링크 입력창에 미리 채울 주소(xlsx면 null)
   openUrl?: string | null // "시트 열기" 주소
@@ -25,6 +28,7 @@ export default function SheetLinkChip({
   onConnect: (url: string) => void
   onReload?: () => void
   reloadDisabled?: boolean
+  reloading?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState(currentUrl ?? '')
@@ -63,8 +67,8 @@ export default function SheetLinkChip({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        title="연결된 시트 · 눌러서 링크 바꾸기"
-        className={`flex max-w-[260px] items-center gap-1.5 rounded-control px-1.5 py-1 font-medium hover:bg-black/[0.05] hover:text-label ${open ? 'bg-black/[0.05] text-label' : ''}`}
+        title={`${label}${sub ? ` › ${sub}` : ''}\n눌러서 연결 링크 바꾸기`}
+        className={`flex max-w-[320px] items-center gap-1.5 rounded-control px-1.5 py-1 font-medium hover:bg-black/[0.05] hover:text-label ${open ? 'bg-black/[0.05] text-label' : ''}`}
       >
         <SheetsIcon className="h-4 w-3.5 shrink-0" />
         <span className="truncate">{label}</span>
@@ -74,18 +78,34 @@ export default function SheetLinkChip({
       {onReload && (
         <button
           onClick={onReload}
-          disabled={reloadDisabled}
-          title="다시 불러오기"
-          aria-label="다시 불러오기"
+          disabled={reloadDisabled || reloading}
+          title="시트에서 다시 불러오기"
+          aria-label="시트에서 다시 불러오기"
           className="flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-accent disabled:opacity-40"
         >
-          <RotateCw {...icSm} />
+          <RotateCw {...icSm} className={reloading ? 'animate-spin' : ''} />
         </button>
+      )}
+      {openUrl && (
+        <a
+          href={openUrl}
+          target="_blank"
+          rel="noreferrer"
+          title="구글시트로 바로 가기"
+          aria-label="구글시트로 바로 가기"
+          className="-ml-1 flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-accent"
+        >
+          <ExternalLink {...icSm} />
+        </a>
       )}
 
       {open && (
         <div className="mac-pop absolute right-0 top-full z-50 mt-1.5 w-[440px] p-3 text-[13px]">
           <p className="font-semibold text-label">연결된 구글시트</p>
+          <p className="mt-0.5 truncate text-[12px] text-label">
+            {label}
+            {sub && <span className="text-label-3"> › {sub}</span>}
+          </p>
           {note && <div className="mt-0.5 text-[12px] text-label-2">{note}</div>}
           <form
             onSubmit={(e) => {
@@ -107,29 +127,6 @@ export default function SheetLinkChip({
             </Button>
           </form>
           {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
-          <div className="mt-2 flex items-center justify-between gap-2">
-            {openUrl ? (
-              <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
-                <ExternalLink {...icSm} />
-                시트 열기
-              </a>
-            ) : (
-              <span />
-            )}
-            {onReload && (
-              <button
-                onClick={() => {
-                  setOpen(false)
-                  onReload()
-                }}
-                disabled={reloadDisabled}
-                className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
-              >
-                <RotateCw {...icSm} />
-                지금 시트로 다시 불러오기
-              </button>
-            )}
-          </div>
         </div>
       )}
     </div>

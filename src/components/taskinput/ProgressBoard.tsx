@@ -44,6 +44,7 @@ import {
   type ProgressRow,
 } from '../../utils/progressBoard'
 import SheetLinkChip from '../SheetLinkChip'
+import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
 
 const CATEGORIES = ['과제', '일반', '일상']
@@ -80,7 +81,7 @@ function toData(parsed: ParsedSheet, meta: Pick<ProgressData, 'spreadsheetId' | 
 
 // 시트에서 추진현황 탭을 값 + 주차 칸 배경색까지 읽는다.
 async function readFromSheet(spreadsheetId: string, year: number): Promise<ProgressData> {
-  const { tabs } = await fetchSpreadsheetTabs(spreadsheetId)
+  const { title: fileTitle, tabs } = await fetchSpreadsheetTabs(spreadsheetId)
   const title = pickDefaultTab(tabs, year)
   const tab = tabs.find((t) => t.title === title)
   if (!title || !tab) throw new Error('시트에서 「추진현황」 탭을 찾지 못했습니다.')
@@ -92,7 +93,7 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
     raw.fills = await fetchSheetFills(spreadsheetId, title, first.header.dataStartRow, raw.rows.length - 1, Math.min(...cols), Math.max(...cols))
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
-  return toData(parsed, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId })
+  return { ...toData(parsed, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
 }
 
 export default function ProgressBoard() {
@@ -293,7 +294,8 @@ export default function ProgressBoard() {
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-label-2">
         {data.spreadsheetId ? (
           <SheetLinkChip
-            label={data.source}
+            label={data.fileTitle || data.source}
+            sub={data.fileTitle ? data.tabTitle : undefined}
             meta={
               <span className="flex items-center gap-1.5 whitespace-nowrap">
                 <span className="text-label-3">{fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건</span>
@@ -309,11 +311,12 @@ export default function ProgressBoard() {
               </span>
             }
             currentUrl={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)}
-            openUrl={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)}
+            openUrl={withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined))}
             note="다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다."
             onConnect={(url) => connectSheet(url)}
             onReload={isSheetsApiConfigured() ? () => loadFromSheet() : undefined}
-            reloadDisabled={loading || saving}
+            reloadDisabled={saving}
+            reloading={loading}
           />
         ) : (
           <span>
@@ -323,7 +326,6 @@ export default function ProgressBoard() {
             </button>
           </span>
         )}
-        {loading && <Spinner className="h-3.5 w-3.5 text-accent" />}
         <span className="ml-auto flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={loading || saving} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)">
             <Upload {...icSm} />

@@ -38,8 +38,10 @@ import {
   updateItems,
 } from '../../utils/workBoard'
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
-import { sheetUrl } from '../../utils/sheetSources'
+import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheetSources'
+import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
 import SheetLinkChip from '../SheetLinkChip'
+import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
@@ -66,6 +68,7 @@ function timeAgo(iso: string | undefined): string {
 
 export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const { state, dispatch, workspaceId } = useAppState()
+  const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
   const members = state.members
 
@@ -135,6 +138,32 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // 새로고침: 지난번 가져오기 설정(탭·열 매칭·고른 L2) 그대로 시트를 다시 읽어 합친다.
+  // 엑셀로 가져온 경우나 읽다 막히면 가져오기 화면을 연다.
+  const [reloading, setReloading] = useState(false)
+  async function reloadFromSheet() {
+    const link = board.sheetLink
+    if (!link?.spreadsheetId) {
+      onOpenSheetImport()
+      return
+    }
+    setReloading(true)
+    try {
+      const [info, raw] = await Promise.all([fetchSpreadsheetTabs(link.spreadsheetId), fetchSheetTab(link.spreadsheetId, link.tabName)])
+      const filled = fillMerges(raw.rows, raw.merges)
+      const header = parseHeader(filled)
+      if (!header) throw new Error('헤더를 찾지 못했습니다')
+      const rows = filterRows(parseRows(filled, header, columnMapFromNames(header, link.columnMap)), link.selectedGroups, link.teamFilter)
+      const res = applySheetImport(board, rows, header, state.members, { ...link, fileTitle: info.title, lastFetchedAt: new Date().toISOString() }, yearFromTitle(raw.title) ?? currentWorkspace?.evaluationYear ?? null)
+      dispatch({ type: 'SET_WORK_BOARD', payload: res.board })
+      showToast(`시트에서 다시 불러왔습니다 · 추가 ${res.added} · 갱신 ${res.updated}${res.missing ? ` · 시트에 없음 ${res.missing}` : ''}`)
+    } catch {
+      onOpenSheetImport()
+    } finally {
+      setReloading(false)
+    }
+  }
 
   function showToast(text: string, withUndo = false) {
     setToast({ text, undo: withUndo })
@@ -844,13 +873,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       {board.sheetLink && (
         <div className="pb-1.5 pl-3">
           <SheetLinkChip
-            label={board.sheetLink.tabName}
+            label={board.sheetLink.fileTitle || board.sheetLink.tabName}
+            sub={board.sheetLink.fileTitle ? board.sheetLink.tabName : undefined}
             meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
             currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
             openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}
             note={board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
             onConnect={(url) => onOpenSheetImport(url)}
-            onReload={() => onOpenSheetImport()}
+            onReload={() => void reloadFromSheet()}
+            reloading={reloading}
           />
         </div>
       )}
