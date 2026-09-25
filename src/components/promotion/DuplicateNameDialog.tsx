@@ -30,13 +30,13 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
         <ul className="mt-4 space-y-2">
           {matches.map(({ sheet, candidates }, index) => {
             return (
-              <li key={index} className="flex items-center gap-2 rounded-lg border border-separator px-3 py-2">
+              <li key={index} className="flex items-center gap-2 rounded-card border border-separator px-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-label">{sheet.name}</span>
-                <span className="shrink-0 text-xs text-label-3">{sheet.years.length}개 연도</span>
+                <span className="shrink-0 text-[13px] text-label-3">{sheet.years.length}개 연도</span>
                 <select
                   value={picks[index] ?? ''}
                   onChange={(e) => setPicks((p) => ({ ...p, [index]: e.target.value }))}
-                  className="shrink-0 rounded-md border border-accent px-1.5 py-1 text-xs text-label"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[13px] shrink-0 border-accent text-label"
                 >
                   <option value="">{candidates.length}명 중 선택</option>
                   {candidates.map((c) => (

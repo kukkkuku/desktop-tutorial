@@ -89,7 +89,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
       )}
       <button
         onClick={onManageTeam}
-        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-label-3 hover:bg-white/60 hover:text-accent"
+        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-[13px] font-semibold text-label-3 hover:bg-white/60 hover:text-accent"
       >
         팀원 관리
       </button>
@@ -101,7 +101,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
       <Button
         variant="secondary"
         onClick={onImportHistory}
-        className="mb-1 ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+        className="mb-1 ml-auto shrink-0 whitespace-nowrap"
       >
         <UploadIcon className="h-4 w-4" /> 지난 성과 엑셀파일 불러오기
       </Button>

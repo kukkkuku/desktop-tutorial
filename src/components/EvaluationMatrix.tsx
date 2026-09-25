@@ -19,6 +19,9 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMatrixExcel } from '../utils/excel'
 import { downloadMatrixPdf } from '../utils/pdfReports'
 import { peerInputsOf } from '../utils/peerScores'
+import Button from './Button'
+import { Trophy } from 'lucide-react'
+import { icSm } from './ui/icon'
 
 const MIN_COL_WIDTH = 56
 
@@ -149,13 +152,10 @@ export default function EvaluationMatrix() {
         <h3 className="text-[17px] font-semibold text-label">평가 매트릭스</h3>
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
-            <button
-              type="button"
-              onClick={() => setRankingOpen(true)}
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] font-medium text-label-2 hover:bg-black/[0.03]"
-            >
+            <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>
+              <Trophy {...icSm} />
               실시간 순위 보기
-            </button>
+            </Button>
           )}
           <CurrentDataDownloadControls
             onExcelDownload={() => downloadCurrentMatrixExcel(tasks, members, contributions, criteria)}
@@ -175,7 +175,7 @@ export default function EvaluationMatrix() {
         </p>
       ) : (
         <>
-          <div className="mt-4 overflow-x-auto rounded-card border border-separator">
+          <div className="mt-4 overflow-x-auto rounded-card border border-separator bg-white">
             <table className="table-fixed border-collapse text-left text-[13px]" style={{ width: '100%', minWidth: tableWidth }}>
               <colgroup>
                 <col style={{ width: taskWidth }} />
@@ -217,7 +217,7 @@ export default function EvaluationMatrix() {
                           <span className="text-label">{member.name}</span>
                           {result && hasScores ? (
                             <>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${GRADE_COLORS[result.grade]}`}>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[result.grade]}`}>
                                 {result.grade}
                               </span>
                               <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
@@ -261,8 +261,8 @@ export default function EvaluationMatrix() {
                               dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })
                             }
                             title={`성과등급 · 과제 점수 ${taskScore.toFixed(1)}`}
-                            className={`h-6 rounded border px-1 text-xs ${
-                              task.performanceGrade ? 'border-separator text-label' : 'border-warning/50 bg-warning/10 text-warning'
+                            className={`h-7 rounded-control border px-1.5 text-xs ${
+                              task.performanceGrade ? 'border-hairline text-label' : 'border-warning/50 bg-warning/10 text-warning'
                             }`}
                           >
                             <option value="">성과등급 미입력</option>
@@ -298,7 +298,7 @@ export default function EvaluationMatrix() {
                                 step={1}
                                 value={percent || ''}
                                 onChange={(e) => handlePercentChange(task.id, member.id, e.target.value)}
-                                className={`w-full rounded-control border px-2 py-1 text-[13px] text-label ${percent ? 'border-separator' : 'border-separator bg-black/[0.03]'}`}
+                                className={`h-8 w-full rounded-control border border-hairline px-2 text-[13px] text-label ${percent ? '' : 'bg-black/[0.03]'}`}
                               />
                               {(() => {
                                 const pr = peerRankOf.get(`${task.id}|${member.id}`)
@@ -324,8 +324,8 @@ export default function EvaluationMatrix() {
                                   disabled={!gradeEnabled}
                                   title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
                                   onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                  className={`w-full min-w-0 rounded-control border px-2 py-1 text-[13px] ${
-                                    gradeEnabled ? 'border-separator text-label' : 'border-separator bg-black/[0.05] text-label-3'
+                                  className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[13px] ${
+                                    gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'
                                   }`}
                                 >
                                   <option value="" disabled>

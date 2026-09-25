@@ -8,15 +8,9 @@ import {
 } from '../utils/calculations'
 import { summarizeTaskReviews } from '../utils/peerInsights'
 import Button from './Button'
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  )
-}
+import IconButton from './IconButton'
+import { X } from 'lucide-react'
+import { icLg } from './ui/icon'
 
 // 카드에서 가장 먼저 읽히는 문장 -- 숫자가 아니라 "팀 안에서 어디쯤인지"를
 // 쓴다. 평균 82점은 그 자체로 잘한 건지 알 수 없지만 "팀에서 가장 높다"는
@@ -98,7 +92,7 @@ export default function PeerAlignmentCards({ rows, peerReviews, onDeleteReview }
             taskSummaries.find((t) => t.summary.gradeLine?.includes('갈립니다')) ??
             null
           return (
-            <div key={row.member.id} className="rounded-card border border-separator bg-white p-4">
+            <div key={row.member.id} className="mac-card p-4">
               <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-[15px] font-semibold text-label">{row.member.name}</span>
                 {row.member.level && <span className="text-xs text-label-3">{row.member.level}</span>}
@@ -197,21 +191,21 @@ function EvidenceDialog({
 }) {
   const orphans = peerReviews.filter((r) => !r.taskId)
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-pop"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-[12px] bg-white shadow-dialog"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-separator px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-separator px-5 py-4">
           <div>
-            <h3 className="text-[17px] font-semibold text-label">{row.member.name} · 동료 리뷰 원문</h3>
+            <h3 className="text-[15px] font-semibold text-label">{row.member.name} · 동료 리뷰 원문</h3>
             <p className="mt-0.5 text-[13px] text-label-2">
               {STANDING_TEXT[row.standing]} · 동료 {row.reviewerCount}명 · 리뷰 {row.reviewCount}건
             </p>
           </div>
-          <button onClick={onClose} aria-label="닫기" className="shrink-0 rounded p-1 text-label-3 hover:bg-black/[0.05] hover:text-label">
-            <CloseIcon className="h-5 w-5" />
-          </button>
+          <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
+            <X {...icLg} />
+          </IconButton>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
@@ -220,7 +214,7 @@ function EvidenceDialog({
             const summary = summarizeTaskReviews(reviews)
             return (
               <div key={t.task.id} className="mb-4 rounded-card border border-separator">
-                <div className="flex flex-wrap items-center gap-2 border-b border-separator bg-black/[0.03] px-4 py-2.5">
+                <div className="flex flex-wrap items-center gap-2 border-b border-separator bg-[#F7F7F9] px-4 py-2.5">
                   <span className="text-[13px] font-semibold text-label">{t.task.name}</span>
                   <span className="ml-auto flex items-center gap-1 text-xs text-label-2">
                     {t.grades.map((g, i) => (
@@ -274,7 +268,7 @@ function EvidenceDialog({
 
           {orphans.length > 0 && (
             <div className="rounded-card border border-separator">
-              <p className="border-b border-separator bg-black/[0.03] px-4 py-2.5 text-[13px] font-semibold text-label">
+              <p className="border-b border-separator bg-[#F7F7F9] px-4 py-2.5 text-[13px] font-semibold text-label">
                 과제 미상 (예전 데이터)
               </p>
               <ul className="divide-y divide-separator">

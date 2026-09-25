@@ -93,7 +93,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
           ) : activeMembers.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
               <MembersIcon className="h-10 w-10 text-label-3" />
-              <p className="text-sm font-semibold text-label">아직 등록된 팀원이 없습니다</p>
+              <p className="text-[13px] font-semibold text-label">아직 등록된 팀원이 없습니다</p>
               <p className="text-[13px] text-label-2">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
               <button
                 onClick={onManageTeam}
@@ -103,7 +103,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
               </button>
             </div>
           ) : (
-            <p className="rounded-lg border border-separator px-4 py-10 text-center text-sm text-label-2 m-6">
+            <p className="rounded-card border border-separator px-4 py-10 text-center text-sm text-label-2 m-6">
               위에서 팀원을 선택하세요.
             </p>
           )}

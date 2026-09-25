@@ -13,12 +13,16 @@ import {
   pickSaveDirectory,
   restoreSaveDirectory,
 } from '../utils/localSave'
+import { HardDrive, Monitor, Sheet, X } from 'lucide-react'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
+import IconButton from './IconButton'
 import Spinner from './Spinner'
 import SheetImportPanel from './work/SheetImportPanel'
+import Segmented from './ui/Segmented'
+import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
 
 interface DataManagerDrawerProps {
@@ -38,42 +42,6 @@ interface DataManagerDrawerProps {
 
 export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'admin' | 'reset'
 type Tab = DataManagerTab
-
-// 로컬 파일/Google Drive 탭 라벨 앞 아이콘. Figma는 래스터 이미지를 쓰지만,
-// 이 프로젝트는 모든 아이콘을 currentColor 획선 SVG로 통일해서 쓰므로(다른
-// 탭·버튼과 같은 관례) 같은 방식으로 맞춘다. DriveIcon은 GoogleAccountMenu의
-// "구글 드라이브로 이동" 아이콘과 동일한 모양을 재사용.
-//
-// "로컬 파일"은 파일 하나가 아니라 "이 기기(로컬)에 저장"을 뜻하므로,
-// Figma 디자인(node 76:12)에도 문서 아이콘이 아니라 모니터 아이콘으로
-// 그려져 있다 -- 이전에 문서 아이콘으로 잘못 옮겨졌던 걸 바로잡는다.
-function LocalFileIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8" />
-      <path d="M12 17v4" />
-    </svg>
-  )
-}
-
-function SheetIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M3 9h18M3 15h18M9 3v18" />
-    </svg>
-  )
-}
-
-function DriveIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M7.5 3h9L22 12l-4.5 8h-11L2 12z" />
-      <path d="M7.5 3 12 12l-4.5 8M16.5 3 12 12l4.5 8M2 12h20" />
-    </svg>
-  )
-}
 
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
 // 이전에는 각 탭 상단 버튼 + 화면 하단 바텀시트(로컬 일괄 업로드) +
@@ -183,50 +151,36 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         onClick={onClose}
       />
       <div
-        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-xl bg-white shadow-xl transition-all duration-200 ${
+        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-separator px-5 py-4">
-          <h2 className="text-base font-bold text-label">데이터 관리</h2>
-          <button onClick={onClose} className="text-label-3 hover:text-label" aria-label="닫기">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="h-5 w-5">
-              <path d="M18 6 6 18" />
-              <path d="M6 6l12 12" />
-            </svg>
-          </button>
+        <div className="flex items-center justify-between px-5 pb-2 pt-4">
+          <h2 className="text-[15px] font-semibold text-label">데이터 관리</h2>
+          <IconButton onClick={onClose} aria-label="닫기" title="닫기">
+            <X {...ic} />
+          </IconButton>
         </div>
 
-        <div className="flex items-stretch justify-between border-b border-separator px-5">
-          <div className="flex items-center">
-            {(
-              [
-                { key: 'sheet' as const, label: '구글시트 연결', Icon: SheetIcon },
-                { key: 'local' as const, label: '로컬 파일', Icon: LocalFileIcon },
-                { key: 'drive' as const, label: 'Google Drive', Icon: DriveIcon },
-                ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대', Icon: undefined }] : []),
-              ]
-            ).map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                  tab === t.key ? 'border-accent text-accent' : 'border-transparent text-label-3 hover:text-label'
-                }`}
-              >
-                {t.Icon && <t.Icon className="h-4 w-4 shrink-0" />}
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <button
+        <div className="flex items-center justify-between gap-3 border-b border-separator px-5 pb-3">
+          <Segmented<Tab>
+            value={tab === 'reset' ? ('' as Tab) : tab}
+            onChange={setTab}
+            items={[
+              { key: 'sheet', label: <span className="flex items-center gap-1.5"><Sheet {...icSm} />구글시트 연결</span> },
+              { key: 'local', label: <span className="flex items-center gap-1.5"><Monitor {...icSm} />로컬 파일</span> },
+              { key: 'drive', label: <span className="flex items-center gap-1.5"><HardDrive {...icSm} />Google Drive</span> },
+              ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대' }] : []),
+            ]}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setTab('reset')}
-            className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-              tab === 'reset' ? 'border-danger text-danger' : 'border-transparent text-label-3 hover:text-label'
-            }`}
+            className={tab === 'reset' ? 'bg-danger/10 text-danger hover:bg-danger/15 hover:text-danger' : ''}
           >
             데이터 초기화
-          </button>
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -249,10 +203,10 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           {tab === 'local' && (
             <div className="mx-auto max-w-lg space-y-4">
               {isDirectoryPickerSupported() && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-separator bg-[#F7F7F9] px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-separator bg-[#F7F7F9] px-4 py-3">
                   <div>
-                    <p className="text-sm font-semibold text-label">저장 위치</p>
-                    <p className="mt-0.5 text-xs text-label-2">
+                    <p className="text-[13px] font-semibold text-label">저장 위치</p>
+                    <p className="mt-0.5 text-[13px] text-label-2">
                       {saveDirName ? (
                         <>
                           <span className="font-medium text-label">{saveDirName}</span> 폴더 안의{' '}
@@ -262,14 +216,14 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                         '지정하지 않으면 브라우저 기본 다운로드 폴더에 저장됩니다.'
                       )}
                     </p>
-                    {saveDirError && <p className="mt-0.5 text-xs text-danger">{saveDirError}</p>}
+                    {saveDirError && <p className="mt-0.5 text-[13px] text-danger">{saveDirError}</p>}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button variant="secondary" onClick={handlePickSaveDirectory} className="px-3 py-1.5 text-xs">
+                    <Button variant="secondary" onClick={handlePickSaveDirectory} size="sm">
                       {saveDirName ? '위치 변경' : '위치 지정'}
                     </Button>
                     {saveDirName && (
-                      <Button variant="secondary" onClick={handleClearSaveDirectory} className="px-3 py-1.5 text-xs">
+                      <Button variant="secondary" onClick={handleClearSaveDirectory} size="sm">
                         해제
                       </Button>
                     )}
@@ -281,31 +235,31 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   용도다 -- 새 데이터를 올리는 "전체 일괄 업로드"는 온보딩
                   성격이라 빠른 시작(Excel로 시작 탭)에만 두고 여기서는
                   뺐다. */}
-              <div className="rounded-md border border-separator p-4">
-                <p className="text-sm font-semibold text-label">지금 데이터 백업</p>
-                <p className="mt-0.5 text-xs text-label-2">
+              <div className="rounded-card border border-separator p-4">
+                <p className="text-[13px] font-semibold text-label">지금 데이터 백업</p>
+                <p className="mt-0.5 text-[13px] text-label-2">
                   현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-4 py-2">
+                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     로컬 파일로 백업 (JSON)
                   </Button>
-                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-4 py-2">
+                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     엑셀로 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-xs text-label-2">
+                    <span className="flex items-center gap-1.5 text-[13px] text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-label-2">
+                <p className="mt-2 text-[13px] leading-relaxed text-label-2">
                   JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님).
                 </p>
               </div>
 
-              <div className="rounded-md bg-[#F7F7F9] px-4 py-3 text-xs text-label-2">
+              <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[13px] text-label-2">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
             </div>
@@ -324,7 +278,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
-                <p className="px-1 py-6 text-center text-sm text-label-3">평가를 먼저 선택해주세요.</p>
+                <p className="px-1 py-6 text-center text-[13px] text-label-3">평가를 먼저 선택해주세요.</p>
               )}
             </div>
           )}
@@ -333,11 +287,11 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
           {tab === 'reset' && (
             <div className="mx-auto flex max-w-lg flex-col items-end gap-4">
-              <div className="w-full space-y-5 rounded-xl border border-danger/30 bg-red-50 p-6">
+              <div className="w-full space-y-5 rounded-card border border-danger/25 bg-danger/[0.05] p-5">
                 <div>
-                  <p className="text-base font-bold text-danger">전체 데이터 초기화</p>
-                  <p className="mt-3 text-sm leading-relaxed text-danger">
-                    <span className="font-bold">
+                  <p className="text-[15px] font-semibold text-danger">전체 데이터 초기화</p>
+                  <p className="mt-2 text-[13px] leading-relaxed text-danger">
+                    <span className="font-semibold">
                       {getConnectedEmail() ? `${getConnectedEmail()} 계정의 모든 팀·프로젝트 데이터` : '이 계정의 모든 팀·프로젝트 데이터'}
                     </span>
                     가 삭제됩니다(지금 열려 있는 프로젝트 하나가 아닙니다).
@@ -351,26 +305,26 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 <div className="h-px w-full bg-danger/20" />
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-5 py-3">
+                  <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     로컬 파일로 백업 (JSON)
                   </Button>
-                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData} className="px-5 py-3">
+                  <Button variant="secondary" onClick={handleExcelBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     엑셀로 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-xs text-label-2">
+                    <span className="flex items-center gap-1.5 text-[13px] text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
                   )}
                 </div>
 
-                <p className="text-xs leading-relaxed text-label-2">
+                <p className="text-[13px] leading-relaxed text-label-2">
                   JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님). 프로젝트가 여러 개면 프로젝트별로 각각 담깁니다.
                 </p>
               </div>
 
-              <Button variant="danger" onClick={() => setResetDialogOpen(true)} disabled={!hasAnyWorkspaceData} className="px-6 py-3">
+              <Button variant="danger" onClick={() => setResetDialogOpen(true)} disabled={!hasAnyWorkspaceData}>
                 전체 데이터 초기화
               </Button>
             </div>

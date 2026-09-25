@@ -23,10 +23,10 @@ const APPRAISAL_COLUMNS = {
 
 const GRADE_BADGE: Record<EvaluationGrade, string> = {
   S: 'text-accent bg-accent-soft',
-  A: 'text-green-600 bg-green-50',
+  A: 'text-success bg-success/[0.08]',
   B: 'text-yellow-600 bg-yellow-50',
   C: 'text-orange-600 bg-orange-50',
-  D: 'text-red-600 bg-red-50',
+  D: 'text-danger bg-danger/[0.06]',
 }
 
 interface DraftGrades {
@@ -66,8 +66,8 @@ function GradeScoreCell({
   if (!grade) return <span className="text-label-3">-</span>
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
-      <span className="font-mono text-xs text-label-2">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
+      <span className={`rounded-full px-2 py-0.5 text-[13px] font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
+      <span className="font-mono text-[13px] text-label-2">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
     </span>
   )
 }
@@ -90,7 +90,7 @@ function InlineGradeSelect({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as EvaluationGrade | '')}
-        className="w-16 rounded-md border border-separator px-1.5 py-1 text-sm text-label"
+        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-16 text-label"
       >
         <option value="">-</option>
         {PERFORMANCE_GRADE_OPTIONS.map((g) => (
@@ -99,7 +99,7 @@ function InlineGradeSelect({
           </option>
         ))}
       </select>
-      <span className="font-mono text-xs text-label-2">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
+      <span className="font-mono text-[13px] text-label-2">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
     </div>
   )
 }
@@ -189,12 +189,12 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           type="number"
           value={reviewYear}
           onChange={(e) => changeReviewYear(Number(e.target.value))}
-          className="mx-0.5 w-14 rounded border border-separator px-1 py-0.5 text-center text-[13px] text-label"
+          className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mx-0.5 w-14 text-center text-label"
         />
         년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 데이터를 보여줍니다.
       </p>
 
-      <div className="mt-3 overflow-x-auto rounded-lg border border-separator">
+      <div className="mt-3 overflow-x-auto rounded-card border border-separator">
         <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth }}>
           <thead className="bg-[#F3F4F6] text-label">
             <tr>
@@ -283,7 +283,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <td className="px-3 py-2">-</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end">
-                        <Button variant="secondary" onClick={() => startEdit(year)} className="px-2 py-1 text-xs">
+                        <Button variant="secondary" onClick={() => startEdit(year)}>
                           입력
                         </Button>
                       </div>
@@ -341,7 +341,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
         </table>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-separator bg-[#F7F7F9] px-3 py-2.5">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
         <p className="shrink-0 text-[11px] font-semibold text-label-2">보조지표</p>
         {AUX_KEYS.map(({ key, label }) => (
           <label key={key} className="flex items-center gap-1.5 text-[11px] text-label-3">
@@ -351,7 +351,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
               value={member.auxScores?.[key] ?? ''}
               onChange={(e) => setAux(key, e.target.value)}
               placeholder="0"
-              className="w-16 rounded-md border border-separator px-2 py-1 text-sm text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-16 text-label"
             />
           </label>
         ))}
@@ -359,7 +359,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
 
       {extraYears.length > 0 && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-xs font-medium text-label-3 hover:text-accent">
+        <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-[13px] font-medium text-label-3 hover:text-accent">
           {showAll ? '− 이전 기록 접기' : `이전 기록 ${extraYears.length}개 더보기 →`}
         </button>
       )}

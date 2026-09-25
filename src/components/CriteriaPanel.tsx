@@ -3,93 +3,8 @@ import { useAppState } from '../state/AppContext'
 import type { Criteria } from '../types'
 import { blendByWeight } from '../utils/calculations'
 import IconButton from './IconButton'
-
-interface IconProps {
-  className?: string
-}
-
-// Simple horizontal "sliders" glyph -- three tracks with a handle each --
-// reads as tuning/criteria controls rather than a generic settings gear.
-function SlidersIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <circle cx="9" cy="6" r="2" fill="white" />
-      <line x1="4" y1="12" x2="20" y2="12" />
-      <circle cx="15" cy="12" r="2" fill="white" />
-      <line x1="4" y1="18" x2="20" y2="18" />
-      <circle cx="11" cy="18" r="2" fill="white" />
-    </svg>
-  )
-}
-
-function ChevronLeftIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  )
-}
-
-// Per-criterion glyphs shown on the collapsed icon rail -- each button's
-// native title attribute carries the label + current %, standing in for a
-// tooltip without a custom tooltip component.
-function TaskGradeIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-    </svg>
-  )
-}
-
-function WorkloadIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="6" y1="20" x2="6" y2="14" />
-      <line x1="12" y1="20" x2="12" y2="8" />
-      <line x1="18" y1="20" x2="18" y2="4" />
-    </svg>
-  )
-}
-
-function PerformanceGradeIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  )
-}
-
-function ContributionIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="19" y1="5" x2="5" y2="19" />
-      <circle cx="6.5" cy="6.5" r="2.5" />
-      <circle cx="17.5" cy="17.5" r="2.5" />
-    </svg>
-  )
-}
-
-function PersonalGradeIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
-    </svg>
-  )
-}
-
-function PeerReviewIcon({ className }: IconProps) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
+import { ChartNoAxesColumnIncreasing, ChevronLeft, File, Percent, SlidersHorizontal, Star, User, Users, type LucideIcon } from 'lucide-react'
+import { ic, icLg } from './ui/icon'
 
 function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
@@ -111,20 +26,20 @@ function widthToSize(width: number): PanelSize {
 interface CriterionIconItem {
   key: keyof Criteria
   label: string
-  Icon: (props: IconProps) => JSX.Element
+  Icon: LucideIcon
 }
 
 // Two groups, task-side then member-side, matching the divider on the
 // collapsed icon rail and the section split in the full settings view.
 const ICON_GROUP_1: CriterionIconItem[] = [
-  { key: 'taskGradeWeight', label: '과제등급', Icon: TaskGradeIcon },
-  { key: 'workloadWeight', label: '업무량', Icon: WorkloadIcon },
-  { key: 'performanceGradeWeight', label: '성과등급', Icon: PerformanceGradeIcon },
+  { key: 'taskGradeWeight', label: '과제등급', Icon: File },
+  { key: 'workloadWeight', label: '업무량', Icon: ChartNoAxesColumnIncreasing },
+  { key: 'performanceGradeWeight', label: '성과등급', Icon: Star },
 ]
 const ICON_GROUP_2: CriterionIconItem[] = [
-  { key: 'contributionWeight', label: '기여도', Icon: ContributionIcon },
-  { key: 'personalGradeWeight', label: '개인수행등급', Icon: PersonalGradeIcon },
-  { key: 'peerReviewWeight', label: '피어리뷰', Icon: PeerReviewIcon },
+  { key: 'contributionWeight', label: '기여도', Icon: Percent },
+  { key: 'personalGradeWeight', label: '개인수행등급', Icon: User },
+  { key: 'peerReviewWeight', label: '피어리뷰', Icon: Users },
 ]
 
 interface CriteriaPanelProps {
@@ -188,8 +103,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // Collapsed rail trigger -- icon only, opens full settings.
   function ExpandIconButton() {
     return (
-      <IconButton onClick={() => onSize('full')} title="상세 설정 열기" aria-label="상세 설정 열기" className="h-9 w-9 shrink-0">
-        <SlidersIcon className="h-5 w-5 shrink-0" />
+      <IconButton onClick={() => onSize('full')} title="상세 설정 열기" aria-label="상세 설정 열기" className="h-9 min-w-9 shrink-0">
+        <SlidersHorizontal {...icLg} className="shrink-0" />
       </IconButton>
     )
   }
@@ -205,10 +120,10 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         onClick={() => toggleActive(item.key)}
         title={`${item.label} — ${active ? `${value}%` : '미사용'} (클릭해서 전환)`}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-control border transition-colors ${
-          active ? 'border-accent/40 bg-accent-soft text-accent hover:border-accent/40' : 'border-separator bg-black/[0.03] text-label-3 hover:border-separator'
+          active ? 'border-accent/30 bg-accent-soft text-accent' : 'border-separator bg-black/[0.03] text-label-3 hover:text-label-2'
         }`}
       >
-        <Icon className="h-4 w-4 shrink-0" />
+        <Icon {...ic} className="shrink-0" />
       </button>
     )
   }
@@ -217,32 +132,32 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // plain collapse arrow closes it back down to the icon-only rail.
   function CollapseButton() {
     return (
-      <IconButton onClick={() => onSize('icon')} title="접기" aria-label="기준 설정 접기" className="h-7 w-7 shrink-0">
-        <ChevronLeftIcon className="h-4 w-4" />
+      <IconButton onClick={() => onSize('icon')} title="접기" aria-label="기준 설정 접기" className="shrink-0">
+        <ChevronLeft {...ic} />
       </IconButton>
     )
   }
 
   function sliderBackground(value: number): string {
     const percent = ((value - 5) / 95) * 100
-    return `linear-gradient(to right, #2563EB ${percent}%, #e5e7eb ${percent}%)`
+    return `linear-gradient(to right, var(--accent) ${percent}%, rgba(0, 0, 0, 0.1) ${percent}%)`
   }
 
   function CriteriaItem({ itemKey, label, desc }: { itemKey: keyof Criteria; label: string; desc: string }) {
     const value = criteria[itemKey]
     const checked = value > 0
     return (
-      <div className="rounded-control border border-separator p-3">
+      <div className="mac-card p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[13px] font-semibold text-label">
             {label}
-            {checked && <span className="ml-2 font-mono text-[13px] font-semibold text-accent">{value}%</span>}
+            {checked && <span className="ml-2 tabular-nums text-[13px] font-semibold text-accent">{value}%</span>}
           </p>
           <button
             onClick={() => set(itemKey, checked ? 0 : 100)}
             title="클릭해서 사용 여부 전환"
-            className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-              checked ? 'bg-accent text-white hover:opacity-90' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
+            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+              checked ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
             }`}
           >
             {checked ? '사용' : '미사용'}
@@ -338,11 +253,11 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
       {size === 'icon' && (
         <div className="flex h-full flex-col items-center gap-1.5 px-2 py-3">
           <ExpandIconButton />
-          <span className="my-0.5 h-px w-full bg-black/[0.05]" />
+          <span className="my-0.5 h-px w-full bg-separator" />
           {ICON_GROUP_1.filter((item) => item.key !== 'workloadWeight' || criteria.workloadWeight > 0).map((item) => (
             <CriteriaIconButton key={item.key} item={item} />
           ))}
-          <span className="my-0.5 h-px w-full bg-black/[0.05]" />
+          <span className="my-0.5 h-px w-full bg-separator" />
           {ICON_GROUP_2.map((item) => (
             <CriteriaIconButton key={item.key} item={item} />
           ))}
@@ -356,12 +271,12 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
             <span className="text-[13px] font-semibold text-label">기준 설정</span>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            <p className="text-[13px] leading-relaxed text-label-3">
+            <p className="text-[13px] leading-relaxed text-label-2">
               켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.
             </p>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-label-3">과제 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-label-2">과제 평가 기준</p>
               <div className="space-y-2">
                 {TASK_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
@@ -370,7 +285,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
             </div>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-label-3">팀원 평가 기준</p>
+              <p className="mb-2 text-[13px] font-semibold text-label-2">팀원 평가 기준</p>
               <div className="space-y-2">
                 {MEMBER_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />

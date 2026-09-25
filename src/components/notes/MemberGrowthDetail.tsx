@@ -42,7 +42,7 @@ function SectionCard({
   bodyRef?: React.Ref<HTMLDivElement>
 }) {
   return (
-    <div className="h-full rounded-xl border border-separator bg-white p-5">
+    <div className="h-full rounded-card border border-separator bg-white p-5">
       <span className="flex items-center justify-between gap-2">
         <h3 className="text-base font-bold text-label">{title}</h3>
         {headerBadge}
@@ -73,14 +73,14 @@ function PeriodCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-separator bg-white p-5">
+    <div className="rounded-card border border-separator bg-white p-5">
       <div className="flex w-full items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-base font-bold text-label">
             {title}
             {score !== null ? ` ${score.toFixed(1)}` : ''}
           </span>
-          {grade && <span className={`rounded px-2 py-0.5 text-xs font-bold ${GRADE_COLORS[grade]}`}>{grade}</span>}
+          {grade && <span className={`rounded px-2 py-0.5 text-[13px] font-bold ${GRADE_COLORS[grade]}`}>{grade}</span>}
         </span>
         <CollapseToggleButton collapsed={!isOpen} onClick={onToggle} label={title} />
       </div>
@@ -160,7 +160,7 @@ const NOTE_COLOR_STYLES: Record<PersonalNoteColor, { bg: string; text: string; d
   violet: { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-300' },
   blue: { bg: 'bg-accent-soft', text: 'text-accent', dot: 'bg-accent/40' },
   teal: { bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-300' },
-  green: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-300' },
+  green: { bg: 'bg-emerald-50', text: 'text-success', dot: 'bg-emerald-300' },
   orange: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-300' },
 }
 const NOTE_COLOR_ORDER: PersonalNoteColor[] = ['gray', 'pink', 'violet', 'blue', 'teal', 'green', 'orange']
@@ -524,20 +524,20 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="flex items-center gap-2">
                 <div className="flex items-center rounded-xl bg-[#f8fafc] px-3 py-2">
                   <div>
-                    <p className="text-xs text-label-2">승진자격 점수</p>
+                    <p className="text-[13px] text-label-2">승진자격 점수</p>
                     <p className="mt-1.5 text-[28px] font-bold leading-none text-label">{promotionCriteria.requiredScore.toFixed(1)}점</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl bg-[#f8fafc] px-3 py-2">
                   <div>
-                    <p className="text-xs text-label-2">현재 점수</p>
+                    <p className="text-[13px] text-label-2">현재 점수</p>
                     <p className="mt-1.5 text-[28px] font-bold leading-none text-label">{currentWeightedScore.toFixed(1)}점</p>
                   </div>
                   <span className="text-2xl text-label-3" aria-hidden="true">
                     +
                   </span>
                   <div>
-                    <p className="flex items-center gap-1 text-xs text-label-2" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
+                    <p className="flex items-center gap-1 text-[13px] text-label-2" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
                       시뮬레이션 가산
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3 shrink-0">
                         <circle cx="12" cy="12" r="10" />
@@ -557,7 +557,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </svg>
                 <div className="flex items-center rounded-xl bg-[#fffae8] px-3 py-2">
                   <div>
-                    <p className="text-xs text-label-2">최종 시뮬레이션 점수 ({reviewYear}년)</p>
+                    <p className="text-[13px] text-label-2">최종 시뮬레이션 점수 ({reviewYear}년)</p>
                     <p className="mt-1.5 text-[28px] font-bold leading-none text-[#e05221]">{projectedTotal.toFixed(1)}점</p>
                   </div>
                 </div>
@@ -591,7 +591,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     if (!noteInput.trim()) setNoteAddOpen(false)
                   }}
                   placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                  className="w-60 rounded-full border border-separator px-3 py-1 text-[12px] text-label focus:outline-none focus:ring-1 focus:ring-violet-400"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-60 rounded-full text-[12px] text-label"
                 />
                 <button
                   type="submit"
@@ -665,7 +665,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0">
           <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[0], flex: '0 0 auto' } : undefined}>
             {simNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-xl border border-separator bg-white py-6">
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-card border border-separator bg-white py-6">
                 <button
                   onClick={() => expandColumn('sim')}
                   title="성장 시뮬레이션 펼치기"
@@ -677,7 +677,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   <button
                     onClick={() => setCriteriaManagerOpen(true)}
                     title="승진 기준 보기"
-                    className="[writing-mode:vertical-rl] text-xs font-semibold text-label-3 hover:text-accent"
+                    className="[writing-mode:vertical-rl] text-[13px] font-semibold text-label-3 hover:text-accent"
                   >
                     ⓘ 기준 보기
                   </button>
@@ -688,7 +688,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 title="성장 시뮬레이션"
                 headerBadge={
                   promotionCriteria && (
-                    <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-xs font-semibold text-label-2 hover:text-accent">
+                    <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-[13px] font-semibold text-label-2 hover:text-accent">
                       ⓘ 기준 보기
                     </button>
                   )
@@ -703,7 +703,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[1], flex: '0 0 auto' } : undefined}>
             {perfNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-separator bg-white py-6">
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
                 <button
                   onClick={() => expandColumn('perf')}
@@ -810,7 +810,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
           <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
             {meetingNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-xl border border-separator bg-white py-6">
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
                 <button
                   onClick={() => expandColumn('meeting')}
@@ -821,7 +821,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </button>
               </div>
             ) : (
-              <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col rounded-xl border border-separator bg-white p-5">
+              <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col rounded-card border border-separator bg-white p-5">
                 {/* 인사이트·면담 기록을 접어두면 카드가 내용 높이만큼만 줄어들어
                     입력칸이 서너 줄짜리로 쪼그라든다. 화면 세로를 채우도록 최소
                     높이를 뷰포트 기준으로 잡아두고(위쪽 헤더·팀원 탭·점수 바가

@@ -2,10 +2,13 @@ import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { Task, TeamMember } from '../types'
+import { X } from 'lucide-react'
 import BulkUploadPanel from './BulkUploadPanel'
 import ImportFromPreviousPanel from './ImportFromPreviousPanel'
 import Button from './Button'
 import IconButton from './IconButton'
+import Segmented from './ui/Segmented'
+import { ic } from './ui/icon'
 
 interface QuickStartModalProps {
   teamName: string
@@ -18,22 +21,13 @@ interface QuickStartModalProps {
   onDataReady: () => void
 }
 
-function XIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="M6 6l12 12" />
-    </svg>
-  )
-}
-
 type Tab = 'direct' | 'excel' | 'import'
 
 // 하나의 칩(추가된 과제명/팀원 이름)을 보여준다 -- x를 누르면 그
 // 자리에서 뺄 수 있다.
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <span className="flex items-center gap-1 rounded-full bg-black/[0.05] py-1 pl-2.5 pr-1.5 text-sm text-label">
+    <span className="flex items-center gap-1 rounded-full bg-black/[0.05] py-0.5 pl-2.5 pr-1 text-[13px] text-label">
       {label}
       <button
         type="button"
@@ -41,7 +35,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
         aria-label={`${label} 삭제`}
         className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.08] hover:text-label"
       >
-        <XIcon className="h-3 w-3" />
+        <X size={12} strokeWidth={2} />
       </button>
     </span>
   )
@@ -80,9 +74,9 @@ function EntryPanel({
   return (
     <div
       onClick={() => inputRef.current?.focus()}
-      className="flex h-full flex-col gap-2 rounded-lg border-2 border-separator bg-white p-3 transition-colors focus-within:border-accent focus-within:bg-accent-soft/20"
+      className="flex h-full flex-col gap-2 rounded-card border border-separator bg-white p-3 transition-shadow focus-within:border-accent focus-within:shadow-focus"
     >
-      <p className="shrink-0 text-sm font-semibold text-label">
+      <p className="shrink-0 text-[13px] font-semibold text-label">
         {title} {items.length > 0 && <span className="font-normal text-label-3">{items.length}개</span>}
       </p>
       <div className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-y-auto">
@@ -100,7 +94,7 @@ function EntryPanel({
         onClick={(e) => e.stopPropagation()}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full shrink-0 rounded-md border border-separator px-2.5 py-1.5 text-sm text-label outline-none focus:border-accent focus:ring-2 focus:ring-accent/15"
+        className="h-8 w-full shrink-0 rounded-control border border-hairline px-2.5 text-[13px] text-label"
       />
     </div>
   )
@@ -245,31 +239,24 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className="flex h-[640px] max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 p-6 pb-0">
+      <div className="flex h-[640px] max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+        <div className="flex items-start justify-between gap-4 px-6 pb-0 pt-5">
           <div>
-            <h3 className="text-lg font-bold text-label">빠른 시작</h3>
-            <p className="mt-1 text-sm text-label-2">과제와 팀원을 빠르게 준비합니다. 닫으면 기존 화면에서 각각 입력할 수 있습니다.</p>
+            <h3 className="text-[15px] font-semibold text-label">빠른 시작</h3>
+            <p className="mt-1 text-[13px] text-label-2">과제와 팀원을 빠르게 준비합니다. 닫으면 기존 화면에서 각각 입력할 수 있습니다.</p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
-            <XIcon className="h-5 w-5" />
+            <X {...ic} />
           </IconButton>
         </div>
 
-        <div className="mt-4 flex gap-6 border-b border-separator px-6">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`flex flex-col items-start gap-1 border-b-2 pb-3 pt-1 text-left transition-colors ${
-                tab === t.key ? 'border-accent' : 'border-transparent'
-              }`}
-            >
-              <span className={`text-sm font-semibold ${tab === t.key ? 'text-accent' : 'text-label'}`}>{t.label}</span>
-              <span className="text-xs text-label-3">{t.hint}</span>
-            </button>
-          ))}
+        <div className="mt-4 flex items-center gap-3 border-b border-separator px-6 pb-3">
+          <Segmented<Tab>
+            value={tab}
+            onChange={setTab}
+            items={tabs.map((t) => ({ key: t.key, label: t.label, title: t.hint }))}
+          />
+          <span className="text-[13px] text-label-3">{tabs.find((t) => t.key === tab)?.hint}</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">

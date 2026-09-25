@@ -30,7 +30,7 @@ export default function TrendSparkline({ points: allPoints, width = DEFAULT_WIDT
   const points = allPoints.slice(-maxPoints)
 
   if (points.length === 0) {
-    return <span className={`text-xs text-label-3 ${className ?? ''}`}>-</span>
+    return <span className={`text-[13px] text-label-3 ${className ?? ''}`}>-</span>
   }
 
   if (points.length === 1) {

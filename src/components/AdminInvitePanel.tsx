@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { ArrowRight, Trash2 } from 'lucide-react'
 import {
   ADMIN_EMAILS,
   addEmailsToList,
@@ -14,7 +15,9 @@ import {
   type InviteRecipient,
 } from '../utils/adminInvite'
 import Button from './Button'
+import IconButton from './IconButton'
 import Spinner from './Spinner'
+import { icSm } from './ui/icon'
 
 const APP_URL = 'https://kukkkuku.github.io/desktop-tutorial/preview-v2/'
 // OAuth 테스트 사용자 등록 화면(프로젝트 493396486126, 이 앱의 Gmail API와
@@ -53,7 +56,7 @@ export default function AdminInvitePanel() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!configured) {
-    return <p className="px-1 py-6 text-center text-sm text-label-3">Google 연동이 설정되지 않았습니다. 관리자에게 설정을 요청해주세요.</p>
+    return <p className="px-1 py-6 text-center text-[13px] text-label-3">Google 연동이 설정되지 않았습니다. 관리자에게 설정을 요청해주세요.</p>
   }
 
   async function handleConnect() {
@@ -131,28 +134,28 @@ export default function AdminInvitePanel() {
   if (!connected) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-label-2">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
-        <p className="text-xs text-label-3">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
+        <p className="text-[13px] text-label-2">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
+        <p className="text-[13px] text-label-3">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
         <Button
           variant="primary"
           onClick={() => void handleConnect()}
           disabled={connecting}
-          className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5"
+          className="w-full"
         >
           {connecting && <Spinner className="h-3.5 w-3.5 text-white" />}
           {connecting ? '연결하는 중...' : '관리자로 Google 연결'}
         </Button>
-        {connectError && <p className="text-xs text-danger">{connectError}</p>}
+        {connectError && <p className="text-[13px] text-danger">{connectError}</p>}
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-md bg-[#F7F7F9] px-3 py-2">
-        <span className="flex items-center gap-2 text-sm text-label">
+      <div className="flex items-center justify-between rounded-card bg-[#F7F7F9] px-3 py-2">
+        <span className="flex items-center gap-2 text-[13px] text-label">
           {getAdminEmail()}
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">관리자 연결됨</span>
+          <span className="mac-badge bg-success/15 text-success">관리자 연결됨</span>
         </span>
       </div>
 
@@ -160,8 +163,8 @@ export default function AdminInvitePanel() {
         {/* 왼쪽: 받는 사람 추가 + 목록 */}
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-label">받는 사람 추가</p>
-            <p className="mt-0.5 text-xs text-label-2">
+            <p className="text-[13px] font-semibold text-label">받는 사람 추가</p>
+            <p className="mt-0.5 text-[13px] text-label-2">
               모두 Gmail이면 아이디만 적어도 됩니다(@gmail.com 자동 추가). 줄바꿈/쉼표로 구분해 붙여넣거나, 엑셀 파일을 업로드하세요.
             </p>
             <textarea
@@ -169,47 +172,47 @@ export default function AdminInvitePanel() {
               onChange={(e) => setPasteText(e.target.value)}
               placeholder={'hong.gildong\nkim.cheolsu'}
               rows={3}
-              className="mt-2 w-full rounded-md border border-separator px-3 py-2 text-sm focus:border-accent focus:outline-none"
+              className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] mt-2 w-full"
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button variant="primary" onClick={handleAddPaste} disabled={!pasteText.trim()} className="px-3 py-1.5 text-sm">
+              <Button variant="primary" onClick={handleAddPaste} disabled={!pasteText.trim()}>
                 목록에 추가
               </Button>
-              <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="px-3 py-1.5 text-sm">
+              <Button variant="secondary" onClick={() => fileInputRef.current?.click()}>
                 엑셀로 추가
               </Button>
               <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => void handleExcelUpload(e)} />
             </div>
-            {parseError && <p className="mt-1.5 text-xs text-danger">{parseError}</p>}
+            {parseError && <p className="mt-1.5 text-[13px] text-danger">{parseError}</p>}
           </div>
 
           <div className="border-t border-separator pt-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-label">받는 사람 목록 ({list.length}명)</p>
+              <p className="text-[13px] font-semibold text-label">받는 사람 목록 ({list.length}명)</p>
               {list.length > 0 && (
-                <button onClick={() => void handleCopyList()} className="text-xs font-medium text-accent hover:underline">
+                <button onClick={() => void handleCopyList()} className="text-[13px] font-medium text-accent hover:underline">
                   {copyDone ? '복사됨' : '목록 복사'}
                 </button>
               )}
             </div>
             {list.length === 0 ? (
-              <p className="mt-2 text-xs text-label-3">아직 추가된 받는 사람이 없습니다.</p>
+              <p className="mt-2 text-[13px] text-label-3">아직 추가된 받는 사람이 없습니다.</p>
             ) : (
               <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
                 {list.map((r) => (
-                  <li key={r.email} className="flex items-center justify-between gap-2 rounded-md border border-separator px-2.5 py-1.5 text-xs">
+                  <li key={r.email} className="flex items-center justify-between gap-2 rounded-control border border-separator px-2.5 py-1.5 text-[13px]">
                     <div className="min-w-0">
                       <p className="truncate text-label">{r.email}</p>
-                      <p className="text-[11px] text-label-3">{r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}` : '미발송'}</p>
+                      <p className="text-[13px] text-label-3">{r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}` : '미발송'}</p>
                     </div>
-                    <button onClick={() => handleRemove(r.email)} className="shrink-0 text-label-3 hover:text-danger">
-                      삭제
-                    </button>
+                    <IconButton tone="danger" onClick={() => handleRemove(r.email)} title="삭제" aria-label="삭제" className="shrink-0">
+                      <Trash2 {...icSm} />
+                    </IconButton>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="mt-2 rounded-md bg-accent-soft px-2.5 py-2 text-[11px] text-label-2">
+            <div className="mt-2 rounded-card bg-accent-soft px-3 py-2.5 text-[13px] text-label-2">
               <p>
                 메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야
                 합니다. 위 "목록 복사"로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
@@ -218,9 +221,9 @@ export default function AdminInvitePanel() {
                 href={TEST_USERS_CONSOLE_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-1.5 inline-block font-medium text-accent underline underline-offset-2"
+                className="mt-1.5 inline-flex items-center gap-1 font-medium text-accent hover:underline"
               >
-                테스트 사용자 등록 페이지 열기 →
+                테스트 사용자 등록 페이지 열기 <ArrowRight {...icSm} />
               </a>
             </div>
           </div>
@@ -228,29 +231,29 @@ export default function AdminInvitePanel() {
 
         {/* 오른쪽: 메일 내용 + 발송 */}
         <div className="space-y-3 border-l border-separator pl-6">
-          <p className="text-sm font-semibold text-label">초대 메일 내용</p>
+          <p className="text-[13px] font-semibold text-label">초대 메일 내용</p>
           <input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
-            className="w-full rounded-md border border-separator px-3 py-1.5 text-sm focus:border-accent focus:outline-none"
+            className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-full"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
-            className="w-full rounded-md border border-separator px-3 py-2 text-sm focus:border-accent focus:outline-none"
+            className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] w-full"
           />
           <Button
             variant="primary"
             onClick={() => void handleSend()}
             disabled={sending || list.length === 0}
-            className="flex w-full items-center justify-center gap-1.5 px-3 py-1.5"
+            className="w-full"
           >
             {sending && <Spinner className="h-3.5 w-3.5 text-white" />}
             {sending ? '발송 중...' : `초대 메일 발송 (${list.length}명)`}
           </Button>
           {sendResult && (
-            <div className={`rounded-md px-2.5 py-2 text-xs ${sendResult.failed.length > 0 ? 'bg-red-50 text-danger' : 'bg-green-50 text-green-700'}`}>
+            <div className={`rounded-card px-3 py-2 text-[13px] ${sendResult.failed.length > 0 ? 'bg-danger/[0.06] text-danger' : 'bg-success/[0.08] text-success'}`}>
               <p>
                 {sendResult.sent}건 발송 성공{sendResult.failed.length > 0 ? `, ${sendResult.failed.length}건 실패` : ''}
               </p>

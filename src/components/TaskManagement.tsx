@@ -13,6 +13,8 @@ import { downloadCurrentTasksExcel } from '../utils/excel'
 import { downloadTasksPdf } from '../utils/pdfReports'
 import Button from './Button'
 import IconButton from './IconButton'
+import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { ic } from './ui/icon'
 
 const TASK_COLUMNS = {
   name: 200,
@@ -149,7 +151,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           )}
         </div>
       ) : (
-      <div className="mt-4 overflow-x-auto rounded-card border border-separator">
+      <div className="mt-4 overflow-x-auto rounded-card border border-separator bg-white">
         {/* 팀원관리 표와 같은 규칙 -- 컨테이너를 꽉 채우되(width 100%), 너무
             좁아지면 가로 스크롤로 넘긴다(minWidth). 예전에는 폭을 컬럼 너비의
             합(cols.totalWidth = 980px)으로 고정해서, 넓은 화면에서는 표가 화면
@@ -193,14 +195,14 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
 
               if (isEditing) {
                 return (
-                  <tr key={task.id} className="border-t border-separator bg-accent-soft/40 text-label">
+                  <tr key={task.id} className="border-t border-separator bg-accent-soft/50 text-label">
                     <td className="px-4 py-2 align-top">
                       <input
                         type="text"
                         value={editForm.name}
                         onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                        className={`w-full rounded-control border px-2 py-1.5 text-[13px] text-label ${
-                          editFormError ? 'border-danger' : 'border-separator'
+                        className={`h-8 w-full rounded-control border px-2.5 text-[13px] text-label ${
+                          editFormError ? 'border-danger' : 'border-hairline'
                         }`}
                       />
                       {editFormError && <p className="mt-1 text-xs text-danger">{editFormError}</p>}
@@ -272,15 +274,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                     <td className="px-4 py-2 align-top">
                       <div className="flex items-center gap-1">
                         <IconButton onClick={() => saveEdit(task)} title="저장" aria-label="저장">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
+                          <Check {...ic} />
                         </IconButton>
                         <IconButton onClick={cancelEdit} title="취소" aria-label="취소" tone="danger">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                          </svg>
+                          <X {...ic} />
                         </IconButton>
                       </div>
                     </td>
@@ -294,12 +291,12 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
                     {!task.workItemIds?.length && (
-                      <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] font-medium text-label-2" title="과제관리에서 내보내지 않고 직접 만든 과제입니다">
+                      <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[11px] font-medium text-label-2" title="과제관리에서 내보내지 않고 직접 만든 과제입니다">
                         과제관리 연결 없음
                       </span>
                     )}
                     {recentlyAddedIds.has(task.id) && (
-                      <span className="rounded-full bg-success px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      <span className="rounded-full bg-success px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">
                         N
                       </span>
                     )}
@@ -311,7 +308,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                     </span>
                     {(task.workItemIds?.length ?? 0) > 0 && (
                       <span
-                        className="rounded-full bg-[#14161A] px-2 py-0.5 text-[11px] font-semibold text-white"
+                        className="rounded-full bg-label px-2 py-0.5 text-[11px] font-semibold text-white"
                         title={state.workBoard.items
                           .filter((i) => task.workItemIds!.includes(i.id))
                           .map((i) => i.name)
@@ -357,20 +354,11 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <IconButton onClick={() => startEdit(task)} title="수정" aria-label="수정">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
+                      <Pencil {...ic} />
                     </IconButton>
-                    <span className="h-4 w-px bg-black/[0.08]" />
+                    <span className="h-4 w-px bg-separator" />
                     <IconButton onClick={() => setDeletingTask(task)} title="삭제" aria-label="삭제" tone="danger">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
+                      <Trash2 {...ic} />
                     </IconButton>
                   </div>
                 </td>

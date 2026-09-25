@@ -3,59 +3,15 @@ import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
 import { getConnectedEmail } from '../utils/googleDrive'
+import { ChevronDown, Pencil, Plus, Trash2, X } from 'lucide-react'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
+import { ic, icSm } from './ui/icon'
 
 const MAX_VISIBLE_AVATARS = 6
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  )
-}
-
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  )
-}
-
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  )
-}
-
-function XIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="M6 6l12 12" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  )
-}
 
 // 팀원 이니셜(2자) 아바타 -- 색은 인덱스(카드마다 0부터 다시 시작)로
 // 정하지 않고 전부 같은 중립 톤으로 통일한다. 순환 색상을 쓰면 카드마다
@@ -89,7 +45,7 @@ function AvatarRow({ names }: { names: string[] }) {
     return () => resizeObserver.disconnect()
   }, [itemCount])
 
-  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-xs font-semibold text-label-2 ${
+  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[13px] font-semibold text-label-2 ${
     overlapped ? 'border-2 border-white' : ''
   }`
   const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
@@ -103,7 +59,7 @@ function AvatarRow({ names }: { names: string[] }) {
       ))}
       {overflow > 0 && (
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-xs font-semibold text-label-2 ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[13px] font-semibold text-label-2 ${
             overlapped ? 'border-2 border-white' : ''
           }`}
           style={overlapStyle(visible.length)}
@@ -133,18 +89,18 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className={`flex cursor-pointer flex-col gap-3 rounded-2xl border bg-white p-6 text-left shadow-[0_8px_24px_0_rgba(15,23,42,0.02)] transition-shadow hover:shadow-[0_8px_24px_0_rgba(15,23,42,0.08)] ${
-        isCurrent ? 'border-accent ring-1 ring-accent/30' : 'border-separator'
+      className={`flex cursor-pointer flex-col gap-3 rounded-card bg-white p-5 text-left transition-shadow ${
+        isCurrent ? 'shadow-[0_0_0_1.5px_#007AFF,0_1px_3px_rgba(0,0,0,0.05)]' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
     >
       {isCurrent && (
-        <span className="flex w-fit shrink-0 items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+        <span className="mac-badge w-fit shrink-0 gap-1 bg-accent-soft text-accent">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" />
           평가 진행중
         </span>
       )}
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-lg font-bold text-label">
+        <p className="min-w-0 truncate text-[15px] font-semibold text-label">
           {workspace.evaluationYear} {workspace.periodName}
         </p>
         <div className="flex shrink-0 items-center gap-1">
@@ -156,7 +112,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
             title="수정"
             aria-label="수정"
           >
-            <PencilIcon className="h-4 w-4" />
+            <Pencil {...ic} />
           </IconButton>
           <IconButton
             onClick={(e) => {
@@ -167,13 +123,13 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
             aria-label="삭제"
             tone="danger"
           >
-            <TrashIcon className="h-4 w-4" />
+            <Trash2 {...ic} />
           </IconButton>
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-        <span className="shrink-0 text-[11px] text-label-3">팀원 {counts.memberCount}명</span>
+        <p className="min-w-0 flex-1 truncate text-[13px] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
+        <span className="shrink-0 text-[13px] text-label-3">팀원 {counts.memberCount}명</span>
       </div>
       <AvatarRow names={counts.memberNames} />
     </div>
@@ -253,35 +209,35 @@ export default function WorkspaceLanding() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-separator bg-white px-6 py-5 sm:px-10">
+    <div className="min-h-screen bg-window">
+      <header className="border-b border-separator bg-white/80 px-6 py-3 backdrop-blur-xl sm:px-10">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-          <p className="whitespace-nowrap text-[22px] font-extrabold text-label">성과·성장관리</p>
+          <p className="whitespace-nowrap text-[17px] font-semibold text-label">성과·성장관리</p>
           {accountEmail && (
             <div className="flex shrink-0 items-center gap-3">
               <GoogleAccountMenu
-                className="flex items-center gap-1.5 text-sm text-label hover:text-label"
+                className="flex h-7 items-center gap-1.5 rounded-control px-2 text-[13px] text-label hover:bg-black/[0.05]"
                 onAccountChange={handleAccountChange}
               >
                 {accountEmail}
                 {isAdminUser && (
-                  <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">관리자</span>
+                  <span className="mac-badge bg-accent-soft text-accent">관리자</span>
                 )}
-                <ChevronDownIcon className="h-3.5 w-3.5 text-label-3" />
+                <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
-              <button onClick={handleLogout} className="text-sm text-label-3 hover:text-label">
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 로그아웃
-              </button>
+              </Button>
             </div>
           )}
         </div>
       </header>
-      <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
-        <p className="text-sm text-label-2">진행할 팀과 평가기간을 선택하세요.</p>
+      <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-10">
+        <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요.</p>
 
         {existingTeamNames.length > 0 ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-8">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-6">
+            <div className="flex flex-wrap items-center gap-2">
               {existingTeamNames.map((name) => {
                 const teamWs = workspaces.filter((w) => w.teamName === name)
                 const mostRecentWs = [...teamWs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
@@ -291,12 +247,12 @@ export default function WorkspaceLanding() {
                   <button
                     key={name}
                     onClick={() => setTeamName(name)}
-                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border-2 px-4 py-2.5 text-sm transition-colors ${
-                      active ? 'border-accent text-accent' : 'border-separator text-label-2 hover:border-black/25'
+                    className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] transition-colors ${
+                      active ? 'bg-accent text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
                     }`}
                   >
-                    <span className="font-bold">{name}</span>
-                    <span className="font-medium opacity-70">
+                    <span className="font-semibold">{name}</span>
+                    <span className="opacity-70">
                       {memberCount}명 · {teamWs.length}개
                     </span>
                   </button>
@@ -309,23 +265,22 @@ export default function WorkspaceLanding() {
                 setNewTeamInput('')
                 setTeamNameModalOpen(true)
               }}
-              className="flex shrink-0 items-center gap-1.5"
+              className="shrink-0"
             >
-              <PlusIcon className="h-3.5 w-3.5" /> 새 팀
+              <Plus {...icSm} /> 새 팀
             </Button>
           </div>
         ) : (
-          <div className="mt-8 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-separator px-6 py-16 text-center">
-            <p className="text-sm text-label-2">첫 팀을 만들어 성과관리를 시작하세요.</p>
+          <div className="mt-8 flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
+            <p className="text-[13px] text-label-2">첫 팀을 만들어 성과관리를 시작하세요.</p>
             <Button
               variant="primary"
               onClick={() => {
                 setNewTeamInput('')
                 setTeamNameModalOpen(true)
               }}
-              className="flex items-center gap-1.5"
             >
-              <PlusIcon className="h-3.5 w-3.5" /> 팀 만들기
+              <Plus {...icSm} /> 팀 만들기
             </Button>
           </div>
         )}
@@ -334,20 +289,20 @@ export default function WorkspaceLanding() {
           <div className="mt-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex items-end gap-3">
-                <h2 className="text-xl font-bold text-label">{teamName}</h2>
-                <span className="text-sm text-label-2">평가 프로젝트 {teamWorkspaces.length}개</span>
+                <h2 className="text-[17px] font-semibold text-label">{teamName}</h2>
+                <span className="text-[13px] text-label-2">평가 프로젝트 {teamWorkspaces.length}개</span>
               </div>
-              <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)} className="flex items-center gap-1.5">
-                <PlusIcon className="h-3.5 w-3.5" /> 새 평가 만들기
+              <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
+                <Plus {...icSm} /> 새 평가 만들기
               </Button>
             </div>
 
             {teamWorkspaces.length === 0 ? (
-              <div className="mt-4 flex flex-col items-center gap-1 rounded-2xl border-2 border-dashed border-separator px-6 py-16 text-center">
-                <p className="text-sm text-label-2">첫 평가를 만들어 시작하세요.</p>
+              <div className="mt-4 flex flex-col items-center gap-1 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
+                <p className="text-[13px] text-label-2">첫 평가를 만들어 시작하세요.</p>
               </div>
             ) : (
-              <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {teamWorkspaces.map((w) => (
                   <ProjectCard
                     key={w.id}
@@ -369,10 +324,10 @@ export default function WorkspaceLanding() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
           onClick={() => setTeamNameModalOpen(false)}
         >
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-label">새 팀 만들기</h3>
+          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[15px] font-semibold text-label">새 팀 만들기</h3>
             <div className="mt-4">
-              <label className="block text-sm font-medium text-label">팀명</label>
+              <label className="block text-[13px] font-medium text-label-2">팀명</label>
               <input
                 type="text"
                 autoFocus
@@ -382,23 +337,22 @@ export default function WorkspaceLanding() {
                   if (e.key === 'Enter') confirmTeamName()
                 }}
                 placeholder="예: UX팀"
-                className="mt-1 w-full rounded-md border border-separator px-3 py-2.5 text-sm text-label"
+                className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label"
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
                 onClick={() => setTeamNameModalOpen(false)}
-                className="rounded-md border border-separator px-4 py-2 text-sm font-medium text-label hover:bg-black/[0.05]"
               >
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={confirmTeamName}
                 disabled={!newTeamInput.trim()}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 다음
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -409,11 +363,11 @@ export default function WorkspaceLanding() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
           onClick={() => setPeriodModalTeam(null)}
         >
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-label">새 평가 프로젝트</h3>
+              <h3 className="text-[15px] font-semibold text-label">새 평가 프로젝트</h3>
               <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
-                <XIcon className="h-4 w-4" />
+                <X {...ic} />
               </IconButton>
             </div>
             <div className="mt-4">
@@ -432,42 +386,41 @@ export default function WorkspaceLanding() {
 
       {renamingWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-          <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-label">평가 정보 수정</h3>
+          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog">
+            <h3 className="text-[15px] font-semibold text-label">평가 정보 수정</h3>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-label">팀 이름</label>
+                <label className="block text-[13px] font-medium text-label-2">팀 이름</label>
                 <input
                   type="text"
                   value={renameTeamName}
                   onChange={(e) => setRenameTeamName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-label">평가 기간 표시명</label>
+                <label className="block text-[13px] font-medium text-label-2">평가 기간 표시명</label>
                 <input
                   type="text"
                   value={renamePeriodName}
                   onChange={(e) => setRenamePeriodName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label"
                 />
-                <p className="mt-1 text-xs text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
+                <p className="mt-1 text-[13px] text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
                 onClick={() => setRenamingWorkspace(null)}
-                className="rounded-md border border-separator px-4 py-2 text-sm font-medium text-label hover:bg-black/[0.05]"
               >
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleRenameSave}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 저장
-              </button>
+              </Button>
             </div>
           </div>
         </div>

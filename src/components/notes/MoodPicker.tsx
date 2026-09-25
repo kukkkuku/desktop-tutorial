@@ -69,7 +69,7 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
         <MoodIcon mood={selected?.value ?? 'question'} className="h-8 w-8" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 z-20 mb-2 flex gap-1 rounded-xl border border-separator bg-white p-1.5 shadow-lg">
+        <div className="absolute bottom-full right-0 z-20 mb-2 flex gap-1 rounded-card border border-separator bg-white p-1.5 shadow-lg">
           {MOOD_OPTIONS.map((opt) => (
             <button
               key={opt.value}

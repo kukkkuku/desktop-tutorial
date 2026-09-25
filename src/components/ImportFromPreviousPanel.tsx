@@ -3,7 +3,9 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
 import type { Criteria, Task, TeamMember } from '../types'
+import { Check } from 'lucide-react'
 import Button from './Button'
+import { ic } from './ui/icon'
 
 interface ImportFromPreviousPanelProps {
   teamName: string
@@ -147,18 +149,18 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
   }
 
   if (!hasAnySource) {
-    return <p className="mt-4 text-sm text-label-2">가져올 수 있는 이전 평가가 없습니다.</p>
+    return <p className="mt-4 text-[13px] text-label-2">가져올 수 있는 이전 평가가 없습니다.</p>
   }
 
   return (
     <>
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-label">팀</label>
+          <label className="block text-[13px] font-medium text-label-2">팀</label>
           <select
             value={sourceTeam}
             onChange={(e) => setSourceTeam(e.target.value)}
-            className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
+            className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label"
           >
             {teamNames.map((t) => (
               <option key={t} value={t}>
@@ -168,12 +170,12 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-label">평가기간</label>
+          <label className="block text-[13px] font-medium text-label-2">평가기간</label>
           <select
             value={sourceId}
             onChange={(e) => setSourceId(e.target.value)}
             disabled={periodCandidates.length === 0}
-            className="mt-1 w-full rounded-md border border-separator px-3 py-2 text-sm text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
+            className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
           >
             {periodCandidates.length === 0 ? (
               <option value="">가져올 기간 없음</option>
@@ -189,33 +191,32 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
       </div>
 
       {!sourceId ? (
-        <p className="mt-4 text-sm text-label-2">이 팀에는 가져올 다른 기간이 없습니다. 다른 팀을 선택해보세요.</p>
+        <p className="mt-4 text-[13px] text-label-2">이 팀에는 가져올 다른 기간이 없습니다. 다른 팀을 선택해보세요.</p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-separator">
+            <div className="rounded-card border border-separator">
               <div className="flex items-center justify-between border-b border-separator px-3 py-2">
-                <p className="text-sm font-semibold text-label">과제</p>
+                <p className="text-[13px] font-semibold text-label">과제</p>
                 <button
                   type="button"
                   onClick={() => setSelectedTaskIds(allTasksSelected ? new Set() : new Set(sourceState.tasks.map((t) => t.id)))}
                   disabled={sourceState.tasks.length === 0}
-                  className="text-xs font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
+                  className="text-[13px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
                 >
                   전체 {allTasksSelected ? '해제' : '선택'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto p-2">
                 {sourceState.tasks.length === 0 ? (
-                  <p className="px-1 py-1 text-xs text-label-3">과제가 없습니다.</p>
+                  <p className="px-1 py-1 text-[13px] text-label-3">과제가 없습니다.</p>
                 ) : (
                   sourceState.tasks.map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm text-label hover:bg-black/[0.03]">
+                    <label key={t.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.03]">
                       <input
                         type="checkbox"
                         checked={selectedTaskIds.has(t.id)}
                         onChange={() => toggleTask(t.id)}
-                        className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                       />
                       {t.name}
                     </label>
@@ -224,29 +225,28 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
               </div>
             </div>
 
-            <div className="rounded-lg border border-separator">
+            <div className="rounded-card border border-separator">
               <div className="flex items-center justify-between border-b border-separator px-3 py-2">
-                <p className="text-sm font-semibold text-label">팀원</p>
+                <p className="text-[13px] font-semibold text-label">팀원</p>
                 <button
                   type="button"
                   onClick={() => setSelectedMemberIds(allMembersSelected ? new Set() : new Set(sourceState.members.map((m) => m.id)))}
                   disabled={sourceState.members.length === 0}
-                  className="text-xs font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
+                  className="text-[13px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
                 >
                   전체 {allMembersSelected ? '해제' : '선택'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto p-2">
                 {sourceState.members.length === 0 ? (
-                  <p className="px-1 py-1 text-xs text-label-3">팀원이 없습니다.</p>
+                  <p className="px-1 py-1 text-[13px] text-label-3">팀원이 없습니다.</p>
                 ) : (
                   sourceState.members.map((m) => (
-                    <label key={m.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm text-label hover:bg-black/[0.03]">
+                    <label key={m.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.03]">
                       <input
                         type="checkbox"
                         checked={selectedMemberIds.has(m.id)}
                         onChange={() => toggleMember(m.id)}
-                        className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                       />
                       {m.name}
                     </label>
@@ -257,13 +257,13 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-separator pt-3">
-            <label className="flex items-center gap-2 text-sm text-label">
+            <label className="flex items-center gap-2 text-[13px] text-label">
               <input
                 type="checkbox"
                 checked={importCriteria}
                 onChange={(e) => setImportCriteria(e.target.checked)}
                 disabled={!sourceState.criteria}
-                className="h-4 w-4 rounded border-separator text-accent focus:ring-accent disabled:cursor-not-allowed"
+                className="disabled:cursor-not-allowed"
               />
               평가기준도 가져오기
             </label>
@@ -277,23 +277,12 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 type="button"
                 onClick={justApplied ? onApplied : handleImport}
                 disabled={!justApplied && selectedTaskIds.size === 0 && selectedMemberIds.size === 0}
-                className={`flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium text-white transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
-                  justApplied ? 'bg-success' : 'bg-accent hover:opacity-90'
+                className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-control px-3.5 text-[13px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
+                  justApplied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
                 } ${pulsing ? 'scale-110' : 'scale-100'}`}
               >
                 {justApplied && (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 shrink-0"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <Check {...ic} className="shrink-0" />
                 )}
                 {justApplied ? '데이터 적용하여 빠르게 시작하기' : '선택 항목 가져오기'}
               </button>

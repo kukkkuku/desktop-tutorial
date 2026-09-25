@@ -2,32 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MemberResultRow } from '../utils/calculations'
 import { GRADE_COLORS } from '../utils/calculations'
+import { GripVertical, X } from 'lucide-react'
+import IconButton from './IconButton'
+import { icSm } from './ui/icon'
 
 interface LiveRankingPopoverProps {
   results: MemberResultRow[]
   open: boolean
   onClose: () => void
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  )
-}
-
-function DragHandleIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <circle cx="9" cy="6" r="1.4" />
-      <circle cx="15" cy="6" r="1.4" />
-      <circle cx="9" cy="12" r="1.4" />
-      <circle cx="15" cy="12" r="1.4" />
-      <circle cx="9" cy="18" r="1.4" />
-      <circle cx="15" cy="18" r="1.4" />
-    </svg>
-  )
 }
 
 const PANEL_WIDTH = 232
@@ -69,7 +51,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
   return createPortal(
     <div
       style={{ position: 'fixed', top: pos.top, left: pos.left, width: PANEL_WIDTH }}
-      className="z-40 overflow-hidden rounded-card border border-separator bg-white shadow-pop"
+      className="mac-pop z-40 overflow-hidden"
     >
       <div
         onPointerDown={onDragStart}
@@ -77,20 +59,20 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
         onPointerUp={onDragEnd}
         onPointerCancel={onDragEnd}
         style={{ touchAction: 'none' }}
-        className="flex cursor-grab items-center gap-1.5 border-b border-separator bg-black/[0.03] px-2.5 py-2 active:cursor-grabbing"
+        className="flex cursor-grab items-center gap-1.5 border-b border-separator px-2.5 py-1.5 active:cursor-grabbing"
       >
-        <DragHandleIcon className="h-3.5 w-3.5 shrink-0 text-label-3" />
-        <span className="flex-1 text-xs font-semibold text-label-2">실시간 순위</span>
-        <button
+        <GripVertical {...icSm} className="shrink-0 text-label-3" />
+        <span className="flex-1 text-[13px] font-semibold text-label">실시간 순위</span>
+        <IconButton
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onClose}
           title="닫기"
           aria-label="닫기"
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.08] hover:text-label"
+          className="h-6 min-w-6 shrink-0"
         >
-          <CloseIcon className="h-3.5 w-3.5" />
-        </button>
+          <X {...icSm} />
+        </IconButton>
       </div>
 
       {results.length === 0 ? (
@@ -106,7 +88,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
             {results.map((r, i) => (
               <div key={r.member.id} className="grid grid-cols-[1fr_40px_44px] items-center gap-1 py-1.5">
                 <span className="truncate text-[13px] font-medium text-label">{r.member.name}</span>
-                <span className="text-center text-[13px] font-mono text-label-2">{i + 1}위</span>
+                <span className="text-center text-[13px] tabular-nums text-label-2">{i + 1}위</span>
                 <span className="flex justify-center">
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
                 </span>

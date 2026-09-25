@@ -213,7 +213,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
       </div>
 
       {calendarError && (
-        <p className="mt-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs text-danger">
+        <p className="mt-1.5 rounded-md bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
           ⚠️ 면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
         </p>
       )}
@@ -229,11 +229,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           placeholder="면담 내용을 입력하세요."
-          className="min-h-[72px] min-w-[240px] flex-1 resize-y rounded-md border border-separator px-3 py-2 text-sm text-label"
+          className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] min-h-[72px] min-w-[240px] flex-1 resize-y text-label"
         />
         <div className="flex shrink-0 flex-col items-center gap-2">
           <MoodPicker value={mood} onChange={setMood} compact={moodCompact} />
-          <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="w-full px-2 py-1.5">
+          <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="w-full">
             작성하기
           </Button>
         </div>
@@ -244,7 +244,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           있게 한다. */}
       <div className="mt-3 flex items-center gap-1.5">
         <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
-        <button onClick={() => setDetailsOpen((v) => !v)} className="text-xs font-medium text-label-3 hover:text-accent">
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[13px] font-medium text-label-3 hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
       </div>
@@ -253,11 +253,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         <div className="mt-2 flex flex-col gap-3">
           <div>
             <label className="block text-[11px] font-medium text-label-3">강점</label>
-            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
+            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
           <div>
             <label className="block text-[11px] font-medium text-label-3">보완 필요</label>
-            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
+            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
           <div>
             <label className="block text-[11px] font-medium text-label-3">다음 도전 경험</label>
@@ -266,12 +266,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
               value={nextExperience}
               onChange={(e) => setNextExperience(e.target.value)}
               placeholder="도전해 보고 싶은 경험 입력"
-              className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
             />
           </div>
           <div>
             <label className="block text-[11px] font-medium text-label-3">Career Goal</label>
-            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="mt-0.5 w-full rounded-md border border-separator px-3 py-2 text-sm text-label" />
+            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
         </div>
       )}
@@ -337,7 +337,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       rows={3}
-                      className="min-h-[72px] min-w-[160px] flex-1 resize-y rounded-lg border border-separator px-3 py-2 text-sm text-label"
+                      className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] min-h-[72px] min-w-[160px] flex-1 resize-y text-label"
                     />
                     <div className="flex shrink-0 flex-col items-center gap-2">
                       <div className="grid grid-cols-3 gap-0.5">
@@ -356,7 +356,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                           </button>
                         ))}
                       </div>
-                      <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="w-full px-2 py-1.5">
+                      <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="w-full">
                         수정하기
                       </Button>
                     </div>
@@ -379,7 +379,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-normal text-label">{note.date}</span>
-                      {i === 0 && <span className="text-xs text-label-3">최근 면담</span>}
+                      {i === 0 && <span className="text-[13px] text-label-3">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
                         <span title="Google 캘린더에 등록됨" className="flex h-5 w-5 shrink-0 flex-col overflow-hidden rounded-[3px] border border-[#bcc1cd]">

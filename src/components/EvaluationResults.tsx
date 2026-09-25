@@ -24,6 +24,8 @@ import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
 import IconButton from './IconButton'
+import { ArrowDown, ArrowUp, Download, Eye, Minus } from 'lucide-react'
+import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
@@ -49,24 +51,6 @@ function gradeTextColor(grade: EvaluationGrade): string {
 // 업무량 등급을 과부하 인사이트 계산용 대략적인 수치로 환산.
 const WORKLOAD_NUM: Record<Workload, number> = { 대: 90, 중: 60, 소: 40 }
 const GRADE_RANK: Record<EvaluationGrade, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 }
-
-function DownloadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
-function PreviewIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
 
 export default function EvaluationResults() {
   const { state, dispatch } = useAppState()
@@ -228,7 +212,7 @@ export default function EvaluationResults() {
           )}
         </div>
         <div className={`flex flex-wrap items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
-          <Button variant="primary" onClick={() => setConfirmAllOpen(true)} className="px-3 py-1.5">
+          <Button variant="primary" onClick={() => setConfirmAllOpen(true)}>
             전체 확정
           </Button>
           <CurrentDataDownloadControls
@@ -273,7 +257,7 @@ export default function EvaluationResults() {
       ) : (
         <>
           {/* 팀원 결과 테이블 — 이 화면의 중심. */}
-          <div className="overflow-x-auto rounded-control border border-separator">
+          <div className="overflow-x-auto rounded-card border border-separator bg-white">
             <table className="w-full min-w-[860px] text-[13px]">
               <thead>
                 <tr className="border-b border-separator bg-[#F7F7F9]">
@@ -285,7 +269,6 @@ export default function EvaluationResults() {
                       onChange={(e) =>
                         setSelectedIds(e.target.checked ? new Set(results.map((r) => r.member.id)) : new Set())
                       }
-                      className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                     />
                   </th>
                   <th className="w-8 px-2 py-2.5 text-center text-xs font-semibold text-label-3">#</th>
@@ -314,18 +297,17 @@ export default function EvaluationResults() {
                       key={r.member.id}
                       onClick={() => setHighlightId(isHL ? null : r.member.id)}
                       className="cursor-pointer border-b border-separator transition-colors last:border-0 hover:bg-black/[0.03]"
-                      style={isHL ? { outline: '1px solid #2563EB', outlineOffset: '-1px' } : undefined}
+                      style={isHL ? { outline: '1px solid var(--accent)', outlineOffset: '-1px' } : undefined}
                     >
                       <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.has(r.member.id)}
                           onChange={() => toggleSelect(r.member.id)}
-                          className="h-4 w-4 rounded border-separator text-accent focus:ring-accent"
                         />
                       </td>
                       <td className="px-2 py-3 text-center">
-                        <span className="font-mono text-xs text-label-3">{i + 1}</span>
+                        <span className="tabular-nums text-xs text-label-3">{i + 1}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <button
@@ -352,24 +334,24 @@ export default function EvaluationResults() {
                             />
                             <div className="absolute bottom-0 top-0 z-10 w-px bg-label-3" style={{ left: `${(avg / maxScore) * 100}%` }} />
                           </div>
-                          <span className="shrink-0 font-mono text-[13px] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
+                          <span className="shrink-0 tabular-nums text-[13px] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
                             {r.cumulativeScore.toFixed(1)}
                           </span>
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <span className={`text-[13px] font-black ${gradeTextColor(r.grade)}`}>{r.grade}</span>
+                        <span className={`text-[13px] font-bold ${gradeTextColor(r.grade)}`}>{r.grade}</span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center text-[13px] text-label-3">{prevGrade ?? '-'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-center text-[13px] font-semibold">
                         {delta === null ? (
                           <span className="text-label-3">-</span>
                         ) : delta > 0 ? (
-                          <span className="text-accent">▲</span>
+                          <ArrowUp {...icSm} className="inline text-accent" aria-label="상승" />
                         ) : delta < 0 ? (
-                          <span className="text-danger">▼</span>
+                          <ArrowDown {...icSm} className="inline text-danger" aria-label="하락" />
                         ) : (
-                          <span className="text-label-3">–</span>
+                          <Minus {...icSm} className="inline text-label-3" aria-label="유지" />
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
@@ -382,14 +364,16 @@ export default function EvaluationResults() {
                           <IconButton
                             onClick={() => previewMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
                             title="미리보기"
+                            aria-label="미리보기"
                           >
-                            <PreviewIcon className="h-4 w-4" />
+                            <Eye {...ic} />
                           </IconButton>
                           <IconButton
                             onClick={() => downloadMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
                             title="PDF 다운로드"
+                            aria-label="PDF 다운로드"
                           >
-                            <DownloadIcon className="h-4 w-4" />
+                            <Download {...ic} />
                           </IconButton>
                         </div>
                       </td>
@@ -401,12 +385,12 @@ export default function EvaluationResults() {
           </div>
 
           {insights.length > 0 && (
-            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-card border border-separator px-5 py-3.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-card border border-separator bg-white px-5 py-3.5">
               {insights.map((ins, idx) => {
                 const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
                 return (
                   <div key={idx} className="flex items-baseline gap-2">
-                    <span className={`w-12 shrink-0 text-[10px] font-semibold ${lc}`}>{ins.label}</span>
+                    <span className={`w-12 shrink-0 text-[11px] font-semibold ${lc}`}>{ins.label}</span>
                     <p className="min-w-0 text-xs leading-relaxed text-label-2">
                       <span className="mr-1 font-semibold text-label">{ins.title}</span>
                       {ins.desc}
@@ -422,7 +406,7 @@ export default function EvaluationResults() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h3 className="text-[13px] font-semibold text-label">과제별 성과</h3>
-                <p className="mt-0.5 text-xs text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
+                <p className="mt-0.5 text-[13px] text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {results.map(({ member: m }) => {
@@ -432,12 +416,8 @@ export default function EvaluationResults() {
                     <button
                       key={m.id}
                       onClick={() => setHighlightId(isHL ? null : m.id)}
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all"
-                      style={
-                        isHL
-                          ? { background: pastelForIndex(idx), color: pastelTextForIndex(idx), borderColor: pastelForIndex(idx) }
-                          : { background: 'white', color: '#9CA3AF', borderColor: '#E5E7EB' }
-                      }
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${isHL ? '' : 'border-separator bg-white text-label-2 hover:text-label'}`}
+                      style={isHL ? { background: pastelForIndex(idx), color: pastelTextForIndex(idx), borderColor: pastelForIndex(idx) } : undefined}
                     >
                       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
                       {m.name}
@@ -450,7 +430,7 @@ export default function EvaluationResults() {
             {taskScores.length === 0 ? (
               <p className="rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">등록된 과제가 없습니다.</p>
             ) : (
-              <div ref={taskTableRef} className="divide-y divide-separator overflow-hidden rounded-card border border-separator">
+              <div ref={taskTableRef} className="divide-y divide-separator overflow-hidden rounded-card border border-separator bg-white">
                 {/* 컬럼 헤더 */}
                 <div className="flex select-none items-stretch border-b border-separator bg-[#F7F7F9]">
                   <div style={{ width: `${colWidths[0]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
@@ -482,15 +462,15 @@ export default function EvaluationResults() {
                       <div style={{ width: `${colWidths[0]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="min-w-0 flex-1 truncate text-[13px] font-semibold leading-snug text-label">{task.name}</p>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
                             {task.importance}
                           </span>
                           {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-label-3">{task.workload}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-[13px] font-black ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
+                          <span className={`text-[13px] font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
                           <span className="text-xs text-label-3">/</span>
-                          <span className="font-mono text-xs font-semibold text-label-2">{score.toFixed(0)}점</span>
+                          <span className="tabular-nums text-xs font-semibold text-label-2">{score.toFixed(0)}점</span>
                         </div>
                       </div>
 
@@ -536,8 +516,8 @@ export default function EvaluationResults() {
                             {participants.map(({ m, pct }) => {
                               const idx = idxOf(m.id)
                               const isHL = highlightId === null || highlightId === m.id
-                              const bg = isHL ? pastelForIndex(idx) : '#EEEEEE'
-                              const fg = isHL ? pastelTextForIndex(idx) : '#CCCCCC'
+                              const bg = isHL ? pastelForIndex(idx) : 'rgba(0, 0, 0, 0.06)'
+                              const fg = isHL ? pastelTextForIndex(idx) : 'rgba(0, 0, 0, 0.3)'
                               return (
                                 <div
                                   key={m.id}
@@ -546,7 +526,7 @@ export default function EvaluationResults() {
                                   title={`${m.name} ${pct}%`}
                                 >
                                   {pct >= 16 && (
-                                    <span className="select-none font-mono text-[10px]" style={{ color: fg, fontWeight: isHL && highlightId !== null ? 700 : 400 }}>
+                                    <span className="select-none tabular-nums text-[11px]" style={{ color: fg, fontWeight: isHL && highlightId !== null ? 700 : 400 }}>
                                       {pct}%
                                     </span>
                                   )}

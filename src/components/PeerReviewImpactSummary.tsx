@@ -1,13 +1,6 @@
+import { ArrowRight } from 'lucide-react'
 import { GRADE_COLORS, type PeerReviewImpact } from '../utils/calculations'
-
-function ArrowRightIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
-    </svg>
-  )
-}
+import { icSm } from './ui/icon'
 
 // 이 화면 맨 위에 두는 요약 밴드. 리뷰 목록(로우데이터)을 읽기 전에 "그래서
 // 피어리뷰가 이번 평가를 바꿨는가"를 먼저 답한다.
@@ -26,7 +19,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
     .sort((a, b) => Math.abs(b.ratioDeltaPercent) - Math.abs(a.ratioDeltaPercent))[0]
 
   return (
-    <div className="rounded-card border border-separator bg-white p-4">
+    <div className="mac-card p-4">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <h4 className="text-[13px] font-semibold text-label">피어리뷰가 평가에 미친 영향</h4>
         <span className="text-xs text-label-3">
@@ -54,13 +47,13 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
               return (
                 <li
                   key={r.member.id}
-                  className="flex items-center gap-1.5 rounded-card border border-separator px-2.5 py-1.5 text-[13px]"
+                  className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[13px]"
                 >
                   <span className="font-medium text-label">{r.member.name}</span>
                   <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWithout]}`}>
                     {r.gradeWithout}
                   </span>
-                  <ArrowRightIcon className={`h-3.5 w-3.5 ${up ? 'text-success' : 'text-danger'}`} />
+                  <ArrowRight {...icSm} className={up ? 'text-success' : 'text-danger'} />
                   <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWith]}`}>
                     {r.gradeWith}
                   </span>

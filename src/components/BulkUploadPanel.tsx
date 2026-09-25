@@ -12,27 +12,13 @@ import {
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../utils/promotionImport'
 import { useApplyPromotionHistory, type PromotionManualPicks } from '../hooks/useApplyPromotionHistory'
 import DuplicateNameDialog from './promotion/DuplicateNameDialog'
+import { Check, FileText, X } from 'lucide-react'
 import Button from './Button'
+import IconButton from './IconButton'
 import Spinner from './Spinner'
+import { ic, icLg, icSm } from './ui/icon'
 
 const FILE_NAME_PATTERN = /\.(xlsx|xls)$/i
-
-function DocumentIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-    </svg>
-  )
-}
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
 
 const TEMPLATE_INFO: { kind: WorkbookKind; name: string; description: string }[] = [
   { kind: 'task', name: '과제 입력 양식', description: '과제명·과제등급·업무량·목표·성과' },
@@ -279,8 +265,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-label">전체 일괄 업로드</p>
-        <p className="mt-0.5 text-xs text-label-2">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
+        <p className="text-[13px] font-semibold text-label">전체 일괄 업로드</p>
+        <p className="mt-0.5 text-[13px] text-label-2">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
       </div>
 
       {/* wide일 때만 좌우 2단(5:7, 왼쪽도 문구가 안 잘릴 만큼 넉넉히).
@@ -291,16 +277,12 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
       <div className={wide ? 'grid gap-4 md:grid-cols-12' : 'space-y-4'}>
         <div className={wide ? 'md:col-span-5 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-label">양식 다운로드</p>
+            <p className="text-[13px] font-semibold text-label">양식 다운로드</p>
             <div className="flex shrink-0 gap-1.5">
-              <button
-                onClick={handleDownloadSelected}
-                disabled={isBusy || selectedKinds.size === 0}
-                className="rounded-md border border-separator px-2 py-1 text-xs font-medium text-label hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
-              >
+              <Button size="sm" onClick={handleDownloadSelected} disabled={isBusy || selectedKinds.size === 0}>
                 선택 다운로드{selectedKinds.size > 0 && ` (${selectedKinds.size})`}
-              </button>
-              <Button variant="secondary" onClick={handleZipDownload} disabled={isBusy} className="px-2 py-1 text-xs">
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleZipDownload} disabled={isBusy}>
                 전체 ZIP
               </Button>
             </div>
@@ -322,33 +304,33 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
                         toggleKind(t.kind)
                       }
                     }}
-                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3 transition-colors ${
-                      checked ? 'border-accent bg-accent-soft' : 'border-separator bg-white hover:border-separator'
+                    className={`flex cursor-pointer items-center gap-3 rounded-card border p-3 transition-colors ${
+                      checked ? 'border-accent bg-accent-soft' : 'border-separator bg-white hover:bg-black/[0.02]'
                     }`}
                   >
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${checked ? 'bg-accent text-white' : 'bg-black/[0.05] text-label-3'}`}>
-                      <DocumentIcon className="h-5 w-5" />
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-control ${checked ? 'bg-accent text-white' : 'bg-black/[0.05] text-label-2'}`}>
+                      <FileText {...icLg} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-label">{t.name}</p>
-                      <p className="text-xs leading-snug text-label-2">{t.description}</p>
+                      <p className="text-[13px] font-semibold text-label">{t.name}</p>
+                      <p className="text-[13px] leading-snug text-label-2">{t.description}</p>
                     </div>
-                    <button
+                    <Button
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleDownloadOne(t.kind)
                       }}
                       disabled={isBusy}
-                      className="shrink-0 rounded-md border border-separator bg-white px-2.5 py-1.5 text-xs font-medium text-label hover:bg-black/[0.03] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       다운로드
-                    </button>
+                    </Button>
                     <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-                        checked ? 'border-accent bg-accent text-white' : 'border-separator bg-white text-transparent'
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${
+                        checked ? 'bg-accent text-white' : 'bg-white text-transparent shadow-control'
                       }`}
                     >
-                      <CheckIcon className="h-3.5 w-3.5" />
+                      <Check size={12} strokeWidth={3} />
                     </span>
                   </div>
                 </li>
@@ -359,9 +341,9 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
 
         <div className={wide ? 'md:col-span-7 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-label">작성한 양식 업로드</p>
+            <p className="text-[13px] font-semibold text-label">작성한 양식 업로드</p>
             {isBusy && (
-              <span className="flex items-center gap-1.5 text-xs text-label-2">
+              <span className="flex items-center gap-1.5 text-[13px] text-label-2">
                 <Spinner className="h-3.5 w-3.5 text-accent" />
                 {loadingLabel}
               </span>
@@ -376,16 +358,13 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
             onDragLeave={() => setIsDragOver(false)}
             onDrop={onDrop}
             onClick={() => !isBusy && bulkInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors ${
+            className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed px-4 py-6 text-center transition-colors ${
               isDragOver ? 'border-accent bg-accent-soft' : 'border-separator bg-white hover:bg-black/[0.03]'
             } ${isBusy ? 'pointer-events-none opacity-60' : ''}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 text-label-3">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <path d="M14 2v6h6" />
-            </svg>
-            <p className="text-sm text-label-2">작성한 양식 파일을 여기에 드래그</p>
-            <p className="text-xs text-label-3">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
+            <FileText size={24} strokeWidth={1.5} className="text-label-3" />
+            <p className="text-[13px] text-label-2">작성한 양식 파일을 여기에 드래그</p>
+            <p className="text-[13px] text-label-3">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
           </div>
           <input ref={bulkInputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onBulkInputChange} />
         </div>
@@ -396,17 +375,15 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
           중간에 끼어 보였다. 종류가 많아야 4개(과제/팀원/피어리뷰/인사평가)뿐이라
           칩으로 늘어놔도 스크롤 없이 한 줄 안에 다 들어온다. */}
       {bulkSummary && (
-        <div className="rounded-md border border-separator bg-white p-3">
+        <div className="rounded-card border border-separator bg-white p-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {bulkSummary.kinds.length === 0 ? (
-              <span className="text-sm text-label-3">변경된 건이 없습니다.</span>
+              <span className="text-[13px] text-label-3">변경된 건이 없습니다.</span>
             ) : (
               bulkSummary.kinds.map((k) => (
                 <span
                   key={k.label}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    k.errorCount > 0 ? 'bg-red-50 text-danger' : 'bg-success/10 text-success'
-                  }`}
+                  className={`mac-badge gap-1 ${k.errorCount > 0 ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}`}
                 >
                   {k.label} {k.addedCount + k.updatedCount}
                   {k.unit ?? '건'}
@@ -416,28 +393,20 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
             )}
             <div className="ml-auto flex shrink-0 gap-2">
               {onDone && bulkSummary.kinds.some((k) => k.addedCount > 0 || k.updatedCount > 0) && (
-                <button
-                  onClick={onDone}
-                  className="flex items-center gap-1.5 rounded-md bg-success px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                <Button variant="primary" size="sm" onClick={onDone}>
+                  <Check {...icSm} className="shrink-0" />
                   적용 완료 · 시작하기
-                </button>
+                </Button>
               )}
-              <button
-                onClick={() => setBulkSummary(null)}
-                className="rounded-md border border-separator bg-white px-2 py-1 text-xs font-medium text-label hover:bg-black/[0.05]"
-              >
-                닫기
-              </button>
+              <IconButton onClick={() => setBulkSummary(null)} title="닫기" aria-label="닫기">
+                <X {...ic} />
+              </IconButton>
             </div>
           </div>
           {bulkSummary.errors.length > 0 && (
             <>
-              <p className="mt-2 text-xs font-semibold text-danger">{bulkSummary.errors.length}건 오류</p>
-              <ul className="mt-1 list-inside list-disc space-y-1 text-xs text-danger">
+              <p className="mt-2 text-[13px] font-semibold text-danger">{bulkSummary.errors.length}건 오류</p>
+              <ul className="mt-1 list-inside list-disc space-y-1 text-[13px] text-danger">
                 {bulkSummary.errors.map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}

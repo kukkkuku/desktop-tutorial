@@ -142,7 +142,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
               const f = e.dataTransfer.files?.[0]
               if (f) handleFile(f)
             }}
-            className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
+            className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-4 py-8 text-center transition-colors ${
               dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent'
             }`}
           >
@@ -153,7 +153,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                 <span className="text-sm font-medium text-label">
                   {dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}
                 </span>
-                <span className="text-xs text-label-3">.xlsx</span>
+                <span className="text-[13px] text-label-3">.xlsx</span>
               </>
             )}
             <input
@@ -190,18 +190,18 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                 때만 고르면 됨) -- 시트명은 거의 항상 이름과 같아 별도
                 컬럼으로 반복할 필요가 없다. 표 대신 한 줄짜리 리스트로
                 압축해 자리를 덜 차지하게 했다. */}
-            <ul className="mt-3 divide-y divide-separator rounded-lg border border-separator">
+            <ul className="mt-3 divide-y divide-separator rounded-card border border-separator">
               {matches.map(({ sheet, member, candidates }, index) => (
                 <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-sm text-label">
                   <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
                   <span className="shrink-0">
                     {member ? (
-                      <span className="text-xs font-medium text-success">연결됨</span>
+                      <span className="text-[13px] font-medium text-success">연결됨</span>
                     ) : candidates.length > 1 ? (
                       <select
                         value={manualPicks[index] ?? ''}
                         onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                        className="rounded-md border border-accent px-1.5 py-1 text-xs text-label"
+                        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] border-accent text-label"
                       >
                         <option value="">동명이인 {candidates.length}명 -- 선택</option>
                         {candidates.map((c) => (
@@ -211,10 +211,10 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                         ))}
                       </select>
                     ) : (
-                      <span className="text-xs text-label-3">매칭 안 됨</span>
+                      <span className="text-[13px] text-label-3">매칭 안 됨</span>
                     )}
                   </span>
-                  <span className="w-14 shrink-0 text-right text-xs text-label-3">{sheet.years.length}개 연도</span>
+                  <span className="w-14 shrink-0 text-right text-[13px] text-label-3">{sheet.years.length}개 연도</span>
                 </li>
               ))}
             </ul>

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Pencil, StickyNote } from 'lucide-react'
+import Button from './Button'
+import { ic } from './ui/icon'
 
 // 개인수행등급 근거 메모 -- 평가 매트릭스에서 등급 옆 아이콘을 눌러 간단히
 // 입력/저장하고(editable), 팀원 성장 관리의 과제별 성과에서는 같은 아이콘으로
@@ -13,23 +16,6 @@ interface GradeNoteButtonProps {
   // (예: 12). 좁은 영역이거나 생략하면 아이콘만 보인다 -- 클릭하면 어느
   // 쪽이든 팝오버로 전체 내용을 보여준다.
   previewChars?: number
-}
-
-function PencilIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  )
-}
-
-function MemoIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l5-5V5a2 2 0 0 0-2-2H5Z" opacity={0.25} />
-      <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9l5-5V5a2 2 0 0 0-2-2H5Zm9 16.5V16a1 1 0 0 1 1-1h3.5L14 19.5Z" />
-    </svg>
-  )
 }
 
 export default function GradeNoteButton({ note, label, onSave, previewChars }: GradeNoteButtonProps) {
@@ -83,11 +69,11 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={hasNote ? `근거: ${note}` : editable ? '근거 메모 입력' : '근거 메모 없음'}
-        className={`inline-flex shrink-0 items-center gap-1 rounded px-1 py-1 ${
+        className={`inline-flex shrink-0 items-center gap-1 rounded-control px-1 py-1 hover:bg-black/[0.05] ${
           hasNote ? 'text-warning hover:text-warning' : 'text-label-3 hover:text-label-2'
         }`}
       >
-        {hasNote ? <MemoIcon className="h-4 w-4 shrink-0" /> : <PencilIcon className="h-4 w-4 shrink-0" />}
+        {hasNote ? <StickyNote {...ic} className="shrink-0" /> : <Pencil {...ic} className="shrink-0" />}
         {preview && <span className="text-[11px] font-normal normal-case text-warning">{preview}</span>}
       </button>
 
@@ -97,7 +83,7 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
           <div
             ref={popoverRef}
             style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="z-50 w-72 rounded-card border border-separator bg-white p-3 shadow-pop"
+            className="mac-pop z-50 w-72 p-3"
           >
             <p className="truncate text-xs font-semibold text-label-2">{label}</p>
             {editable ? (
@@ -108,18 +94,15 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
                   onChange={(e) => setDraft(e.target.value)}
                   rows={3}
                   placeholder="이 등급을 준 근거를 입력하세요"
-                  className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
+                  className="mt-1.5 w-full rounded-control border border-hairline px-2.5 py-1.5 text-[13px] text-label"
                 />
                 <div className="mt-2 flex justify-end gap-1.5">
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="rounded-control border border-separator px-2.5 py-1 text-xs font-medium text-label hover:bg-black/[0.05]"
-                  >
+                  <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>
                     취소
-                  </button>
-                  <button onClick={handleSave} className="rounded-control bg-accent px-2.5 py-1 text-xs font-medium text-white hover:opacity-90">
+                  </Button>
+                  <Button size="sm" variant="primary" onClick={handleSave}>
                     저장
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (

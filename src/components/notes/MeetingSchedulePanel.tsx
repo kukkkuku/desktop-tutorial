@@ -222,7 +222,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       <>
       <div className="flex w-fit shrink-0 flex-col items-stretch gap-2">
       {isCalendarConfigured() && (
-        <div className="rounded-lg border border-separator bg-white px-2 py-1.5">
+        <div className="rounded-card border border-separator bg-white px-2 py-1.5">
           <button
             type="button"
             onClick={handleSyncCalendar}
@@ -234,7 +234,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
           </button>
         </div>
       )}
-      <div className="rounded-lg border border-separator bg-white p-3">
+      <div className="rounded-card border border-separator bg-white p-3">
         <button
           onClick={onToggle}
           title="면담 일정 펼치기"
@@ -336,7 +336,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
   return (
     <>
-    <div className="w-[300px] shrink-0 rounded-lg border border-separator bg-white p-4">
+    <div className="w-[300px] shrink-0 rounded-card border border-separator bg-white p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="shrink-0 text-base font-bold text-label">면담 일정</h3>
@@ -346,7 +346,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
               onClick={handleSyncCalendar}
               disabled={syncing}
               title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
-              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-label-3 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium text-label-3 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {syncButtonContent}
             </button>
@@ -431,19 +431,19 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             ))
           )}
           <div className="mt-1 flex items-center gap-1.5 rounded-md border border-separator bg-[#F7F7F9] px-2 py-1.5">
-            <select value={addMemberId ?? ''} onChange={(e) => setAddMemberId(e.target.value)} className="min-w-0 flex-1 rounded-md border border-separator px-2 py-1 text-[12px] text-label">
+            <select value={addMemberId ?? ''} onChange={(e) => setAddMemberId(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 text-[12px] text-label">
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
                 </option>
               ))}
             </select>
-            <Button variant="primary" onClick={addSchedule} className="shrink-0 px-2.5 py-1 text-[12px]">
+            <Button variant="primary" onClick={addSchedule} className="shrink-0 text-[12px]">
               추가
             </Button>
           </div>
           {calendarError && (
-            <p className="rounded-md bg-red-50 px-2 py-1.5 text-[11px] text-danger">⚠️ 캘린더 등록 실패: {calendarError}</p>
+            <p className="rounded-md bg-danger/[0.06] px-2 py-1.5 text-[11px] text-danger">⚠️ 캘린더 등록 실패: {calendarError}</p>
           )}
         </div>
       </div>
