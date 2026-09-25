@@ -1,5 +1,5 @@
-import { DEFAULT_GRADE_DISTRIBUTION } from '../types'
-import type { MemberTableConfig, AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
+import { DEFAULT_GRADE_DISTRIBUTION, IMPORTANCE_OPTIONS } from '../types'
+import type { MemberTableConfig, AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, Importance, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
 export type AppAction =
@@ -17,6 +17,8 @@ export type AppAction =
   | { type: 'ADD_TASKS_FROM_WORK'; payload: { tasks: Task[]; participants: Record<string, string[]> } }
   | { type: 'ADD_TASK'; payload: Task }
   | { type: 'UPDATE_TASK'; payload: Task }
+  | { type: 'MERGE_TASKS'; payload: { ids: string[] } }
+  | { type: 'SPLIT_TASK'; payload: { id: string; newIds: string[] } }
   | { type: 'DELETE_TASK'; payload: { id: string } }
   | { type: 'IMPORT_TASKS'; payload: Task[] }
   | { type: 'ADD_MEMBER'; payload: TeamMember }
@@ -252,6 +254,94 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         tasks: state.tasks.map((t) => (t.id === action.payload.id ? action.payload : t)),
       }
+
+    // 평가과제 묶기: 고른 과제들을 첫 과제 하나로 합친다. L3 연결은 모두 모으고, 목표·성과는 다른 내용만 줄을 바꿔 잇는다.
+    // 기여도는 어느 과제에든 참여한 팀원끼리 균등으로 다시 나누고(자동 계산 아님 -- 팀장이 고칠 수 있게),
+    // 개인등급·근거는 과제 순서대로 먼저 매긴 값을 쓴다. 예전 등급 피어리뷰는 합친 과제로 옮긴다.
+    case 'MERGE_TASKS': {
+      const picked = state.tasks.filter((t) => action.payload.ids.includes(t.id))
+      if (picked.length < 2) return state
+      const keep = picked[0]
+      const gone = new Set(picked.slice(1).map((t) => t.id))
+      const all = new Set(picked.map((t) => t.id))
+      const joinDistinct = (xs: string[]) => Array.from(new Set(xs.map((x) => x.trim()).filter(Boolean))).join('\n')
+      const merged: Task = {
+        ...keep,
+        workItemIds: Array.from(new Set(picked.flatMap((t) => t.workItemIds ?? []))),
+        objective: joinDistinct(picked.map((t) => t.objective)),
+        achievement: joinDistinct(picked.map((t) => t.achievement)),
+        performanceGrade: keep.performanceGrade ?? picked.find((t) => t.performanceGrade)?.performanceGrade ?? null,
+      }
+      const tasks = state.tasks.filter((t) => !gone.has(t.id)).map((t) => (t.id === keep.id ? merged : t))
+      const old = state.contributions.filter((c) => all.has(c.taskId))
+      const order = picked.map((t) => t.id)
+      const firstOf = <K extends 'personalPerformanceGrade' | 'personalGradeNote'>(memberId: string, k: K) =>
+        old
+          .filter((c) => c.memberId === memberId && c[k])
+          .sort((a, b) => order.indexOf(a.taskId) - order.indexOf(b.taskId))[0]?.[k]
+      const active = state.members.filter((m) => m.active)
+      const ids = active.filter((m) => old.some((c) => c.memberId === m.id && c.contributionPercent > 0)).map((m) => m.id)
+      const shares = distributeEqually(ids.length)
+      const contributions = [
+        ...state.contributions.filter((c) => !all.has(c.taskId)),
+        ...active.map((m) => ({
+          taskId: keep.id,
+          memberId: m.id,
+          contributionPercent: ids.includes(m.id) ? shares[ids.indexOf(m.id)] : 0,
+          personalPerformanceGrade: firstOf(m.id, 'personalPerformanceGrade') ?? null,
+          ...(firstOf(m.id, 'personalGradeNote') ? { personalGradeNote: firstOf(m.id, 'personalGradeNote') } : {}),
+          isAutoDistributed: false,
+        })),
+      ]
+      const peerReviews = state.peerReviews.map((r) => (r.taskId && gone.has(r.taskId) ? { ...r, taskId: keep.id } : r))
+      const taskPeerReviews = state.taskPeerReviews.filter((r) => !gone.has(r.taskId))
+      return { ...state, tasks, peerReviews, taskPeerReviews, contributions: syncAutoDistribution(tasks, state.members, contributions, peerReviews) }
+    }
+
+    // 평가과제 풀기: 여러 L3가 묶인 과제를 L3 하나당 과제 하나로 나눈다. 원래 과제(등급·목표·기여도 그대로)는
+    // 첫 L3 이름으로 남고, 나머지 L3는 과제리스트에서 내보낼 때처럼 새 과제가 된다(담당자끼리 기여도 균등).
+    case 'SPLIT_TASK': {
+      const task = state.tasks.find((t) => t.id === action.payload.id)
+      const items = (task?.workItemIds ?? []).map((id) => state.workBoard.items.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => !!i)
+      if (!task || items.length < 2) return state
+      const names = new Set(state.tasks.filter((t) => t.id !== task.id).map((t) => t.name))
+      const uniq = (n: string) => {
+        let v = n
+        for (let k = 2; names.has(v); k++) v = `${n} (${k})`
+        names.add(v)
+        return v
+      }
+      const first: Task = { ...task, name: uniq(items[0].name), workItemIds: [items[0].id] }
+      const extra: Task[] = items.slice(1).map((it, k) => ({
+        id: action.payload.newIds[k],
+        name: uniq(it.name),
+        importance: it.category && (IMPORTANCE_OPTIONS as string[]).includes(it.category) ? (it.category as Importance) : task.importance,
+        performanceGrade: null,
+        workload: task.workload,
+        objective: '',
+        achievement: '',
+        workItemIds: [it.id],
+      }))
+      const at = state.tasks.findIndex((t) => t.id === task.id)
+      const tasks = [...state.tasks.slice(0, at), first, ...extra, ...state.tasks.slice(at + 1)]
+      const active = state.members.filter((m) => m.active)
+      let contributions = state.contributions
+      extra.forEach((t, k) => {
+        const ids = items[k + 1].assigneeIds.filter((id) => active.some((m) => m.id === id))
+        const shares = distributeEqually(ids.length)
+        contributions = [
+          ...contributions,
+          ...active.map((m) => ({
+            taskId: t.id,
+            memberId: m.id,
+            contributionPercent: ids.includes(m.id) ? shares[ids.indexOf(m.id)] : 0,
+            personalPerformanceGrade: null,
+            isAutoDistributed: ids.length === 0,
+          })),
+        ]
+      })
+      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) }
+    }
 
     case 'DELETE_TASK': {
       const tasks = state.tasks.filter((t) => t.id !== action.payload.id)
