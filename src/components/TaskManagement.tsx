@@ -121,7 +121,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[17px] font-semibold text-label">과제 관리</h3>
+        <h3 className="text-[17px] font-semibold text-label">평가과제</h3>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
             disabled={state.tasks.length === 0}

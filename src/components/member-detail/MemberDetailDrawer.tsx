@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults } from '../../utils/calculations'
@@ -7,16 +8,8 @@ import { calcYearsSince } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
 import MemberOverviewPanel from './MemberOverviewPanel'
 import IconButton from '../IconButton'
+import { ic } from '../ui/icon'
 import { peerInputsOf } from '../../utils/peerScores'
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  )
-}
 
 interface MemberDetailDrawerProps {
   memberId: string
@@ -61,14 +54,14 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/25" onClick={onClose} />
-      <div className="relative flex h-full w-full flex-col bg-white shadow-xl sm:w-[400px] md:w-[420px]">
+      <div className="relative flex h-full w-full flex-col bg-white shadow-dialog sm:w-[400px] sm:rounded-l-[12px] md:w-[420px]">
         <div className="flex items-start justify-between gap-3 border-b border-separator px-5 py-4">
           <div className="min-w-0">
-            <p className="truncate text-lg font-bold text-label">{member.name}</p>
-            <p className="truncate text-[13px] text-label-3">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
+            <p className="truncate text-[15px] font-semibold text-label">{member.name}</p>
+            <p className="truncate text-[13px] text-label-2">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
-            <CloseIcon className="h-5 w-5" />
+            <X {...ic} />
           </IconButton>
         </div>
 

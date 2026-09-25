@@ -50,7 +50,7 @@ export default function TrendSparkline({ points: allPoints, width = DEFAULT_WIDT
 
   return (
     <svg viewBox={`0 0 ${width} ${HEIGHT}`} width={width} height={HEIGHT} className={className} role="img" aria-label="고과 추이">
-      <polyline points={path} fill="none" stroke="#D1D5DB" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={path} fill="none" className="stroke-black/15" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
       {coords.map((c, i) => {
         const isLast = i === coords.length - 1
         return (

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { ArrowRight, Info, Plus, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -16,6 +17,7 @@ import TrendSparkline from './TrendSparkline'
 import PromotionDatePicker from '../PromotionDatePicker'
 import CollapseToggleButton from '../CollapseToggleButton'
 import { peerInputsOf } from '../../utils/peerScores'
+import { icSm } from '../ui/icon'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
@@ -44,7 +46,7 @@ function SectionCard({
   return (
     <div className="h-full rounded-card border border-separator bg-white p-5">
       <span className="flex items-center justify-between gap-2">
-        <h3 className="text-base font-bold text-label">{title}</h3>
+        <h3 className="text-[15px] font-semibold text-label">{title}</h3>
         {headerBadge}
       </span>
       <div ref={bodyRef} className="mt-3">
@@ -76,11 +78,11 @@ function PeriodCard({
     <div className="rounded-card border border-separator bg-white p-5">
       <div className="flex w-full items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-base font-bold text-label">
+          <span className="text-[15px] font-semibold text-label">
             {title}
             {score !== null ? ` ${score.toFixed(1)}` : ''}
           </span>
-          {grade && <span className={`rounded px-2 py-0.5 text-[13px] font-bold ${GRADE_COLORS[grade]}`}>{grade}</span>}
+          {grade && <span className={`mac-badge rounded-[4px] ${GRADE_COLORS[grade]}`}>{grade}</span>}
         </span>
         <CollapseToggleButton collapsed={!isOpen} onClick={onToggle} label={title} />
       </div>
@@ -110,11 +112,11 @@ function TaskRow({
   return (
     <div className="flex items-center gap-3 py-2">
       <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
-        <span className="truncate text-sm font-semibold text-label">{name}</span>
+        <span className={`mac-badge shrink-0 rounded-[4px] px-1.5 ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
+        <span className="truncate text-[13px] font-semibold text-label">{name}</span>
       </span>
       <span className="w-10 shrink-0 text-center text-[13px] text-label-2">{percent}%</span>
-      <span className="w-14 shrink-0 text-right font-mono text-base font-bold text-label">{score.toFixed(1)}</span>
+      <span className="w-14 shrink-0 text-right text-[14px] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
       <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
     </div>
   )
@@ -146,7 +148,7 @@ function ColumnSplitter({
       className="group relative hidden shrink-0 cursor-col-resize self-stretch xl:block xl:w-3"
     >
       <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/[0.08]" />
-      <span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gray-300 transition-colors group-hover:bg-accent group-active:bg-accent" />
+      <span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.15] transition-colors group-hover:bg-accent group-active:bg-accent" />
     </div>
   )
 }
@@ -160,7 +162,7 @@ const NOTE_COLOR_STYLES: Record<PersonalNoteColor, { bg: string; text: string; d
   violet: { bg: 'bg-violet-50', text: 'text-violet-700', dot: 'bg-violet-300' },
   blue: { bg: 'bg-accent-soft', text: 'text-accent', dot: 'bg-accent/40' },
   teal: { bg: 'bg-teal-50', text: 'text-teal-700', dot: 'bg-teal-300' },
-  green: { bg: 'bg-emerald-50', text: 'text-success', dot: 'bg-emerald-300' },
+  green: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-300' },
   orange: { bg: 'bg-orange-50', text: 'text-orange-700', dot: 'bg-orange-300' },
 }
 const NOTE_COLOR_ORDER: PersonalNoteColor[] = ['gray', 'pink', 'violet', 'blue', 'teal', 'green', 'orange']
@@ -401,7 +403,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }, [colorPickerFor])
 
   if (!member) {
-    return <p className="rounded-md bg-[#F7F7F9] px-4 py-6 text-center text-sm text-label-2">팀원을 찾을 수 없습니다.</p>
+    return <p className="rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[13px] text-label-2">팀원을 찾을 수 없습니다.</p>
   }
 
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
@@ -510,11 +512,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           <div className="flex flex-wrap items-center gap-5">
             <div className="shrink-0">
               <p className="flex items-baseline gap-2">
-                <span className="text-[22px] font-bold text-label">{member.name}</span>
+                <span className="text-[17px] font-semibold text-label">{member.name}</span>
                 <span className="text-[13px] text-label-2">{formatLevelTenureLabel(member.level, levelTenureYears) || '-'}</span>
               </p>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
                 <span className="text-label-2">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
               </div>
@@ -522,43 +524,34 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
             {promotionCriteria && (
               <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-xl bg-[#f8fafc] px-3 py-2">
+                <div className="flex items-center rounded-card bg-[#F7F7F9] px-3 py-2">
                   <div>
                     <p className="text-[13px] text-label-2">승진자격 점수</p>
-                    <p className="mt-1.5 text-[28px] font-bold leading-none text-label">{promotionCriteria.requiredScore.toFixed(1)}점</p>
+                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(1)}점</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 rounded-xl bg-[#f8fafc] px-3 py-2">
+                <div className="flex items-center gap-3 rounded-card bg-[#F7F7F9] px-3 py-2">
                   <div>
                     <p className="text-[13px] text-label-2">현재 점수</p>
-                    <p className="mt-1.5 text-[28px] font-bold leading-none text-label">{currentWeightedScore.toFixed(1)}점</p>
+                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-label">{currentWeightedScore.toFixed(1)}점</p>
                   </div>
-                  <span className="text-2xl text-label-3" aria-hidden="true">
-                    +
-                  </span>
+                  <Plus size={20} strokeWidth={1.75} className="text-label-3" aria-hidden="true" />
                   <div>
                     <p className="flex items-center gap-1 text-[13px] text-label-2" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
                       시뮬레이션 가산
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3 shrink-0">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="16" x2="12" y2="12" />
-                        <line x1="12" y1="8" x2="12.01" y2="8" />
-                      </svg>
+                      <Info size={13} strokeWidth={1.75} className="shrink-0" />
                     </p>
-                    <p className="mt-1.5 text-[28px] font-bold leading-none text-accent">
+                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-accent">
                       {simDelta >= 0 ? '+' : ''}
                       {simDelta.toFixed(1)}점
                     </p>
                   </div>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-label-3" aria-hidden="true">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
-                <div className="flex items-center rounded-xl bg-[#fffae8] px-3 py-2">
+                <ArrowRight {...icSm} className="shrink-0 text-label-3" aria-hidden="true" />
+                <div className="flex items-center rounded-card bg-warning/10 px-3 py-2">
                   <div>
                     <p className="text-[13px] text-label-2">최종 시뮬레이션 점수 ({reviewYear}년)</p>
-                    <p className="mt-1.5 text-[28px] font-bold leading-none text-[#e05221]">{projectedTotal.toFixed(1)}점</p>
+                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-warning">{projectedTotal.toFixed(1)}점</p>
                   </div>
                 </div>
               </div>
@@ -591,12 +584,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     if (!noteInput.trim()) setNoteAddOpen(false)
                   }}
                   placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                  className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-60 rounded-full text-[12px] text-label"
+                  className="h-7 w-60 rounded-full border border-hairline px-3 text-[13px] text-label"
                 />
                 <button
                   type="submit"
                   disabled={!noteInput.trim()}
-                  className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-[12px] font-semibold text-violet-700 hover:bg-violet-200 disabled:opacity-40"
+                  className="h-7 shrink-0 rounded-full bg-accent px-3 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
                 >
                   추가
                 </button>
@@ -604,9 +597,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             ) : (
               <button
                 onClick={() => setNoteAddOpen(true)}
-                className="shrink-0 rounded-full border border-dashed border-separator px-2.5 py-1 text-[12px] font-medium text-label-3 hover:border-violet-300 hover:text-violet-600"
+                className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-black/20 px-2.5 text-[13px] font-medium text-label-2 hover:border-accent hover:text-accent"
               >
-                + 메모
+                <Plus {...icSm} /> 메모
               </button>
             )}
 
@@ -615,7 +608,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 {personalNotes.map((note) => {
                   const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
                   return (
-                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-1 pl-1 pr-2 text-[12px]`}>
+                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-0.5 pl-1 pr-1.5 text-[13px]`}>
                       <button
                         onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
                         title="색상 변경"
@@ -623,12 +616,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                         className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
                       />
                       <span className="max-w-[220px] truncate">{note.content}</span>
-                      <button onClick={() => deletePersonalNote(note.id)} className="shrink-0 leading-none opacity-50 hover:opacity-100" aria-label="메모 삭제">
-                        ×
+                      <button onClick={() => deletePersonalNote(note.id)} className="flex shrink-0 items-center opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                        <X size={12} strokeWidth={2} />
                       </button>
 
                       {colorPickerFor === note.id && (
-                        <div className="absolute right-0 top-full z-20 mt-1.5 flex items-center gap-1.5 rounded-full border border-separator bg-white px-2.5 py-2 shadow-lg">
+                        <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 flex items-center gap-1.5 rounded-full px-2.5 py-2">
                           {NOTE_COLOR_ORDER.map((c) => (
                             <button
                               key={c}
@@ -669,7 +662,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <button
                   onClick={() => expandColumn('sim')}
                   title="성장 시뮬레이션 펼치기"
-                  className="[writing-mode:vertical-rl] text-base font-bold text-label hover:text-accent"
+                  className="[writing-mode:vertical-rl] text-[15px] font-semibold text-label hover:text-accent"
                 >
                   성장 시뮬레이션
                 </button>
@@ -677,9 +670,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   <button
                     onClick={() => setCriteriaManagerOpen(true)}
                     title="승진 기준 보기"
-                    className="[writing-mode:vertical-rl] text-[13px] font-semibold text-label-3 hover:text-accent"
+                    className="flex items-center gap-1 [writing-mode:vertical-rl] text-[13px] font-semibold text-label-3 hover:text-accent"
                   >
-                    ⓘ 기준 보기
+                    <Info {...icSm} /> 기준 보기
                   </button>
                 )}
               </div>
@@ -688,8 +681,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 title="성장 시뮬레이션"
                 headerBadge={
                   promotionCriteria && (
-                    <button onClick={() => setCriteriaManagerOpen(true)} className="shrink-0 text-[13px] font-semibold text-label-2 hover:text-accent">
-                      ⓘ 기준 보기
+                    <button onClick={() => setCriteriaManagerOpen(true)} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent">
+                      <Info {...icSm} /> 기준 보기
                     </button>
                   )
                 }
@@ -708,7 +701,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <button
                   onClick={() => expandColumn('perf')}
                   title="성과 펼치기"
-                  className="[writing-mode:vertical-rl] text-base font-bold text-label hover:text-accent"
+                  className="[writing-mode:vertical-rl] text-[15px] font-semibold text-label hover:text-accent"
                 >
                   성과
                 </button>
@@ -717,11 +710,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-4 px-1">
                   <div>
-                    <p className="text-[11px] font-semibold text-label-3">상하반기 성과 고과 추이</p>
+                    <p className="text-[13px] font-medium text-label-2">상하반기 성과 고과 추이</p>
                     <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-label-3">년도별 역량고과 추이</p>
+                    <p className="text-[13px] font-medium text-label-2">년도별 역량고과 추이</p>
                     <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
                   </div>
                 </div>
@@ -749,7 +742,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                               <>
                                 {/* 아직 안 매긴 등급은 빈칸이 아니라 '—'로
                                     보여준다 -- 빈칸이면 화면이 깨진 것처럼 보인다. */}
-                                <span className={`text-sm font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>
+                                <span className={`text-[13px] font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>
                                   {personalGrade ?? '—'}
                                 </span>
                                 <GradeNoteButton
@@ -788,7 +781,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             percent={t.contributionPercent}
                             score={t.personalScore}
                             gradeSlot={
-                              <span className={`text-sm font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>
+                              <span className={`text-[13px] font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>
                                 {t.personalGrade ?? '—'}
                               </span>
                             }
@@ -815,7 +808,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 <button
                   onClick={() => expandColumn('meeting')}
                   title="면담 펼치기"
-                  className="[writing-mode:vertical-rl] text-base font-bold text-label hover:text-accent"
+                  className="[writing-mode:vertical-rl] text-[15px] font-semibold text-label hover:text-accent"
                 >
                   면담
                 </button>

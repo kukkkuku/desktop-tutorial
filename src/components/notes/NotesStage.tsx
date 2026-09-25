@@ -1,20 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Plus, Users } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import MemberGrowthRail from './MemberGrowthRail'
 import MemberGrowthDetail from './MemberGrowthDetail'
 import MeetingSchedulePanel from './MeetingSchedulePanel'
 import PromotionHistoryImportModal from '../promotion/PromotionHistoryImportModal'
-
-function MembersIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
+import Button from '../Button'
+import { icSm } from '../ui/icon'
 
 // NotesSubTab/NotesNavigationRequest는 다른 화면(팀원 상세 Drawer 등)이
 // "이 팀원의 성장 관리 화면으로 이동"을 요청할 때 쓰는 진입점 계약이다.
@@ -74,7 +66,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
   // 3rem(48px)씩 짧아진다.
   return (
     <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] flex-col sm:-mx-6 lg:-mx-8">
-      <div className="shrink-0 border-b border-separator bg-black/[0.05]">
+      <div className="shrink-0 border-b border-separator bg-window">
         <MemberGrowthRail
           selectedMemberId={selectedMemberId}
           onSelectMember={setSelectedMemberId}
@@ -92,18 +84,15 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
             />
           ) : activeMembers.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
-              <MembersIcon className="h-10 w-10 text-label-3" />
+              <Users size={40} strokeWidth={1.5} className="text-label-3" />
               <p className="text-[13px] font-semibold text-label">아직 등록된 팀원이 없습니다</p>
               <p className="text-[13px] text-label-2">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
-              <button
-                onClick={onManageTeam}
-                className="mt-1 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-              >
-                + 팀원 추가하기
-              </button>
+              <Button variant="primary" onClick={onManageTeam} className="mt-1">
+                <Plus {...icSm} /> 팀원 추가하기
+              </Button>
             </div>
           ) : (
-            <p className="rounded-card border border-separator px-4 py-10 text-center text-sm text-label-2 m-6">
+            <p className="rounded-card border border-separator px-4 py-10 text-center text-[13px] text-label-2 m-6">
               위에서 팀원을 선택하세요.
             </p>
           )}

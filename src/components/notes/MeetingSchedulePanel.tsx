@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronsRight, RefreshCw, Trash2, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote } from '../../types'
@@ -8,6 +9,7 @@ import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, listTea
 import ConfirmDialog from '../ConfirmDialog'
 import IconButton from '../IconButton'
 import Button from '../Button'
+import { ic, icSm } from '../ui/icon'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -20,53 +22,6 @@ function fmtShort(date: string): string {
 }
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
-
-function Chevron({ dir, className }: { dir: 'left' | 'right'; className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d={dir === 'left' ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6'} />
-    </svg>
-  )
-}
-function CalendarIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  )
-}
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="M6 6l12 12" />
-    </svg>
-  )
-}
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  )
-}
-function SyncIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" />
-      <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" />
-      <path d="M3 16v4h4" />
-      <path d="M21 8V4h-4" />
-    </svg>
-  )
-}
 
 interface MeetingSchedulePanelProps {
   open: boolean
@@ -199,7 +154,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
   const syncButtonContent = (
     <>
-      <SyncIcon className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+      <RefreshCw {...icSm} className={syncing ? 'animate-spin' : ''} />
       {syncing ? '동기화 중…' : '일정 연동'}
     </>
   )
@@ -222,34 +177,34 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       <>
       <div className="flex w-fit shrink-0 flex-col items-stretch gap-2">
       {isCalendarConfigured() && (
-        <div className="rounded-card border border-separator bg-white px-2 py-1.5">
+        <div className="mac-card px-2 py-1.5">
           <button
             type="button"
             onClick={handleSyncCalendar}
             disabled={syncing}
             title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
-            className="flex items-center gap-1 whitespace-nowrap text-[12px] font-medium text-label-3 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-1 whitespace-nowrap text-[13px] font-medium text-label-2 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             {syncButtonContent}
           </button>
         </div>
       )}
-      <div className="rounded-card border border-separator bg-white p-3">
+      <div className="mac-card p-3">
         <button
           onClick={onToggle}
           title="면담 일정 펼치기"
-          className="mb-2 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-bold text-label hover:text-accent"
+          className="mb-2 flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-label hover:text-accent"
         >
-          <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-label-3" />
+          <Calendar {...icSm} className="shrink-0 text-label-2" />
           면담
         </button>
         {collapsedEntries.length === 0 ? (
-          <p className="whitespace-nowrap text-[12px] text-label-3">예정 없음</p>
+          <p className="whitespace-nowrap text-[13px] text-label-3">예정 없음</p>
         ) : (
           <div className="space-y-2">
             {collapsedEntries.map(({ date, entries }) => (
               <div key={date}>
-                <p className="whitespace-nowrap text-[11px] font-semibold text-label-2">{date === todayStr ? '오늘' : fmtShort(date)}</p>
+                <p className="whitespace-nowrap text-[13px] font-semibold text-label-2">{date === todayStr ? '오늘' : fmtShort(date)}</p>
                 {/* 한 날짜에 여러 명이면 옆으로 나열하지 않고 아래로 쌓아서
                     패널 너비가 늘어나지 않게 한다. */}
                 <div className="mt-1 flex flex-col items-start gap-1">
@@ -259,20 +214,20 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                     return (
                       <span
                         key={idx}
-                        className="flex max-w-[150px] items-center gap-1 rounded-full bg-black/[0.05] py-0.5 pl-1.5 pr-0.5 text-[11px] text-label-2 hover:bg-black/[0.08]"
+                        className="flex max-w-[150px] items-center gap-1 rounded-full bg-black/[0.05] py-0.5 pl-2 pr-0.5 text-[13px] text-label-2 hover:bg-black/[0.08]"
                       >
                         <button onClick={() => onSelectMember(member.id)} className="flex min-w-0 items-center gap-1">
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
                           <span className="truncate">{member.name}</span>
                         </button>
-                        <span className="h-2.5 w-px shrink-0 bg-gray-300" />
+                        <span className="h-2.5 w-px shrink-0 bg-black/15" />
                         <button
                           onClick={() => requestDeleteNote(note)}
                           title="면담 일정 삭제"
                           aria-label="면담 일정 삭제"
                           className="shrink-0 rounded-full p-0.5 text-label-3 hover:bg-white hover:text-danger"
                         >
-                          <CloseIcon className="h-2.5 w-2.5" />
+                          <X size={11} strokeWidth={2.25} />
                         </button>
                       </span>
                     )
@@ -336,41 +291,41 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
   return (
     <>
-    <div className="w-[300px] shrink-0 rounded-card border border-separator bg-white p-4">
+    <div className="w-[300px] shrink-0 mac-card p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="shrink-0 text-base font-bold text-label">면담 일정</h3>
+          <h3 className="shrink-0 text-[15px] font-semibold text-label">면담 일정</h3>
           {isCalendarConfigured() && (
             <button
               type="button"
               onClick={handleSyncCalendar}
               disabled={syncing}
               title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
-              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium text-label-3 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-w-0 items-center gap-1 whitespace-nowrap text-[13px] font-medium text-label-2 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               {syncButtonContent}
             </button>
           )}
         </div>
-        <button onClick={onToggle} title="접기" className="shrink-0 rounded-md px-1.5 text-label-3 hover:bg-black/[0.05]">
-          »
-        </button>
+        <IconButton onClick={onToggle} title="접기" aria-label="접기" className="shrink-0">
+          <ChevronsRight {...ic} />
+        </IconButton>
       </div>
-      {syncMessage && <p className="mt-1 text-[11px] text-label-3">{syncMessage}</p>}
+      {syncMessage && <p className="mt-1 text-[13px] text-label-2">{syncMessage}</p>}
 
       <div className="mt-3 flex items-center justify-between">
-        <IconButton onClick={() => setViewDate(new Date(year, month - 1, 1))} aria-label="이전 달" className="h-7 w-7">
-          <Chevron dir="left" className="h-4 w-4" />
+        <IconButton onClick={() => setViewDate(new Date(year, month - 1, 1))} aria-label="이전 달">
+          <ChevronLeft {...ic} />
         </IconButton>
-        <span className="text-sm font-semibold text-label">
+        <span className="text-[13px] font-semibold text-label">
           {year}년 {month + 1}월
         </span>
-        <IconButton onClick={() => setViewDate(new Date(year, month + 1, 1))} aria-label="다음 달" className="h-7 w-7">
-          <Chevron dir="right" className="h-4 w-4" />
+        <IconButton onClick={() => setViewDate(new Date(year, month + 1, 1))} aria-label="다음 달">
+          <ChevronRight {...ic} />
         </IconButton>
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[11px] text-label-3">
+      <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[13px] text-label-3">
         {WEEKDAY_LABELS.map((w) => (
           <span key={w}>{w}</span>
         ))}
@@ -384,7 +339,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             <button
               key={cell.date}
               onClick={() => setSelectedDate(cell.date)}
-              className={`flex h-8 flex-col items-center justify-center gap-0.5 rounded-md text-[12px] transition-colors ${
+              className={`flex h-8 flex-col items-center justify-center gap-0.5 rounded-control text-[13px] tabular-nums transition-colors ${
                 !cell.inMonth ? 'text-label-3 hover:bg-black/[0.03]' : isSelected ? 'bg-accent font-semibold text-white' : isToday ? 'bg-accent-soft font-semibold text-accent' : 'text-label hover:bg-black/[0.05]'
               }`}
             >
@@ -403,7 +358,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
 
       <div className="mt-3 flex flex-wrap gap-x-2.5 gap-y-1">
         {members.map((m, idx) => (
-          <span key={m.id} className="flex items-center gap-1 text-[11px] text-label-2">
+          <span key={m.id} className="flex items-center gap-1 text-[13px] text-label-2">
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
             {m.name}
           </span>
@@ -417,7 +372,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
             <p className="text-[13px] text-label-3">이 날짜에 등록된 면담이 없습니다.</p>
           ) : (
             dayNotes.map(({ member, idx, note }) => (
-              <div key={note.id} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 hover:bg-black/[0.05]">
+              <div key={note.id} className="flex w-full items-center gap-1.5 rounded-control px-2 py-1 hover:bg-black/[0.05]">
                 <button onClick={() => onSelectMember(member.id)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[13px]">
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
                   <span className="shrink-0 font-medium text-label">{member.name}</span>
@@ -425,25 +380,25 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                 </button>
                 <span className="h-4 w-px shrink-0 bg-black/[0.08]" />
                 <IconButton onClick={() => requestDeleteNote(note)} title="삭제" aria-label="삭제" tone="danger">
-                  <TrashIcon className="h-3.5 w-3.5" />
+                  <Trash2 {...icSm} />
                 </IconButton>
               </div>
             ))
           )}
-          <div className="mt-1 flex items-center gap-1.5 rounded-md border border-separator bg-[#F7F7F9] px-2 py-1.5">
-            <select value={addMemberId ?? ''} onChange={(e) => setAddMemberId(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 text-[12px] text-label">
+          <div className="mt-1 flex items-center gap-1.5 rounded-card bg-[#F7F7F9] px-2 py-1.5">
+            <select value={addMemberId ?? ''} onChange={(e) => setAddMemberId(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 text-label">
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
                 </option>
               ))}
             </select>
-            <Button variant="primary" onClick={addSchedule} className="shrink-0 text-[12px]">
+            <Button variant="primary" onClick={addSchedule} className="shrink-0">
               추가
             </Button>
           </div>
           {calendarError && (
-            <p className="rounded-md bg-danger/[0.06] px-2 py-1.5 text-[11px] text-danger">⚠️ 캘린더 등록 실패: {calendarError}</p>
+            <p className="flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2 py-1.5 text-[13px] text-danger"><AlertTriangle {...icSm} className="mt-0.5 shrink-0" />캘린더 등록 실패: {calendarError}</p>
           )}
         </div>
       </div>
@@ -453,7 +408,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         {todayMembers.length > 0 ? (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {todayMembers.map(({ member, idx, note }) => (
-              <span key={member.id} className="flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2 pr-0.5 text-[12px] font-semibold text-accent">
+              <span key={member.id} className="flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2 pr-0.5 text-[13px] font-medium text-accent">
                 <button onClick={() => onSelectMember(member.id)} className="flex items-center gap-1 hover:underline">
                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                   {member.name}
@@ -465,7 +420,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                   aria-label="면담 일정 삭제"
                   className="rounded-full p-0.5 text-accent/60 hover:bg-white hover:text-danger"
                 >
-                  <CloseIcon className="h-2.5 w-2.5" />
+                  <X size={11} strokeWidth={2.25} />
                 </button>
               </span>
             ))}
@@ -480,7 +435,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
           <p className="text-[13px] font-semibold text-label">이후 예정 ({upcoming.length}건)</p>
           <div className="mt-1.5 space-y-1.5">
             {upcoming.map(({ date, entries }) => (
-              <div key={date} className="flex items-center gap-2 text-[12px]">
+              <div key={date} className="flex items-center gap-2 text-[13px]">
                 <span className="shrink-0 font-medium text-label-2">{fmtShort(date)}</span>
                 <div className="flex flex-wrap gap-1">
                   {entries.map(({ idx, note }) => {
@@ -492,14 +447,14 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorForIndex(idx) }} />
                           {member.name}
                         </button>
-                        <span className="h-2.5 w-px shrink-0 bg-gray-300" />
+                        <span className="h-2.5 w-px shrink-0 bg-black/15" />
                         <button
                           onClick={() => requestDeleteNote(note)}
                           title="면담 일정 삭제"
                           aria-label="면담 일정 삭제"
                           className="rounded-full p-0.5 text-label-3 hover:bg-white hover:text-danger"
                         >
-                          <CloseIcon className="h-2.5 w-2.5" />
+                          <X size={11} strokeWidth={2.25} />
                         </button>
                       </span>
                     )

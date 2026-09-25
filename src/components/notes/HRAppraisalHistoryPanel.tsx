@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { Check, ChevronDown, ChevronUp, Pencil, Trash2, X } from 'lucide-react'
 import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useAppState } from '../../state/AppContext'
@@ -11,6 +12,7 @@ import ConfirmDialog from '../ConfirmDialog'
 import ResizableTh from '../table/ResizableTh'
 import Button from '../Button'
 import IconButton from '../IconButton'
+import { ic, icSm } from '../ui/icon'
 
 const APPRAISAL_COLUMNS = {
   year: 56,
@@ -24,8 +26,8 @@ const APPRAISAL_COLUMNS = {
 const GRADE_BADGE: Record<EvaluationGrade, string> = {
   S: 'text-accent bg-accent-soft',
   A: 'text-success bg-success/[0.08]',
-  B: 'text-yellow-600 bg-yellow-50',
-  C: 'text-orange-600 bg-orange-50',
+  B: 'text-label-2 bg-black/[0.05]',
+  C: 'text-warning bg-warning/10',
   D: 'text-danger bg-danger/[0.06]',
 }
 
@@ -66,8 +68,8 @@ function GradeScoreCell({
   if (!grade) return <span className="text-label-3">-</span>
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`rounded-full px-2 py-0.5 text-[13px] font-bold ${GRADE_BADGE[grade]}`}>{grade}</span>
-      <span className="font-mono text-[13px] text-label-2">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
+      <span className={`mac-badge ${GRADE_BADGE[grade]}`}>{grade}</span>
+      <span className="text-[13px] tabular-nums text-label-2">{(gradeScores[grade] * multiplier).toFixed(1)}</span>
     </span>
   )
 }
@@ -99,7 +101,7 @@ function InlineGradeSelect({
           </option>
         ))}
       </select>
-      <span className="font-mono text-[13px] text-label-2">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
+      <span className="text-[13px] tabular-nums text-label-2">{value ? (gradeScores[value] * multiplier).toFixed(1) : '-'}</span>
     </div>
   )
 }
@@ -195,8 +197,8 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </p>
 
       <div className="mt-3 overflow-x-auto rounded-card border border-separator">
-        <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth }}>
-          <thead className="bg-[#F3F4F6] text-label">
+        <table className="table-fixed text-left text-[13px]" style={{ width: '100%', minWidth: cols.totalWidth }}>
+          <thead className="bg-[#F7F7F9] text-label-2">
             <tr>
               {(
                 [
@@ -253,19 +255,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                         multiplier={2}
                       />
                     </td>
-                    <td className="px-3 py-2 font-mono font-semibold">{hasDraftGrade ? draftTotal.toFixed(1) : '-'}</td>
+                    <td className="px-3 py-2 font-semibold tabular-nums">{hasDraftGrade ? draftTotal.toFixed(1) : '-'}</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end gap-1">
                         <IconButton onClick={() => saveEdit(year, r?.id)} title="저장" aria-label="저장">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
+                          <Check {...ic} />
                         </IconButton>
                         <IconButton onClick={() => setEditingYear(null)} title="취소" aria-label="취소" tone="danger">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                          </svg>
+                          <X {...ic} />
                         </IconButton>
                       </div>
                     </td>
@@ -283,7 +280,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     <td className="px-3 py-2">-</td>
                     <td className="px-3 py-2">
                       <div className="flex justify-end">
-                        <Button variant="secondary" onClick={() => startEdit(year)}>
+                        <Button variant="secondary" size="sm" onClick={() => startEdit(year)}>
                           입력
                         </Button>
                       </div>
@@ -304,24 +301,15 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   <td className="px-3 py-2">
                     <GradeScoreCell grade={r.competencyGrade} gradeScores={profile.gradeScores} multiplier={2} />
                   </td>
-                  <td className="px-3 py-2 font-mono font-semibold">{yearGradeSum(r, profile.gradeScores).toFixed(1)}</td>
+                  <td className="px-3 py-2 font-semibold tabular-nums">{yearGradeSum(r, profile.gradeScores).toFixed(1)}</td>
                   <td className="px-3 py-2">
                     <div className="flex justify-end gap-1">
                       <IconButton onClick={() => startEdit(year, r)} title="수정" aria-label="수정">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                        <Pencil {...ic} />
                       </IconButton>
                       <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton onClick={() => setDeleting(r)} title="삭제" aria-label="삭제" tone="danger">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
+                        <Trash2 {...ic} />
                       </IconButton>
                     </div>
                   </td>
@@ -334,7 +322,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
               <td className="px-3 py-2 font-semibold" colSpan={4}>
                 최근 5개년 총합
               </td>
-              <td className="px-3 py-2 font-mono font-bold">{windowTotal.toFixed(1)}</td>
+              <td className="px-3 py-2 font-semibold tabular-nums">{windowTotal.toFixed(1)}</td>
               <td className="px-3 py-2" />
             </tr>
           </tfoot>
@@ -342,9 +330,9 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-        <p className="shrink-0 text-[11px] font-semibold text-label-2">보조지표</p>
+        <p className="shrink-0 text-[13px] font-semibold text-label">보조지표</p>
         {AUX_KEYS.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-1.5 text-[11px] text-label-3">
+          <label key={key} className="flex items-center gap-1.5 text-[13px] text-label-2">
             {label}
             <input
               type="number"
@@ -355,17 +343,18 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
             />
           </label>
         ))}
-        <span className="ml-auto shrink-0 text-[11px] text-label-3">합계 {auxSum}점</span>
+        <span className="ml-auto shrink-0 text-[13px] text-label-2">합계 {auxSum}점</span>
       </div>
 
       {extraYears.length > 0 && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-2 text-[13px] font-medium text-label-3 hover:text-accent">
-          {showAll ? '− 이전 기록 접기' : `이전 기록 ${extraYears.length}개 더보기 →`}
+        <button onClick={() => setShowAll((v) => !v)} className="mt-2 flex items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent">
+          {showAll ? <ChevronUp {...icSm} /> : <ChevronDown {...icSm} />}
+          {showAll ? '이전 기록 접기' : `이전 기록 ${extraYears.length}개 더보기`}
         </button>
       )}
 
       {records.length > 0 && (
-        <div className="mt-2 rounded-md border border-separator bg-[#F7F7F9] px-3 py-2 text-[13px] text-label">
+        <div className="mt-2 rounded-card bg-[#F7F7F9] px-3 py-2 text-[13px] text-label">
           <span className="text-label-2">업적</span> {achievementTrend} &nbsp;&nbsp;
           <span className="text-label-2">역량</span> {competencyTrend}
         </div>

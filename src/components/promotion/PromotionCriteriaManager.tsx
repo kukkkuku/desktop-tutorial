@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import type { EvaluationGrade } from '../../types'
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useTeamProfile } from '../../state/TeamContext'
@@ -7,6 +8,7 @@ import { useResizableColumns } from '../../hooks/useResizableColumns'
 import ResizableTh from '../table/ResizableTh'
 import Button from '../Button'
 import IconButton from '../IconButton'
+import { ic } from '../ui/icon'
 
 const CRITERIA_COLUMNS = {
   fromLevel: 100,
@@ -23,15 +25,6 @@ const TENURE_APPLIES_TO: Record<string, string> = {
   '3': '사원(정기), 대리(발탁)',
   '4': '대리(정기), 과장·차장(발탁)',
   '5': '과장·차장(정기)',
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  )
 }
 
 // 성과평가 기준(CriteriaPanel)과는 완전히 분리된, 승진 기준 전용 화면. 예전엔
@@ -72,24 +65,24 @@ export default function PromotionCriteriaManager({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-[12px] bg-white p-5 shadow-dialog">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-label">승진 기준</h3>
+            <h3 className="text-[15px] font-semibold text-label">승진 기준</h3>
             <p className="mt-1 text-[13px] text-label-2">
               성과평가 기준(기준 설정)과는 별개인 승진 제도 기준입니다. 첨부된 승진 제도 자료를 기준으로 합니다.
             </p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
-            <CloseIcon className="h-5 w-5" />
+            <X {...ic} />
           </IconButton>
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-label">직급별 승진자격기준</h4>
+          <h4 className="text-[13px] font-semibold text-label">직급별 승진자격기준</h4>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
-            <table className="table-fixed text-left text-sm" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
-              <thead className="bg-[#F3F4F6] text-label">
+            <table className="table-fixed text-left text-[13px]" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
+              <thead className="bg-[#F7F7F9] text-label-2">
                 <tr>
                   {(
                     [
@@ -157,7 +150,7 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-label">평가 등급 점수</h4>
+          <h4 className="text-[13px] font-semibold text-label">평가 등급 점수</h4>
           <p className="mt-0.5 text-[13px] text-label-2">
             인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다. <strong className="text-label">역량 등급은 이 점수의 2배</strong>로
             반영됩니다(업적(상)·업적(하)는 그대로, 역량만 ×2 — 인사평가 히스토리의 "역량 (×2)" 컬럼과 같은 계산입니다).
@@ -182,7 +175,7 @@ export default function PromotionCriteriaManager({
           ) : (
             <div className="mt-2 overflow-x-auto rounded-card border border-separator">
               <table className="w-full text-left text-[13px]">
-                <thead className="bg-[#F3F4F6] text-label">
+                <thead className="bg-[#F7F7F9] text-label-2">
                   <tr>
                     <th className="px-3 py-2 font-semibold">구분</th>
                     {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
@@ -216,13 +209,13 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-sm font-semibold text-label">연차별 가중치</h4>
+          <h4 className="text-[13px] font-semibold text-label">연차별 가중치</h4>
           <p className="mt-0.5 text-[13px] text-label-2">
             체류년수(정기/발탁 승진 트랙)에 따라 최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).
           </p>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
             <table className="w-full text-left text-[13px]">
-              <thead className="bg-[#F3F4F6] text-label">
+              <thead className="bg-[#F7F7F9] text-label-2">
                 <tr>
                   <th className="px-3 py-2 font-semibold">체류년수</th>
                   {['최근 1년차', '2년차', '3년차', '4년차', '5년차'].map((label) => (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check, X } from 'lucide-react'
 import type { TeamMember } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../../utils/promotionImport'
@@ -9,21 +10,13 @@ import {
 } from '../../hooks/useApplyPromotionHistory'
 import Spinner from '../Spinner'
 import IconButton from '../IconButton'
+import { ic } from '../ui/icon'
 
 // 적용 완료 후 이 시간(ms) 뒤 자동으로 onApplied를 부른다. 초록 버튼을 한 번
 // 더 눌러야 다음으로 넘어가는 구조였는데, 스크롤에 가려 그 버튼을 못 보고
 // "그대로 멈춰있다"고 느끼는 경우가 있었다. 결과를 잠깐 보여줄 시간만 주고
 // 자동으로 진행시키되, 사용자가 먼저 누르면(아래 버튼 onClick) 즉시 진행된다.
 const AUTO_ADVANCE_DELAY_MS = 900
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  )
-}
 
 interface AppliedSummary {
   memberCount: number
@@ -118,14 +111,14 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
     <div>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-bold text-label">인사평가 이력 엑셀로 가져오기</h3>
+          <h3 className="text-[15px] font-semibold text-label">인사평가 이력 엑셀로 가져오기</h3>
           <p className="mt-1 text-[13px] text-label-2">
             승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
             이름이 일치하는 현재 팀원에게 바로 적용합니다.
           </p>
         </div>
         <IconButton onClick={onDismiss} aria-label="닫기" className="shrink-0">
-          <CloseIcon className="h-5 w-5" />
+          <X {...ic} />
         </IconButton>
       </div>
 
@@ -143,14 +136,14 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
               if (f) handleFile(f)
             }}
             className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-4 py-8 text-center transition-colors ${
-              dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent'
+              dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent/50'
             }`}
           >
             {loading ? (
               <Spinner className="h-6 w-6 text-accent" />
             ) : (
               <>
-                <span className="text-sm font-medium text-label">
+                <span className="text-[13px] font-medium text-label">
                   {dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}
                 </span>
                 <span className="text-[13px] text-label-3">.xlsx</span>
@@ -169,7 +162,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
           </label>
         )}
 
-        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
 
         {matches && (
           <div className="mt-4">
@@ -192,16 +185,16 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                 압축해 자리를 덜 차지하게 했다. */}
             <ul className="mt-3 divide-y divide-separator rounded-card border border-separator">
               {matches.map(({ sheet, member, candidates }, index) => (
-                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-sm text-label">
+                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-label">
                   <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
                   <span className="shrink-0">
                     {member ? (
-                      <span className="text-[13px] font-medium text-success">연결됨</span>
+                      <span className="mac-badge bg-success/15 text-success">연결됨</span>
                     ) : candidates.length > 1 ? (
                       <select
                         value={manualPicks[index] ?? ''}
                         onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] border-accent text-label"
+                        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
                       >
                         <option value="">동명이인 {candidates.length}명 -- 선택</option>
                         {candidates.map((c) => (
@@ -236,30 +229,19 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
               <button
                 type="button"
                 onClick={applied ? onApplied : handleApply}
-                className={`mt-4 flex w-full items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-medium text-white transition-colors ${
-                  applied ? 'bg-success' : 'bg-accent hover:opacity-90'
+                className={`mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-control text-[13px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-colors ${
+                  applied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
                 }`}
               >
                 {applied && (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 shrink-0"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <Check {...ic} className="shrink-0" />
                 )}
                 {applied ? '적용 완료' : `${matchedCount}명에게 적용`}
               </button>
             )}
 
             {applied && (
-              <p className="mt-3 rounded-md bg-success/10 px-3 py-2.5 text-[13px] text-success">
+              <p className="mt-3 rounded-card bg-success/10 px-3 py-2.5 text-[13px] text-success">
                 {applied.memberCount}명, {applied.yearCount}개 연도 기록을 적용했습니다.
                 {applied.skipped > 0 && ` (매칭 안 된 ${applied.skipped}명은 건너뜀)`}
               </p>
@@ -276,7 +258,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
 export default function PromotionHistoryImportModal({ onClose, initialFile }: { onClose: () => void; initialFile?: File }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[12px] bg-white p-5 shadow-dialog">
         <PromotionHistoryImportPanel initialFile={initialFile} onApplied={onClose} onDismiss={onClose} />
       </div>
     </div>

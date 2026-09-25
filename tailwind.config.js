@@ -18,7 +18,7 @@ export default {
         label: { DEFAULT: '#1D1D1F', 2: '#6E6E73', 3: '#AEAEB2' },
         // 창 배경·컨트롤 배경·구분선
         window: '#F5F5F7',
-        control: '#FFFFFF',
+        surface: '#FFFFFF',
         separator: 'rgba(0, 0, 0, 0.1)',
         hairline: 'rgba(0, 0, 0, 0.14)',
       },
@@ -48,7 +48,7 @@ export default {
       },
       boxShadow: {
         // 버튼·입력칸: 머리카락 테두리 + 아주 옅은 그림자
-        control: '0 0 0 0.5px rgba(0,0,0,0.18), 0 1px 1.5px rgba(0,0,0,0.06)',
+        control: '0 0 0 1px rgba(0,0,0,0.13), 0 1px 1.5px rgba(0,0,0,0.05)',
         card: '0 0 0 0.5px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05)',
         // 팝오버·메뉴·달력
         pop: '0 0 0 0.5px rgba(0,0,0,0.14), 0 10px 32px rgba(0,0,0,0.16), 0 2px 6px rgba(0,0,0,0.06)',

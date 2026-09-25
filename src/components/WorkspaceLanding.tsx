@@ -90,7 +90,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
       className={`flex cursor-pointer flex-col gap-3 rounded-card bg-white p-5 text-left transition-shadow ${
-        isCurrent ? 'shadow-[0_0_0_1.5px_#007AFF,0_1px_3px_rgba(0,0,0,0.05)]' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
+        isCurrent ? 'shadow-card ring-[1.5px] ring-accent' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
     >
       {isCurrent && (

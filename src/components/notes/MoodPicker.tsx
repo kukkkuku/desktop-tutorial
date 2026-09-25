@@ -45,7 +45,7 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
             title={opt.label}
             aria-label={opt.label}
             className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
-              value === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-black/[0.03]'
+              value === opt.value ? 'bg-accent-soft ring-2 ring-accent' : 'hover:bg-black/[0.03]'
             }`}
           >
             <MoodIcon mood={opt.value} className="h-5 w-5" />
@@ -63,13 +63,13 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
         title={selected ? selected.label : '기분 선택'}
         aria-label={selected ? selected.label : '기분 선택'}
         className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-          selected ? 'bg-accent/5 ring-2 ring-accent' : 'bg-black/[0.05] hover:bg-black/[0.08]'
+          selected ? 'bg-accent-soft ring-2 ring-accent' : 'bg-black/[0.05] hover:bg-black/[0.08]'
         }`}
       >
         <MoodIcon mood={selected?.value ?? 'question'} className="h-8 w-8" />
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 z-20 mb-2 flex gap-1 rounded-card border border-separator bg-white p-1.5 shadow-lg">
+        <div className="mac-pop absolute bottom-full right-0 z-30 mb-1.5 flex gap-1 p-1.5">
           {MOOD_OPTIONS.map((opt) => (
             <button
               key={opt.value}
@@ -78,7 +78,7 @@ export default function MoodPicker({ value, onChange, compact }: MoodPickerProps
               title={opt.label}
               aria-label={opt.label}
               className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
-                value === opt.value ? 'bg-accent/10 ring-1 ring-accent' : 'hover:bg-black/[0.05]'
+                value === opt.value ? 'bg-accent-soft ring-1 ring-accent' : 'hover:bg-black/[0.05]'
               }`}
             >
               <MoodIcon mood={opt.value} className="h-7 w-7" />

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
+import { AlertTriangle, CalendarCheck, Pencil, Trash2, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -12,26 +13,7 @@ import DatePicker from '../DatePicker'
 import IconButton from '../IconButton'
 import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
 import MoodPicker from './MoodPicker'
-
-function XIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M18 6 6 18" />
-      <path d="M6 6l12 12" />
-    </svg>
-  )
-}
-function TrashIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  )
-}
+import { ic, icSm } from '../ui/icon'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
@@ -182,10 +164,10 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
   }
 
   const insightsBlock = insights.length > 0 && (
-    <div className="rounded-lg bg-[#F7F7F9]">
+    <div className="rounded-card bg-[#F7F7F9]">
       <div className="flex items-center gap-1.5 px-4 py-2.5">
         <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
-        <span className="text-sm font-bold text-accent">면담 인사이트</span>
+        <span className="text-[13px] font-semibold text-accent">면담 인사이트</span>
       </div>
       {insightsOpen && (
         <ul className="space-y-0.5 px-4 pb-3">
@@ -208,13 +190,13 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           쌓은 좁은 칸을 나란히 붙인다(따로 "코멘트"/"분위기" 라벨 없이
           placeholder와 아이콘 그 자체로 의미가 드러난다). */}
       <div className="flex items-center gap-2">
-        <h3 className="shrink-0 text-sm font-bold text-label">면담일지</h3>
+        <h3 className="shrink-0 text-[13px] font-semibold text-label">면담일지</h3>
         <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
       </div>
 
       {calendarError && (
-        <p className="mt-1.5 rounded-md bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
-          ⚠️ 면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
+          <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
         </p>
       )}
 
@@ -244,7 +226,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           있게 한다. */}
       <div className="mt-3 flex items-center gap-1.5">
         <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
-        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[13px] font-medium text-label-3 hover:text-accent">
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[13px] font-medium text-label-2 hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
       </div>
@@ -252,15 +234,15 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
       {detailsOpen && (
         <div className="mt-2 flex flex-col gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-label-3">강점</label>
+            <label className="block text-[13px] font-medium text-label-2">강점</label>
             <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-label-3">보완 필요</label>
+            <label className="block text-[13px] font-medium text-label-2">보완 필요</label>
             <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-label-3">다음 도전 경험</label>
+            <label className="block text-[13px] font-medium text-label-2">다음 도전 경험</label>
             <input
               type="text"
               value={nextExperience}
@@ -270,7 +252,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-label-3">Career Goal</label>
+            <label className="block text-[13px] font-medium text-label-2">Career Goal</label>
             <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
           </div>
         </div>
@@ -284,8 +266,8 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
       <div className="flex flex-wrap items-center gap-1.5">
         <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
-        <h4 className="text-sm font-bold text-label">면담 기록</h4>
-        <span className="rounded bg-black/[0.05] px-2 py-0.5 text-[11px] font-semibold text-label-2">최근 {notes.length}건</span>
+        <h4 className="text-[13px] font-semibold text-label">면담 기록</h4>
+        <span className="mac-badge bg-black/[0.05] text-label-2">최근 {notes.length}건</span>
       </div>
 
       {pastOpen && (
@@ -302,7 +284,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F7F7F9] ring-1 ring-separator">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
                     </span>
                   )}
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
@@ -312,7 +294,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                     <DatePicker value={editDate} onChange={setEditDate} ariaLabel="면담 일자" clearable={false} />
                     <div className="flex shrink-0 items-center gap-1">
                       <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
-                        <XIcon className="h-4 w-4" />
+                        <X {...ic} />
                       </IconButton>
                       <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton
@@ -324,7 +306,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                         aria-label="삭제"
                         tone="danger"
                       >
-                        <TrashIcon className="h-4 w-4" />
+                        <Trash2 {...ic} />
                       </IconButton>
                     </div>
                   </div>
@@ -349,7 +331,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                             title={opt.label}
                             aria-label={opt.label}
                             className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
-                              editMood === opt.value ? 'bg-accent/5 ring-2 ring-accent' : 'hover:bg-black/[0.03]'
+                              editMood === opt.value ? 'bg-accent-soft ring-2 ring-accent' : 'hover:bg-black/[0.03]'
                             }`}
                           >
                             <MoodIcon mood={opt.value} className="h-5 w-5" />
@@ -370,7 +352,7 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F7F7F9] ring-1 ring-separator">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
                     </span>
                   )}
                   {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
@@ -378,13 +360,12 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
-                      <span className="text-sm font-normal text-label">{note.date}</span>
+                      <span className="text-[13px] tabular-nums text-label">{note.date}</span>
                       {i === 0 && <span className="text-[13px] text-label-3">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
-                        <span title="Google 캘린더에 등록됨" className="flex h-5 w-5 shrink-0 flex-col overflow-hidden rounded-[3px] border border-[#bcc1cd]">
-                          <span className="h-1.5 w-full shrink-0 bg-[#a35c5c]" />
-                          <span className="flex flex-1 items-center justify-center bg-[#e5e7eb] text-[9px] font-bold text-[#555]">{note.date.slice(8, 10)}</span>
+                        <span title="Google 캘린더에 등록됨" className="flex shrink-0 text-accent">
+                          <CalendarCheck {...icSm} />
                         </span>
                       )}
                     </span>
@@ -399,20 +380,11 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
                         title="수정"
                         aria-label="수정"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M12 20h9" />
-                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                        </svg>
+                        <Pencil {...ic} />
                       </IconButton>
                       <span className="h-4 w-px bg-black/[0.08]" />
                       <IconButton onClick={() => setDeletingNote(note)} title="삭제" aria-label="삭제" tone="danger">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
+                        <Trash2 {...ic} />
                       </IconButton>
                     </div>
                   </div>

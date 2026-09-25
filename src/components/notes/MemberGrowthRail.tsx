@@ -1,3 +1,4 @@
+import { Upload } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
@@ -5,18 +6,9 @@ import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../.
 import { calcYearsSince } from '../../utils/tenure'
 import Badge from '../Badge'
 import Button from '../Button'
+import { ic } from '../ui/icon'
 import type { TeamMember } from '../../types'
 import { peerInputsOf } from '../../utils/peerScores'
-
-function UploadIcon({ className }: { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
 
 interface MemberGrowthRailProps {
   selectedMemberId: string | null
@@ -71,10 +63,10 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
               key={member.id}
               onClick={() => onSelectMember(member.id)}
               className={`flex min-w-[88px] flex-[1_1_200px] items-center gap-1.5 overflow-hidden rounded-t-lg px-3 py-2.5 text-left transition-colors ${
-                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-black/[0.05] hover:bg-black/[0.08]/70'
+                isSelected ? 'bg-white shadow-[0_-1px_0_rgba(0,0,0,0.04)]' : 'bg-black/[0.04] hover:bg-black/[0.07]'
               }`}
             >
-              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded px-1 text-[11px] font-bold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
+              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
                 {grade ?? '-'}
               </span>
               <span className={`min-w-0 truncate text-[13px] font-semibold ${isSelected ? 'text-label' : 'text-label-2'}`}>{member.name}</span>
@@ -87,12 +79,9 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
           )
         })
       )}
-      <button
-        onClick={onManageTeam}
-        className="mb-1 ml-2 shrink-0 rounded-md px-2.5 py-1.5 text-[13px] font-semibold text-label-3 hover:bg-white/60 hover:text-accent"
-      >
+      <Button variant="ghost" size="sm" onClick={onManageTeam} className="mb-1 ml-2">
         팀원 관리
-      </button>
+      </Button>
 
       {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 한 번에 여러 팀원에게
           적용되므로 특정 팀원 화면이 아니라 탭 바 우측(전체 팀원 대상)에 둔다.
@@ -103,7 +92,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
         onClick={onImportHistory}
         className="mb-1 ml-auto shrink-0 whitespace-nowrap"
       >
-        <UploadIcon className="h-4 w-4" /> 지난 성과 엑셀파일 불러오기
+        <Upload {...ic} /> 지난 성과 엑셀파일 불러오기
       </Button>
     </div>
   )

@@ -10,7 +10,7 @@
 | 강조색 | `accent`, `accent-hover`, `accent-soft` | macOS 시스템 블루 #007AFF / 누름 #0066D6 / 옅은 바탕 #E8F1FF |
 | 상태색 | `success`, `danger`, `warning` | #28A745 / #FF3B30 / #FF9500 |
 | 글자 | `text-label`, `text-label-2`, `text-label-3` | 본문 #1D1D1F / 보조 #6E6E73 / 흐림 #AEAEB2 |
-| 배경 | `bg-window`, `bg-control`(흰색) | 창·툴바 #F5F5F7 |
+| 배경 | `bg-window`, `bg-surface`(흰색) | 창·툴바 #F5F5F7 |
 | 선 | `border-separator`, `border-hairline` | 구분선 rgba(0,0,0,.1) / 컨트롤 테두리 |
 | 모서리 | `rounded-control`(6), `rounded-card`(10), `rounded-pop`(10) | 버튼·입력 / 카드 / 팝오버 |
 | 그림자 | `shadow-control`, `shadow-card`, `shadow-pop`, `shadow-dialog`, `shadow-focus` | |
