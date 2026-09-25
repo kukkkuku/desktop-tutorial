@@ -290,6 +290,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   const activeRow = active ? rows[active.r] : undefined
   const activeCol = active ? columns[active.c] : undefined
+  // 고르기만 하는 칸(한 개, 새 값 입력 없음): 찾기 입력칸을 보이지 않고 칩 목록만 띄운다.
+  const plainPick = editing && !!activeCol?.picker && !activeCol.picker.multi && !activeCol.picker.allowNew
 
   // 투명 입력칸을 활성 칸 위로 옮긴다.
   useLayoutEffect(() => {
@@ -1377,7 +1379,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               }}
               spellCheck={false}
               className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[13.5px] leading-snug outline-none ${
-                editing
+                editing && !plainPick
                   ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
                   : 'pointer-events-none bg-transparent text-transparent caret-transparent shadow-none'
               }`}
@@ -1390,7 +1392,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               }}
               aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
               placeholder={
-                editing && activeCol?.picker
+                editing && activeCol?.picker && !plainPick
                   ? activeCol.picker.allowNew
                     ? '찾기 · 없으면 입력 후 Enter'
                     : '찾기'
@@ -1439,7 +1441,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 aria-multiselectable={activeCol.picker.multi ? 'true' : undefined}
                 onMouseDown={(e) => e.preventDefault()}
                 className="mac-pop fixed z-[60] text-sm"
-                style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: popPos.width }}
+                style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: plainPick ? undefined : popPos.width }}
               >
                 <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto p-2.5">
                   {filteredOptions.map((n, i) => {
@@ -1496,12 +1498,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     <p className="text-xs text-gray-400">{activeCol.picker.options.length ? '맞는 값이 없습니다' : '고를 값이 없습니다. 입력해서 추가하세요.'}</p>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3 border-t border-gray-100 px-3 py-1.5 text-[11px] text-gray-400">
-                  <span>
-                    {activeCol.picker.multi ? '눌러서 넣기·빼기' : '눌러서 고르기'}
-                    {activeCol.picker.allowNew ? ' · 없으면 입력 후 Enter' : ''} · Esc 취소
-                  </span>
-                  {activeCol.picker.multi && (
+                {activeCol.picker.multi && (
+                <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[13px]">
+                  {(
                     <button
                       onMouseDown={(e) => {
                         e.preventDefault()
@@ -1513,6 +1512,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     </button>
                   )}
                 </div>
+                )}
               </div>,
               document.body,
             )}
