@@ -1376,10 +1376,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 if (editing && !menu) commitEdit()
               }}
               spellCheck={false}
-              className={`absolute z-10 resize-none px-2 py-[7px] text-[13.5px] leading-snug outline-none ${
+              className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[13.5px] leading-snug outline-none ${
                 editing
                   ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
-                  : 'pointer-events-none bg-transparent text-transparent caret-transparent'
+                  : 'pointer-events-none bg-transparent text-transparent caret-transparent shadow-none'
               }`}
               style={{
                 left: sinkBox.left,
