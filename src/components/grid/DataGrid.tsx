@@ -1261,7 +1261,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       }`}
                       title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                     >
-                      <DragGrip active={rowSelected} />
+                      <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
                       <span className="inline-flex items-center gap-1">
                         {props.rowNumber ? props.rowNumber(row, r) : r + 1}
                         {props.rowMarker?.(row)}
@@ -1279,7 +1279,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
                         title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
                       >
-                        {noNum && <DragGrip active={rowSelected} />}
+                        {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
                         {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
                         <input
                           type="checkbox"
