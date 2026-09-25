@@ -18,6 +18,8 @@ import TrendSparkline from './TrendSparkline'
 import PromotionDatePicker from '../PromotionDatePicker'
 import CollapseToggleButton from '../CollapseToggleButton'
 import { peerInputsOf } from '../../utils/peerScores'
+import { buildMeetingInsights } from '../../utils/meetingInsights'
+import MemberPeerPanel, { memberPeerSummary } from './MemberPeerPanel'
 import { icSm } from '../ui/icon'
 import { CHIP_BASE } from '../grid/DataGrid'
 
@@ -46,8 +48,8 @@ function SectionCard({
   bodyRef?: React.Ref<HTMLDivElement>
 }) {
   return (
-    <div className="h-full rounded-card border border-separator bg-white p-5">
-      <span className="flex items-center justify-between gap-2">
+    <div className="h-full">
+      <span className="flex min-h-[28px] items-center justify-between gap-2 px-1">
         <h3 className="text-[15px] font-semibold text-label">{title}</h3>
         {headerBadge}
       </span>
@@ -104,24 +106,65 @@ function TaskRow({
   percent,
   score,
   gradeSlot,
+  subItems,
 }: {
   importance: Importance
   name: string
   percent: number
   score: number
   gradeSlot: React.ReactNode
+  // 이 평가과제(그룹)에 묶인 L3 중 이 팀원이 맡은 것 -- 그룹 이름만으로는 무엇을 했는지 모르므로 펼쳐 본다.
+  subItems?: { id: string; name: string; status: string; start: string; done: string }[]
 }) {
+  const [open, setOpen] = useState(false)
+  const hasSub = !!subItems && subItems.length > 0
   return (
-    <div className="flex items-center gap-3 py-2">
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className={`mac-badge shrink-0 rounded-[4px] px-1.5 ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
-        <span className="truncate text-[13px] font-semibold text-label">{name}</span>
-      </span>
-      <span className="w-10 shrink-0 text-center text-[13px] text-label-2">{percent}%</span>
-      <span className="w-14 shrink-0 text-right text-[14px] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
-      <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
+    <div className="py-2">
+      <div className="flex items-center gap-3">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className={`mac-badge shrink-0 rounded-[4px] px-1.5 ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
+          {hasSub ? (
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="flex min-w-0 items-center gap-1 text-left hover:text-accent"
+              title={open ? 'L3 접기' : 'L3 펼치기'}
+            >
+              <span className="truncate text-[13px] font-semibold text-label">{name}</span>
+              <span className="shrink-0 text-[12px] text-label-3">{subItems!.length}</span>
+              <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${open ? '' : '-rotate-90'}`} />
+            </button>
+          ) : (
+            <span className="truncate text-[13px] font-semibold text-label">{name}</span>
+          )}
+        </span>
+        <span className="w-10 shrink-0 text-center text-[13px] text-label-2">{percent}%</span>
+        <span className="w-14 shrink-0 text-right text-[14px] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
+        <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
+      </div>
+      {open && hasSub && (
+        <ul className="mt-1.5 space-y-1 rounded-control bg-[#F7F7F9] px-3 py-2">
+          {subItems!.map((w) => (
+            <li key={w.id} className="flex items-center gap-2 text-[13px]">
+              <span className="min-w-0 flex-1 truncate text-label" title={w.name}>
+                {w.name}
+              </span>
+              {w.status && <span className={`${CHIP_BASE} !px-2 !py-0 ${WORK_STATUS_TONE[w.status] ?? 'bg-black/[0.05] text-label-2'}`}>{w.status}</span>}
+              <span className="w-[150px] shrink-0 text-right text-[12px] tabular-nums text-label-3">
+                {w.start || w.done ? `${w.start || '?'} ~ ${w.done}` : ''}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
+}
+
+const WORK_STATUS_TONE: Record<string, string> = {
+  대기: 'bg-black/[0.05] text-label-2',
+  진행중: 'bg-accent-soft text-accent',
+  완료: 'bg-emerald-100 text-emerald-800',
+  중단: 'bg-red-100 text-red-700',
 }
 
 // 좌우 폭 조절용 스플리터 손잡이 -- 기준설정(CriteriaPanel) 화면과 같은
@@ -179,7 +222,10 @@ interface MemberGrowthDetailProps {
 // [b1,1] 세 구간. 성장 시뮬레이션(첫 컬럼)은 기본값이 슬림 바 폭(아래
 // SIM_COLLAPSED_WIDTH)이 되도록 마운트 시점에 실측해서 보정하고, 나머지
 // 폭은 최근 성과/면담이 반씩 나눠 갖는다.
-const DEFAULT_BOUNDS: [number, number] = [0.05, 0.525]
+// 네 컬럼(성장 시뮬레이션 / 성과 / 피어리뷰 / 면담)의 경계 3개.
+const DEFAULT_BOUNDS = [0.05, 0.43, 0.63]
+// 성장 시뮬레이션을 뺀 나머지 폭을 성과·피어리뷰·면담이 나누는 기본 비율
+const DEFAULT_SHARES = [0.4, 0.22, 0.38]
 // 성장 시뮬레이션 컬럼의 기본(마운트 시) 슬림 폭(px) -- 버튼으로 접는 게
 // 아니라 스플리터로 이 폭 근처까지 줄이면 자동으로 슬림 바 모습이 된다.
 const SIM_COLLAPSED_WIDTH = 64
@@ -210,18 +256,20 @@ const SPLITTER_WIDTH = 12
 // containerWidth와 정확히 같아지게 한다(그래야 열린 컬럼이 bounds가
 // 가리키는 것보다 실제로는 더 좁아져 있는데 접힌 컬럼만 64px로 고정해버려
 // 우측 여백이 밀려나거나 컨테이너를 넘치는 문제가 생기지 않는다).
-function computeColumnWidths(bounds: [number, number], containerWidth: number, narrow: [boolean, boolean, boolean]): [number, number, number] {
-  const available = Math.max(0, containerWidth - SPLITTER_WIDTH * 2)
-  const raw: [number, number, number] = [bounds[0] * available, (bounds[1] - bounds[0]) * available, (1 - bounds[1]) * available]
+function computeColumnWidths(bounds: number[], containerWidth: number, narrow: boolean[]): number[] {
+  const n = narrow.length
+  const available = Math.max(0, containerWidth - SPLITTER_WIDTH * (n - 1))
+  const edges = [0, ...bounds, 1]
+  const raw = narrow.map((_, i) => (edges[i + 1] - edges[i]) * available)
   const pinnedSum = narrow.reduce((sum, isNarrow) => sum + (isNarrow ? COL_MIN_WIDTH : 0), 0)
-  const openIndices = [0, 1, 2].filter((i) => !narrow[i])
+  const openIndices = narrow.map((_, i) => i).filter((i) => !narrow[i])
   const openRawSum = openIndices.reduce((sum, i) => sum + raw[i], 0)
   const remaining = Math.max(0, available - pinnedSum)
   return raw.map((w, i) => {
     if (narrow[i]) return COL_MIN_WIDTH
     if (openRawSum <= 0) return remaining / (openIndices.length || 1)
     return (w / openRawSum) * remaining
-  }) as [number, number, number]
+  })
 }
 
 // 팀원 성장 관리 상세 -- 상단 팀원 탭에서 선택한 팀원의 통합 화면. 상단
@@ -253,9 +301,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
   const noteStripRef = useRef<HTMLDivElement>(null)
 
-  const [bounds, setBounds] = useState<[number, number]>(DEFAULT_BOUNDS)
+  const [bounds, setBounds] = useState<number[]>(DEFAULT_BOUNDS)
   const rowRef = useRef<HTMLDivElement>(null)
-  const dragRef = useRef<{ handle: 0 | 1; startX: number; startBounds: [number, number]; containerWidth: number } | null>(null)
+  const dragRef = useRef<{ handle: number; startX: number; startBounds: number[]; containerWidth: number } | null>(null)
   const boundsInitialized = useRef(false)
 
   // 컬럼 폭은 실제 DOM을 각자 재는 대신 bounds(경계 비율) x 컨테이너 실측
@@ -279,7 +327,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       if (!boundsInitialized.current && width > 0) {
         boundsInitialized.current = true
         const b0 = SIM_COLLAPSED_WIDTH / width
-        setBounds([b0, b0 + (1 - b0) / 2])
+        const rest = 1 - b0
+        setBounds([b0, b0 + rest * DEFAULT_SHARES[0], b0 + rest * (DEFAULT_SHARES[0] + DEFAULT_SHARES[1])])
       }
     }
     update()
@@ -294,25 +343,21 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     return () => window.removeEventListener('resize', update)
   }, [])
 
-  const simWidthPx = bounds[0] * containerWidth
-  const perfWidthPx = (bounds[1] - bounds[0]) * containerWidth
-  const meetingWidthPx = (1 - bounds[1]) * containerWidth
-  const simNarrow = isXl && containerWidth > 0 && simWidthPx < COL_NARROW_THRESHOLD
-  const perfNarrow = isXl && containerWidth > 0 && perfWidthPx < COL_NARROW_THRESHOLD
-  const meetingNarrow = isXl && containerWidth > 0 && meetingWidthPx < MEETING_NARROW_THRESHOLD
-  // 면담 컬럼이 3등분 영역 전체 폭의 절반 이상을 차지하면 내부를
-  // 좌(인사이트+기록)/우(작성 폼)로 나눈다 -- 스플리터로 넓혀도, 아래
-  // expandColumn('meeting')으로 한번에 펼쳐도 똑같이 이 계산으로 판단한다.
-  const meetingSplit = isXl && containerWidth > 0 && meetingWidthPx >= containerWidth * MEETING_SPLIT_RATIO
-  // 최근 성과 표 폭 -- 좁으면 개인등급 근거를 아이콘만, 넓으면 아이콘+짧은
-  // 미리보기로 보여준다. xl 미만(쌓인 레이아웃)에서는 컬럼 폭이 곧
-  // 컨테이너 전체 폭이다.
-  const recentColWide = isXl ? perfWidthPx >= WIDE_COL_THRESHOLD : containerWidth >= WIDE_COL_THRESHOLD
-  // 세 컬럼의 실제 렌더 폭(px) -- xl 미만에서는 각 컬럼이 w-full로 쌓이므로
-  // null(스타일 미적용)로 둔다.
-  const colWidths = isXl && containerWidth > 0 ? computeColumnWidths(bounds, containerWidth, [simNarrow, perfNarrow, meetingNarrow]) : null
+  const edges = [0, ...bounds, 1]
+  const widthPx = (i: number) => (edges[i + 1] - edges[i]) * containerWidth
+  const measured = isXl && containerWidth > 0
+  const simNarrow = measured && widthPx(0) < COL_NARROW_THRESHOLD
+  const perfNarrow = measured && widthPx(1) < COL_NARROW_THRESHOLD
+  const peerNarrow = measured && widthPx(2) < COL_NARROW_THRESHOLD
+  const meetingNarrow = measured && widthPx(3) < MEETING_NARROW_THRESHOLD
+  // 면담 컬럼이 전체 폭의 절반 이상이면 내부를 좌(인사이트+기록)/우(작성 폼)로 나눈다.
+  const meetingSplit = measured && widthPx(3) >= containerWidth * MEETING_SPLIT_RATIO
+  // 최근 성과 표 폭 -- 좁으면 개인등급 근거를 아이콘만, 넓으면 아이콘+짧은 미리보기.
+  const recentColWide = isXl ? widthPx(1) >= WIDE_COL_THRESHOLD : containerWidth >= WIDE_COL_THRESHOLD
+  // 네 컬럼의 실제 렌더 폭(px) -- xl 미만에서는 w-full로 쌓이므로 null.
+  const colWidths = measured ? computeColumnWidths(bounds, containerWidth, [simNarrow, perfNarrow, peerNarrow, meetingNarrow]) : null
 
-  function makeSplitterHandlers(handle: 0 | 1) {
+  function makeSplitterHandlers(handle: number) {
     return {
       onPointerDown: (e: ReactPointerEvent) => {
         e.preventDefault()
@@ -324,16 +369,13 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
         if (!dragRef.current || dragRef.current.handle !== handle) return
         const { startX, startBounds, containerWidth } = dragRef.current
         const delta = (e.clientX - startX) / containerWidth
-        // 세 컬럼 모두 같은 최소 픽셀폭까지 줄일 수 있다 -- 어느 컬럼이든
-        // 스플리터로 좁히면 슬림 바가 될 수 있어야 한다는 요구사항.
+        // 모든 컬럼을 같은 최소 픽셀폭까지 줄일 수 있다(좁히면 슬림 바가 된다).
         const minPx = COL_MIN_WIDTH / containerWidth
-        if (handle === 0) {
-          const next0 = Math.min(startBounds[1] - minPx, Math.max(minPx, startBounds[0] + delta))
-          setBounds([next0, startBounds[1]])
-        } else {
-          const next1 = Math.min(1 - minPx, Math.max(startBounds[0] + minPx, startBounds[1] + delta))
-          setBounds([startBounds[0], next1])
-        }
+        const lo = (handle === 0 ? 0 : startBounds[handle - 1]) + minPx
+        const hi = (handle === startBounds.length - 1 ? 1 : startBounds[handle + 1]) - minPx
+        const next = [...startBounds]
+        next[handle] = Math.min(hi, Math.max(lo, startBounds[handle] + delta))
+        setBounds(next)
       },
       onPointerUp: () => {
         dragRef.current = null
@@ -342,6 +384,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }
   const splitter0 = makeSplitterHandlers(0)
   const splitter1 = makeSplitterHandlers(1)
+  const splitter2 = makeSplitterHandlers(2)
 
   // 팀원을 전환하면 이전 팀원에서 열어둔 메모 입력창/성과 카드 펼침 상태가
   // 그대로 남지 않도록 초기화한다.
@@ -366,29 +409,23 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 드래그하는 대신 한 번에, 내용이 깨지지 않는 최소 폭(EXPAND_TARGET_WIDTH)
   // 까지 곧바로 펼친다. 성장 시뮬레이션은 b0(첫 경계선)를, 성과는
   // b0는 그대로 두고 b1을, 면담은 반대로 b1을 옮겨 폭을 확보한다.
-  function expandColumn(which: 'sim' | 'perf' | 'meeting') {
+  function expandColumn(which: 'sim' | 'perf' | 'peer' | 'meeting') {
     const containerWidth = rowRef.current?.getBoundingClientRect().width
     if (!containerWidth) return
     const minFrac = COL_MIN_WIDTH / containerWidth
-    if (which === 'sim') {
-      const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
-      setBounds(([, b1]) => {
-        const next0 = Math.max(minFrac, Math.min(b1 - minFrac, targetFrac))
-        return [next0, b1]
-      })
-      return
-    }
-    setBounds(([b0]) => {
-      if (which === 'perf') {
-        const targetFrac = EXPAND_TARGET_WIDTH / containerWidth
-        const next1 = Math.max(b0 + minFrac, Math.min(1 - minFrac, b0 + targetFrac))
-        return [b0, next1]
+    const target = EXPAND_TARGET_WIDTH / containerWidth
+    setBounds((cur) => {
+      const next = [...cur]
+      const edgesNow = [0, ...cur, 1]
+      if (which === 'meeting') {
+        // 면담은 펼치자마자 전체의 절반을 차지해 곧바로 좌우 분할 레이아웃이 되게 한다.
+        next[2] = Math.min(1 - minFrac, Math.max(cur[1] + minFrac, 1 - MEETING_SPLIT_RATIO))
+        return next
       }
-      // 면담은 펼치자마자 전체 영역의 절반을 차지하도록 열어, 곧바로
-      // 좌우분할(인사이트+기록 / 작성 폼) 레이아웃이 그 자체로 "고유
-      // 기본 크기"가 되게 한다.
-      const next1 = Math.min(1 - minFrac, Math.max(b0 + minFrac, 1 - MEETING_SPLIT_RATIO))
-      return [b0, next1]
+      // 나머지는 오른쪽 경계를 밀어 최소 폭(EXPAND_TARGET_WIDTH)까지 연다.
+      const i = which === 'sim' ? 0 : which === 'perf' ? 1 : 2
+      next[i] = Math.max(edgesNow[i] + minFrac, Math.min(edgesNow[i + 2] - minFrac, edgesNow[i] + target))
+      return next
     })
   }
 
@@ -415,7 +452,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
   const appraisals = profile.hrAppraisals.filter((r) => r.memberId === memberId).sort((a, b) => a.year - b.year)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
-  const readiness = calcPromotionReadiness(member.level, appraisals, profile.promotionCriteria, profile.gradeScores, auxScoreSum(member.auxScores), levelTenureYears)
+  const readiness = calcPromotionReadiness(
+    member.level,
+    appraisals,
+    profile.promotionCriteria,
+    profile.gradeScores,
+    auxScoreSum(member.auxScores),
+    levelTenureYears,
+  )
 
   // 요약카드(승진자격 점수/현재 점수/시뮬레이션 가산/최종 시뮬레이션 점수) --
   // 팀장이 화면을 열자마자 가장 먼저 봐야 할 숫자라 성장 시뮬레이션 패널
@@ -437,7 +481,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }
 
   const projectedTotal = promotionCriteria
-    ? calcProjectedPromotionScore(appraisals, profile.gradeScores, promotionCriteria, reviewYear, auxScoreSum(member.auxScores), reviewKindOf(member.promotionReviewDate)).projectedTotal
+    ? calcProjectedPromotionScore(
+        appraisals,
+        profile.gradeScores,
+        promotionCriteria,
+        reviewYear,
+        auxScoreSum(member.auxScores),
+        reviewKindOf(member.promotionReviewDate),
+      ).projectedTotal
     : 0
   const simDelta = Math.round((projectedTotal - currentWeightedScore) * 10) / 10
 
@@ -476,6 +527,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 현재 기간 카드 바로 아래에 이어서 각자 접을 수 있는 카드로 보여준다.
   // 다른 워크스페이스 스냅샷에서 가져온 읽기 전용 데이터라 그 자리에서
   // 등급을 고치지는 못한다(현재 기간만 편집 가능).
+  // 이 팀원이 담당자인 L3(과제리스트) -- 평가과제(그룹) 아래 무엇을 했는지 펼쳐 보는 데 쓴다.
+  const myWorkItems = state.workBoard.items.filter((w) => w.assigneeIds.includes(memberId))
+  const l3Of = (task: { workItemIds?: string[] }) =>
+    (task.workItemIds ?? [])
+      .map((id) => state.workBoard.items.find((w) => w.id === id))
+      .filter((w): w is NonNullable<typeof w> => !!w && w.assigneeIds.includes(memberId))
+      .map((w) => ({ id: w.id, name: w.name, status: w.fields.status ?? '', start: w.fields.startDate ?? '', done: w.fields.doneDate ?? '' }))
+
   const pastPeriods = getMemberPerformanceHistory(memberId, periods).filter((h) => h.workspace.id !== currentWorkspace?.id)
 
   function handleGradeNoteSave(taskId: string, note: string) {
@@ -488,21 +547,38 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 하는 문제를 줄이려고, 등급·참여 과제 기준으로 짧은 코칭 멘트를 미리
   // 만들어둔다. 통계 예측이 아니라 규칙 기반 문장 생성이다. 개인 메모로
   // 남긴 개인 상황도 면담에서 놓치지 않도록 맨 앞에 그대로 얹는다.
-  const meetingInsights: string[] = personalNotes.map((n) => n.content)
-  if (memberResult) {
-    if (memberResult.grade === 'S' || memberResult.grade === 'A') {
-      meetingInsights.push(`${memberResult.grade} 고과를 유지한 강점과 다음 단계 목표를 확인해 보세요.`)
-    } else if (memberResult.grade === 'C' || memberResult.grade === 'D') {
-      meetingInsights.push(`${memberResult.grade} 고과의 원인을 함께 점검하고 개선 계획을 논의해 보세요.`)
-    } else {
-      meetingInsights.push(`이번 고과(${memberResult.grade})를 바탕으로 강점과 보완점을 균형 있게 짚어보세요.`)
-    }
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const memberNotes = state.meetingNotes.filter((n) => n.memberId === memberId).sort((a, b) => b.date.localeCompare(a.date))
+  const peerSummary = memberPeerSummary(state, memberId)
+  const meetingInsights = buildMeetingInsights({
+    personalNotes,
+    tasks: currentTasks.map((t) => ({
+      task: t.task,
+      contributionPercent: t.contributionPercent,
+      personalGrade: t.personalGrade ?? null,
+      personalScore: t.personalScore,
+    })),
+    workItems: myWorkItems,
+    halfYearGrades: halfYearGradePoints,
+    promotion: promotionCriteria ? { reviewYear, gap: Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10 } : null,
+    peer: peerSummary,
+    lastMeeting: memberNotes[0] ?? null,
+    today: todayIso,
+  })
+  const levelOrdinal = calcYearOrdinal(member.currentLevelSince)
+  const paper = {
+    basicInfo: [member.level, levelOrdinal !== null ? `${levelOrdinal}년차` : ''].filter(Boolean).join(' · '),
+    perfLines: {
+      title: [
+        `${cardYear} ${currentWorkspace?.periodName ?? ''}`.trim(),
+        memberResult ? `${memberResult.cumulativeScore.toFixed(1)}점` : '',
+        memberResult?.grade ?? '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      tasks: currentTasks.map((t) => `${t.task.name} ${t.contributionPercent}%`),
+    },
   }
-  if (currentTasks.length > 0) {
-    const names = currentTasks.slice(0, 2).map((t) => t.task.name)
-    meetingInsights.push(`${names.join(', ')}${currentTasks.length > 2 ? ' 등' : ''}에서 맡은 역할과 기여를 구체적으로 확인해 보세요.`)
-  }
-  meetingInsights.push('다음 평가기간에 강화할 역량과 팀장이 지원할 사항을 합의해 보세요.')
 
   return (
     <div className="flex min-h-full flex-col">
@@ -537,7 +613,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     ))}
                   </select>
                 </span>
-                {calcYearOrdinal(member.currentLevelSince) !== null && <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>}
+                {calcYearOrdinal(member.currentLevelSince) !== null && (
+                  <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>
+                )}
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
@@ -637,7 +715,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 {personalNotes.map((note) => {
                   const style = NOTE_COLOR_STYLES[note.color ?? 'violet']
                   return (
-                    <span key={note.id} className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-0.5 pl-1 pr-1.5 text-[13px]`}>
+                    <span
+                      key={note.id}
+                      className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-0.5 pl-1 pr-1.5 text-[13px]`}
+                    >
                       <button
                         onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
                         title="색상 변경"
@@ -645,7 +726,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                         className={`h-3.5 w-3.5 shrink-0 rounded-full ${style.dot} ring-1 ring-inset ring-black/10`}
                       />
                       <span className="max-w-[220px] truncate">{note.content}</span>
-                      <button onClick={() => deletePersonalNote(note.id)} className="flex shrink-0 items-center opacity-50 hover:opacity-100" aria-label="메모 삭제">
+                      <button
+                        onClick={() => deletePersonalNote(note.id)}
+                        className="flex shrink-0 items-center opacity-50 hover:opacity-100"
+                        aria-label="메모 삭제"
+                      >
                         <X size={12} strokeWidth={2} />
                       </button>
 
@@ -710,7 +795,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 title="성장 시뮬레이션"
                 headerBadge={
                   promotionCriteria && (
-                    <button onClick={() => setCriteriaManagerOpen(true)} className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent">
+                    <button
+                      onClick={() => setCriteriaManagerOpen(true)}
+                      className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent"
+                    >
                       <Info {...icSm} /> 기준 보기
                     </button>
                   )
@@ -767,13 +855,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             name={task.name}
                             percent={contributionPercent}
                             score={personalScore}
+                            subItems={l3Of(task)}
                             gradeSlot={
                               <>
                                 {/* 아직 안 매긴 등급은 빈칸이 아니라 '—'로
                                     보여준다 -- 빈칸이면 화면이 깨진 것처럼 보인다. */}
-                                <span className={`text-[13px] font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>
-                                  {personalGrade ?? '—'}
-                                </span>
+                                <span className={`text-[13px] font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>{personalGrade ?? '—'}</span>
                                 <GradeNoteButton
                                   note={personalGradeNote}
                                   label={task.name}
@@ -810,9 +897,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             percent={t.contributionPercent}
                             score={t.personalScore}
                             gradeSlot={
-                              <span className={`text-[13px] font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>
-                                {t.personalGrade ?? '—'}
-                              </span>
+                              <span className={`text-[13px] font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>{t.personalGrade ?? '—'}</span>
                             }
                           />
                         ))}
@@ -826,11 +911,28 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter1} />
 
-          {/* 면담 -- 시뮬레이션/성과 컬럼이 접혀 폭이 넉넉해지면 내부에서
-              좌(인사이트+기록)/우(일지 작성) 2단으로 나뉜다(MeetingForm 내부
-              실측). 폭이 좁으면 인사이트 -> 일지 -> 기록 순으로 위아래 쌓인다.
-              컬럼 자체도 다른 두 컬럼처럼 스플리터로 좁히면 슬림 바가 된다. */}
           <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
+            {peerNarrow ? (
+              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
+                <CollapseToggleButton collapsed onClick={() => expandColumn('peer')} label="피어리뷰" />
+                <button
+                  onClick={() => expandColumn('peer')}
+                  title="피어리뷰 펼치기"
+                  className="[writing-mode:vertical-rl] text-[15px] font-semibold text-label hover:text-accent"
+                >
+                  피어리뷰
+                </button>
+              </div>
+            ) : (
+              <SectionCard title="피어리뷰">
+                <MemberPeerPanel state={state} memberId={memberId} />
+              </SectionCard>
+            )}
+          </div>
+
+          <ColumnSplitter {...splitter2} />
+
+          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[3], flex: '0 0 auto' } : undefined}>
             {meetingNarrow ? (
               <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
@@ -843,7 +945,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </button>
               </div>
             ) : (
-              <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col rounded-card border border-separator bg-white p-5">
+              <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col">
                 {/* 인사이트·면담 기록을 접어두면 카드가 내용 높이만큼만 줄어들어
                     입력칸이 서너 줄짜리로 쪼그라든다. 화면 세로를 채우도록 최소
                     높이를 뷰포트 기준으로 잡아두고(위쪽 헤더·팀원 탭·점수 바가
@@ -852,6 +954,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   member={member}
                   focusToken={prepRequest?.token ?? null}
                   insights={meetingInsights}
+                  paper={paper}
                   insightsOpen={insightsOpen}
                   onToggleInsights={() => setInsightsOpen((v) => !v)}
                   splitLayout={meetingSplit}

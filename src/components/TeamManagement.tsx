@@ -87,7 +87,14 @@ export default function TeamManagement() {
     { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 115, system: true },
     { id: 'levelTenure', label: '직급 연차', type: 'text', width: 80, system: true, readOnly: true },
     { id: 'role', label: '역할', type: 'text', width: 100, system: true },
-    { id: 'team', label: '담당팀', type: 'select', width: 125, system: true, picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' } },
+    {
+      id: 'team',
+      label: '담당팀',
+      type: 'select',
+      width: 125,
+      system: true,
+      picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' },
+    },
     { id: 'email', label: '이메일', type: 'text', width: 170, system: true },
     {
       id: 'active',
@@ -350,10 +357,7 @@ export default function TeamManagement() {
     }
   }
 
-  const peerReviewsForViewing = viewingPeerReviewsFor
-    ? state.peerReviews.filter((r) => r.targetMemberId === viewingPeerReviewsFor.id)
-    : []
-
+  const peerReviewsForViewing = viewingPeerReviewsFor ? state.peerReviews.filter((r) => r.targetMemberId === viewingPeerReviewsFor.id) : []
 
   // 과제관리(시트)에 담당자로 나오지만 팀원 목록에 없는 사람들
   const unmatched = unmatchedAssigneeSummary(state.workBoard)
@@ -382,6 +386,80 @@ export default function TeamManagement() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
           <h3 className="mr-2 text-[17px] font-semibold text-label">팀원 관리</h3>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CurrentDataDownloadControls
+            disabled={state.members.length === 0}
+            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
+            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
+          />
+          <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
+            <IdCard {...ic} />
+            인사기록 불러오기
+          </Button>
+        </div>
+      </div>
+      <p className="mt-1 text-[13px] text-label-2">
+        칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께
+        지워집니다.
+      </p>
+
+      {unmatched.length > 0 && !unmatchedOpen && (
+        <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[13px] text-label-2 hover:text-accent">
+          <ChevronRight {...icSm} />
+          과제 담당자 중 팀원 목록에 없는 사람 <span className="font-semibold text-label">{unmatched.length}명</span> · 눌러서 추가
+        </button>
+      )}
+      {unmatched.length > 0 && unmatchedOpen && (
+        <div className="mt-4 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <button
+                onClick={() => setUnmatchedOpen(false)}
+                className="flex items-center gap-1 text-[13px] font-semibold text-label hover:text-accent"
+                title="접기"
+              >
+                <ChevronDown {...icSm} />
+                과제 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명
+              </button>
+              <p className="mt-0.5 text-[13px] text-label-2">
+                시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만
+                추가하세요.
+              </p>
+            </div>
+            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
+              선택한 {pickedUnmatched.size}명 추가
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {unmatched.map((u) => {
+              const on = pickedUnmatched.has(u.name)
+              return (
+                <button
+                  key={u.name}
+                  onClick={() => {
+                    const next = new Set(pickedUnmatched)
+                    if (on) next.delete(u.name)
+                    else next.add(u.name)
+                    setPickedUnmatched(next)
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                >
+                  {on && <Check {...icSm} />}
+                  {u.name}{' '}
+                  <span className="text-label-3">
+                    {u.team ? `${u.team} · ` : ''}L3 {u.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        {/* 과제관리처럼 표 도구(되돌리기·다시 하기·열 설정)는 표 오른쪽 위에 둔다. */}
+        <div className="mb-2 flex items-center justify-end gap-1">
           <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
             <Undo2 {...ic} />
           </IconButton>
@@ -389,11 +467,19 @@ export default function TeamManagement() {
             <Redo2 {...ic} />
           </IconButton>
           <div className="relative">
-            <IconButton onClick={() => setColMenuOpen((v) => !v)} title="표시할 열 · 근속 기준" aria-label="열 표시 설정" className={colMenuOpen ? 'bg-black/[0.05] text-label' : ''}>
+            <IconButton
+              onClick={() => setColMenuOpen((v) => !v)}
+              title="표시할 열 · 근속 기준"
+              aria-label="열 표시 설정"
+              className={colMenuOpen ? 'bg-black/[0.05] text-label' : ''}
+            >
               <Settings2 {...ic} />
             </IconButton>
             {colMenuOpen && (
-              <div className="mac-pop absolute left-0 top-9 z-30 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]" onMouseLeave={() => setColMenuOpen(false)}>
+              <div
+                className="mac-pop absolute right-0 top-9 z-30 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
+                onMouseLeave={() => setColMenuOpen(false)}
+              >
                 <label className="flex items-center gap-2 px-3 py-2 text-label-2">
                   창립기념일
                   <input
@@ -430,71 +516,6 @@ export default function TeamManagement() {
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CurrentDataDownloadControls
-            disabled={state.members.length === 0}
-            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
-            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
-          />
-          <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
-            <IdCard {...ic} />
-            인사기록 불러오기
-          </Button>
-        </div>
-      </div>
-      <p className="mt-1 text-[13px] text-label-2">
-        칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께 지워집니다.
-      </p>
-
-      {unmatched.length > 0 && !unmatchedOpen && (
-        <button
-          onClick={() => setUnmatchedOpen(true)}
-          className="mt-3 flex items-center gap-1 text-[13px] text-label-2 hover:text-accent"
-        >
-          <ChevronRight {...icSm} />
-          과제 담당자 중 팀원 목록에 없는 사람 <span className="font-semibold text-label">{unmatched.length}명</span> · 눌러서 추가
-        </button>
-      )}
-      {unmatched.length > 0 && unmatchedOpen && (
-        <div className="mt-4 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <button onClick={() => setUnmatchedOpen(false)} className="flex items-center gap-1 text-[13px] font-semibold text-label hover:text-accent" title="접기">
-                <ChevronDown {...icSm} />
-                과제 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명
-              </button>
-              <p className="mt-0.5 text-[13px] text-label-2">
-                시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만 추가하세요.
-              </p>
-            </div>
-            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
-              선택한 {pickedUnmatched.size}명 추가
-            </Button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {unmatched.map((u) => {
-              const on = pickedUnmatched.has(u.name)
-              return (
-                <button
-                  key={u.name}
-                  onClick={() => {
-                    const next = new Set(pickedUnmatched)
-                    if (on) next.delete(u.name)
-                    else next.add(u.name)
-                    setPickedUnmatched(next)
-                  }}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
-                >
-                  {on && <Check {...icSm} />}
-                  {u.name} <span className="text-label-3">{u.team ? `${u.team} · ` : ''}L3 {u.count}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4">
         {notice && <p className="mb-2 text-[13px] text-danger">{notice}</p>}
         <DataGrid
           columns={columns}
@@ -535,7 +556,9 @@ export default function TeamManagement() {
             ? `${deleting
                 .slice(0, 8)
                 .map((m) => m.name)
-                .join(', ')}${deleting.length > 8 ? ` 외 ${deleting.length - 8}명` : ''}\n\n기여도·피어리뷰·면담 기록도 함께 지워집니다.\n과제관리의 담당자 표시는 이름만 남습니다.\n⌘Z로 되돌릴 수 있습니다.`
+                .join(
+                  ', ',
+                )}${deleting.length > 8 ? ` 외 ${deleting.length - 8}명` : ''}\n\n기여도·피어리뷰·면담 기록도 함께 지워집니다.\n과제관리의 담당자 표시는 이름만 남습니다.\n⌘Z로 되돌릴 수 있습니다.`
             : ''
         }
         onConfirm={confirmDelete}
@@ -553,20 +576,13 @@ export default function TeamManagement() {
             </div>
             <div className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto">
               {peerReviewsForViewing.length === 0 ? (
-                <p className="rounded-control bg-black/[0.03] px-4 py-4 text-center text-[13px] text-label-2">
-                  아직 받은 피어리뷰가 없습니다.
-                </p>
+                <p className="rounded-control bg-black/[0.03] px-4 py-4 text-center text-[13px] text-label-2">아직 받은 피어리뷰가 없습니다.</p>
               ) : (
                 peerReviewsForViewing.map((review) => (
-                  <div
-                    key={review.id}
-                    className="flex items-center justify-between gap-3 rounded-control border border-separator px-4 py-2"
-                  >
+                  <div key={review.id} className="flex items-center justify-between gap-3 rounded-control border border-separator px-4 py-2">
                     <span className="text-[13px] font-medium text-label">{review.reviewerName}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${GRADE_COLORS[review.grade]}`}>
-                        {review.grade}
-                      </span>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${GRADE_COLORS[review.grade]}`}>{review.grade}</span>
                       <Button variant="danger" onClick={() => setDeletingPeerReview(review)} size="sm">
                         삭제
                       </Button>
@@ -586,7 +602,6 @@ export default function TeamManagement() {
         onConfirm={handleDeletePeerReviewConfirm}
         onCancel={() => setDeletingPeerReview(null)}
       />
-
     </div>
   )
 }

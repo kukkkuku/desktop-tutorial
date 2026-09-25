@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { AlertTriangle, CalendarCheck, Pencil, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, FileText, Pencil, Trash2, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -12,22 +12,20 @@ import CollapseToggleButton from '../CollapseToggleButton'
 import DatePicker from '../DatePicker'
 import IconButton from '../IconButton'
 import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
-import MoodPicker from './MoodPicker'
+import MeetingPaperModal from './MeetingPaperModal'
+import type { MeetingInsight } from '../../utils/meetingInsights'
 import { ic, icSm } from '../ui/icon'
 
 function todayString() {
   return new Date().toISOString().slice(0, 10)
 }
 
-// 기분 선택 영역(3x2 아이콘 그리드)이 라벨까지 편하게 펼쳐지려면 대략 이
-// 정도 너비가 필요하다 -- 이보다 좁으면 대표 아이콘 하나 + 팝오버로 접는다.
-// 한 줄에 6개를 다 펼치던 이전 레이아웃보다 훨씬 좁은 너비로도 충분하다.
-const MOOD_INLINE_MIN_WIDTH = 200
-
 interface MeetingFormProps {
   member: TeamMember
   focusToken?: number | null
-  insights: string[]
+  insights: MeetingInsight[]
+  // 면담용지 출력에 쓰는 머리글·성과 요약
+  paper: { basicInfo: string; perfLines: { title: string; tasks: string[] } }
   insightsOpen: boolean
   onToggleInsights: () => void
   // 면담 컬럼 실측 폭이 전체 3등분 영역의 절반 이상이 되면 부모(MemberGrowthDetail)가
@@ -44,16 +42,14 @@ interface MeetingFormProps {
 // 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
 // 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
 // 확인이 안 되는 문제가 있었다).
-export default function MeetingForm({ member, focusToken, insights, insightsOpen, onToggleInsights, splitLayout }: MeetingFormProps) {
+export default function MeetingForm({ member, focusToken, insights, paper, insightsOpen, onToggleInsights, splitLayout }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const memberId = member.id
   const todayStr = todayString()
   const commentRef = useRef<HTMLTextAreaElement>(null)
-  const logRowRef = useRef<HTMLDivElement>(null)
-  const [logRowWidth, setLogRowWidth] = useState(0)
-  const moodCompact = logRowWidth > 0 && logRowWidth < MOOD_INLINE_MIN_WIDTH
+  const [paperOpen, setPaperOpen] = useState(false)
 
   const [date, setDate] = useState(todayStr)
   const [comment, setComment] = useState('')
@@ -92,17 +88,6 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     if (!focusToken) return
     commentRef.current?.focus()
   }, [focusToken])
-
-  useLayoutEffect(() => {
-    const el = logRowRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0
-      setLogRowWidth(width)
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   const notes = state.meetingNotes.filter((n) => n.memberId === memberId).sort((a, b) => b.date.localeCompare(a.date))
 
@@ -163,17 +148,42 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     }
   }
 
+  // 추천 질문을 면담 내용 칸에 끼워 넣는다(이미 적은 내용 뒤에 한 줄로).
+  function insertQuestion(q: string) {
+    setComment((cur) => (cur.trim() ? `${cur.replace(/\s+$/, '')}\nQ. ${q}\n` : `Q. ${q}\n`))
+    commentRef.current?.focus()
+  }
+
   const insightsBlock = insights.length > 0 && (
-    <div className="rounded-card bg-[#F7F7F9]">
-      <div className="flex items-center gap-1.5 px-4 py-2.5">
+    <div className="rounded-card border border-separator bg-white">
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <span className="text-[14px] font-semibold text-label">
+          면담 인사이트 <span className="ml-1 text-[12px] font-normal text-label-3">{insights.length}</span>
+        </span>
         <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
-        <span className="text-[13px] font-semibold text-accent">면담 인사이트</span>
       </div>
       {insightsOpen && (
-        <ul className="space-y-0.5 px-4 pb-3">
-          {insights.map((line, i) => (
-            <li key={i} className="text-[13px] text-label">
-              · {line}
+        <ul className="divide-y divide-separator border-t border-separator">
+          {insights.map((s) => (
+            <li key={s.id} className="px-4 py-3">
+              <div className="flex items-start gap-2">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-label-3" />
+                <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-label" title={`${s.title}\n근거 · ${s.basis}`}>
+                  {s.title}
+                </p>
+                <button
+                  onClick={() => insertQuestion(s.question)}
+                  title="추천 질문을 면담 내용에 넣기"
+                  aria-label="추천 질문을 면담 내용에 넣기"
+                  className="shrink-0 rounded p-0.5 text-warning hover:bg-warning/10"
+                >
+                  <FileText {...icSm} />
+                </button>
+              </div>
+              <p className="mt-1 pl-3.5 text-[13px] text-label-2">
+                <span className="mr-1.5 text-label-3">추천 질문</span>
+                {s.question}
+              </p>
             </li>
           ))}
         </ul>
@@ -185,41 +195,53 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
     // 이 블록이 카드의 남은 세로를 다 차지하고, 그 안에서 입력칸 줄이 flex-1로
     // 늘어난다 -- 2단(splitLayout)이든 위아래로 쌓이는 좁은 레이아웃이든 같다.
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Figma interview-form(36:1477) 그대로: 면담일지 라벨+날짜만 한 줄,
-          그 아래 코멘트 textarea 옆에 분위기 선택 + 작성하기 버튼을 세로로
-          쌓은 좁은 칸을 나란히 붙인다(따로 "코멘트"/"분위기" 라벨 없이
-          placeholder와 아이콘 그 자체로 의미가 드러난다). */}
-      <div className="flex items-center gap-2">
-        <h3 className="shrink-0 text-[13px] font-semibold text-label">면담일지</h3>
+      {/* 한 줄: 면담일 · 분위기 이모지 · (오른쪽) 면담용지 · 작성하기. 그 아래 입력칸이 남는 높이를 채운다. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h3 className="sr-only">면담일지</h3>
         <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
-      </div>
-
-      {calendarError && (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
-          <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
-        </p>
-      )}
-
-      {/* textarea 옆에 분위기+작성하기를 붙이되(넓을 때), 컬럼이 좁아져서
-          textarea가 최소 폭(min-w) 아래로 밀리면 flex-wrap이 자동으로
-          이 칸을 textarea 아래 줄로 내려보낸다 -- 별도 실측 없이 순수
-          CSS만으로 반응형이 된다. */}
-      <div ref={logRowRef} className="mt-3 flex min-h-0 flex-1 flex-wrap items-stretch gap-4">
-        <textarea
-          ref={commentRef}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          rows={4}
-          placeholder="면담 내용을 입력하세요."
-          className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] min-h-[72px] min-w-[240px] flex-1 resize-y text-label"
-        />
-        <div className="flex shrink-0 flex-col items-center gap-2">
-          <MoodPicker value={mood} onChange={setMood} compact={moodCompact} />
-          <Button variant="primary" onClick={handleSave} disabled={!comment.trim()} className="w-full">
+        <div className="flex items-center gap-1" role="radiogroup" aria-label="면담 분위기">
+          {MOOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              aria-checked={mood === opt.value}
+              onClick={() => setMood((v) => (v === opt.value ? null : opt.value))}
+              title={opt.label}
+              aria-label={opt.label}
+              className={`flex items-center justify-center rounded-full p-0.5 transition ${
+                mood === opt.value ? 'bg-accent-soft ring-2 ring-accent' : mood ? 'opacity-40 hover:opacity-100' : 'hover:bg-black/[0.04]'
+              }`}
+            >
+              <MoodIcon mood={opt.value} className="h-6 w-6" />
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setPaperOpen(true)} title="면담 전에 출력해 두고 손으로 적을 수 있는 면담용지">
+            면담용지
+          </Button>
+          <Button variant="primary" onClick={handleSave} disabled={!comment.trim()}>
             작성하기
           </Button>
         </div>
       </div>
+
+      {calendarError && (
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
+          <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
+          면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
+        </p>
+      )}
+
+      <textarea
+        ref={commentRef}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        rows={4}
+        placeholder="면담 내용을 입력하세요."
+        className="mt-3 min-h-[120px] w-full flex-1 resize-y rounded-control border border-hairline px-3 py-2 text-[13px] text-label"
+      />
 
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
           때만 쓰는 육성 포인트라, 기본은 접어두고 코멘트만 가볍게 남길 수
@@ -235,11 +257,23 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
         <div className="mt-2 flex flex-col gap-3">
           <div>
             <label className="block text-[13px] font-medium text-label-2">강점</label>
-            <input type="text" value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="강점 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
+            <input
+              type="text"
+              value={strengths}
+              onChange={(e) => setStrengths(e.target.value)}
+              placeholder="강점 입력"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+            />
           </div>
           <div>
             <label className="block text-[13px] font-medium text-label-2">보완 필요</label>
-            <input type="text" value={improvements} onChange={(e) => setImprovements(e.target.value)} placeholder="보완이 필요한 영역 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
+            <input
+              type="text"
+              value={improvements}
+              onChange={(e) => setImprovements(e.target.value)}
+              placeholder="보완이 필요한 영역 입력"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+            />
           </div>
           <div>
             <label className="block text-[13px] font-medium text-label-2">다음 도전 경험</label>
@@ -253,7 +287,13 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           </div>
           <div>
             <label className="block text-[13px] font-medium text-label-2">Career Goal</label>
-            <input type="text" value={careerGoal} onChange={(e) => setCareerGoal(e.target.value)} placeholder="성장 커리어/목표 입력" className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label" />
+            <input
+              type="text"
+              value={careerGoal}
+              onChange={(e) => setCareerGoal(e.target.value)}
+              placeholder="성장 커리어/목표 입력"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+            />
           </div>
         </div>
       )}
@@ -426,6 +466,19 @@ export default function MeetingForm({ member, focusToken, insights, insightsOpen
           {logFormBlock}
           <div className="shrink-0">{historyBlock}</div>
         </div>
+      )}
+
+      {paperOpen && (
+        <MeetingPaperModal
+          name={member.name}
+          basicInfo={paper.basicInfo}
+          initialDate={date}
+          perfLines={paper.perfLines}
+          insights={insights}
+          lastMeeting={notes[0] ?? null}
+          draft={{ comment, strengths, improvements, nextExperience, careerGoal }}
+          onClose={() => setPaperOpen(false)}
+        />
       )}
 
       <ConfirmDialog
