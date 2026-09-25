@@ -6,7 +6,7 @@ import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Level, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
-import { calcYearsSince } from '../utils/tenure'
+import { calcYearOrdinal, calcYearsSince } from '../utils/tenure'
 import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
@@ -32,9 +32,8 @@ function displayServiceYears(member: TeamMember): string {
 // "직급" 컬럼이 바로 옆에 따로 있으므로, 여기서는 연차만 표시하고 직급명은
 // 반복하지 않는다(formatLevelTenureLabel은 "대리 1년차"처럼 직급명을
 // 포함해서 다른 화면(성장 관리 등, 직급 컬럼이 따로 없는 곳)에서 쓴다).
-function formatTenureOnly(years: number | null): string {
-  if (years === null) return '-'
-  return years === 0 ? '1년차 미만' : `${years}년차`
+function formatTenureOnly(ordinal: number | null): string {
+  return ordinal === null ? '-' : `${ordinal}년차`
 }
 
 export default function TeamManagement() {
@@ -113,7 +112,7 @@ export default function TeamManagement() {
       case 'currentLevelSince':
         return m.currentLevelSince ?? ''
       case 'levelTenure':
-        return formatTenureOnly(calcYearsSince(m.currentLevelSince))
+        return formatTenureOnly(calcYearOrdinal(m.currentLevelSince))
       case 'role':
         return m.role
       case 'team':

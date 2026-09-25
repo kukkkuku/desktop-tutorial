@@ -7,7 +7,7 @@ import type { EvaluationGrade, Importance, Level, PersonalNoteColor } from '../.
 import { LEVEL_OPTIONS } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear, reviewKindOf } from '../../utils/promotion'
-import { calcYearsSince } from '../../utils/tenure'
+import { calcYearOrdinal, calcYearsSince } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -530,7 +530,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     </option>
                   ))}
                 </select>
-                {levelTenureYears !== null && <span className="text-[13px] text-label-3">{levelTenureYears === 0 ? '1년차 미만' : `${levelTenureYears}년차`}</span>}
+                {calcYearOrdinal(member.currentLevelSince) !== null && <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>}
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
