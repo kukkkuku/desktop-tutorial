@@ -24,13 +24,15 @@ export const STATUS_OPTIONS = ['대기', '진행중', '완료', '중단'] as con
 //  - 보류·중단 → 중단
 //  - 진행중이거나 S 표시가 있으면 진행중, 그 밖('-', 빈칸, '일상' 등)은 대기
 //    (단, 완·F 표시가 있으면 완료)
-export function normalizeStatus(raw: string | undefined, weeks: Record<string, WeekMark>): string {
+// 완료 표시(주차 칸의 완·F)나 완료일이 있으면 시트 상태 글자와 상관없이 완료로 본다.
+export function normalizeStatus(raw: string | undefined, weeks: Record<string, WeekMark>, doneDate?: string): string {
   const marks = Object.values(weeks)
-  const done = marks.some((m) => m === '완' || m === 'F')
+  const done = marks.some((m) => m === '완' || m === 'F') || !!doneDate
   const started = marks.includes('S')
   const v = (raw ?? '').replace(/\s/g, '')
   if (v === '중단' || v === '보류') return '중단'
-  if (v === '완료') return done ? '완료' : '진행중'
+  if (done) return '완료'
+  if (v === '완료') return '진행중'
   if (v === '진행중') return '진행중'
   if (v === '대기') return '대기'
   if (done) return '완료'
@@ -433,37 +435,45 @@ export function yearFromTitle(title: string): number | null {
 // 이 규칙이 생기기 전에 가져온 행도 다시 가져오지 않고 채워지게, 저장본을 읽을 때
 // 비어 있는(그리고 사람이 고친 적 없는) 시작일·완료일만 추정으로 채운다.
 function fillDerivedDates(items: WorkItem[], weekAxis: WeekColumn[], year: number | null): WorkItem[] {
-  return items.map((i) => {
-    // 상태: 사람이 고친 적 없는 시트 행이면 원문과 주차 표시로 다시 정한다
-    // (이 규칙 이전에 가져온 행은 시트 원문이 그대로 status에 들어 있다).
-    if (i.source === 'sheet' && !i.editedAt?.status) {
-      const raw = i.fields.statusRaw ?? i.fields.status ?? ''
-      const status = normalizeStatus(raw, i.weeks)
-      if (i.fields.status !== status || i.fields.statusRaw !== raw) {
-        const fields: Record<string, string> = { ...i.fields, status }
-        if (raw) fields.statusRaw = raw
-        else delete fields.statusRaw
-        i = { ...i, fields }
-      }
-    }
-    // 예전에 채워 둔 추정 시작일이 완료일보다 늦으면 걷어 낸다.
-    if (i.derivedFields?.includes('startDate') && !i.editedAt?.startDate && startAfterDone(i.fields.startDate, i.fields.doneDate)) {
-      const fields = { ...i.fields }
-      delete fields.startDate
-      i = { ...i, fields, derivedFields: i.derivedFields.filter((f) => f !== 'startDate') }
-    }
-    if (!year || weekAxis.length === 0) return i
-    const guess = deriveDates(i.weeks, weekAxis, year)
-    const add: Record<string, string> = {}
-    for (const f of ['startDate', 'doneDate'] as const) {
-      const v = guess[f]
-      if (v && !i.fields[f] && !i.editedAt?.[f]) add[f] = v
-    }
-    if (add.startDate && startAfterDone(add.startDate, add.doneDate ?? i.fields.doneDate)) delete add.startDate
-    const keys = Object.keys(add)
-    if (keys.length === 0) return i
-    return { ...i, fields: { ...i.fields, ...add }, derivedFields: Array.from(new Set([...(i.derivedFields ?? []), ...keys])) }
-  })
+  return items.map((i) => normalizeLoadedStatus(fillDates(i, weekAxis, year)))
+}
+
+// 상태: 사람이 고친 적 없는 행이면 시트 원문·주차 표시·완료일로 다시 정한다
+// (완·F 표시나 완료일이 있으면 완료).
+function normalizeLoadedStatus(i: WorkItem): WorkItem {
+  if (i.editedAt?.status) return i
+  if (i.source !== 'sheet') {
+    // 앱에서 만든 행: 완료일이 있으면 완료(중단은 그대로)
+    if (i.fields.doneDate && i.fields.status !== '완료' && i.fields.status !== '중단') return { ...i, fields: { ...i.fields, status: '완료' } }
+    return i
+  }
+  const raw = i.fields.statusRaw ?? i.fields.status ?? ''
+  const status = normalizeStatus(raw, i.weeks, i.fields.doneDate)
+  if (i.fields.status === status && i.fields.statusRaw === (raw || undefined)) return i
+  const fields: Record<string, string> = { ...i.fields, status }
+  if (raw) fields.statusRaw = raw
+  else delete fields.statusRaw
+  return { ...i, fields }
+}
+
+function fillDates(i: WorkItem, weekAxis: WeekColumn[], year: number | null): WorkItem {
+  // 예전에 채워 둔 추정 시작일이 완료일보다 늦으면 걷어 낸다.
+  if (i.derivedFields?.includes('startDate') && !i.editedAt?.startDate && startAfterDone(i.fields.startDate, i.fields.doneDate)) {
+    const fields = { ...i.fields }
+    delete fields.startDate
+    i = { ...i, fields, derivedFields: i.derivedFields.filter((f) => f !== 'startDate') }
+  }
+  if (!year || weekAxis.length === 0) return i
+  const guess = deriveDates(i.weeks, weekAxis, year)
+  const add: Record<string, string> = {}
+  for (const f of ['startDate', 'doneDate'] as const) {
+    const v = guess[f]
+    if (v && !i.fields[f] && !i.editedAt?.[f]) add[f] = v
+  }
+  if (add.startDate && startAfterDone(add.startDate, add.doneDate ?? i.fields.doneDate)) delete add.startDate
+  const keys = Object.keys(add)
+  if (keys.length === 0) return i
+  return { ...i, fields: { ...i.fields, ...add }, derivedFields: Array.from(new Set([...(i.derivedFields ?? []), ...keys])) }
 }
 
 // ---------- 저장 데이터 읽기 ----------
