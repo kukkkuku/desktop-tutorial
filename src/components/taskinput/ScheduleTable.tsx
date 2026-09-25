@@ -20,6 +20,7 @@ export interface ScheduleRowView {
   notes: Record<string, string> // 고친 값을 얹은 칸 메모(열 id 또는 주차 키 → 메모)
   editedCells: Set<string>
   editedFields: Set<string> // 값·색·메모 중 무엇이든 고친 열 id / 주차 키
+  deleted?: boolean // 지우기로 함(저장하면 시트에서 줄을 지움)
 }
 
 // 과제관리 표와 같은 칩 색
@@ -81,6 +82,7 @@ function FieldCell({
   onCommit,
   onMenu,
   onHoverNote,
+  disabled,
 }: {
   f: FieldDef
   value: string
@@ -90,6 +92,7 @@ function FieldCell({
   onCommit: (v: string) => void
   onMenu: (e: React.MouseEvent) => void
   onHoverNote: (e: React.MouseEvent | null) => void
+  disabled?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -119,7 +122,7 @@ function FieldCell({
   else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
   return (
     <td
-      onClick={editing ? undefined : start}
+      onClick={editing || disabled ? undefined : start}
       onContextMenu={onMenu}
       onMouseEnter={note ? (e) => onHoverNote(e) : undefined}
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
@@ -192,7 +195,7 @@ function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number
   )
 }
 
-type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week'; x: number; y: number }
+type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week' | 'group'; x: number; y: number }
 
 export interface FilterOption {
   value: string
@@ -274,6 +277,11 @@ export default function ScheduleTable({
   onField,
   editNameKey,
   onDeleteRow,
+  onRestoreRow,
+  onDeleteGroup,
+  onRestoreGroup,
+  onAddGroup,
+  onRenameGroup,
   onRevertRow,
   onAddRow,
   onBg,
@@ -301,7 +309,12 @@ export default function ScheduleTable({
   onPaint: (row: ProgressRow, weekKey: string, click: boolean) => void // click = 누른 칸(끌기 중이면 false)
   onField: (row: ProgressRow, id: string, value: string) => void
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
-  onDeleteRow?: (row: ProgressRow) => void // 새 과제 지우기
+  onDeleteRow?: (row: ProgressRow) => void // 과제 지우기(새 과제는 바로 빼고, 시트 과제는 저장할 때 줄을 지움)
+  onRestoreRow?: (row: ProgressRow) => void // 지우기 취소
+  onDeleteGroup?: (row: ProgressRow) => void // 이 행이 든 구분(L2) 통째로 지우기
+  onRestoreGroup?: (row: ProgressRow) => void
+  onAddGroup?: (row: ProgressRow, where: 'above' | 'below', name: string) => void // 이 구분 위/아래에 새 구분(L2)
+  onRenameGroup?: (row: ProgressRow, name: string) => void // 새 구분 이름 고치기
   onRevertRow?: (row: ProgressRow) => void // 이 행 고친 내용 되돌리기
   onAddRow?: (row: ProgressRow, where: 'above' | 'below') => void // 우클릭: 위/아래에 과제 추가
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
@@ -400,6 +413,17 @@ export default function ScheduleTable({
     if (!menu) setPaletteFor(null)
   }, [menu])
   const [noteEdit, setNoteEdit] = useState<(Menu & { text: string }) | null>(null)
+  // 새 구분(L2) 이름 입력: 위/아래에 추가 또는 새 구분 이름 고치기
+  const [groupEdit, setGroupEdit] = useState<{ row: ProgressRow; mode: 'above' | 'below' | 'rename'; text: string; x: number; y: number } | null>(null)
+  function commitGroup() {
+    if (!groupEdit) return
+    const name = groupEdit.text.trim()
+    if (name) {
+      if (groupEdit.mode === 'rename') onRenameGroup?.(groupEdit.row, name)
+      else onAddGroup?.(groupEdit.row, groupEdit.mode, name)
+    }
+    setGroupEdit(null)
+  }
   const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number } | null>(null)
   useEffect(() => {
     if (!menu) return
@@ -433,6 +457,7 @@ export default function ScheduleTable({
     else groups.push({ l2: r.row.l2, tag: r.row.l2Tag, rows: [r] })
   }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
+  const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
   let rowIndex = 0
 
@@ -556,15 +581,22 @@ export default function ScheduleTable({
                 const l3Bg = v.bg.name
                 const l3Note = v.notes.name
                 return (
-                  <tr key={v.row.key} className={`${rowBg} leading-snug`}>
+                  <tr key={v.row.key} className={`${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}>
                     {ri === 0 && (
                       <td
                         rowSpan={g.rows.length}
-                        className="sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label"
+                        onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
+                        title={`${g.l2} · 우클릭: 구분(L2) 추가·삭제`}
+                        className={`sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
+                          g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
+                        }`}
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         <div className="sticky top-[64px] py-1">
-                          <span className="whitespace-pre-line break-words">{g.l2}</span>
+                          {g.rows.every((x) => x.row.isNew) && (
+                            <span className="mb-1 inline-block rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white no-underline">새 구분</span>
+                          )}
+                          <span className="block whitespace-pre-line break-words">{g.l2}</span>
                           {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
                         </div>
@@ -598,12 +630,15 @@ export default function ScheduleTable({
                         />
                       )}
                       <div
-                        onClick={() => setNameEditing(v.row.key)}
+                        onClick={v.deleted ? undefined : () => setNameEditing(v.row.key)}
                         className="flex w-full min-w-0 cursor-text items-start gap-1 text-left"
                         title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 이름 고치기 · 우클릭: 메모·색`}
                       >
                         {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
-                        <span className={`whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'}`}>
+                        {v.deleted && <span className="mt-[2px] shrink-0 rounded-[3px] bg-danger px-1 text-[0.77em] font-bold text-white">삭제</span>}
+                        <span
+                          className={`whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'} ${v.deleted ? 'line-through' : ''}`}
+                        >
                           {v.vals.name || '(이름을 입력하세요)'}
                         </span>
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
@@ -619,7 +654,7 @@ export default function ScheduleTable({
                           <td
                             key={x.key}
                             onMouseDown={
-                              editing
+                              editing && !v.deleted
                                 ? (e) => {
                                     if (e.button !== 0) return
                                     e.preventDefault()
@@ -680,6 +715,7 @@ export default function ScheduleTable({
                         onCommit={(val) => onField(v.row, f.id, val)}
                         onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
                         onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
+                        disabled={v.deleted}
                       />
                     ))}
                   </tr>
@@ -737,7 +773,76 @@ export default function ScheduleTable({
           style={{ left: Math.min(menu.x, window.innerWidth - (paletteFor ? 276 : 248)), top: menu.y }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          {paletteFor ? (
+          {menu.kind === 'group' && menuGroup ? (
+            <>
+              {onAddGroup &&
+                (
+                  [
+                    ['above', '위에 구분(L2) 추가'],
+                    ['below', '아래에 구분(L2) 추가'],
+                  ] as const
+                ).map(([where, label]) => (
+                  <button
+                    key={where}
+                    onClick={() => {
+                      setGroupEdit({ row: menuGroup.rows[where === 'above' ? 0 : menuGroup.rows.length - 1].row, mode: where, text: '', x: menu.x, y: menu.y })
+                      setMenu(null)
+                    }}
+                    className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                  >
+                    {label}
+                  </button>
+                ))}
+              {onRenameGroup && menuGroup.rows.every((x) => x.row.isNew) && (
+                <button
+                  onClick={() => {
+                    const r = menuGroup.rows[0].row
+                    setGroupEdit({ row: r, mode: 'rename', text: r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2, x: menu.x, y: menu.y })
+                    setMenu(null)
+                  }}
+                  className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                >
+                  구분 이름 고치기
+                </button>
+              )}
+              <div className="mac-menu-sep" />
+              {menuGroup.rows.every((x) => x.deleted)
+                ? onRestoreGroup && (
+                    <button
+                      onClick={() => {
+                        onRestoreGroup(menu.row)
+                        setMenu(null)
+                      }}
+                      className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      구분 삭제 취소
+                    </button>
+                  )
+                : onDeleteGroup && (
+                    <button
+                      onClick={() => {
+                        onDeleteGroup(menu.row)
+                        setMenu(null)
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
+                    >
+                      구분(L2) 삭제 · 과제 {menuGroup.rows.length}건
+                    </button>
+                  )}
+            </>
+          ) : menuView.deleted ? (
+            onRestoreRow && (
+              <button
+                onClick={() => {
+                  onRestoreRow(menu.row)
+                  setMenu(null)
+                }}
+                className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+              >
+                삭제 취소
+              </button>
+            )
+          ) : paletteFor ? (
             <div className="px-3 py-1.5">
               <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
                 ‹ {paletteFor === 'cell' ? '칸 색' : '행 색 (L3 · 입력 열 전체)'}
@@ -795,7 +900,7 @@ export default function ScheduleTable({
                   ))}
                 </>
               )}
-              {menu.row.isNew && onDeleteRow && (
+              {onDeleteRow && (
                 <button
                   onClick={() => {
                     onDeleteRow(menu.row)
@@ -803,7 +908,7 @@ export default function ScheduleTable({
                   }}
                   className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
                 >
-                  새 과제 지우기
+                  과제 삭제
                 </button>
               )}
               {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (
@@ -845,6 +950,44 @@ export default function ScheduleTable({
               )}
             </>
           )}
+        </div>
+      )}
+
+      {groupEdit && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setGroupEdit(null)}>
+          <div
+            className="mac-pop absolute w-[300px] p-2.5"
+            style={{ left: Math.min(groupEdit.x, window.innerWidth - 308), top: groupEdit.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <p className="text-[12px] font-semibold text-label">
+              {groupEdit.mode === 'rename' ? '구분(L2) 이름 고치기' : `${groupEdit.mode === 'above' ? '위에' : '아래에'} 새 구분(L2) 추가`}
+            </p>
+            <input
+              autoFocus
+              value={groupEdit.text}
+              onChange={(e) => setGroupEdit({ ...groupEdit, text: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setGroupEdit(null)
+                if (e.key === 'Enter') commitGroup()
+              }}
+              placeholder="구분 이름 (태그는 끝에 [태그])"
+              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px] text-label"
+            />
+            {groupEdit.mode !== 'rename' && <p className="mt-1 text-[11px] text-label-3">과제 한 줄과 함께 만들어집니다. 과제 이름을 넣어야 저장됩니다.</p>}
+            <div className="mt-2 flex justify-end gap-1.5">
+              <button onClick={() => setGroupEdit(null)} className="h-7 rounded-control px-2.5 text-[12px] text-label-2 hover:bg-black/[0.05]">
+                취소
+              </button>
+              <button
+                onClick={commitGroup}
+                disabled={!groupEdit.text.trim()}
+                className="h-7 rounded-control bg-accent px-3 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+              >
+                {groupEdit.mode === 'rename' ? '바꾸기' : '추가'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

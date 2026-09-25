@@ -8,7 +8,7 @@ import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Spinner from '../Spinner'
 import { ic, icSm } from '../ui/icon'
-import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
+import { parseSheet, splitL2, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
 import {
   chooseSheetsAccountNext,
   fetchSheetFormats,
@@ -40,6 +40,7 @@ import {
   effectiveNote,
   loadProgress,
   makeNewRow,
+  makeNewGroup,
   orderWithNewRows,
   type PaintBrush,
   saveDrafts,
@@ -99,6 +100,9 @@ function fmt(iso: string) {
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
   const fields = buildFieldDefs(parsed.header, parsed.columnMap)
+  const { hCol, l1Col, l2Col } = parsed.header
+  const levelCols: ProgressData['levelCols'] = { l2: l2Col, ...(l1Col !== null ? { l1: l1Col } : {}), ...(hCol !== null ? { h: hCol } : {}) }
+  const lc = Object.values(levelCols)
   return {
     ...meta,
     year: Number(meta.tabTitle.match(/(20\d{2})/)?.[1]) || null,
@@ -106,7 +110,9 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
     fields,
     headerStyle: buildHeaderStyle(parsed.header, raw, fields),
-    rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols),
+    rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols, levelCols),
+    levelCols,
+    levelMerges: raw.merges.filter((m) => m.c1 === m.c2 && lc.includes(m.c1)),
   }
 }
 
@@ -366,7 +372,9 @@ export default function ProgressBoard() {
   // 한 줄의 칸·열 값 고치기(기존 행은 edits, 새 과제는 newRows에)
   // 칠하기: 누른 칸부터 끈 칸까지 한 번의 되돌리기 단계로 묶는다.
   const stroke = useRef(0)
+  const isDeleted = (row: ProgressRow) => (drafts.deleted ?? []).includes(row.key)
   function paintCell(row: ProgressRow, key: string, click: boolean) {
+    if (isDeleted(row)) return
     if (click) stroke.current += 1
     const weekKeys = data?.weekCols.map((w) => w.key) ?? []
     updateDrafts((d) => {
@@ -387,6 +395,7 @@ export default function ProgressBoard() {
     }, `paint:${stroke.current}`)
   }
   function setField(row: ProgressRow, id: string, value: string) {
+    if (isDeleted(row)) return
     updateDrafts((d) => {
       if (row.isNew) {
         const nid = row.key.slice(NEW_PREFIX.length)
@@ -418,6 +427,22 @@ export default function ProgressBoard() {
       return { ...d, edits: setNoteEdit(d.edits, row, key, note) }
     })
   }
+  // 과제 지우기: 새 과제는 바로 빼고, 시트 과제는 지울 줄로 표시(저장할 때 시트에서 줄을 지운다)
+  function deleteRows(rows: ProgressRow[]) {
+    const newIds = new Set(rows.filter((r) => r.isNew).map((r) => r.key.slice(NEW_PREFIX.length)))
+    const keys = rows.filter((r) => !r.isNew).map((r) => r.key)
+    updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => !newIds.has(n.id)), deleted: Array.from(new Set([...(d.deleted ?? []), ...keys])) }))
+  }
+  function restoreRows(rows: ProgressRow[]) {
+    const keys = new Set(rows.map((r) => r.key))
+    updateDrafts((d) => ({ ...d, deleted: (d.deleted ?? []).filter((k) => !keys.has(k)) }))
+  }
+  // 우클릭한 구분의 위(맨 윗줄 위)/아래(맨 아랫줄 아래)에 새 구분(L2) + 빈 과제 한 줄
+  function addGroup(row: ProgressRow, where: 'above' | 'below', name: string) {
+    const n = makeNewGroup(name, { l1: row.l1, h: row.h }, { key: row.key, where })
+    updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
+    setOpenKey(NEW_PREFIX + n.id)
+  }
   // 우클릭한 행의 위/아래에 새 과제
   function addRow(row: ProgressRow, where: 'above' | 'below') {
     const n = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, { key: row.key, where })
@@ -440,15 +465,15 @@ export default function ProgressBoard() {
     try {
       const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
-      const { writes, inserts, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
-      await writeSheetCells(data.spreadsheetId, data.sheetGid, writes, inserts)
+      const { writes, deletes, inserts, after, remerge, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
+      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, deletes, inserts, after, remerge })
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
       updateDrafts(kept)
       clearHistory()
       setOpenKey(null)
       setMessage(
-        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}.` +
+        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}${deletes.length ? ` · 지운 과제 ${deletes.length}건` : ''}.` +
           (conflicts
             ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).`
             : ''),
@@ -518,6 +543,17 @@ export default function ProgressBoard() {
     tabRows,
     drafts.newRows.filter((n) => n.l1 === l1),
   )
+  // 이 행이 든 구분(L2) 전체(필터와 상관없이 이 탭에서 이어진 같은 L2 줄)
+  const groupRowsOf = (row: ProgressRow): ProgressRow[] => {
+    const i = ordered.findIndex((r) => r.key === row.key)
+    if (i < 0) return [row]
+    let a = i
+    let b = i
+    while (a > 0 && ordered[a - 1].l2 === row.l2) a--
+    while (b < ordered.length - 1 && ordered[b + 1].l2 === row.l2) b++
+    return ordered.slice(a, b + 1)
+  }
+  const deletedSet = new Set(drafts.deleted ?? [])
   const fieldIds = data.fields.map((f) => f.id)
   const viewOf = (row: ProgressRow): ScheduleRowView => {
     const e = row.isNew ? undefined : edits[row.key]
@@ -541,6 +577,7 @@ export default function ProgressBoard() {
       notes,
       editedCells: new Set(Object.keys(e?.cells ?? {})),
       editedFields: new Set([...Object.keys(e?.fields ?? {}), ...Object.keys(e?.bg ?? {}), ...Object.keys(e?.notes ?? {})]),
+      deleted: deletedSet.has(row.key),
     }
   }
   // 필터에서 쓰는 칸 값: 담당자는 사람마다 따로, 빈 칸은 "(빈 칸)"
@@ -835,9 +872,15 @@ export default function ProgressBoard() {
             onPaint={paintCell}
             onField={setField}
             editNameKey={openKey}
-            onDeleteRow={(row) => {
-              const nid = row.key.slice(NEW_PREFIX.length)
-              updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
+            onDeleteRow={(row) => deleteRows([row])}
+            onRestoreRow={(row) => restoreRows([row])}
+            onDeleteGroup={(row) => deleteRows(groupRowsOf(row))}
+            onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
+            onAddGroup={addGroup}
+            onRenameGroup={(row, name) => {
+              const ids = new Set(groupRowsOf(row).map((r) => r.key.slice(NEW_PREFIX.length)))
+              const { name: l2, tag } = splitL2(name)
+              updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
             }}
             onRevertRow={(row) =>
               updateDrafts((d) => {
@@ -936,7 +979,7 @@ export default function ProgressBoard() {
       <ConfirmDialog
         open={confirmSave}
         title="구글시트에 저장"
-        message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
+        message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
         confirmLabel="저장"
         tone="accent"
         onConfirm={saveToSheet}
@@ -948,7 +991,10 @@ export default function ProgressBoard() {
           <p className="mt-0.5 break-all text-[14px] font-bold text-label">
             {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
           </p>
-          {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제는 그 L2의 마지막 줄 아래에 줄을 넣어 씁니다.</p>}
+          {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
+          {(drafts.deleted?.length ?? 0) > 0 && (
+            <p className="mt-1 text-[12px] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
+          )}
         </div>
       </ConfirmDialog>
     </div>

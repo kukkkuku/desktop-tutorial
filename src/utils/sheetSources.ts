@@ -281,6 +281,23 @@ export interface SheetInsert {
   order: number
 }
 
+// 한 열의 병합 다시 잡기: r1~r2를 풀고, merge면 다시 한 칸으로 합친다(모두 끝난 뒤 행 번호).
+export interface SheetMergeOp {
+  col: number
+  r1: number
+  r2: number
+  merge: boolean
+}
+
+// 한 번에 보낼 저장 묶음
+export interface SheetPlan {
+  writes: SheetCellWrite[] // 지금 행 번호 기준
+  deletes?: number[] // 지울 줄(지금 행 번호)
+  inserts?: SheetInsert[] // 지운 뒤 행 번호 기준, 아래쪽부터
+  after?: SheetCellWrite[] // 모두 끝난 뒤 행 번호 기준
+  remerge?: SheetMergeOp[]
+}
+
 function fromHex(hex: string | null) {
   const v = hex ?? 'FFFFFF'
   return { red: parseInt(v.slice(0, 2), 16) / 255, green: parseInt(v.slice(2, 4), 16) / 255, blue: parseInt(v.slice(4, 6), 16) / 255 }
@@ -309,21 +326,28 @@ function cellRequest(sheetGid: number, c: SheetCellWrite) {
   }
 }
 
-// 한 번의 요청으로: 칸 쓰기(기존 행 번호 기준) → 줄 끼워 넣기(주어진 순서대로, 아래쪽부터).
-// 쓰기 권한 동의를 한 번 받는다.
-export function sheetWriteRequests(sheetGid: number, cells: SheetCellWrite[], inserts: SheetInsert[] = []) {
-  const requests: object[] = cells.map((c) => cellRequest(sheetGid, c))
-  for (const ins of inserts) {
+// 한 번의 요청으로: 칸 쓰기(기존 행 번호) → 줄 지우기(아래부터) → 줄 끼워 넣기(주어진 순서대로, 아래쪽부터)
+// → 병합 풀기 → 이름 칸 쓰기 → 다시 병합. 쓰기 권한 동의를 한 번 받는다.
+export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
+  const requests: object[] = plan.writes.map((c) => cellRequest(sheetGid, c))
+  for (const r of [...(plan.deletes ?? [])].sort((a, b) => b - a)) {
+    requests.push({ deleteDimension: { range: { sheetId: sheetGid, dimension: 'ROWS', startIndex: r, endIndex: r + 1 } } })
+  }
+  for (const ins of plan.inserts ?? []) {
     requests.push({
       insertDimension: { range: { sheetId: sheetGid, dimension: 'ROWS', startIndex: ins.at, endIndex: ins.at + 1 }, inheritFromBefore: ins.at > 0 },
     })
     for (const c of ins.cells) requests.push(cellRequest(sheetGid, { ...c, row: ins.at }))
   }
+  const range = (m: SheetMergeOp) => ({ sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.col, endColumnIndex: m.col + 1 })
+  for (const m of plan.remerge ?? []) requests.push({ unmergeCells: { range: range(m) } })
+  for (const c of plan.after ?? []) requests.push(cellRequest(sheetGid, c))
+  for (const m of plan.remerge ?? []) if (m.merge) requests.push({ mergeCells: { range: range(m), mergeType: 'MERGE_ALL' } })
   return requests
 }
 
-export async function writeSheetCells(spreadsheetId: string, sheetGid: number, cells: SheetCellWrite[], inserts: SheetInsert[] = []): Promise<void> {
-  const requests = sheetWriteRequests(sheetGid, cells, inserts)
+export async function writeSheetCells(spreadsheetId: string, sheetGid: number, plan: SheetPlan): Promise<void> {
+  const requests = sheetWriteRequests(sheetGid, plan)
   if (requests.length === 0) return
   await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
 }

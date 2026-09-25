@@ -10,8 +10,8 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
-import { cellText, type ParsedHeader, type ParsedRow, type RawSheet, type WeekFill } from './sheetImport'
-import type { SheetCellWrite, SheetInsert } from './sheetSources'
+import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
+import type { SheetCellWrite, SheetInsert, SheetMergeOp } from './sheetSources'
 import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
 
 export interface ProgressRow {
@@ -29,8 +29,12 @@ export interface ProgressRow {
   bg: Record<string, string>
   // 칸 메모. 키는 열 id 또는 주차 키
   notes: Record<string, string>
+  // 이 행에 직접 적힌 H·L1·L2 칸 글자(병합이면 맨 위 칸에만 있음). 줄을 넣거나 지울 때 이름 칸을 옮기는 데 쓴다.
+  labels?: Partial<Record<Level, string>>
   isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
 }
+
+export type Level = 'h' | 'l1' | 'l2'
 
 // 주차 칸 하나: 글자(S/완/F) + 배경(계획 회색 / 실적 분홍)
 export interface CellState {
@@ -72,6 +76,8 @@ export interface ProgressData {
   fields: FieldDef[]
   headerStyle?: HeaderStyle
   rows: ProgressRow[]
+  levelCols?: Partial<Record<Level, number>> // H · L1 · L2 열 위치(0-based)
+  levelMerges?: SheetMerge[] // H · L1 · L2 열의 병합 범위
 }
 
 // 기존 행에서 고친 값. 시트 값과 같아지면 지운다.
@@ -101,6 +107,7 @@ export interface NewRow {
 export interface Drafts {
   edits: ProgressEdits
   newRows: NewRow[]
+  deleted?: string[] // 지우기로 한 기존 행 키(저장하면 시트에서 그 줄을 지운다)
 }
 
 export const NO_L1 = '(L1 없음)'
@@ -171,7 +178,13 @@ export function buildHeaderStyle(header: ParsedHeader, raw: RawSheet, fields: Fi
   return { l2: at(top, header.l2Col), l3: at(top, header.l3Col), months, weeks, fields: fieldBg, groups }
 }
 
-export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldDef[] = [], weekCols: (WeekColumn & { col: number })[] = []): ProgressRow[] {
+export function toProgressRows(
+  rows: ParsedRow[],
+  raw?: RawSheet,
+  fields: FieldDef[] = [],
+  weekCols: (WeekColumn & { col: number })[] = [],
+  levelCols: Partial<Record<Level, number>> = {},
+): ProgressRow[] {
   const seen = new Map<string, number>()
   const extra = fields.filter((f) => f.id.startsWith('col'))
   return rows.map((r) => {
@@ -195,6 +208,11 @@ export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldD
       const n = raw?.notes?.[r.row]?.[w.col]
       if (n) notes[w.key] = n
     }
+    const labels: Partial<Record<Level, string>> = {}
+    for (const [lv, col] of Object.entries(levelCols) as [Level, number][]) {
+      const t = cellText(raw?.rows[r.row]?.[col])
+      if (t.trim()) labels[lv] = t
+    }
     return {
       key: rowKeyOf(r.l2, r.l3, n),
       row: r.row,
@@ -208,6 +226,7 @@ export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldD
       fills: r.fills ?? {},
       bg,
       notes,
+      ...(Object.keys(labels).length ? { labels } : {}),
     }
   })
 }
@@ -340,6 +359,12 @@ export function makeNewRow(from: { l1: string; l2: string; l2Tag: string | null;
   return { id: uuidv4(), ...from, fields: { name: '' }, cells: {}, ...(anchor ? { anchor } : {}) }
 }
 
+// 새 구분(L2): 이름에 "[태그]"를 붙이면 시트처럼 태그로 나눈다. 과제 한 줄로 시작한다.
+export function makeNewGroup(name: string, from: { l1: string; h: string | null }, anchor: NonNullable<NewRow['anchor']>): NewRow {
+  const { name: l2, tag } = splitL2(name)
+  return makeNewRow({ l1: from.l1, h: from.h, l2, l2Tag: tag }, anchor)
+}
+
 // 시트 행 사이에 새 과제를 끼운 화면 순서. 새 과제는 추가한 순서대로 기준 행의 위/아래에 들어가고,
 // 기준 행이 없어졌으면 그 L2의 맨 아래로 간다.
 export function orderWithNewRows(base: ProgressRow[], newRows: NewRow[]): ProgressRow[] {
@@ -421,7 +446,9 @@ export function countDrafts(d: Drafts): number {
     Object.values(d.edits).reduce(
       (n, e) => n + Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length,
       0,
-    ) + d.newRows.length
+    ) +
+    d.newRows.length +
+    (d.deleted?.length ?? 0)
   )
 }
 
@@ -463,22 +490,42 @@ export function fieldWrite(f: FieldDef, value: string): Pick<SheetCellWrite, 'va
 
 // 저장할 칸 고르기: 방금 다시 읽은 시트(fresh)에서 행을 L2·L3 키로 다시 찾는다.
 // 불러올 때(base)와 지금 시트 값이 다르면 그사이 누가 바꾼 것이므로 쓰지 않고 남긴다.
-// 새 과제는 그 L2의 마지막 행 바로 아래에 줄을 끼워 넣는다(아래쪽 L2부터 넣어 행 번호가 밀리지 않게).
+// 시트에 보내는 순서: 기존 칸 쓰기(지금 행 번호) → 줄 지우기(아래부터) → 새 과제 줄 넣기(아래부터)
+//   → 구분 이름 칸 옮기기·병합 다시 잡기(다 끝난 뒤의 행 번호).
 export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts: Drafts) {
   const freshByKey = new Map(fresh.rows.map((r) => [r.key, r]))
   const baseByKey = new Map(base.rows.map((r) => [r.key, r]))
   const weekCol = new Map(fresh.weekCols.map((w) => [w.key, w.col]))
   const fieldById = new Map(fresh.fields.map((f) => [f.id, f]))
   const writes: SheetCellWrite[] = []
-  const kept: Drafts = { edits: {}, newRows: [] }
+  const kept: Drafts = { edits: {}, newRows: [], deleted: [] }
   let conflicts = 0
+  const editCount = (e: RowEdit) =>
+    Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length
+
+  // 지울 줄: 시트에서 다시 찾지 못하면 남긴다.
+  const delKeys = new Set(drafts.deleted ?? [])
+  const delRows = new Set<number>()
+  for (const key of delKeys) {
+    const fr = freshByKey.get(key)
+    if (fr) delRows.add(fr.row)
+    else {
+      kept.deleted!.push(key)
+      conflicts++
+    }
+  }
 
   for (const [key, e] of Object.entries(drafts.edits)) {
+    if (delKeys.has(key)) {
+      // 지우는 줄의 고친 값은 버린다(지우기가 남으면 같이 남긴다).
+      if (kept.deleted!.includes(key)) kept.edits[key] = e
+      continue
+    }
     const b = baseByKey.get(key)
     const fr = freshByKey.get(key)
     if (!b || !fr) {
       kept.edits[key] = e
-      conflicts += Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length
+      conflicts += editCount(e)
       continue
     }
     const keep: RowEdit = {}
@@ -523,25 +570,30 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     if (keep.cells || keep.fields || keep.bg || keep.notes) kept.edits[key] = keep
   }
 
-  // 새 과제: 화면 순서에서 같은 L2의 다음 시트 행 바로 위에 넣는다(없으면 그 L2 마지막 행 아래).
-  const lastRowOfL2 = new Map<string, number>()
-  for (const r of fresh.rows) lastRowOfL2.set(r.l2, Math.max(lastRowOfL2.get(r.l2) ?? -1, r.row))
+  // 줄 지운 뒤의 행 번호
+  const delSorted = [...delRows].sort((a, b) => a - b)
+  const shift = (i: number) => i - delSorted.filter((d) => d < i).length
+
+  // 새 과제: 화면 순서에서 같은 L2의 다음 시트 행 바로 위(없으면 앞 시트 행 바로 아래).
+  // 새 구분(L2)은 위에 넣었으면 다음 시트 행 위, 아니면 앞 시트 행 아래.
   const order = orderWithNewRows(base.rows, drafts.newRows)
   const posOf = new Map(order.map((r, i) => [r.key, i]))
+  const alive = (r: ProgressRow) => !r.isNew && !delKeys.has(r.key) && freshByKey.has(r.key)
   const inserts: SheetInsert[] = []
+  const newById = new Map<number, NewRow>() // insert 순번 → 새 과제
   drafts.newRows.forEach((n) => {
     const idx = posOf.get(NEW_PREFIX + n.id) ?? 0
+    let next: ProgressRow | undefined
+    let prev: ProgressRow | undefined
+    for (let i = idx + 1; i < order.length && !next; i++) if (alive(order[i])) next = freshByKey.get(order[i].key)
+    for (let i = idx - 1; i >= 0 && !prev; i--) if (alive(order[i])) prev = freshByKey.get(order[i].key)
+    const same = (r?: ProgressRow) => !!r && r.l2 === n.l2 && r.l1 === n.l1
     let at: number | undefined
-    for (let i = idx + 1; i < order.length && order[i].l2 === n.l2; i++) {
-      if (order[i].isNew) continue
-      const fr = freshByKey.get(order[i].key)
-      if (fr) {
-        at = fr.row
-        break
-      }
-    }
-    const last = lastRowOfL2.get(n.l2)
-    if (at === undefined && last !== undefined) at = last + 1
+    if (same(next)) at = next!.row
+    else if (same(prev)) at = prev!.row + 1
+    else if (n.anchor?.where === 'above' && next) at = next.row
+    else if (prev) at = prev.row + 1
+    else if (next) at = next.row
     if (at === undefined || !n.fields.name?.trim()) {
       kept.newRows.push(n)
       conflicts++
@@ -571,11 +623,96 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       const c = n.cells[w.key]
       cells.push({ col: w.col, value: c?.m ?? '', fill: c?.f ? FILL_HEX[c.f] : null })
     }
-    inserts.push({ at, cells, order: idx })
+    newById.set(idx, n)
+    inserts.push({ at: shift(at), cells, order: idx })
   })
   // 아래쪽부터 넣는다. 같은 자리면 화면에서 아래에 있는 것을 먼저 넣어야 최종 순서가 화면 순서와 같다.
   inserts.sort((a, b) => b.at - a.at || b.order - a.order)
-  return { writes, inserts, kept, conflicts }
+
+  // 다 끝난 뒤의 행 번호: 남은 시트 행(지우기 전 번호 i)과 새 줄
+  const finalOf = (i: number) => {
+    const s = shift(i)
+    return s + inserts.filter((x) => x.at <= s).length
+  }
+  const finalOfInsert = (k: SheetInsert) => k.at + inserts.filter((x) => x.at < k.at || (x.at === k.at && x.order < k.order)).length
+
+  // 다 끝난 뒤의 과제 줄 순서(시트에서 다시 읽은 행 기준 + 새 줄)
+  type Item = { at: number; row: ProgressRow; fresh: boolean }
+  const items: Item[] = [
+    ...fresh.rows.filter((r) => !delRows.has(r.row)).map((r) => ({ at: finalOf(r.row), row: r, fresh: true })),
+    ...inserts.map((k) => ({ at: finalOfInsert(k), row: newRowAsRow(newById.get(k.order)!), fresh: false })),
+  ].sort((a, b) => a.at - b.at)
+
+  // 구분 이름 칸(H · L1 · L2) 옮기기: 이름은 묶음 맨 위 칸에만 적혀 있으므로,
+  // 맨 위에 새 줄을 넣었거나 이름이 있던 줄을 지웠으면 이름을 새 맨 위 줄로 옮기고, 병합했던 칸은 다시 병합한다.
+  const after: SheetCellWrite[] = []
+  const remerge: SheetMergeOp[] = []
+  const levels: Level[] = ['h', 'l1', 'l2']
+  const chain = (r: ProgressRow, lv: Level) =>
+    lv === 'h' ? `${r.h ?? ''}` : lv === 'l1' ? `${r.h ?? ''}␟${r.l1}` : `${r.h ?? ''}␟${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
+  const freshSorted = [...fresh.rows].sort((a, b) => a.row - b.row)
+  for (const lv of levels) {
+    const col = fresh.levelCols?.[lv]
+    if (col === undefined) continue
+    // 시트의 이름 묶음: 이름이 적힌 줄(또는 윗줄과 이름이 다른 줄)에서 시작
+    const blockOf = new Map<number, number>() // 시트 행 → 묶음 시작 행
+    let cur = -1
+    freshSorted.forEach((r, i) => {
+      const prev = freshSorted[i - 1]
+      if (!prev || r.labels?.[lv] || chain(prev, lv) !== chain(r, lv)) cur = r.row
+      blockOf.set(r.row, cur)
+    })
+    const byRow = new Map(freshSorted.map((r) => [r.row, r]))
+    // 새 줄은 바로 윗줄과 같은 이름이면 그 묶음, 아니면 바로 아랫줄 묶음, 둘 다 아니면 새 묶음
+    const blockItems = new Map<string, Item[]>()
+    const touched = new Set<string>()
+    let prevBlock: string | null = null
+    items.forEach((it, i) => {
+      let b: string
+      if (it.fresh) b = `f${blockOf.get(it.row.row)}`
+      else {
+        const prev = items[i - 1]
+        const nextFresh = items.slice(i + 1).find((x) => x.fresh)
+        if (prev && chain(prev.row, lv) === chain(it.row, lv) && prevBlock) b = prevBlock
+        else if (nextFresh && chain(nextFresh.row, lv) === chain(it.row, lv)) b = `f${blockOf.get(nextFresh.row.row)}`
+        else b = `n${it.at}`
+        touched.add(b)
+      }
+      prevBlock = b
+      blockItems.set(b, [...(blockItems.get(b) ?? []), it])
+    })
+    for (const r of fresh.rows) if (delRows.has(r.row)) touched.add(`f${blockOf.get(r.row)}`)
+
+    for (const b of touched) {
+      const list = blockItems.get(b)
+      if (!list?.length) continue // 묶음이 통째로 지워짐
+      const owner = list[0]
+      const origRow = b.startsWith('f') ? Number(b.slice(1)) : null
+      const orig = origRow !== null ? byRow.get(origRow) : undefined
+      let label: string | undefined
+      if (orig) label = orig.labels?.[lv]
+      else {
+        const r = owner.row
+        label = lv === 'h' ? (r.h ?? undefined) : lv === 'l1' ? (r.l1 !== NO_L1 ? r.l1 : undefined) : r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2
+      }
+      if (!label) continue // 이름이 다른 줄(과제 없는 머리 줄 등)에 있으면 건드리지 않는다
+      const ownerIsOrig = owner.fresh && owner.row.row === origRow
+      if (!ownerIsOrig) {
+        after.push({ row: owner.at, col, value: label })
+        if (orig && !delRows.has(orig.row)) after.push({ row: finalOf(orig.row), col, value: '' })
+      }
+      // 이름 칸이 병합돼 있었으면 새 범위로 다시 병합
+      const m = orig ? fresh.levelMerges?.find((x) => x.c1 === col && x.c2 === col && x.r1 === orig.row) : undefined
+      if (m) {
+        const survivors: number[] = []
+        for (let i = m.r1; i <= m.r2; i++) if (!delRows.has(i)) survivors.push(finalOf(i))
+        const r1 = Math.min(owner.at, ...survivors)
+        const r2 = Math.max(list[list.length - 1].at, ...survivors)
+        remerge.push({ col, r1, r2, merge: r2 > r1 })
+      }
+    }
+  }
+  return { writes, deletes: delSorted, inserts, after, remerge, kept, conflicts }
 }
 
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
