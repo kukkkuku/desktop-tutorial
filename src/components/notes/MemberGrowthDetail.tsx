@@ -550,10 +550,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                       <p className="mt-0.5 text-[17px] font-semibold tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(0)}점</p>
                     </div>
                     <div className="rounded-card border border-separator bg-white px-3.5 py-2">
-                      <p className="text-xs text-label-2">현재 점수 + 시뮬레이션 가산</p>
+                      <p
+                        className="text-xs text-label-2"
+                        title="심사연도까지 아직 없는 해를 지금까지 받은 등급의 평균으로 채웠을 때 달라지는 점수. 최근 등급이 평균보다 좋으면 마이너스가 될 수 있습니다."
+                      >
+                        현재 점수 + 심사까지 예상 변화
+                      </p>
                       <p className="mt-0.5 text-[17px] font-semibold tabular-nums">
                         <span className="text-label">{currentWeightedScore.toFixed(1)}점</span>
-                        <span className="ml-1.5 text-accent">
+                        <span className={`ml-1.5 ${simDelta >= 0 ? 'text-accent' : 'text-warning'}`}>
                           {simDelta >= 0 ? '+' : '−'}
                           {Math.abs(simDelta).toFixed(1)}
                         </span>
