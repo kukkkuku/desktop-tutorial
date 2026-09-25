@@ -245,10 +245,14 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
+      {/* 탭에 따라 크기가 바뀔 때 창 크기 조절하듯 부드럽게(구글시트는 표를 봐야 해서 조금 넓게) */}
       <div
-        className={`flex w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog ${
-          tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-h-[85vh] max-w-5xl'
-        }`}
+        className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
+        style={
+          tab === 'sheet'
+            ? { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
+            : { width: 'min(1024px, calc(100vw - 2rem))', height: 'min(640px, 85vh)' }
+        }
       >
         <div className="flex items-start justify-between gap-4 px-6 pb-0 pt-5">
           <div>
