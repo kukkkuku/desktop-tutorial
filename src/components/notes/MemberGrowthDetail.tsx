@@ -6,7 +6,7 @@ import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { EvaluationGrade, Importance, Level, PersonalNoteColor } from '../../types'
 import { LEVEL_OPTIONS } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
-import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear } from '../../utils/promotion'
+import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear, reviewKindOf } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
@@ -430,13 +430,13 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [reviewDateYearStr, reviewDateMonthStr = '01'] = (member.promotionReviewDate ?? '').split('-')
   // 심사일을 아직 안 정했으면 성장 시뮬레이션 표와 같은 예상 연도(필요 체류연한 기준)를 쓴다.
   const reviewYear = Number(reviewDateYearStr) || resolveReviewYear(null, findPromotionCriteria(member.level, profile.promotionCriteria), levelTenureYears)
-  const reviewMonth = Number(reviewDateMonthStr) || 1
+  const reviewMonth = Number(reviewDateMonthStr) || 4
   const updatePromotionReviewDate = (year: number, month: number) => {
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
   }
 
   const projectedTotal = promotionCriteria
-    ? calcProjectedPromotionScore(appraisals, profile.gradeScores, promotionCriteria, reviewYear, auxScoreSum(member.auxScores)).projectedTotal
+    ? calcProjectedPromotionScore(appraisals, profile.gradeScores, promotionCriteria, reviewYear, auxScoreSum(member.auxScores), reviewKindOf(member.promotionReviewDate)).projectedTotal
     : 0
   const simDelta = Math.round((projectedTotal - currentWeightedScore) * 10) / 10
 

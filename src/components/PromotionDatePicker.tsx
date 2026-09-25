@@ -17,16 +17,15 @@ export default function PromotionDatePicker({
   return (
     <div className="flex items-center gap-2">
       <YearPicker year={year} onChange={(y) => onChange(y, month)} />
+      {/* 승급심사는 4월 정기(직전 5개년) / 9월 특별(그해 상반기 포함 5개년) 두 가지 */}
       <select
-        value={month}
+        value={month >= 7 ? 9 : 4}
         onChange={(e) => onChange(year, Number(e.target.value))}
         className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
+        title="4월 정기심사: 직전 5개년 · 9월 특별심사: 그해 상반기 포함 5개년"
       >
-        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-          <option key={m} value={m}>
-            {m}월
-          </option>
-        ))}
+        <option value={4}>4월 정기</option>
+        <option value={9}>9월 특별</option>
       </select>
     </div>
   )

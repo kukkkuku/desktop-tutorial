@@ -5,7 +5,7 @@ import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types
 import { PERFORMANCE_GRADE_OPTIONS } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
-import { YEAR_WEIGHTS_BY_TENURE, findPromotionCriteria, gradeScore, resolveReviewYear, trendArrow } from '../../utils/promotion'
+import { YEAR_WEIGHTS_BY_TENURE, findPromotionCriteria, resolveReviewYear, reviewKindOf, reviewWindow, trendArrow, yearScoreParts } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import { icSm } from '../ui/icon'
 
@@ -48,7 +48,10 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
   const reviewYear = resolveReviewYear(member.promotionReviewDate, criteria, levelTenureYears)
-  const recentYears = Array.from({ length: 5 }, (_, i) => reviewYear - 1 - i)
+  const kind = reviewKindOf(member.promotionReviewDate)
+  const window = reviewWindow(reviewYear, kind)
+  const recentYears = window.map((w) => w.year)
+  const halfOnlyYear = window.find((w) => w.halfOnly)?.year ?? null
   const recentYearSet = new Set(recentYears)
   const extraYears = Array.from(new Set(records.map((r) => r.year).filter((y) => !recentYearSet.has(y)))).sort((a, b) => b - a)
 
@@ -72,27 +75,15 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   // 가중합: 최근 연도부터 체류연한별 가중치(150%·125%…)를 곱한다. 기록 없는 해는 입력된 해의
   // 평균(평년 실적)으로 채운 예상값 -- 상단 "최종 시뮬레이션 점수"와 같은 계산(calcAnchoredWeightedScore).
   const weights = criteria ? YEAR_WEIGHTS_BY_TENURE[criteria.tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5] : []
-  const ach: number[] = []
-  const comp: number[] = []
-  for (const r of records) {
-    if (r.firstHalfGrade) ach.push(gradeScore(r.firstHalfGrade, profile.gradeScores))
-    if (r.secondHalfGrade) ach.push(gradeScore(r.secondHalfGrade, profile.gradeScores))
-    if (r.competencyGrade) comp.push(gradeScore(r.competencyGrade, profile.gradeScores) * 2)
-  }
-  const avg = (xs: number[]) => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : 0)
-  const fallbackAch = avg(ach) * 2
-  const fallbackComp = avg(comp)
   let achTotal = 0
   let compTotal = 0
   const rowInfo = new Map<number, { weight: number; weighted: number; predicted: boolean }>()
-  recentYears.forEach((year, i) => {
+  window.forEach(({ year, halfOnly }, i) => {
     const w = weights[i] ?? 0
-    const r = records.find((rec) => rec.year === year)
-    const a = r ? gradeScore(r.firstHalfGrade, profile.gradeScores) + gradeScore(r.secondHalfGrade, profile.gradeScores) : fallbackAch
-    const c = r ? gradeScore(r.competencyGrade, profile.gradeScores) * 2 : fallbackComp
-    achTotal += w * a
-    compTotal += w * c
-    rowInfo.set(year, { weight: w, weighted: w * (a + c), predicted: !r && w > 0 && records.length > 0 })
+    const p = yearScoreParts(records, profile.gradeScores, year, halfOnly)
+    achTotal += w * p.ach
+    compTotal += w * p.comp
+    rowInfo.set(year, { weight: w, weighted: w * (p.ach + p.comp), predicted: p.predicted && w > 0 && records.length > 0 })
   })
   const grandTotal = Math.round((achTotal + compTotal + auxSum) * 10) / 10
   const displayYears = [...recentYears, ...(showAll ? extraYears : [])]
@@ -103,7 +94,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
   // 승급심사 연도 -- 상단 "승진심사"와 같은 member.promotionReviewDate(월은 유지).
   function changeReviewYear(year: number) {
     if (!Number.isFinite(year)) return
-    const month = member.promotionReviewDate?.slice(5, 7) || '01'
+    const month = member.promotionReviewDate?.slice(5, 7) || '04'
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${month}` } })
   }
 
@@ -122,7 +113,10 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           onChange={(e) => changeReviewYear(Number(e.target.value))}
           className="mx-0.5 h-8 w-16 rounded-control border border-hairline px-2 text-center text-[13px] text-label"
         />
-        년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 5개년을 반영합니다.
+        년 {kind === 'special' ? '9월 특별심사' : '4월 정기심사'} 기준,{' '}
+        {kind === 'special'
+          ? `${recentYears[recentYears.length - 1]}~${recentYears[1]}년과 ${recentYears[0]}년 상반기를 반영합니다.`
+          : `${recentYears[recentYears.length - 1]}~${recentYears[0]}년 5개년을 반영합니다.`}
       </p>
 
       <div className="mt-3 overflow-x-auto rounded-card border border-separator">
@@ -151,7 +145,11 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                 <tr key={year} className="border-t border-separator">
                   <td className="px-2 py-1.5">
                     <span className="font-semibold text-label">{year}</span>
-                    {info && info.weight > 0 && <span className="block text-[11px] text-label-3">×{Math.round(info.weight * 100)}%</span>}
+                    {info && info.weight > 0 && (
+                      <span className="block text-[11px] text-label-3">
+                        ×{Math.round(info.weight * 100)}%{year === halfOnlyYear ? ' · 상반기만' : ''}
+                      </span>
+                    )}
                   </td>
                   {GRADE_KEYS.map(({ key, label }) => (
                     <td key={key} className="px-1 py-1.5 text-center">
@@ -159,7 +157,10 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                         aria-label={`${year} ${label}`}
                         value={r?.[key] ?? ''}
                         onChange={(e) => setGrade(year, key, e.target.value as EvaluationGrade | '')}
+                        title={year === halfOnlyYear && key !== 'firstHalfGrade' ? '9월 특별심사에서는 이 해의 상반기 업적만 반영합니다' : undefined}
                         className={`h-8 w-full max-w-[64px] rounded-control border border-hairline !pl-2 !pr-5 text-center text-[13px] font-medium ${
+                          year === halfOnlyYear && key !== 'firstHalfGrade' ? 'opacity-40' : ''
+                        } ${
                           r?.[key] ? GRADE_TEXT[r[key] as EvaluationGrade] : 'text-label-3'
                         }`}
                       >

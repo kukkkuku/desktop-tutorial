@@ -160,41 +160,84 @@ export function calcAverageYearGradeSum(
   return avgAchievement * 2 + avgCompetency
 }
 
-// 특정 연도를 기준으로 그 앞 5개년(anchorYear-1 ~ anchorYear-5)의 가중합계를
-// 구한다. 실제 기록이 있는 해는 그 등급을 쓰고, 없는 해는 평년 값(위 함수)으로
-// 채운다 -- 엑셀의 "육성 시뮬레이션" 표가 승급심사 예정년도를 기준으로 미입력
-// 연도를 자동으로 평년 실적으로 예측하는 방식 그대로다.
+// 승급심사는 두 가지다.
+//  - 정기(4월): 심사 연도 직전 5개년(Y-1 ~ Y-5)
+//  - 특별(9월): 심사 연도 상반기를 포함한 5개년(Y 상반기 업적 + Y-1 ~ Y-4)
+// promotionReviewDate의 월이 7월 이상이면 특별로 본다(월 선택은 4월/9월 두 가지).
+export type ReviewKind = 'regular' | 'special'
+
+export function reviewKindOf(promotionReviewDate: string | null | undefined): ReviewKind {
+  const m = Number(promotionReviewDate?.slice(5, 7))
+  return m >= 7 ? 'special' : 'regular'
+}
+
+// 반영 연도(최근 → 과거, 가중치 순서와 같음). halfOnly = 그 해는 상반기 업적만 반영.
+export function reviewWindow(reviewYear: number, kind: ReviewKind): { year: number; halfOnly: boolean }[] {
+  if (kind === 'special') return Array.from({ length: 5 }, (_, i) => ({ year: reviewYear - i, halfOnly: i === 0 }))
+  return Array.from({ length: 5 }, (_, i) => ({ year: reviewYear - 1 - i, halfOnly: false }))
+}
+
+// 평년 실적(등급이 없는 해를 채우는 값): 업적 한 반기 평균, 역량(×2) 평균
+function averageParts(records: HRAppraisalRecord[], gradeScores: Record<EvaluationGrade, number>): { half: number; comp: number } {
+  const ach: number[] = []
+  const comp: number[] = []
+  for (const r of records) {
+    if (r.firstHalfGrade) ach.push(gradeScores[r.firstHalfGrade] ?? 0)
+    if (r.secondHalfGrade) ach.push(gradeScores[r.secondHalfGrade] ?? 0)
+    if (r.competencyGrade) comp.push((gradeScores[r.competencyGrade] ?? 0) * 2)
+  }
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
+  return { half: avg(ach), comp: avg(comp) }
+}
+
+// 한 해의 반영 점수 나눔(업적/역량). 기록이 없으면 평년 실적으로 채운다(predicted).
+export function yearScoreParts(
+  records: HRAppraisalRecord[],
+  gradeScores: Record<EvaluationGrade, number>,
+  year: number,
+  halfOnly: boolean,
+): { ach: number; comp: number; predicted: boolean } {
+  const r = records.find((x) => x.year === year)
+  if (r) {
+    const first = gradeScore(r.firstHalfGrade, gradeScores)
+    if (halfOnly) return { ach: first, comp: 0, predicted: false }
+    return { ach: first + gradeScore(r.secondHalfGrade, gradeScores), comp: gradeScore(r.competencyGrade, gradeScores) * 2, predicted: false }
+  }
+  const avg = averageParts(records, gradeScores)
+  return halfOnly ? { ach: avg.half, comp: 0, predicted: true } : { ach: avg.half * 2, comp: avg.comp, predicted: true }
+}
+
+// 심사 기준 가중합계(연도 가중치 × 연도 점수 + 보조지표). 등급이 없는 해는 평년 실적으로 채운다
+// -- 엑셀 "육성 시뮬레이션" 표가 미입력 연도를 평년 실적으로 예측하는 방식 그대로다.
 export function calcAnchoredWeightedScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
   tenureYears: number,
   anchorYear: number,
   auxScore = 0,
+  kind: ReviewKind = 'regular',
 ): number {
   const weights = YEAR_WEIGHTS_BY_TENURE[tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5]
-  const fallback = calcAverageYearGradeSum(records, gradeScores)
-  const byYear = new Map(records.map((r) => [r.year, r]))
   let weighted = 0
-  for (let i = 0; i < 5; i++) {
-    const year = anchorYear - 1 - i
-    const weight = weights[i] ?? 0
-    const record = byYear.get(year)
-    const yearScore = record ? yearGradeSum(record, gradeScores) : fallback
-    weighted += weight * yearScore
-  }
+  reviewWindow(anchorYear, kind).forEach(({ year, halfOnly }, i) => {
+    const w = weights[i] ?? 0
+    if (!w) return
+    const p = yearScoreParts(records, gradeScores, year, halfOnly)
+    weighted += w * (p.ach + p.comp)
+  })
   return weighted + auxScore
 }
 
-// 승급심사 예정년도까지의 예상 승진 점수 -- 실제 입력된 연도는 그대로, 미입력
-// 연도는 평년 실적으로 채워 승급심사 시점 기준 가중합계를 예측한다.
+// 승급심사 시점의 예상 승진 점수.
 export function calcProjectedPromotionScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
   criteria: PromotionCriteriaRow,
   reviewYear: number,
   auxScore = 0,
+  kind: ReviewKind = 'regular',
 ): { projectedTotal: number; projectedEligible: boolean; projectedGap: number } {
-  const projectedTotal = Math.round(calcAnchoredWeightedScore(records, gradeScores, criteria.tenureYears, reviewYear, auxScore) * 10) / 10
+  const projectedTotal = Math.round(calcAnchoredWeightedScore(records, gradeScores, criteria.tenureYears, reviewYear, auxScore, kind) * 10) / 10
   const projectedEligible = projectedTotal >= criteria.requiredScore
   const projectedGap = Math.round((projectedTotal - criteria.requiredScore) * 10) / 10
   return { projectedTotal, projectedEligible, projectedGap }
