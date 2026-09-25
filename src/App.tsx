@@ -124,7 +124,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               />
             </div>
             <div className="flex min-h-0 flex-1">
-              {stage !== 'notes' && stage !== 'work' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
+              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
                 {(stage === 'work' || stage === 'tasks') && (
                   <UnderlineTabs

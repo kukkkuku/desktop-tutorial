@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
@@ -276,6 +276,14 @@ export default function EvaluationResults() {
     }
   })
   const [tab, setTab] = useState<'members' | 'tasks'>('members')
+  // "탭" 보기는 화면이 좁을 때(1280px 이하)만 고를 수 있다. 넓어지면 상하로 보여 준다.
+  const [narrow, setNarrow] = useState(() => window.innerWidth <= 1280)
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth <= 1280)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const shownView: ResultView = view === 'tabs' && !narrow ? 'stack' : view
   function changeView(v: ResultView) {
     setView(v)
     try {
@@ -286,7 +294,7 @@ export default function EvaluationResults() {
   }
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-6">
+    <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -303,9 +311,9 @@ export default function EvaluationResults() {
             items={[
               { key: 'stack', label: '상하', title: '팀원별 성과 위, 과제별 성과 아래' },
               { key: 'side', label: '좌우', title: '팀원별 성과 왼쪽, 과제별 성과 오른쪽 (넓은 화면에서만, 좁으면 상하로)' },
-              { key: 'tabs', label: '탭', title: '팀원별 성과 / 과제별 성과를 탭으로 전환' },
+              ...(narrow ? [{ key: 'tabs' as const, label: '탭', title: '팀원별 성과 / 과제별 성과를 탭으로 전환' }] : []),
             ]}
-            value={view}
+            value={shownView}
             onChange={changeView}
           />
           <Button
@@ -404,7 +412,7 @@ export default function EvaluationResults() {
               )}
             </div>
           )}
-          {view === 'tabs' && (
+          {shownView === 'tabs' && (
             <UnderlineTabs
               items={[
                 { key: 'members', label: '팀원별 성과' },
@@ -414,8 +422,8 @@ export default function EvaluationResults() {
               onChange={setTab}
             />
           )}
-          <div className={view === 'side' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]' : 'space-y-6'}>
-            {(view !== 'tabs' || tab === 'members') && (
+          <div className={shownView === 'side' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]' : 'space-y-6'}>
+            {(shownView !== 'tabs' || tab === 'members') && (
               <div className="min-w-0 space-y-4">
           <div>
             <h3 className="text-[13px] font-semibold text-label">팀원별 성과</h3>
@@ -558,7 +566,7 @@ export default function EvaluationResults() {
 
               </div>
             )}
-            {(view !== 'tabs' || tab === 'tasks') && (
+            {(shownView !== 'tabs' || tab === 'tasks') && (
               <div className="min-w-0">
           {/* 과제별 성과 & 기여도 */}
           <div>
