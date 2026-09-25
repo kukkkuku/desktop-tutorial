@@ -159,6 +159,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [tabMenu, setTabMenu] = useState<{ x: number; y: number; groupId: string } | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)
+  // L2 삭제 때 함께 지울 팀원(선택). 기본은 지우지 않음.
+  const [removeMembersOn, setRemoveMembersOn] = useState(false)
+  const [removeMemberIds, setRemoveMemberIds] = useState<Set<string>>(new Set())
   const [dragTab, setDragTab] = useState<{ id: string; over: number | null } | null>(null)
 
   useEffect(() => {
@@ -670,6 +673,31 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // ---------- 요약 ----------
   const missingCount = groupItems.filter((i) => i.missingInSheet).length
 
+  // 이 L2 과제에만 담당자로 있고 다른 데는 전혀 안 쓰이는 팀원(L2 삭제 때 함께 지울 후보).
+  // 다른 L2 담당, 사람이 정한 평가 기여도·개인등급, 면담 기록, 피어리뷰가 하나라도 있으면 빼 둔다.
+  function orphanMembersOf(groupId: string) {
+    const inGroup = new Set(board.items.filter((i) => i.groupId === groupId).flatMap((i) => i.assigneeIds))
+    const elsewhere = new Set(board.items.filter((i) => i.groupId !== groupId).flatMap((i) => i.assigneeIds))
+    const manualTasks = new Set(
+      state.tasks.filter((t) => state.contributions.some((c) => c.taskId === t.id && !c.isAutoDistributed)).map((t) => t.id),
+    )
+    const used = (id: string) =>
+      elsewhere.has(id) ||
+      state.contributions.some((c) => c.memberId === id && ((manualTasks.has(c.taskId) && c.contributionPercent > 0) || c.personalPerformanceGrade)) ||
+      state.meetingNotes.some((n) => n.memberId === id) ||
+      state.peerReviews.some((r) => r.targetMemberId === id || r.reviewerMemberId === id) ||
+      state.rankReviews.some((r) => r.targetMemberId === id || r.reviewerMemberId === id) ||
+      state.taskPeerReviews.some((r) => r.targetMemberId === id || r.reviewerMemberId === id)
+    return members.filter((m) => inGroup.has(m.id) && !used(m.id))
+  }
+  const deleteCandidates = deletingGroup ? orphanMembersOf(deletingGroup.id) : []
+
+  function openDeleteGroup(g: TaskGroup) {
+    setRemoveMembersOn(false)
+    setRemoveMemberIds(new Set(orphanMembersOf(g.id).map((m) => m.id)))
+    setDeletingGroup(g)
+  }
+
   // ---------- 빈 화면 ----------
   if (board.groups.length === 0) {
     return (
@@ -761,7 +789,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
-                      setDeletingGroup(g)
+                      openDeleteGroup(g)
                     }}
                     title="이 L2 삭제(과제관리에서만, 구글시트는 그대로)"
                     className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-200 hover:text-black ${
@@ -1031,7 +1059,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 {item('왼쪽으로 이동', () => apply(moveGroup(board, g.id, idx - 1)), { disabled: idx === 0 })}
                 {item('오른쪽으로 이동', () => apply(moveGroup(board, g.id, idx + 1)), { disabled: idx === board.groups.length - 1 })}
                 <div className="my-1 h-px bg-gray-100" />
-                {item('L2 삭제', () => setDeletingGroup(g), { danger: true })}
+                {item('L2 삭제', () => openDeleteGroup(g), { danger: true })}
               </>
             )
           })()}
@@ -1066,11 +1094,54 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             : ''
         }
         onConfirm={() => {
-          if (deletingGroup) apply(deleteGroup(board, deletingGroup.id))
+          if (deletingGroup) {
+            apply(deleteGroup(board, deletingGroup.id))
+            if (removeMembersOn) {
+              const ids = deleteCandidates.filter((m) => removeMemberIds.has(m.id)).map((m) => m.id)
+              for (const id of ids) dispatch({ type: 'DELETE_MEMBER', payload: { id } })
+              if (ids.length) showToast(`L2와 팀원 ${ids.length}명을 삭제했습니다. 팀원 삭제는 되돌리기로 살아나지 않습니다.`)
+            }
+          }
           setDeletingGroup(null)
         }}
         onCancel={() => setDeletingGroup(null)}
-      />
+      >
+        {deleteCandidates.length > 0 && (
+          <div className="mt-4 rounded-md border border-gray-200 bg-[#F7F8FA] p-3 text-sm">
+            <label className="flex cursor-pointer items-start gap-2">
+              <input type="checkbox" checked={removeMembersOn} onChange={(e) => setRemoveMembersOn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#DC2626]" />
+              <span>
+                <span className="font-medium text-black">이 L2에만 있는 팀원 {deleteCandidates.length}명도 팀원 목록에서 삭제</span>
+                <span className="mt-0.5 block text-xs text-gray-500">다른 L2 과제·평가 기여도·면담·피어리뷰에 없는 담당자만 골랐습니다. 팀원 삭제는 되돌리기(⌘Z)로 살아나지 않습니다.</span>
+              </span>
+            </label>
+            {removeMembersOn && (
+              <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
+                {deleteCandidates.map((m) => {
+                  const on = removeMemberIds.has(m.id)
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() =>
+                        setRemoveMemberIds((cur) => {
+                          const next = new Set(cur)
+                          if (next.has(m.id)) next.delete(m.id)
+                          else next.add(m.id)
+                          return next
+                        })
+                      }
+                      className={`${CHIP_BASE} ${on ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-white text-gray-400 line-through ring-1 ring-gray-200'}`}
+                      title={on ? '누르면 이 팀원은 남깁니다' : '누르면 이 팀원도 삭제합니다'}
+                    >
+                      {m.name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </ConfirmDialog>
       <ConfirmDialog
         open={deletingCols !== null}
         title="열 삭제"

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Button from './Button'
 
 interface ConfirmDialogProps {
@@ -9,6 +10,8 @@ interface ConfirmDialogProps {
   // 기본은 삭제 확인(빨간 버튼). 삭제가 아닌 확인(예: 평가 확정)은 accent 톤으로.
   confirmLabel?: string
   tone?: 'danger' | 'accent'
+  // 메시지 아래에 덧붙이는 선택 항목 등
+  children?: ReactNode
 }
 
 export default function ConfirmDialog({
@@ -19,14 +22,16 @@ export default function ConfirmDialog({
   onCancel,
   confirmLabel = '삭제',
   tone = 'danger',
+  children,
 }: ConfirmDialogProps) {
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+      <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-lg bg-white p-6 shadow-xl`}>
         <h3 className="text-lg font-bold text-black">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>
+        {children}
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>
             취소
