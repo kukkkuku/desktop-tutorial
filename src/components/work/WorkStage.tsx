@@ -577,16 +577,39 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     showToast(`행 ${ids.length}개를 삭제했습니다`, true)
   }
 
+  // 끌어 놓은 자리로 묶음 소속도 정한다(트리처럼): 어느 묶음의 하위 행들 사이면 그 묶음에
+  // 들어가고, 최상위 자리(낱개 행 사이·묶음 머리 행 앞)면 묶음에서 빠진다. 내보낸 행은 소속 유지.
+  function regroup(next: WorkBoard, ids: string[], target: string): WorkBoard {
+    const set = new Set(ids)
+    // 묶음 전체를 함께 옮기는 중이면(머리 행으로 고른 뒤 끌기 등) 그 묶음은 그대로 둔다.
+    const whole = (g: string) => !!g && next.items.filter((i) => evalGroupOf(i) === g).every((i) => set.has(i.id))
+    const change = next.items.filter((i) => set.has(i.id) && !exportedIds.has(i.id) && evalGroupOf(i) !== target && !whole(evalGroupOf(i)))
+    if (change.length === 0) return next
+    showToast(target ? `L3 ${change.length}건을 「${target}」 묶음으로 옮겼습니다.` : `L3 ${change.length}건을 묶음에서 뺐습니다.`, true)
+    return setEvalGroup(next, change.map((i) => i.id), target, members)
+  }
+
   function moveRows(ids: string[], viewTo: number) {
     if (!activeGroup) return
-    apply(moveItems(board, activeGroup.id, ids, groupIndexOfView(viewTo)))
+    const set = new Set(ids)
+    let below: WorkItem | undefined
+    for (let k = viewTo; k < viewRows.length; k++) {
+      if (!set.has(viewRows[k].id)) {
+        below = viewRows[k]
+        break
+      }
+    }
+    const target = below ? evalGroupOf(below) : ''
+    apply(regroup(moveItems(board, activeGroup.id, ids, groupIndexOfView(viewTo)), ids, target))
   }
 
   // 묶음 머리 행 기준 이동: beforeId(보드 순서상 그 L3) 앞으로, null이면 맨 끝.
-  function moveRowsBefore(ids: string[], beforeId: string | null) {
+  // 묶음째 옮기는 게 아니면 최상위 자리이므로 묶음에서 뺀다.
+  function moveRowsBefore(ids: string[], beforeId: string | null, wholeGroups: boolean) {
     if (!activeGroup || (beforeId && ids.includes(beforeId))) return
     const to = beforeId ? groupItems.findIndex((i) => i.id === beforeId) : groupItems.length
-    apply(moveItems(board, activeGroup.id, ids, to < 0 ? groupItems.length : to))
+    const next = moveItems(board, activeGroup.id, ids, to < 0 ? groupItems.length : to)
+    apply(wholeGroups ? next : regroup(next, ids, ''))
   }
 
   function boardColIndexOfVisible(visIndex: number): number {

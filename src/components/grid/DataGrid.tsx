@@ -57,7 +57,7 @@ interface DataGridProps<R extends { id: string }> {
   onDeleteRows: (ids: string[]) => void
   onMoveRows?: (ids: string[], toIndex: number) => void
   // 묶음 머리 행 기준 이동: beforeId 행 앞으로(null = 맨 끝). 묶음 머리 행을 쓰면 필요.
-  onMoveRowsBefore?: (ids: string[], beforeId: string | null) => void
+  onMoveRowsBefore?: (ids: string[], beforeId: string | null, wholeGroups: boolean) => void
   onInsertColumn: (index: number) => void
   onDeleteColumns: (colIds: string[]) => void
   onHideColumns: (colIds: string[]) => void
@@ -676,7 +676,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         if (d.kind === 'rows' && dragInsert.kind === 'row' && (d.ids || dragInsert.headKey) && props.onMoveRowsBefore) {
           // 묶음 머리 행을 끌어 옮기거나(접힌 하위 포함 묶음 전체), 묶음 머리 행 앞에 놓음.
           // 자리가 크게 바뀌므로 선택은 푼다.
-          props.onMoveRowsBefore(d.ids ?? selectedRowIds, dragInsert.beforeId ?? null)
+          props.onMoveRowsBefore(d.ids ?? selectedRowIds, dragInsert.beforeId ?? null, !!d.ids)
           setSel(null)
           setActive(null)
         } else if (d.kind === 'rows' && dragInsert.kind === 'row' && props.onMoveRows && range) {
