@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useRef, useState } from 'react'
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { PerformanceGrade } from '../types'
@@ -62,6 +62,17 @@ export default function EvaluationMatrix() {
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputsOf(state))
+  // 과제별 피어리뷰(순위)의 평균 -- 기여도 칸 아래 참고로 보여 준다. 본인 평가 제외.
+  const peerRankOf = useMemo(() => {
+    const acc = new Map<string, { sum: number; count: number }>()
+    for (const r of state.taskPeerReviews) {
+      if (r.method !== 'rank' || r.reviewerMemberId === r.targetMemberId) continue
+      const k = `${r.taskId}|${r.targetMemberId}`
+      const cur = acc.get(k) ?? { sum: 0, count: 0 }
+      acc.set(k, { sum: cur.sum + r.value, count: cur.count + 1 })
+    }
+    return new Map(Array.from(acc, ([k, v]) => [k, { avg: v.sum / v.count, count: v.count }]))
+  }, [state.taskPeerReviews])
   const activeMembers = members.filter((m) => m.active)
   const activeMemberIds = new Set(activeMembers.map((m) => m.id))
 
@@ -273,6 +284,18 @@ export default function EvaluationMatrix() {
                                 placeholder="0"
                                 className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm text-black"
                               />
+                              {(() => {
+                                const pr = peerRankOf.get(`${task.id}|${member.id}`)
+                                if (!pr) return null
+                                return (
+                                  <p
+                                    className="mt-0.5 whitespace-nowrap text-[11px] text-gray-400"
+                                    title={`동료 ${pr.count}명이 매긴 이 과제 안 순위의 평균(본인 평가 제외) · 기여도를 정할 때 참고`}
+                                  >
+                                    동료 {pr.avg.toFixed(1)}위
+                                  </p>
+                                )
+                              })()}
                             </td>
                             <td className="px-3 py-2">
                               <div className="flex items-center gap-1">

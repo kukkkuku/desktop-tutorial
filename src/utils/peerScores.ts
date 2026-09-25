@@ -7,7 +7,7 @@
 //  - 기여도 → 그 과제·그 평가자 안에서 많이 받은 순서를 순위로 보고 같은 식(같은 값은 평균 순위)
 //  - 본인이 본인에게 준 값은 점수에서 뺀다(목록 크기 계산에는 포함)
 //  - 비교 대상이 없으면(인원 1) 뺀다
-//  - 과제별 리뷰는 지금 정해진 방식(Task.peerMethod)으로 받은 것만 센다
+//  - 과제별 리뷰는 순위로 받은 것만 센다(예전 기여도 리뷰는 참고용, 점수 미반영)
 
 import type { AppState, PeerReview, TaskPeerReview } from '../types'
 import type { PeerScore } from './calculations'
@@ -39,7 +39,8 @@ export function derivedPeerScores(state: Pick<AppState, 'rankReviews' | 'taskPee
     const score = rankToScore(r.rank, r.groupSize)
     if (score !== null) out.push({ targetMemberId: r.targetMemberId, score, source: 'rank' })
   }
-  const methodOf = new Map(state.tasks.map((t) => [t.id, t.peerMethod ?? 'contribution']))
+  // 순위 리뷰만 점수에 넣는다(예전 기여도 리뷰는 참고용).
+  const methodOf = new Map(state.tasks.map((t) => [t.id, 'rank' as const]))
   const groups = new Map<string, TaskPeerReview[]>()
   for (const r of state.taskPeerReviews) {
     if (methodOf.get(r.taskId) !== r.method) continue

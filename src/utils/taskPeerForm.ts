@@ -1,6 +1,6 @@
 // 과제별 피어리뷰 양식(평가자 한 명당 파일 하나). 과제마다 시트 하나에 참여자 전원(본인
-// 포함)을 순위(1..N) 또는 기여도(%, 합계 100)로 평가하고 근거를 적는다. 과제마다 어느 쪽으로
-// 받을지는 Task.peerMethod(팀장이 고름). 결과는 TaskPeerReview로 저장한다.
+// 포함)을 순위(1..N)로 평가하고 근거를 적는다. 결과는 TaskPeerReview로 저장한다.
+// (기여도 방식 코드는 예전 양식을 읽을 때를 위해 남아 있다.)
 // 순위 시트는 "순위 검증"(빈칸·중복), 기여도 시트는 "기여도 합계" 검증 행이 있고,
 // 올릴 때도 같은 규칙으로 검사해 어긋나면 받지 않는다.
 
@@ -17,8 +17,10 @@ const FORM_VERSION = 2
 
 export const TASK_PEER_METHOD_LABEL: Record<TaskPeerMethod, string> = { rank: '순위', contribution: '기여도' }
 
-export function peerMethodOf(task: Pick<Task, 'peerMethod'>): TaskPeerMethod {
-  return task.peerMethod ?? 'contribution'
+// 팀원은 순위만 매긴다(기여도는 팀장이 평가하기에서 정함, 2026-09 결정).
+// Task.peerMethod와 method='contribution' 리뷰는 예전 데이터 호환용으로만 남는다.
+export function peerMethodOf(_task?: Pick<Task, 'peerMethod'>): TaskPeerMethod {
+  return 'rank'
 }
 
 export interface TaskPeerGroup {
