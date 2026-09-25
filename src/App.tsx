@@ -22,11 +22,12 @@ import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('work')
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
-  const [dataManagerTab, setDataManagerTab] = useState<{ tab: DataManagerTab; token: number } | null>(null)
+  const [dataManagerTab] = useState<{ tab: DataManagerTab; token: number } | null>(null)
   // 빠른 시작은 헤더 버튼으로만 연다. 예전에는 과제가 없으면 자동으로 떴는데,
   // 이제 첫 화면인 과제관리의 빈 상태가 시작 안내(구글시트에서 가져오기 / L2
   // 직접 만들기)를 맡는다.
   const [quickStartOpen, setQuickStartOpen] = useState(false)
+  const [quickStartTab, setQuickStartTab] = useState<'sheet' | 'direct'>('sheet')
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
@@ -113,7 +114,10 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onSelectPeriod={selectWorkspace}
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
-                onOpenQuickStart={() => setQuickStartOpen(true)}
+                onOpenQuickStart={() => {
+                  setQuickStartTab('sheet')
+                  setQuickStartOpen(true)
+                }}
                 quickStartOpen={quickStartOpen}
                 accountEmail={accountEmail}
                 isAdminUser={isAdminUser}
@@ -140,8 +144,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 {stage === 'work' && (
                   <WorkStage
                     onOpenSheetImport={() => {
-                      setDataManagerTab({ tab: 'sheet', token: Date.now() })
-                      setDataManagerOpen(true)
+                      setQuickStartTab('sheet')
+                      setQuickStartOpen(true)
                     }}
                   />
                 )}
@@ -167,6 +171,11 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               currentWorkspaceId={workspaceId}
               hasOtherPeriods={hasOtherPeriods}
               onClose={() => setQuickStartOpen(false)}
+              initialTab={quickStartTab}
+              onSheetImported={() => {
+                setQuickStartOpen(false)
+                handleStageChange('work')
+              }}
               onDataReady={() => {
                 setQuickStartOpen(false)
                 handleStageChange('tasks')

@@ -13,7 +13,7 @@ import {
   pickSaveDirectory,
   restoreSaveDirectory,
 } from '../utils/localSave'
-import { HardDrive, Monitor, Sheet, X } from 'lucide-react'
+import { HardDrive, Monitor, X } from 'lucide-react'
 import AdminInvitePanel from './AdminInvitePanel'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -51,7 +51,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   const { state, dispatch } = useAppState()
   const { tasks, members, peerReviews, contributions, criteria } = state
   const { currentWorkspace, workspaces } = useWorkspaces()
-  const [tab, setTab] = useState<Tab>('sheet')
+  const [tab, setTab] = useState<Tab>('local')
   useEffect(() => {
     if (tabRequest) setTab(tabRequest.tab)
   }, [tabRequest])
@@ -176,7 +176,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         }`}
       >
         <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <h2 className="text-[15px] font-semibold text-label">데이터 관리</h2>
+          <h2 className="text-[15px] font-semibold text-label">데이터 백업</h2>
           <IconButton onClick={onClose} aria-label="닫기" title="닫기">
             <X {...ic} />
           </IconButton>
@@ -187,7 +187,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             value={tab === 'reset' ? ('' as Tab) : tab}
             onChange={setTab}
             items={[
-              { key: 'sheet', label: <span className="flex items-center gap-1.5"><Sheet {...icSm} />구글시트 연결</span> },
               { key: 'local', label: <span className="flex items-center gap-1.5"><Monitor {...icSm} />로컬 파일</span> },
               { key: 'drive', label: <span className="flex items-center gap-1.5"><HardDrive {...icSm} />Google Drive</span> },
               ...(isAdminUser ? [{ key: 'admin' as const, label: '팀원 초대' }] : []),

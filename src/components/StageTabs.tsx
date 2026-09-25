@@ -1,6 +1,5 @@
 import type { WorkspaceMeta } from '../types'
 import GoogleAccountMenu from './GoogleAccountMenu'
-import IconButton from './IconButton'
 import Spinner from './Spinner'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { IS_PREVIEW } from '../utils/previewMode'
@@ -9,7 +8,7 @@ import { useAppState } from '../state/AppContext'
 import SheetsIcon from './SheetsIcon'
 import { withGoogleAccount } from '../utils/googleDrive'
 import { BarChart3, ChevronDown, Database, LayoutList, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
-import { ic, icSm } from './ui/icon'
+import { icSm } from './ui/icon'
 
 export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
@@ -23,12 +22,13 @@ export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'not
 // L3를 하나씩 또는 묶어서 평가과제로 만드는 흐름은 다음 단계에서 붙인다
 // (docs/PLAN-TASK-MANAGEMENT.md 6.1).
 // 과제리스트(L2/L3 보드)와 평가과제는 한 메뉴 "과제관리" 안의 두 화면이다(화면 위 세그먼트로 전환).
-const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[] }[] = [
-  { key: 'work', label: '과제관리', Icon: LayoutList, also: ['tasks'] },
-  { key: 'members', label: '팀원관리', Icon: Users },
-  { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal },
-  { key: 'results', label: '평가결과', Icon: BarChart3 },
-  { key: 'notes', label: '팀원 면담', Icon: MessageCircle },
+// 메뉴는 세 묶음: 준비(과제관리·팀원관리) | 평가(평가하기·평가결과) | 면담. 묶음 사이에 세로 구분선.
+const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[]; group: number }[] = [
+  { key: 'work', label: '과제관리', Icon: LayoutList, also: ['tasks'], group: 0 },
+  { key: 'members', label: '팀원관리', Icon: Users, group: 0 },
+  { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal, group: 1 },
+  { key: 'results', label: '평가결과', Icon: BarChart3, group: 1 },
+  { key: 'notes', label: '면담', Icon: MessageCircle, group: 2 },
 ]
 
 interface StageTabsProps {
@@ -96,36 +96,49 @@ export default function StageTabs({
           </span>
         )}
         <span className="hidden h-5 w-px bg-separator sm:inline-block" />
-        <IconButton onClick={onOpenDataManager} title="데이터 관리" aria-label="데이터 관리">
-          <Database {...ic} />
-        </IconButton>
-        <IconButton
+        <button
           onClick={onOpenQuickStart}
-          title="빠른 시작"
-          aria-label="빠른 시작"
           aria-pressed={quickStartOpen}
-          className={quickStartOpen ? 'bg-accent-soft !text-accent' : ''}
+          className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+            quickStartOpen ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
+          }`}
+          title="구글시트 연결 · 직접 입력 · Excel · 이전 평가 가져오기"
         >
-          <Zap {...ic} />
-        </IconButton>
-        <nav className="mac-seg" role="tablist">
-          {STAGE_TABS.map(({ key, label, Icon, also }) => {
+          <Zap {...icSm} />
+          빠른 시작
+        </button>
+        <nav className="flex items-center gap-1" role="tablist">
+          {STAGE_TABS.map(({ key, label, Icon, also, group }, i) => {
             const on = stage === key || !!also?.includes(stage)
+            const divider = i > 0 && STAGE_TABS[i - 1].group !== group
             return (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={on}
-              onClick={() => !on && onStageChange(key)}
-              className={`mac-seg-item flex items-center gap-1.5 !px-3.5 !py-[6px] ${on ? 'mac-seg-item-on !text-accent' : ''}`}
-            >
-              <Icon {...icSm} />
-              {label}
-            </button>
+              <span key={key} className="flex items-center gap-1">
+                {divider && <span className="mx-2 h-5 w-px bg-separator" />}
+                <button
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => !on && onStageChange(key)}
+                  className={`flex items-center gap-1.5 rounded-control px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                    on ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
+                  }`}
+                >
+                  <Icon {...icSm} />
+                  {label}
+                </button>
+              </span>
             )
           })}
         </nav>
 
+        {!accountEmail && (
+          <button
+            onClick={onOpenDataManager}
+            className="ml-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
+          >
+            <Database {...icSm} />
+            데이터 백업
+          </button>
+        )}
         {accountEmail && (
           <div className="ml-auto flex shrink-0 items-center gap-3">
             <GoogleAccountMenu
@@ -161,6 +174,14 @@ export default function StageTabs({
             {saveStatus !== 'saving' && saveStatus !== 'error' && hasSavedCurrentPeriod && (
               <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">저장됨</span>
             )}
+            <button
+              onClick={onOpenDataManager}
+              className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
+              title="로컬 파일 · Google Drive 백업과 복원, 데이터 초기화"
+            >
+              <Database {...icSm} />
+              데이터 백업
+            </button>
             <button onClick={onLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
               로그아웃
             </button>

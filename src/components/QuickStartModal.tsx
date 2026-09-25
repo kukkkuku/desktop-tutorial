@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import BulkUploadPanel from './BulkUploadPanel'
 import ImportFromPreviousPanel from './ImportFromPreviousPanel'
 import Button from './Button'
+import SheetImportPanel from './work/SheetImportPanel'
 import IconButton from './IconButton'
 import Segmented from './ui/Segmented'
 import { ic } from './ui/icon'
@@ -19,9 +20,13 @@ interface QuickStartModalProps {
   // 데이터를 적용한 뒤 호출한다 -- 과제관리 탭으로 이동시켜 방금 넣은
   // 결과를 바로 보여준다.
   onDataReady: () => void
+  // 처음 열 탭(과제리스트의 "구글시트에서 가져오기"는 'sheet')
+  initialTab?: Tab
+  // 구글시트에서 가져온 뒤(과제리스트로 이동)
+  onSheetImported?: () => void
 }
 
-type Tab = 'direct' | 'excel' | 'import'
+type Tab = 'sheet' | 'direct' | 'excel' | 'import'
 
 // 하나의 칩(추가된 과제명/팀원 이름)을 보여준다 -- x를 누르면 그
 // 자리에서 뺄 수 있다.
@@ -228,10 +233,11 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 탭 전환으로 바꿨다. 각 탭의 실제 동작은 이미 있는 화면의 로직을
 // 그대로 재사용한다 -- Excel은 데이터 관리 드로어와 같은 BulkUploadPanel,
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
-export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady }: QuickStartModalProps) {
-  const [tab, setTab] = useState<Tab>('direct')
+export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', onSheetImported }: QuickStartModalProps) {
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
+    { key: 'sheet', label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' },
     { key: 'direct', label: '직접 입력', hint: '선택한 영역에 이름을 빠르게 등록' },
     { key: 'excel', label: 'Excel로 시작', hint: '통합 양식으로 내려받고 일괄 등록' },
     ...(hasOtherPeriods ? [{ key: 'import' as const, label: '이전 평가 가져오기', hint: '팀과 평가기간을 골라 선택 복사' }] : []),
@@ -239,7 +245,11 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className="flex h-[640px] max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+      <div
+        className={`flex w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog ${
+          tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-h-[85vh] max-w-5xl'
+        }`}
+      >
         <div className="flex items-start justify-between gap-4 px-6 pb-0 pt-5">
           <div>
             <h3 className="text-[15px] font-semibold text-label">빠른 시작</h3>
@@ -260,6 +270,11 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {tab === 'sheet' && (
+            <div className="flex min-h-full flex-col">
+              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} />
+            </div>
+          )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
           {tab === 'excel' && <BulkUploadPanel onDone={onDataReady} wide />}
           {tab === 'import' && hasOtherPeriods && (
