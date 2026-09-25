@@ -238,12 +238,18 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       }
     }
     // 번호는 최상위(낱개 L3·묶음)에만, 접기·찾기와 무관하게 전체 순서로 매긴다.
-    const numbers = new Map<string, number>()
+    const numbers = new Map<string, string>()
+    const childCount = new Map<string, number>()
     let n = 0
     for (const i of gathered) {
       const g = evalGroupOf(i)
       const k = g ? `g:${g}` : i.id
-      if (!numbers.has(k)) numbers.set(k, ++n)
+      if (!numbers.has(k)) numbers.set(k, String(++n))
+      if (g) {
+        const c = (childCount.get(g) ?? 0) + 1
+        childCount.set(g, c)
+        numbers.set(i.id, `${numbers.get(k)}-${c}`)
+      }
     }
     const q = search.trim()
     const matches = q ? gathered.filter((i) => board.columns.some((c) => getCellText(i, c.id, members).includes(q))) : gathered
@@ -525,14 +531,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   // ---------- 요약 ----------
-  const statusCounts = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const i of groupItems) {
-      const s = i.fields.status || '상태 없음'
-      m.set(s, (m.get(s) ?? 0) + 1)
-    }
-    return Array.from(m.entries()).sort((a, b) => b[1] - a[1])
-  }, [groupItems])
   const missingCount = groupItems.filter((i) => i.missingInSheet).length
 
   // ---------- 빈 화면 ----------
@@ -632,43 +630,34 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
       {activeGroup && (
         <>
-          {/* 정보 줄 */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs text-gray-500">
-                {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
-                {activeGroup.hierarchyInferred && (
-                  <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
-                    (추정)
-                  </span>
-                )}
-              </p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-lg font-bold text-black">{activeGroup.name}</h2>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                    activeGroup.source === 'sheet' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                  }`}
+          {/* 정보 줄: 위치(H › L1), 제목 + 시트 연결 */}
+          <div className="min-w-0">
+            <p className="truncate text-xs text-gray-500">
+              {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
+              {activeGroup.hierarchyInferred && (
+                <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
+                  (추정)
+                </span>
+              )}
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h2 className="truncate text-lg font-bold text-black">{activeGroup.name}</h2>
+              {board.sheetLink && activeGroup.source === 'sheet' && (
+                <button
+                  onClick={onOpenSheetImport}
+                  title="구글시트에서 다시 가져오기"
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-black"
                 >
-                  {activeGroup.source === 'sheet' ? '시트' : '직접'}
+                  <span>구글시트 「{board.sheetLink.tabName}」 · {timeAgo(board.sheetLink.lastFetchedAt)}</span>
+                  <span className="font-medium text-accent">⟳ 다시 가져오기</span>
+                </button>
+              )}
+              {missingCount > 0 && (
+                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700" title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다.">
+                  시트에 없음 {missingCount}
                 </span>
-                <span className="text-xs text-gray-500">
-                  L3 {groupItems.length}건{statusCounts.length > 0 && ' · '}
-                  {statusCounts.map(([s, n]) => `${s} ${n}`).join(' · ')}
-                </span>
-                {missingCount > 0 && (
-                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700" title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다.">
-                    시트에 없음 {missingCount}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
-            {board.sheetLink && (
-              <button onClick={onOpenSheetImport} className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-50 hover:text-black">
-                <span>시트 「{board.sheetLink.tabName}」 · {timeAgo(board.sheetLink.lastFetchedAt)}</span>
-                <span className="text-accent">⟳ 다시 가져오기</span>
-              </button>
-            )}
           </div>
 
           {/* 도구 줄 -- 체크한 행이 있으면 선택 동작 줄로 바뀐다 */}
@@ -777,7 +766,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             rows={viewRows}
             getText={(row, colId) => getCellText(row, colId, members)}
             renderCell={renderCell}
-            rowNumber={(row) => (evalGroupOf(row) ? '' : numbers.get(row.id))}
+            rowNumber={(row) => numbers.get(row.id)}
             rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : evalGroupOf(row) ? 'bg-[#FAFBFD]' : '')}
             rowMarker={(row) => (
               <>

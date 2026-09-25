@@ -841,10 +841,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   return (
     <div className="relative">
-      <div className="overflow-x-auto rounded-lg border border-[#D6DAE0] bg-white">
+      {/* 왼쪽 여백(-ml/pl)은 표 밖에 뜨는 행 이동 손잡이(⋮⋮) 자리 */}
+      <div className="-ml-7 overflow-x-auto pl-7">
         {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
-        <div ref={wrapRef} className="relative" style={{ width: '100%', minWidth: tableWidth }}>
-          <table className="table-fixed border-collapse text-[13.5px]" style={{ width: '100%', minWidth: tableWidth }}>
+        <div ref={wrapRef} className="relative rounded-lg border border-[#D6DAE0] bg-white" style={{ width: '100%', minWidth: tableWidth }}>
+          <table
+            className="table-fixed border-separate border-spacing-0 text-[13.5px] [&_thead_th:first-child]:rounded-tl-[7px] [&_thead_th:last-child]:rounded-tr-[7px]"
+            style={{ width: '100%', minWidth: tableWidth }}
+          >
             <colgroup>
               <col style={{ width: HANDLE_W }} />
               {check && <col style={{ width: CHECK_W }} />}
@@ -940,7 +944,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       if (el) rowRefs.current.set(r, el)
                       else rowRefs.current.delete(r)
                     }}
-                    className={`${props.rowClassName?.(row) ?? ''} ${
+                    className={`group/row ${props.rowClassName?.(row) ?? ''} ${
                       dragInsert?.kind === 'row' && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
                     }`}
                   >
@@ -948,13 +952,22 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
                       onContextMenu={(e) => openMenu(e, 'row', r)}
-                      className={`group h-9 cursor-grab select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
-                        rowSelected ? 'bg-accent text-white' : 'text-gray-400 hover:bg-gray-50'
+                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true) : undefined }}
+                      className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
+                        rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                       }`}
                       title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                     >
+                      {/* 표 밖 왼쪽에 뜨는 이동 손잡이(행에 마우스를 올리거나 선택하면 보임) */}
+                      <span
+                        className={`absolute -left-[22px] mt-[3px] flex h-5 w-4 cursor-grab items-center justify-center rounded text-[13px] leading-none tracking-[-3px] ${
+                          rowSelected ? 'text-accent' : 'text-gray-300 opacity-0 hover:text-gray-600 group-hover/row:opacity-100'
+                        }`}
+                        aria-hidden
+                      >
+                        ⋮⋮
+                      </span>
                       <span className="inline-flex items-center gap-1">
-                        <span className={`${rowSelected ? 'text-white/80' : 'text-gray-300 group-hover:text-gray-500'}`}>⋮⋮</span>
                         {props.rowNumber ? props.rowNumber(row, r) : r + 1}
                         {props.rowMarker?.(row)}
                       </span>
@@ -962,7 +975,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     {check && (
                       <td
                         onMouseDown={(e) => e.stopPropagation()}
-                        className="border-b border-r border-dotted border-[#C9CDD3] text-center"
+                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false) : undefined }}
+                        className={`border-b border-r border-dotted border-[#C9CDD3] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
                         title={check.title?.(row)}
                       >
                         <input
@@ -991,9 +1005,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive) }}
+                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t === 'rows') }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
-                            inRange && !isActive ? 'bg-blue-50' : ''
+                            inRange && (!isActive || sel?.t === 'rows') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
                           <div className={col.picker ? 'flex items-center justify-between gap-1' : ''}>
@@ -1329,13 +1343,23 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
 // 선택 범위는 엑셀처럼 바깥 테두리로 한 덩어리로 보이게, 현재 칸은 굵은 테두리.
 const SEL_BLUE = '#2563EB'
-function cellShadow(range: { r1: number; r2: number; c1: number; c2: number } | null, r: number, c: number, active: boolean): string | undefined {
-  if (active) return `inset 0 0 0 2px ${SEL_BLUE}`
+// 행 선택: 번호 칸부터 한 덩어리로 테두리를 두르므로 첫 열의 왼쪽 선은 번호 칸이 맡는다.
+function rowShadow(sel: Sel | null, r: number, leftEdge: boolean): string | undefined {
+  if (!sel || sel.t !== 'rows') return undefined
+  const parts: string[] = []
+  if (r === lo(sel.a, sel.b)) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
+  if (r === hi(sel.a, sel.b)) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
+  if (leftEdge) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
+  return parts.length ? parts.join(', ') : undefined
+}
+
+function cellShadow(range: { r1: number; r2: number; c1: number; c2: number } | null, r: number, c: number, active: boolean, rowsMode = false): string | undefined {
+  if (active && !rowsMode) return `inset 0 0 0 2px ${SEL_BLUE}`
   if (!range || (range.r1 === range.r2 && range.c1 === range.c2)) return undefined
   const parts: string[] = []
   if (r === range.r1) parts.push(`inset 0 2px 0 ${SEL_BLUE}`)
   if (r === range.r2) parts.push(`inset 0 -2px 0 ${SEL_BLUE}`)
-  if (c === range.c1) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
+  if (c === range.c1 && !rowsMode) parts.push(`inset 2px 0 0 ${SEL_BLUE}`)
   if (c === range.c2) parts.push(`inset -2px 0 0 ${SEL_BLUE}`)
   return parts.length ? parts.join(', ') : undefined
 }
