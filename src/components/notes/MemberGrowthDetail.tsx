@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Info, Plus, X } from 'lucide-react'
+import { ChevronDown, Info, Plus, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -19,6 +19,7 @@ import PromotionDatePicker from '../PromotionDatePicker'
 import CollapseToggleButton from '../CollapseToggleButton'
 import { peerInputsOf } from '../../utils/peerScores'
 import { icSm } from '../ui/icon'
+import { CHIP_BASE } from '../grid/DataGrid'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
@@ -516,20 +517,26 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <p className="flex items-baseline gap-2">
                 <span className="text-[17px] font-semibold text-label">{member.name}</span>
                 {/* 직급은 여기서 바로 바꾼다(잘못 고른 직급도 고칠 수 있게). 팀원관리 표와 같은 값. */}
-                <select
-                  aria-label="직급"
-                  title="직급 바꾸기"
-                  value={member.level}
-                  onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, level: e.target.value as Level | '' } })}
-                  className="h-7 rounded-control border border-hairline !py-0 !pl-2 text-[13px] text-label-2"
-                >
-                  <option value="">직급 없음</option>
-                  {LEVEL_OPTIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                <span className="relative inline-flex items-center self-center">
+                  <span className={`${CHIP_BASE} gap-1 ${member.level ? 'bg-black/[0.05] text-label' : 'bg-black/[0.03] text-label-3'}`}>
+                    {member.level || '직급 없음'}
+                    <ChevronDown size={12} strokeWidth={2} className="text-label-3" />
+                  </span>
+                  <select
+                    aria-label="직급"
+                    title="직급 바꾸기"
+                    value={member.level}
+                    onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, level: e.target.value as Level | '' } })}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  >
+                    <option value="">직급 없음</option>
+                    {LEVEL_OPTIONS.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </span>
                 {calcYearOrdinal(member.currentLevelSince) !== null && <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>}
               </p>
 

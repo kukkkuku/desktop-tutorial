@@ -53,6 +53,17 @@ export interface TeamMember {
   // 가리는 데 쓰고, team은 시트의 '담당팀' 값이다. 둘 다 선택 입력.
   email?: string
   team?: string
+  // 팀원 표에 사용자가 추가한 열의 값(열 id → 값)
+  extra?: Record<string, string>
+}
+
+// 팀원 표 보기 설정: 열 순서·숨김·폭·이름, 사용자가 추가한 열
+export interface MemberTableConfig {
+  order: string[]
+  hidden: string[]
+  widths: Record<string, number>
+  labels: Record<string, string>
+  custom: { id: string; label: string }[]
 }
 
 export interface Contribution {
@@ -297,6 +308,7 @@ export interface AppState {
   peerReviews: PeerReview[]
   // memberId -> 상태. 없는 팀원은 'evaluating'으로 취급한다.
   evaluationStatus: Record<string, EvaluationStatus>
+  memberTable?: MemberTableConfig
 }
 
 // 평가 주기 -- 팀이 성과평가를 반기/분기/월 단위로 쪼개는지, 아니면 그때그때

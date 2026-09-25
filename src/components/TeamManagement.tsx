@@ -3,10 +3,10 @@ import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import type { Level, PeerReview, TeamMember } from '../types'
+import type { Level, MemberTableConfig, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
-import { calcYearOrdinal, calcYearsSince } from '../utils/tenure'
+import { calcServiceYearMonth, calcYearOrdinal, countFoundingAnniversaries, readFoundingDay, writeFoundingDay } from '../utils/tenure'
 import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
@@ -18,14 +18,19 @@ import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
 // yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
-function displayServiceYears(member: TeamMember): string {
-  const auto = calcYearsSince(member.hireDate)
-  if (auto !== null) return `${auto}년`
+// 근속년월(창립기념일 기준): "1년 8개월(1년)" -- 앞은 입사일부터 만, 괄호는 지난 창립기념일 횟수.
+function displayServiceYears(member: TeamMember, foundingDay: string | null): string {
+  const ym = calcServiceYearMonth(member.hireDate)
+  if (ym) {
+    const base = `${ym.years}년 ${ym.months}개월`
+    const f = countFoundingAnniversaries(member.hireDate, foundingDay)
+    return f === null ? base : `${base}(${f}년)`
+  }
   return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
 }
 
@@ -58,7 +63,6 @@ export default function TeamManagement() {
     setHrOpen(false)
     setNotice('')
   }
-  const [widths, setWidths] = useState<Record<string, number>>({})
 
   const boardTeams = useMemo(
     () => Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort(),
@@ -78,7 +82,7 @@ export default function TeamManagement() {
   const baseColumns: GridColumn[] = [
     { id: 'name', label: '이름', type: 'text', width: 110, system: true },
     { id: 'hireDate', label: '입사일', type: 'date', width: 110, system: true },
-    { id: 'service', label: '근속', type: 'text', width: 70, system: true, readOnly: true },
+    { id: 'service', label: '근속년월(창립기념일 기준)', type: 'text', width: 170, system: true, readOnly: true },
     { id: 'level', label: '직급', type: 'select', width: 80, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
     { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 115, system: true },
     { id: 'levelTenure', label: '직급 연차', type: 'text', width: 80, system: true, readOnly: true },
@@ -97,7 +101,49 @@ export default function TeamManagement() {
     { id: 'tasks', label: '평가과제', type: 'text', width: 80, system: true, readOnly: true },
     { id: 'peer', label: '피어리뷰', type: 'text', width: 95, system: true, readOnly: true },
   ]
-  const columns = baseColumns.map((c) => (widths[c.id] ? { ...c, width: widths[c.id] } : c))
+  // 열 설정(순서·숨김·폭·이름·추가 열)은 이 평가 프로젝트에 저장한다.
+  const cfg: MemberTableConfig = state.memberTable ?? { order: [], hidden: [], widths: {}, labels: {}, custom: [] }
+  const customCols: GridColumn[] = cfg.custom.map((c) => ({ id: c.id, label: c.label, type: 'text', width: 140, system: false }))
+  const allCols = [...baseColumns, ...customCols]
+  const orderIds = [...cfg.order.filter((id) => allCols.some((c) => c.id === id)), ...allCols.map((c) => c.id).filter((id) => !cfg.order.includes(id))]
+  const hiddenSet = new Set(cfg.hidden.filter((id) => id !== 'name'))
+  const columns: GridColumn[] = orderIds
+    .map((id) => allCols.find((c) => c.id === id)!)
+    .filter((c) => !hiddenSet.has(c.id))
+    .map((c) => ({ ...c, width: cfg.widths[c.id] ?? c.width, label: cfg.labels[c.id] ?? c.label }))
+  function saveCfg(patch: Partial<MemberTableConfig>) {
+    dispatch({ type: 'SET_MEMBER_TABLE', payload: { ...cfg, order: orderIds, ...patch } })
+  }
+  function insertColumn(visIndex: number) {
+    const id = `c_${uuidv4().slice(0, 8)}`
+    let n = cfg.custom.length + 1
+    while (allCols.some((c) => c.label === `새 열 ${n}`)) n += 1
+    const at = visIndex < columns.length ? orderIds.indexOf(columns[visIndex].id) : orderIds.length
+    saveCfg({ custom: [...cfg.custom, { id, label: `새 열 ${n}` }], order: [...orderIds.slice(0, at), id, ...orderIds.slice(at)] })
+    setNotice('')
+  }
+  function deleteColumns(ids: string[]) {
+    const custom = ids.filter((id) => cfg.custom.some((c) => c.id === id))
+    if (custom.length === 0) {
+      setNotice('기본 열은 지울 수 없습니다. 대신 숨길 수 있습니다.')
+      return
+    }
+    history.record()
+    saveCfg({ custom: cfg.custom.filter((c) => !custom.includes(c.id)), order: orderIds.filter((id) => !custom.includes(id)) })
+  }
+  function moveColumns(ids: string[], toVisIndex: number) {
+    const moving = orderIds.filter((id) => ids.includes(id))
+    const rest = orderIds.filter((id) => !ids.includes(id))
+    const target = columns[toVisIndex]?.id
+    const at = target && !ids.includes(target) ? rest.indexOf(target) : rest.length
+    saveCfg({ order: [...rest.slice(0, at), ...moving, ...rest.slice(at)] })
+  }
+  const [colMenuOpen, setColMenuOpen] = useState(false)
+  const [foundingDay, setFoundingDayState] = useState<string | null>(() => readFoundingDay())
+  function setFoundingDay(v: string | null) {
+    writeFoundingDay(v)
+    setFoundingDayState(v)
+  }
 
   function textOf(m: TeamMember, colId: string): string {
     switch (colId) {
@@ -106,7 +152,7 @@ export default function TeamManagement() {
       case 'hireDate':
         return m.hireDate ?? ''
       case 'service':
-        return displayServiceYears(m)
+        return displayServiceYears(m, foundingDay)
       case 'level':
         return m.level
       case 'currentLevelSince':
@@ -128,7 +174,7 @@ export default function TeamManagement() {
       case 'peer':
         return `${peerCount.get(m.id) ?? 0}건`
       default:
-        return ''
+        return m.extra?.[colId] ?? ''
     }
   }
 
@@ -180,6 +226,13 @@ export default function TeamManagement() {
         case 'active':
           if (v === '활성' || v === '비활성') m.active = v === '활성'
           break
+        default:
+          if (cfg.custom.some((c) => c.id === e.colId)) {
+            const extra = { ...(m.extra ?? {}) }
+            if (v) extra[e.colId] = v
+            else delete extra[e.colId]
+            m.extra = Object.keys(extra).length ? extra : undefined
+          }
       }
     }
     return next
@@ -332,6 +385,46 @@ export default function TeamManagement() {
           <IconButton onClick={history.redo} disabled={!history.canRedo} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
             <Redo2 {...ic} />
           </IconButton>
+          <div className="relative">
+            <IconButton onClick={() => setColMenuOpen((v) => !v)} title="표시할 열 · 근속 기준" aria-label="열 표시 설정" className={colMenuOpen ? 'bg-black/[0.05] text-label' : ''}>
+              <Settings2 {...ic} />
+            </IconButton>
+            {colMenuOpen && (
+              <div className="mac-pop absolute left-0 top-9 z-30 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]" onMouseLeave={() => setColMenuOpen(false)}>
+                <label className="flex items-center gap-2 px-3 py-2 text-label-2">
+                  창립기념일
+                  <input
+                    type="text"
+                    placeholder="MM-DD"
+                    defaultValue={foundingDay ?? ''}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim().replace(/[./]/g, '-')
+                      const m = v.match(/^(\d{1,2})-(\d{1,2})$/)
+                      setFoundingDay(m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : null)
+                    }}
+                    className="h-7 w-20 rounded-control border border-hairline px-2 text-center text-[13px]"
+                    title="근속년월 괄호 안의 '창립기념일 기준' 년수를 세는 날짜(월-일)"
+                  />
+                </label>
+                <div className="mac-menu-sep" />
+                {orderIds.map((id) => {
+                  const c = allCols.find((x) => x.id === id)!
+                  return (
+                    <label key={id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenSet.has(id)}
+                        disabled={id === 'name'}
+                        onChange={() => saveCfg({ hidden: hiddenSet.has(id) ? cfg.hidden.filter((x) => x !== id) : [...cfg.hidden, id] })}
+                      />
+                      <span className="truncate">{cfg.labels[id] ?? c.label}</span>
+                      {!c.system && <span className="ml-auto text-[11px] text-label-3">추가</span>}
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CurrentDataDownloadControls
@@ -402,8 +495,16 @@ export default function TeamManagement() {
         <DataGrid
           columns={columns}
           rows={state.members}
-          fixedColumns
           getText={textOf}
+          onInsertColumn={insertColumn}
+          onDeleteColumns={deleteColumns}
+          onHideColumns={(ids) => saveCfg({ hidden: Array.from(new Set([...cfg.hidden, ...ids.filter((id) => id !== 'name')])) })}
+          onRenameColumn={(id, label) =>
+            cfg.custom.some((c) => c.id === id)
+              ? saveCfg({ custom: cfg.custom.map((c) => (c.id === id ? { ...c, label } : c)) })
+              : saveCfg({ labels: { ...cfg.labels, [id]: label } })
+          }
+          onMoveColumns={moveColumns}
           renderCell={renderCell}
           rowClassName={(m) => (m.active ? '' : 'text-label-2')}
           onCommit={commit}
@@ -411,7 +512,7 @@ export default function TeamManagement() {
           onInsertRows={insertRows}
           onDeleteRows={(ids) => setDeleting(state.members.filter((m) => ids.includes(m.id)))}
           onMoveRows={moveRows}
-          onResizeColumn={(id, w) => setWidths((cur) => ({ ...cur, [id]: w }))}
+          onResizeColumn={(id, w) => saveCfg({ widths: { ...cfg.widths, [id]: w } })}
           onUndo={history.undo}
           onRedo={history.redo}
           storageKey="members"

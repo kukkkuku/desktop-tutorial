@@ -33,3 +33,49 @@ export function formatLevelTenureLabel(level: string, ordinal: number | null): s
   if (ordinal === null) return level
   return `${level} ${ordinal}년차`
 }
+
+// 근속년월: 입사일부터 오늘까지 만으로 지난 년·개월
+export function calcServiceYearMonth(hireDate: string | null | undefined): { years: number; months: number } | null {
+  if (!hireDate) return null
+  const start = new Date(hireDate)
+  if (Number.isNaN(start.getTime())) return null
+  const now = new Date()
+  let total = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+  if (now.getDate() < start.getDate()) total -= 1
+  total = Math.max(0, total)
+  return { years: Math.floor(total / 12), months: total % 12 }
+}
+
+// 창립기념일 기준 근속년수: 입사일 다음 날부터 오늘까지 지난 창립기념일(MM-DD) 횟수
+export function countFoundingAnniversaries(hireDate: string | null | undefined, foundingDay: string | null): number | null {
+  if (!hireDate || !foundingDay || !/^\d{2}-\d{2}$/.test(foundingDay)) return null
+  const hire = String(hireDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(hire)) return null
+  const today = new Date()
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  let n = 0
+  for (let y = Number(hire.slice(0, 4)); y <= today.getFullYear(); y++) {
+    const d = `${y}-${foundingDay}`
+    if (d > hire && d <= todayIso) n += 1
+  }
+  return n
+}
+
+// 회사 창립기념일(MM-DD). 앱 전체 공통이라 브라우저에 기억한다. 비어 있으면 괄호 값은 보이지 않는다.
+const FOUNDING_KEY = 'company.foundingDay'
+export function readFoundingDay(): string | null {
+  try {
+    const v = localStorage.getItem(FOUNDING_KEY)
+    return v && /^\d{2}-\d{2}$/.test(v) ? v : null
+  } catch {
+    return null
+  }
+}
+export function writeFoundingDay(v: string | null) {
+  try {
+    if (v) localStorage.setItem(FOUNDING_KEY, v)
+    else localStorage.removeItem(FOUNDING_KEY)
+  } catch {
+    // 기억 못 해도 지금 화면에는 반영
+  }
+}

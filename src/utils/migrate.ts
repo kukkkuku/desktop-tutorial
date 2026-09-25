@@ -1,4 +1,4 @@
-import type { GradeDistribution,
+import type { MemberTableConfig, GradeDistribution,
   AppState,
   Contribution,
   Criteria,
@@ -59,7 +59,30 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
         : null,
     email: typeof raw.email === 'string' && raw.email ? raw.email : undefined,
     team: typeof raw.team === 'string' && raw.team ? raw.team : undefined,
+    extra: stringMap(raw.extra),
   }
+}
+
+function stringMap(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const out: Record<string, string> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) if (typeof val === 'string') out[k] = val
+  return Object.keys(out).length ? out : undefined
+}
+
+function migrateMemberTable(v: unknown): MemberTableConfig | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const r = v as Record<string, unknown>
+  const strs = (x: unknown) => (Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [])
+  const widths: Record<string, number> = {}
+  if (r.widths && typeof r.widths === 'object')
+    for (const [k, val] of Object.entries(r.widths as Record<string, unknown>)) if (typeof val === 'number') widths[k] = val
+  const custom = Array.isArray(r.custom)
+    ? (r.custom as Record<string, unknown>[])
+        .filter((c) => typeof c.id === 'string' && typeof c.label === 'string')
+        .map((c) => ({ id: c.id as string, label: c.label as string }))
+    : []
+  return { order: strs(r.order), hidden: strs(r.hidden), widths, labels: stringMap(r.labels) ?? {}, custom }
 }
 
 // Older builds stored contribution as a 0~1 ratio with no personal grade field.
@@ -327,5 +350,5 @@ export function migrateAppState(raw: unknown): AppState | null {
         }))
     : []
 
-  return { rankReviews, taskPeerReviews, workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus }
+  return { rankReviews, taskPeerReviews, workBoard, tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus, memberTable: migrateMemberTable(r.memberTable) }
 }

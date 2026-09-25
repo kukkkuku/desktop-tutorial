@@ -1,5 +1,5 @@
 import { DEFAULT_GRADE_DISTRIBUTION } from '../types'
-import type { AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
+import type { MemberTableConfig, AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
 export type AppAction =
@@ -27,6 +27,7 @@ export type AppAction =
   | { type: 'SET_CONTRIBUTION_GRADE'; payload: { taskId: string; memberId: string; personalPerformanceGrade: PerformanceGrade } }
   | { type: 'SET_CONTRIBUTION_NOTE'; payload: { taskId: string; memberId: string; personalGradeNote: string } }
   | { type: 'SET_CRITERIA'; payload: Partial<Criteria> }
+  | { type: 'SET_MEMBER_TABLE'; payload: MemberTableConfig }
   | { type: 'RESET_ALL' }
   | { type: 'ADD_MEETING_NOTE'; payload: MeetingNote }
   | { type: 'UPDATE_MEETING_NOTE'; payload: MeetingNote }
@@ -338,6 +339,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         contributions: upsertContribution(state.contributions, taskId, memberId, { personalGradeNote }),
       }
     }
+
+    case 'SET_MEMBER_TABLE':
+      return { ...state, memberTable: action.payload }
 
     case 'SET_CRITERIA':
       return { ...state, criteria: { ...state.criteria, ...action.payload } }
