@@ -208,7 +208,31 @@ async function fetchConnectedEmail(accessToken: string): Promise<void> {
   }
 }
 
+// 구글 로그인 창은 한 번에 하나만 띄운다. 자동 저장·캘린더·시트가 동시에 토큰을 달라고 하면
+// 같은 팝업 창을 서로 덮어써서 구글이 "400 · malformed"를 내는 경우가 있다.
+let authChain: Promise<unknown> = Promise.resolve()
+export function withAuthLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = authChain.then(fn, fn)
+  authChain = run.catch(() => undefined)
+  return run
+}
+let driveInflight: Promise<string> | null = null
+
 function requestAccessToken(promptOverride?: string): Promise<string> {
+  // 이미 같은 요청이 떠 있으면 그 결과를 같이 기다린다(창을 또 띄우지 않음).
+  if (driveInflight && !promptOverride) return driveInflight
+  const p = withAuthLock(() => {
+    // 줄 서 있는 동안 다른 요청이 이미 토큰을 받았으면 창을 띄우지 않는다.
+    if (!promptOverride && isConnected()) return Promise.resolve(cachedToken!.token)
+    return openTokenPopup(promptOverride)
+  }).finally(() => {
+    if (driveInflight === p) driveInflight = null
+  })
+  if (!promptOverride) driveInflight = p
+  return p
+}
+
+function openTokenPopup(promptOverride?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!CLIENT_ID) {
       reject(new Error('Google Client ID가 설정되지 않았습니다.'))

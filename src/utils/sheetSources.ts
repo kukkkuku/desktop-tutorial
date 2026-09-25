@@ -5,7 +5,7 @@
 
 import * as XLSX from 'xlsx'
 import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
-import { getConnectedEmail, loadGis } from './googleDrive'
+import { getConnectedEmail, loadGis, withAuthLock } from './googleDrive'
 
 // ---------- 링크 ----------
 
@@ -43,8 +43,21 @@ export function isSheetsApiConfigured(): boolean {
   return Boolean(CLIENT_ID)
 }
 
+let sheetsInflight: Promise<string> | null = null
 async function getSheetsToken(): Promise<string> {
   if (sheetsToken && sheetsToken.expiresAt - 60_000 > Date.now()) return sheetsToken.token
+  if (sheetsInflight) return sheetsInflight
+  const p = withAuthLock(() => {
+    if (sheetsToken && sheetsToken.expiresAt - 60_000 > Date.now()) return Promise.resolve(sheetsToken.token)
+    return openSheetsPopup()
+  }).finally(() => {
+    sheetsInflight = null
+  })
+  sheetsInflight = p
+  return p
+}
+
+async function openSheetsPopup(): Promise<string> {
   if (!CLIENT_ID) throw new Error('Google Client ID가 설정되지 않았습니다. xlsx 파일로 올려 주세요.')
   await loadGis()
   const google = window.google
