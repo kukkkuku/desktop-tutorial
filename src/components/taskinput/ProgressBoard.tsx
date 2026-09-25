@@ -529,8 +529,6 @@ export default function ProgressBoard() {
   const editCount = countDrafts(drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
-  const h = tabRows.find((r) => r.h)?.h
-  const l2Count = new Set(tabRows.map((r) => r.l2)).size
 
   return (
     <div>
@@ -606,11 +604,7 @@ export default function ProgressBoard() {
       </div>
 
       {/* 제목 + 기간 */}
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-[24px] font-bold leading-tight text-label">{l1 === NO_L1 ? 'L1 없음' : l1}</h2>
-          <p className="mt-1 text-[13px] text-label-2">{[h, `L2 ${l2Count}개`].filter(Boolean).join(' · ')}</p>
-        </div>
+      <div className="mt-3 flex flex-wrap items-end justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
           <div className="flex overflow-hidden rounded-control border border-hairline">
             {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
