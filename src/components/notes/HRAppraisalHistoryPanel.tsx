@@ -69,20 +69,30 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
     upsertAppraisal(next)
   }
 
-  // 가중합: 최근 연도부터 체류연한별 가중치(150%·125%…)를 곱한다. 등급이 없는 해는 0 --
-  // 아직 없는 해는 팀장이 등급을 넣어 시뮬레이션한다. 상단 "최종 기대 점수"와 같은 계산.
+  // 가중합: 최근 연도부터 체류연한별 가중치(150%·125%…)를 곱한다. 기록 없는 해는 입력된 해의
+  // 평균(평년 실적)으로 채운 예상값 -- 상단 "최종 시뮬레이션 점수"와 같은 계산(calcAnchoredWeightedScore).
   const weights = criteria ? YEAR_WEIGHTS_BY_TENURE[criteria.tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5] : []
+  const ach: number[] = []
+  const comp: number[] = []
+  for (const r of records) {
+    if (r.firstHalfGrade) ach.push(gradeScore(r.firstHalfGrade, profile.gradeScores))
+    if (r.secondHalfGrade) ach.push(gradeScore(r.secondHalfGrade, profile.gradeScores))
+    if (r.competencyGrade) comp.push(gradeScore(r.competencyGrade, profile.gradeScores) * 2)
+  }
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((x, y) => x + y, 0) / xs.length : 0)
+  const fallbackAch = avg(ach) * 2
+  const fallbackComp = avg(comp)
   let achTotal = 0
   let compTotal = 0
-  const rowInfo = new Map<number, { weight: number; weighted: number; empty: boolean }>()
+  const rowInfo = new Map<number, { weight: number; weighted: number; predicted: boolean }>()
   recentYears.forEach((year, i) => {
     const w = weights[i] ?? 0
     const r = records.find((rec) => rec.year === year)
-    const a = r ? gradeScore(r.firstHalfGrade, profile.gradeScores) + gradeScore(r.secondHalfGrade, profile.gradeScores) : 0
-    const c = r ? gradeScore(r.competencyGrade, profile.gradeScores) * 2 : 0
+    const a = r ? gradeScore(r.firstHalfGrade, profile.gradeScores) + gradeScore(r.secondHalfGrade, profile.gradeScores) : fallbackAch
+    const c = r ? gradeScore(r.competencyGrade, profile.gradeScores) * 2 : fallbackComp
     achTotal += w * a
     compTotal += w * c
-    rowInfo.set(year, { weight: w, weighted: w * (a + c), empty: !r })
+    rowInfo.set(year, { weight: w, weighted: w * (a + c), predicted: !r && w > 0 && records.length > 0 })
   })
   const grandTotal = Math.round((achTotal + compTotal + auxSum) * 10) / 10
   const displayYears = [...recentYears, ...(showAll ? extraYears : [])]
@@ -112,7 +122,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           onChange={(e) => changeReviewYear(Number(e.target.value))}
           className="mx-0.5 h-8 w-16 rounded-control border border-hairline px-2 text-center text-[13px] text-label"
         />
-        년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 5개년을 반영합니다. 아직 없는 해는 예상 등급을 넣어 보세요.
+        년 승급심사 기준, {recentYears[recentYears.length - 1]}~{recentYears[0]}년 5개년을 반영합니다.
       </p>
 
       <div className="mt-3 overflow-x-auto rounded-card border border-separator">
@@ -163,8 +173,13 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     </td>
                   ))}
                   <td className="px-2 py-1.5 text-right tabular-nums">
-                    {!info || info.weight === 0 || info.empty ? (
+                    {!info || info.weight === 0 ? (
                       <span className="text-label-3">-</span>
+                    ) : info.predicted ? (
+                      <span className="text-label-3" title="기록이 없어 입력된 해의 평균으로 예측한 값">
+                        {info.weighted.toFixed(1)}
+                        <span className="block text-[11px]">예상</span>
+                      </span>
                     ) : (
                       <span className="font-semibold text-label">{info.weighted.toFixed(1)}</span>
                     )}

@@ -161,8 +161,9 @@ export function calcAverageYearGradeSum(
 }
 
 // 특정 연도를 기준으로 그 앞 5개년(anchorYear-1 ~ anchorYear-5)의 가중합계를
-// 구한다. 등급이 입력된 해만 더하고, 비어 있는 해는 0으로 둔다(평균으로 채우지 않음) --
-// 아직 없는 해는 팀장이 성장 시뮬레이션 표에 예상 등급을 직접 넣어 본다.
+// 구한다. 실제 기록이 있는 해는 그 등급을 쓰고, 없는 해는 평년 값(위 함수)으로
+// 채운다 -- 엑셀의 "육성 시뮬레이션" 표가 승급심사 예정년도를 기준으로 미입력
+// 연도를 자동으로 평년 실적으로 예측하는 방식 그대로다.
 export function calcAnchoredWeightedScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
@@ -171,20 +172,21 @@ export function calcAnchoredWeightedScore(
   auxScore = 0,
 ): number {
   const weights = YEAR_WEIGHTS_BY_TENURE[tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5]
+  const fallback = calcAverageYearGradeSum(records, gradeScores)
   const byYear = new Map(records.map((r) => [r.year, r]))
   let weighted = 0
   for (let i = 0; i < 5; i++) {
     const year = anchorYear - 1 - i
     const weight = weights[i] ?? 0
     const record = byYear.get(year)
-    const yearScore = record ? yearGradeSum(record, gradeScores) : 0
+    const yearScore = record ? yearGradeSum(record, gradeScores) : fallback
     weighted += weight * yearScore
   }
   return weighted + auxScore
 }
 
-// 승급심사 예정년도 기준 승진 점수 -- 입력된 연도(실제 등급 + 팀장이 넣어 본 예상 등급)만으로
-// 가중합계를 구한다.
+// 승급심사 예정년도까지의 예상 승진 점수 -- 실제 입력된 연도는 그대로, 미입력
+// 연도는 평년 실적으로 채워 승급심사 시점 기준 가중합계를 예측한다.
 export function calcProjectedPromotionScore(
   records: HRAppraisalRecord[],
   gradeScores: Record<EvaluationGrade, number>,
