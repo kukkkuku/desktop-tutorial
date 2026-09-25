@@ -271,7 +271,9 @@ export default function ScheduleTable({
   currentKey,
   onPaint,
   onField,
-  onOpenRow,
+  editNameKey,
+  onDeleteRow,
+  onRevertRow,
   onAddRow,
   onBg,
   onNote,
@@ -297,7 +299,9 @@ export default function ScheduleTable({
   currentKey: string | null
   onPaint: (row: ProgressRow, weekKey: string) => void
   onField: (row: ProgressRow, id: string, value: string) => void
-  onOpenRow: (row: ProgressRow) => void
+  editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
+  onDeleteRow?: (row: ProgressRow) => void // 새 과제 지우기
+  onRevertRow?: (row: ProgressRow) => void // 이 행 고친 내용 되돌리기
   onAddRow?: (l2: string) => void
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
@@ -319,12 +323,15 @@ export default function ScheduleTable({
 }) {
   const [filterOpen, setFilterOpen] = useState<{ f: FieldDef; x: number; y: number } | null>(null)
   // 머리글 이름 + 필터 버튼
+  // 필터는 묶음 머리글(CATCH UP 일정) 앞 열까지만(속성·분류·상태·수요부서·담당팀·담당자·내/외)
+  const firstGroupCol = Math.min(...(hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => fields.find((f) => f.id === id)?.col ?? Infinity)), Infinity)
+  const filterable = (f: FieldDef) => f.col < firstGroupCol && f.kind !== 'memo' && f.kind !== 'date' && f.kind !== 'link'
   const headLabel = (f: FieldDef) => {
     const active = (hiddenOf?.(f.id).length ?? 0) > 0
     return (
       <span className="flex items-center justify-center gap-0.5">
         <span className="min-w-0 break-keep">{f.label}</span>
-        {onFilter && filterOptions && (
+        {onFilter && filterOptions && filterable(f) && (
           <button
             onClick={(e) => {
               const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -378,6 +385,10 @@ export default function ScheduleTable({
 
   // 우클릭 메뉴 · 메모 편집 · 메모 미리보기(표 밖에 떠서 잘리지 않게 fixed)
   const [menu, setMenu] = useState<Menu | null>(null)
+  const [nameEditing, setNameEditing] = useState<string | null>(null)
+  useEffect(() => {
+    if (editNameKey) setNameEditing(editNameKey)
+  }, [editNameKey])
   const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | null>(null)
   useEffect(() => {
     if (!menu) setPaletteFor(null)
@@ -569,19 +580,37 @@ export default function ScheduleTable({
                       style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
                       className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${l3Bg ? '' : rowBg}`}
                     >
-                      <button
-                        onClick={() => onOpenRow(v.row)}
-                        className="flex w-full min-w-0 items-start gap-1 text-left"
-                        title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기 · 우클릭: 메모·색`}
+                      {nameEditing === v.row.key && (
+                        <input
+                          autoFocus
+                          defaultValue={v.vals.name}
+                          placeholder="과제(L3) 이름"
+                          onBlur={(e) => {
+                            if (e.target.value.trim() !== v.vals.name) onField(v.row, 'name', e.target.value.trim())
+                            setNameEditing(null)
+                          }}
+                          onKeyDown={(e) => {
+                            const el = e.target as HTMLInputElement
+                            if (e.key === 'Enter') el.blur()
+                            if (e.key === 'Escape') {
+                              el.value = v.vals.name
+                              el.blur()
+                            }
+                          }}
+                          className="absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-2 text-[1em] font-semibold text-label outline-none"
+                        />
+                      )}
+                      <div
+                        onClick={() => setNameEditing(v.row.key)}
+                        className="flex w-full min-w-0 cursor-text items-start gap-1 text-left"
+                        title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 이름 고치기 · 우클릭: 메모·색`}
                       >
                         {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
-                        <span
-                          className={`whitespace-normal break-words font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}
-                        >
+                        <span className={`whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'}`}>
                           {v.vals.name || '(이름을 입력하세요)'}
                         </span>
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
-                      </button>
+                      </div>
                       {l3Note && <NoteMark />}
                     </td>
                     {scheduleOpen ? (
@@ -741,6 +770,28 @@ export default function ScheduleTable({
                   className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
                 >
                   메모 삭제
+                </button>
+              )}
+              {menu.row.isNew && onDeleteRow && (
+                <button
+                  onClick={() => {
+                    onDeleteRow(menu.row)
+                    setMenu(null)
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
+                >
+                  새 과제 지우기
+                </button>
+              )}
+              {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (
+                <button
+                  onClick={() => {
+                    onRevertRow(menu.row)
+                    setMenu(null)
+                  }}
+                  className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                >
+                  이 행 고친 내용 되돌리기
                 </button>
               )}
               {menu.kind === 'field' && (

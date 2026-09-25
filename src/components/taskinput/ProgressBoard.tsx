@@ -54,7 +54,6 @@ import {
   type ProgressData,
   type ProgressRow,
 } from '../../utils/progressBoard'
-import RowPanel from './RowPanel'
 import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
@@ -587,12 +586,6 @@ export default function ProgressBoard() {
     }
     return seen.size <= 60 ? Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko')) : []
   }
-  const openRow = openKey
-    ? openKey.startsWith(NEW_PREFIX)
-      ? (drafts.newRows.filter((n) => NEW_PREFIX + n.id === openKey).map(newRowAsRow)[0] ?? null)
-      : (data.rows.find((r) => r.key === openKey) ?? null)
-    : null
-  const openView = openRow ? viewOf(openRow) : null
   const l2OfTab = Array.from(new Map(tabRows.map((r) => [r.l2, r])).values())
   const editCount = countDrafts(drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
@@ -833,7 +826,18 @@ export default function ProgressBoard() {
             currentKey={currentKey}
             onPaint={paintCell}
             onField={setField}
-            onOpenRow={(row) => setOpenKey(row.key)}
+            editNameKey={openKey}
+            onDeleteRow={(row) => {
+              const nid = row.key.slice(NEW_PREFIX.length)
+              updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
+            }}
+            onRevertRow={(row) =>
+              updateDrafts((d) => {
+                const next = { ...d.edits }
+                delete next[row.key]
+                return { ...d, edits: next }
+              })
+            }
             onAddRow={addRow}
             fontSize={fontSize}
             fields={data.fields}
@@ -855,46 +859,6 @@ export default function ProgressBoard() {
           />
         }
       </div>
-      {openRow && openView && (
-        <RowPanel
-          key={openRow.key}
-          row={openRow}
-          fields={data.fields}
-          value={(id) => openView.vals[id] ?? ''}
-          edited={openRow.isNew ? new Set(Object.keys(openView.vals).filter((k) => openView.vals[k])) : openView.editedFields}
-          optionsOf={optionsOf}
-          cells={openView.cells}
-          weekCols={data.weekCols}
-          l2Choices={openRow.isNew ? l2OfTab.map((r) => ({ l2: r.l2, label: r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2 })) : undefined}
-          onChange={(id, v) => setField(openRow, id, v)}
-          onChangeL2={(l2) => {
-            const src = l2OfTab.find((r) => r.l2 === l2)
-            const nid = openRow.key.slice(NEW_PREFIX.length)
-            if (src) updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, l2: src.l2, l2Tag: src.l2Tag, h: src.h } : n)) }))
-          }}
-          onRevert={
-            openRow.isNew
-              ? undefined
-              : () =>
-                  updateDrafts((d) => {
-                    const next = { ...d.edits }
-                    delete next[openRow.key]
-                    return { ...d, edits: next }
-                  })
-          }
-          onDelete={
-            openRow.isNew
-              ? () => {
-                  const nid = openRow.key.slice(NEW_PREFIX.length)
-                  updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
-                  setOpenKey(null)
-                }
-              : undefined
-          }
-          onClose={() => setOpenKey(null)}
-        />
-      )}
-
       {schMenu && (
         <div
           className="fixed inset-0 z-50"
