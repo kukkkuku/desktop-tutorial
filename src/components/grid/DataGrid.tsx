@@ -40,7 +40,7 @@ export interface GridColumn {
 
 // 표 안의 뱃지와 선택 팝업의 칩이 같은 모양이 되도록 함께 쓴다(색만 다름).
 export const CHIP_BASE = 'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium'
-const CHIP_IDLE = 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-800'
+export const CHIP_IDLE = 'border border-gray-200 bg-white text-gray-500 hover:border-gray-400 hover:text-gray-800'
 
 export interface CellEdit {
   rowId: string
@@ -96,6 +96,8 @@ interface DataGridProps<R extends { id: string }> {
   onRowDragOutside?: { move: (ids: string[], x: number, y: number) => string | null; drop: (ids: string[], x: number, y: number) => boolean }
   // 번호 칸 너비 등 화면 설정을 브라우저에 기억할 때 쓰는 이름
   storageKey?: string
+  // 번호를 숨긴다(칸은 좁게 남겨 행 선택·끌어 옮기기 손잡이로 쓴다).
+  hideNumbers?: boolean
   // 행 바로 아래에 펼쳐 보일 내용(아코디언). null이면 접힘.
   rowDetail?: (row: R) => ReactNode | null
   addRowLabel?: string
@@ -213,7 +215,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 여러 개면 Shift/⌘ 클릭으로 추가한 것. ids = 고른 묶음들의 행 전체
   const [headSel, setHeadSel] = useState<{ keys: string[]; ids: string[] } | null>(null)
   // 번호 칸 너비(사용자가 조절, 브라우저에 기억)
-  const [handleW, setHandleW] = useState(() => {
+  const [numW, setHandleW] = useState(() => {
     try {
       const v = Number(localStorage.getItem(`grid.numW.${props.storageKey ?? 'default'}`))
       return v >= 36 && v <= 200 ? v : HANDLE_W
@@ -221,6 +223,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       return HANDLE_W
     }
   })
+  const handleW = props.hideNumbers ? 28 : numW
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const sinkRef = useRef<HTMLTextAreaElement>(null)
@@ -1031,7 +1034,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
           >
             <DragGrip active={inside} />
-            {h.number}
+            {!props.hideNumbers && h.number}
           </td>
           {check && (
             <td style={{ boxShadow: edge(false) }} className="border-b border-r border-[#EBEBEF] text-center" title={h.check?.title}>
@@ -1095,8 +1098,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             <thead>
               <tr className="bg-[#F7F7F9] text-label-2">
                 <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
-                  #
-                  <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
+                  {!props.hideNumbers && (
+                    <>
+                      #
+                      <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
+                    </>
+                  )}
                 </th>
                 {check && (
                   <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
@@ -1211,7 +1218,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     >
                       <DragGrip active={rowSelected} />
                       <span className="inline-flex items-center gap-1">
-                        {props.rowNumber ? props.rowNumber(row, r) : r + 1}
+                        {!props.hideNumbers && (props.rowNumber ? props.rowNumber(row, r) : r + 1)}
                         {props.rowMarker?.(row)}
                       </span>
                     </td>

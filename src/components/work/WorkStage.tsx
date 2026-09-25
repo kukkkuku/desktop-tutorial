@@ -3,6 +3,7 @@
 // SET_WORK_BOARD로 넣고, 되돌리기는 보드 스냅샷 스택으로 한다.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, Importance, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
 import { IMPORTANCE_OPTIONS, TASK_CATEGORY_OPTIONS } from '../../types'
@@ -39,9 +40,9 @@ import {
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
 import SheetsIcon from '../SheetsIcon'
-import { ChevronRight, CornerDownRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
-import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
+import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 
@@ -451,25 +452,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </div>
           )
         if (colId === COL_CATEGORY) {
-          const needs = !fixedGrade && !exportGrades[key] && on > 0
+          const value = fixedGrade ?? exportGrades[key] ?? ''
           return (
-            <select
-              value={fixedGrade ?? exportGrades[key] ?? ''}
-              onMouseDown={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                setGroupCategory(g, e.target.value)
-                setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))
+            <GroupCategoryPicker
+              value={value}
+              needs={!value && on > 0}
+              onPick={(v) => {
+                setGroupCategory(g, v)
+                setExportGrades((cur) => ({ ...cur, [key]: v as Importance }))
               }}
-              title={fixedGrade ? '하위 과제 전체의 분류를 바꿉니다' : '하위 과제의 분류가 섞였거나 비어 있습니다 -- 고르면 모두 이 분류로 맞춥니다'}
-              className={`h-7 w-full rounded-control border bg-white px-1 text-xs ${needs ? 'border-orange-400 ring-2 ring-orange-200' : 'border-hairline'}`}
-            >
-              <option value="">{fixedGrade ? '' : '분류 선택'}</option>
-              {TASK_CATEGORY_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
+            />
           )
         }
         if (colId === 'status') return <span className="text-xs text-label-2">완료 {doneCount}/{all.length}</span>
@@ -529,7 +521,25 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
 
   const visibleCols = board.columns.filter((c) => !c.hidden)
-  const hiddenCols = board.columns.filter((c) => c.hidden)
+  // 평가과제 묶음 열은 앱이 쓰는 숨은 열이라 열 표시 목록·숨김 개수에서 뺀다.
+  const hiddenCols = board.columns.filter((c) => c.hidden && c.id !== COL_EVAL_GROUP)
+  const [hideNumbers, setHideNumbers] = useState(() => {
+    try {
+      return localStorage.getItem('work.hideNumbers') === '1'
+    } catch {
+      return false
+    }
+  })
+  function toggleNumbers() {
+    setHideNumbers((v) => {
+      try {
+        localStorage.setItem('work.hideNumbers', v ? '0' : '1')
+      } catch {
+        // 기억 못 해도 지금 화면에는 반영
+      }
+      return !v
+    })
+  }
   const memberNames = useMemo(() => members.filter((m) => m.active).map((m) => m.name), [members])
 
   const gridColumns: GridColumn[] = visibleCols.map((c) => ({
@@ -949,7 +959,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </Button>
                 {colMenuOpen && (
                   <div className="mac-pop absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto py-1 text-[13px]">
-                    {board.columns.map((c) => (
+                    <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
+                      <input type="checkbox" checked={!hideNumbers} onChange={toggleNumbers} />
+                      <span className="truncate">번호</span>
+                    </label>
+                    <div className="mac-menu-sep" />
+                    {board.columns.filter((c) => c.id !== COL_EVAL_GROUP).map((c) => (
                       <label key={c.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
                         <input
                           type="checkbox"
@@ -995,6 +1010,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             getText={(row, colId) => getCellText(row, colId, members)}
             renderCell={renderCell}
             rowNumber={(row) => numbers.get(row.id)}
+            hideNumbers={hideNumbers}
             rowClassName={(row) =>
               viewingMoved && moved!.bg && moved!.ids.has(row.id)
                 ? 'bg-orange-50'
@@ -1229,6 +1245,58 @@ function toneFor(colId: string) {
     if (colId === COL_ASSIGNEES) return known ? PERSON_TONE : UNKNOWN_TONE
     return TONES[colId]?.[value] ?? DEFAULT_TONE
   }
+}
+
+// 묶음 머리 행의 분류: 개별 과제 칸과 같은 모양(칩 + ▾)과 같은 칩 목록. 고르면 하위 과제 전체에 적용.
+function GroupCategoryPicker({ value, needs, onPick }: { value: string; needs: boolean; onPick: (v: string) => void }) {
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!pos) return
+    const close = () => setPos(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [pos])
+  const tone = toneFor(COL_CATEGORY)
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onMouseDown={(e) => {
+          e.stopPropagation()
+          const r = btnRef.current!.getBoundingClientRect()
+          setPos(pos ? null : { left: r.left, top: r.bottom + 4 })
+        }}
+        title="고르면 하위 과제 전체의 분류가 바뀝니다"
+        className={`flex w-full items-center justify-between gap-1 rounded-control py-0.5 ${needs ? 'ring-2 ring-orange-300' : ''}`}
+      >
+        {value ? <Chip tone={tone(value, true)}>{value}</Chip> : <span className="text-[13px] text-label-3">분류 선택</span>}
+        <ChevronDown {...icSm} className="shrink-0 text-label-3" />
+      </button>
+      {pos &&
+        createPortal(
+          <div onMouseDown={(e) => e.stopPropagation()} className="mac-pop fixed z-[60] flex gap-1.5 p-2.5" style={{ left: pos.left, top: pos.top }}>
+            {TASK_CATEGORY_OPTIONS.map((o) => (
+              <button
+                key={o}
+                onClick={() => {
+                  onPick(o)
+                  setPos(null)
+                }}
+                className={`${CHIP_BASE} cursor-pointer transition-colors ${o === value ? tone(o, true) : CHIP_IDLE}`}
+              >
+                {o}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 function UngroupIcon() {
