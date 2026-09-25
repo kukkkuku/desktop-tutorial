@@ -5,7 +5,7 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, ListFilter } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -183,6 +183,67 @@ function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number
 
 type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week'; x: number; y: number }
 
+export interface FilterOption {
+  value: string
+  count: number
+}
+
+// 머리글 필터(구글시트처럼): 값 목록에서 보일 값만 체크
+function FilterPopover({
+  label,
+  options,
+  hidden,
+  x,
+  y,
+  onChange,
+  onClose,
+}: {
+  label: string
+  options: FilterOption[]
+  hidden: string[]
+  x: number
+  y: number
+  onChange: (hidden: string[]) => void
+  onClose: () => void
+}) {
+  const [q, setQ] = useState('')
+  const shown = options.filter((o) => !q.trim() || o.value.toLowerCase().includes(q.trim().toLowerCase()))
+  const hid = new Set(hidden)
+  return (
+    <div className="fixed inset-0 z-50" onMouseDown={onClose}>
+      <div className="mac-pop absolute w-[250px] p-2 text-[13px] font-normal text-label" style={{ left: x, top: y }} onMouseDown={(e) => e.stopPropagation()}>
+        <p className="px-1 text-[12px] font-semibold">{label} 필터</p>
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="값 찾기" className="mt-1.5 h-7 w-full rounded-control border border-hairline px-2 text-[12px]" />
+        <div className="mt-1.5 flex items-center gap-2 px-1 text-[12px]">
+          <button onClick={() => onChange(hidden.filter((v) => !shown.some((o) => o.value === v)))} className="font-medium text-accent hover:underline">
+            모두 선택
+          </button>
+          <button onClick={() => onChange(Array.from(new Set([...hidden, ...shown.map((o) => o.value)])))} className="font-medium text-accent hover:underline">
+            모두 해제
+          </button>
+          {hidden.length > 0 && (
+            <button onClick={() => onChange([])} className="ml-auto text-label-2 hover:text-label">
+              필터 지우기
+            </button>
+          )}
+        </div>
+        <div className="mt-1 max-h-[280px] overflow-y-auto">
+          {shown.map((o) => (
+            <label key={o.value} className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-black/[0.04]">
+              <input type="checkbox" checked={!hid.has(o.value)} onChange={(e) => onChange(e.target.checked ? hidden.filter((v) => v !== o.value) : [...hidden, o.value])} />
+              <span className={`min-w-0 flex-1 truncate ${o.value === '(빈 칸)' ? 'text-label-3' : ''}`} title={o.value}>
+                {o.value}
+              </span>
+              <span className="shrink-0 text-[11px] text-label-3">{o.count}</span>
+            </label>
+          ))}
+          {shown.length === 0 && <p className="px-1 py-2 text-[12px] text-label-3">맞는 값이 없습니다</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function ScheduleTable({
   weekCols,
   rows,
@@ -204,6 +265,9 @@ export default function ScheduleTable({
   zebra = false,
   widths = {},
   onResize,
+  filterOptions,
+  hiddenOf,
+  onFilter,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -225,7 +289,33 @@ export default function ScheduleTable({
   zebra?: boolean
   widths?: Record<string, number>
   onResize?: (key: string, w: number) => void
+  filterOptions?: (f: FieldDef) => FilterOption[]
+  hiddenOf?: (id: string) => string[]
+  onFilter?: (id: string, hidden: string[]) => void
 }) {
+  const [filterOpen, setFilterOpen] = useState<{ f: FieldDef; x: number; y: number } | null>(null)
+  // 머리글 이름 + 필터 버튼
+  const headLabel = (f: FieldDef) => {
+    const active = (hiddenOf?.(f.id).length ?? 0) > 0
+    return (
+      <span className="flex items-center justify-center gap-0.5">
+        <span className="min-w-0 break-keep">{f.label}</span>
+        {onFilter && filterOptions && (
+          <button
+            onClick={(e) => {
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setFilterOpen({ f, x: Math.min(r.left, window.innerWidth - 260), y: r.bottom + 4 })
+            }}
+            title={active ? `${f.label} 필터 적용 중` : `${f.label} 필터`}
+            aria-label={`${f.label} 필터`}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${active ? 'bg-accent text-white' : 'text-label-3 hover:bg-black/[0.07] hover:text-label'}`}
+          >
+            <ListFilter size={12} strokeWidth={2.25} />
+          </button>
+        )}
+      </span>
+    )
+  }
   const cols = fields.filter((f) => f.id !== 'name')
   const w = (key: string, def: number) => widths[key] ?? def
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
@@ -357,8 +447,8 @@ export default function ScheduleTable({
                 )
               }
               return (
-                <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`relative px-1.5 py-2 font-bold ${thBorder}`} title={f.label}>
-                  <span className="break-keep">{f.label}</span>
+                <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`relative px-1 py-2 font-bold ${thBorder}`} title={f.label}>
+                  {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
                 </th>
               )
@@ -375,8 +465,8 @@ export default function ScheduleTable({
             {cols
               .filter((f) => groupOf.has(f.id))
               .map((f) => (
-                <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`relative px-1.5 pb-1.5 font-bold ${thBorder}`} title={f.label}>
-                  <span className="break-keep">{f.label}</span>
+                <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`relative px-1 pb-1.5 font-bold ${thBorder}`} title={f.label}>
+                  {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
                 </th>
               ))}
@@ -493,6 +583,13 @@ export default function ScheduleTable({
               })}
             </Fragment>
           ))}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={2 + (scheduleOpen ? weekCols.length : 1) + cols.length} className="px-4 py-12 text-left text-[13px] text-label-3">
+                <span className="sticky left-4">조건에 맞는 과제가 없습니다. 머리글 필터나 찾기를 확인해 주세요.</span>
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -508,6 +605,18 @@ export default function ScheduleTable({
             </datalist>
           ) : null
         })}
+
+      {filterOpen && filterOptions && onFilter && (
+        <FilterPopover
+          label={filterOpen.f.label}
+          options={filterOptions(filterOpen.f)}
+          hidden={hiddenOf?.(filterOpen.f.id) ?? []}
+          x={filterOpen.x}
+          y={filterOpen.y}
+          onChange={(h) => onFilter(filterOpen.f.id, h)}
+          onClose={() => setFilterOpen(null)}
+        />
+      )}
 
       {hoverNote && !menu && !noteEdit && (
         <div

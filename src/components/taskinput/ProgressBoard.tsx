@@ -57,9 +57,8 @@ import {
 import RowPanel from './RowPanel'
 import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, cellLabel, categoryTone, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
 
-const CATEGORIES = ['과제', '일반', '일상']
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
 type Period = { start: number; months: number }
 const PERIOD_BUTTONS: { label: string; p: Period }[] = [
@@ -115,7 +114,12 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
   const first = parseSheet(raw)
   if ('error' in first) throw new Error(first.error)
   const cols = first.header.weekCols.map((w) => w.col)
-  const lastCol = Math.max(0, ...cols, ...Object.values(first.columnMap).filter((v): v is number => v !== null), (raw.rows[first.header.headerRow]?.length ?? 1) - 1)
+  const lastCol = Math.max(
+    0,
+    ...cols,
+    ...Object.values(first.columnMap).filter((v): v is number => v !== null),
+    (raw.rows[first.header.headerRow]?.length ?? 1) - 1,
+  )
   // 머리글 색 · 칸 색(계획/실적, 행·칸 강조) · 메모를 한 번에 읽는다.
   const fmt = await fetchSheetFormats(spreadsheetId, title, 0, Math.max(0, raw.rows.length - 1), 0, lastCol)
   raw.fills = fmt.fills
@@ -144,9 +148,8 @@ export default function ProgressBoard() {
 
   const now = new Date()
   const [period, setPeriod] = useState<Period>({ start: 1, months: 12 })
-  const [person, setPerson] = useState('')
-  const [cats, setCats] = useState<Set<string>>(new Set(CATEGORIES))
-  const [hideDone, setHideDone] = useState(false)
+  // 머리글 필터: 열 id → 숨길 값들(구글시트 필터처럼 체크 해제한 값)
+  const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   const [tool, setTool] = useState<PaintTool>('S')
@@ -254,7 +257,10 @@ export default function ProgressBoard() {
     setMessage('')
     try {
       const book = readXlsxBook(await file.arrayBuffer(), file.name)
-      const title = pickDefaultTab(book.sheets.map((s) => ({ title: s.title, hidden: !!s.hidden })), now.getFullYear())
+      const title = pickDefaultTab(
+        book.sheets.map((s) => ({ title: s.title, hidden: !!s.hidden })),
+        now.getFullYear(),
+      )
       const sheet = book.sheets.find((s) => s.title === title)
       if (!sheet) throw new Error('파일에서 「추진현황」 탭을 찾지 못했습니다.')
       const parsed = parseSheet(sheet)
@@ -363,7 +369,10 @@ export default function ProgressBoard() {
     updateDrafts((d) => {
       if (row.isNew) {
         const nid = row.key.slice(NEW_PREFIX.length)
-        return { ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, bg: { ...(n.bg ?? {}), ...Object.fromEntries(ids.map((id) => [id, hex])) } } : n)) }
+        return {
+          ...d,
+          newRows: d.newRows.map((n) => (n.id === nid ? { ...n, bg: { ...(n.bg ?? {}), ...Object.fromEntries(ids.map((id) => [id, hex])) } } : n)),
+        }
       }
       let edits = d.edits
       for (const id of ids) edits = setBgEdit(edits, row, id, hex)
@@ -411,7 +420,9 @@ export default function ProgressBoard() {
       setOpenKey(null)
       setMessage(
         `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}.` +
-          (conflicts ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).` : ''),
+          (conflicts
+            ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).`
+            : ''),
       )
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트에 저장하지 못했습니다.')
@@ -442,7 +453,12 @@ export default function ProgressBoard() {
               구글시트에서 불러오기
             </Button>
           )}
-          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={loading} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)">
+          <Button
+            variant="secondary"
+            onClick={() => fileRef.current?.click()}
+            disabled={loading}
+            title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+          >
             <Upload {...icSm} />
             xlsx 올리기
           </Button>
@@ -499,15 +515,42 @@ export default function ProgressBoard() {
       editedFields: new Set([...Object.keys(e?.fields ?? {}), ...Object.keys(e?.bg ?? {}), ...Object.keys(e?.notes ?? {})]),
     }
   }
-  const views: ScheduleRowView[] = ordered.map(viewOf).filter((v) => {
+  // 필터에서 쓰는 칸 값: 담당자는 사람마다 따로, 빈 칸은 "(빈 칸)"
+  const filterValuesOf = (f: FieldDef, vals: Record<string, string>): string[] => {
+    const v = (vals[f.id] ?? '').trim()
+    if (f.kind === 'person') {
+      const ps = splitPeople(v)
+      return ps.length ? ps : ['(빈 칸)']
+    }
+    return [v ? v.replace(/\s*\n\s*/g, ' · ') : '(빈 칸)']
+  }
+  const fieldById = new Map(data.fields.map((f) => [f.id, f]))
+  const allViews = ordered.map(viewOf)
+  const passes = (v: ScheduleRowView, skip?: string) =>
+    Object.entries(filters).every(([id, hidden]) => {
+      const f = fieldById.get(id)
+      if (!f || id === skip || hidden.length === 0) return true
+      return filterValuesOf(f, v.vals).some((x) => !hidden.includes(x))
+    })
+  const views: ScheduleRowView[] = allViews.filter((v) => {
     if (v.row.isNew) return true
-    const cat = v.vals.category ?? ''
-    if (CATEGORIES.includes(cat) && !cats.has(cat)) return false
-    if (hideDone && v.vals.status === '완료') return false
-    if (person && !splitPeople(v.vals.assignees ?? '').includes(person)) return false
+    if (!passes(v)) return false
     if (q && !`${v.row.l2} ${v.vals.name} ${v.vals.assignees ?? ''}`.toLowerCase().includes(q)) return false
     return true
   })
+  // 필터 목록: 다른 열 필터를 통과한 행의 값과 개수(구글시트처럼)
+  const filterOptions = (f: FieldDef) => {
+    const count = new Map<string, number>()
+    for (const v of allViews) {
+      if (v.row.isNew || !passes(v, f.id)) continue
+      for (const x of filterValuesOf(f, v.vals)) count.set(x, (count.get(x) ?? 0) + 1)
+    }
+    for (const x of filters[f.id] ?? []) if (!count.has(x)) count.set(x, 0)
+    return Array.from(count, ([value, c]) => ({ value, count: c })).sort((a, b) =>
+      a.value === '(빈 칸)' ? 1 : b.value === '(빈 칸)' ? -1 : a.value.localeCompare(b.value, 'ko'),
+    )
+  }
+  const activeFilters = Object.values(filters).filter((h) => h.length > 0).length
   // 입력 칸 제안값: 시스템 선택지 + 시트에 이미 있는 값(서로 다른 값이 너무 많으면 제안하지 않음)
   const optionsOf = (f: FieldDef): string[] => {
     if (f.kind === 'memo' || f.kind === 'date' || f.id === 'name') return []
@@ -547,22 +590,22 @@ export default function ProgressBoard() {
       {/* L1 탭 + 오른쪽에 연결된 시트(과제관리와 같은 모양) */}
       <div className="flex items-end gap-2 border-b border-separator">
         <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
-        {l1s.map((name) => {
-          const n = data.rows.filter((r) => r.l1 === name).length
-          const on = name === l1
-          return (
-            <button
-              key={name}
-              onClick={() => setActiveL1(name)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-t-[9px] border border-b-0 px-3.5 py-2 text-[13px] font-semibold transition-colors ${
-                on ? '-mb-px border-separator bg-white text-label' : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
-              }`}
-            >
-              {name === NO_L1 ? 'L1 없음' : name}
-              <span className="text-[11px] font-medium text-label-3">{n}</span>
-            </button>
-          )
-        })}
+          {l1s.map((name) => {
+            const n = data.rows.filter((r) => r.l1 === name).length
+            const on = name === l1
+            return (
+              <button
+                key={name}
+                onClick={() => setActiveL1(name)}
+                className={`flex shrink-0 items-center gap-1.5 rounded-t-[9px] border border-b-0 px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+                  on ? '-mb-px border-separator bg-white text-label' : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
+                }`}
+              >
+                {name === NO_L1 ? 'L1 없음' : name}
+                <span className="text-[11px] font-medium text-label-3">{n}</span>
+              </button>
+            )
+          })}
         </div>
         <div className="shrink-0 pb-1.5">
           <SheetLinkChip
@@ -607,80 +650,70 @@ export default function ProgressBoard() {
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
         <label className="relative">
           <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="L2 · L3 · 담당자 찾기" className="h-8 w-56 rounded-control border border-hairline pl-7 pr-2" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="L2 · L3 · 담당자 찾기"
+            className="h-8 w-56 rounded-control border border-hairline pl-7 pr-2"
+          />
         </label>
-        <select value={person} onChange={(e) => setPerson(e.target.value)} className="h-8 rounded-control border border-hairline px-2" title="담당자로 거르기">
-          <option value="">담당자 전체</option>
-          {people.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <span className="flex items-center gap-1">
-          {CATEGORIES.map((c) => {
-            const on = cats.has(c)
-            return (
-              <button
-                key={c}
-                onClick={() =>
-                  setCats((cur) => {
-                    const next = new Set(cur)
-                    if (on) next.delete(c)
-                    else next.add(c)
-                    return next
-                  })
-                }
-                className={`h-7 rounded-full border px-2.5 text-[12px] font-medium ${on ? `border-transparent ${categoryTone(c)}` : 'border-hairline bg-white text-label-3'}`}
-              >
-                {c}
-              </button>
-            )
-          })}
-        </span>
-        <label className="flex items-center gap-1.5 text-label-2">
-          <input type="checkbox" checked={hideDone} onChange={(e) => setHideDone(e.target.checked)} />
-          완료 숨기기
-        </label>
+        {activeFilters > 0 && (
+          <span className="flex items-center gap-1.5 text-[12px] text-label-2">
+            필터 {activeFilters}개 적용 중
+            <button onClick={() => setFilters({})} className="font-medium text-accent hover:underline">
+              모두 해제
+            </button>
+          </span>
+        )}
         <label className="flex items-center gap-1.5 text-label-2" title="행 배경을 한 줄씩 번갈아 연한 회색으로">
           <input type="checkbox" checked={zebra} onChange={(e) => setZebra(e.target.checked)} />
           지브라
         </label>
         <span className="ml-auto flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-[13px]">
-          <div className="flex overflow-hidden rounded-control border border-hairline">
-            {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
-              const on = period.start === p.start && period.months === p.months
-              return (
-                <button
-                  key={label}
-                  onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
-                >
-                  {label}
-                </button>
-              )
-            })}
+          <div className="flex flex-wrap items-center gap-2 text-[13px]">
+            <div className="flex overflow-hidden rounded-control border border-hairline">
+              {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
+                const on = period.start === p.start && period.months === p.months
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setPeriod(p)}
+                    className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+            <select
+              value={period.months === 1 ? period.start : ''}
+              onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
+              className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
+              title="월별로 보기"
+            >
+              <option value="">월별</option>
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i + 1}>
+                  {i + 1}월
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={period.months === 1 ? period.start : ''}
-            onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
-            className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
-            title="월별로 보기"
-          >
-            <option value="">월별</option>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i + 1}>
-                {i + 1}월
-              </option>
-            ))}
-          </select>
-        </div>
           <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
-            <button onClick={() => setFontSize(fontSize + 1)} disabled={fontSize >= 18} className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30" aria-label="표 글자 크게">
+            <button
+              onClick={() => setFontSize(fontSize + 1)}
+              disabled={fontSize >= 18}
+              className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="표 글자 크게"
+            >
               가<span className="text-[9px] text-accent">▲</span>
             </button>
-            <button onClick={() => setFontSize(fontSize - 1)} disabled={fontSize <= 10} className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30" aria-label="표 글자 작게">
+            <button
+              onClick={() => setFontSize(fontSize - 1)}
+              disabled={fontSize <= 10}
+              className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="표 글자 작게"
+            >
               가<span className="text-[9px] text-accent">▼</span>
             </button>
           </span>
@@ -690,56 +723,56 @@ export default function ProgressBoard() {
       {/* 2줄: 입력(범례·칠하기 도구) ─ 되돌리기·저장·과제 추가·입력하기 */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-label-2">
-        {editing ? (
-          <>
-            <span className="mr-1 font-medium text-accent">칠하기</span>
-            {TOOLS.map((t, i) => (
+          {editing ? (
+            <>
+              <span className="mr-1 font-medium text-accent">칠하기</span>
+              {TOOLS.map((t, i) => (
+                <button
+                  key={t}
+                  onClick={() => setTool(t)}
+                  className={`flex h-7 items-center gap-1.5 rounded-full border px-2 ${tool === t ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'} ${
+                    i === 3 ? 'ml-2' : ''
+                  }`}
+                >
+                  <CellSwatch cell={TOOL_CELL[t]} size={16} />
+                  {cellLabel(TOOL_CELL[t])}
+                </button>
+              ))}
               <button
-                key={t}
-                onClick={() => setTool(t)}
-                className={`flex h-7 items-center gap-1.5 rounded-full border px-2 ${tool === t ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'} ${
-                  i === 3 ? 'ml-2' : ''
-                }`}
+                onClick={() => setTool('erase')}
+                className={`ml-2 flex h-7 items-center gap-1 rounded-full border px-2 ${tool === 'erase' ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'}`}
               >
-                <CellSwatch cell={TOOL_CELL[t]} size={16} />
-                {cellLabel(TOOL_CELL[t])}
+                <Eraser {...icSm} />
+                지우기
               </button>
-            ))}
-            <button
-              onClick={() => setTool('erase')}
-              className={`ml-2 flex h-7 items-center gap-1 rounded-full border px-2 ${tool === 'erase' ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'}`}
-            >
-              <Eraser {...icSm} />
-              지우기
-            </button>
-            <span className="ml-2 text-label-3">칸을 누르거나 한 줄 안에서 끌어 칠합니다</span>
-          </>
-        ) : (
-          <>
-            {TOOLS.filter((t) => t !== 'plan' && t !== 'actual').map((t) => (
-              <span key={t} className="mr-2 flex items-center gap-1.5">
-                <CellSwatch cell={TOOL_CELL[t]} size={16} />
-                {cellLabel(TOOL_CELL[t])}
+              <span className="ml-2 text-label-3">칸을 누르거나 한 줄 안에서 끌어 칠합니다</span>
+            </>
+          ) : (
+            <>
+              {TOOLS.filter((t) => t !== 'plan' && t !== 'actual').map((t) => (
+                <span key={t} className="mr-2 flex items-center gap-1.5">
+                  <CellSwatch cell={TOOL_CELL[t]} size={16} />
+                  {cellLabel(TOOL_CELL[t])}
+                </span>
+              ))}
+              <span className="mr-2 flex items-center gap-1.5">
+                <CellSwatch cell={TOOL_CELL.plan} size={16} />
+                계획 기간
               </span>
-            ))}
-            <span className="mr-2 flex items-center gap-1.5">
-              <CellSwatch cell={TOOL_CELL.plan} size={16} />
-              계획 기간
-            </span>
-            <span className="mr-2 flex items-center gap-1.5">
-              <CellSwatch cell={TOOL_CELL.actual} size={16} />
-              진행 기간
-            </span>
-            <span className="mr-2 flex items-center gap-1.5">
-              <span className="h-3 border-l border-dashed border-[#E8342A]" />
-              현재 주
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-              고쳤지만 아직 저장 안 한 칸
-            </span>
-          </>
-        )}
+              <span className="mr-2 flex items-center gap-1.5">
+                <CellSwatch cell={TOOL_CELL.actual} size={16} />
+                진행 기간
+              </span>
+              <span className="mr-2 flex items-center gap-1.5">
+                <span className="h-3 border-l border-dashed border-[#E8342A]" />
+                현재 주
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                고쳤지만 아직 저장 안 한 칸
+              </span>
+            </>
+          )}
         </div>
         <span className="ml-auto flex flex-wrap items-center gap-2 text-[13px]">
           <span className="flex items-center">
@@ -755,7 +788,13 @@ export default function ProgressBoard() {
               <span className="text-label-2">
                 저장 안 한 변경 <b className="text-orange-600">{editCount}</b>
               </span>
-              <Button variant="secondary" size="sm" onClick={() => updateDrafts({ edits: {}, newRows: [] })} title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다" disabled={saving}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => updateDrafts({ edits: {}, newRows: [] })}
+                title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다"
+                disabled={saving}
+              >
                 <RotateCcw {...icSm} />
                 모두 되돌리기
               </Button>
@@ -777,7 +816,13 @@ export default function ProgressBoard() {
               </Button>
             </>
           )}
-          <Button variant="secondary" size="sm" onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)} disabled={!l2OfTab.length} title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)}
+            disabled={!l2OfTab.length}
+            title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다"
+          >
             <Plus {...icSm} />
             과제 추가
           </Button>
@@ -789,9 +834,7 @@ export default function ProgressBoard() {
       </div>
 
       <div className="mt-3 max-h-[calc(100vh-18rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
-        {views.length === 0 ? (
-          <p className="px-4 py-12 text-center text-[13px] text-label-3">조건에 맞는 과제가 없습니다.</p>
-        ) : (
+        {
           <ScheduleTable
             weekCols={weekCols}
             rows={views}
@@ -811,10 +854,13 @@ export default function ProgressBoard() {
             onBg={setBg}
             onNote={setNote}
             zebra={zebra}
+            filterOptions={filterOptions}
+            hiddenOf={(id) => filters[id] ?? []}
+            onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
             widths={widths}
             onResize={resizeCol}
           />
-        )}
+        }
       </div>
       {openRow && openView && (
         <RowPanel
@@ -833,21 +879,31 @@ export default function ProgressBoard() {
             const nid = openRow.key.slice(NEW_PREFIX.length)
             if (src) updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (n.id === nid ? { ...n, l2: src.l2, l2Tag: src.l2Tag, h: src.h } : n)) }))
           }}
-          onRevert={openRow.isNew ? undefined : () => updateDrafts((d) => {
-            const next = { ...d.edits }
-            delete next[openRow.key]
-            return { ...d, edits: next }
-          })}
-          onDelete={openRow.isNew ? () => {
-            const nid = openRow.key.slice(NEW_PREFIX.length)
-            updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
-            setOpenKey(null)
-          } : undefined}
+          onRevert={
+            openRow.isNew
+              ? undefined
+              : () =>
+                  updateDrafts((d) => {
+                    const next = { ...d.edits }
+                    delete next[openRow.key]
+                    return { ...d, edits: next }
+                  })
+          }
+          onDelete={
+            openRow.isNew
+              ? () => {
+                  const nid = openRow.key.slice(NEW_PREFIX.length)
+                  updateDrafts((d) => ({ ...d, newRows: d.newRows.filter((n) => n.id !== nid) }))
+                  setOpenKey(null)
+                }
+              : undefined
+          }
           onClose={() => setOpenKey(null)}
         />
       )}
       <p className="mt-2 text-[12px] text-label-3">
-        고친 내용과 새 과제는 "구글시트에 저장"을 누르기 전까지 이 브라우저에만 남습니다. 저장할 때 시트를 다시 읽어, 그사이 다른 사람이 바꾼 칸은 덮어쓰지 않습니다.
+        고친 내용과 새 과제는 "구글시트에 저장"을 누르기 전까지 이 브라우저에만 남습니다. 저장할 때 시트를 다시 읽어, 그사이 다른 사람이 바꾼 칸은 덮어쓰지
+        않습니다.
       </p>
 
       <ConfirmDialog
@@ -872,12 +928,25 @@ export default function ProgressBoard() {
   )
 }
 
-function SheetLinkForm({ value, onChange, onSubmit, onReset, onCancel }: { value: string; onChange: (v: string) => void; onSubmit: () => void; onReset?: () => void; onCancel?: () => void }) {
+function SheetLinkForm({
+  value,
+  onChange,
+  onSubmit,
+  onReset,
+  onCancel,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onSubmit: () => void
+  onReset?: () => void
+  onCancel?: () => void
+}) {
   return (
     <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] p-3 text-left text-[13px]">
       <p className="font-semibold text-label">불러오고 저장할 구글시트</p>
       <p className="mt-0.5 text-label-2">
-        기본은 운영 시트의 사본(테스트 시트)입니다. 다른 시트를 쓰려면 링크를 붙여 넣으세요. 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 운영 팀 시트는 연결해도 읽기만 합니다.
+        기본은 운영 시트의 사본(테스트 시트)입니다. 다른 시트를 쓰려면 링크를 붙여 넣으세요. 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 운영
+        팀 시트는 연결해도 읽기만 합니다.
       </p>
       <form
         onSubmit={(e) => {
@@ -886,7 +955,12 @@ function SheetLinkForm({ value, onChange, onSubmit, onReset, onCancel }: { value
         }}
         className="mt-2 flex flex-wrap gap-2"
       >
-        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." className="h-8 min-w-[320px] flex-1 rounded-control border border-hairline bg-white px-2.5" />
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://docs.google.com/spreadsheets/d/..."
+          className="h-8 min-w-[320px] flex-1 rounded-control border border-hairline bg-white px-2.5"
+        />
         <Button variant="primary" size="sm" type="submit" disabled={!value.trim()}>
           연결
         </Button>
