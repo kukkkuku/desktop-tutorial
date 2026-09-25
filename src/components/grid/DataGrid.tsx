@@ -1017,7 +1017,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
             else headRowRefs.current.delete(h.key)
           }}
-          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#EDF1F7]'} ${
+          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-white'} ${
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
@@ -1025,7 +1025,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
             onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
             style={{ boxShadow: edge(true) }}
-            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums shadow-[inset_3px_0_0_#7FA7E8] ${
+            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
               inside ? 'font-semibold text-accent' : 'font-semibold text-label-2 hover:bg-black/[0.04]'
             }`}
             title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"

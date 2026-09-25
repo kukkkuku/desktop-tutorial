@@ -258,34 +258,48 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     return undefined
   }
 
+  // 펼친 L3 목록: 선 없는 표처럼 열을 맞춘다(그룹 · L3 과제 · 상태 · 담당자 · 기간).
+  const DETAIL_COLS = 'grid grid-cols-[minmax(0,180px)_minmax(0,1fr)_72px_minmax(0,160px)_190px] items-center gap-x-4'
   function renderDetail(task: Task) {
     if (!expanded.has(task.id) || !task.workItemIds?.length) return null
     return (
-      <ul className="space-y-1 pl-7">
+      <div className="pl-7 text-[13px]">
+        <div className={`${DETAIL_COLS} pb-1 text-[11px] font-medium text-label-3`}>
+          <span>그룹</span>
+          <span>과제</span>
+          <span>상태</span>
+          <span>담당자</span>
+          <span>기간</span>
+        </div>
         {task.workItemIds.map((id) => {
           const it = itemById.get(id)
           if (!it)
             return (
-              <li key={id} className="text-[13px] text-label-3">
+              <div key={id} className="py-1 text-label-3">
                 과제리스트에서 지워진 L3
-              </li>
+              </div>
             )
           const status = it.fields.status ?? ''
           const people = it.assigneeIds.map((a) => memberName.get(a)).filter(Boolean) as string[]
-          const dates = [it.fields.startDate, it.fields.doneDate].filter(Boolean).join(' ~ ')
+          const start = it.fields.startDate ?? ''
+          const done = it.fields.doneDate ?? ''
           return (
-            <li key={id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
-              <span className="min-w-0 text-label">
-                <span className="text-label-3">{groupName.get(it.groupId) ?? ''} › </span>
+            <div key={id} className={`${DETAIL_COLS} py-1`}>
+              <span className="truncate text-label-3" title={groupName.get(it.groupId)}>
+                {groupName.get(it.groupId) ?? ''}
+              </span>
+              <span className="truncate text-label" title={it.name}>
                 {it.name}
               </span>
-              {status && <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span>}
-              {people.length > 0 && <span className="text-label-2">{people.join(', ')}</span>}
-              {dates && <span className="tabular-nums text-label-3">{dates}</span>}
-            </li>
+              <span>{status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-label-3">-</span>}</span>
+              <span className="truncate text-label-2" title={people.join(', ')}>
+                {people.join(', ') || '-'}
+              </span>
+              <span className="tabular-nums text-label-3">{start || done ? `${start || '?'} ~ ${done}` : '-'}</span>
+            </div>
           )
         })}
-      </ul>
+      </div>
     )
   }
 

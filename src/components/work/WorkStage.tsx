@@ -174,7 +174,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }, [tabMenu])
 
   function handleAddGroup() {
-    const { board: next, group } = addGroup(board, `새 L2 ${board.groups.length + 1}`)
+    const { board: next, group } = addGroup(board, `새 그룹 ${board.groups.length + 1}`)
     apply(next)
     setActiveGroupId(group.id)
     setRenamingGroup(group.id)
@@ -248,7 +248,23 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     setRenamingEval(null)
     const v = to.trim()
     if (!v || v === from) return
+    const ids = new Set(board.items.filter((i) => evalGroupOf(i) === from).map((i) => i.id))
     apply(renameEvalGroup(board, from, v, members))
+    // 이미 내보낸 묶음이면 같은 이름으로 만든 평가과제 이름도 함께 바꾼다.
+    for (const t of state.tasks)
+      if (t.name === from && t.workItemIds?.some((id) => ids.has(id)) && !state.tasks.some((o) => o.name === v))
+        dispatch({ type: 'UPDATE_TASK', payload: { ...t, name: v } })
+  }
+
+  // 묶음 머리 행에서 분류를 고르면 하위 과제 전부의 분류를 바꾼다. 내보낸 평가과제의 과제등급도 맞춘다.
+  function setGroupCategory(g: string, value: string) {
+    if (!value) return
+    const ids = new Set(board.items.filter((i) => evalGroupOf(i) === g).map((i) => i.id))
+    apply({ ...board, items: board.items.map((i) => (ids.has(i.id) ? setCellText(i, COL_CATEGORY, value, members) : i)) })
+    if ((IMPORTANCE_OPTIONS as string[]).includes(value))
+      for (const t of state.tasks)
+        if (t.workItemIds?.length && t.workItemIds.every((id) => ids.has(id)) && t.importance !== value)
+          dispatch({ type: 'UPDATE_TASK', payload: { ...t, importance: value as Importance } })
   }
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
@@ -414,9 +430,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 />
               ) : (
                 <span
-                  onDoubleClick={() => !done && setRenamingEval(g)}
+                  onDoubleClick={() => setRenamingEval(g)}
                   className="min-w-0 break-words font-bold text-label"
-                  title={done ? undefined : '두 번 눌러 이름 바꾸기'}
+                  title="두 번 눌러 이름 바꾸기"
                 >
                   {g}
                 </span>
@@ -435,17 +451,20 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             </div>
           )
         if (colId === COL_CATEGORY) {
-          if (fixedGrade) return <Chip tone={toneFor(COL_CATEGORY)(fixedGrade, true)}>{fixedGrade}</Chip>
-          if (done) return null
+          const needs = !fixedGrade && !exportGrades[key] && on > 0
           return (
             <select
-              value={exportGrades[key] ?? ''}
-              onChange={(e) => setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))}
-              title="하위 과제의 분류가 섞였거나 비어 있어 과제등급을 골라야 내보낼 수 있습니다"
-              className={`h-7 w-full rounded-control border bg-white px-1 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-hairline'}`}
+              value={fixedGrade ?? exportGrades[key] ?? ''}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                setGroupCategory(g, e.target.value)
+                setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))
+              }}
+              title={fixedGrade ? '하위 과제 전체의 분류를 바꿉니다' : '하위 과제의 분류가 섞였거나 비어 있습니다 -- 고르면 모두 이 분류로 맞춥니다'}
+              className={`h-7 w-full rounded-control border bg-white px-1 text-xs ${needs ? 'border-orange-400 ring-2 ring-orange-200' : 'border-hairline'}`}
             >
-              <option value="">등급 선택</option>
-              {IMPORTANCE_OPTIONS.map((o) => (
+              <option value="">{fixedGrade ? '' : '분류 선택'}</option>
+              {TASK_CATEGORY_OPTIONS.map((o) => (
                 <option key={o} value={o}>
                   {o}
                 </option>
@@ -487,7 +506,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       const locked = exportedIds.has(row.id)
       return (
         <div className="group/child flex items-start gap-1.5 py-1.5 pl-6 leading-snug">
-          <CornerDownRight size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-[#7FA7E8]" />
+          <CornerDownRight size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-label-3" />
           <span className="min-w-0 flex-1 whitespace-pre-line break-words">
             {row.name}
             {dot}
@@ -805,10 +824,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         })}
         <button
           onClick={handleAddGroup}
-          title="L2 추가"
+          title="그룹(L2) 추가"
           className="shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
         >
-          <span className="flex items-center gap-1"><Plus {...icSm} />L2</span>
+          <span className="flex items-center gap-1"><Plus {...icSm} />그룹 추가</span>
         </button>
       </div>
       {board.sheetLink && (
@@ -982,14 +1001,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 : row.missingInSheet
                   ? 'bg-orange-50/50 text-label-2'
                   : evalGroupOf(row)
-                    ? '[&>td:first-child]:shadow-[inset_3px_0_0_#7FA7E8]'
+                    ? 'bg-[#F5F5F7]'
                     : ''
             }
             rowMarker={(row) => (
               <>
-                {linkedTasks.has(row.id) && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent" title={`평가 과제: ${linkedTasks.get(row.id)!.join(', ')}`} />
-                )}
                 {row.missingInSheet && (
                   <span className="h-1.5 w-1.5 rounded-full bg-orange-500" title="시트에 없음 -- 지난 가져오기 때 시트에서 찾지 못했습니다" />
                 )}
@@ -1016,8 +1032,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onUndo={undo}
             onRedo={redo}
             storageKey="work"
-            addRowLabel="L3 추가"
-            emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
+            addRowLabel="과제 추가"
+            emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-label-3">
             행을 체크하면 표 위에서 평가과제로 묶기·내보내기 · 파란 점 = 이미 내보낸 L3 · 묶음 이름은 머리 행 ✎ (이름을 붙여넣어 묶으려면 "열 표시"에서 평가과제 열을 켜기) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
