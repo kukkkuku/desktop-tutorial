@@ -11,9 +11,8 @@ import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
 import ConfirmDialog from './ConfirmDialog'
-import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import { downloadCurrentMembersExcel, downloadMemberTemplate, parseMemberWorkbook } from '../utils/excel'
+import { downloadCurrentMembersExcel } from '../utils/excel'
 import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
@@ -300,22 +299,6 @@ export default function TeamManagement() {
     ? state.peerReviews.filter((r) => r.targetMemberId === viewingPeerReviewsFor.id)
     : []
 
-  async function handleUploadFiles(files: File[]) {
-    let list = state.members
-    let addedCount = 0
-    let updatedCount = 0
-    const errors: string[] = []
-    for (const file of files) {
-      const buffer = await file.arrayBuffer()
-      const result = parseMemberWorkbook(buffer, list)
-      list = result.members
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
-    }
-    dispatch({ type: 'IMPORT_MEMBERS', payload: list })
-    return { addedCount, updatedCount, errors }
-  }
 
   // 과제관리(시트)에 담당자로 나오지만 팀원 목록에 없는 사람들
   const unmatched = unmatchedAssigneeSummary(state.workBoard)
@@ -361,7 +344,6 @@ export default function TeamManagement() {
             <IdCard {...ic} />
             인사기록 불러오기
           </Button>
-          <TitleUploadControls busyLabel="팀원 업로드 중..." onDownload={downloadMemberTemplate} onFiles={handleUploadFiles} />
         </div>
       </div>
       <p className="mt-1 text-[13px] text-label-2">
@@ -435,7 +417,7 @@ export default function TeamManagement() {
           onRedo={history.redo}
           storageKey="members"
           addRowLabel="팀원 추가"
-          emptyText="등록된 팀원이 없습니다. 아래 '팀원 추가'를 누르거나 엑셀로 올리세요."
+          emptyText="등록된 팀원이 없습니다. 아래 '팀원 추가'를 누르거나 인사기록을 불러오세요."
         />
       </div>
 
