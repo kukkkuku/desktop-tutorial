@@ -79,6 +79,31 @@ export function toProgressRows(rows: ParsedRow[]): ProgressRow[] {
   })
 }
 
+// 운영 중인 팀 구글시트 -- 과제 입력은 여기서 읽기만 하고 절대 쓰지 않는다(테스트 시트를 따로 연결해 저장).
+// 운영 시트에 저장을 허용하려면 이 목록에서 빼야 한다.
+export const PROTECTED_SHEET_IDS = ['1wnE6O8uIdCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o']
+export function isProtectedSheet(id: string | null | undefined): boolean {
+  return !!id && PROTECTED_SHEET_IDS.includes(id)
+}
+
+// 과제 입력이 연결한 시트(링크). 없으면 운영 시트를 읽기 전용으로 쓴다.
+const sheetKey = () => `progress-board:sheet:${accountScope()}`
+export function readLinkedSheet(): string | null {
+  try {
+    return localStorage.getItem(sheetKey())
+  } catch {
+    return null
+  }
+}
+export function writeLinkedSheet(url: string | null) {
+  try {
+    if (url) localStorage.setItem(sheetKey(), url)
+    else localStorage.removeItem(sheetKey())
+  } catch {
+    // 기억 못 해도 지금 화면에는 반영
+  }
+}
+
 const dataKey = () => `progress-board:data:${accountScope()}`
 const editsKey = () => `progress-board:edits:${accountScope()}`
 

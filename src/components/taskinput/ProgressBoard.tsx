@@ -25,6 +25,9 @@ import {
   NO_L1,
   TOOL_CELL,
   buildSheetWrites,
+  isProtectedSheet,
+  readLinkedSheet,
+  writeLinkedSheet,
   countEdits,
   currentWeekKey,
   effectiveCells,
@@ -121,8 +124,27 @@ export default function ProgressBoard() {
     setError('')
   }
 
-  async function loadFromSheet(pickAccount = false) {
-    const link = parseSheetUrl(DEFAULT_SHEET_URL)
+  const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? DEFAULT_SHEET_URL)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkInput, setLinkInput] = useState('')
+
+  // 다른 시트를 연결하면 그 시트에서 다시 불러온다. 고친 칸은 이전 시트 기준이라 비운다.
+  async function connectSheet(url: string) {
+    const link = parseSheetUrl(url)
+    if (!link) {
+      setError('구글시트 링크를 확인해 주세요. (https://docs.google.com/spreadsheets/d/…)')
+      return
+    }
+    const clean = sheetUrl(link.spreadsheetId)
+    setSheetLink(clean)
+    writeLinkedSheet(clean === DEFAULT_SHEET_URL ? null : clean)
+    setLinkOpen(false)
+    updateEdits({})
+    await loadFromSheet(false, clean)
+  }
+
+  async function loadFromSheet(pickAccount = false, url = sheetLink) {
+    const link = parseSheetUrl(url)
     if (!link) return
     if (pickAccount) chooseSheetsAccountNext()
     setLoading(true)
@@ -166,6 +188,10 @@ export default function ProgressBoard() {
   async function saveToSheet() {
     setConfirmSave(false)
     if (!data?.spreadsheetId || data.sheetGid === null) return
+    if (isProtectedSheet(data.spreadsheetId)) {
+      setError('운영 중인 팀 시트에는 저장하지 않습니다. 테스트 시트를 연결해 주세요.')
+      return
+    }
     setSaving(true)
     setError('')
     setMessage('')
@@ -216,6 +242,13 @@ export default function ProgressBoard() {
           </Button>
         </div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
+        <p className="mt-4 text-[12px] text-label-3">
+          {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)' : `지금 연결: ${sheetLink}`}{' '}
+          <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
+            시트 바꾸기
+          </button>
+        </p>
+        {linkOpen && <SheetLinkForm value={linkInput} onChange={setLinkInput} onSubmit={() => connectSheet(linkInput)} onCancel={() => setLinkOpen(false)} />}
         {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       </div>
     )
@@ -244,7 +277,8 @@ export default function ProgressBoard() {
       return true
     })
   const editCount = countEdits(edits)
-  const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured()
+  const protectedSheet = isProtectedSheet(data.spreadsheetId)
+  const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
   const h = tabRows.find((r) => r.h)?.h
   const l2Count = new Set(tabRows.map((r) => r.l2)).size
 
@@ -262,6 +296,16 @@ export default function ProgressBoard() {
           )}{' '}
           · {fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건
         </span>
+        {protectedSheet ? (
+          <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
+            운영 시트 · 읽기 전용
+          </span>
+        ) : (
+          data.spreadsheetId && <span className="mac-badge bg-success/15 text-success">저장 가능한 시트</span>
+        )}
+        <button onClick={() => { setLinkInput(''); setLinkOpen((v) => !v) }} className="font-medium text-accent hover:underline">
+          시트 바꾸기
+        </button>
         <span className="ml-auto flex items-center gap-2">
           {isSheetsApiConfigured() && (
             <Button variant="secondary" size="sm" onClick={() => loadFromSheet()} disabled={loading || saving}>
@@ -276,6 +320,15 @@ export default function ProgressBoard() {
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
         </span>
       </div>
+      {linkOpen && (
+        <SheetLinkForm
+          value={linkInput}
+          onChange={setLinkInput}
+          onSubmit={() => connectSheet(linkInput)}
+          onReset={sheetLink !== DEFAULT_SHEET_URL ? () => connectSheet(DEFAULT_SHEET_URL) : undefined}
+          onCancel={() => setLinkOpen(false)}
+        />
+      )}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       {message && <p className="mt-3 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">{message}</p>}
 
@@ -394,7 +447,13 @@ export default function ProgressBoard() {
                 size="sm"
                 onClick={() => setConfirmSave(true)}
                 disabled={!canSave || saving}
-                title={canSave ? '고친 칸을 구글시트에 씁니다' : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'}
+                title={
+                  canSave
+                    ? '고친 칸을 연결된 시트에 씁니다'
+                    : protectedSheet
+                      ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
+                      : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
+                }
               >
                 {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
                 구글시트에 저장
@@ -493,6 +552,39 @@ export default function ProgressBoard() {
         onConfirm={saveToSheet}
         onCancel={() => setConfirmSave(false)}
       />
+    </div>
+  )
+}
+
+function SheetLinkForm({ value, onChange, onSubmit, onReset, onCancel }: { value: string; onChange: (v: string) => void; onSubmit: () => void; onReset?: () => void; onCancel?: () => void }) {
+  return (
+    <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] p-3 text-left text-[13px]">
+      <p className="font-semibold text-label">불러오고 저장할 구글시트</p>
+      <p className="mt-0.5 text-label-2">
+        운영 시트에서 「파일 › 사본 만들기」로 만든 테스트 시트의 링크를 붙여 넣으세요. 같은 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          onSubmit()
+        }}
+        className="mt-2 flex flex-wrap gap-2"
+      >
+        <input value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." className="h-8 min-w-[320px] flex-1 rounded-control border border-hairline bg-white px-2.5" />
+        <Button variant="primary" size="sm" type="submit" disabled={!value.trim()}>
+          연결
+        </Button>
+        {onReset && (
+          <Button variant="secondary" size="sm" type="button" onClick={onReset}>
+            운영 시트로 되돌리기(읽기 전용)
+          </Button>
+        )}
+        {onCancel && (
+          <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
+            닫기
+          </Button>
+        )}
+      </form>
     </div>
   )
 }
