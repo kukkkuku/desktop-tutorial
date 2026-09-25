@@ -173,7 +173,7 @@ export async function downloadMatrixPdf(
   })
 }
 
-export async function downloadResultsPdf(
+function buildResultsPdfOptions(
   teamName: string,
   periodName: string,
   members: TeamMember[],
@@ -181,7 +181,7 @@ export async function downloadResultsPdf(
   contributions: Contribution[],
   criteria: Criteria,
   peerReviews: PeerInput[] = [],
-) {
+) : Parameters<typeof buildPdfBlob>[0] {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
   const taskScoreMap = new Map(taskScores.map((row) => [row.task.id, row.score]))
@@ -223,7 +223,7 @@ export async function downloadResultsPdf(
     emptyLabel: '과제 참여 데이터가 없습니다.',
   }
 
-  await downloadPdfReport({
+  return {
     teamName,
     periodName,
     title: '성과평가 결과 리포트',
@@ -234,7 +234,21 @@ export async function downloadResultsPdf(
     ],
     sections: [rankSection, detailSection],
     fileName: `평가결과_${new Date().toISOString().slice(0, 10)}.pdf`,
-  })
+  }
+}
+
+type ResultsPdfArgs = Parameters<typeof buildResultsPdfOptions>
+
+export async function downloadResultsPdf(...args: ResultsPdfArgs) {
+  await downloadPdfReport(buildResultsPdfOptions(...args))
+}
+
+// 받기 전에 새 탭에서 PDF를 먼저 본다(개인 리포트 미리보기와 같은 방식).
+export async function previewResultsPdf(...args: ResultsPdfArgs) {
+  const blob = await buildPdfBlob(buildResultsPdfOptions(...args))
+  const url = URL.createObjectURL(blob)
+  window.open(url, '_blank')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 // 팀원 개개인에게 따로 전달할 개인별 리포트 -- 전체 순위/다른 사람 점수는 빼고

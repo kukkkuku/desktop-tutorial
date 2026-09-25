@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Spinner from './Spinner'
-import { Download } from 'lucide-react'
+import { Download, Eye } from 'lucide-react'
 import Button from './Button'
 import { ic } from './ui/icon'
 
@@ -9,13 +9,15 @@ interface CurrentDataDownloadControlsProps {
   disabled?: boolean
   onExcelDownload: () => void | Promise<void>
   onPdfDownload: () => void | Promise<void>
+  // 있으면 팝오버에 "PDF 미리보기"를 보여 준다(새 탭에서 열기).
+  onPreview?: () => void | Promise<void>
 }
 
 // 빈 양식(TitleUploadControls)과 짝을 이루는, "지금 입력된 데이터"를 그대로
 // 리포트로 내려받는 버튼. 클릭하면 엑셀/PDF 중 원하는 형식을 골라(둘 다 가능)
 // 한 번에 받을 수 있는 팝오버가 열린다. 내려받을 데이터 자체가 없을 때는
 // disabled로 꺼둔다 -- 빈 리포트를 받게 하지 않는다.
-export default function CurrentDataDownloadControls({ label = '리포트 다운로드', disabled = false, onExcelDownload, onPdfDownload }: CurrentDataDownloadControlsProps) {
+export default function CurrentDataDownloadControls({ label = '리포트 다운로드', disabled = false, onExcelDownload, onPdfDownload, onPreview }: CurrentDataDownloadControlsProps) {
   const [open, setOpen] = useState(false)
   const [wantExcel, setWantExcel] = useState(true)
   const [wantPdf, setWantPdf] = useState(true)
@@ -81,6 +83,23 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
             {busy && <Spinner className="h-3.5 w-3.5 text-white" />}
             {busy ? '생성 중...' : '다운로드'}
           </Button>
+          {onPreview && (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                setBusy(true)
+                try {
+                  await onPreview()
+                } finally {
+                  setBusy(false)
+                }
+              }}
+              disabled={busy}
+              className="mt-2 w-full"
+            >
+              <Eye {...ic} /> PDF 미리보기
+            </Button>
+          )}
         </div>
       )}
     </div>

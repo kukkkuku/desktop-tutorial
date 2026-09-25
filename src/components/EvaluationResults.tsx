@@ -14,6 +14,7 @@ import { downloadIndividualResultReports, downloadResultsReport } from '../utils
 import {
   downloadIndividualResultsPdf,
   downloadResultsPdf,
+  previewResultsPdf,
   downloadMemberResultPdf,
   previewMemberResultPdf,
 } from '../utils/pdfReports'
@@ -306,13 +307,18 @@ export default function EvaluationResults() {
             value={view}
             onChange={changeView}
           />
-          <Button variant="primary" onClick={() => setConfirmAllOpen(true)}>
-            전체 확정
+          <Button
+            variant="secondary"
+            onClick={() => setConfirmAllOpen(true)}
+            title="표의 '상태'를 모두 확정으로 바꿉니다. 점수·고과는 바뀌지 않고, 확정 뒤에도 수정할 수 있습니다."
+          >
+            모두 확정으로 표시
           </Button>
           <CurrentDataDownloadControls
             label="통합 결과 리포트"
             onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerInputs, periodsForTeam)}
             onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs)}
+            onPreview={() => previewResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs)}
           />
           <CurrentDataDownloadControls
             label={selectedIds.size > 0 ? `선택 팀원 리포트 (${selectedIds.size})` : '전체 팀원별 리포트'}
@@ -706,8 +712,8 @@ export default function EvaluationResults() {
 
       <ConfirmDialog
         open={confirmAllOpen}
-        title="전체 확정"
-        message="활성 팀원 전원의 평가 상태를 '확정'으로 변경합니다. 확정 후에도 값은 계속 수정할 수 있고, 이 기간의 결과는 그대로 이력에 남습니다."
+        title="모두 확정으로 표시"
+        message={'표의 상태 열(평가중 · 검토완료 · 확정)을 활성 팀원 모두 "확정"으로 바꿉니다.\n팀원별 평가를 다 마쳤다는 표시일 뿐, 점수·고과는 바뀌지 않고 잠기지도 않습니다.'}
         confirmLabel="확정"
         tone="accent"
         onConfirm={confirmAll}
