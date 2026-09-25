@@ -50,6 +50,8 @@ export interface RawSheet {
   hidden?: boolean
   rows: unknown[][]
   merges: SheetMerge[]
+  // 칸 배경색(RRGGBB, 흰색·없음은 null). 추진현황 주차 칸의 계획(회색)/실적(분홍)을 가르는 데 쓴다.
+  fills?: (string | null)[][]
 }
 
 export interface ParsedHeader {
@@ -76,6 +78,22 @@ export interface ParsedRow {
   // 앱 열 id -> 원문 텍스트 (담당자는 원문 그대로)
   values: Record<string, string>
   weeks: Record<string, WeekMark>
+  // 주차 칸 배경: 회색 = 계획, 분홍 = 실적(시트 배경색이 없으면 비어 있음)
+  fills: Record<string, WeekFill>
+}
+
+export type WeekFill = 'plan' | 'actual'
+
+// 회색 계열 → 계획, 붉은 계열(분홍) → 실적. 그 밖의 색은 무시.
+export function classifyFill(hex: string | null | undefined): WeekFill | null {
+  if (!hex) return null
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  if ([r, g, b].some(Number.isNaN)) return null
+  if (r - g > 25 && r - b > 25) return 'actual'
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 12 && r < 0xf0 && r > 0x80) return 'plan'
+  return null
 }
 
 export interface ParsedSheet {
@@ -246,7 +264,7 @@ export function splitL2(raw: string): { name: string; tag: string | null } {
 
 const DATE_COLS = new Set(SYSTEM_COLUMNS.filter((c) => c.type === 'date').map((c) => c.id))
 
-export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: Record<string, number | null>): ParsedRow[] {
+export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: Record<string, number | null>, cellFills?: (string | null)[][]): ParsedRow[] {
   const rows: ParsedRow[] = []
   let prevH: string | null = null
   let prevL1: string | null = null
@@ -292,12 +310,15 @@ export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: 
       if (text) values[colId] = text
     }
     const weeks: Record<string, WeekMark> = {}
+    const fills: Record<string, WeekFill> = {}
     for (const w of header.weekCols) {
       const v = cellText(row[w.col])
       if (isWeekMark(v)) weeks[w.key] = v
+      const f = classifyFill(cellFills?.[r]?.[w.col])
+      if (f) fills[w.key] = f
     }
     const { name, tag } = splitL2(l2)
-    rows.push({ row: r, h, l1, l2: name, l2Tag: tag, l3, hierarchyInferred: inferred, values, weeks })
+    rows.push({ row: r, h, l1, l2: name, l2Tag: tag, l3, hierarchyInferred: inferred, values, weeks, fills })
   }
   return rows
 }
@@ -307,7 +328,7 @@ export function parseSheet(raw: RawSheet): ParsedSheet | { error: string } {
   const header = parseHeader(filled)
   if (!header) return { error: `「${raw.title}」 탭에서 'L2'·'L3' 헤더를 찾지 못했습니다. 추진현황 탭이 맞는지 확인해 주세요.` }
   const columnMap = autoColumnMap(header)
-  return { title: raw.title, header, columnMap, rows: parseRows(filled, header, columnMap) }
+  return { title: raw.title, header, columnMap, rows: parseRows(filled, header, columnMap, raw.fills) }
 }
 
 // ---------- L2 요약 (고르기 화면) ----------

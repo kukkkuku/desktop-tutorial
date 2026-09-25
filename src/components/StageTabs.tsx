@@ -1,4 +1,5 @@
 import type { WorkspaceMeta } from '../types'
+import HomeButton from './HomeButton'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import Spinner from './Spinner'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
@@ -79,6 +80,8 @@ export default function StageTabs({
   return (
     <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
       <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+        <HomeButton className="-ml-2" />
+        <span className="hidden h-5 w-px bg-separator sm:inline-block" />
         <WorkspaceSwitcher
           teamName={teamName}
           currentWorkspaceId={currentWorkspaceId}

@@ -35,6 +35,7 @@ import {
   type XlsxBook,
   SheetsAuthError,
   chooseSheetsAccountNext,
+  DEFAULT_SHEET_URL,
 } from '../../utils/sheetSources'
 import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/workBoard'
 
@@ -46,7 +47,6 @@ import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
 
 // 연결된 시트가 없을 때 기본으로 채워 두는 팀 과제관리 시트(바꿔 넣을 수 있음)
-const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1wnE6O8uldCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o/edit'
 
 interface Props {
   onDone?: () => void

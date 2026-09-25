@@ -18,6 +18,9 @@ import QuickStartModal from './components/QuickStartModal'
 import UnderlineTabs from './components/ui/UnderlineTabs'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
+import { AppModeProvider, useAppMode } from './state/AppMode'
+import AppHome from './components/AppHome'
+import TaskInputApp from './components/taskinput/TaskInputApp'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [stage, setStage] = useState<Stage>('work')
@@ -194,11 +197,21 @@ function WorkspaceGate() {
   return <WorkspaceApp key={currentWorkspaceId} workspaceId={currentWorkspaceId} />
 }
 
+// 메인에서 고른 곳으로: 성과관리(기존 평가 앱) / 과제 입력(추진현황·진척률)
+function ModeGate() {
+  const { mode } = useAppMode()
+  if (mode === 'tasks') return <TaskInputApp />
+  if (mode === 'perf') return <WorkspaceGate />
+  return <AppHome />
+}
+
 export default function App() {
   return (
     <WorkspaceProvider>
       <GoogleSignInGate>
-        <WorkspaceGate />
+        <AppModeProvider>
+          <ModeGate />
+        </AppModeProvider>
       </GoogleSignInGate>
     </WorkspaceProvider>
   )

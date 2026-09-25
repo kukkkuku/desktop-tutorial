@@ -9,6 +9,9 @@ import { getConnectedEmail, loadGis, withAuthLock } from './googleDrive'
 
 // ---------- 링크 ----------
 
+// 디자인연구소 구글시트(추진현황·진척률 탭이 있는 파일)
+export const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1wnE6O8uIdCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o/edit'
+
 export function parseSheetUrl(input: string): { spreadsheetId: string; gid: number | null } | null {
   const text = input.trim()
   const m = text.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/)
@@ -28,8 +31,11 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // 읽기 전용. 로그인 때 받은 Drive/Calendar 토큰과는 따로, 시트를 처음
 // 가져올 때 한 번 추가 동의를 받는다(기존 로그인에는 영향 없음).
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
+// 과제 입력에서 시트에 저장할 때만 쓰기 권한을 따로 받는다(읽기만 하는 사람은 동의할 일 없음).
+const SHEETS_WRITE_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 
 let sheetsToken: { token: string; expiresAt: number } | null = null
+let sheetsWriteToken: { token: string; expiresAt: number } | null = null
 // 다음 시트 권한 요청은 계정 힌트 없이 계정 선택 화면부터 연다. 브라우저에 구글 계정이
 // 여러 개 로그인돼 있으면 힌트와 엇갈려 구글이 "400 · malformed"를 내는 경우가 있어서,
 // 그때 사용자가 직접 계정을 고르게 하는 재시도 경로.
@@ -44,7 +50,13 @@ export function isSheetsApiConfigured(): boolean {
 }
 
 let sheetsInflight: Promise<string> | null = null
-async function getSheetsToken(): Promise<string> {
+async function getSheetsToken(write = false): Promise<string> {
+  if (write) {
+    if (sheetsWriteToken && sheetsWriteToken.expiresAt - 60_000 > Date.now()) return sheetsWriteToken.token
+    return withAuthLock(() => openSheetsPopup(true))
+  }
+  // 쓰기 권한을 이미 받았으면 읽기에도 그대로 쓴다.
+  if (sheetsWriteToken && sheetsWriteToken.expiresAt - 60_000 > Date.now()) return sheetsWriteToken.token
   if (sheetsToken && sheetsToken.expiresAt - 60_000 > Date.now()) return sheetsToken.token
   if (sheetsInflight) return sheetsInflight
   const p = withAuthLock(() => {
@@ -57,7 +69,7 @@ async function getSheetsToken(): Promise<string> {
   return p
 }
 
-async function openSheetsPopup(): Promise<string> {
+async function openSheetsPopup(write = false): Promise<string> {
   if (!CLIENT_ID) throw new Error('Google Client ID가 설정되지 않았습니다. xlsx 파일로 올려 주세요.')
   await loadGis()
   const google = window.google
@@ -67,7 +79,7 @@ async function openSheetsPopup(): Promise<string> {
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: SHEETS_SCOPE,
+      scope: write ? SHEETS_WRITE_SCOPE : SHEETS_SCOPE,
       // 평소에는 이미 로그인한 계정으로 바로 동의 화면을 띄운다(계정 선택 생략).
       ...(choose ? {} : ({ login_hint: getConnectedEmail() ?? undefined } as object)),
       error_callback: (err) =>
@@ -80,10 +92,12 @@ async function openSheetsPopup(): Promise<string> {
         ),
       callback: (resp) => {
         if (resp.error || !resp.access_token) {
-          reject(new Error(resp.error === 'access_denied' ? '시트 읽기 권한을 허용하지 않았습니다.' : resp.error || '로그인이 취소되었습니다.'))
+          reject(new Error(resp.error === 'access_denied' ? `시트 ${write ? '저장' : '읽기'} 권한을 허용하지 않았습니다.` : resp.error || '로그인이 취소되었습니다.'))
           return
         }
-        sheetsToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
+        const tok = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
+        if (write) sheetsWriteToken = tok
+        else sheetsToken = tok
         resolve(resp.access_token)
       },
     })
@@ -106,11 +120,18 @@ interface GoogleApiError {
   }
 }
 
-async function sheetsFetch<T>(url: string): Promise<T> {
-  const token = await getSheetsToken()
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+async function sheetsFetch<T>(url: string, init?: { method: string; body: string }, write = false): Promise<T> {
+  const token = await getSheetsToken(write)
+  const res = await fetch(url, {
+    method: init?.method ?? 'GET',
+    body: init?.body,
+    headers: { Authorization: `Bearer ${token}`, ...(init ? { 'Content-Type': 'application/json' } : {}) },
+  })
   if (res.ok) return (await res.json()) as T
-  if (res.status === 401) sheetsToken = null
+  if (res.status === 401) {
+    sheetsToken = null
+    sheetsWriteToken = null
+  }
   const text = await res.text().catch(() => '')
   let parsed: GoogleApiError = {}
   try {
@@ -131,6 +152,10 @@ async function sheetsFetch<T>(url: string): Promise<T> {
   }
   if (res.status === 404) throw new Error('시트를 찾지 못했습니다. 링크가 맞는지 확인해 주세요.')
   if (res.status === 403) {
+    if (write)
+      throw new Error(
+        `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 편집할 권한이 없습니다. 시트 소유자에게 편집 권한을 요청해 주세요. (구글 응답: ${err?.message ?? res.status})`,
+      )
     throw new Error(
       `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 볼 권한이 없습니다. 시트를 볼 수 있는 계정으로 로그인하거나, 시트 공유에 이 계정을 추가해 주세요. (구글 응답: ${err?.message ?? res.status})`,
     )
@@ -195,6 +220,75 @@ export async function fetchSheetTab(spreadsheetId: string, title: string): Promi
   return { title, hidden: sheet?.properties.hidden === true, rows, merges }
 }
 
+// ---------- 칸 배경색 (추진현황 주차 칸: 회색 = 계획, 분홍 = 실적) ----------
+
+function colLetter(c: number): string {
+  let s = ''
+  for (let n = c + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s
+  return s
+}
+
+function toHex(c: { red?: number; green?: number; blue?: number } | undefined): string | null {
+  if (!c) return null
+  const h = (v?: number) => Math.round((v ?? 0) * 255).toString(16).padStart(2, '0').toUpperCase()
+  const hex = `${h(c.red)}${h(c.green)}${h(c.blue)}`
+  return hex === 'FFFFFF' ? null : hex
+}
+
+// r1..r2, c1..c2(0-based, 끝 포함) 칸의 배경색을 RRGGBB로. 흰색·없음은 null.
+export async function fetchSheetFills(spreadsheetId: string, title: string, r1: number, r2: number, c1: number, c2: number): Promise<(string | null)[][]> {
+  const range = `${quoteTab(title)}!${colLetter(c1)}${r1 + 1}:${colLetter(c2)}${r2 + 1}`
+  const data = await sheetsFetch<{
+    sheets: { data?: { startRow?: number; startColumn?: number; rowData?: { values?: { effectiveFormat?: { backgroundColor?: { red?: number; green?: number; blue?: number } } }[] }[] }[] }[]
+  }>(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(startRow,startColumn,rowData.values.effectiveFormat.backgroundColor)`,
+  )
+  const grid = data.sheets[0]?.data?.[0]
+  const out: (string | null)[][] = []
+  ;(grid?.rowData ?? []).forEach((row, i) => {
+    const r = r1 + i
+    out[r] = []
+    ;(row.values ?? []).forEach((v, j) => {
+      out[r][c1 + j] = toHex(v.effectiveFormat?.backgroundColor)
+    })
+  })
+  return out
+}
+
+export interface SheetCellWrite {
+  row: number // 0-based
+  col: number // 0-based
+  value: string // '' = 지움
+  fill?: string | null // RRGGBB, null = 흰색. undefined면 배경은 건드리지 않음
+}
+
+function fromHex(hex: string | null) {
+  const v = hex ?? 'FFFFFF'
+  return { red: parseInt(v.slice(0, 2), 16) / 255, green: parseInt(v.slice(2, 4), 16) / 255, blue: parseInt(v.slice(4, 6), 16) / 255 }
+}
+
+// 칸 단위로 값(과 배경색)을 쓴다. 쓰기 권한 동의를 한 번 받는다.
+export async function writeSheetCells(spreadsheetId: string, sheetGid: number, cells: SheetCellWrite[]): Promise<void> {
+  if (cells.length === 0) return
+  const requests = cells.map((c) => ({
+    updateCells: {
+      range: { sheetId: sheetGid, startRowIndex: c.row, endRowIndex: c.row + 1, startColumnIndex: c.col, endColumnIndex: c.col + 1 },
+      rows: [
+        {
+          values: [
+            {
+              ...(c.value ? { userEnteredValue: { stringValue: c.value } } : {}),
+              ...(c.fill !== undefined ? { userEnteredFormat: { backgroundColor: fromHex(c.fill) } } : {}),
+            },
+          ],
+        },
+      ],
+      fields: c.fill !== undefined ? 'userEnteredValue,userEnteredFormat.backgroundColor' : 'userEnteredValue',
+    },
+  }))
+  await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
+}
+
 // ---------- B) xlsx ----------
 
 export interface XlsxBook {
@@ -204,18 +298,22 @@ export interface XlsxBook {
 
 export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
   // cellNF: 칸 서식을 같이 읽어 날짜 서식 칸을 알아본다.
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: false, cellNF: true })
+  const wb = XLSX.read(buffer, { type: 'array', cellDates: false, cellNF: true, cellStyles: true })
   const sheets: RawSheet[] = wb.SheetNames.map((name, idx) => {
     const ws = wb.Sheets[name]
     const hidden = Boolean(wb.Workbook?.Sheets?.[idx]?.Hidden)
     const ref = ws['!ref']
     const rows: unknown[][] = []
+    const fills: (string | null)[][] = []
     if (ref) {
       const range = XLSX.utils.decode_range(ref)
       for (let r = 0; r <= range.e.r; r++) {
         const row: unknown[] = []
+        fills[r] = []
         for (let c = 0; c <= range.e.c; c++) {
           const cell = ws[XLSX.utils.encode_cell({ r, c })]
+          const rgb = (cell?.s as { fgColor?: { rgb?: string } } | undefined)?.fgColor?.rgb
+          fills[r][c] = rgb && /^[0-9A-F]{6,8}$/i.test(rgb) && !/^(FF)?FFFFFF$/i.test(rgb) ? rgb.slice(-6).toUpperCase() : null
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
             row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
           } else row.push(cell ? cell.v : null)
@@ -224,7 +322,7 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
       }
     }
     const merges: SheetMerge[] = (ws['!merges'] ?? []).map((m) => ({ r1: m.s.r, c1: m.s.c, r2: m.e.r, c2: m.e.c }))
-    return { title: name, hidden, rows, merges }
+    return { title: name, hidden, rows, merges, fills }
   })
   return { title: fileName.replace(/\.xlsx?$/i, ''), sheets }
 }

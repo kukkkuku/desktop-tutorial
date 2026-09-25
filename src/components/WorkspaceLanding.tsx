@@ -9,6 +9,7 @@ import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
+import HomeButton from './HomeButton'
 import { ic, icSm } from './ui/icon'
 
 const MAX_VISIBLE_AVATARS = 6
@@ -212,7 +213,11 @@ export default function WorkspaceLanding() {
     <div className="min-h-screen bg-window">
       <header className="border-b border-separator bg-white/80 px-6 py-3 backdrop-blur-xl sm:px-10">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-          <p className="whitespace-nowrap text-[17px] font-semibold text-label">성과·성장관리</p>
+          <div className="flex items-center gap-2">
+            <HomeButton className="-ml-2" />
+            <span className="h-5 w-px bg-separator" />
+            <p className="whitespace-nowrap text-[17px] font-semibold text-label">성과·성장관리</p>
+          </div>
           {accountEmail && (
             <div className="flex shrink-0 items-center gap-3">
               <GoogleAccountMenu
