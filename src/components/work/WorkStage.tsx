@@ -1097,12 +1097,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
       <ConfirmDialog
         open={deletingGroup !== null}
-        title="L2 삭제"
+        title={deletingGroup ? `${deletingGroup.name} 과제 삭제` : ''}
         message={
           deletingGroup
-            ? `「${deletingGroup.name}」과 그 아래 L3 ${itemsOfGroup(board, deletingGroup.id).length}건을 이 앱의 과제관리에서 지웁니다. 구글시트 원본은 바뀌지 않습니다.${
-                deletingGroup.source === 'sheet' ? ' 시트 가져오기 선택 목록에서도 빠지므로, 다시 가져와도 되살아나지 않습니다(가져오기에서 다시 고르면 됩니다).' : ''
-              } 바로 뒤라면 되돌리기(⌘Z)로 살릴 수 있습니다.`
+            ? [
+                `「${deletingGroup.name}」과 그 아래 L3 ${itemsOfGroup(board, deletingGroup.id).length}건을 이 앱의 과제관리에서 지웁니다.`,
+                '구글시트 원본은 바뀌지 않습니다.',
+                ...(deletingGroup.source === 'sheet' ? ['시트 가져오기 선택 목록에서도 빠지므로, 다시 가져와도 되살아나지 않습니다(가져오기에서 다시 고르면 됩니다).'] : []),
+                '바로 뒤라면 되돌리기(⌘Z)로 살릴 수 있습니다.',
+              ].join('\n')
             : ''
         }
         onConfirm={() => {
