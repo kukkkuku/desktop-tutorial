@@ -18,8 +18,8 @@ export function parseSheetUrl(input: string): { spreadsheetId: string; gid: numb
   return { spreadsheetId: id, gid: g ? Number(g[1]) : null }
 }
 
-export function sheetUrl(spreadsheetId: string): string {
-  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+export function sheetUrl(spreadsheetId: string, gid?: number): string {
+  return `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit${gid !== undefined ? `#gid=${gid}` : ''}`
 }
 
 // ---------- A) Sheets API ----------

@@ -220,6 +220,7 @@ export interface WeekColumn {
 export interface SheetLink {
   spreadsheetId: string
   tabName: string
+  gid?: number // 시트 탭 id -- "구글시트 과제로 이동"이 그 탭을 바로 열게
   // 앱 열 id -> 시트 헤더 이름(정규화 전 원문)
   columnMap: Record<string, string>
   selectedGroups: string[] // L2 이름

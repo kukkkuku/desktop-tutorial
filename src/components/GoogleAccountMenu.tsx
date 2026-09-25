@@ -43,13 +43,15 @@ interface GoogleAccountMenuProps {
   // 다른 계정으로 전환 성공 시 알려준다 -- 호출부(헤더/데이터 관리)가
   // 각자 들고 있는 accountEmail 표시를 새로 읽어오도록.
   onAccountChange?: () => void
+  // 호출부가 덧붙이는 바로가기(예: 연결된 구글시트). 목록 맨 위에 놓는다.
+  extraLinks?: { label: string; href: string; icon: ReactNode }[]
 }
 
 // 연결된 계정 칩을 누르면 지금 계정 정보 + 다른 계정으로 전환하는 액션,
 // 그리고 캘린더/Gmail/Drive로 바로 넘어갈 수 있는 짧은 메뉴를 띄운다.
 // 헤더(StageTabs)와 데이터 관리 드로어의 Google Drive 탭(GoogleDrivePanel)
 // 양쪽에서 같은 동작을 쓴다.
-export default function GoogleAccountMenu({ children, className, onAccountChange }: GoogleAccountMenuProps) {
+export default function GoogleAccountMenu({ children, className, onAccountChange, extraLinks = [] }: GoogleAccountMenuProps) {
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState<string | null>(null)
@@ -124,6 +126,19 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
               {switchError && <p className="mt-1 text-[11px] text-danger">{switchError}</p>}
             </div>
 
+            {extraLinks.map(({ label, href, icon }) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black"
+              >
+                {icon}
+                {label}
+              </a>
+            ))}
             {ACCOUNT_LINKS.map(({ label, href, Icon }) => (
               <a
                 key={href}

@@ -36,6 +36,8 @@ import {
   updateItems,
 } from '../../utils/workBoard'
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
+import { sheetUrl } from '../../utils/sheetSources'
+import SheetsIcon from '../SheetsIcon'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -785,9 +787,23 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       </div>
       {board.sheetLink && (
         <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-gray-600">
-          <span className="max-w-[180px] truncate font-medium" title={`구글시트 탭 「${board.sheetLink.tabName}」`}>
-            {board.sheetLink.tabName}
-          </span>
+          {board.sheetLink.spreadsheetId ? (
+            <a
+              href={sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)}
+              target="_blank"
+              rel="noreferrer"
+              title="구글시트에서 열기"
+              className="flex max-w-[200px] items-center gap-1.5 rounded-md px-1 py-0.5 font-medium hover:bg-gray-100 hover:text-black"
+            >
+              <SheetsIcon className="h-4 w-3.5 shrink-0" />
+              <span className="truncate">{board.sheetLink.tabName}</span>
+            </a>
+          ) : (
+            <span className="flex max-w-[200px] items-center gap-1.5 font-medium" title="엑셀 파일에서 가져옴">
+              <SheetsIcon className="h-4 w-3.5 shrink-0" />
+              <span className="truncate">{board.sheetLink.tabName}</span>
+            </span>
+          )}
           <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500">{timeAgo(board.sheetLink.lastFetchedAt)}</span>
           <span className="group/reload relative">
             <button

@@ -564,6 +564,7 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
       sheetLink = {
         spreadsheetId: s.spreadsheetId,
         tabName: s.tabName,
+        gid: typeof s.gid === 'number' ? s.gid : undefined,
         columnMap: strRecord(s.columnMap),
         selectedGroups: Array.isArray(s.selectedGroups) ? (s.selectedGroups as unknown[]).filter((x): x is string => typeof x === 'string') : [],
         teamFilter: str(s.teamFilter),

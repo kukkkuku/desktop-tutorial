@@ -4,6 +4,9 @@ import IconButton from './IconButton'
 import Spinner from './Spinner'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { IS_PREVIEW } from '../utils/previewMode'
+import { sheetUrl } from '../utils/sheetSources'
+import { useAppState } from '../state/AppContext'
+import SheetsIcon from './SheetsIcon'
 
 export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
 
@@ -105,6 +108,7 @@ export default function StageTabs({
   onAccountChange,
   saveStatus = 'idle',
 }: StageTabsProps) {
+  const sheetLink = useAppState().state.workBoard.sheetLink
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="flex w-full flex-wrap items-center gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
@@ -171,6 +175,11 @@ export default function StageTabs({
             <GoogleAccountMenu
               className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-black"
               onAccountChange={onAccountChange}
+              extraLinks={
+                sheetLink?.spreadsheetId
+                  ? [{ label: '구글시트 과제로 이동', href: sheetUrl(sheetLink.spreadsheetId, sheetLink.gid), icon: <SheetsIcon className="h-4 w-4 shrink-0" /> }]
+                  : []
+              }
             >
               {accountEmail}
               {isAdminUser && (

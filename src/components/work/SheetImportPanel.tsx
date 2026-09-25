@@ -203,6 +203,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
     const nextLink = {
       spreadsheetId: spreadsheetId ?? link?.spreadsheetId ?? '',
       tabName: raw.title,
+      gid: spreadsheetId ? tabs.find((t) => t.title === raw.title)?.sheetId : link?.tabName === raw.title ? link.gid : undefined,
       columnMap: columnMapToNames(header, columnMap),
       selectedGroups: Array.from(selected),
       teamFilter: null,
