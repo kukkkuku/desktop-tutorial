@@ -232,7 +232,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>())
   const headRefs = useRef(new Map<number, HTMLTableCellElement>())
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>())
-  const drag = useRef<null | { kind: 'cells' | 'rows' | 'cols'; anchor: number; anchorC?: number; moving?: boolean; ids?: string[]; label?: string; start?: { x: number; y: number } }>(null)
+  // pending: 눌렀지만 아직 안 움직임 -- 몇 px 넘게 끌면 행 이동(moving)으로 바뀌고, 그냥 놓으면 onClick.
+  const drag = useRef<null | {
+    kind: 'cells' | 'rows' | 'cols'
+    anchor: number
+    anchorC?: number
+    moving?: boolean
+    pending?: boolean
+    onClick?: () => void
+    ids?: string[]
+    label?: string
+    start?: { x: number; y: number }
+  }>(null)
   // 행을 끄는 동안 마우스를 따라다니는 고스트(노션처럼). 위치는 ref로 직접 옮겨 다시 그리지 않는다.
   const [ghost, setGhost] = useState<{ label: string; count: number; hint: string | null; x: number; y: number } | null>(null)
   const ghostRef = useRef<HTMLDivElement>(null)
@@ -653,6 +664,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     function onMove(e: MouseEvent) {
       const d = drag.current
       if (!d) return
+      if (d.pending) {
+        if (!d.start || Math.hypot(e.clientX - d.start.x, e.clientY - d.start.y) < 5) return
+        d.pending = false
+        d.moving = true
+      }
       let outside = false
       if (d.kind === 'rows' && d.moving) {
         const ids = d.ids ?? selectedRowIds
@@ -698,6 +714,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const d = drag.current
       drag.current = null
       setGhost(null)
+      if (d?.pending) {
+        d.onClick?.()
+        setDragInsert(null)
+        return
+      }
       if (d?.kind === 'rows' && d.moving && props.onRowDragOutside?.drop(d.ids ?? selectedRowIds, e.clientX, e.clientY)) {
         setDragInsert(null)
         setSel(null)
@@ -741,13 +762,22 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     e.preventDefault()
     if (editing) commitEdit()
     setMenu(null)
-    if (e.shiftKey && active) {
+    const extend = e.shiftKey || e.metaKey || e.ctrlKey
+    if (extend && sel?.t === 'rows') {
+      // 행을 고른 상태에서 Shift/⌘ 클릭 = 그 행까지 행 선택을 넓힌다
+      setSel({ t: 'rows', a: sel.a, b: r })
+    } else if (extend && active) {
       setSel({ t: 'cells', r1: active.r, c1: active.c, r2: r, c2: c })
     } else {
-      select(r, c)
-      drag.current = { kind: 'cells', anchor: r, anchorC: c }
-      // 선택 칸은 누르면 바로 목록을 연다.
-      if (columns[c]?.picker && rows[r]) {
+      const inRows = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
+      if (!inRows) select(r, c)
+      else setActive({ r, c })
+      // 누른 채 끌면 그 행(고른 행 전체)을 옮긴다. 그냥 놓으면 칸 선택(선택 칸은 목록 열기).
+      const picker = !!columns[c]?.picker && !!rows[r]
+      drag.current = props.onMoveRows
+        ? { kind: 'rows', anchor: r, pending: true, start: { x: e.clientX, y: e.clientY }, onClick: picker ? () => openPicker(r, c) : undefined }
+        : null
+      if (!props.onMoveRows && picker) {
         openPicker(r, c)
         return
       }
@@ -759,7 +789,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     const d = drag.current
     if (!d) return
     if (d.kind === 'cells') setSel({ t: 'cells', r1: d.anchor, c1: d.anchorC ?? 0, r2: r, c2: c })
-    else if (d.kind === 'rows' && !d.moving) setSel({ t: 'rows', a: d.anchor, b: r })
+    else if (d.kind === 'rows' && !d.moving && !d.pending) setSel({ t: 'rows', a: d.anchor, b: r })
   }
 
   function onRowHandleMouseDown(e: React.MouseEvent, r: number) {
@@ -768,14 +798,17 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (editing) commitEdit()
     setMenu(null)
     const within = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
-    if (within && props.onMoveRows) {
-      drag.current = { kind: 'rows', anchor: r, moving: true }
-    } else if (e.shiftKey && sel?.t === 'rows') {
-      setSel({ t: 'rows', a: sel.a, b: r })
+    const extend = e.shiftKey || e.metaKey || e.ctrlKey
+    if (extend && (sel?.t === 'rows' || active)) {
+      // Shift/⌘/Ctrl 클릭 = 지금 고른 행(또는 칸의 행)부터 이 행까지 행 선택
+      setSel({ t: 'rows', a: sel?.t === 'rows' ? sel.a : active!.r, b: r })
     } else {
-      setSel({ t: 'rows', a: r, b: r })
-      setActive({ r, c: active?.c ?? 0 })
-      drag.current = { kind: 'rows', anchor: r }
+      if (!within) {
+        setSel({ t: 'rows', a: r, b: r })
+        setActive({ r, c: active?.c ?? 0 })
+      }
+      // 누른 채 끌면 바로 옮기기(고른 행 전체). 그냥 놓으면 선택만.
+      if (props.onMoveRows) drag.current = { kind: 'rows', anchor: r, pending: true, start: { x: e.clientX, y: e.clientY } }
     }
     requestAnimationFrame(focusSink)
   }
