@@ -86,7 +86,10 @@ export function isProtectedSheet(id: string | null | undefined): boolean {
   return !!id && PROTECTED_SHEET_IDS.includes(id)
 }
 
-// 과제 입력이 연결한 시트(링크). 없으면 운영 시트를 읽기 전용으로 쓴다.
+// 과제 입력 기본 시트 -- 운영 시트의 사본(테스트용, jjy.osstem 소유). 읽기·저장 모두 여기로.
+export const TASK_INPUT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1JK925VPx_t5HwPzKN0hWdu5zw0SqJHLQiyZTMLUA0AQ/edit'
+
+// 과제 입력이 연결한 시트(링크). 없으면 위 기본 시트.
 const sheetKey = () => `progress-board:sheet:${accountScope()}`
 export function readLinkedSheet(): string | null {
   try {

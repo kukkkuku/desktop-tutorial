@@ -9,7 +9,6 @@ import Spinner from '../Spinner'
 import { icSm } from '../ui/icon'
 import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
 import {
-  DEFAULT_SHEET_URL,
   chooseSheetsAccountNext,
   fetchSheetFills,
   fetchSheetTab,
@@ -26,6 +25,7 @@ import {
   TOOL_CELL,
   buildSheetWrites,
   isProtectedSheet,
+  TASK_INPUT_SHEET_URL,
   readLinkedSheet,
   writeLinkedSheet,
   countEdits,
@@ -124,7 +124,7 @@ export default function ProgressBoard() {
     setError('')
   }
 
-  const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? DEFAULT_SHEET_URL)
+  const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkInput, setLinkInput] = useState('')
 
@@ -137,7 +137,7 @@ export default function ProgressBoard() {
     }
     const clean = sheetUrl(link.spreadsheetId)
     setSheetLink(clean)
-    writeLinkedSheet(clean === DEFAULT_SHEET_URL ? null : clean)
+    writeLinkedSheet(clean === TASK_INPUT_SHEET_URL ? null : clean)
     setLinkOpen(false)
     updateEdits({})
     await loadFromSheet(false, clean)
@@ -243,7 +243,11 @@ export default function ProgressBoard() {
         </div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
         <p className="mt-4 text-[12px] text-label-3">
-          {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)' : `지금 연결: ${sheetLink}`}{' '}
+          {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
+            ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)'
+            : sheetLink === TASK_INPUT_SHEET_URL
+              ? '지금 연결: 테스트 시트(운영 시트의 사본)'
+              : `지금 연결: ${sheetLink}`}{' '}
           <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
             시트 바꾸기
           </button>
@@ -301,7 +305,9 @@ export default function ProgressBoard() {
             운영 시트 · 읽기 전용
           </span>
         ) : (
-          data.spreadsheetId && <span className="mac-badge bg-success/15 text-success">저장 가능한 시트</span>
+          data.spreadsheetId && (
+            <span className="mac-badge bg-success/15 text-success">{data.spreadsheetId === parseSheetUrl(TASK_INPUT_SHEET_URL)?.spreadsheetId ? '테스트 시트 · 저장 가능' : '저장 가능한 시트'}</span>
+          )
         )}
         <button onClick={() => { setLinkInput(''); setLinkOpen((v) => !v) }} className="font-medium text-accent hover:underline">
           시트 바꾸기
@@ -325,7 +331,7 @@ export default function ProgressBoard() {
           value={linkInput}
           onChange={setLinkInput}
           onSubmit={() => connectSheet(linkInput)}
-          onReset={sheetLink !== DEFAULT_SHEET_URL ? () => connectSheet(DEFAULT_SHEET_URL) : undefined}
+          onReset={sheetLink !== TASK_INPUT_SHEET_URL ? () => connectSheet(TASK_INPUT_SHEET_URL) : undefined}
           onCancel={() => setLinkOpen(false)}
         />
       )}
@@ -561,7 +567,7 @@ function SheetLinkForm({ value, onChange, onSubmit, onReset, onCancel }: { value
     <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] p-3 text-left text-[13px]">
       <p className="font-semibold text-label">불러오고 저장할 구글시트</p>
       <p className="mt-0.5 text-label-2">
-        운영 시트에서 「파일 › 사본 만들기」로 만든 테스트 시트의 링크를 붙여 넣으세요. 같은 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다.
+        기본은 운영 시트의 사본(테스트 시트)입니다. 다른 시트를 쓰려면 링크를 붙여 넣으세요. 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 운영 팀 시트는 연결해도 읽기만 합니다.
       </p>
       <form
         onSubmit={(e) => {
@@ -576,7 +582,7 @@ function SheetLinkForm({ value, onChange, onSubmit, onReset, onCancel }: { value
         </Button>
         {onReset && (
           <Button variant="secondary" size="sm" type="button" onClick={onReset}>
-            운영 시트로 되돌리기(읽기 전용)
+            기본 테스트 시트로 되돌리기
           </Button>
         )}
         {onCancel && (
