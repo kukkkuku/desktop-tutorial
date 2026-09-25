@@ -189,6 +189,34 @@ export function calcPersonalGradeFactor(
   return blendByWeight(1.0, PERSONAL_GRADE_FACTOR[contribution.personalPerformanceGrade], criteria.personalGradeWeight)
 }
 
+// 팀원 점수가 어떻게 나왔는지 사람이 읽는 줄로 풀어 쓴다(화면의 점수에 마우스를 올리면 보인다).
+export function explainMemberScore(
+  member: TeamMember,
+  tasks: Task[],
+  contributions: Contribution[],
+  criteria: Criteria,
+  peerReviews: PeerInput[],
+): string {
+  const lines: string[] = []
+  let sum = 0
+  for (const { task, score } of calcAllTaskScores(tasks, criteria)) {
+    const pct = getEffectiveContributionPercent(contributions, task.id, member.id, criteria.contributionWeight)
+    if (pct <= 0) continue
+    const pf = calcPersonalGradeFactor(getContribution(contributions, task.id, member.id), criteria)
+    const v = score * (pct / 100) * pf
+    sum += v
+    const name = task.name.length > 24 ? `${task.name.slice(0, 24)}…` : task.name
+    lines.push(
+      task.performanceGrade === null
+        ? `${name}: 성과등급 미입력 → 0`
+        : `${name}: 과제점수 ${score.toFixed(1)} × 기여 ${pct.toFixed(0)}%${pf !== 1 ? ` × 개인 ${pf.toFixed(2)}` : ''} = ${v.toFixed(1)}`,
+    )
+  }
+  const peer = calcPeerReviewFactor(peerReviews, member.id, criteria)
+  lines.push(`합계 ${sum.toFixed(1)}${peer !== 1 ? ` × 피어 ${peer.toFixed(2)} = ${(sum * peer).toFixed(1)}` : ''}점`)
+  return lines.join('\n')
+}
+
 export function calcMemberCumulativeScore(
   member: TeamMember,
   taskScores: TaskScoreRow[],

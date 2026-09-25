@@ -19,7 +19,7 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMatrixExcel } from '../utils/excel'
 import { downloadMatrixPdf } from '../utils/pdfReports'
 import { peerInputsOf } from '../utils/peerScores'
-import { peerSummaryOf } from '../utils/calculations'
+import { explainMemberScore, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
 import Button from './Button'
 import { Trophy } from 'lucide-react'
@@ -224,7 +224,12 @@ export default function EvaluationMatrix() {
                                 {result.grade}
                               </span>
                               <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
-                              <span className="text-xs font-normal text-label-2">{result.cumulativeScore.toFixed(1)}점</span>
+                              <span
+                                className="cursor-help text-xs font-normal text-label-2 underline decoration-dotted underline-offset-2"
+                                title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
+                              >
+                                {result.cumulativeScore.toFixed(1)}점
+                              </span>
                             </>
                           ) : null}
                         </div>
