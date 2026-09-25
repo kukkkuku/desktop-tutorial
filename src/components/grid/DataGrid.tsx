@@ -200,7 +200,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const [dragInsert, setDragInsert] = useState<{ kind: 'row' | 'col'; index: number; headKey?: string; beforeId?: string | null } | null>(null)
   const headRowRefs = useRef(new Map<string, { el: HTMLTableRowElement; anchor: number; firstId: string }>())
   // 접힌 묶음 머리 행 선택(데이터 행이 화면에 없어 행 선택 범위로 못 나타냄)
-  const [headSel, setHeadSel] = useState<{ key: string; ids: string[] } | null>(null)
+  // 여러 개면 Shift/⌘ 클릭으로 추가한 것. ids = 고른 묶음들의 행 전체
+  const [headSel, setHeadSel] = useState<{ keys: string[]; ids: string[] } | null>(null)
   // 번호 칸 너비(사용자가 조절, 브라우저에 기억)
   const [handleW, setHandleW] = useState(() => {
     try {
@@ -747,11 +748,32 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     requestAnimationFrame(focusSink)
   }
 
+  // 묶음 머리 행을 여러 개 고름(Shift/⌘/Ctrl 클릭). 이미 고른 것이면 뺀다.
+  function toggleHeadPick(h: GroupHeaderRow) {
+    const cur = headSel ?? { keys: [], ids: [] }
+    const has = cur.keys.includes(h.key)
+    const keys = has ? cur.keys.filter((k) => k !== h.key) : [...cur.keys, h.key]
+    const ids = has ? cur.ids.filter((id) => !h.rowIds.includes(id)) : [...cur.ids, ...h.rowIds]
+    setSel(null)
+    setActive(null)
+    setHeadSel(keys.length ? { keys, ids } : null)
+    return ids
+  }
+
   function onGroupHeadMouseDown(e: React.MouseEvent, h: GroupHeaderRow) {
     if (e.button !== 0) return
     e.preventDefault()
     if (editing) commitEdit()
     setMenu(null)
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      toggleHeadPick(h)
+      return
+    }
+    // 이미 여러 개 골라 둔 것 중 하나를 잡으면 고른 것 전부를 옮긴다.
+    if (headSel && headSel.keys.length > 1 && headSel.keys.includes(h.key)) {
+      if (props.onMoveRows) drag.current = { kind: 'rows', anchor: 0, moving: true, ids: headSel.ids }
+      return
+    }
     if (h.rowRange) {
       setHeadSel(null)
       setSel({ t: 'rows', a: h.rowRange[0], b: h.rowRange[1] })
@@ -759,7 +781,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     } else {
       setSel(null)
       setActive(null)
-      setHeadSel({ key: h.key, ids: h.rowIds })
+      setHeadSel({ keys: [h.key], ids: h.rowIds })
     }
     if (props.onMoveRows) drag.current = { kind: 'rows', anchor: h.rowRange?.[0] ?? 0, moving: true, ids: h.rowIds }
     requestAnimationFrame(focusSink)
@@ -768,10 +790,15 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function onGroupHeadContextMenu(e: React.MouseEvent, h: GroupHeaderRow) {
     e.preventDefault()
     if (editing) commitEdit()
+    // 여러 개 골라 둔 상태에서 그중 하나를 우클릭하면 고른 것 전부에 대한 메뉴
+    if (headSel?.keys.includes(h.key)) {
+      setMenu({ x: e.clientX, y: e.clientY, kind: 'head' })
+      return
+    }
     if (!h.rowRange) {
       setSel(null)
       setActive(null)
-      setHeadSel({ key: h.key, ids: h.rowIds })
+      setHeadSel({ keys: [h.key], ids: h.rowIds })
       setMenu({ x: e.clientX, y: e.clientY, kind: 'head' })
       return
     }
@@ -955,7 +982,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     const list = props.groupHeaders?.(anchor)
     if (!list?.length) return null
     return list.map((h) => {
-      const picked = headSel?.key === h.key
+      const picked = !!headSel?.keys.includes(h.key)
       const inside = headInside(h) || picked
       const top = picked || (inside && h.rowRange![0] === selLo)
       const edge = (left: boolean, right = false) =>
@@ -977,7 +1004,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
             else headRowRefs.current.delete(h.key)
           }}
-          className={`group/row ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'} ${
+          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-[#F3F5F8]'} ${
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
@@ -1255,7 +1282,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             </tbody>
           </table>
 
-          {rows.length === 0 && (
+          {rows.length === 0 && !props.groupHeaders?.(0)?.length && (
             <div className="px-4 py-10 text-center text-sm text-gray-400">{props.emptyText ?? '행이 없습니다.'}</div>
           )}
 
@@ -1427,7 +1454,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <div className="my-1 h-px bg-gray-100" />
               <MenuItem
                 danger
-                label={`묶음 행 ${headSel.ids.length}개 삭제`}
+                label={headSel.keys.length > 1 ? `묶음 ${headSel.keys.length}개 (행 ${headSel.ids.length}개) 삭제` : `묶음 행 ${headSel.ids.length}개 삭제`}
                 onClick={() => {
                   props.onDeleteRows(headSel.ids)
                   setHeadSel(null)
