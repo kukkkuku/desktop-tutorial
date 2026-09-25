@@ -1,6 +1,11 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
-import type { Criteria } from '../types'
+import type { Criteria, GradeDistribution } from '../types'
+
+type WeightKey = Exclude<keyof Criteria, 'gradeDistribution'>
+const DIST_GRADES = ['S', 'A', 'B', 'C', 'D'] as const
+// 순위 상대평가를 처음 켤 때 채워 두는 시작값(바로 고칠 수 있다)
+const START_DISTRIBUTION: GradeDistribution = { S: 10, A: 20, B: 40, C: 20, D: 10 }
 import { blendByWeight } from '../utils/calculations'
 import IconButton from './IconButton'
 import { ChartNoAxesColumnIncreasing, ChevronLeft, File, Percent, SlidersHorizontal, Star, User, Users, type LucideIcon } from 'lucide-react'
@@ -24,7 +29,7 @@ function widthToSize(width: number): PanelSize {
 }
 
 interface CriterionIconItem {
-  key: keyof Criteria
+  key: WeightKey
   label: string
   Icon: LucideIcon
 }
@@ -67,11 +72,11 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // whichever size the drag landed on (icon/full), not left in-between.
   const [dragWidth, setDragWidth] = useState<number | null>(null)
 
-  function set(key: keyof Criteria, weight: number) {
+  function set(key: WeightKey, weight: number) {
     dispatch({ type: 'SET_CRITERIA', payload: { [key]: weight } })
   }
 
-  function toggleActive(key: keyof Criteria) {
+  function toggleActive(key: WeightKey) {
     const current = criteria[key]
     set(key, current > 0 ? 0 : 100)
   }
@@ -143,7 +148,62 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
     return `linear-gradient(to right, var(--accent) ${percent}%, rgba(0, 0, 0, 0.1) ${percent}%)`
   }
 
-  function CriteriaItem({ itemKey, label, desc }: { itemKey: keyof Criteria; label: string; desc: string }) {
+  // 최종 고과 배분 -- 켜면 성과점수 순위로 상대평가(동점은 같은 고과). 끄면 팀 기대점수 대비 비율로 매긴다.
+  function GradeDistributionSection() {
+    const dist = criteria.gradeDistribution ?? null
+    const total = dist ? DIST_GRADES.reduce((sum, g) => sum + dist[g], 0) : 100
+    function change(g: (typeof DIST_GRADES)[number], raw: number) {
+      if (!dist) return
+      const value = Math.max(0, Math.min(100, Number.isFinite(raw) ? Math.round(raw) : 0))
+      // 합계 100을 유지하도록 D(D를 고치면 B)가 나머지를 받는다.
+      const balance = g === 'D' ? 'B' : 'D'
+      const others = DIST_GRADES.reduce((sum, k) => (k === g || k === balance ? sum : sum + dist[k]), 0)
+      dispatch({ type: 'SET_CRITERIA', payload: { gradeDistribution: { ...dist, [g]: value, [balance]: Math.max(0, 100 - others - value) } } })
+    }
+    return (
+      <div className="border-t border-separator pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[13px] font-semibold text-label">최종 고과 배분</p>
+          <button
+            onClick={() => dispatch({ type: 'SET_CRITERIA', payload: { gradeDistribution: dist ? null : START_DISTRIBUTION } })}
+            title="클릭해서 방식 전환"
+            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium transition-colors ${
+              dist ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
+            }`}
+          >
+            {dist ? '상대평가' : '기대점수 기준'}
+          </button>
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-label-2">
+          {dist
+            ? '성과점수 순위에 따라 상대평가하며 동점자는 같은 고과로 표시합니다.'
+            : '팀 기대점수 대비 비율로 매깁니다 (1.2배 이상 S · 1.0 A · 0.8 B · 0.6 C · 그 아래 D). 눌러서 순위 상대평가로 바꿀 수 있습니다.'}
+        </p>
+        {dist && (
+          <>
+            <div className="mt-2 grid grid-cols-5 gap-1">
+              {DIST_GRADES.map((g) => (
+                <label key={g} className="text-center text-xs font-semibold text-label-2">
+                  {g} <span className="font-normal text-label-3">%</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={dist[g]}
+                    onChange={(e) => change(g, Number(e.target.value))}
+                    className="mt-1 h-8 w-full min-w-0 rounded-control border border-hairline !px-1 text-center text-[13px] tabular-nums text-label"
+                  />
+                </label>
+              ))}
+            </div>
+            <p className={`mt-1 text-right text-xs font-medium ${total === 100 ? 'text-success' : 'text-danger'}`}>합계 {total}%</p>
+          </>
+        )}
+      </div>
+    )
+  }
+
+  function CriteriaItem({ itemKey, label, desc }: { itemKey: WeightKey; label: string; desc: string }) {
     const value = criteria[itemKey]
     const checked = value > 0
     return (
@@ -218,13 +278,13 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         ? '매트릭스 입력값 기여도 100% 반영'
         : `매트릭스 입력값과 균등분배를 ${cw}:${100 - cw} 비율로 반영`
 
-  const TASK_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
+  const TASK_ITEMS: { key: WeightKey; label: string; desc: string }[] = [
     { key: 'taskGradeWeight', label: '과제등급 사용', desc: taskGradeDescription },
     // 업무량은 쓰지 않는다. 이전 기준으로 켜 둔 평가에서만 보여 줘서 끌 수 있게 한다.
     ...(ww > 0 ? [{ key: 'workloadWeight' as const, label: '업무량 사용 (이전 기준)', desc: workloadDescription }] : []),
     { key: 'performanceGradeWeight', label: '성과등급 사용', desc: performanceGradeDescription },
   ]
-  const MEMBER_ITEMS: { key: keyof Criteria; label: string; desc: string }[] = [
+  const MEMBER_ITEMS: { key: WeightKey; label: string; desc: string }[] = [
     { key: 'contributionWeight', label: '기여도 사용', desc: contributionDescription },
     { key: 'personalGradeWeight', label: '개인수행등급', desc: personalGradeDescription },
     { key: 'peerReviewWeight', label: '피어리뷰', desc: peerReviewDescription },
@@ -292,6 +352,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
                 ))}
               </div>
             </div>
+
+            <GradeDistributionSection />
           </div>
         </div>
       )}

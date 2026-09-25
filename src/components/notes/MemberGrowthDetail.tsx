@@ -5,7 +5,7 @@ import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { EvaluationGrade, Importance, PersonalNoteColor } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
-import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria } from '../../utils/promotion'
+import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear } from '../../utils/promotion'
 import { calcYearsSince, formatLevelTenureLabel } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
@@ -427,7 +427,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 보인다는 피드백이 있어, 연도(YearPicker)+월(select)을 나란히 둔
   // PromotionDatePicker로 고른다.
   const [reviewDateYearStr, reviewDateMonthStr = '01'] = (member.promotionReviewDate ?? '').split('-')
-  const reviewYear = Number(reviewDateYearStr) || new Date().getFullYear()
+  // 심사일을 아직 안 정했으면 성장 시뮬레이션 표와 같은 예상 연도(필요 체류연한 기준)를 쓴다.
+  const reviewYear = Number(reviewDateYearStr) || resolveReviewYear(null, findPromotionCriteria(member.level, profile.promotionCriteria), levelTenureYears)
   const reviewMonth = Number(reviewDateMonthStr) || 1
   const updatePromotionReviewDate = (year: number, month: number) => {
     dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, promotionReviewDate: `${year}-${String(month).padStart(2, '0')}` } })
@@ -552,6 +553,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   <div>
                     <p className="text-[13px] text-label-2">최종 시뮬레이션 점수 ({reviewYear}년)</p>
                     <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-warning">{projectedTotal.toFixed(1)}점</p>
+                    {(() => {
+                      const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
+                      return (
+                        <p className={`mt-1 text-xs font-semibold ${gap >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {gap >= 0 ? `+${gap.toFixed(1)}점 충족` : `${Math.abs(gap).toFixed(1)}점 부족`}
+                        </p>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>

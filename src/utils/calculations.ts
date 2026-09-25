@@ -3,7 +3,7 @@
 // 매긴 값이 아니라 자동 기본값 'B'가 섞여 있고, PeerReview.contributionPercent는
 // 대상자별로 더하면 아무 의미가 없다(합계 축이 다르다).
 
-import type {
+import type { GradeDistribution,
   Contribution,
   Criteria,
   EvaluationGrade,
@@ -253,6 +253,19 @@ function calcMemberEffectiveParticipation(
   return { count, totalShare }
 }
 
+// 순위 상대평가: 나보다 점수가 높은 사람 비율(동점은 같은 등급)이 누적 비율 안에 드는 첫 등급.
+export function gradeByDistribution(score: number, allScores: number[], dist: GradeDistribution): EvaluationGrade {
+  const n = allScores.length
+  if (n === 0) return 'B'
+  const rankPercent = (allScores.filter((x) => x > score).length / n) * 100
+  let acc = 0
+  for (const g of ['S', 'A', 'B', 'C'] as const) {
+    acc += dist[g]
+    if (rankPercent < acc) return g
+  }
+  return 'D'
+}
+
 export function calcEvaluationGrade(ratio: number): EvaluationGrade {
   if (ratio >= 1.2) return 'S'
   if (ratio >= 1.0) return 'A'
@@ -282,6 +295,8 @@ export function calcMemberResults(
 
   const expectedScore = calcExpectedScore(withCumulativeScore.map((r) => r.cumulativeScore))
 
+  const allScores = withCumulativeScore.map((r) => r.cumulativeScore)
+  const dist = criteria.gradeDistribution
   const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount, totalShare }) => {
     const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
     const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
@@ -292,7 +307,7 @@ export function calcMemberResults(
       weightedAverageScore,
       expectedScore,
       ratio,
-      grade: calcEvaluationGrade(ratio),
+      grade: dist ? gradeByDistribution(cumulativeScore, allScores, dist) : calcEvaluationGrade(ratio),
     }
   })
 

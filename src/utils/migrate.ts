@@ -1,4 +1,4 @@
-import type {
+import type { GradeDistribution,
   AppState,
   Contribution,
   Criteria,
@@ -152,7 +152,16 @@ function migrateCriteria(raw: unknown): Criteria {
     personalGradeWeight: resolveWeight(r.personalGradeWeight, r.usePersonalPerformanceGrade, 0),
     peerReviewWeight: resolveWeight(r.peerReviewWeight, r.usePeerReview, 0),
     contributionWeight: resolveWeight(r.contributionWeight, undefined, 100),
+    gradeDistribution: migrateDistribution(r.gradeDistribution),
   }
+}
+
+function migrateDistribution(raw: unknown): GradeDistribution | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const keys = ['S', 'A', 'B', 'C', 'D'] as const
+  if (!keys.every((k) => typeof r[k] === 'number')) return null
+  return Object.fromEntries(keys.map((k) => [k, Math.max(0, Math.min(100, r[k] as number))])) as GradeDistribution
 }
 
 // The old `createSampleData()` fixture (removed) hardcoded a real team's

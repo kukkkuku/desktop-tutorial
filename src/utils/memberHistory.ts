@@ -7,6 +7,7 @@ import { workspaceStateKey } from '../state/WorkspaceContext'
 import {
   calcAllTaskScores,
   calcEvaluationGrade,
+  gradeByDistribution,
   calcExpectedScore,
   calcMemberCumulativeScore,
   calcMemberResults,
@@ -71,7 +72,11 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
       const expectedScore = calcExpectedScore(results.map((r) => r.cumulativeScore))
       const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
-      row = { cumulativeScore, grade: calcEvaluationGrade(ratio) }
+      const dist = state.criteria.gradeDistribution
+      row = {
+        cumulativeScore,
+        grade: dist ? gradeByDistribution(cumulativeScore, [...results.map((r) => r.cumulativeScore), cumulativeScore], dist) : calcEvaluationGrade(ratio),
+      }
     }
 
     const tasks: MemberPeriodTaskEntry[] = []

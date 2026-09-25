@@ -926,7 +926,7 @@ const CRITERIA_COLUMNS: StyledColumn[] = [
   { header: '사용 여부', width: 10, role: 'category' },
 ]
 
-const CRITERIA_LABELS: { key: keyof Criteria; label: string }[] = [
+const CRITERIA_LABELS: { key: Exclude<keyof Criteria, 'gradeDistribution'>; label: string }[] = [
   { key: 'taskGradeWeight', label: '과제 중요도' },
   { key: 'performanceGradeWeight', label: '과제 성과등급' },
   { key: 'workloadWeight', label: '업무량' },
@@ -1012,7 +1012,10 @@ function buildTaskResultRows(tasks: Task[], members: TeamMember[], contributions
 }
 
 function buildCriteriaRows(criteria: Criteria): (string | number)[][] {
-  return CRITERIA_LABELS.map(({ key, label }) => [label, criteria[key], criteria[key] > 0 ? '사용' : '미사용'])
+  const rows: (string | number)[][] = CRITERIA_LABELS.map(({ key, label }) => [label, criteria[key], criteria[key] > 0 ? '사용' : '미사용'])
+  const d = criteria.gradeDistribution
+  rows.push(['최종 고과 배분', d ? `S ${d.S}% / A ${d.A}% / B ${d.B}% / C ${d.C}% / D ${d.D}%` : '기대점수 대비', d ? '상대평가' : '기대점수 기준'])
+  return rows
 }
 
 // 워크북만 만들고 저장은 하지 않는다 -- 파일로 바로 내려받는 경로
