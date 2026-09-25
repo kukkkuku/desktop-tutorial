@@ -240,6 +240,8 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
   const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
   const [sheetLoaded, setSheetLoaded] = useState(false)
+  // 불러온 뒤 창 폭: L1 탭 줄이 한 줄에 딱 들어가는 폭(양쪽 여백 포함). 모르면 기본 폭
+  const [tabsWidth, setTabsWidth] = useState(0)
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
     { key: 'sheet', label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' },
@@ -255,7 +257,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
         style={
           (tab === 'sheet' || (tab === 'excel' && excelMode === 'progress')) && sheetLoaded
-            ? { width: 'min(1600px, calc(100vw - 2rem))', height: 'min(900px, 92vh)' }
+            ? { width: `min(${Math.max(1180, tabsWidth + 74)}px, calc(100vw - 2rem))`, height: 'min(900px, 92vh)' }
             : { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
         }
       >
@@ -293,7 +295,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'sheet' && (
             <div className="flex min-h-full flex-col">
-              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} initialUrl={initialSheetUrl ?? undefined} />
+              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} initialUrl={initialSheetUrl ?? undefined} />
             </div>
           )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
@@ -313,7 +315,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
                 ))}
               </div>
               {excelMode === 'progress' ? (
-                <SheetImportPanel source="xlsx" onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} />
+                <SheetImportPanel source="xlsx" onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} />
               ) : (
                 <BulkUploadPanel onDone={onDataReady} wide />
               )}

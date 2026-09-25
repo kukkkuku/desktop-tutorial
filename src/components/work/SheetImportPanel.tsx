@@ -59,6 +59,8 @@ interface Props {
   initialUrl?: string
   // 'sheet' = 구글시트 링크로 읽기(기본), 'xlsx' = 시트에서 받은 xlsx 파일로 읽기(Excel로 시작 탭)
   source?: 'sheet' | 'xlsx'
+  // L1 탭 줄이 한 줄로 들어가는 폭(px) -- 빠른 시작 창이 이 폭에 딱 맞게 넓어진다
+  onNaturalWidth?: (w: number) => void
 }
 
 
@@ -68,7 +70,7 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet' }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth }: Props) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
@@ -194,6 +196,12 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     return Array.from(m.entries())
   }, [groups])
   const [activeL1, setActiveL1] = useState<string | null>(null)
+  const measureRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = measureRef.current
+    if (el && onNaturalWidth) onNaturalWidth(Math.ceil(el.getBoundingClientRect().width))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [l1Tabs.map(([l1]) => l1).join('|'), selected, activeL1])
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
   const [confirming, setConfirming] = useState(false)
 
@@ -416,7 +424,20 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       {/* L1 탭 + L2 목록 */}
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
-          <div className="mt-4 overflow-hidden rounded-card border border-separator bg-[#F7F7F9]">
+          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-[#F7F7F9]">
+            {/* 한 줄로 늘어놓았을 때의 폭을 재는 보이지 않는 복사본 */}
+            <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 overflow-hidden">
+              <div ref={measureRef} className="mac-seg w-max">
+                {l1Tabs.map(([l1, gs]) => {
+                  const picked = gs.filter((g) => selected.has(g.name)).length
+                  return (
+                    <span key={l1} className={`mac-seg-item ${l1 === currentL1[0] ? 'mac-seg-item-on' : ''}`}>
+                      {l1} <span>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
             <div className="mac-seg m-2.5 flex-wrap">
               {l1Tabs.map(([l1, gs]) => {
                 const on = l1 === currentL1[0]
