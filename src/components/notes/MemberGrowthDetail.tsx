@@ -510,7 +510,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           놓고, 메모는 화면 가장 우측 끝으로 보낸다(justify-between). 가장
           중요한 숫자(승진자격/현재/가산/최종 점수)를 요약카드로 여기서
           바로 보여준다. */}
-      <div className="border-b border-separator bg-white px-5 py-4">
+      <div className="border-b border-separator bg-white py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-5">
             <div className="shrink-0">
@@ -683,7 +683,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           나온다(기본값은 성장 시뮬레이션만 슬림하게 시작). xl 미만에서는
           위아래로 쌓고 스플리터는 숨긴다(이 경우 모든 컬럼이 항상 폭이 넓어
           슬림 바가 되지 않는다). */}
-      <div className="flex-1 bg-[#F7F7F9] p-5">
+      <div className="flex-1 bg-white py-5">
         <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0">
           <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[0], flex: '0 0 auto' } : undefined}>
             {simNarrow ? (

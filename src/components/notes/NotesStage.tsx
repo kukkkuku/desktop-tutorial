@@ -70,7 +70,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
         />
       </div>
 
-      <div className="flex flex-1 items-stretch border-x border-b border-separator">
+      <div className="flex flex-1 items-stretch">
         <div className="min-w-0 flex-1 bg-white">
           {selectedMemberId ? (
             <MemberGrowthDetail
@@ -93,7 +93,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
           )}
         </div>
 
-        <div className="shrink-0 border-l border-separator bg-[#F7F7F9] p-4">
+        <div className="shrink-0 py-4 pl-5">
           <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
         </div>
       </div>
