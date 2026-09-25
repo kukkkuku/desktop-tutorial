@@ -59,6 +59,8 @@ declare global {
           initTokenClient: (config: {
             client_id: string
             scope: string
+            // 어느 계정으로 동의받을지 구글에 알려준다(여러 계정 로그인 시 엉뚱한 계정 방지)
+            login_hint?: string
             callback: (resp: GoogleTokenResponse) => void
             // 팝업을 닫았거나 열지 못했을 때(type: 'popup_closed' | 'popup_failed_to_open' ...)
             error_callback?: (err: { type?: string; message?: string }) => void
@@ -242,16 +244,21 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
       reject(new Error('Google 로그인 스크립트가 로드되지 않았습니다.'))
       return
     }
+    // 브라우저에 구글 계정이 여러 개 로그인돼 있으면 구글이 계정을 알아서 골라(authuser=1 등)
+    // 바로 동의 화면으로 넘기는데, 그 동의 화면이 "400 · malformed"로 깨지는 경우가 있었다.
+    // 기억된 계정이 있으면 그 계정을 직접 지정한다. 계정 선택 화면을 띄울 때는 지정하지 않는다.
+    const hint = promptOverride ? undefined : (getConnectedEmail() ?? readRememberedEmail() ?? undefined)
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: DRIVE_SCOPE,
+      ...(hint ? { login_hint: hint } : {}),
       // 창을 닫거나 구글 쪽 오류(400 등)로 끝나면 기다리지 않고 알린다.
       error_callback: (err) =>
         reject(
           new Error(
             err.type === 'popup_failed_to_open'
               ? '구글 로그인 창이 열리지 않았습니다(팝업 차단 확인).'
-              : '구글 로그인 창이 닫혔습니다. 구글 계정이 여러 개 로그인돼 있다면 쓰려는 계정만 로그인된 창(또는 시크릿 창)에서 다시 시도해 주세요.',
+              : '구글 로그인 창이 닫혔습니다. 창에 "400 · That’s an error"가 떴다면 아래 "계정 골라서 다시 로그인"을 눌러 주세요.',
           ),
         ),
       callback: (resp) => {

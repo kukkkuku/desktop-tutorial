@@ -159,7 +159,17 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             </button>
           </>
         )}
-        {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
+        {error && (
+          <div className="mt-4 rounded-card bg-[#FFF4F3] px-3 py-3 text-left">
+            <p className="text-[13px] text-danger">{error}</p>
+            <Button variant="secondary" size="sm" onClick={() => handleStart(true)} disabled={working} className="mt-2">
+              계정 골라서 다시 로그인
+            </Button>
+            <p className="mt-2 text-xs text-label-2">
+              그래도 400이 뜨면 시크릿 창에서 열거나, 구글에서 모든 계정을 로그아웃한 뒤 쓰려는 계정만 로그인해 주세요.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
