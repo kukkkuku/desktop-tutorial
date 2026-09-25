@@ -10,6 +10,7 @@ import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
+import ColorPalette from './ColorPalette'
 
 export interface ScheduleRowView {
   row: ProgressRow
@@ -39,6 +40,7 @@ export const ROW_COLORS = ['', 'FFFF00', 'FFF2CC', 'FCE5CD', 'F4CCCC', 'EAD1DC',
 // 열 종류별 기본 폭(px)
 const FIELD_WIDTH: Record<FieldDef['kind'], number> = { memo: 200, date: 96, select: 78, person: 110, link: 130, text: 100 }
 export const DEFAULT_WIDTHS = { l2: 150, l3: 260, week: 12 }
+export type ScheduleMode = 'full' | 'compact' | 'hidden'
 const HEADER_FONT = 13 // 머리글 글자는 고정, 본문만 가▲/가▼로 바뀐다
 
 export function fieldDefaultWidth(f: FieldDef) {
@@ -150,7 +152,15 @@ function FieldCell({
             className={inputCls}
           />
         ) : (
-          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={keys} list={`pb-opts-${f.id}`} className={inputCls} />
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={finish}
+            onKeyDown={keys}
+            list={`pb-opts-${f.id}`}
+            className={inputCls}
+          />
         ))}
     </td>
   )
@@ -213,7 +223,13 @@ function FilterPopover({
     <div className="fixed inset-0 z-50" onMouseDown={onClose}>
       <div className="mac-pop absolute w-[250px] p-2 text-[13px] font-normal text-label" style={{ left: x, top: y }} onMouseDown={(e) => e.stopPropagation()}>
         <p className="px-1 text-[12px] font-semibold">{label} 필터</p>
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="값 찾기" className="mt-1.5 h-7 w-full rounded-control border border-hairline px-2 text-[12px]" />
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="값 찾기"
+          className="mt-1.5 h-7 w-full rounded-control border border-hairline px-2 text-[12px]"
+        />
         <div className="mt-1.5 flex items-center gap-2 px-1 text-[12px]">
           <button onClick={() => onChange(hidden.filter((v) => !shown.some((o) => o.value === v)))} className="font-medium text-accent hover:underline">
             모두 선택
@@ -230,7 +246,11 @@ function FilterPopover({
         <div className="mt-1 max-h-[280px] overflow-y-auto">
           {shown.map((o) => (
             <label key={o.value} className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 hover:bg-black/[0.04]">
-              <input type="checkbox" checked={!hid.has(o.value)} onChange={(e) => onChange(e.target.checked ? hidden.filter((v) => v !== o.value) : [...hidden, o.value])} />
+              <input
+                type="checkbox"
+                checked={!hid.has(o.value)}
+                onChange={(e) => onChange(e.target.checked ? hidden.filter((v) => v !== o.value) : [...hidden, o.value])}
+              />
               <span className={`min-w-0 flex-1 truncate ${o.value === '(빈 칸)' ? 'text-label-3' : ''}`} title={o.value}>
                 {o.value}
               </span>
@@ -259,8 +279,9 @@ export default function ScheduleTable({
   fields = [],
   optionsOf,
   headerStyle: hs,
-  scheduleOpen = true,
+  scheduleMode = 'compact',
   onToggleSchedule,
+  onScheduleMenu,
   allWeekCols = weekCols,
   zebra = false,
   widths = {},
@@ -268,6 +289,7 @@ export default function ScheduleTable({
   filterOptions,
   hiddenOf,
   onFilter,
+  sheetColors = [],
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -283,8 +305,9 @@ export default function ScheduleTable({
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
   headerStyle?: HeaderStyle // 시트 머리글 색 · 묶음 머리글
-  scheduleOpen?: boolean
+  scheduleMode?: ScheduleMode // 일정: 전체 펴기 / 줄여보기 / 숨기기
   onToggleSchedule?: () => void
+  onScheduleMenu?: (e: React.MouseEvent) => void // 일정 머리글 우클릭(보기 단계·기간 고르기)
   allWeekCols?: WeekColumn[] // 접었을 때 요약에 쓰는 전체 주차
   zebra?: boolean
   widths?: Record<string, number>
@@ -292,6 +315,7 @@ export default function ScheduleTable({
   filterOptions?: (f: FieldDef) => FilterOption[]
   hiddenOf?: (id: string) => string[]
   onFilter?: (id: string, hidden: string[]) => void
+  sheetColors?: string[] // 이 시트에서 쓰는 칸 색(색 팔레트 맞춤 줄)
 }) {
   const [filterOpen, setFilterOpen] = useState<{ f: FieldDef; x: number; y: number } | null>(null)
   // 머리글 이름 + 필터 버튼
@@ -317,10 +341,18 @@ export default function ScheduleTable({
     )
   }
   const cols = fields.filter((f) => f.id !== 'name')
+  const scheduleOpen = scheduleMode !== 'hidden'
+  const schMenu = onScheduleMenu
+    ? (e: React.MouseEvent) => {
+        e.preventDefault()
+        onScheduleMenu(e)
+      }
+    : undefined
   const w = (key: string, def: number) => widths[key] ?? def
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
   const wL3 = w('l3', DEFAULT_WIDTHS.l3)
-  const wWeek = w('week', DEFAULT_WIDTHS.week)
+  // 줄여보기는 12px 고정, 전체 펴기는 24px(머리글 끝을 끌어 바꿀 수 있음)
+  const wWeek = scheduleMode === 'full' ? w('week', 24) : DEFAULT_WIDTHS.week
   const wSummary = w('summary', 220)
   const colW = (f: FieldDef) => w(f.id, fieldDefaultWidth(f))
   const months = Array.from(new Set(weekCols.map((x) => x.month)))
@@ -346,6 +378,10 @@ export default function ScheduleTable({
 
   // 우클릭 메뉴 · 메모 편집 · 메모 미리보기(표 밖에 떠서 잘리지 않게 fixed)
   const [menu, setMenu] = useState<Menu | null>(null)
+  const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | null>(null)
+  useEffect(() => {
+    if (!menu) setPaletteFor(null)
+  }, [menu])
   const [noteEdit, setNoteEdit] = useState<(Menu & { text: string }) | null>(null)
   const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number } | null>(null)
   useEffect(() => {
@@ -364,7 +400,7 @@ export default function ScheduleTable({
   function openMenu(e: React.MouseEvent, row: ProgressRow, key: string, kind: Menu['kind']) {
     e.preventDefault()
     setHoverNote(null)
-    setMenu({ row, key, kind, x: Math.min(e.clientX, window.innerWidth - 250), y: Math.min(e.clientY, window.innerHeight - 230) })
+    setMenu({ row, key, kind, x: Math.min(e.clientX, window.innerWidth - 250), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 440)) })
   }
   function showNote(e: React.MouseEvent | null, text: string) {
     if (!e) return setHoverNote(null)
@@ -406,7 +442,14 @@ export default function ScheduleTable({
             </th>
             {scheduleOpen ? (
               months.map((m, i) => (
-                <th key={m} colSpan={weekCols.filter((x) => x.month === m).length} style={grayTh} className={`group/sch relative pb-0.5 pt-2 font-bold ${thBorder}`}>
+                <th
+                  key={m}
+                  colSpan={weekCols.filter((x) => x.month === m).length}
+                  style={grayTh}
+                  onContextMenu={schMenu}
+                  title="우클릭: 일정 보기(전체 펴기·줄여보기·숨기기)와 기간"
+                  className={`group/sch relative pb-0.5 pt-2 font-bold ${thBorder}`}
+                >
                   {m}월
                   {i === 0 && onToggleSchedule && (
                     <button
@@ -421,7 +464,13 @@ export default function ScheduleTable({
                 </th>
               ))
             ) : (
-              <th rowSpan={2} style={grayTh} className={`group/sch relative px-1.5 py-2 font-bold ${thBorder}`}>
+              <th
+                rowSpan={2}
+                style={grayTh}
+                onContextMenu={schMenu}
+                title="우클릭: 일정 보기와 기간"
+                className={`group/sch relative px-1.5 py-2 font-bold ${thBorder}`}
+              >
                 일정
                 {onToggleSchedule && (
                   <button
@@ -441,7 +490,12 @@ export default function ScheduleTable({
               if (g) {
                 if (g.fieldIds[0] !== f.id) return null
                 return (
-                  <th key={`g-${f.id}`} colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length} style={thStyle(g.bg ?? hs?.fields[f.id])} className={`px-1.5 pb-0.5 pt-2 font-bold ${thBorder}`}>
+                  <th
+                    key={`g-${f.id}`}
+                    colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length}
+                    style={thStyle(g.bg ?? hs?.fields[f.id])}
+                    className={`px-1.5 pb-0.5 pt-2 font-bold ${thBorder}`}
+                  >
                     {g.label}
                   </th>
                 )
@@ -457,9 +511,14 @@ export default function ScheduleTable({
           <tr>
             {scheduleOpen &&
               weekCols.map((x, i) => (
-                <th key={x.key} style={grayTh} className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
+                <th
+                  key={x.key}
+                  style={grayTh}
+                  onContextMenu={schMenu}
+                  className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
+                >
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(10, v))} />}
+                  {onResize && i === 0 && scheduleMode === 'full' && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(14, v))} />}
                 </th>
               ))}
             {cols
@@ -482,14 +541,21 @@ export default function ScheduleTable({
                 return (
                   <tr key={v.row.key} className={`${rowBg} leading-snug`}>
                     {ri === 0 && (
-                      <td rowSpan={g.rows.length} className="sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label">
+                      <td
+                        rowSpan={g.rows.length}
+                        className="sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label"
+                      >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         <div className="sticky top-[64px] py-1">
                           <span className="whitespace-pre-line break-words">{g.l2}</span>
                           {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
                           {onAddRow && (
-                            <button onClick={() => onAddRow(g.l2)} className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline" title="이 L2에 과제(L3) 추가">
+                            <button
+                              onClick={() => onAddRow(g.l2)}
+                              className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline"
+                              title="이 L2에 과제(L3) 추가"
+                            >
                               + 추가
                             </button>
                           )}
@@ -503,9 +569,17 @@ export default function ScheduleTable({
                       style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
                       className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${l3Bg ? '' : rowBg}`}
                     >
-                      <button onClick={() => onOpenRow(v.row)} className="flex w-full min-w-0 items-start gap-1 text-left" title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기 · 우클릭: 메모·색`}>
+                      <button
+                        onClick={() => onOpenRow(v.row)}
+                        className="flex w-full min-w-0 items-start gap-1 text-left"
+                        title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기 · 우클릭: 메모·색`}
+                      >
                         {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
-                        <span className={`whitespace-normal break-words font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
+                        <span
+                          className={`whitespace-normal break-words font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}
+                        >
+                          {v.vals.name || '(이름을 입력하세요)'}
+                        </span>
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                       </button>
                       {l3Note && <NoteMark />}
@@ -534,7 +608,11 @@ export default function ScheduleTable({
                             }}
                             onMouseLeave={note ? () => showNote(null, '') : undefined}
                             onContextMenu={(e) => openMenu(e, v.row, x.key, 'week')}
-                            title={note ? undefined : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`}
+                            title={
+                              note
+                                ? undefined
+                                : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`
+                            }
                             style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
                             className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
@@ -629,55 +707,68 @@ export default function ScheduleTable({
 
       {menu && menuView && (
         <div className="mac-pop fixed z-50 w-[240px] py-1 text-[13px]" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
-          <button
-            onClick={() => {
-              setNoteEdit({ ...menu, text: menuView.notes[menu.key] ?? '' })
-              setMenu(null)
-            }}
-            className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
-          >
-            {menuView.notes[menu.key] ? '메모 수정' : '메모 추가'}
-          </button>
-          {menuView.notes[menu.key] && (
-            <button
-              onClick={() => {
-                onNote(menu.row, menu.key, '')
-                setMenu(null)
-              }}
-              className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
-            >
-              메모 삭제
-            </button>
-          )}
-          {menu.kind === 'field' && (
+          {paletteFor ? (
+            <div className="px-2 py-1">
+              <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
+                ‹ {paletteFor === 'cell' ? '칸 색' : '행 색 (L3 · 입력 열 전체)'}
+              </button>
+              <ColorPalette
+                current={menuView.bg[menu.key] ?? ''}
+                sheetColors={sheetColors}
+                onPick={(hex) => {
+                  onBg(menu.row, paletteFor === 'cell' ? [menu.key] : allIds, hex)
+                  setMenu(null)
+                }}
+              />
+            </div>
+          ) : (
             <>
-              <div className="mac-menu-sep" />
-              {(
-                [
-                  ['칸 색', [menu.key]],
-                  ['행 색 (L3 · 입력 열 전체)', allIds],
-                ] as const
-              ).map(([label, ids]) => (
-                <div key={label} className="px-3 py-1.5">
-                  <p className="text-[12px] text-label-2">{label}</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {ROW_COLORS.map((hex) => (
-                      <button
-                        key={hex || 'none'}
-                        onClick={() => {
-                          onBg(menu.row, [...ids], hex)
-                          setMenu(null)
-                        }}
-                        title={hex ? `#${hex}` : '색 없음'}
-                        className="flex h-5 w-5 items-center justify-center rounded-[3px] border border-black/15 text-[10px] text-label-3 hover:scale-110"
-                        style={{ background: hex ? `#${hex}` : '#FFFFFF' }}
-                      >
-                        {hex ? '' : '✕'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              <button
+                onClick={() => {
+                  setNoteEdit({ ...menu, text: menuView.notes[menu.key] ?? '' })
+                  setMenu(null)
+                }}
+                className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+              >
+                {menuView.notes[menu.key] ? '메모 수정' : '메모 추가'}
+              </button>
+              {menuView.notes[menu.key] && (
+                <button
+                  onClick={() => {
+                    onNote(menu.row, menu.key, '')
+                    setMenu(null)
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
+                >
+                  메모 삭제
+                </button>
+              )}
+              {menu.kind === 'field' && (
+                <>
+                  <div className="mac-menu-sep" />
+                  {(
+                    [
+                      ['cell', '칸 색'],
+                      ['row', '행 색 (L3 · 입력 열 전체)'],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => setPaletteFor(k)}
+                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/15"
+                          style={{ background: menuView.bg[menu.key] ? `#${menuView.bg[menu.key]}` : '#FFFFFF' }}
+                        />
+                        {label}
+                      </span>
+                      <span className="text-label-3">▸</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>

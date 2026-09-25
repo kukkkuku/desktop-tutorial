@@ -2,7 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Search, Undo2, Upload } from 'lucide-react'
+import { CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -57,7 +57,7 @@ import {
 import RowPanel from './RowPanel'
 import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
 type Period = { start: number; months: number }
@@ -67,6 +67,10 @@ const PERIOD_BUTTONS: { label: string; p: Period }[] = [
   { label: '하반기', p: { start: 7, months: 6 } },
 ]
 const QUARTERS: { label: string; p: Period }[] = [1, 2, 3, 4].map((q) => ({ label: `${q}분기`, p: { start: (q - 1) * 3 + 1, months: 3 } }))
+const MONTHS: { label: string; p: Period }[] = Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}월`, p: { start: i + 1, months: 1 } }))
+function periodLabel(p: Period): string {
+  return [...PERIOD_BUTTONS, ...QUARTERS, ...MONTHS].find((x) => x.p.start === p.start && x.p.months === p.months)?.label ?? `${p.start}월~`
+}
 const TOOLS: PaintTool[] = ['S-plan', 'plan', 'F', 'S', 'actual', '완']
 
 function splitPeople(raw: string): string[] {
@@ -188,7 +192,27 @@ export default function ProgressBoard() {
     })
   }
   // 일정(주차 칸) 접기 -- 접으면 계획·실적 기간 요약 한 칸만 보인다
-  const [scheduleOpen, setScheduleOpen] = useState(true)
+  // 일정 보기 단계: 전체 펴기 / 줄여보기 / 숨기기 -- 이 브라우저에 기억
+  const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(() => {
+    try {
+      const v = localStorage.getItem('progress-board:schedule')
+      return v === 'full' || v === 'hidden' ? v : 'compact'
+    } catch {
+      return 'compact'
+    }
+  })
+  const lastShownMode = useRef<ScheduleMode>(scheduleMode === 'hidden' ? 'compact' : scheduleMode)
+  function setScheduleMode(m: ScheduleMode) {
+    if (m !== 'hidden') lastShownMode.current = m
+    setScheduleModeState(m)
+    try {
+      localStorage.setItem('progress-board:schedule', m)
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+  // 일정 머리글 우클릭 메뉴(보기 단계 · 기간)
+  const [schMenu, setSchMenu] = useState<{ x: number; y: number } | null>(null)
   // 표 글자 크기(가▲/가▼) -- 이 브라우저에 기억
   const [fontSize, setFontSizeState] = useState<number>(() => {
     try {
@@ -550,6 +574,7 @@ export default function ProgressBoard() {
       a.value === '(빈 칸)' ? 1 : b.value === '(빈 칸)' ? -1 : a.value.localeCompare(b.value, 'ko'),
     )
   }
+  const sheetColors = Array.from(new Set(data.rows.flatMap((r) => Object.values(r.bg)))).slice(0, 20)
   const activeFilters = Object.values(filters).filter((h) => h.length > 0).length
   // 입력 칸 제안값: 시스템 선택지 + 시트에 이미 있는 값(서로 다른 값이 너무 많으면 제안하지 않음)
   const optionsOf = (f: FieldDef): string[] => {
@@ -646,7 +671,7 @@ export default function ProgressBoard() {
         </div>
       </div>
 
-      {/* 1줄: 보기(찾기·거르기) ─ 기간·글자 크기 */}
+      {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
         <label className="relative">
           <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
@@ -654,127 +679,95 @@ export default function ProgressBoard() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="L2 · L3 · 담당자 찾기"
-            className="h-8 w-56 rounded-control border border-hairline pl-7 pr-2"
+            className="h-8 w-48 rounded-control border border-hairline pl-7 pr-2"
           />
         </label>
         {activeFilters > 0 && (
-          <span className="flex items-center gap-1.5 text-[12px] text-label-2">
-            필터 {activeFilters}개 적용 중
-            <button onClick={() => setFilters({})} className="font-medium text-accent hover:underline">
-              모두 해제
-            </button>
-          </span>
+          <button
+            onClick={() => setFilters({})}
+            className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+            title="머리글 필터 모두 해제"
+          >
+            필터 {activeFilters} ✕
+          </button>
         )}
-        <label className="flex items-center gap-1.5 text-label-2" title="행 배경을 한 줄씩 번갈아 연한 회색으로">
-          <input type="checkbox" checked={zebra} onChange={(e) => setZebra(e.target.checked)} />
-          지브라
-        </label>
-        <span className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-[13px]">
-            <div className="flex overflow-hidden rounded-control border border-hairline">
-              {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
-                const on = period.start === p.start && period.months === p.months
-                return (
-                  <button
-                    key={label}
-                    onClick={() => setPeriod(p)}
-                    className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
-            <select
-              value={period.months === 1 ? period.start : ''}
-              onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
-              className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
-              title="월별로 보기"
-            >
-              <option value="">월별</option>
-              {Array.from({ length: 12 }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {i + 1}월
-                </option>
-              ))}
-            </select>
-          </div>
-          <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
-            <button
-              onClick={() => setFontSize(fontSize + 1)}
-              disabled={fontSize >= 18}
-              className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
-              aria-label="표 글자 크게"
-            >
-              가<span className="text-[9px] text-accent">▲</span>
-            </button>
-            <button
-              onClick={() => setFontSize(fontSize - 1)}
-              disabled={fontSize <= 10}
-              className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
-              aria-label="표 글자 작게"
-            >
-              가<span className="text-[9px] text-accent">▼</span>
-            </button>
-          </span>
+        {!(period.start === 1 && period.months === 12) && (
+          <button
+            onClick={() => setPeriod({ start: 1, months: 12 })}
+            className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+            title="일정 기간을 전체로(일정 머리글 우클릭으로 바꿀 수 있음)"
+          >
+            기간 {periodLabel(period)} ✕
+          </button>
+        )}
+        <span className="h-5 w-px shrink-0 bg-separator" />
+        <button
+          onClick={() => setZebra(!zebra)}
+          title={zebra ? '지브라 끄기(행 흰색)' : '지브라 켜기(한 줄씩 연한 회색)'}
+          aria-pressed={zebra}
+          className={`flex h-8 w-8 items-center justify-center rounded-control border ${zebra ? 'border-accent bg-accent-soft text-accent' : 'border-hairline text-label-2 hover:bg-black/[0.04]'}`}
+        >
+          <Rows3 {...ic} />
+        </button>
+        <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
+          <button
+            onClick={() => setFontSize(fontSize + 1)}
+            disabled={fontSize >= 18}
+            className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+            aria-label="표 글자 크게"
+          >
+            가<span className="text-[9px] text-accent">▲</span>
+          </button>
+          <button
+            onClick={() => setFontSize(fontSize - 1)}
+            disabled={fontSize <= 10}
+            className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+            aria-label="표 글자 작게"
+          >
+            가<span className="text-[9px] text-accent">▼</span>
+          </button>
         </span>
-      </div>
-
-      {/* 2줄: 입력(범례·칠하기 도구) ─ 되돌리기·저장·과제 추가·입력하기 */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-label-2">
-          {editing ? (
-            <>
-              <span className="mr-1 font-medium text-accent">칠하기</span>
-              {TOOLS.map((t, i) => (
-                <button
-                  key={t}
-                  onClick={() => setTool(t)}
-                  className={`flex h-7 items-center gap-1.5 rounded-full border px-2 ${tool === t ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'} ${
-                    i === 3 ? 'ml-2' : ''
-                  }`}
-                >
-                  <CellSwatch cell={TOOL_CELL[t]} size={16} />
-                  {cellLabel(TOOL_CELL[t])}
-                </button>
-              ))}
+        <span className="h-5 w-px shrink-0 bg-separator" />
+        {/* 범례 / 칠하기 도구: 색 아이콘만, 이름은 마우스를 올리면 */}
+        <span className="flex items-center gap-1">
+          {TOOLS.map((t) =>
+            editing ? (
               <button
-                onClick={() => setTool('erase')}
-                className={`ml-2 flex h-7 items-center gap-1 rounded-full border px-2 ${tool === 'erase' ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline bg-white hover:border-black/25'}`}
+                key={t}
+                onClick={() => setTool(t)}
+                title={`${cellLabel(TOOL_CELL[t])} 칠하기`}
+                aria-label={cellLabel(TOOL_CELL[t])}
+                className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === t ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-transparent hover:bg-black/[0.05]'}`}
               >
-                <Eraser {...icSm} />
-                지우기
+                <CellSwatch cell={TOOL_CELL[t]} size={18} />
               </button>
-              <span className="ml-2 text-label-3">칸을 누르거나 한 줄 안에서 끌어 칠합니다</span>
-            </>
+            ) : (
+              <span key={t} title={cellLabel(TOOL_CELL[t])} className="flex h-8 w-6 items-center justify-center">
+                <CellSwatch cell={TOOL_CELL[t]} size={16} />
+              </span>
+            ),
+          )}
+          {editing ? (
+            <button
+              onClick={() => setTool('erase')}
+              title="지우개"
+              aria-label="지우개"
+              className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === 'erase' ? 'border-accent bg-accent-soft text-accent ring-1 ring-accent' : 'border-transparent text-label-2 hover:bg-black/[0.05]'}`}
+            >
+              <Eraser {...ic} />
+            </button>
           ) : (
             <>
-              {TOOLS.filter((t) => t !== 'plan' && t !== 'actual').map((t) => (
-                <span key={t} className="mr-2 flex items-center gap-1.5">
-                  <CellSwatch cell={TOOL_CELL[t]} size={16} />
-                  {cellLabel(TOOL_CELL[t])}
-                </span>
-              ))}
-              <span className="mr-2 flex items-center gap-1.5">
-                <CellSwatch cell={TOOL_CELL.plan} size={16} />
-                계획 기간
+              <span title="현재 주" className="flex h-8 w-5 items-center justify-center">
+                <span className="h-4 border-l border-dashed border-[#E8342A]" />
               </span>
-              <span className="mr-2 flex items-center gap-1.5">
-                <CellSwatch cell={TOOL_CELL.actual} size={16} />
-                진행 기간
-              </span>
-              <span className="mr-2 flex items-center gap-1.5">
-                <span className="h-3 border-l border-dashed border-[#E8342A]" />
-                현재 주
-              </span>
-              <span className="flex items-center gap-1.5">
+              <span title="고쳤지만 아직 저장 안 한 칸" className="flex h-8 w-5 items-center justify-center">
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                고쳤지만 아직 저장 안 한 칸
               </span>
             </>
           )}
-        </div>
-        <span className="ml-auto flex flex-wrap items-center gap-2 text-[13px]">
+        </span>
+        <span className="ml-auto flex items-center gap-2">
           <span className="flex items-center">
             <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
               <Undo2 {...ic} />
@@ -785,19 +778,17 @@ export default function ProgressBoard() {
           </span>
           {editCount > 0 && (
             <>
-              <span className="text-label-2">
-                저장 안 한 변경 <b className="text-orange-600">{editCount}</b>
+              <span className="whitespace-nowrap text-label-2" title="고친 내용과 새 과제는 구글시트에 저장하기 전까지 이 브라우저에만 남습니다">
+                변경 <b className="text-orange-600">{editCount}</b>
               </span>
-              <Button
-                variant="secondary"
-                size="sm"
+              <IconButton
                 onClick={() => updateDrafts({ edits: {}, newRows: [] })}
-                title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다"
                 disabled={saving}
+                title="모두 되돌리기 -- 고친 내용과 새 과제를 모두 지우고 시트 값으로"
+                aria-label="모두 되돌리기"
               >
-                <RotateCcw {...icSm} />
-                모두 되돌리기
-              </Button>
+                <RotateCcw {...ic} />
+              </IconButton>
               <Button
                 variant="primary"
                 size="sm"
@@ -833,7 +824,7 @@ export default function ProgressBoard() {
         </span>
       </div>
 
-      <div className="mt-3 max-h-[calc(100vh-18rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
+      <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
         {
           <ScheduleTable
             weekCols={weekCols}
@@ -848,12 +839,14 @@ export default function ProgressBoard() {
             fields={data.fields}
             optionsOf={optionsOf}
             headerStyle={data.headerStyle}
-            scheduleOpen={scheduleOpen}
-            onToggleSchedule={() => setScheduleOpen((v) => !v)}
+            scheduleMode={scheduleMode}
+            onToggleSchedule={() => setScheduleMode(scheduleMode === 'hidden' ? lastShownMode.current : 'hidden')}
+            onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
             allWeekCols={data.weekCols}
             onBg={setBg}
             onNote={setNote}
             zebra={zebra}
+            sheetColors={sheetColors}
             filterOptions={filterOptions}
             hiddenOf={(id) => filters[id] ?? []}
             onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
@@ -901,10 +894,60 @@ export default function ProgressBoard() {
           onClose={() => setOpenKey(null)}
         />
       )}
-      <p className="mt-2 text-[12px] text-label-3">
-        고친 내용과 새 과제는 "구글시트에 저장"을 누르기 전까지 이 브라우저에만 남습니다. 저장할 때 시트를 다시 읽어, 그사이 다른 사람이 바꾼 칸은 덮어쓰지
-        않습니다.
-      </p>
+
+      {schMenu && (
+        <div
+          className="fixed inset-0 z-50"
+          onMouseDown={() => setSchMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setSchMenu(null)
+          }}
+        >
+          <div className="mac-pop absolute w-[220px] py-1 text-[13px]" style={{ left: schMenu.x, top: schMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
+            {(
+              [
+                ['full', '전체 펴기'],
+                ['compact', '줄여보기'],
+                ['hidden', '숨기기'],
+              ] as const
+            ).map(([m, label]) => (
+              <button
+                key={m}
+                onClick={() => {
+                  setScheduleMode(m)
+                  setSchMenu(null)
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+              >
+                <span className="w-3 text-accent">{scheduleMode === m ? '✓' : ''}</span>
+                {label}
+              </button>
+            ))}
+            <div className="mac-menu-sep" />
+            <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
+            <div className="grid grid-cols-3 gap-1 px-2 pb-1">
+              {[...PERIOD_BUTTONS, ...QUARTERS, ...MONTHS].map(({ label, p }) => {
+                const on = period.start === p.start && period.months === p.months
+                return (
+                  <button
+                    key={label}
+                    onClick={() => {
+                      setPeriod(p)
+                      if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
+                      setSchMenu(null)
+                    }}
+                    className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmSave}
