@@ -40,7 +40,7 @@ import {
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
 import SheetsIcon from '../SheetsIcon'
-import { ChevronDown, ChevronRight, CornerDownRight, Plus, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -954,9 +954,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 <Redo2 {...ic} />
               </button>
               <div className="relative">
-                <Button variant="secondary" onClick={() => setColMenuOpen((v) => !v)} className="h-8 px-3 text-xs">
-                  열 표시{hiddenCols.length > 0 ? ` · 숨김 ${hiddenCols.length}` : ''}
-                </Button>
+                <button
+                  onClick={() => setColMenuOpen((v) => !v)}
+                  title={`표시할 열 고르기${hiddenCols.length > 0 ? ` (숨김 ${hiddenCols.length})` : ''}`}
+                  aria-label="열 표시 설정"
+                  className={`flex h-8 w-8 items-center justify-center rounded-control hover:bg-black/[0.05] hover:text-label ${colMenuOpen ? 'bg-black/[0.05] text-label' : 'text-label-2'}`}
+                >
+                  <Settings2 {...ic} />
+                </button>
                 {colMenuOpen && (
                   <div className="mac-pop absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto py-1 text-[13px]">
                     <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">

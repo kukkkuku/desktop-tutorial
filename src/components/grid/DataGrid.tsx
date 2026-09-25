@@ -223,7 +223,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       return HANDLE_W
     }
   })
-  const handleW = props.hideNumbers ? 28 : numW
+  // 번호를 숨기면(체크 열이 있을 때) 번호 칸 자체를 없애고, 행 선택·끌기는 체크 칸이 맡는다.
+  const noNum = !!props.hideNumbers && !!props.check
+  const handleW = noNum ? 0 : numW
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const sinkRef = useRef<HTMLTextAreaElement>(null)
@@ -1024,6 +1026,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
+          {!noNum && (
           <td
             onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
             onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
@@ -1034,10 +1037,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
           >
             <DragGrip active={inside} />
-            {!props.hideNumbers && h.number}
+            {h.number}
           </td>
+          )}
           {check && (
-            <td style={{ boxShadow: edge(false) }} className="border-b border-r border-[#EBEBEF] text-center" title={h.check?.title}>
+            <td
+              onMouseDown={noNum ? (e) => ((e.target as HTMLElement).tagName === 'INPUT' ? e.stopPropagation() : onGroupHeadMouseDown(e, h)) : undefined}
+              onContextMenu={noNum ? (e) => onGroupHeadContextMenu(e, h) : undefined}
+              style={{ boxShadow: edge(noNum) }}
+              className={`border-b border-r border-[#EBEBEF] text-center ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.04]' : ''}`}
+              title={noNum ? '클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴' : h.check?.title}
+            >
+              {noNum && <DragGrip active={inside} />}
               {h.check && (
                 <input
                   type="checkbox"
@@ -1088,7 +1099,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             style={{ width: '100%', minWidth: tableWidth }}
           >
             <colgroup>
-              <col style={{ width: handleW }} />
+              {!noNum && <col style={{ width: handleW }} />}
               {check && <col style={{ width: CHECK_W }} />}
               {columns.map((c) => (
                 <col key={c.id} style={{ width: c.width }} />
@@ -1097,14 +1108,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             </colgroup>
             <thead>
               <tr className="bg-[#F7F7F9] text-label-2">
-                <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
-                  {!props.hideNumbers && (
-                    <>
-                      #
-                      <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
-                    </>
-                  )}
-                </th>
+                {!noNum && (
+                  <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
+                    #
+                    <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
+                  </th>
+                )}
                 {check && (
                   <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
                     <input
@@ -1206,6 +1215,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
                     }`}
                   >
+                    {!noNum && (
                     <td
                       onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
@@ -1218,17 +1228,24 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     >
                       <DragGrip active={rowSelected} />
                       <span className="inline-flex items-center gap-1">
-                        {!props.hideNumbers && (props.rowNumber ? props.rowNumber(row, r) : r + 1)}
+                        {props.rowNumber ? props.rowNumber(row, r) : r + 1}
                         {props.rowMarker?.(row)}
                       </span>
                     </td>
+                    )}
                     {check && (
                       <td
-                        onMouseDown={(e) => e.stopPropagation()}
-                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined }}
-                        className={`border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
-                        title={check.title?.(row)}
+                        onMouseDown={(e) =>
+                          noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation()
+                        }
+                        onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
+                        onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
+                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
+                        className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
+                        title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
                       >
+                        {noNum && <DragGrip active={rowSelected} />}
+                        {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
                         <input
                           type="checkbox"
                           checked={check.isChecked(row)}
@@ -1316,7 +1333,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     return (
                       <tr data-row-detail>
                         <td className="border-b border-r border-[#EBEBEF] bg-[#FAFAFC]" />
-                        <td colSpan={nC + 1 + (check ? 1 : 0)} className="border-b border-[#EBEBEF] bg-[#FAFAFC] px-3 py-2">
+                        <td colSpan={nC + (noNum ? 0 : 1) + (check ? 1 : 0)} className="border-b border-[#EBEBEF] bg-[#FAFAFC] px-3 py-2">
                           {detail}
                         </td>
                       </tr>
@@ -1328,7 +1345,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               {renderHeaders(nR)}
               {dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === nR && (
                 <tr>
-                  <td colSpan={nC + 2 + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
+                  <td colSpan={nC + (noNum ? 1 : 2) + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
                 </tr>
               )}
             </tbody>
