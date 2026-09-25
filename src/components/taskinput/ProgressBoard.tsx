@@ -661,6 +661,8 @@ export default function ProgressBoard() {
             onOpenRow={(row) => setOpenKey(row.key)}
             onAddRow={addRow}
             fontSize={fontSize}
+            fields={data.fields}
+            optionsOf={optionsOf}
           />
         )}
       </div>

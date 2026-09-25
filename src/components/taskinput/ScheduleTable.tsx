@@ -1,9 +1,9 @@
 // 추진현황 일정표 -- 첨부된 "일정표 빌더"의 표 모양(검은 머리 띠 · 월/주 칸 · 구분 병합 · 현재 선)을 따르고,
 // 주차 칸은 시트와 똑같이 칠한다: 회색 = 계획, 분홍 = 실적, 글자 S / F / 완.
 // 입력 중에는 고른 도구로 칸을 누르거나 한 줄 안에서 끌어 칠한다.
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { WeekColumn } from '../../types'
-import type { CellState, ProgressRow } from '../../utils/progressBoard'
+import type { CellState, FieldDef, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX } from '../../utils/progressBoard'
 
 export interface ScheduleRowView {
@@ -20,7 +20,71 @@ const STATUS_TONE: Record<string, string> = {
   보류: 'bg-red-100 text-red-700',
   중단: 'bg-red-100 text-red-700',
 }
-export const STATUS_CHOICES = ['진행중', '완료', '보류', '일상', '-']
+
+// 열 종류별 기본 폭(px, 글자 13px 기준)
+const FIELD_WIDTH: Record<FieldDef['kind'], number> = { memo: 200, date: 96, select: 78, person: 110, link: 130, text: 100 }
+
+// 시트 칸 하나 -- 누르면 그 자리에서 입력(Enter/바깥 누르면 반영, Esc 취소).
+function FieldCell({ f, value, edited, fontSize, onCommit }: { f: FieldDef; value: string; edited: boolean; fontSize: number; onCommit: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const cancelled = useRef(false)
+  function start() {
+    setDraft(value)
+    cancelled.current = false
+    setEditing(true)
+  }
+  function finish() {
+    setEditing(false)
+    if (!cancelled.current && draft !== value) onCommit(draft)
+  }
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      cancelled.current = true
+      ;(e.target as HTMLElement).blur()
+    }
+    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) (e.target as HTMLElement).blur()
+  }
+  const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
+  let display: React.ReactNode = value
+  if (f.id === 'status' && value) display = <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.85em] font-semibold ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
+  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(2).replace(/-/g, '.')
+  return (
+    <td
+      onClick={editing ? undefined : start}
+      title={value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력`}
+      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-1 align-middle text-[0.92em] text-label hover:bg-accent/[0.06]"
+    >
+      <div className={`${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'truncate'} break-all`}>{display}</div>
+      {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
+      {editing &&
+        (f.kind === 'memo' ? (
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={finish}
+            onKeyDown={keys}
+            placeholder="⌘/Ctrl+Enter로 반영"
+            className="absolute left-0 top-0 z-30 rounded-control border-2 border-accent bg-white p-1.5 text-[1em] text-label shadow-dialog outline-none"
+            style={{ width: Math.max(260, (FIELD_WIDTH.memo * fontSize) / 13), height: fontSize * 9 }}
+          />
+        ) : f.kind === 'date' ? (
+          <input
+            autoFocus
+            type="date"
+            value={/^\d{4}-\d{2}-\d{2}$/.test(draft) ? draft : ''}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={finish}
+            onKeyDown={keys}
+            className={inputCls}
+          />
+        ) : (
+          <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={finish} onKeyDown={keys} list={`pb-opts-${f.id}`} className={inputCls} />
+        ))}
+    </td>
+  )
+}
 
 export function cellLabel(c: CellState | undefined): string {
   if (!c) return ''
@@ -51,6 +115,8 @@ export default function ScheduleTable({
   onOpenRow,
   onAddRow,
   fontSize = 13,
+  fields = [],
+  optionsOf,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -61,7 +127,11 @@ export default function ScheduleTable({
   onOpenRow: (row: ProgressRow) => void
   onAddRow?: (l2: string) => void
   fontSize?: number
+  fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
+  optionsOf?: (f: FieldDef) => string[]
 }) {
+  const cols = fields.filter((f) => f.id !== 'name')
+  const colW = (f: FieldDef) => Math.round((FIELD_WIDTH[f.kind] * fontSize) / 13)
   const col1 = Math.round(fontSize * 11.5) // 구분 열 폭(항목 열이 이만큼 왼쪽에 붙는다)
   const months = Array.from(new Set(weekCols.map((w) => w.month)))
   const curIdx = currentKey ? weekCols.findIndex((w) => w.key === currentKey) : -1
@@ -83,14 +153,16 @@ export default function ScheduleTable({
   }
 
   return (
-    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: 560 + weekCols.length * 24, fontSize }}>
+    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: col1 + fontSize * 20 + weekCols.length * 24 + cols.reduce((n, f) => n + colW(f), 0), fontSize }}>
       <colgroup>
         <col style={{ width: col1 }} />
         <col style={{ width: Math.round(fontSize * 20) }} />
         {weekCols.map((w) => (
           <col key={w.key} />
         ))}
-        <col style={{ width: 150 }} />
+        {cols.map((f) => (
+          <col key={f.id} style={{ width: colW(f) }} />
+        ))}
       </colgroup>
       <thead className="sticky top-0 z-10">
         <tr className="bg-[#14161A] text-white">
@@ -105,9 +177,11 @@ export default function ScheduleTable({
               {m}월
             </th>
           ))}
-          <th rowSpan={2} className="border-l border-white/25 px-2 py-2 text-[1em] font-bold">
-            상태 / 비고
-          </th>
+          {cols.map((f) => (
+            <th key={f.id} rowSpan={2} className="border-l border-white/25 px-1.5 py-2 text-[0.92em] font-bold" title={f.label}>
+              <span className="line-clamp-2 break-keep">{f.label}</span>
+            </th>
+          ))}
         </tr>
         <tr className="bg-[#14161A] text-[#9AA1AC]">
           {weekCols.map((w, i) => (
@@ -122,11 +196,6 @@ export default function ScheduleTable({
           <Fragment key={`${g.l2}-${gi}`}>
             {g.rows.map((v, ri) => {
               const zebra = gi % 2 === 0 ? 'bg-[#F4F5F7]' : 'bg-white'
-              const assignees = v.vals.assignees ?? ''
-              const category = v.vals.category ?? ''
-              const note = v.vals.note ?? ''
-              const status = v.vals.status ?? ''
-              const statusEdited = v.editedFields.has('status')
               return (
                 <tr key={v.row.key} className={zebra} style={{ height: Math.round(fontSize * 3.4) }}>
                   {ri === 0 && (
@@ -153,12 +222,6 @@ export default function ScheduleTable({
                       <span className={`truncate font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
                       {(v.editedFields.size > 0 || v.row.isNew) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                     </button>
-                    {(assignees || category) && (
-                      <p className="mt-0.5 flex items-center gap-1.5 truncate text-[0.85em] text-label-3">
-                        {category && <span className="rounded-[3px] bg-black/[0.06] px-1 text-label-2">{category}</span>}
-                        <span className="truncate">{assignees}</span>
-                      </p>
-                    )}
                   </td>
                   {weekCols.map((w, i) => {
                     const c = v.cells[w.key]
@@ -188,45 +251,34 @@ export default function ScheduleTable({
                       </td>
                     )
                   })}
-                  <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-2 py-1">
-                    {editing ? (
-                      <select
-                        value={status}
-                        onChange={(e) => onField(v.row, 'status', e.target.value)}
-                        className={`h-6 rounded-full border-0 px-2 text-[0.85em] font-semibold ${STATUS_TONE[status] ?? 'bg-black/[0.05] text-label-2'} ${
-                          statusEdited ? 'ring-2 ring-orange-400' : ''
-                        }`}
-                      >
-                        {!STATUS_CHOICES.includes(status) && <option value={status}>{status || '(빈칸)'}</option>}
-                        {STATUS_CHOICES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      status && (
-                        <span
-                          className={`inline-flex h-5 items-center rounded-full px-2 text-[0.85em] font-semibold ${STATUS_TONE[status] ?? 'bg-black/[0.05] text-label-2'} ${
-                            statusEdited ? 'ring-2 ring-orange-400' : ''
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      )
-                    )}
-                    {note && (
-                      <p className="mt-0.5 truncate text-[0.85em] text-label-3" title={note}>
-                        {note}
-                      </p>
-                    )}
-                  </td>
+                  {cols.map((f) => (
+                    <FieldCell
+                      key={f.id}
+                      f={f}
+                      value={v.vals[f.id] ?? ''}
+                      edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
+                      fontSize={fontSize}
+                      onCommit={(val) => onField(v.row, f.id, val)}
+                    />
+                  ))}
                 </tr>
               )
             })}
           </Fragment>
         ))}
       </tbody>
+      {/* 입력 칸 제안값(시트에 이미 있는 값) */}
+      {optionsOf &&
+        cols.map((f) => {
+          const opts = optionsOf(f)
+          return opts.length ? (
+            <datalist key={f.id} id={`pb-opts-${f.id}`}>
+              {opts.map((o) => (
+                <option key={o} value={o} />
+              ))}
+            </datalist>
+          ) : null
+        })}
     </table>
   )
 }
