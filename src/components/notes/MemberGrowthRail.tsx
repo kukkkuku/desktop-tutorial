@@ -50,52 +50,50 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   }
 
   return (
-    <div className="flex items-end gap-1 overflow-x-auto px-3 pt-2 shadow-[inset_0_-1px_0_#E3E3E8] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {activeMembers.length === 0 ? (
-        <p className="px-2 py-2.5 text-[13px] text-label-3">등록된 팀원이 없습니다.</p>
-      ) : (
-        activeMembers.map((member) => {
-          const isSelected = selectedMemberId === member.id
-          const grade = currentGrade(member.id)
-          const eligible = isPromotionEligible(member)
-          return (
-            <button
-              key={member.id}
-              onClick={() => onSelectMember(member.id)}
-              className={`flex max-w-[280px] shrink-0 select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-left text-sm transition-colors ${
-                isSelected
-                  ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
-                  : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
-              }`}
-            >
-              <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
-                {grade ?? '-'}
-              </span>
-              <span className="min-w-0 truncate">{member.name}</span>
-              {eligible && (
-                <Badge tone="accent" className="shrink-0">
-                  승진 가능
-                </Badge>
-              )}
-            </button>
-          )
-        })
-      )}
-      <Button variant="ghost" size="sm" onClick={onManageTeam} className="mb-1 ml-2">
-        팀원 관리
-      </Button>
-
-      {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 한 번에 여러 팀원에게
-          적용되므로 특정 팀원 화면이 아니라 탭 바 우측(전체 팀원 대상)에 둔다.
-          버튼은 앱 전체가 공유하는 Button 컴포넌트(secondary)를 그대로 써서
-          다른 화면 버튼들과 색/굵기가 어긋나지 않게 한다. */}
-      <Button
-        variant="secondary"
-        onClick={onImportHistory}
-        className="mb-1 ml-auto shrink-0 whitespace-nowrap"
-      >
-        <Upload {...ic} /> 지난 성과 엑셀파일 불러오기
-      </Button>
+    <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+      {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
+      <div className="flex min-w-0 flex-1 items-end gap-1 pt-1">
+        {activeMembers.length === 0 ? (
+          <p className="px-2 py-2.5 text-[13px] text-label-3">등록된 팀원이 없습니다.</p>
+        ) : (
+          activeMembers.map((member) => {
+            const isSelected = selectedMemberId === member.id
+            const grade = currentGrade(member.id)
+            const eligible = isPromotionEligible(member)
+            return (
+              <button
+                key={member.id}
+                onClick={() => onSelectMember(member.id)}
+                title={member.name}
+                className={`flex min-w-[48px] max-w-[180px] flex-[0_1_180px] select-none items-center gap-1.5 overflow-hidden rounded-t-[9px] border px-3 py-2 text-left text-sm transition-colors ${
+                  isSelected
+                    ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
+                    : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
+                }`}
+              >
+                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
+                  {grade ?? '-'}
+                </span>
+                <span className="min-w-0 truncate">{member.name}</span>
+                {eligible && (
+                  <Badge tone="accent" className="min-w-0 shrink truncate">
+                    승진 가능
+                  </Badge>
+                )}
+              </button>
+            )
+          })
+        )}
+      </div>
+      <div className="mb-1.5 flex shrink-0 items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onManageTeam}>
+          팀원 관리
+        </Button>
+        {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 여러 팀원에게 한 번에 적용 */}
+        <Button variant="secondary" onClick={onImportHistory} className="whitespace-nowrap">
+          <Upload {...ic} /> 지난 성과 엑셀파일 불러오기
+        </Button>
+      </div>
     </div>
   )
 }

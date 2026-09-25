@@ -58,15 +58,10 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMembers.map((m) => m.id).join(',')])
 
-  // -my-6로 상쇄한 main의 상하 padding(py-6, 총 3rem)만큼 min-h-full(부모
-  // 컨텐츠 박스 100%)에 다시 더해줘야 실제로 main의 테두리 박스 끝까지
-  // 닿는다 -- 안 그러면 위쪽 padding을 되찾은 만큼(패딩을 상쇄하려고 위로
-  // 끌어올린 만큼) 정확히 그 폭만큼 아래쪽이 못 미치고, 거기에 원래
-  // 상쇄됐어야 할 아래쪽 padding까지 더해져서 하단 배경/구분선이 총
-  // 3rem(48px)씩 짧아진다.
   return (
-    <div className="-mx-4 -my-6 flex min-h-[calc(100%+3rem)] flex-col sm:-mx-6 lg:-mx-8">
-      <div className="shrink-0 border-b border-separator bg-window">
+    // 다른 화면과 같은 본문 여백 안에 둔다(예전엔 화면 끝까지 붙어 있었다).
+    <div className="flex min-h-full flex-col">
+      <div className="shrink-0">
         <MemberGrowthRail
           selectedMemberId={selectedMemberId}
           onSelectMember={setSelectedMemberId}
@@ -75,7 +70,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
         />
       </div>
 
-      <div className="flex flex-1 items-stretch">
+      <div className="flex flex-1 items-stretch border-x border-b border-separator">
         <div className="min-w-0 flex-1 bg-white">
           {selectedMemberId ? (
             <MemberGrowthDetail
