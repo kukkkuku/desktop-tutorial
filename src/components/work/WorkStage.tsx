@@ -239,7 +239,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   function ungroupRows(ids: string[]) {
-    const free = board.items.filter((i) => ids.includes(i.id) && !exportedIds.has(i.id) && evalGroupOf(i))
+    // 묶음은 보기용 묶기라 이미 내보낸 L3도 풀 수 있다(평가과제와의 연결은 그대로).
+    const free = board.items.filter((i) => ids.includes(i.id) && evalGroupOf(i))
     if (free.length === 0) return
     apply(setEvalGroup(board, free.map((i) => i.id), '', members))
     showToast(`L3 ${free.length}건을 묶음에서 뺐습니다.`, true)
@@ -308,8 +309,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       const t = tabAt(x, y)
       if (!t) return false
       if (t === activeGroup?.id || ids.length === 0) return true
-      // 묶음 하위 행만 옮겨도 묶음 이름은 그대로(다른 L2에 걸친 묶음이 된다).
-      apply(moveItemsToGroup(board, ids, t))
+      // 묶음째 옮길 때만 묶음을 유지한다. 하위 과제 일부만 옮기면 그 과제는 묶음에서 빠져
+      // 낱개로 옮겨진다(묶음 머리 행이 따라가 보이지 않게).
+      const set = new Set(ids)
+      const partial = board.items.filter((i) => set.has(i.id) && evalGroupOf(i) && !board.items.filter((o) => evalGroupOf(o) === evalGroupOf(i)).every((o) => set.has(o.id)))
+      const moved = moveItemsToGroup(board, ids, t)
+      apply(partial.length ? setEvalGroup(moved, partial.map((i) => i.id), '', members) : moved)
       setMoved({ groupId: t, ids: new Set(ids), bg: true })
       const name = board.groups.find((g) => g.id === t)?.name ?? ''
       showToast(`L3 ${ids.length}건을 「${name}」로 옮겼습니다.`, true)
@@ -438,17 +443,21 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   {g}
                 </span>
               )}
-              {done ? (
+              {done && (
                 <span className="shrink-0 rounded bg-accent/10 px-1.5 text-[11px] font-semibold text-accent" title={taskNames.join(', ')}>
                   내보냄
                 </span>
-              ) : (
-                <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
-                  <button onClick={() => ungroupRows(free.map((i) => i.id))} title="묶음 풀기(하위 과제를 모두 낱개로)" className="rounded px-1.5 text-label-2 hover:bg-black/[0.07] hover:text-label">
-                    <UngroupIcon />
-                  </button>
-                </span>
               )}
+              <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={() => ungroupRows(all.map((i) => i.id))}
+                  title={done ? '묶음 풀기(하위 과제를 모두 낱개로 · 평가과제는 그대로)' : '묶음 풀기(하위 과제를 모두 낱개로)'}
+                  className="rounded px-1.5 text-label-2 hover:bg-black/[0.07] hover:text-label"
+                >
+                  <UngroupIcon />
+                </button>
+              </span>
             </div>
           )
         if (colId === COL_CATEGORY) {
@@ -495,7 +504,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         </div>
       )
     if (col.id === COL_NAME && evalGroupOf(row)) {
-      const locked = exportedIds.has(row.id)
       return (
         <div className="group/child flex items-start gap-1.5 py-1.5 pl-6 leading-snug">
           <CornerDownRight size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-label-3" />
@@ -503,16 +511,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             {row.name}
             {dot}
           </span>
-          {!locked && (
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => ungroupRows([row.id])}
-              title="묶음에서 빼기"
-              className="shrink-0 rounded px-1 text-label-3 hover:bg-black/[0.07] hover:text-label group-hover/child:text-label-2"
-            >
-              <UngroupIcon />
-            </button>
-          )}
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => ungroupRows([row.id])}
+            title="묶음에서 빼기"
+            className="shrink-0 rounded px-1 text-label-3 opacity-0 hover:bg-black/[0.07] hover:text-label group-hover/child:opacity-100"
+          >
+            <UngroupIcon />
+          </button>
         </div>
       )
     }
@@ -571,11 +577,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   function commit(edits: CellEdit[]) {
-    const locked = edits.filter((e) => e.colId === COL_EVAL_GROUP && exportedIds.has(e.rowId))
-    if (locked.length) {
-      showToast('이미 평가과제로 내보낸 L3는 묶음을 바꿀 수 없습니다. 평가과제 탭에서 과제를 지운 뒤 다시 묶어 주세요.')
-      edits = edits.filter((e) => !(e.colId === COL_EVAL_GROUP && exportedIds.has(e.rowId)))
-    }
     const skipped = edits.filter((e) => !allowed(e.colId, e.text))
     if (skipped.length) {
       showToast(`상태는 ${STATUS_OPTIONS.join('/')}, 분류는 ${TASK_CATEGORY_OPTIONS.join('/')} 중에서만 넣을 수 있어 ${skipped.length}칸을 건너뛰었습니다.`)
@@ -614,7 +615,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const col = visibleCols[colIndex + j]
-        if (col?.id === COL_EVAL_GROUP && existing && exportedIds.has(existing.id)) return
         if (col && allowed(col.id, text.trim())) item = applyDoneRule(setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members), col.id, members)
       })
       if (existing) updates.set(existing.id, item)
@@ -637,7 +637,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const set = new Set(ids)
     // 묶음 전체를 함께 옮기는 중이면(머리 행으로 고른 뒤 끌기 등) 그 묶음은 그대로 둔다.
     const whole = (g: string) => !!g && next.items.filter((i) => evalGroupOf(i) === g).every((i) => set.has(i.id))
-    const change = next.items.filter((i) => set.has(i.id) && !exportedIds.has(i.id) && evalGroupOf(i) !== target && !whole(evalGroupOf(i)))
+    const change = next.items.filter((i) => set.has(i.id) && evalGroupOf(i) !== target && !whole(evalGroupOf(i)))
     if (change.length === 0) return next
     showToast(target ? `L3 ${change.length}건을 「${target}」 묶음으로 옮겼습니다.` : `L3 ${change.length}건을 묶음에서 뺐습니다.`, true)
     return setEvalGroup(next, change.map((i) => i.id), target, members)
@@ -992,7 +992,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             rowActions={(ids) => {
               const free = board.items.filter((i) => ids.includes(i.id) && !exportedIds.has(i.id))
               const taken = ids.length - free.length
-              const grouped = free.filter((i) => evalGroupOf(i))
+              const grouped = board.items.filter((i) => ids.includes(i.id) && evalGroupOf(i))
               return [
                 {
                   label: `평가과제로 묶기 (${free.length}건)`,
@@ -1057,8 +1057,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-label-3">
-            행을 체크하면 표 위에서 평가과제로 묶기·내보내기 · 파란 점 = 이미 내보낸 L3 · 묶음 이름은 머리 행 ✎ (이름을 붙여넣어 묶으려면 "열 표시"에서 평가과제 열을 켜기) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
-            머리글 우클릭으로 열 추가·숨기기
+            여러 행 선택 후 우클릭 → 평가과제로 묶기 · 체크 후 평가과제로 내보내기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
           </p>
         </>
       )}
