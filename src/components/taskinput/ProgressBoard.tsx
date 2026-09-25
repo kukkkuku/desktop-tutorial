@@ -893,24 +893,36 @@ export default function ProgressBoard() {
             ))}
             <div className="mac-menu-sep" />
             <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
-            <div className="grid grid-cols-3 gap-1 px-2 pb-1">
-              {[...PERIOD_BUTTONS, ...QUARTERS, ...MONTHS].map(({ label, p }) => {
-                const on = period.start === p.start && period.months === p.months
-                return (
-                  <button
-                    key={label}
-                    onClick={() => {
-                      setPeriod(p)
-                      if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
-                      setSchMenu(null)
-                    }}
-                    className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
+            {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
+            {(
+              [
+                [PERIOD_BUTTONS, 'grid-cols-3'],
+                [QUARTERS, 'grid-cols-4'],
+                [MONTHS, 'grid-cols-3'],
+              ] as const
+            ).map(([list, cols], gi) => (
+              <div key={gi}>
+                {gi > 0 && <div className="mac-menu-sep" />}
+                <div className={`grid ${cols} gap-1 px-2 py-1`}>
+                  {list.map(({ label, p }) => {
+                    const on = period.start === p.start && period.months === p.months
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          setPeriod(p)
+                          if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
+                          setSchMenu(null)
+                        }}
+                        className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
