@@ -5,6 +5,7 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -37,7 +38,7 @@ export const ROW_COLORS = ['', 'FFFF00', 'FFF2CC', 'FCE5CD', 'F4CCCC', 'EAD1DC',
 
 // 열 종류별 기본 폭(px)
 const FIELD_WIDTH: Record<FieldDef['kind'], number> = { memo: 200, date: 96, select: 78, person: 110, link: 130, text: 100 }
-export const DEFAULT_WIDTHS = { l2: 150, l3: 260, week: 24 }
+export const DEFAULT_WIDTHS = { l2: 150, l3: 260, week: 12 }
 const HEADER_FONT = 13 // 머리글 글자는 고정, 본문만 가▲/가▼로 바뀐다
 
 export function fieldDefaultWidth(f: FieldDef) {
@@ -238,7 +239,10 @@ export default function ScheduleTable({
   // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
   const thStyle = (hex: string | null | undefined): React.CSSProperties =>
     hs ? { background: hex ? `#${hex}` : '#FFFFFF', color: '#14161A' } : { background: '#14161A', color: '#FFFFFF' }
-  const thBorder = hs ? 'border border-[#A6A6A6]' : 'border-l border-white/25'
+  const thBorder = 'border border-[#D3D3D3]'
+  // 구분·과제 머리글은 검정, 일정(월·주) 머리글은 회색
+  const blackTh: React.CSSProperties = { background: '#14161A', color: '#FFFFFF' }
+  const grayTh: React.CSSProperties = { background: '#E4E6EA', color: '#14161A' }
   const groupOf = new Map((hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => [id, g] as const)))
   const allIds = ['name', ...cols.map((f) => f.id)]
 
@@ -302,34 +306,43 @@ export default function ScheduleTable({
         </colgroup>
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
           <tr>
-            <th rowSpan={2} style={thStyle(hs?.l2)} className={`sticky left-0 z-20 px-2 py-2 font-bold ${thBorder}`}>
+            <th rowSpan={2} style={blackTh} className={`sticky left-0 z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
               {onResize && <ResizeHandle width={wL2} onResize={(v) => onResize('l2', v)} />}
             </th>
-            <th rowSpan={2} style={{ left: wL2, ...thStyle(hs?.l3) }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
+            <th rowSpan={2} style={{ left: wL2, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               과제(L3)
               {onResize && <ResizeHandle width={wL3} onResize={(v) => onResize('l3', v)} />}
             </th>
             {scheduleOpen ? (
               months.map((m, i) => (
-                <th key={m} colSpan={weekCols.filter((x) => x.month === m).length} style={thStyle(hs?.months[m])} className={`pb-0.5 pt-2 font-bold ${thBorder}`}>
-                  {i === 0 && onToggleSchedule ? (
-                    <span className="flex items-center justify-center gap-1">
-                      <button onClick={onToggleSchedule} title="일정 접기" aria-label="일정 접기" className="rounded px-0.5 text-[0.85em] opacity-60 hover:opacity-100">
-                        ◂
-                      </button>
-                      {m}월
-                    </span>
-                  ) : (
-                    `${m}월`
+                <th key={m} colSpan={weekCols.filter((x) => x.month === m).length} style={grayTh} className={`group/sch relative pb-0.5 pt-2 font-bold ${thBorder}`}>
+                  {m}월
+                  {i === 0 && onToggleSchedule && (
+                    <button
+                      onClick={onToggleSchedule}
+                      title="일정 접기"
+                      aria-label="일정 접기"
+                      className="absolute left-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-white/70 text-label-2 opacity-0 shadow-sm transition-opacity hover:text-accent group-hover/sch:opacity-100"
+                    >
+                      <ChevronsLeft size={14} strokeWidth={2} />
+                    </button>
                   )}
                 </th>
               ))
             ) : (
-              <th rowSpan={2} style={thStyle(hs?.months[months[0]])} className={`relative px-1.5 py-2 font-bold ${thBorder}`}>
-                <button onClick={onToggleSchedule} title="일정 펼치기" className="flex w-full items-center justify-center gap-1 hover:text-accent">
-                  일정 ▸
-                </button>
+              <th rowSpan={2} style={grayTh} className={`group/sch relative px-1.5 py-2 font-bold ${thBorder}`}>
+                일정
+                {onToggleSchedule && (
+                  <button
+                    onClick={onToggleSchedule}
+                    title="일정 펼치기"
+                    aria-label="일정 펼치기"
+                    className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-white/70 text-label-2 opacity-0 shadow-sm transition-opacity hover:text-accent group-hover/sch:opacity-100"
+                  >
+                    <ChevronsRight size={14} strokeWidth={2} />
+                  </button>
+                )}
                 {onResize && <ResizeHandle width={wSummary} onResize={(v) => onResize('summary', v)} />}
               </th>
             )}
@@ -354,9 +367,9 @@ export default function ScheduleTable({
           <tr>
             {scheduleOpen &&
               weekCols.map((x, i) => (
-                <th key={x.key} style={thStyle(hs?.weeks[x.key])} className={`relative pb-1.5 text-[11px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
+                <th key={x.key} style={grayTh} className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(16, v))} />}
+                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(10, v))} />}
                 </th>
               ))}
             {cols
@@ -433,7 +446,7 @@ export default function ScheduleTable({
                             onContextMenu={(e) => openMenu(e, v.row, x.key, 'week')}
                             title={note ? undefined : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`}
                             style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
-                            className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
+                            className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                             } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
                           >

@@ -1,12 +1,13 @@
 // 과제 입력 › 추진현황 -- 구글시트 「YYYY 추진현황」 탭을 통째로 읽어 L1마다 탭을 만들고,
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
-import { useMemo, useRef, useState } from 'react'
-import { CloudUpload, Eraser, Pencil, Plus, RefreshCw, RotateCcw, Search, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Search, Undo2, Upload } from 'lucide-react'
+import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Spinner from '../Spinner'
-import { icSm } from '../ui/icon'
+import { ic, icSm } from '../ui/icon'
 import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
 import {
   chooseSheetsAccountNext,
@@ -227,6 +228,7 @@ export default function ProgressBoard() {
     setLinkOpen(false)
     setOpenKey(null)
     updateDrafts({ edits: {}, newRows: [] })
+    clearHistory()
     await loadFromSheet(false, clean)
   }
 
@@ -265,13 +267,68 @@ export default function ProgressBoard() {
     }
   }
 
-  function updateDrafts(next: Drafts | ((cur: Drafts) => Drafts)) {
-    setDrafts((cur) => {
-      const v = typeof next === 'function' ? next(cur) : next
-      saveDrafts(v)
-      return v
-    })
+  // 되돌리기/다시 하기: 고칠 때마다 직전 상태를 쌓는다. 끌어 칠하기처럼 잇따른 같은 동작은 한 번으로 묶는다.
+  const draftsRef = useRef(drafts)
+  const past = useRef<Drafts[]>([])
+  const future = useRef<Drafts[]>([])
+  const lastStep = useRef({ kind: '', at: 0 })
+  const [, setHistoryTick] = useState(0)
+  function applyDrafts(v: Drafts) {
+    draftsRef.current = v
+    setDrafts(v)
+    saveDrafts(v)
+    setHistoryTick((n) => n + 1)
   }
+  function updateDrafts(next: Drafts | ((cur: Drafts) => Drafts), kind = '') {
+    const cur = draftsRef.current
+    const v = typeof next === 'function' ? next(cur) : next
+    if (v === cur) return
+    const now = Date.now()
+    if (!(kind && kind === lastStep.current.kind && now - lastStep.current.at < 800)) {
+      past.current.push(cur)
+      if (past.current.length > 200) past.current.shift()
+    }
+    lastStep.current = { kind, at: now }
+    future.current = []
+    applyDrafts(v)
+  }
+  function clearHistory() {
+    past.current = []
+    future.current = []
+    lastStep.current = { kind: '', at: 0 }
+    setHistoryTick((n) => n + 1)
+  }
+  function undo() {
+    const prev = past.current.pop()
+    if (!prev) return
+    future.current.push(draftsRef.current)
+    lastStep.current = { kind: '', at: 0 }
+    applyDrafts(prev)
+  }
+  function redo() {
+    const next = future.current.pop()
+    if (!next) return
+    past.current.push(draftsRef.current)
+    lastStep.current = { kind: '', at: 0 }
+    applyDrafts(next)
+  }
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (!(e.metaKey || e.ctrlKey)) return
+      const k = e.key.toLowerCase()
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      } else if ((k === 'z' && e.shiftKey) || k === 'y') {
+        e.preventDefault()
+        redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   // 한 줄의 칸·열 값 고치기(기존 행은 edits, 새 과제는 newRows에)
   function paintCell(row: ProgressRow, key: string) {
@@ -291,7 +348,7 @@ export default function ProgressBoard() {
         }
       }
       return { ...d, edits: setCellEdit(d.edits, row, key, cell) }
-    })
+    }, `paint:${row.key}`)
   }
   function setField(row: ProgressRow, id: string, value: string) {
     updateDrafts((d) => {
@@ -350,6 +407,7 @@ export default function ProgressBoard() {
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
       updateDrafts(kept)
+      clearHistory()
       setOpenKey(null)
       setMessage(
         `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}.` +
@@ -628,6 +686,14 @@ export default function ProgressBoard() {
           지브라
         </label>
         <span className="ml-auto flex items-center gap-2">
+          <span className="flex items-center">
+            <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
+              <Undo2 {...ic} />
+            </IconButton>
+            <IconButton onClick={redo} disabled={future.current.length === 0} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
+              <Redo2 {...ic} />
+            </IconButton>
+          </span>
           {editCount > 0 && (
             <>
               <span className="text-label-2">
@@ -728,7 +794,7 @@ export default function ProgressBoard() {
         )}
       </div>
 
-      <div className="mt-3 max-h-[calc(100vh-18rem)] overflow-auto rounded-[4px] border border-[#A6A6A6]">
+      <div className="mt-3 max-h-[calc(100vh-18rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
         {views.length === 0 ? (
           <p className="px-4 py-12 text-center text-[13px] text-label-3">조건에 맞는 과제가 없습니다.</p>
         ) : (
