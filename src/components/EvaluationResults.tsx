@@ -23,6 +23,7 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
+import Segmented from './ui/Segmented'
 import IconButton from './IconButton'
 import { ArrowDown, ArrowUp, Download, Eye, Minus } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
@@ -200,6 +201,26 @@ export default function EvaluationResults() {
 
   const noData = results.length === 0
 
+  // 보기 방식: 상하(기본) / 좌우 / 탭. 브라우저에 기억한다.
+  type ResultView = 'stack' | 'side' | 'tabs'
+  const [view, setView] = useState<ResultView>(() => {
+    try {
+      const v = localStorage.getItem('results.view')
+      return v === 'side' || v === 'tabs' ? v : 'stack'
+    } catch {
+      return 'stack'
+    }
+  })
+  const [tab, setTab] = useState<'members' | 'tasks'>('members')
+  function changeView(v: ResultView) {
+    setView(v)
+    try {
+      localStorage.setItem('results.view', v)
+    } catch {
+      // 기억 못 해도 화면에는 반영
+    }
+  }
+
   return (
     <div className="mx-auto max-w-[1600px] space-y-6">
       {/* 헤더 */}
@@ -214,6 +235,15 @@ export default function EvaluationResults() {
           )}
         </div>
         <div className={`flex flex-wrap items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
+          <Segmented
+            items={[
+              { key: 'stack', label: '상하', title: '팀원별 성과 위, 과제별 성과 아래' },
+              { key: 'side', label: '좌우', title: '팀원별 성과 왼쪽, 과제별 성과 오른쪽 (넓은 화면에서만, 좁으면 상하로)' },
+              { key: 'tabs', label: '탭', title: '팀원별 성과 / 과제별 성과를 탭으로 전환' },
+            ]}
+            value={view}
+            onChange={changeView}
+          />
           <Button variant="primary" onClick={() => setConfirmAllOpen(true)}>
             전체 확정
           </Button>
@@ -258,6 +288,19 @@ export default function EvaluationResults() {
         </p>
       ) : (
         <>
+          {view === 'tabs' && (
+            <Segmented
+              items={[
+                { key: 'members', label: '팀원별 성과' },
+                { key: 'tasks', label: '과제별 성과' },
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+          )}
+          <div className={view === 'side' ? 'grid items-start gap-6 xl:grid-cols-2' : 'space-y-6'}>
+            {(view !== 'tabs' || tab === 'members') && (
+              <div className="min-w-0 space-y-6">
           {/* 팀원 결과 테이블 — 이 화면의 중심. */}
           <div className="overflow-x-auto rounded-card border border-separator bg-white">
             <table className="w-full min-w-[860px] text-[13px]">
@@ -409,6 +452,10 @@ export default function EvaluationResults() {
             </div>
           )}
 
+              </div>
+            )}
+            {(view !== 'tabs' || tab === 'tasks') && (
+              <div className="min-w-0">
           {/* 과제별 성과 & 기여도 */}
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -551,6 +598,9 @@ export default function EvaluationResults() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
               </div>
             )}
           </div>
