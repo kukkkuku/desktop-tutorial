@@ -685,3 +685,32 @@ export function withGoogleAccount(url: string, email: string | null = getConnect
     return url
   }
 }
+
+// "Google Drive 포함 전체 초기화": 이 앱이 만든 "성장관리" 폴더(와 그 안의 저장 파일)와
+// 앱 태그가 붙은 파일을 휴지통으로 옮긴다. 완전 삭제가 아니라 휴지통이라 30일 안에는
+// 드라이브에서 되살릴 수 있다. drive.file 권한이라 이 앱이 만든 것만 보이고 건드린다.
+export async function trashAllAppDriveData(): Promise<number> {
+  const accessToken = await getAccessToken()
+  const ids = new Set<string>()
+  const queries = [
+    `name='${ROOT_FOLDER_NAME.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    `appProperties has { key='app' and value='${APP_TAG}' } and trashed=false`,
+  ]
+  for (const q of queries) {
+    const res = await driveFetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&pageSize=1000&spaces=drive`,
+      accessToken,
+    )
+    const data = (await res.json()) as { files?: { id: string }[] }
+    for (const f of data.files ?? []) ids.add(f.id)
+  }
+  for (const id of ids) {
+    await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}`, accessToken, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trashed: true }),
+    })
+  }
+  rootFolderIdCache = null
+  return ids.size
+}
