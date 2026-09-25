@@ -33,6 +33,8 @@ import {
   readXlsxBook,
   sheetUrl,
   type XlsxBook,
+  SheetsAuthError,
+  chooseSheetsAccountNext,
 } from '../../utils/sheetSources'
 import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/workBoard'
 
@@ -76,12 +78,14 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
   const [addNames, setAddNames] = useState<Set<string>>(new Set())
   const [result, setResult] = useState<ImportResult | null>(null)
 
+  const [authTrouble, setAuthTrouble] = useState(false)
   async function run(label: string, fn: () => Promise<void>) {
     setLoading(label)
     setError(null)
     try {
       await fn()
     } catch (e) {
+      setAuthTrouble(e instanceof SheetsAuthError || /권한|로그인|계정/.test(e instanceof Error ? e.message : ''))
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(null)
@@ -265,7 +269,22 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
           {loading}
         </p>
       )}
-      {error && <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-danger">{error}</p>}
+      {error && (
+        <div className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-danger">
+          <p>{error}</p>
+          {authTrouble && (
+            <button
+              onClick={() => {
+                chooseSheetsAccountNext()
+                loadFromLink()
+              }}
+              className="mt-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium text-danger hover:bg-red-50"
+            >
+              계정 골라서 다시 연결
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 불러온 탭 */}
       {tabs.length > 0 && (

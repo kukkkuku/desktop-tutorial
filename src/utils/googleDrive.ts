@@ -60,6 +60,8 @@ declare global {
             client_id: string
             scope: string
             callback: (resp: GoogleTokenResponse) => void
+            // 팝업을 닫았거나 열지 못했을 때(type: 'popup_closed' | 'popup_failed_to_open' ...)
+            error_callback?: (err: { type?: string; message?: string }) => void
           }) => GoogleTokenClient
         }
       }
@@ -219,6 +221,15 @@ function requestAccessToken(promptOverride?: string): Promise<string> {
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: DRIVE_SCOPE,
+      // 창을 닫거나 구글 쪽 오류(400 등)로 끝나면 기다리지 않고 알린다.
+      error_callback: (err) =>
+        reject(
+          new Error(
+            err.type === 'popup_failed_to_open'
+              ? '구글 로그인 창이 열리지 않았습니다(팝업 차단 확인).'
+              : '구글 로그인 창이 닫혔습니다. 구글 계정이 여러 개 로그인돼 있다면 쓰려는 계정만 로그인된 창(또는 시크릿 창)에서 다시 시도해 주세요.',
+          ),
+        ),
       callback: (resp) => {
         if (resp.error || !resp.access_token) reject(new Error(resp.error || '로그인이 취소되었습니다.'))
         else {

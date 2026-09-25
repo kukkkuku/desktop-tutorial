@@ -30,6 +30,14 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
 
 let sheetsToken: { token: string; expiresAt: number } | null = null
+// 다음 시트 권한 요청은 계정 힌트 없이 계정 선택 화면부터 연다. 브라우저에 구글 계정이
+// 여러 개 로그인돼 있으면 힌트와 엇갈려 구글이 "400 · malformed"를 내는 경우가 있어서,
+// 그때 사용자가 직접 계정을 고르게 하는 재시도 경로.
+let chooseAccountNext = false
+export function chooseSheetsAccountNext() {
+  chooseAccountNext = true
+  sheetsToken = null
+}
 
 export function isSheetsApiConfigured(): boolean {
   return Boolean(CLIENT_ID)
@@ -41,12 +49,22 @@ async function getSheetsToken(): Promise<string> {
   await loadGis()
   const google = window.google
   if (!google) throw new Error('Google 로그인 스크립트가 로드되지 않았습니다.')
+  const choose = chooseAccountNext
+  chooseAccountNext = false
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SHEETS_SCOPE,
-      // 이미 로그인한 계정으로 바로 동의 화면을 띄운다(계정 선택 생략).
-      ...({ login_hint: getConnectedEmail() ?? undefined } as object),
+      // 평소에는 이미 로그인한 계정으로 바로 동의 화면을 띄운다(계정 선택 생략).
+      ...(choose ? {} : ({ login_hint: getConnectedEmail() ?? undefined } as object)),
+      error_callback: (err) =>
+        reject(
+          new SheetsAuthError(
+            err.type === 'popup_failed_to_open'
+              ? '구글 로그인 창이 열리지 않았습니다(팝업 차단 확인).'
+              : '구글 로그인 창이 닫혔습니다. 창에 "400 · That’s an error"가 떴다면 아래 "계정 골라서 다시 연결"을 눌러 주세요.',
+          ),
+        ),
       callback: (resp) => {
         if (resp.error || !resp.access_token) {
           reject(new Error(resp.error === 'access_denied' ? '시트 읽기 권한을 허용하지 않았습니다.' : resp.error || '로그인이 취소되었습니다.'))
@@ -56,9 +74,12 @@ async function getSheetsToken(): Promise<string> {
         resolve(resp.access_token)
       },
     })
-    client.requestAccessToken()
+    client.requestAccessToken(choose ? { prompt: 'select_account' } : undefined)
   })
 }
+
+// 로그인 창 문제(닫힘·400 등). 화면에서 "계정 골라서 다시 연결"을 보여 줄지 판단한다.
+export class SheetsAuthError extends Error {}
 
 // 구글이 돌려준 오류 이유를 사람이 할 일로 바꾼다. 403 하나에도 "API가 꺼져
 // 있음"과 "이 계정에 시트 권한 없음"이 섞여 있어서, 뭉뚱그리면 뭘 고쳐야
