@@ -11,7 +11,7 @@
 // 잡고 있다가, 글자가 들어오면(IME 조합 시작 포함) 그대로 편집 상태로
 // 바뀐다. 첫 글자를 keydown에서 가로채면 한글 조합이 깨지기 때문이다.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { ColumnType } from '../../types'
 
@@ -68,6 +68,9 @@ interface DataGridProps<R extends { id: string }> {
   onSelectionChange?: (rowIds: string[]) => void
   // 우클릭 메뉴 맨 위에 붙일 부모 전용 동작(선택 범위에 걸친 행 id를 받는다). 빈 배열이면 안 붙임.
   rowActions?: (rowIds: string[]) => RowAction[]
+  // 데이터 행 사이에 끼우는 머리 행(묶음 제목 등). anchor = 이 머리 행 바로 뒤에 올 데이터 행
+  // index(끝이면 rows.length). 선택·편집 대상이 아니다.
+  groupHeaders?: (anchor: number) => GroupHeaderRow[]
   // 행 앞 체크박스(셀 선택과 별개). 넘기면 체크 열이 생긴다.
   check?: {
     isChecked: (row: R) => boolean
@@ -77,6 +80,13 @@ interface DataGridProps<R extends { id: string }> {
   }
   addRowLabel?: string
   emptyText?: string
+}
+
+export interface GroupHeaderRow {
+  key: string
+  caret?: ReactNode
+  check?: { checked: boolean; indeterminate?: boolean; disabled?: boolean; title?: string; onChange: (on: boolean) => void }
+  content: ReactNode
 }
 
 export interface RowAction {
@@ -791,6 +801,35 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const checkable = check ? rows.filter((r) => !check.isDisabled?.(r)) : []
   const allChecked = checkable.length > 0 && checkable.every((r) => check!.isChecked(r))
   const someChecked = checkable.some((r) => check!.isChecked(r))
+  function renderHeaders(anchor: number) {
+    const list = props.groupHeaders?.(anchor)
+    if (!list?.length) return null
+    return list.map((h) => (
+      <tr key={`gh:${h.key}`} className="bg-[#F3F5F8]">
+        <td className="h-9 border-b border-r border-[#D6DAE0] text-center text-xs text-gray-500">{h.caret}</td>
+        {check && (
+          <td className="border-b border-r border-[#D6DAE0] text-center" title={h.check?.title}>
+            {h.check && (
+              <input
+                type="checkbox"
+                checked={h.check.checked}
+                disabled={h.check.disabled}
+                ref={(el) => {
+                  if (el) el.indeterminate = !!h.check?.indeterminate && !h.check.checked
+                }}
+                onChange={(e) => h.check!.onChange(e.target.checked)}
+                className="h-4 w-4 cursor-pointer accent-[#2563EB] align-middle disabled:cursor-not-allowed disabled:opacity-40"
+              />
+            )}
+          </td>
+        )}
+        <td colSpan={nC + 1} className="border-b border-[#D6DAE0] px-2 py-1.5">
+          {h.content}
+        </td>
+      </tr>
+    ))
+  }
+
   const tableWidth = HANDLE_W + CHECK_W + columns.reduce((s, c) => s + c.width, 0) + 44
   const menuRows = range ? range.r2 - range.r1 + 1 : 0
   const canDeleteCols = selectedColIds.length > 0 && columns.filter((c) => selectedColIds.includes(c.id)).every((c) => !c.system)
@@ -889,8 +928,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               {rows.map((row, r) => {
                 const rowSelected = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
                 return (
+                  <Fragment key={row.id}>
+                  {renderHeaders(r)}
                   <tr
-                    key={row.id}
                     ref={(el) => {
                       if (el) rowRefs.current.set(r, el)
                       else rowRefs.current.delete(r)
@@ -983,8 +1023,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     })}
                     <td className="border-b border-dotted border-[#C9CDD3]" />
                   </tr>
+                  </Fragment>
                 )
               })}
+              {renderHeaders(nR)}
               {dragInsert?.kind === 'row' && dragInsert.index === nR && (
                 <tr>
                   <td colSpan={nC + 2 + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />

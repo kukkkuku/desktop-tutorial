@@ -56,7 +56,7 @@ export const SYSTEM_COLUMNS: (ColumnDef & { sheetHeaders: string[] })[] = [
   { id: 'startDate', label: '시작일', type: 'date', system: true, width: 132, sheetHeaders: ['시작일', '착수일'] },
   { id: 'doneDate', label: '완료일', type: 'date', system: true, width: 132, sheetHeaders: ['완료일'] },
   // 앱에서만 쓰는 열: 같은 이름끼리 평가과제 하나로 묶는다(시트에는 없음, 다시 가져와도 유지).
-  { id: COL_EVAL_GROUP, label: '평가과제', type: 'select', system: true, width: 200, sheetHeaders: [] },
+  { id: COL_EVAL_GROUP, label: '평가과제', type: 'select', system: true, width: 200, hidden: true, sheetHeaders: [] },
   { id: 'attr', label: '속성', type: 'select', system: true, width: 90, hidden: true, sheetHeaders: ['속성'] },
   { id: 'team', label: '담당팀', type: 'select', system: true, width: 130, hidden: true, sheetHeaders: ['담당팀'] },
   { id: 'demandDept', label: '수요부서', type: 'text', system: true, width: 100, hidden: true, sheetHeaders: ['수요부서'] },

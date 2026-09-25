@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, Importance, TaskGroup, WorkBoard, WorkItem } from '../../types'
-import { TASK_CATEGORY_OPTIONS } from '../../types'
+import { IMPORTANCE_OPTIONS, TASK_CATEGORY_OPTIONS } from '../../types'
 import {
   COL_ASSIGNEES,
   COL_CATEGORY,
@@ -34,11 +34,9 @@ import {
   updateItems,
 } from '../../utils/workBoard'
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
-import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from '../grid/DataGrid'
+import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
-import EvalGroupStrip from './EvalGroupStrip'
-import EvalExportBar from './EvalExportBar'
 
 const HISTORY_LIMIT = 60
 
@@ -166,8 +164,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }, [state.tasks])
   const exportedIds = useMemo(() => new Set(linkedTasks.keys()), [linkedTasks])
   const units = useMemo(() => exportUnits(board, checked, exportedIds), [board, checked, exportedIds])
-  const needGrade = units.filter((u) => !u.grade)
-  const canExport = units.length > 0 && needGrade.every((u) => exportGrades[u.key])
+  // 과제등급이 안 정해진 단위: 묶음은 머리 행에서 고르고, 낱개 L3는 분류 칸을 채운다.
+  const needGrade = units.filter((u) => !u.grade && !exportGrades[u.key])
+  const canExport = units.length > 0 && needGrade.length === 0
+  const checkedFree = board.items.filter((i) => checked.has(i.id) && !exportedIds.has(i.id))
 
   function toggleCheck(rows: WorkItem[], on: boolean) {
     setChecked((cur) => {
@@ -222,12 +222,134 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
 
   const groupItems = useMemo(() => (activeGroup ? itemsOfGroup(board, activeGroup.id) : []), [board, activeGroup])
-  const viewRows = useMemo(() => {
+  // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const { viewRows, headerAt } = useMemo(() => {
+    const gathered: WorkItem[] = []
+    const done = new Set<string>()
+    for (const i of groupItems) {
+      if (done.has(i.id)) continue
+      const g = evalGroupOf(i)
+      const block = g ? groupItems.filter((x) => evalGroupOf(x) === g) : [i]
+      for (const x of block) {
+        gathered.push(x)
+        done.add(x.id)
+      }
+    }
     const q = search.trim()
-    if (!q) return groupItems
-    return groupItems.filter((i) => board.columns.some((c) => getCellText(i, c.id, members).includes(q)))
-  }, [groupItems, search, board.columns, members])
+    const matches = q ? gathered.filter((i) => board.columns.some((c) => getCellText(i, c.id, members).includes(q))) : gathered
+    const rows: WorkItem[] = []
+    const heads = new Map<number, string[]>()
+    const seen = new Set<string>()
+    for (const i of matches) {
+      const g = evalGroupOf(i)
+      if (g && !seen.has(g)) {
+        seen.add(g)
+        heads.set(rows.length, [...(heads.get(rows.length) ?? []), g])
+      }
+      if (!g || !collapsed.has(g)) rows.push(i)
+    }
+    return { viewRows: rows, headerAt: heads }
+  }, [groupItems, search, board.columns, members, collapsed])
   const filtered = search.trim() !== ''
+
+  function groupHeader(g: string): GroupHeaderRow {
+    const all = board.items.filter((i) => evalGroupOf(i) === g)
+    const here = groupItems.filter((i) => evalGroupOf(i) === g)
+    const free = all.filter((i) => !exportedIds.has(i.id))
+    const done = free.length === 0
+    const isOpen = !collapsed.has(g)
+    const cats = IMPORTANCE_OPTIONS.map((o) => [o, all.filter((i) => i.category === o).length] as const).filter(([, n]) => n > 0)
+    const noCat = all.filter((i) => !i.category).length
+    const fixedGrade = new Set(free.map((i) => i.category)).size === 1 ? free[0]?.category ?? null : null
+    const key = `g:${g}`
+    const on = free.filter((i) => checked.has(i.id)).length
+    const taskNames = Array.from(new Set(all.flatMap((i) => linkedTasks.get(i.id) ?? [])))
+    return {
+      key: g,
+      caret: (
+        <button
+          onClick={() =>
+            setCollapsed((cur) => {
+              const next = new Set(cur)
+              if (next.has(g)) next.delete(g)
+              else next.add(g)
+              return next
+            })
+          }
+          title={isOpen ? '접기' : '펼치기'}
+          className="h-6 w-6 rounded hover:bg-gray-200"
+        >
+          {isOpen ? '▾' : '▸'}
+        </button>
+      ),
+      check: {
+        checked: !done && on === free.length,
+        indeterminate: on > 0,
+        disabled: done,
+        title: done ? `이미 내보냄: ${taskNames.join(', ')}` : '묶음 전체 선택',
+        onChange: (v) => toggleCheck(free, v),
+      },
+      content: (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          {renamingEval === g ? (
+            <input
+              autoFocus
+              defaultValue={g}
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => renameGroup(g, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') renameGroup(g, g)
+              }}
+              className="h-7 w-96 rounded-md border border-accent px-2 text-sm outline-none"
+            />
+          ) : (
+            <>
+              <span className={`${CHIP_BASE} ${evalGroupTone(g)} text-[13px] font-semibold`}>{g}</span>
+              {!done && (
+                <button onClick={() => setRenamingEval(g)} title="묶음 이름 바꾸기" className="rounded px-1 text-gray-400 hover:bg-gray-200 hover:text-black">
+                  ✎
+                </button>
+              )}
+            </>
+          )}
+          <span className="text-gray-500">
+            {here.length}건{all.length !== here.length && ` (다른 L2 포함 ${all.length}건)`}
+            {' · '}
+            {[...cats.map(([o, n]) => `${o} ${n}`), ...(noCat ? [`분류 없음 ${noCat}`] : [])].join(' · ')}
+          </span>
+          {done ? (
+            <span className="rounded bg-accent/10 px-1.5 py-0.5 font-semibold text-accent">내보냄 · {taskNames.join(', ')}</span>
+          ) : (
+            <>
+              {!fixedGrade && (
+                <select
+                  value={exportGrades[key] ?? ''}
+                  onChange={(e) => setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))}
+                  title="분류가 섞였거나 비어 있어 과제등급을 골라야 내보낼 수 있습니다"
+                  className={`h-7 rounded-md border px-1.5 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-gray-300'}`}
+                >
+                  <option value="">과제등급 고르기</option>
+                  {IMPORTANCE_OPTIONS.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => ungroupRows(free.map((i) => i.id))}
+                className="ml-auto rounded px-2 py-1 text-gray-500 hover:bg-gray-200 hover:text-black"
+              >
+                묶음 풀기
+              </button>
+            </>
+          )}
+        </div>
+      ),
+    }
+  }
 
   const visibleCols = board.columns.filter((c) => !c.hidden)
   const hiddenCols = board.columns.filter((c) => c.hidden)
@@ -496,8 +618,37 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             )}
           </div>
 
-          {/* 도구 줄 */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* 도구 줄 -- 체크한 행이 있으면 선택 동작 줄로 바뀐다 */}
+          {checkedFree.length > 0 ? (
+            <div className="flex min-h-[40px] flex-wrap items-center gap-2 rounded-lg bg-[#EEF4FF] px-3 py-1.5">
+              <span className="text-sm font-semibold text-black">{checkedFree.length}건 선택</span>
+              <span className="text-xs text-gray-500">→ 평가과제 {units.length}개</span>
+              <span className="mx-1 h-4 w-px bg-gray-300" />
+              <Button variant="secondary" onClick={() => groupRows(checkedFree.map((i) => i.id))} disabled={checkedFree.length < 2} className="h-8 px-3 text-xs">
+                평가과제로 묶기
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => ungroupRows(checkedFree.map((i) => i.id))}
+                disabled={!checkedFree.some((i) => evalGroupOf(i))}
+                className="h-8 px-3 text-xs"
+              >
+                묶음 풀기
+              </Button>
+              <Button variant="primary" onClick={exportChecked} disabled={!canExport} className="h-8 px-3 text-xs">
+                평가과제로 내보내기
+              </Button>
+              {needGrade.length > 0 && (
+                <span className="text-xs text-orange-700">
+                  과제등급을 정해야 내보낼 수 있어요 {needGrade.length}개 -- 묶음은 머리 행에서, 낱개 L3는 분류 칸에서 고르세요
+                </span>
+              )}
+              <button onClick={() => setChecked(new Set())} className="ml-auto rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-white hover:text-black">
+                선택 해제
+              </button>
+            </div>
+          ) : (
+          <div className="flex min-h-[40px] flex-wrap items-center gap-2">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -545,17 +696,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               </div>
             </div>
           </div>
-
-          <EvalGroupStrip
-            board={board}
-            groupItems={groupItems}
-            exportedIds={exportedIds}
-            renaming={renamingEval}
-            onStartRename={setRenamingEval}
-            onRename={renameGroup}
-            onUngroup={(name) => ungroupRows(board.items.filter((i) => evalGroupOf(i) === name).map((i) => i.id))}
-            tone={(name) => evalGroupTone(name)}
-          />
+          )}
 
           <DataGrid
             rowActions={(ids) => {
@@ -569,9 +710,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   disabled: free.length < 2,
                   onClick: () => groupRows(ids),
                 },
-                { label: '묶음에서 빼기', disabled: grouped.length === 0, onClick: () => ungroupRows(ids) },
+                { label: '묶음 풀기', disabled: grouped.length === 0, onClick: () => ungroupRows(ids) },
               ]
             }}
+            groupHeaders={(anchor) => (headerAt.get(anchor) ?? []).map((g) => groupHeader(g))}
             check={{
               isChecked: (row) => checked.has(row.id),
               isDisabled: (row) => exportedIds.has(row.id),
@@ -582,7 +724,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             rows={viewRows}
             getText={(row, colId) => getCellText(row, colId, members)}
             renderCell={(row, col) => renderWorkCell(row, col, members)}
-            rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : '')}
+            rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : evalGroupOf(row) ? 'bg-[#FAFBFD]' : '')}
             rowMarker={(row) => (
               <>
                 {linkedTasks.has(row.id) && (
@@ -615,21 +757,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 L3가 없습니다. 아래 "＋ L3 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-gray-400">
-            체크 = 평가과제로 내보낼 행 · 파란 점 = 이미 내보낸 L3 · 여러 행을 고르고 우클릭 → 평가과제로 묶기(평가과제 열에 같은 이름을 넣어도 묶임) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
+            행을 체크하면 표 위에서 평가과제로 묶기·내보내기 · 파란 점 = 이미 내보낸 L3 · 묶음 이름은 머리 행 ✎ (이름을 붙여넣어 묶으려면 "열 표시"에서 평가과제 열을 켜기) · 칸을 누르고 바로 입력 · 두 번 누르거나 Enter로 이어서 편집 · Alt+Enter 줄바꿈 · 엑셀/시트에서 복사한 범위를 ⌘V로 붙여넣기 · 왼쪽 번호로 행 선택 후 끌어서 이동 ·
             머리글 우클릭으로 열 추가·숨기기
           </p>
         </>
-      )}
-
-      {units.length > 0 && (
-        <EvalExportBar
-          units={units}
-          grades={exportGrades}
-          onGrade={(key, g) => setExportGrades((cur) => ({ ...cur, [key]: g }))}
-          canExport={canExport}
-          onExport={exportChecked}
-          onClear={() => setChecked(new Set())}
-        />
       )}
 
       {tabMenu && (
@@ -668,7 +799,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       )}
 
       {toast && (
-        <div className={`fixed ${units.length > 0 ? "bottom-40" : "bottom-6"} left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#14161A] px-4 py-2 text-sm text-white shadow-lg`}>
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#14161A] px-4 py-2 text-sm text-white shadow-lg">
           {toast.text}
           {toast.undo && (
             <button
