@@ -19,6 +19,8 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMatrixExcel } from '../utils/excel'
 import { downloadMatrixPdf } from '../utils/pdfReports'
 import { peerInputsOf } from '../utils/peerScores'
+import { peerSummaryOf } from '../utils/calculations'
+import PeerLine from './PeerLine'
 import Button from './Button'
 import { Trophy } from 'lucide-react'
 import { icSm } from './ui/icon'
@@ -64,7 +66,8 @@ export default function EvaluationMatrix() {
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputsOf(state))
+  const peerInputs = peerInputsOf(state)
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
   // 과제별 피어리뷰(순위)의 평균 -- 기여도 칸 아래 참고로 보여 준다. 본인 평가 제외.
   const peerRankOf = useMemo(() => {
     const acc = new Map<string, { sum: number; count: number }>()
@@ -225,6 +228,7 @@ export default function EvaluationMatrix() {
                             </>
                           ) : null}
                         </div>
+                        <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
                       </th>
                     )
                   })}

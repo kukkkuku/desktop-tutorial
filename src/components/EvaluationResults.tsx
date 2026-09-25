@@ -27,6 +27,8 @@ import IconButton from './IconButton'
 import { ArrowDown, ArrowUp, Download, Eye, Minus } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
+import { peerSummaryOf } from '../utils/calculations'
+import PeerLine from './PeerLine'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
   evaluating: '평가중',
@@ -278,6 +280,9 @@ export default function EvaluationResults() {
                     <span>성과점수</span>
                     <span className="ml-2 font-normal text-label-3">평균 {avg.toFixed(1)}점</span>
                   </th>
+                  <th className="w-28 px-4 py-2.5 text-center text-xs font-semibold text-label-2" title="받은 피어리뷰 평균 점수와 성과점수에 곱해진 배수">
+                    피어리뷰
+                  </th>
                   <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">최종 고과</th>
                   <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">전년도</th>
                   <th className="w-14 px-4 py-2.5 text-center text-xs font-semibold text-label-2">변화</th>
@@ -338,6 +343,9 @@ export default function EvaluationResults() {
                             {r.cumulativeScore.toFixed(1)}
                           </span>
                         </div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center">
+                        <PeerLine summary={peerSummaryOf(peerInputs, r.member.id, criteria)} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center">
                         <span className={`text-[13px] font-bold ${gradeTextColor(r.grade)}`}>{r.grade}</span>

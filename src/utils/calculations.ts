@@ -214,6 +214,19 @@ export function calcPeerReviewFactor(
   return blendByWeight(1.0, avgScore / 100, criteria.peerReviewWeight)
 }
 
+// 화면에 "피어리뷰가 점수에 어떻게 들어갔는지"를 보여 주기 위한 요약. 받은 리뷰가 없으면 null.
+// factor = 성과점수에 곱해지는 배수(기준설정의 피어리뷰 반영 비율이 0이면 1.0 = 미반영).
+export function peerSummaryOf(
+  peerReviews: PeerInput[],
+  memberId: string,
+  criteria: Criteria,
+): { count: number; avgScore: number; factor: number; applied: boolean } | null {
+  const received = peerReviews.filter((r) => r.targetMemberId === memberId)
+  if (received.length === 0) return null
+  const avgScore = received.reduce((sum, r) => sum + peerInputScore(r), 0) / received.length
+  return { count: received.length, avgScore, factor: calcPeerReviewFactor(peerReviews, memberId, criteria), applied: criteria.peerReviewWeight > 0 }
+}
+
 export function calcMemberParticipation(
   member: TeamMember,
   tasks: Task[],
