@@ -40,7 +40,9 @@ import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/work
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
+import { AlertTriangle, Check, X } from 'lucide-react'
 import Button from '../Button'
+import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
 
 interface Props {
@@ -228,8 +230,8 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
   return (
     <div className="flex min-h-full flex-col">
       <div>
-        <h3 className="text-base font-bold text-label">구글시트에서 과제 가져오기</h3>
-        <p className="mt-1 text-sm text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
+        <h3 className="text-[15px] font-semibold text-label">구글시트에서 과제 가져오기</h3>
+        <p className="mt-1 text-[13px] text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
         <p className="mt-1 text-[13px] text-label-2">
           추진현황 양식의 H·L1·L2·L3 열과 담당자·상태 등을 머리글 이름으로 찾아 읽습니다. 원본 시트는 바꾸지 않습니다.
         </p>
@@ -245,7 +247,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
           placeholder={isSheetsApiConfigured() ? 'https://docs.google.com/spreadsheets/d/...' : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- xlsx 파일로 올려 주세요'}
           className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 disabled:bg-black/[0.03]"
         />
-        <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()} className="h-10">
+        <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()}>
           목록 확인
         </Button>
         <input
@@ -259,7 +261,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
             e.target.value = ''
           }}
         />
-        <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={loading !== null} className="h-10" title="시트에서 파일 › 다운로드 › xlsx로 받은 파일">
+        <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={loading !== null} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일">
           xlsx 올리기
         </Button>
       </div>
@@ -270,7 +272,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
         </p>
       )}
       {error && (
-        <div className="mt-2 rounded-md bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
+        <div className="mt-2 rounded-card bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
           <p>{error}</p>
           {authTrouble && (
             <button
@@ -278,7 +280,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                 chooseSheetsAccountNext()
                 loadFromLink()
               }}
-              className="mt-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 font-medium text-danger hover:bg-danger/[0.06]"
+              className="mt-1.5 inline-flex h-7 items-center rounded-control bg-white px-2.5 font-medium text-danger shadow-control hover:bg-[#FAFAFA]"
             >
               계정 골라서 다시 연결
             </button>
@@ -289,9 +291,9 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       {/* 불러온 탭 */}
       {tabs.length > 0 && (
         <div className="mt-3 space-y-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-label">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-label">
             <span title={bookTitle}>불러온 탭:</span>
-            <select value={tabName ?? ''} onChange={(e) => changeTab(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] font-bold text-label">
+            <select value={tabName ?? ''} onChange={(e) => changeTab(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] font-semibold text-label">
               {tabs.map((t) => (
                 <option key={t.title} value={t.title}>
                   {t.title}
@@ -304,14 +306,14 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                 <span className="text-label-3">·</span>
                 <span>시트 L2 분류 {groups.length}개</span>
                 <span className="text-label-3">·</span>
-                <button onClick={() => setMapOpen((v) => !v)} className={`text-[13px] hover:underline ${unmapped.length ? 'text-orange-600' : 'text-label-2'}`}>
+                <button onClick={() => setMapOpen((v) => !v)} className={`text-[13px] hover:underline ${unmapped.length ? 'text-warning' : 'text-label-2'}`}>
                   열 매칭 {unmapped.length ? `(못 찾은 열 ${unmapped.length})` : '확인'}
                 </button>
               </>
             )}
           </div>
           {raw && !header && (
-            <p className="rounded-md bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
+            <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">
               이 탭에서 'L2'·'L3' 머리글을 찾지 못했습니다. 「YYYY 추진현황」처럼 H/L1/L2/L3 열이 있는 탭을 골라 주세요.
             </p>
           )}
@@ -324,7 +326,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       {header && mapOpen && (
         <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 rounded-card border border-separator p-3 sm:grid-cols-2">
           {SYSTEM_COLUMNS.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 text-sm">
+            <label key={c.id} className="flex items-center gap-2 text-[13px]">
               <span className="w-28 shrink-0 text-label-2">{c.label}</span>
               <select
                 value={columnMap[c.id] ?? ''}
@@ -349,8 +351,8 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       {/* L1 탭 + L2 목록 */}
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
-          <div className="mt-4 overflow-hidden rounded-card border border-separator bg-[#F7F8FA]">
-            <div className="flex flex-wrap gap-1 border-b border-separator px-3 py-2.5">
+          <div className="mt-4 overflow-hidden rounded-card border border-separator bg-[#F7F7F9]">
+            <div className="mac-seg m-2.5 flex-wrap">
               {l1Tabs.map(([l1, gs]) => {
                 const on = l1 === currentL1[0]
                 const picked = gs.filter((g) => selected.has(g.name)).length
@@ -358,27 +360,27 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                   <button
                     key={l1}
                     onClick={() => setActiveL1(l1)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${on ? 'bg-[#14161A] text-white' : 'text-label-2 hover:bg-white hover:text-label'}`}
+                    className={`mac-seg-item ${on ? 'mac-seg-item-on' : ''}`}
                   >
-                    {l1} <span className={on ? 'text-white/60' : 'text-label-3'}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
+                    {l1} <span className="text-label-3">{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
                   </button>
                 )
               })}
             </div>
-            <div className="divide-y divide-separator bg-white">
+            <div className="divide-y divide-separator border-t border-separator bg-white">
               {currentL1[1].map((g) => {
                 const on = selected.has(g.name)
                 const already = board.groups.some((bg) => bg.name === g.name)
                 return (
-                  <label key={g.name} className={`flex cursor-pointer gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-[#FAFAFB]'}`}>
-                    <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} />
+                  <label key={g.name} className={`flex cursor-pointer gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
+                    <input type="checkbox" className="mt-0.5 shrink-0" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} />
                     <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-x-2 text-[15px] font-bold text-label">
+                      <span className="flex flex-wrap items-center gap-x-2 text-[14px] font-semibold text-label">
                         {g.name}
                         {g.tag ? ` [${g.tag}]` : ''}
-                        {already && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-bold text-success">가져옴</span>}
+                        {already && <span className="mac-badge bg-success/15 text-success">가져옴</span>}
                         {g.inferred && (
-                          <span className="text-[13px] font-normal text-orange-500" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
+                          <span className="text-[13px] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
                             H/L1 추정
                           </span>
                         )}
@@ -387,7 +389,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                         L3 하위과제 {g.count}개{g.assignees.length > 0 && ` · 담당자 ${g.assignees.join(', ')}`}
                         {g.teams.length > 0 && <span className="text-label-3"> · {g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}</span>}
                       </span>
-                      <span className="mt-2 block truncate border-l-2 border-orange-300 pl-3 text-[13px] text-label">
+                      <span className="mt-2 block truncate border-l-2 border-warning/50 pl-3 text-[13px] text-label">
                         {g.l3Names.slice(0, 4).join(' · ')}
                         {g.l3Names.length > 4 && ` 외 ${g.l3Names.length - 4}개`}
                       </span>
@@ -400,7 +402,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
 
           <div className="sticky bottom-0 mt-auto flex flex-wrap items-end gap-3 border-t border-separator bg-white pt-4">
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-label-2">
+              <p className="text-[13px] text-label-2">
                 선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
               </p>
               {selectedGroups.length > 0 && (
@@ -408,7 +410,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                   {selectedGroups.map((g) => (
                     <span
                       key={g.name}
-                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 py-1 pl-3 pr-1.5 text-[13px] font-medium text-orange-900"
+                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[13px] font-medium text-accent"
                     >
                       <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
                         {g.name}
@@ -416,11 +418,11 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                       </button>
                       <button
                         onClick={() => toggle([g.name], false)}
-                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-orange-700 hover:bg-orange-200"
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
                         aria-label={`${g.name} 선택 해제`}
                         title="선택 해제"
                       >
-                        ×
+                        <X size={12} strokeWidth={2} />
                       </button>
                     </span>
                   ))}
@@ -444,20 +446,22 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       {/* 확인 */}
       {header && confirming && !result && (
         <div className="mt-4 rounded-card border border-separator p-4">
-          <p className="text-sm font-bold text-label">
+          <p className="text-[13px] font-semibold text-label">
             L2 {selectedGroups.length}개 · L3 {importRows.length}건을 가져옵니다
           </p>
-          <ul className="mt-2 space-y-1.5 text-sm">
+          <ul className="mt-2 space-y-1.5 text-[13px]">
             {warnings.inferredRows.length > 0 && (
-              <li className="text-orange-700">
-                ⚠ H/L1이 비어 있어 위 행 값으로 채운 행 {warnings.inferredRows.length}건 (시트 {warnings.inferredRows.slice(0, 5).map((r) => r.row + 1).join(', ')}
-                {warnings.inferredRows.length > 5 ? ' …' : ''}행)
+              <li className="flex items-start gap-1.5 text-warning">
+                <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
+                <span>H/L1이 비어 있어 위 행 값으로 채운 행 {warnings.inferredRows.length}건 (시트 {warnings.inferredRows.slice(0, 5).map((r) => r.row + 1).join(', ')}
+                {warnings.inferredRows.length > 5 ? ' …' : ''}행)</span>
               </li>
             )}
             {warnings.oddCategory.length > 0 && (
-              <li className="text-orange-700">
-                ⚠ 분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')}) -- 과제등급
-                "미입력"으로 두고 원문은 보존합니다
+              <li className="flex items-start gap-1.5 text-warning">
+                <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
+                <span>분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')}) -- 과제등급
+                "미입력"으로 두고 원문은 보존합니다</span>
               </li>
             )}
             {warnings.emptyCategory.length > 0 && <li className="text-label-2">분류가 빈 행 {warnings.emptyCategory.length}건 -- 과제등급 "미입력"</li>}
@@ -466,7 +470,7 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
           </ul>
 
           {warnings.unknownAssignees.length > 0 && (
-            <div className="mt-3 rounded-lg bg-[#F7F8FA] p-3">
+            <div className="mt-3 rounded-card bg-[#F7F7F9] p-3">
               <p className="text-[13px] font-semibold text-label">팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요</p>
               <p className="mt-0.5 text-[13px] text-label-2">
                 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리
@@ -484,10 +488,10 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
                         else next.add(u.name)
                         setAddNames(next)
                       }}
-                      className={`rounded-full border px-2.5 py-1 text-[13px] ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[13px] ${on ? 'bg-accent-soft font-semibold text-accent' : 'bg-white text-label-2 shadow-control hover:text-label'}`}
                       title={u.team ?? undefined}
                     >
-                      {on ? '✓ ' : ''}
+                      {on && <Check {...icSm} />}
                       {u.name} <span className="text-label-3">{u.count}</span>
                     </button>
                   )
@@ -508,9 +512,9 @@ export default function SheetImportPanel({ onDone, onCancel }: Props) {
       )}
 
       {result && (
-        <div className="mt-4 rounded-card border border-green-200 bg-success/[0.08] p-4">
-          <p className="text-sm font-bold text-success">가져왔습니다</p>
-          <p className="mt-1 text-sm text-success">
+        <div className="mt-4 rounded-card border border-success/25 bg-success/[0.08] p-4">
+          <p className="text-[13px] font-semibold text-success">가져왔습니다</p>
+          <p className="mt-1 text-[13px] text-success">
             새 L2 {result.newGroups}개 · 새 L3 {result.added}건 · 바뀐 L3 {result.updated}건
             {result.keptEdits > 0 && ` · 앱에서 고친 값 ${result.keptEdits}칸 유지`}
             {result.missing > 0 && ` · 시트에 없어진 행 ${result.missing}건 표시`}
