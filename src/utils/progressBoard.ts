@@ -94,6 +94,8 @@ export interface NewRow {
   cells: Record<string, CellState>
   bg?: Record<string, string>
   notes?: Record<string, string>
+  // 어느 행의 위/아래에 넣었는지(행 키 · 새 과제면 'new:…'). 없으면 그 L2의 맨 아래
+  anchor?: { key: string; where: 'above' | 'below' }
 }
 
 export interface Drafts {
@@ -210,8 +212,6 @@ export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldD
   })
 }
 
-
-
 // ---------- 연결 시트 ----------
 
 // 운영 중인 팀 구글시트 -- 과제 입력은 여기서 읽기만 하고 절대 쓰지 않는다(테스트 시트를 따로 연결해 저장).
@@ -319,11 +319,45 @@ export function newRowAsRow(n: NewRow): ProgressRow {
     if (c.f) fills[k] = c.f
   }
   const { name = '', ...values } = n.fields
-  return { key: NEW_PREFIX + n.id, row: -1, h: n.h, l1: n.l1, l2: n.l2, l2Tag: n.l2Tag, l3: name, values, weeks, fills, bg: { ...(n.bg ?? {}) }, notes: { ...(n.notes ?? {}) }, isNew: true }
+  return {
+    key: NEW_PREFIX + n.id,
+    row: -1,
+    h: n.h,
+    l1: n.l1,
+    l2: n.l2,
+    l2Tag: n.l2Tag,
+    l3: name,
+    values,
+    weeks,
+    fills,
+    bg: { ...(n.bg ?? {}) },
+    notes: { ...(n.notes ?? {}) },
+    isNew: true,
+  }
 }
 
-export function makeNewRow(from: { l1: string; l2: string; l2Tag: string | null; h: string | null }): NewRow {
-  return { id: uuidv4(), ...from, fields: { name: '' }, cells: {} }
+export function makeNewRow(from: { l1: string; l2: string; l2Tag: string | null; h: string | null }, anchor?: NewRow['anchor']): NewRow {
+  return { id: uuidv4(), ...from, fields: { name: '' }, cells: {}, ...(anchor ? { anchor } : {}) }
+}
+
+// 시트 행 사이에 새 과제를 끼운 화면 순서. 새 과제는 추가한 순서대로 기준 행의 위/아래에 들어가고,
+// 기준 행이 없어졌으면 그 L2의 맨 아래로 간다.
+export function orderWithNewRows(base: ProgressRow[], newRows: NewRow[]): ProgressRow[] {
+  const out = [...base]
+  for (const n of newRows) {
+    const row = newRowAsRow(n)
+    const at = n.anchor ? out.findIndex((r) => r.key === n.anchor!.key) : -1
+    if (at >= 0) {
+      out.splice(n.anchor!.where === 'above' ? at : at + 1, 0, row)
+      continue
+    }
+    let last = -1
+    out.forEach((r, i) => {
+      if (r.l2 === n.l2 && r.l1 === n.l1) last = i
+    })
+    out.splice(last >= 0 ? last + 1 : out.length, 0, row)
+  }
+  return out
 }
 
 // ---------- 고치기 ----------
@@ -489,13 +523,26 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     if (keep.cells || keep.fields || keep.bg || keep.notes) kept.edits[key] = keep
   }
 
-  // 새 과제
+  // 새 과제: 화면 순서에서 같은 L2의 다음 시트 행 바로 위에 넣는다(없으면 그 L2 마지막 행 아래).
   const lastRowOfL2 = new Map<string, number>()
   for (const r of fresh.rows) lastRowOfL2.set(r.l2, Math.max(lastRowOfL2.get(r.l2) ?? -1, r.row))
+  const order = orderWithNewRows(base.rows, drafts.newRows)
+  const posOf = new Map(order.map((r, i) => [r.key, i]))
   const inserts: SheetInsert[] = []
-  drafts.newRows.forEach((n, order) => {
+  drafts.newRows.forEach((n) => {
+    const idx = posOf.get(NEW_PREFIX + n.id) ?? 0
+    let at: number | undefined
+    for (let i = idx + 1; i < order.length && order[i].l2 === n.l2; i++) {
+      if (order[i].isNew) continue
+      const fr = freshByKey.get(order[i].key)
+      if (fr) {
+        at = fr.row
+        break
+      }
+    }
     const last = lastRowOfL2.get(n.l2)
-    if (last === undefined || !n.fields.name?.trim()) {
+    if (at === undefined && last !== undefined) at = last + 1
+    if (at === undefined || !n.fields.name?.trim()) {
       kept.newRows.push(n)
       conflicts++
       return
@@ -524,9 +571,56 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       const c = n.cells[w.key]
       cells.push({ col: w.col, value: c?.m ?? '', fill: c?.f ? FILL_HEX[c.f] : null })
     }
-    inserts.push({ at: last + 1, cells, order })
+    inserts.push({ at, cells, order: idx })
   })
-  // 아래쪽부터 넣는다. 같은 자리면 나중에 추가한 것을 먼저 넣어야 최종 순서가 추가한 순서가 된다.
+  // 아래쪽부터 넣는다. 같은 자리면 화면에서 아래에 있는 것을 먼저 넣어야 최종 순서가 화면 순서와 같다.
   inserts.sort((a, b) => b.at - a.at || b.order - a.order)
   return { writes, inserts, kept, conflicts }
+}
+
+// ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
+// 빈 칸이나 다른 색 칸을 누르거나 끌면 그 색으로 칠하고, 이어진 묶음의 첫 칸에 S,
+// 회색이면 끝 칸에 F를 자동으로 붙인다(묶음을 늘리면 따라 옮겨진다).
+// 분홍 끝의 "완"은 끝났을 때만 직접 넣는다(진행 중인 과제에 자동으로 붙이지 않음).
+// 이미 그 색인 칸을 다시 누르면(끌기 아님) S → 끝 글자(회색 F / 분홍 완) → 지움 순서로 바뀐다.
+export function paintCells(cells: Record<string, CellState>, weekKeys: string[], key: string, color: WeekFill, click: boolean): Record<string, CellState> {
+  const out = { ...cells }
+  const cur = out[key]
+  if (cur?.f === color) {
+    if (!click) return out
+    const end: WeekMark = color === 'plan' ? 'F' : '완'
+    if (cur.m === '') out[key] = { m: 'S', f: color }
+    else if (cur.m === 'S') out[key] = { m: end, f: color }
+    else delete out[key]
+    return out
+  }
+  out[key] = { m: '', f: color }
+  return autoRunLetters(out, weekKeys, color)
+}
+
+function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], color: WeekFill): Record<string, CellState> {
+  const out = { ...cells }
+  let run: string[] = []
+  const flush = () => {
+    if (run.length === 0) return
+    run.forEach((k, i) => {
+      const c = out[k]
+      const first = i === 0
+      const last = i === run.length - 1 && run.length > 1
+      if (first) {
+        if (c.m === '' || (c.m === 'F' && run.length > 1)) out[k] = { ...c, m: 'S' }
+      } else if (last && color === 'plan') {
+        if (c.m === '' || c.m === 'S') out[k] = { ...c, m: 'F' }
+      } else if (c.m === 'S' || (color === 'plan' && c.m === 'F')) {
+        out[k] = { ...c, m: '' }
+      }
+    })
+    run = []
+  }
+  for (const k of weekKeys) {
+    if (out[k]?.f === color) run.push(k)
+    else flush()
+  }
+  flush()
+  return out
 }

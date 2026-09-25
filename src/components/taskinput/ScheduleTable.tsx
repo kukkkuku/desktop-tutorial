@@ -297,12 +297,12 @@ export default function ScheduleTable({
   rows: ScheduleRowView[]
   editing: boolean
   currentKey: string | null
-  onPaint: (row: ProgressRow, weekKey: string) => void
+  onPaint: (row: ProgressRow, weekKey: string, click: boolean) => void // click = 누른 칸(끌기 중이면 false)
   onField: (row: ProgressRow, id: string, value: string) => void
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
   onDeleteRow?: (row: ProgressRow) => void // 새 과제 지우기
   onRevertRow?: (row: ProgressRow) => void // 이 행 고친 내용 되돌리기
-  onAddRow?: (l2: string) => void
+  onAddRow?: (row: ProgressRow, where: 'above' | 'below') => void // 우클릭: 위/아래에 과제 추가
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
   fontSize?: number
@@ -348,7 +348,9 @@ export default function ScheduleTable({
     )
   }
   const cols = fields.filter((f) => f.id !== 'name')
-  const scheduleOpen = scheduleMode !== 'hidden'
+  // 전체 펴기 = 주 칸, 줄여보기 = 계획·실적 요약 한 칸, 숨기기 = 일정 열 없음
+  const scheduleOpen = scheduleMode === 'full'
+  const showSummary = scheduleMode === 'compact'
   const schMenu = onScheduleMenu
     ? (e: React.MouseEvent) => {
         e.preventDefault()
@@ -359,7 +361,7 @@ export default function ScheduleTable({
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
   const wL3 = w('l3', DEFAULT_WIDTHS.l3)
   // 줄여보기는 12px 고정, 전체 펴기는 24px(머리글 끝을 끌어 바꿀 수 있음)
-  const wWeek = scheduleMode === 'full' ? w('week', 24) : DEFAULT_WIDTHS.week
+  const wWeek = w('week', DEFAULT_WIDTHS.week)
   const wSummary = w('summary', 220)
   const colW = (f: FieldDef) => w(f.id, fieldDefaultWidth(f))
   const months = Array.from(new Set(weekCols.map((x) => x.month)))
@@ -427,7 +429,7 @@ export default function ScheduleTable({
     else groups.push({ l2: r.row.l2, tag: r.row.l2Tag, rows: [r] })
   }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
-  const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : wSummary) + cols.reduce((n, f) => n + colW(f), 0)
+  const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
   let rowIndex = 0
 
   return (
@@ -436,7 +438,7 @@ export default function ScheduleTable({
         <colgroup>
           <col style={{ width: wL2 }} />
           <col style={{ width: wL3 }} />
-          {scheduleOpen ? weekCols.map((x) => <col key={x.key} style={{ width: wWeek }} />) : <col style={{ width: wSummary }} />}
+          {scheduleOpen ? weekCols.map((x) => <col key={x.key} style={{ width: wWeek }} />) : showSummary ? <col style={{ width: wSummary }} /> : null}
           {cols.map((f) => (
             <col key={f.id} style={{ width: colW(f) }} />
           ))}
@@ -465,8 +467,8 @@ export default function ScheduleTable({
                   {i === 0 && onToggleSchedule && (
                     <button
                       onClick={onToggleSchedule}
-                      title="일정 접기"
-                      aria-label="일정 접기"
+                      title="일정 줄여보기(요약 한 칸)"
+                      aria-label="일정 줄여보기"
                       className="absolute left-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-white/70 text-label-2 opacity-0 shadow-sm transition-opacity hover:text-accent group-hover/sch:opacity-100"
                     >
                       <ChevronsLeft size={14} strokeWidth={2} />
@@ -474,7 +476,7 @@ export default function ScheduleTable({
                   )}
                 </th>
               ))
-            ) : (
+            ) : showSummary ? (
               <th
                 rowSpan={2}
                 style={grayTh}
@@ -486,8 +488,8 @@ export default function ScheduleTable({
                 {onToggleSchedule && (
                   <button
                     onClick={onToggleSchedule}
-                    title="일정 펼치기"
-                    aria-label="일정 펼치기"
+                    title="일정 전체 펴기"
+                    aria-label="일정 전체 펴기"
                     className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded bg-white/70 text-label-2 opacity-0 shadow-sm transition-opacity hover:text-accent group-hover/sch:opacity-100"
                   >
                     <ChevronsRight size={14} strokeWidth={2} />
@@ -495,7 +497,7 @@ export default function ScheduleTable({
                 )}
                 {onResize && <ResizeHandle width={wSummary} onResize={(v) => onResize('summary', v)} />}
               </th>
-            )}
+            ) : null}
             {cols.map((f) => {
               const g = groupOf.get(f.id)
               if (g) {
@@ -529,7 +531,7 @@ export default function ScheduleTable({
                   className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
                 >
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && scheduleMode === 'full' && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(14, v))} />}
+                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(10, v))} />}
                 </th>
               ))}
             {cols
@@ -561,15 +563,6 @@ export default function ScheduleTable({
                           <span className="whitespace-pre-line break-words">{g.l2}</span>
                           {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
-                          {onAddRow && (
-                            <button
-                              onClick={() => onAddRow(g.l2)}
-                              className="mt-1.5 text-[0.85em] font-semibold text-accent hover:underline"
-                              title="이 L2에 과제(L3) 추가"
-                            >
-                              + 추가
-                            </button>
-                          )}
                         </div>
                       </td>
                     )}
@@ -627,12 +620,12 @@ export default function ScheduleTable({
                                     if (e.button !== 0) return
                                     e.preventDefault()
                                     dragRow.current = v.row.key
-                                    onPaint(v.row, x.key)
+                                    onPaint(v.row, x.key, true)
                                   }
                                 : undefined
                             }
                             onMouseEnter={(e) => {
-                              if (editing && dragRow.current === v.row.key) onPaint(v.row, x.key)
+                              if (editing && dragRow.current === v.row.key) onPaint(v.row, x.key, false)
                               if (note) showNote(e, note)
                             }}
                             onMouseLeave={note ? () => showNote(null, '') : undefined}
@@ -654,7 +647,7 @@ export default function ScheduleTable({
                           </td>
                         )
                       })
-                    ) : (
+                    ) : showSummary ? (
                       <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-[2px] text-[0.85em] leading-tight text-label-2">
                         {(() => {
                           const pr = planRange(v.cells, allWeekCols)
@@ -671,7 +664,7 @@ export default function ScheduleTable({
                           )
                         })()}
                       </td>
-                    )}
+                    ) : null}
                     {cols.map((f) => (
                       <FieldCell
                         key={f.id}
@@ -692,7 +685,7 @@ export default function ScheduleTable({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={2 + (scheduleOpen ? weekCols.length : 1) + cols.length} className="px-4 py-12 text-left text-[13px] text-label-3">
+              <td colSpan={2 + (scheduleOpen ? weekCols.length : showSummary ? 1 : 0) + cols.length} className="px-4 py-12 text-left text-[13px] text-label-3">
                 <span className="sticky left-4">조건에 맞는 과제가 없습니다. 머리글 필터나 찾기를 확인해 주세요.</span>
               </td>
             </tr>
@@ -771,6 +764,28 @@ export default function ScheduleTable({
                 >
                   메모 삭제
                 </button>
+              )}
+              {onAddRow && (
+                <>
+                  <div className="mac-menu-sep" />
+                  {(
+                    [
+                      ['above', '위에 과제 추가'],
+                      ['below', '아래에 과제 추가'],
+                    ] as const
+                  ).map(([where, label]) => (
+                    <button
+                      key={where}
+                      onClick={() => {
+                        onAddRow(menu.row, where)
+                        setMenu(null)
+                      }}
+                      className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </>
               )}
               {menu.row.isNew && onDeleteRow && (
                 <button

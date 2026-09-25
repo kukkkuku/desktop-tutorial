@@ -2,13 +2,13 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
+import { CalendarRange, CloudUpload, Pencil, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Spinner from '../Spinner'
 import { ic, icSm } from '../ui/icon'
-import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
+import { parseSheet, type ParsedSheet, type RawSheet, type WeekFill } from '../../utils/sheetImport'
 import {
   chooseSheetsAccountNext,
   fetchSheetFormats,
@@ -40,12 +40,13 @@ import {
   effectiveNote,
   loadProgress,
   makeNewRow,
-  newRowAsRow,
+  orderWithNewRows,
   saveDrafts,
   saveProgressData,
   setCellEdit,
   setBgEdit,
   setFieldEdit,
+  paintCells,
   setNoteEdit,
   toProgressRows,
   type Drafts,
@@ -70,7 +71,8 @@ const MONTHS: { label: string; p: Period }[] = Array.from({ length: 12 }, (_, i)
 function periodLabel(p: Period): string {
   return [...PERIOD_BUTTONS, ...QUARTERS, ...MONTHS].find((x) => x.p.start === p.start && x.p.months === p.months)?.label ?? `${p.start}월~`
 }
-const TOOLS: PaintTool[] = ['S-plan', 'plan', 'F', 'S', 'actual', '완']
+// 범례에 보이는 칸 종류(착수 계획 · 계획 기간 · 완료 계획 · 착수 · 진행 기간 · 완료)
+const LEGEND: PaintTool[] = ['S-plan', 'plan', 'F', 'S', 'actual', '완']
 
 function splitPeople(raw: string): string[] {
   return raw
@@ -155,7 +157,8 @@ export default function ProgressBoard() {
   const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
-  const [tool, setTool] = useState<PaintTool>('S')
+  // 칠하기 도구: 회색(계획) / 분홍(실적)
+  const [tool, setTool] = useState<WeekFill>('plan')
   // 행 지브라(기본 흰색) · 열 폭 -- 이 브라우저에 기억
   const [zebra, setZebraState] = useState<boolean>(() => {
     try {
@@ -194,18 +197,18 @@ export default function ProgressBoard() {
   // 일정 보기 단계: 전체 펴기 / 줄여보기 / 숨기기 -- 이 브라우저에 기억
   const [scheduleMode, setScheduleModeState] = useState<ScheduleMode>(() => {
     try {
-      const v = localStorage.getItem('progress-board:schedule')
-      return v === 'full' || v === 'hidden' ? v : 'compact'
+      const v = localStorage.getItem('progress-board:schedule-view')
+      return v === 'compact' || v === 'hidden' ? v : 'full'
     } catch {
-      return 'compact'
+      return 'full'
     }
   })
-  const lastShownMode = useRef<ScheduleMode>(scheduleMode === 'hidden' ? 'compact' : scheduleMode)
+  const lastShownMode = useRef<ScheduleMode>(scheduleMode === 'hidden' ? 'full' : scheduleMode)
   function setScheduleMode(m: ScheduleMode) {
     if (m !== 'hidden') lastShownMode.current = m
     setScheduleModeState(m)
     try {
-      localStorage.setItem('progress-board:schedule', m)
+      localStorage.setItem('progress-board:schedule-view', m)
     } catch {
       // 기억 못 해도 지금 화면에는 반영
     }
@@ -360,24 +363,27 @@ export default function ProgressBoard() {
   })
 
   // 한 줄의 칸·열 값 고치기(기존 행은 edits, 새 과제는 newRows에)
-  function paintCell(row: ProgressRow, key: string) {
-    const cell = TOOL_CELL[tool]
+  // 칠하기: 누른 칸부터 끈 칸까지 한 번의 되돌리기 단계로 묶는다.
+  const stroke = useRef(0)
+  function paintCell(row: ProgressRow, key: string, click: boolean) {
+    if (click) stroke.current += 1
+    const weekKeys = data?.weekCols.map((w) => w.key) ?? []
     updateDrafts((d) => {
       if (row.isNew) {
         const id = row.key.slice(NEW_PREFIX.length)
-        return {
-          ...d,
-          newRows: d.newRows.map((n) => {
-            if (n.id !== id) return n
-            const cells = { ...n.cells }
-            if (cell.m || cell.f) cells[key] = cell
-            else delete cells[key]
-            return { ...n, cells }
-          }),
-        }
+        return { ...d, newRows: d.newRows.map((n) => (n.id === id ? { ...n, cells: paintCells(n.cells, weekKeys, key, tool, click) } : n)) }
       }
-      return { ...d, edits: setCellEdit(d.edits, row, key, cell) }
-    }, `paint:${row.key}`)
+      const before = effectiveCells(row, d.edits[row.key])
+      const after = paintCells(before, weekKeys, key, tool, click)
+      let edits = d.edits
+      for (const k of new Set([...Object.keys(before), ...Object.keys(after)])) {
+        const x = before[k]
+        const y = after[k]
+        if (x?.m === y?.m && x?.f === y?.f) continue
+        edits = setCellEdit(edits, row, k, y ?? { m: '', f: null })
+      }
+      return { ...d, edits }
+    }, `paint:${stroke.current}`)
   }
   function setField(row: ProgressRow, id: string, value: string) {
     updateDrafts((d) => {
@@ -411,10 +417,9 @@ export default function ProgressBoard() {
       return { ...d, edits: setNoteEdit(d.edits, row, key, note) }
     })
   }
-  function addRow(l2: string) {
-    const src = (data?.rows ?? []).find((r) => r.l2 === l2 && r.l1 === l1)
-    if (!src) return
-    const n = makeNewRow({ l1: src.l1, l2: src.l2, l2Tag: src.l2Tag, h: src.h })
+  // 우클릭한 행의 위/아래에 새 과제
+  function addRow(row: ProgressRow, where: 'above' | 'below') {
+    const n = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, { key: row.key, where })
     updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
     setOpenKey(NEW_PREFIX + n.id)
   }
@@ -507,12 +512,11 @@ export default function ProgressBoard() {
   const currentKey = currentWeekKey(data.weekCols, data.year, now)
   const q = query.trim().toLowerCase()
   // 새 과제는 그 L2의 마지막 줄 바로 아래에 보여 준다(저장하면 시트에서도 그 자리).
-  const newRowsHere = drafts.newRows.filter((n) => n.l1 === l1).map(newRowAsRow)
-  const ordered: ProgressRow[] = []
-  tabRows.forEach((r, i) => {
-    ordered.push(r)
-    if (tabRows[i + 1]?.l2 !== r.l2) ordered.push(...newRowsHere.filter((n) => n.l2 === r.l2))
-  })
+  // 새 과제는 우클릭한 행의 위/아래에(저장하면 시트에서도 그 자리)
+  const ordered: ProgressRow[] = orderWithNewRows(
+    tabRows,
+    drafts.newRows.filter((n) => n.l1 === l1),
+  )
   const fieldIds = data.fields.map((f) => f.id)
   const viewOf = (row: ProgressRow): ScheduleRowView => {
     const e = row.isNew ? undefined : edits[row.key]
@@ -586,7 +590,6 @@ export default function ProgressBoard() {
     }
     return seen.size <= 60 ? Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko')) : []
   }
-  const l2OfTab = Array.from(new Map(tabRows.map((r) => [r.l2, r])).values())
   const editCount = countDrafts(drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
@@ -721,36 +724,43 @@ export default function ProgressBoard() {
           </button>
         </span>
         <span className="h-5 w-px shrink-0 bg-separator" />
-        {/* 범례 / 칠하기 도구: 색 아이콘만, 이름은 마우스를 올리면 */}
+        {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면 */}
+        <Button
+          variant={editing ? 'primary' : 'secondary'}
+          size="sm"
+          onClick={() => setEditing((v) => !v)}
+          title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
+        >
+          <Pencil {...icSm} />
+          {editing ? '입력 끝내기' : '입력하기'}
+        </Button>
         <span className="flex items-center gap-1">
-          {TOOLS.map((t) =>
-            editing ? (
-              <button
-                key={t}
-                onClick={() => setTool(t)}
-                title={`${cellLabel(TOOL_CELL[t])} 칠하기`}
-                aria-label={cellLabel(TOOL_CELL[t])}
-                className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === t ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-transparent hover:bg-black/[0.05]'}`}
-              >
-                <CellSwatch cell={TOOL_CELL[t]} size={18} />
-              </button>
-            ) : (
-              <span key={t} title={cellLabel(TOOL_CELL[t])} className="flex h-8 w-6 items-center justify-center">
-                <CellSwatch cell={TOOL_CELL[t]} size={16} />
-              </span>
-            ),
-          )}
           {editing ? (
-            <button
-              onClick={() => setTool('erase')}
-              title="지우개"
-              aria-label="지우개"
-              className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === 'erase' ? 'border-accent bg-accent-soft text-accent ring-1 ring-accent' : 'border-transparent text-label-2 hover:bg-black/[0.05]'}`}
-            >
-              <Eraser {...ic} />
-            </button>
+            <>
+              {(
+                [
+                  ['plan', '계획(회색) 칠하기'],
+                  ['actual', '실적(분홍) 칠하기'],
+                ] as const
+              ).map(([c, label]) => (
+                <button
+                  key={c}
+                  onClick={() => setTool(c)}
+                  title={`${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움`}
+                  aria-label={label}
+                  className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
+                >
+                  <CellSwatch cell={{ m: '', f: c }} size={18} />
+                </button>
+              ))}
+            </>
           ) : (
             <>
+              {LEGEND.map((t) => (
+                <span key={t} title={cellLabel(TOOL_CELL[t])} className="flex h-8 w-8 items-center justify-center rounded-control border border-hairline">
+                  <CellSwatch cell={TOOL_CELL[t]} size={18} />
+                </span>
+              ))}
               <span title="현재 주" className="flex h-8 w-5 items-center justify-center">
                 <span className="h-4 border-l border-dashed border-[#E8342A]" />
               </span>
@@ -758,6 +768,12 @@ export default function ProgressBoard() {
                 <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
               </span>
             </>
+          )}
+          {scheduleMode === 'hidden' && (
+            <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
+              <CalendarRange {...icSm} />
+              일정 열기
+            </Button>
           )}
         </span>
         <span className="ml-auto flex items-center gap-2">
@@ -800,20 +816,6 @@ export default function ProgressBoard() {
               </Button>
             </>
           )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)}
-            disabled={!l2OfTab.length}
-            title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다"
-          >
-            <Plus {...icSm} />
-            과제 추가
-          </Button>
-          <Button variant={editing ? 'primary' : 'secondary'} size="sm" onClick={() => setEditing((v) => !v)}>
-            <Pencil {...icSm} />
-            {editing ? '입력 끝내기' : '입력하기'}
-          </Button>
         </span>
       </div>
 
@@ -844,7 +846,7 @@ export default function ProgressBoard() {
             optionsOf={optionsOf}
             headerStyle={data.headerStyle}
             scheduleMode={scheduleMode}
-            onToggleSchedule={() => setScheduleMode(scheduleMode === 'hidden' ? lastShownMode.current : 'hidden')}
+            onToggleSchedule={() => setScheduleMode(scheduleMode === 'full' ? 'compact' : 'full')}
             onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
             allWeekCols={data.weekCols}
             onBg={setBg}
