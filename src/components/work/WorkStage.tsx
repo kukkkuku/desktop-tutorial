@@ -27,6 +27,7 @@ import {
   moveColumns,
   moveGroup,
   moveItems,
+  moveItemsToGroup,
   newWorkItem,
   optionsForColumn,
   setCellText,
@@ -246,6 +247,35 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
 
   const groupItems = useMemo(() => (activeGroup ? itemsOfGroup(board, activeGroup.id) : []), [board, activeGroup])
+  // ---------- 다른 L2로 옮기기(행을 L2 탭에 끌어다 놓기) ----------
+  const [rowDropTab, setRowDropTab] = useState<string | null>(null)
+  // 마지막으로 옮긴 행: 그 L2에서 주황 상자로 보여 준다(다음에 옮기거나 새로고침하면 사라짐).
+  const [moved, setMoved] = useState<{ groupId: string; ids: Set<string> } | null>(null)
+  function tabAt(x: number, y: number): string | null {
+    const el = document.elementFromPoint(x, y)?.closest('[data-l2-tab]')
+    return el?.getAttribute('data-l2-tab') ?? null
+  }
+  const rowDragOutside = {
+    move: (_ids: string[], x: number, y: number) => {
+      const t = tabAt(x, y)
+      const target = t && t !== activeGroup?.id ? t : null
+      setRowDropTab(target)
+      return !!t
+    },
+    drop: (ids: string[], x: number, y: number) => {
+      setRowDropTab(null)
+      const t = tabAt(x, y)
+      if (!t) return false
+      if (t === activeGroup?.id || ids.length === 0) return true
+      // 묶음 하위 행만 옮겨도 묶음 이름은 그대로(다른 L2에 걸친 묶음이 된다).
+      apply(moveItemsToGroup(board, ids, t))
+      setMoved({ groupId: t, ids: new Set(ids) })
+      const name = board.groups.find((g) => g.id === t)?.name ?? ''
+      showToast(`L3 ${ids.length}건을 「${name}」로 옮겼습니다.`, true)
+      return true
+    },
+  }
+
   // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { viewRows, headerAt, numbers, ranges } = useMemo(() => {
@@ -630,6 +660,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 setDragTab(null)
               }}
               onDragEnd={() => setDragTab(null)}
+              data-l2-tab={g.id}
               onClick={() => setActiveGroupId(g.id)}
               onDoubleClick={() => setRenamingGroup(g.id)}
               onContextMenu={(e) => {
@@ -640,7 +671,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 on
                   ? 'border-[#D6DAE0] border-b-white bg-white font-bold text-black'
                   : 'border-transparent bg-[#E7EAF0] font-medium text-gray-600 hover:bg-[#DDE1E8]'
-              } ${dragTab?.over === idx && dragTab.id !== g.id ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
+              } ${dragTab?.over === idx && dragTab.id !== g.id ? 'shadow-[inset_3px_0_0_#F97316]' : ''} ${
+                rowDropTab === g.id ? '!border-orange-400 !bg-orange-50 ring-2 ring-orange-300' : ''
+              }`}
               title={[g.h, g.l1, g.name].filter(Boolean).join(' › ')}
             >
               {renamingGroup === g.id ? (
@@ -665,6 +698,23 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   {g.tag && <span className="shrink-0 rounded bg-[#14161A] px-1.5 text-[11px] font-bold leading-5 text-white">{g.tag}</span>}
                   <span className="truncate">{g.name}</span>
                   <span className={`shrink-0 text-xs tabular-nums ${on ? 'text-gray-400' : 'text-gray-400'}`}>{count}</span>
+                  {!on && moved?.groupId === g.id && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="옮겨 온 과제가 있습니다" />}
+                  <button
+                    draggable={false}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeletingGroup(g)
+                    }}
+                    title="이 L2 삭제(과제관리에서만, 구글시트는 그대로)"
+                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-200 hover:text-black ${
+                      on ? '' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
+                    <svg viewBox="0 0 12 12" width="10" height="10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                      <path d="M2.5 2.5l7 7M9.5 2.5l-7 7" />
+                    </svg>
+                  </button>
                 </>
               )}
             </div>
@@ -835,6 +885,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onDeleteRows={removeRows}
             onMoveRows={filtered ? undefined : moveRows}
             onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
+            onRowDragOutside={rowDragOutside}
+            highlightRowIds={moved && moved.groupId === activeGroup.id ? moved.ids : undefined}
             onInsertColumn={insertColumn}
             onDeleteColumns={requestDeleteColumns}
             onHideColumns={(ids) => {
@@ -916,8 +968,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         title="L2 삭제"
         message={
           deletingGroup
-            ? `「${deletingGroup.name}」과 그 아래 L3 ${itemsOfGroup(board, deletingGroup.id).length}건을 지웁니다.${
-                deletingGroup.source === 'sheet' ? ' 시트 가져오기 선택 목록에서도 빠지므로, 다시 가져와도 되살아나지 않습니다.' : ''
+            ? `「${deletingGroup.name}」과 그 아래 L3 ${itemsOfGroup(board, deletingGroup.id).length}건을 이 앱의 과제관리에서 지웁니다. 구글시트 원본은 바뀌지 않습니다.${
+                deletingGroup.source === 'sheet' ? ' 시트 가져오기 선택 목록에서도 빠지므로, 다시 가져와도 되살아나지 않습니다(가져오기에서 다시 고르면 됩니다).' : ''
               } 바로 뒤라면 되돌리기(⌘Z)로 살릴 수 있습니다.`
             : ''
         }

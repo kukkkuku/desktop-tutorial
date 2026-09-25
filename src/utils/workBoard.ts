@@ -241,6 +241,18 @@ export function insertItems(board: WorkBoard, groupId: string, index: number, ne
   return { ...board, items }
 }
 
+// 다른 L2로 옮기기: 그 L2 맨 끝에 붙인다. 시트 행은 editedAt.l2를 찍어 다시 가져와도 제자리로
+// 돌아가지 않게 한다(사람이 옮긴 위치가 우선).
+export const EDIT_L2 = 'l2'
+export function moveItemsToGroup(board: WorkBoard, ids: string[], groupId: string): WorkBoard {
+  const set = new Set(ids)
+  const moving = board.items.filter((i) => set.has(i.id) && i.groupId !== groupId).map((i) => ({ ...i, groupId, editedAt: stamp(i, EDIT_L2) }))
+  if (moving.length === 0) return board
+  const movingIds = new Set(moving.map((i) => i.id))
+  const rest = { ...board, items: board.items.filter((i) => !movingIds.has(i.id)) }
+  return insertItems(rest, groupId, itemsOfGroup(rest, groupId).length, moving)
+}
+
 // 시트에서 온 행을 지우면 그 키를 기억해 두고 다시 가져올 때 건너뛴다.
 export function deleteItems(board: WorkBoard, ids: string[]): WorkBoard {
   const set = new Set(ids)

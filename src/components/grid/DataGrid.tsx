@@ -82,6 +82,11 @@ interface DataGridProps<R extends { id: string }> {
     title?: (row: R) => string | undefined
     onToggle: (rows: R[], on: boolean) => void
   }
+  // 행을 끌어 표 밖(예: L2 탭)에 놓기. move는 끄는 동안 계속 불리고 표 밖 대상 위면 true를
+  // 돌려준다(그동안 표 안 삽입선은 숨김). drop이 true면 표 안 이동은 하지 않는다.
+  onRowDragOutside?: { move: (ids: string[], x: number, y: number) => boolean; drop: (ids: string[], x: number, y: number) => boolean }
+  // 주황 상자로 강조할 행(예: 다른 L2에서 옮겨 온 행). 이어진 행은 한 상자로 그린다.
+  highlightRowIds?: Set<string>
   // 번호 칸 너비 등 화면 설정을 브라우저에 기억할 때 쓰는 이름
   storageKey?: string
   addRowLabel?: string
@@ -374,6 +379,24 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (sel) setHeadSel(null)
   }, [sel])
 
+  // 표 밖 빈 곳을 누르면 선택을 푼다(편집 중이면 저장하고). 목록 팝업·메뉴 안은 제외.
+  const outsideRef = useRef<() => void>(() => {})
+  outsideRef.current = () => {
+    if (editing) commitEdit()
+    setSel(null)
+    setActive(null)
+    setHeadSel(null)
+  }
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      const t = e.target as HTMLElement | null
+      if (!t || wrapRef.current?.contains(t) || t.closest('[data-grid-popup]')) return
+      outsideRef.current()
+    }
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [])
+
   // ---------- 선택 범위 ----------
 
   const range = useMemo(() => {
@@ -607,7 +630,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     function onMove(e: MouseEvent) {
       const d = drag.current
       if (!d) return
-      if (d.kind === 'rows' && d.moving) {
+      if (d.kind === 'rows' && d.moving && props.onRowDragOutside?.move(d.ids ?? selectedRowIds, e.clientX, e.clientY)) {
+        setDragInsert(null)
+      } else if (d.kind === 'rows' && d.moving) {
         // 행 드래그 이동: 마우스 아래 행 경계에 삽입선
         // 데이터 행과 묶음 머리 행(접힌 묶음 포함)을 화면 순서대로 놓고 경계를 찾는다.
         const slots: { top: number; mid: number; index: number; headKey?: string; beforeId: string | null }[] = []
@@ -637,9 +662,15 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         setDragInsert({ kind: 'col', index })
       }
     }
-    function onUp() {
+    function onUp(e: MouseEvent) {
       const d = drag.current
       drag.current = null
+      if (d?.kind === 'rows' && d.moving && props.onRowDragOutside?.drop(d.ids ?? selectedRowIds, e.clientX, e.clientY)) {
+        setDragInsert(null)
+        setSel(null)
+        setActive(null)
+        return
+      }
       if (d?.moving && dragInsert) {
         if (d.kind === 'rows' && dragInsert.kind === 'row' && (d.ids || dragInsert.headKey) && props.onMoveRowsBefore) {
           // 묶음 머리 행을 끌어 옮기거나(접힌 하위 포함 묶음 전체), 묶음 머리 행 앞에 놓음.
@@ -894,6 +925,21 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const checkable = check ? rows.filter((r) => !check.isDisabled?.(r)) : []
   const allChecked = checkable.length > 0 && checkable.every((r) => check!.isChecked(r))
   const someChecked = checkable.some((r) => check!.isChecked(r))
+  const hl = props.highlightRowIds
+  function hlShadow(r: number, left: boolean, right: boolean): string | undefined {
+    if (!hl?.has(rows[r]?.id)) return undefined
+    const o = '#F97316'
+    return [
+      !hl.has(rows[r - 1]?.id) && `inset 0 2px 0 ${o}`,
+      !hl.has(rows[r + 1]?.id) && `inset 0 -2px 0 ${o}`,
+      left && `inset 2px 0 0 ${o}`,
+      right && `inset -2px 0 0 ${o}`,
+    ]
+      .filter(Boolean)
+      .join(', ')
+  }
+  const mix = (...xs: (string | undefined)[]) => xs.filter(Boolean).join(', ') || undefined
+
   // 선택 범위가 묶음 하위 행을 모두 덮으면 머리 행도 선택된 것으로 그린다.
   const selLo = sel?.t === 'rows' ? lo(sel.a, sel.b) : -1
   const selHi = sel?.t === 'rows' ? hi(sel.a, sel.b) : -1
@@ -1115,7 +1161,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
                       onContextMenu={(e) => openMenu(e, 'row', r)}
-                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
+                      style={{ boxShadow: mix(rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined, hlShadow(r, true, false)) }}
                       className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
                         rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                       }`}
@@ -1130,7 +1176,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     {check && (
                       <td
                         onMouseDown={(e) => e.stopPropagation()}
-                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined }}
+                        style={{ boxShadow: mix(rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined, hlShadow(r, false, false)) }}
                         className={`border-b border-r border-dotted border-[#C9CDD3] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
                         title={check.title?.(row)}
                       >
@@ -1160,7 +1206,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
+                          style={{ boxShadow: mix(cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), hlShadow(r, false, c === nC - 1)) }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
                             inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
@@ -1262,6 +1308,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             popPos &&
             createPortal(
               <div
+                data-grid-popup
                 role="listbox"
                 aria-multiselectable={activeCol.picker.multi ? 'true' : undefined}
                 onMouseDown={(e) => e.preventDefault()}

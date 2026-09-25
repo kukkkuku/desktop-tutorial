@@ -10,6 +10,7 @@ import {
   COL_CATEGORY,
   COL_EVAL_GROUP,
   COL_NAME,
+  EDIT_L2,
   SYSTEM_COLUMNS,
   isTaskCategory,
   isWeekMark,
@@ -508,8 +509,10 @@ export function applySheetImport(
       continue
     }
     const edited = prev.editedAt ?? {}
-    let next: WorkItem = { ...prev, groupId: group.id, missingInSheet: undefined }
-    let changed = prev.missingInSheet === true || prev.groupId !== group.id
+    // 앱에서 다른 L2로 옮긴 행은 그 자리를 지킨다.
+    const keepL2 = !!edited[EDIT_L2] && prev.groupId !== group.id && groups.some((g) => g.id === prev.groupId)
+    let next: WorkItem = { ...prev, groupId: keepL2 ? prev.groupId : group.id, missingInSheet: undefined }
+    let changed = prev.missingInSheet === true || (!keepL2 && prev.groupId !== group.id)
     if (edited[COL_CATEGORY]) keptEdits += (prev.category ?? prev.categoryRaw ?? '') !== catRaw ? 1 : 0
     else if (prev.category !== category || (prev.categoryRaw ?? '') !== (category ? '' : catRaw)) {
       next = { ...next, category, categoryRaw: category ? undefined : catRaw || undefined }
