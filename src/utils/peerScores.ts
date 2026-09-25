@@ -3,7 +3,7 @@
 // calcPeerReviewFactor가 한꺼번에 평균 낸다(docs/DATA-MODEL.md "피어리뷰 점수 반영").
 //
 // 규칙
-//  - 순위 → 상대 위치 p = (순위-1)/(인원-1), 점수 = 100 - 40p (1위 100 = S급, 꼴찌 60 = D급)
+//  - 순위 → 한 계단에 10점: 1위 100(S급) · 2위 90 · 3위 80 · 4위 70 · 5위 이하 60(D급)
 //  - 기여도 → 그 과제·그 평가자 안에서 많이 받은 순서를 순위로 보고 같은 식(같은 값은 평균 순위)
 //  - 본인이 본인에게 준 값은 점수에서 뺀다(목록 크기 계산에는 포함)
 //  - 비교 대상이 없으면(인원 1) 뺀다
@@ -14,8 +14,7 @@ import type { PeerScore } from './calculations'
 
 export function rankToScore(rank: number, size: number): number | null {
   if (size < 2) return null
-  const p = (rank - 1) / (size - 1)
-  return 100 - 40 * Math.max(0, Math.min(1, p))
+  return Math.max(60, 100 - 10 * (rank - 1))
 }
 
 // 값이 클수록 높은 순위(기여도). 같은 값은 평균 순위.

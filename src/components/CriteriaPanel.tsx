@@ -293,7 +293,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   const peerReviewDescription =
     rw === 0
       ? '사용 안 함 — 켜면 피어리뷰(순위·과제별)가 점수에 반영됩니다.'
-      : `받은 피어리뷰 평균이 1위·S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, 꼴찌·D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배 (본인 평가 제외)`
+      : `받은 피어리뷰 평균이 1위·S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, 5위 이하·D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배 (순위 한 계단 10점, 본인 평가 제외)`
 
   const cw = criteria.contributionWeight
   const contributionDescription =

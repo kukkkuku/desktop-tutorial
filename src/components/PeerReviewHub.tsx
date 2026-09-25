@@ -37,7 +37,7 @@ export default function PeerReviewHub() {
         </span>
         <span
           className={`ml-auto rounded-full px-2.5 py-1 text-xs font-medium ${weight > 0 ? 'bg-blue-50 text-accent' : 'bg-gray-100 text-gray-500'}`}
-          title="두 방식의 결과를 합쳐 점수에 반영합니다. 1위 = 100점(S급) … 꼴찌 = 60점(D급), 본인 평가 제외. 비율은 기준설정의 '피어리뷰'에서 바꿉니다."
+          title="두 방식의 결과를 합쳐 점수에 반영합니다. 1위 100 · 2위 90 · 3위 80 · 4위 70 · 5위 이하 60점(등급 S~D와 같은 척도), 본인 평가 제외. 비율은 기준설정의 '피어리뷰'에서 바꿉니다."
         >
           {weight > 0 ? `점수 반영 ${weight}%` : '점수 반영 안 함 · 기준설정에서 켜기'}
         </span>
