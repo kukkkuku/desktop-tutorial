@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowRight, Info, Plus, X } from 'lucide-react'
+import { Info, Plus, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -539,48 +539,40 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               </div>
             </div>
 
-            {promotionCriteria && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center rounded-card bg-[#F7F7F9] px-3 py-2">
-                  <div>
-                    <p className="text-[13px] text-label-2">승진자격 점수</p>
-                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(1)}점</p>
+            {promotionCriteria &&
+              (() => {
+                const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
+                const met = gap >= 0
+                return (
+                  <div className="flex items-stretch gap-2" title={`${reviewYear}년 심사 기준 · 입력 안 한 해는 입력한 해의 평균 실적으로 채운 예상치`}>
+                    <div className="rounded-card border border-separator bg-white px-3.5 py-2">
+                      <p className="text-xs text-label-2">목표 점수</p>
+                      <p className="mt-0.5 text-[17px] font-semibold tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(0)}점</p>
+                    </div>
+                    <div className="rounded-card border border-separator bg-white px-3.5 py-2">
+                      <p className="text-xs text-label-2">현재 점수 + 시뮬레이션 가산</p>
+                      <p className="mt-0.5 text-[17px] font-semibold tabular-nums">
+                        <span className="text-label">{currentWeightedScore.toFixed(1)}점</span>
+                        <span className="ml-1.5 text-accent">
+                          {simDelta >= 0 ? '+' : '−'}
+                          {Math.abs(simDelta).toFixed(1)}
+                        </span>
+                      </p>
+                    </div>
+                    <div className={`rounded-card border bg-white px-3.5 py-2 ${met ? 'border-success' : 'border-warning'}`}>
+                      <p className="text-xs text-label-2">
+                        최종 기대 점수 <span className="text-label-3">({reviewYear}년)</span>
+                      </p>
+                      <p className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-[17px] font-semibold tabular-nums text-label">{projectedTotal.toFixed(1)}점</span>
+                        <span className={`text-xs font-semibold ${met ? 'text-success' : 'text-warning'}`}>
+                          {met ? `+${gap.toFixed(1)}점 충족` : `-${Math.abs(gap).toFixed(1)}점 필요`}
+                        </span>
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 rounded-card bg-[#F7F7F9] px-3 py-2">
-                  <div>
-                    <p className="text-[13px] text-label-2">현재 점수</p>
-                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-label">{currentWeightedScore.toFixed(1)}점</p>
-                  </div>
-                  <Plus size={20} strokeWidth={1.75} className="text-label-3" aria-hidden="true" />
-                  <div>
-                    <p className="flex items-center gap-1 text-[13px] text-label-2" title="승급심사 예정년도까지 남은 미입력 연도를 기존 실적 평균으로 예측한 만큼의 증가분입니다.">
-                      시뮬레이션 가산
-                      <Info size={13} strokeWidth={1.75} className="shrink-0" />
-                    </p>
-                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-accent">
-                      {simDelta >= 0 ? '+' : ''}
-                      {simDelta.toFixed(1)}점
-                    </p>
-                  </div>
-                </div>
-                <ArrowRight {...icSm} className="shrink-0 text-label-3" aria-hidden="true" />
-                <div className="flex items-center rounded-card bg-warning/10 px-3 py-2">
-                  <div>
-                    <p className="text-[13px] text-label-2">최종 시뮬레이션 점수 ({reviewYear}년)</p>
-                    <p className="mt-1.5 text-[26px] font-semibold leading-none tabular-nums text-warning">{projectedTotal.toFixed(1)}점</p>
-                    {(() => {
-                      const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
-                      return (
-                        <p className={`mt-1 text-xs font-semibold ${gap >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {gap >= 0 ? `+${gap.toFixed(1)}점 충족` : `${Math.abs(gap).toFixed(1)}점 부족`}
-                        </p>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )}
+                )
+              })()}
           </div>
 
           {/* 개인 메모 -- 대학원 재학, 육아, 휴가 계획처럼 성과 데이터로는 안
