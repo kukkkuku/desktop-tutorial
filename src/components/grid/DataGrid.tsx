@@ -84,9 +84,8 @@ interface DataGridProps<R extends { id: string }> {
   }
   // 행을 끌어 표 밖(예: L2 탭)에 놓기. move는 끄는 동안 계속 불리고 표 밖 대상 위면 true를
   // 돌려준다(그동안 표 안 삽입선은 숨김). drop이 true면 표 안 이동은 하지 않는다.
-  onRowDragOutside?: { move: (ids: string[], x: number, y: number) => boolean; drop: (ids: string[], x: number, y: number) => boolean }
-  // 주황 상자로 강조할 행(예: 다른 L2에서 옮겨 온 행). 이어진 행은 한 상자로 그린다.
-  highlightRowIds?: Set<string>
+  // move: 표 밖 대상 위면 고스트에 보일 안내(빈 문자열 가능), 아니면 null
+  onRowDragOutside?: { move: (ids: string[], x: number, y: number) => string | null; drop: (ids: string[], x: number, y: number) => boolean }
   // 번호 칸 너비 등 화면 설정을 브라우저에 기억할 때 쓰는 이름
   storageKey?: string
   addRowLabel?: string
@@ -95,6 +94,7 @@ interface DataGridProps<R extends { id: string }> {
 
 export interface GroupHeaderRow {
   key: string
+  label?: string // 끌 때 고스트에 보일 이름
   // 펼친 묶음의 데이터 행 범위(번호 칸을 누르면 이 범위를 행 선택). 접혀 있으면 null.
   rowRange: [number, number] | null
   // 번호 칸을 잡고 끌면 옮길 행 id(접혀 있어도 묶음 전체)
@@ -217,7 +217,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>())
   const headRefs = useRef(new Map<number, HTMLTableCellElement>())
   const rowRefs = useRef(new Map<number, HTMLTableRowElement>())
-  const drag = useRef<null | { kind: 'cells' | 'rows' | 'cols'; anchor: number; anchorC?: number; moving?: boolean; ids?: string[]; start?: { x: number; y: number } }>(null)
+  const drag = useRef<null | { kind: 'cells' | 'rows' | 'cols'; anchor: number; anchorC?: number; moving?: boolean; ids?: string[]; label?: string; start?: { x: number; y: number } }>(null)
+  // 행을 끄는 동안 마우스를 따라다니는 고스트(노션처럼). 위치는 ref로 직접 옮겨 다시 그리지 않는다.
+  const [ghost, setGhost] = useState<{ label: string; count: number; hint: string | null; x: number; y: number } | null>(null)
+  const ghostRef = useRef<HTMLDivElement>(null)
   const [sinkBox, setSinkBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [sinkValue, setSinkValue] = useState('')
   const composing = useRef(false)
@@ -631,9 +634,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     function onMove(e: MouseEvent) {
       const d = drag.current
       if (!d) return
-      if (d.kind === 'rows' && d.moving && props.onRowDragOutside?.move(d.ids ?? selectedRowIds, e.clientX, e.clientY)) {
-        setDragInsert(null)
-      } else if (d.kind === 'rows' && d.moving) {
+      let outside = false
+      if (d.kind === 'rows' && d.moving) {
+        const ids = d.ids ?? selectedRowIds
+        const hint = props.onRowDragOutside?.move(ids, e.clientX, e.clientY) ?? null
+        outside = hint !== null
+        const firstRow = rows.find((x) => ids.includes(x.id))
+        const label = d.label ?? (firstRow && columns[0] ? getText(firstRow, columns[0].id) : '')
+        setGhost((g) => (g && g.hint === hint && g.label === label && g.count === ids.length ? g : { label, count: ids.length, hint, x: g?.x ?? e.clientX, y: g?.y ?? e.clientY }))
+        if (ghostRef.current) ghostRef.current.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 10}px)`
+      }
+      if (outside) {
+        setDragInsert(null)      } else if (d.kind === 'rows' && d.moving) {
         // 행 드래그 이동: 마우스 아래 행 경계에 삽입선
         // 데이터 행과 묶음 머리 행(접힌 묶음 포함)을 화면 순서대로 놓고 경계를 찾는다.
         const slots: { top: number; mid: number; index: number; headKey?: string; beforeId: string | null }[] = []
@@ -666,6 +678,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     function onUp(e: MouseEvent) {
       const d = drag.current
       drag.current = null
+      setGhost(null)
       if (d?.kind === 'rows' && d.moving && props.onRowDragOutside?.drop(d.ids ?? selectedRowIds, e.clientX, e.clientY)) {
         setDragInsert(null)
         setSel(null)
@@ -771,7 +784,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     }
     // 이미 여러 개 골라 둔 것 중 하나를 잡으면 고른 것 전부를 옮긴다.
     if (headSel && headSel.keys.length > 1 && headSel.keys.includes(h.key)) {
-      if (props.onMoveRows) drag.current = { kind: 'rows', anchor: 0, moving: true, ids: headSel.ids }
+      if (props.onMoveRows) drag.current = { kind: 'rows', anchor: 0, moving: true, ids: headSel.ids, label: `묶음 ${headSel.keys.length}개` }
       return
     }
     if (h.rowRange) {
@@ -783,7 +796,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       setActive(null)
       setHeadSel({ keys: [h.key], ids: h.rowIds })
     }
-    if (props.onMoveRows) drag.current = { kind: 'rows', anchor: h.rowRange?.[0] ?? 0, moving: true, ids: h.rowIds }
+    if (props.onMoveRows) drag.current = { kind: 'rows', anchor: h.rowRange?.[0] ?? 0, moving: true, ids: h.rowIds, label: h.label }
     requestAnimationFrame(focusSink)
   }
 
@@ -952,20 +965,6 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const checkable = check ? rows.filter((r) => !check.isDisabled?.(r)) : []
   const allChecked = checkable.length > 0 && checkable.every((r) => check!.isChecked(r))
   const someChecked = checkable.some((r) => check!.isChecked(r))
-  const hl = props.highlightRowIds
-  function hlShadow(r: number, left: boolean, right: boolean): string | undefined {
-    if (!hl?.has(rows[r]?.id)) return undefined
-    const o = '#F97316'
-    return [
-      !hl.has(rows[r - 1]?.id) && `inset 0 2px 0 ${o}`,
-      !hl.has(rows[r + 1]?.id) && `inset 0 -2px 0 ${o}`,
-      left && `inset 2px 0 0 ${o}`,
-      right && `inset -2px 0 0 ${o}`,
-    ]
-      .filter(Boolean)
-      .join(', ')
-  }
-  const mix = (...xs: (string | undefined)[]) => xs.filter(Boolean).join(', ') || undefined
 
   // 선택 범위가 묶음 하위 행을 모두 덮으면 머리 행도 선택된 것으로 그린다.
   const selLo = sel?.t === 'rows' ? lo(sel.a, sel.b) : -1
@@ -1188,7 +1187,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                       onMouseEnter={() => onCellMouseEnter(r, 0)}
                       onContextMenu={(e) => openMenu(e, 'row', r)}
-                      style={{ boxShadow: mix(rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined, hlShadow(r, true, false)) }}
+                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
                       className={`h-9 cursor-pointer select-none border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums ${
                         rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                       }`}
@@ -1203,7 +1202,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     {check && (
                       <td
                         onMouseDown={(e) => e.stopPropagation()}
-                        style={{ boxShadow: mix(rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined, hlShadow(r, false, false)) }}
+                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, false, coveredTop(r)) : undefined }}
                         className={`border-b border-r border-dotted border-[#C9CDD3] text-center ${rowSelected ? 'bg-blue-50' : ''}`}
                         title={check.title?.(row)}
                       >
@@ -1233,7 +1232,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           onMouseEnter={() => onCellMouseEnter(r, c)}
                           onDoubleClick={() => startEdit()}
                           onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: mix(cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), hlShadow(r, false, c === nC - 1)) }}
+                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
                           className={`h-9 cursor-cell overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle ${
                             inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
@@ -1430,6 +1429,21 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       >
         ＋ {props.addRowLabel ?? '행 추가'}
       </button>
+
+      {ghost && (
+        <div
+          ref={ghostRef}
+          style={{ transform: `translate(${ghost.x + 14}px, ${ghost.y + 10}px)` }}
+          className="pointer-events-none fixed left-0 top-0 z-[60] flex max-w-[560px] items-center gap-2 rounded-md border border-gray-200 bg-white/90 px-3 py-1.5 text-[13px] font-semibold text-gray-800 opacity-90 shadow-[0_6px_20px_rgba(17,19,24,.18)]"
+        >
+          {ghost.hint != null && (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold leading-none text-white">+</span>
+          )}
+          <span className="min-w-[60px] max-w-[260px] truncate">{ghost.label || '(이름 없음)'}</span>
+          {ghost.count > 1 && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[11px] text-gray-500">{ghost.count}건</span>}
+          {ghost.hint && <span className="max-w-[220px] truncate text-xs font-medium text-accent">{ghost.hint}</span>}
+        </div>
+      )}
 
       {menu && (
         <div

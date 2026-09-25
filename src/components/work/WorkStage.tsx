@@ -249,18 +249,35 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const groupItems = useMemo(() => (activeGroup ? itemsOfGroup(board, activeGroup.id) : []), [board, activeGroup])
   // ---------- 다른 L2로 옮기기(행을 L2 탭에 끌어다 놓기) ----------
   const [rowDropTab, setRowDropTab] = useState<string | null>(null)
-  // 마지막으로 옮긴 행: 그 L2에서 주황 상자로 보여 준다(다음에 옮기거나 새로고침하면 사라짐).
-  const [moved, setMoved] = useState<{ groupId: string; ids: Set<string> } | null>(null)
+  // 마지막으로 옮긴 행: 그 L2에서 연한 주황 배경 + 과제명 옆 주황 점.
+  // 배경은 그 탭에서 다른 곳을 누르면 사라지고, 점은 잠시 뒤 사라진다.
+  const [moved, setMoved] = useState<{ groupId: string; ids: Set<string>; bg: boolean } | null>(null)
+  const viewingMoved = !!moved && moved.groupId === activeGroup?.id
+  useEffect(() => {
+    if (!viewingMoved) return
+    const timer = window.setTimeout(() => setMoved(null), 12000)
+    function clearBg() {
+      setMoved((m) => (m && m.bg ? { ...m, bg: false } : m))
+    }
+    // 탭을 누른 그 클릭은 건너뛰고, 다음 클릭부터
+    const t0 = window.setTimeout(() => window.addEventListener('mousedown', clearBg), 0)
+    return () => {
+      window.clearTimeout(timer)
+      window.clearTimeout(t0)
+      window.removeEventListener('mousedown', clearBg)
+    }
+  }, [viewingMoved])
   function tabAt(x: number, y: number): string | null {
     const el = document.elementFromPoint(x, y)?.closest('[data-l2-tab]')
     return el?.getAttribute('data-l2-tab') ?? null
   }
   const rowDragOutside = {
-    move: (_ids: string[], x: number, y: number) => {
+    move: (_ids: string[], x: number, y: number): string | null => {
       const t = tabAt(x, y)
       const target = t && t !== activeGroup?.id ? t : null
       setRowDropTab(target)
-      return !!t
+      if (!t) return null
+      return target ? `→ ${board.groups.find((g) => g.id === target)?.name ?? ''}` : ''
     },
     drop: (ids: string[], x: number, y: number) => {
       setRowDropTab(null)
@@ -269,7 +286,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       if (t === activeGroup?.id || ids.length === 0) return true
       // 묶음 하위 행만 옮겨도 묶음 이름은 그대로(다른 L2에 걸친 묶음이 된다).
       apply(moveItemsToGroup(board, ids, t))
-      setMoved({ groupId: t, ids: new Set(ids) })
+      setMoved({ groupId: t, ids: new Set(ids), bg: true })
       const name = board.groups.find((g) => g.id === t)?.name ?? ''
       showToast(`L3 ${ids.length}건을 「${name}」로 옮겼습니다.`, true)
       return true
@@ -353,6 +370,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       })
     return {
       key: g,
+      label: g,
       number: numbers.get(key),
       rowRange: collapsed.has(g) ? null : ranges.get(g) ?? null,
       rowIds: here.map((i) => i.id),
@@ -461,12 +479,25 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // 하위 과제(묶음 안 L3)의 과제명: ㄴ 표시 + 묶음에서 빼기 아이콘
   function renderCell(row: WorkItem, col: GridColumn) {
+    const dot = viewingMoved && moved!.ids.has(row.id) ? (
+      <span className="ml-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-orange-500 align-middle" title="방금 옮겨 온 과제" />
+    ) : null
+    if (col.id === COL_NAME && !evalGroupOf(row) && dot)
+      return (
+        <div className="whitespace-pre-line break-words py-1.5 leading-snug">
+          {row.name}
+          {dot}
+        </div>
+      )
     if (col.id === COL_NAME && evalGroupOf(row)) {
       const locked = exportedIds.has(row.id)
       return (
         <div className="group/child flex items-start gap-1 py-1.5 pl-5 leading-snug">
           <span className="shrink-0 text-gray-400">ㄴ</span>
-          <span className="min-w-0 flex-1 whitespace-pre-line break-words">{row.name}</span>
+          <span className="min-w-0 flex-1 whitespace-pre-line break-words">
+            {row.name}
+            {dot}
+          </span>
           {!locked && (
             <button
               onMouseDown={(e) => e.stopPropagation()}
@@ -891,7 +922,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             getText={(row, colId) => getCellText(row, colId, members)}
             renderCell={renderCell}
             rowNumber={(row) => numbers.get(row.id)}
-            rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : evalGroupOf(row) ? 'bg-[#FAFBFD]' : '')}
+            rowClassName={(row) =>
+              viewingMoved && moved!.bg && moved!.ids.has(row.id)
+                ? 'bg-orange-50'
+                : row.missingInSheet
+                  ? 'bg-orange-50/50 text-gray-500'
+                  : evalGroupOf(row)
+                    ? 'bg-[#FAFBFD]'
+                    : ''
+            }
             rowMarker={(row) => (
               <>
                 {linkedTasks.has(row.id) && (
@@ -909,7 +948,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onMoveRows={filtered ? undefined : moveRows}
             onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
             onRowDragOutside={rowDragOutside}
-            highlightRowIds={moved && moved.groupId === activeGroup.id ? moved.ids : undefined}
             onInsertColumn={insertColumn}
             onDeleteColumns={requestDeleteColumns}
             onHideColumns={(ids) => {
