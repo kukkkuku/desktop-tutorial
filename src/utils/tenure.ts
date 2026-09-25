@@ -46,22 +46,23 @@ export function calcServiceYearMonth(hireDate: string | null | undefined): { yea
   return { years: Math.floor(total / 12), months: total % 12 }
 }
 
-// 창립기념일 기준 근속년수: 입사일 다음 날부터 오늘까지 지난 창립기념일(MM-DD) 횟수
-export function countFoundingAnniversaries(hireDate: string | null | undefined, foundingDay: string | null): number | null {
+// 창립기념일 기준 근속년수: 가장 최근에 지난 창립기념일(MM-DD) 시점까지 만으로 채운 해 수.
+// 예) 입사 2025-01-10, 창립기념일 03-15, 오늘 2026-09-25 → 2026-03-15 기준 1년 2개월 → 1년.
+export function countFoundingAnniversaries(hireDate: string | null | undefined, foundingDay: string | null | undefined): number | null {
   if (!hireDate || !foundingDay || !/^\d{2}-\d{2}$/.test(foundingDay)) return null
   const hire = String(hireDate).slice(0, 10)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(hire)) return null
   const today = new Date()
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-  let n = 0
-  for (let y = Number(hire.slice(0, 4)); y <= today.getFullYear(); y++) {
-    const d = `${y}-${foundingDay}`
-    if (d > hire && d <= todayIso) n += 1
-  }
-  return n
+  const thisYear = `${today.getFullYear()}-${foundingDay}`
+  const last = thisYear <= todayIso ? thisYear : `${today.getFullYear() - 1}-${foundingDay}`
+  if (last <= hire) return 0
+  let years = Number(last.slice(0, 4)) - Number(hire.slice(0, 4))
+  if (last.slice(5) < hire.slice(5)) years -= 1
+  return Math.max(0, years)
 }
 
-// 회사 창립기념일(MM-DD). 앱 전체 공통이라 브라우저에 기억한다. 비어 있으면 괄호 값은 보이지 않는다.
+// 예전에 브라우저에만 기억하던 창립기념일(MM-DD). 지금은 팀 데이터(memberTable.foundingDay)에 저장하고, 이 값은 옮겨 오는 데만 쓴다.
 const FOUNDING_KEY = 'company.foundingDay'
 export function readFoundingDay(): string | null {
   try {

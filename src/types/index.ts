@@ -64,6 +64,7 @@ export interface MemberTableConfig {
   widths: Record<string, number>
   labels: Record<string, string>
   custom: { id: string; label: string }[]
+  foundingDay?: string // 회사 창립기념일(MM-DD). 근속년월 괄호 안 년수 기준
 }
 
 export interface Contribution {

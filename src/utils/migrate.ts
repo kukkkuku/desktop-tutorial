@@ -82,7 +82,8 @@ function migrateMemberTable(v: unknown): MemberTableConfig | undefined {
         .filter((c) => typeof c.id === 'string' && typeof c.label === 'string')
         .map((c) => ({ id: c.id as string, label: c.label as string }))
     : []
-  return { order: strs(r.order), hidden: strs(r.hidden), widths, labels: stringMap(r.labels) ?? {}, custom }
+  const foundingDay = typeof r.foundingDay === 'string' && /^\d{2}-\d{2}$/.test(r.foundingDay) ? r.foundingDay : undefined
+  return { order: strs(r.order), hidden: strs(r.hidden), widths, labels: stringMap(r.labels) ?? {}, custom, ...(foundingDay ? { foundingDay } : {}) }
 }
 
 // Older builds stored contribution as a 0~1 ratio with no personal grade field.

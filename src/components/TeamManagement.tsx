@@ -29,7 +29,7 @@ function displayServiceYears(member: TeamMember, foundingDay: string | null): st
   if (ym) {
     const base = `${ym.years}년 ${ym.months}개월`
     const f = countFoundingAnniversaries(member.hireDate, foundingDay)
-    return f === null ? base : `${base}(${f}년)`
+    return f === null ? `${base}(-)` : `${base}(${f}년)`
   }
   return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
 }
@@ -139,10 +139,13 @@ export default function TeamManagement() {
     saveCfg({ order: [...rest.slice(0, at), ...moving, ...rest.slice(at)] })
   }
   const [colMenuOpen, setColMenuOpen] = useState(false)
-  const [foundingDay, setFoundingDayState] = useState<string | null>(() => readFoundingDay())
+  // 창립기념일은 팀 데이터에 저장한다(다른 기기에서도 같게). 예전에 브라우저에만 넣어 둔 값이 있으면 그것을 쓴다.
+  const foundingDay = cfg.foundingDay ?? readFoundingDay()
   function setFoundingDay(v: string | null) {
-    writeFoundingDay(v)
-    setFoundingDayState(v)
+    const { foundingDay: _drop, ...rest } = cfg
+    void _drop
+    dispatch({ type: 'SET_MEMBER_TABLE', payload: { ...rest, order: orderIds, ...(v ? { foundingDay: v } : {}) } })
+    if (!v) writeFoundingDay(null)
   }
 
   function textOf(m: TeamMember, colId: string): string {
@@ -396,6 +399,7 @@ export default function TeamManagement() {
                   <input
                     type="text"
                     placeholder="MM-DD"
+                    key={foundingDay ?? ''}
                     defaultValue={foundingDay ?? ''}
                     onBlur={(e) => {
                       const v = e.target.value.trim().replace(/[./]/g, '-')
