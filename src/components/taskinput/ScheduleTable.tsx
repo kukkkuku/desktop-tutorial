@@ -112,10 +112,11 @@ function FieldCell({
   }
   const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
-  let display: React.ReactNode = value.replace(/\s*\n\s*/g, ' · ')
+  // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
+  let display: React.ReactNode = f.kind === 'memo' ? value.trim() : value.replace(/\s*\n\s*/g, ' · ')
   if (f.id === 'status' && value) display = <span className={`${chip} ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
   else if (f.id === 'category' && value) display = <span className={`${chip} ${categoryTone(value)}`}>{value}</span>
-  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(2).replace(/-/g, '.')
+  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
   return (
     <td
       onClick={editing ? undefined : start}
@@ -124,10 +125,10 @@ function FieldCell({
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력 · 우클릭: 메모·색`}
       style={bg ? { background: `#${bg}` } : undefined}
-      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-[2px] align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
+      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-0 align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만(전체는 칸을 누르거나 오른쪽 L3 패널에서) */}
-      <div className={`whitespace-normal break-words ${f.kind === 'memo' ? 'line-clamp-2' : ''}`}>{display}</div>
+      <div className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'}`}>{display}</div>
       {note && <NoteMark />}
       {edited && <span className="pointer-events-none absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
       {editing &&
@@ -574,7 +575,7 @@ export default function ScheduleTable({
                       onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
                       style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
-                      className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${l3Bg ? '' : rowBg}`}
+                      className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-0 ${l3Bg ? '' : rowBg}`}
                     >
                       {nameEditing === v.row.key && (
                         <input
@@ -651,7 +652,7 @@ export default function ScheduleTable({
                         )
                       })
                     ) : showSummary ? (
-                      <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-[2px] text-[0.85em] leading-tight text-label-2">
+                      <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-0 text-[0.85em] leading-tight text-label-2">
                         {(() => {
                           const pr = planRange(v.cells, allWeekCols)
                           const wk = (k: string | null) => {
