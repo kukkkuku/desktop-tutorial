@@ -138,11 +138,13 @@ export interface Criteria {
   // equally among its participants; 100 = use the entered % as-is.
   contributionWeight: number
   // 최종 고과를 순위 상대평가로 매길 때의 등급별 비율(%) -- 합계 100.
-  // 없으면(null) 예전 방식: 팀 기대점수 대비 비율(1.2배 이상 S …)로 매긴다.
+  // null이면 기대점수 기준: 팀 기대점수 대비 비율(1.2배 이상 S …)로 매긴다(기준 설정에서 끈 경우).
   gradeDistribution?: GradeDistribution | null
 }
 
 export type GradeDistribution = Record<'S' | 'A' | 'B' | 'C' | 'D', number>
+// 기본은 순위 상대평가. 팀장이 기준 설정에서 비율을 바꾸거나 기대점수 기준(null)으로 끌 수 있다.
+export const DEFAULT_GRADE_DISTRIBUTION: GradeDistribution = { S: 10, A: 20, B: 40, C: 20, D: 10 }
 
 // 성과평가 결과 화면의 진행 상태 — 팀원별로 추적한다. '평가중'이 기본값이고,
 // 팀장이 검토를 마치면 '검토완료', 그 해의 공식 결과로 못박으면 '확정'으로 올린다.

@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
-import type { Criteria, GradeDistribution } from '../types'
+import { DEFAULT_GRADE_DISTRIBUTION, type Criteria, type GradeDistribution } from '../types'
 
 type WeightKey = Exclude<keyof Criteria, 'gradeDistribution'>
 const DIST_GRADES = ['S', 'A', 'B', 'C', 'D'] as const
-// 순위 상대평가를 처음 켤 때 채워 두는 시작값(바로 고칠 수 있다)
-const START_DISTRIBUTION: GradeDistribution = { S: 10, A: 20, B: 40, C: 20, D: 10 }
+const START_DISTRIBUTION: GradeDistribution = DEFAULT_GRADE_DISTRIBUTION
 import { blendByWeight } from '../utils/calculations'
 import IconButton from './IconButton'
 import { ChartNoAxesColumnIncreasing, ChevronLeft, File, Percent, SlidersHorizontal, Star, User, Users, type LucideIcon } from 'lucide-react'

@@ -1,3 +1,4 @@
+import { DEFAULT_GRADE_DISTRIBUTION } from '../types'
 import type { AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 
@@ -56,6 +57,7 @@ export function createEmptyState(): AppState {
       personalGradeWeight: 0,
       peerReviewWeight: 0,
       contributionWeight: 100,
+      gradeDistribution: { ...DEFAULT_GRADE_DISTRIBUTION },
     },
   }
 }

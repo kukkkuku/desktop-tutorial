@@ -12,7 +12,7 @@ import type { GradeDistribution,
   Task,
   TeamMember,
 } from '../types'
-import { ALL_IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
+import { DEFAULT_GRADE_DISTRIBUTION, ALL_IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
 import { migrateWorkBoard } from './workBoard'
 
 const EVALUATION_STATUS_OPTIONS: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
@@ -156,8 +156,10 @@ function migrateCriteria(raw: unknown): Criteria {
   }
 }
 
+// 저장값에 없으면(이 설정 전 데이터) 기본 상대평가, 명시적으로 null이면(팀장이 끈 경우) 기대점수 기준.
 function migrateDistribution(raw: unknown): GradeDistribution | null {
-  if (!raw || typeof raw !== 'object') return null
+  if (raw === null) return null
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_GRADE_DISTRIBUTION }
   const r = raw as Record<string, unknown>
   const keys = ['S', 'A', 'B', 'C', 'D'] as const
   if (!keys.every((k) => typeof r[k] === 'number')) return null
