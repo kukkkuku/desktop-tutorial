@@ -160,7 +160,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)
   // L2 삭제 때 함께 지울 팀원(선택). 기본은 지우지 않음.
-  const [removeMembersOn, setRemoveMembersOn] = useState(false)
   const [removeMemberIds, setRemoveMemberIds] = useState<Set<string>>(new Set())
   const [dragTab, setDragTab] = useState<{ id: string; over: number | null } | null>(null)
 
@@ -705,8 +704,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const deleteCandidates = deletingGroup ? orphanMembersOf(deletingGroup.id) : []
 
   function openDeleteGroup(g: TaskGroup) {
-    setRemoveMembersOn(false)
-    setRemoveMemberIds(new Set(orphanMembersOf(g.id).map((m) => m.id)))
+    setRemoveMemberIds(new Set())
     setDeletingGroup(g)
   }
 
@@ -1098,6 +1096,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       <ConfirmDialog
         open={deletingGroup !== null}
         title={deletingGroup ? `${deletingGroup.name} 과제 삭제` : ''}
+        confirmLabel={(() => {
+          const n = deleteCandidates.filter((m) => removeMemberIds.has(m.id)).length
+          return n > 0 ? `과제와 팀원 ${n}명 삭제` : '과제 삭제'
+        })()}
         message={
           deletingGroup
             ? [
@@ -1111,11 +1113,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         onConfirm={() => {
           if (deletingGroup) {
             apply(deleteGroup(board, deletingGroup.id))
-            if (removeMembersOn) {
-              const ids = deleteCandidates.filter((m) => removeMemberIds.has(m.id)).map((m) => m.id)
-              for (const id of ids) dispatch({ type: 'DELETE_MEMBER', payload: { id } })
-              if (ids.length) showToast(`L2와 팀원 ${ids.length}명을 삭제했습니다. 팀원 삭제는 되돌리기로 살아나지 않습니다.`)
-            }
+            const ids = deleteCandidates.filter((m) => removeMemberIds.has(m.id)).map((m) => m.id)
+            for (const id of ids) dispatch({ type: 'DELETE_MEMBER', payload: { id } })
+            if (ids.length) showToast(`과제와 팀원 ${ids.length}명을 삭제했습니다. 팀원 삭제는 되돌리기로 살아나지 않습니다.`)
           }
           setDeletingGroup(null)
         }}
@@ -1123,50 +1123,62 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       >
         {deleteUsage.length > 0 && (
           <div className="mt-4 rounded-md border border-gray-200 bg-[#F7F8FA] p-3 text-sm">
+            <p className="font-semibold text-black">팀원도 함께 삭제 <span className="font-normal text-gray-500">(선택)</span></p>
             {deleteCandidates.length > 0 ? (
-              <label className="flex cursor-pointer items-start gap-2">
-                <input type="checkbox" checked={removeMembersOn} onChange={(e) => setRemoveMembersOn(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#DC2626]" />
-                <span>
-                  <span className="font-medium text-black">이 L2에만 있는 팀원 {deleteCandidates.length}명도 팀원 목록에서 삭제</span>
-                  <span className="mt-0.5 block text-xs text-gray-500">팀원 삭제는 되돌리기(⌘Z)로 살아나지 않습니다. 이름을 눌러 남길 사람을 뺄 수 있습니다.</span>
-                </span>
-              </label>
+              <>
+                <p className="mt-0.5 text-xs text-gray-500">이 L2에만 담당자로 있는 팀원입니다. 체크한 팀원만 팀원 목록에서 지웁니다(되돌리기 불가).</p>
+                <div className="mt-2 space-y-1">
+                  {deleteCandidates.length > 1 && (
+                    <label className="flex cursor-pointer items-center gap-2 border-b border-gray-200 pb-1 text-xs text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={deleteCandidates.every((m) => removeMemberIds.has(m.id))}
+                        onChange={(e) => setRemoveMemberIds(e.target.checked ? new Set(deleteCandidates.map((m) => m.id)) : new Set())}
+                        className="h-4 w-4 accent-[#DC2626]"
+                      />
+                      모두 선택
+                    </label>
+                  )}
+                  {deleteCandidates.map((m) => (
+                    <label key={m.id} className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={removeMemberIds.has(m.id)}
+                        onChange={() =>
+                          setRemoveMemberIds((cur) => {
+                            const next = new Set(cur)
+                            if (next.has(m.id)) next.delete(m.id)
+                            else next.add(m.id)
+                            return next
+                          })
+                        }
+                        className="h-4 w-4 accent-[#DC2626]"
+                      />
+                      <span className="text-gray-800">{m.name}</span>
+                      <span className="text-xs text-gray-400">
+                        담당 L3 {board.items.filter((i) => i.groupId === deletingGroup!.id && i.assigneeIds.includes(m.id)).length}건
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
             ) : (
-              <p className="text-xs text-gray-600">
-                <span className="font-medium text-black">팀원 삭제:</span> 이 L2 담당자 {deleteUsage.length}명은 모두 다른 곳에서도 쓰이고 있어 팀원 목록에서는 지우지 않습니다.
-              </p>
+              <p className="mt-0.5 text-xs text-gray-500">이 L2에만 있는 팀원이 없어 팀원 목록은 그대로 둡니다.</p>
             )}
-            <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
-              {deleteUsage.map(({ member: m, reason }) => {
-                if (reason)
-                  return (
-                    <span key={m.id} className={`${CHIP_BASE} bg-white text-gray-500 ring-1 ring-gray-200`} title={`남김: ${reason}`}>
-                      {m.name}
-                      <span className="ml-1 text-[10px] text-gray-400">{reason}</span>
-                    </span>
-                  )
-                const on = removeMembersOn && removeMemberIds.has(m.id)
-                return (
-                  <button
-                    key={m.id}
-                    disabled={!removeMembersOn}
-                    onClick={() =>
-                      setRemoveMemberIds((cur) => {
-                        const next = new Set(cur)
-                        if (next.has(m.id)) next.delete(m.id)
-                        else next.add(m.id)
-                        return next
-                      })
-                    }
-                    className={`${CHIP_BASE} ${on ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-white text-gray-600 ring-1 ring-gray-300'} disabled:cursor-default`}
-                    title={!removeMembersOn ? '위 항목을 켜면 삭제할 수 있습니다' : on ? '누르면 이 팀원은 남깁니다' : '누르면 이 팀원도 삭제합니다'}
-                  >
-                    {m.name}
-                    {on && <span className="ml-1 text-[10px]">삭제</span>}
-                  </button>
-                )
-              })}
-            </div>
+            {deleteUsage.some((u) => u.reason) && (
+              <div className="mt-2 space-y-0.5 text-xs text-gray-500">
+                <p className="font-medium text-gray-600">그대로 남는 팀원</p>
+                {Array.from(new Set(deleteUsage.map((u) => u.reason).filter(Boolean))).map((reason) => (
+                  <p key={reason}>
+                    <span className="text-gray-400">{reason}:</span>{' '}
+                    {deleteUsage
+                      .filter((u) => u.reason === reason)
+                      .map((u) => u.member.name)
+                      .join(', ')}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </ConfirmDialog>
