@@ -1,16 +1,11 @@
 // 입사일 / 현 직급 발령일로부터 근속·직급체류를 계산한다.
-// calcYearsSince = 만으로 지난 해수(근속 N년, 승진 체류연한 판단에 씀).
-// 화면의 "n년차"는 calcYearOrdinal(해 기준)을 쓴다.
+// calcYearsSince = 연도만 비교해 지난 해수(월·일은 보지 않음). 근속 N년, 승진 체류연한 판단에 쓴다.
+// 예) 2024년 발령 → 2026년에는 2년 지남 = 3년차(calcYearOrdinal). 2024-12 발령도 2026-01이면 2년.
 export function calcYearsSince(dateStr: string | null | undefined): number | null {
   if (!dateStr) return null
   const start = new Date(dateStr)
   if (Number.isNaN(start.getTime())) return null
-  const now = new Date()
-  let years = now.getFullYear() - start.getFullYear()
-  const beforeAnniversary =
-    now.getMonth() < start.getMonth() || (now.getMonth() === start.getMonth() && now.getDate() < start.getDate())
-  if (beforeAnniversary) years -= 1
-  return Math.max(0, years)
+  return Math.max(0, new Date().getFullYear() - start.getFullYear())
 }
 
 // 화면에 보이는 "n년차"는 만이 아니라 해(연도) 기준으로 센다: 발령 연도가 1년차.

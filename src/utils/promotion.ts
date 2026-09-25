@@ -107,7 +107,7 @@ export function findPromotionCriteria(
   return criteriaList.find((c) => c.fromLevel === level) ?? null
 }
 
-// tenureYearsCompleted: 현재 직급에서 지난 연차(calcYearsSince). 호출부가 아직
+// tenureYearsCompleted: 현재 직급에서 지난 해수(calcYearsSince, 연도만 비교). 호출부가 아직
 // 넘기지 않으면(null) 재직기간 조건은 "미확인"으로 보고 준비도 계산에서는 충족한
 // 것으로 취급한다(기존 호출부 호환용 기본값).
 export function calcPromotionReadiness(
