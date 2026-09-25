@@ -13,6 +13,7 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import DatePopup from './DatePopup'
 import type { ColumnType } from '../../types'
 
 export interface GridColumn {
@@ -937,11 +938,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 선택 팝업은 표 스크롤 영역에 갇히지 않게 body에 띄우고, 화면 좌표로 칸 아래(자리가
   // 없으면 위)에 붙인다. 스크롤·크기 변경 때 다시 잰다.
   const [popPos, setPopPos] = useState<{ left: number; top?: number; bottom?: number; width: number } | null>(null)
+  const dateEditing = editing && activeCol?.type === 'date' && !activeCol.picker
   useLayoutEffect(() => {
-    if (!editing || !activeCol?.picker || !active) {
+    if (!editing || !(activeCol?.picker || activeCol?.type === 'date') || !active) {
       setPopPos(null)
       return
     }
+    const popH = activeCol.type === 'date' && !activeCol.picker ? 380 : 240
     function place() {
       const td = active ? cellRefs.current.get(`${active.r}:${active.c}`) : undefined
       if (!td) return
@@ -949,7 +952,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const width = Math.max(rect.width, 280)
       const left = Math.min(rect.left, window.innerWidth - width - 8)
       const below = window.innerHeight - rect.bottom
-      setPopPos(below < 240 && rect.top > below ? { left, bottom: window.innerHeight - rect.top + 4, width } : { left, top: rect.bottom + 4, width })
+      setPopPos(below < popH && rect.top > below ? { left, bottom: window.innerHeight - rect.top + 4, width } : { left, top: rect.bottom + 4, width })
     }
     place()
     window.addEventListener('scroll', place, true)
@@ -1237,7 +1240,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
                           } ${col.id === 'name' ? 'font-semibold' : ''}`}
                         >
-                          <div className={col.picker ? 'flex items-center justify-between gap-1' : ''}>
+                          <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
                             {custom !== undefined ? (
                               custom
                             ) : (
@@ -1247,6 +1250,27 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               >
                                 {text}
                               </div>
+                            )}
+                            {col.type === 'date' && !col.picker && (
+                              <span
+                                onMouseDown={(e) => {
+                                  // 달력 아이콘을 누르면 바로 달력을 연다.
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  if (editing) commitEdit()
+                                  select(r, c)
+                                  setSinkValue(text)
+                                  setEditing(true)
+                                  requestAnimationFrame(() => sinkRef.current?.focus())
+                                }}
+                                className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
+                                title="달력에서 고르기"
+                              >
+                                <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                  <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
+                                  <path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" />
+                                </svg>
+                              </span>
                             )}
                             {col.picker && (
                               <span
@@ -1328,6 +1352,35 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               }
             />
           )}
+
+          {dateEditing &&
+            popPos &&
+            activeRow &&
+            createPortal(
+              <div
+                data-grid-popup
+                onMouseDown={(e) => e.preventDefault()}
+                className="fixed z-[60] rounded-xl border border-gray-200 bg-white shadow-[0_8px_24px_rgba(17,19,24,.14),0_2px_6px_rgba(17,19,24,.06)]"
+                style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom }}
+              >
+                <DatePopup
+                  value={sinkValue}
+                  onPick={(iso) => {
+                    if (iso !== getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: iso }])
+                    setEditing(false)
+                    setSinkValue('')
+                    requestAnimationFrame(focusSink)
+                  }}
+                  onClear={() => {
+                    if (getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: '' }])
+                    setEditing(false)
+                    setSinkValue('')
+                    requestAnimationFrame(focusSink)
+                  }}
+                />
+              </div>,
+              document.body,
+            )}
 
           {editing &&
             activeCol?.picker &&
