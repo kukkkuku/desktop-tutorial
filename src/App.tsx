@@ -31,6 +31,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   // 직접 만들기)를 맡는다.
   const [quickStartOpen, setQuickStartOpen] = useState(false)
   const [quickStartTab, setQuickStartTab] = useState<'sheet' | 'direct'>('sheet')
+  // 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
+  const [quickStartUrl, setQuickStartUrl] = useState<string | null>(null)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
@@ -118,6 +120,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onExit={exitToLanding}
                 onOpenDataManager={() => setDataManagerOpen(true)}
                 onOpenQuickStart={() => {
+                  setQuickStartUrl(null)
                   setQuickStartTab('sheet')
                   setQuickStartOpen(true)
                 }}
@@ -146,7 +149,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 )}
                 {stage === 'work' && (
                   <WorkStage
-                    onOpenSheetImport={() => {
+                    onOpenSheetImport={(url) => {
+                      setQuickStartUrl(url ?? null)
                       setQuickStartTab('sheet')
                       setQuickStartOpen(true)
                     }}
@@ -175,6 +179,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               hasOtherPeriods={hasOtherPeriods}
               onClose={() => setQuickStartOpen(false)}
               initialTab={quickStartTab}
+              initialSheetUrl={quickStartUrl}
               onSheetImported={() => {
                 setQuickStartOpen(false)
                 handleStageChange('work')

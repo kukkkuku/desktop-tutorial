@@ -39,9 +39,9 @@ import {
 } from '../../utils/workBoard'
 import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { sheetUrl } from '../../utils/sheetSources'
-import SheetsIcon from '../SheetsIcon'
+import SheetLinkChip from '../SheetLinkChip'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, RotateCw, Undo2, Ungroup, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -50,7 +50,7 @@ import ConfirmDialog from '../ConfirmDialog'
 const HISTORY_LIMIT = 60
 
 interface WorkStageProps {
-  onOpenSheetImport: () => void
+  onOpenSheetImport: (url?: string) => void
 }
 
 function timeAgo(iso: string | undefined): string {
@@ -739,7 +739,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           L2는 탭으로, 그 아래 L3 과제는 표로 편집합니다.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button variant="primary" onClick={onOpenSheetImport}>구글시트에서 가져오기</Button>
+          <Button variant="primary" onClick={() => onOpenSheetImport()}>구글시트에서 가져오기</Button>
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>
@@ -842,37 +842,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         </button>
       </div>
       {board.sheetLink && (
-        <div className="flex shrink-0 items-center gap-1.5 pb-1.5 pl-3 text-xs text-label-2">
-          {board.sheetLink.spreadsheetId ? (
-            <a
-              href={withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid))}
-              target="_blank"
-              rel="noreferrer"
-              title="구글시트에서 열기"
-              className="flex max-w-[200px] items-center gap-1.5 rounded-control px-1 py-0.5 font-medium hover:bg-black/[0.05] hover:text-label"
-            >
-              <SheetsIcon className="h-4 w-3.5 shrink-0" />
-              <span className="truncate">{board.sheetLink.tabName}</span>
-            </a>
-          ) : (
-            <span className="flex max-w-[200px] items-center gap-1.5 font-medium" title="엑셀 파일에서 가져옴">
-              <SheetsIcon className="h-4 w-3.5 shrink-0" />
-              <span className="truncate">{board.sheetLink.tabName}</span>
-            </span>
-          )}
-          <span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>
-          <span className="group/reload relative">
-            <button
-              onClick={onOpenSheetImport}
-              aria-label="다시 가져오기"
-              className="flex h-7 w-7 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-accent"
-            >
-              <RotateCw {...icSm} />
-            </button>
-            <span className="pointer-events-none absolute right-0 top-full z-40 mt-1 whitespace-nowrap rounded-control bg-label/90 px-2 py-1 text-[11px] text-white backdrop-blur opacity-0 shadow transition-opacity group-hover/reload:opacity-100">
-              다시 가져오기
-            </span>
-          </span>
+        <div className="pb-1.5 pl-3">
+          <SheetLinkChip
+            label={board.sheetLink.tabName}
+            meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
+            currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
+            openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}
+            note={board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
+            onConnect={(url) => onOpenSheetImport(url)}
+            onReload={() => onOpenSheetImport()}
+          />
         </div>
       )}
       </div>

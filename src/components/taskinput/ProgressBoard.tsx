@@ -43,6 +43,7 @@ import {
   type ProgressEdits,
   type ProgressRow,
 } from '../../utils/progressBoard'
+import SheetLinkChip from '../SheetLinkChip'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleRowView } from './ScheduleTable'
 
 const CATEGORIES = ['과제', '일반', '일상']
@@ -288,37 +289,42 @@ export default function ProgressBoard() {
 
   return (
     <div>
-      {/* 불러온 곳 · 다시 불러오기 · 저장 */}
+      {/* 연결된 시트(눌러서 링크 바꾸기) · 다시 불러오기 */}
       <div className="flex flex-wrap items-center gap-2 text-[13px] text-label-2">
-        <span>
-          {data.spreadsheetId ? (
-            <a href={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)} target="_blank" rel="noreferrer" className="font-medium text-label hover:text-accent hover:underline">
-              {data.source}
-            </a>
-          ) : (
-            <span className="font-medium text-label">{data.source}</span>
-          )}{' '}
-          · {fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건
-        </span>
-        {protectedSheet ? (
-          <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
-            운영 시트 · 읽기 전용
-          </span>
+        {data.spreadsheetId ? (
+          <SheetLinkChip
+            label={data.source}
+            meta={
+              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="text-label-3">{fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건</span>
+                {protectedSheet ? (
+                  <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
+                    운영 시트 · 읽기 전용
+                  </span>
+                ) : (
+                  <span className="mac-badge bg-success/15 text-success">
+                    {data.spreadsheetId === parseSheetUrl(TASK_INPUT_SHEET_URL)?.spreadsheetId ? '테스트 시트 · 저장 가능' : '저장 가능한 시트'}
+                  </span>
+                )}
+              </span>
+            }
+            currentUrl={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)}
+            openUrl={sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)}
+            note="다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다."
+            onConnect={(url) => connectSheet(url)}
+            onReload={isSheetsApiConfigured() ? () => loadFromSheet() : undefined}
+            reloadDisabled={loading || saving}
+          />
         ) : (
-          data.spreadsheetId && (
-            <span className="mac-badge bg-success/15 text-success">{data.spreadsheetId === parseSheetUrl(TASK_INPUT_SHEET_URL)?.spreadsheetId ? '테스트 시트 · 저장 가능' : '저장 가능한 시트'}</span>
-          )
+          <span>
+            <span className="font-medium text-label">{data.source}</span> · {fmt(data.fetchedAt)} 불러옴 · L3 {data.rows.length}건
+            <button onClick={() => { setLinkInput(''); setLinkOpen((v) => !v) }} className="ml-2 font-medium text-accent hover:underline">
+              구글시트 연결
+            </button>
+          </span>
         )}
-        <button onClick={() => { setLinkInput(''); setLinkOpen((v) => !v) }} className="font-medium text-accent hover:underline">
-          시트 바꾸기
-        </button>
+        {loading && <Spinner className="h-3.5 w-3.5 text-accent" />}
         <span className="ml-auto flex items-center gap-2">
-          {isSheetsApiConfigured() && (
-            <Button variant="secondary" size="sm" onClick={() => loadFromSheet()} disabled={loading || saving}>
-              {loading ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
-              시트 다시 불러오기
-            </Button>
-          )}
           <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={loading || saving} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)">
             <Upload {...icSm} />
             xlsx

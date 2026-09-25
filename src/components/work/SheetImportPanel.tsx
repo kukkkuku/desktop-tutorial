@@ -53,6 +53,8 @@ interface Props {
   onCancel?: () => void
   // 시트 목록을 불러와 L2 고르기 화면이 됐는지(창을 넓히는 데 씀)
   onLoadedChange?: (loaded: boolean) => void
+  // 시트 칩에서 넣은 새 링크 -- 열리자마자 이 링크로 읽는다.
+  initialUrl?: string
 }
 
 
@@ -62,13 +64,13 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl }: Props) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
   const link = board.sheetLink
 
-  const [urlInput, setUrlInput] = useState(link?.spreadsheetId ? sheetUrl(link.spreadsheetId) : DEFAULT_SHEET_URL)
+  const [urlInput, setUrlInput] = useState(initialUrl ?? (link?.spreadsheetId ? sheetUrl(link.spreadsheetId) : DEFAULT_SHEET_URL))
   const [spreadsheetId, setSpreadsheetId] = useState<string | null>(null)
   const [book, setBook] = useState<XlsxBook | null>(null)
   const [bookTitle, setBookTitle] = useState('')
@@ -119,6 +121,12 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange }: P
       if (pick) await loadTab(pick, parsed.spreadsheetId, null)
     })
   }
+
+  // 시트 칩에서 새 링크로 연결했으면 열자마자 그 링크를 읽는다(한 번만).
+  useEffect(() => {
+    if (initialUrl) loadFromLink()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function loadFromFile(file: File) {
     void run('파일을 읽는 중', async () => {
