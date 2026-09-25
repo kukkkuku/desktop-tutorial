@@ -41,7 +41,9 @@ import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/work
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { AlertTriangle, Check, X } from 'lucide-react'
+import { AlertTriangle, Check, ExternalLink, X } from 'lucide-react'
+import SheetsIcon from '../SheetsIcon'
+import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
 import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
@@ -55,6 +57,8 @@ interface Props {
   onLoadedChange?: (loaded: boolean) => void
   // 시트 칩에서 넣은 새 링크 -- 열리자마자 이 링크로 읽는다.
   initialUrl?: string
+  // 'sheet' = 구글시트 링크로 읽기(기본), 'xlsx' = 시트에서 받은 xlsx 파일로 읽기(Excel로 시작 탭)
+  source?: 'sheet' | 'xlsx'
 }
 
 
@@ -64,7 +68,7 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet' }: Props) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
@@ -248,42 +252,76 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
 
   return (
     <div className="flex min-h-full flex-col">
-      <div>
-        <h3 className="text-[15px] font-semibold text-label">구글시트에서 과제 가져오기</h3>
-        <p className="mt-1 text-[13px] text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
-        <p className="mt-1 text-[13px] text-label-2">
-          추진현황 양식의 H·L1·L2·L3 열과 담당자·상태 등을 머리글 이름으로 찾아 읽습니다. 원본 시트는 바꾸지 않습니다.
-        </p>
-      </div>
+      {source === 'sheet' ? (
+        <>
+          <div>
+            <h3 className="text-[15px] font-semibold text-label">구글시트에서 과제 가져오기</h3>
+            <p className="mt-1 text-[13px] text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
+            <p className="mt-1 text-[13px] text-label-2">
+              추진현황 양식의 H·L1·L2·L3 열과 담당자·상태 등을 머리글 이름으로 찾아 읽습니다. 원본 시트는 바꾸지 않습니다.
+            </p>
+          </div>
 
-      {/* 링크 */}
-      <div className="mt-4 flex gap-2">
-        <input
-          value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && loadFromLink()}
-          disabled={!isSheetsApiConfigured()}
-          placeholder={isSheetsApiConfigured() ? 'https://docs.google.com/spreadsheets/d/...' : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- xlsx 파일로 올려 주세요'}
-          className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 disabled:bg-black/[0.03]"
-        />
-        <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()}>
-          목록 확인
-        </Button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx,.xls"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) loadFromFile(f)
-            e.target.value = ''
-          }}
-        />
-        <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={loading !== null} title="시트에서 파일 › 다운로드 › xlsx로 받은 파일">
-          xlsx 올리기
-        </Button>
-      </div>
+          {/* 지금 연결된(또는 방금 읽은) 시트 -- 눌러서 바로 가기 */}
+          {(spreadsheetId ?? link?.spreadsheetId) && (
+            <a
+              href={withGoogleAccount(sheetUrl((spreadsheetId ?? link?.spreadsheetId)!, spreadsheetId ? tabs.find((t) => t.title === tabName)?.sheetId : link?.gid))}
+              target="_blank"
+              rel="noreferrer"
+              title="구글시트로 바로 가기"
+              className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-control px-1 py-0.5 text-[13px] text-label-2 hover:bg-black/[0.04] hover:text-label"
+            >
+              <span className="shrink-0 text-label-3">{spreadsheetId ? '읽은 시트' : '현재 연결'}</span>
+              <SheetsIcon className="h-4 w-3.5 shrink-0" />
+              <span className="truncate font-semibold text-label">
+                {(spreadsheetId ? bookTitle : link?.fileTitle) || '구글시트'}
+                <span className="font-normal text-label-3"> › </span>
+                {spreadsheetId ? (tabName ?? '') : link?.tabName}
+              </span>
+              <ExternalLink {...icSm} className="shrink-0" />
+            </a>
+          )}
+
+          {/* 링크 */}
+          <div className="mt-2 flex gap-2">
+            <input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && loadFromLink()}
+              disabled={!isSheetsApiConfigured()}
+              placeholder={isSheetsApiConfigured() ? 'https://docs.google.com/spreadsheets/d/...' : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- Excel로 시작 탭에서 xlsx 파일로 올려 주세요'}
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 disabled:bg-black/[0.03]"
+            />
+            <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()}>
+              목록 확인
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <h3 className="text-[15px] font-semibold text-label">추진현황 xlsx로 과제 가져오기</h3>
+            <p className="mt-1 text-[13px] text-label-2">구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면, 구글시트 연결과 똑같이 L1/L2를 골라 가져옵니다.</p>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) loadFromFile(f)
+                e.target.value = ''
+              }}
+            />
+            <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={loading !== null}>
+              xlsx 파일 고르기
+            </Button>
+            {book && <span className="truncate text-[13px] text-label-2">{bookTitle}</span>}
+          </div>
+        </>
+      )}
       {loading && (
         <p className="mt-2 flex items-center gap-1.5 text-[13px] text-label-2">
           <Spinner className="h-3.5 w-3.5 text-accent" />

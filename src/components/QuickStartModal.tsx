@@ -237,6 +237,7 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
 export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', initialSheetUrl, onSheetImported }: QuickStartModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab)
+  const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
   const [sheetLoaded, setSheetLoaded] = useState(false)
 
@@ -253,7 +254,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
       <div
         className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
         style={
-          tab === 'sheet' && sheetLoaded
+          (tab === 'sheet' || (tab === 'excel' && excelMode === 'progress')) && sheetLoaded
             ? { width: 'min(1600px, calc(100vw - 2rem))', height: 'min(900px, 92vh)' }
             : { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
         }
@@ -296,7 +297,28 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
             </div>
           )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
-          {tab === 'excel' && <BulkUploadPanel onDone={onDataReady} wide />}
+          {tab === 'excel' && (
+            <div>
+              {/* 추진현황 xlsx(구글시트에서 받은 파일)로 과제 가져오기 / 통합 양식으로 일괄 등록 */}
+              <div className="mb-4 inline-flex overflow-hidden rounded-control border border-hairline text-[13px]">
+                {(
+                  [
+                    ['progress', '추진현황 xlsx 올리기'],
+                    ['bulk', '통합 양식으로 등록'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button key={k} onClick={() => setExcelMode(k)} className={`px-3 py-1.5 ${excelMode === k ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {excelMode === 'progress' ? (
+                <SheetImportPanel source="xlsx" onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} />
+              ) : (
+                <BulkUploadPanel onDone={onDataReady} wide />
+              )}
+            </div>
+          )}
           {tab === 'import' && hasOtherPeriods && (
             <ImportFromPreviousPanel teamName={teamName} currentWorkspaceId={currentWorkspaceId} onApplied={onDataReady} />
           )}
