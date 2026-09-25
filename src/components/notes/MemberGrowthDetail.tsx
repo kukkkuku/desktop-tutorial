@@ -544,7 +544,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
                 const met = gap >= 0
                 return (
-                  <div className="flex items-stretch gap-2" title={`${reviewYear}년 심사 기준 · 입력 안 한 해는 입력한 해의 평균 실적으로 채운 예상치`}>
+                  <div className="flex items-stretch gap-2" title={`${reviewYear}년 심사 기준 · 등급을 넣은 해만 반영(아직 없는 해는 성장 시뮬레이션에서 예상 등급 입력)`}>
                     <div className="rounded-card border border-separator bg-white px-3.5 py-2">
                       <p className="text-xs text-label-2">목표 점수</p>
                       <p className="mt-0.5 text-[17px] font-semibold tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(0)}점</p>
@@ -552,7 +552,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     <div className="rounded-card border border-separator bg-white px-3.5 py-2">
                       <p
                         className="text-xs text-label-2"
-                        title="심사연도까지 아직 없는 해를 지금까지 받은 등급의 평균으로 채웠을 때 달라지는 점수. 최근 등급이 평균보다 좋으면 마이너스가 될 수 있습니다."
+                        title="심사연도 기준으로 다시 계산했을 때 달라지는 점수. 아직 등급이 없는 해는 0점이라, 성장 시뮬레이션 표에 예상 등급을 넣으면 반영됩니다."
                       >
                         현재 점수 + 심사까지 예상 변화
                       </p>
