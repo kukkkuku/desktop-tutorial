@@ -25,10 +25,10 @@ import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
 import Segmented from './ui/Segmented'
 import IconButton from './IconButton'
-import { ArrowDown, ArrowUp, Download, Eye, Minus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, Eye, Minus, X } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
-import { peerSummaryOf } from '../utils/calculations'
+import { getEffectiveContributionPercent, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
@@ -166,6 +166,68 @@ export default function EvaluationResults() {
     return list.sort((a, b) => a.priority - b.priority).slice(0, 5)
   }, [tasks, activeMembers, contributions, results])
 
+  // 핵심 요약: 누가 어떤 과제에서 얼마나 기여해 점수를 가장 많이 가져갔는지 등 결과를 읽는 첫 줄.
+  // 과제에서 가져간 점수 = 과제점수 × 반영 기여도(피어 배수 전).
+  const pairs = useMemo(() => {
+    const out: { task: (typeof tasks)[number]; score: number; memberId: string; name: string; pct: number; pts: number }[] = []
+    for (const { task, score } of taskScores) {
+      for (const m of activeMembers) {
+        const pct = getEffectiveContributionPercent(contributions, task.id, m.id, criteria.contributionWeight)
+        if (pct > 0) out.push({ task, score, memberId: m.id, name: m.name, pct, pts: (score * pct) / 100 })
+      }
+    }
+    return out
+  }, [taskScores, activeMembers, contributions, criteria.contributionWeight])
+  const highlights = useMemo(() => {
+    const list: { label: string; text: string }[] = []
+    const topPair = [...pairs].sort((a, b) => b.pts - a.pts)[0]
+    if (topPair && topPair.pts > 0)
+      list.push({ label: '최대 기여', text: `${topPair.name}님이 "${topPair.task.name}"에 ${topPair.pct.toFixed(0)}% 기여해 가장 큰 점수(+${topPair.pts.toFixed(1)}점)를 가져갔습니다.` })
+    const topTask = [...taskScores].sort((a, b) => b.score - a.score)[0]
+    if (topTask && topTask.score > 0) {
+      const lead = pairs.filter((x) => x.task.id === topTask.task.id).sort((a, b) => b.pct - a.pct)[0]
+      list.push({
+        label: '최고 과제',
+        text: `"${topTask.task.name}" ${topTask.task.performanceGrade} · ${topTask.score.toFixed(0)}점${lead ? ` — 주 기여 ${lead.name} ${lead.pct.toFixed(0)}%` : ''}`,
+      })
+    }
+    if (results[0] && results[0].cumulativeScore > 0)
+      list.push({ label: '팀 순위', text: `1위 ${results[0].member.name} ${results[0].cumulativeScore.toFixed(1)}점 · 팀 평균 ${avg.toFixed(1)}점` })
+    return list
+  }, [pairs, taskScores, results, avg])
+  // 팀원을 고르면(표의 행이나 과제별 성과의 이름 칩) 그 팀원 한 줄 요약
+  const memberHighlight = useMemo(() => {
+    if (!highlightId) return null
+    const idx = results.findIndex((r) => r.member.id === highlightId)
+    const r = results[idx]
+    if (!r) return null
+    const mine = pairs.filter((x) => x.memberId === highlightId).sort((a, b) => b.pts - a.pts)
+    const top = mine[0]
+    const parts = [`${idx + 1}위 · ${r.cumulativeScore.toFixed(1)}점 · 고과 ${r.grade}`, `참여 ${mine.length}건`]
+    if (top)
+      parts.push(
+        `가장 기여한 과제 "${top.task.name}" ${top.pct.toFixed(0)}% · 성과 ${top.task.performanceGrade ?? '미입력'}(${top.score.toFixed(0)}점) → +${top.pts.toFixed(1)}점`,
+      )
+    return { name: r.member.name, text: parts.join(' · ') }
+  }, [highlightId, results, pairs])
+  const [insightOpen, setInsightOpen] = useState(() => {
+    try {
+      return localStorage.getItem('results.insightOpen') !== '0'
+    } catch {
+      return true
+    }
+  })
+  function toggleInsight() {
+    setInsightOpen((v) => {
+      try {
+        localStorage.setItem('results.insightOpen', v ? '0' : '1')
+      } catch {
+        // 기억 못 해도 화면에는 반영
+      }
+      return !v
+    })
+  }
+
   // 과제별 성과 3열 폭(과제/성과 · 목표·성과 · 기여도) — 드래그로 조절
   const [colWidths, setColWidths] = useState([24, 46, 30])
   const taskTableRef = useRef<HTMLDivElement>(null)
@@ -288,6 +350,53 @@ export default function EvaluationResults() {
         </p>
       ) : (
         <>
+          {(highlights.length > 0 || insights.length > 0 || memberHighlight) && (
+            <div className="rounded-card border border-separator bg-white">
+              <button onClick={toggleInsight} className="flex w-full items-center gap-1.5 px-5 py-3 text-left">
+                {insightOpen ? <ChevronDown size={16} className="text-label-3" /> : <ChevronRight size={16} className="text-label-3" />}
+                <span className="text-[13px] font-semibold text-label">인사이트</span>
+                {!insightOpen && (
+                  <span className="min-w-0 truncate text-xs text-label-2">{memberHighlight ? `${memberHighlight.name} — ${memberHighlight.text}` : highlights[0]?.text ?? insights[0]?.title}</span>
+                )}
+              </button>
+              {insightOpen && (
+                <div className="grid gap-x-8 gap-y-2 border-t border-separator px-5 py-3.5 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    {memberHighlight && (
+                      <div className="flex items-baseline gap-2 rounded-control bg-accent-soft px-2.5 py-1.5">
+                        <span className="w-14 shrink-0 text-[11px] font-semibold text-accent">{memberHighlight.name}</span>
+                        <p className="min-w-0 flex-1 text-xs leading-relaxed text-label">{memberHighlight.text}</p>
+                        <button onClick={() => setHighlightId(null)} title="선택 해제" className="shrink-0 text-label-3 hover:text-label">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    )}
+                    {highlights.map((h) => (
+                      <div key={h.label} className="flex items-baseline gap-2">
+                        <span className="w-14 shrink-0 text-[11px] font-semibold text-accent">{h.label}</span>
+                        <p className="min-w-0 text-xs leading-relaxed text-label-2">{h.text}</p>
+                      </div>
+                    ))}
+                    {!memberHighlight && highlights.length > 0 && <p className="text-[11px] text-label-3">팀원을 누르면 그 팀원의 요약이 여기에 나옵니다.</p>}
+                  </div>
+                  <div className="space-y-2">
+                    {insights.map((ins, idx) => {
+                      const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
+                      return (
+                        <div key={idx} className="flex items-baseline gap-2">
+                          <span className={`w-14 shrink-0 text-[11px] font-semibold ${lc}`}>{ins.label}</span>
+                          <p className="min-w-0 text-xs leading-relaxed text-label-2">
+                            <span className="mr-1 font-semibold text-label">{ins.title}</span>
+                            {ins.desc}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {view === 'tabs' && (
             <Segmented
               items={[
@@ -298,9 +407,13 @@ export default function EvaluationResults() {
               onChange={setTab}
             />
           )}
-          <div className={view === 'side' ? 'grid items-start gap-6 xl:grid-cols-2' : 'space-y-6'}>
+          <div className={view === 'side' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]' : 'space-y-6'}>
             {(view !== 'tabs' || tab === 'members') && (
-              <div className="min-w-0 space-y-6">
+              <div className="min-w-0 space-y-4">
+          <div>
+            <h3 className="text-[13px] font-semibold text-label">팀원별 성과</h3>
+            <p className="mt-0.5 text-[13px] text-label-2">행을 누르면 그 팀원의 요약과 과제별 기여가 강조됩니다.</p>
+          </div>
           {/* 팀원 결과 테이블 — 이 화면의 중심. */}
           <div className="overflow-x-auto rounded-card border border-separator bg-white">
             <table className="w-full min-w-[860px] text-[13px]">
@@ -435,22 +548,6 @@ export default function EvaluationResults() {
             </table>
           </div>
 
-          {insights.length > 0 && (
-            <div className="flex min-w-0 flex-1 flex-col gap-2 rounded-card border border-separator bg-white px-5 py-3.5">
-              {insights.map((ins, idx) => {
-                const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
-                return (
-                  <div key={idx} className="flex items-baseline gap-2">
-                    <span className={`w-12 shrink-0 text-[11px] font-semibold ${lc}`}>{ins.label}</span>
-                    <p className="min-w-0 text-xs leading-relaxed text-label-2">
-                      <span className="mr-1 font-semibold text-label">{ins.title}</span>
-                      {ins.desc}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          )}
 
               </div>
             )}
