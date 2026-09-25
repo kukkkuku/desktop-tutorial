@@ -37,6 +37,19 @@ export const PERFORMANCE_SCORE: Record<PerformanceGrade, number> = {
   D: 60,
 }
 
+// 새 피어리뷰(순위·과제별)를 등급과 같은 척도(60~100)로 바꾼 값. utils/peerScores.ts가 만든다.
+export interface PeerScore {
+  targetMemberId: string
+  score: number
+  source: 'rank' | 'task'
+}
+// 점수 계산에 들어가는 피어리뷰: 예전 등급 리뷰 또는 변환된 점수
+export type PeerInput = PeerReview | PeerScore
+
+export function peerInputScore(r: PeerInput): number {
+  return 'grade' in r ? PERFORMANCE_SCORE[r.grade] : r.score
+}
+
 export const WORKLOAD_FACTOR: Record<Workload, number> = {
   대: 1.2,
   중: 1.0,
@@ -191,13 +204,13 @@ export function calcMemberCumulativeScore(
 }
 
 export function calcPeerReviewFactor(
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
   memberId: string,
   criteria: Criteria,
 ): number {
   const received = peerReviews.filter((r) => r.targetMemberId === memberId)
   if (received.length === 0) return 1.0
-  const avgScore = received.reduce((sum, r) => sum + PERFORMANCE_SCORE[r.grade], 0) / received.length
+  const avgScore = received.reduce((sum, r) => sum + peerInputScore(r), 0) / received.length
   return blendByWeight(1.0, avgScore / 100, criteria.peerReviewWeight)
 }
 
@@ -253,7 +266,7 @@ export function calcMemberResults(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
 ): MemberResultRow[] {
   const taskScores = calcAllTaskScores(tasks, criteria)
 
@@ -508,7 +521,7 @@ export function calcPeerReviewImpact(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ): PeerReviewImpact {
   const withReviews = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const withoutReviews = calcMemberResults(members, tasks, contributions, criteria, [])

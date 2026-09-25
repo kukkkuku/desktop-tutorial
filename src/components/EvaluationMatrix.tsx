@@ -18,6 +18,7 @@ import LiveRankingPopover from './LiveRankingPopover'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { downloadCurrentMatrixExcel } from '../utils/excel'
 import { downloadMatrixPdf } from '../utils/pdfReports'
+import { peerInputsOf } from '../utils/peerScores'
 
 const MIN_COL_WIDTH = 56
 
@@ -56,11 +57,11 @@ function ResizeHandle({
 
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
-  const { tasks, members, contributions, criteria, peerReviews } = state
+  const { tasks, members, contributions, criteria } = state
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
-  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputsOf(state))
   const activeMembers = members.filter((m) => m.active)
   const activeMemberIds = new Set(activeMembers.map((m) => m.id))
 

@@ -19,6 +19,7 @@ import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import Spinner from './Spinner'
 import SheetImportPanel from './work/SheetImportPanel'
+import { peerInputsOf } from '../utils/peerScores'
 
 interface DataManagerDrawerProps {
   open: boolean
@@ -317,8 +318,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   workspace={currentWorkspace}
                   state={state}
                   dispatch={dispatch}
-                  buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam).workbook}
-                  buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
+                  buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerInputsOf(state), periodsForTeam).workbook}
+                  buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerInputsOf(state), periodsForTeam)}
                   onConnected={handleDriveAccountSwitch}
                   onSaveStatusChange={onSaveStatusChange}
                 />

@@ -292,8 +292,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   const rw = criteria.peerReviewWeight
   const peerReviewDescription =
     rw === 0
-      ? '사용 안 함 — 켜면 점수에 반영됩니다.'
-      : `평균 등급 S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배`
+      ? '사용 안 함 — 켜면 피어리뷰(순위·과제별)가 점수에 반영됩니다.'
+      : `받은 피어리뷰 평균이 1위·S(100점)면 ${fmt(blendByWeight(1, 1.0, rw))}배, 꼴찌·D(60점)면 ${fmt(blendByWeight(1, 0.6, rw))}배 (본인 평가 제외)`
 
   const cw = criteria.contributionWeight
   const contributionDescription =

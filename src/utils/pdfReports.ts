@@ -1,3 +1,4 @@
+import type { PeerInput } from './calculations'
 import JSZip from 'jszip'
 import type { Contribution, Criteria, MeetingNote, PeerReview, Task, TeamMember } from '../types'
 import { calcAllTaskScores, calcMemberResults, calcTaskScore } from './calculations'
@@ -50,7 +51,7 @@ export async function downloadMembersPdf(
   members: TeamMember[],
   tasks: Task[],
   contributions: Contribution[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ) {
   const activeCount = members.filter((m) => m.active).length
   const serviceYears = members.map((m) => calcYearsSince(m.hireDate)).filter((y): y is number => y !== null)
@@ -179,7 +180,7 @@ export async function downloadResultsPdf(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -306,7 +307,7 @@ export async function downloadIndividualResultsPdf(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[] = [],
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
   selectedMemberIds?: string[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
@@ -350,7 +351,7 @@ async function buildSingleMemberPdf(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const row = results.find((r) => r.member.id === member.id)
@@ -380,7 +381,7 @@ export async function downloadMemberResultPdf(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ) {
   const options = await buildSingleMemberPdf(teamName, periodName, member, members, tasks, contributions, criteria, meetingNotes, peerReviews)
   if (!options) return
@@ -396,7 +397,7 @@ export async function previewMemberResultPdf(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ) {
   const options = await buildSingleMemberPdf(teamName, periodName, member, members, tasks, contributions, criteria, meetingNotes, peerReviews)
   if (!options) return

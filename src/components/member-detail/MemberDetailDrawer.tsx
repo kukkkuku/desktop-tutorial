@@ -7,6 +7,7 @@ import { calcYearsSince } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
 import MemberOverviewPanel from './MemberOverviewPanel'
 import IconButton from '../IconButton'
+import { peerInputsOf } from '../../utils/peerScores'
 
 function CloseIcon({ className }: { className?: string }) {
   return (
@@ -42,7 +43,7 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
 
   if (!member) return null
 
-  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
   const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
   const memberResult = resultIdx >= 0 ? memberResults[resultIdx] : undefined
   const rank = resultIdx >= 0 ? resultIdx + 1 : null

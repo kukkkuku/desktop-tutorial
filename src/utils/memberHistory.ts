@@ -14,6 +14,7 @@ import {
   getContribution,
   getEffectiveContributionPercent,
 } from './calculations'
+import { peerInputsOf } from './peerScores'
 
 export interface MemberPeriodTaskEntry {
   taskId: string
@@ -56,7 +57,7 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
     if (!member) continue
 
     const taskScores = calcAllTaskScores(state.tasks, state.criteria)
-    const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+    const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
     const idx = results.findIndex((r) => r.member.id === memberId)
     let row: { cumulativeScore: number; grade: EvaluationGrade } | null = idx >= 0 ? results[idx] : null
 
@@ -66,7 +67,7 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
     // 그대로 써서 점수/등급을 별도로 구해 트렌드에서 누락되지 않게 한다.
     if (!row && member.active === false) {
       const rawCumulativeScore = calcMemberCumulativeScore(member, taskScores, state.contributions, state.criteria)
-      const peerReviewFactor = calcPeerReviewFactor(state.peerReviews, member.id, state.criteria)
+      const peerReviewFactor = calcPeerReviewFactor(peerInputsOf(state), member.id, state.criteria)
       const cumulativeScore = rawCumulativeScore * peerReviewFactor
       const expectedScore = calcExpectedScore(results.map((r) => r.cumulativeScore))
       const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0

@@ -1,3 +1,4 @@
+import type { PeerInput } from './calculations'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
 import JSZip from 'jszip'
@@ -292,7 +293,7 @@ function buildMemberRows(
   members: TeamMember[],
   tasks: Task[],
   contributions: Contribution[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ): (string | number)[][] {
   return members.map((member) => {
     const service = calcYearsSince(member.hireDate)
@@ -316,7 +317,7 @@ function buildMemberRows(
 
 // 빈 양식(위 downloadMemberTemplate)과 달리 지금 등록된 팀원을 화면(팀원
 // 관리 표)과 같은 컬럼 순서로 그대로 내보낸다.
-export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: Task[], contributions: Contribution[], peerReviews: PeerReview[]) {
+export async function downloadCurrentMembersExcel(members: TeamMember[], tasks: Task[], contributions: Contribution[], peerReviews: PeerInput[]) {
   const wb = new ExcelJS.Workbook()
   addStyledSheet(wb, '팀원현황', CURRENT_MEMBER_COLUMNS, buildMemberRows(members, tasks, contributions, peerReviews), 0)
   await downloadStyledWorkbook(wb, `팀원현황_${new Date().toISOString().slice(0, 10)}.xlsx`)
@@ -939,7 +940,7 @@ function buildSummaryResultRows(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
   periods: WorkspaceMeta[],
 ): (string | number)[][] {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
@@ -965,7 +966,7 @@ function buildMemberDetailRows(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ): (string | number)[][] {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const taskScores = calcAllTaskScores(tasks, criteria)
@@ -1021,7 +1022,7 @@ export function buildResultsReportWorkbook(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
   periods: WorkspaceMeta[] = [],
 ): { workbook: ExcelJS.Workbook; filename: string } {
   const wb = new ExcelJS.Workbook()
@@ -1043,7 +1044,7 @@ export function buildGoogleSheetViewWorkbook(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
   periods: WorkspaceMeta[] = [],
 ): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook()
@@ -1062,7 +1063,7 @@ export async function downloadResultsReport(
   tasks: Task[],
   contributions: Contribution[],
   criteria: Criteria,
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
   periods: WorkspaceMeta[] = [],
 ) {
   const { workbook, filename } = buildResultsReportWorkbook(members, tasks, contributions, criteria, peerReviews, periods)
@@ -1143,7 +1144,7 @@ export async function downloadIndividualResultReports(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[] = [],
-  peerReviews: PeerReview[] = [],
+  peerReviews: PeerInput[] = [],
   selectedMemberIds?: string[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
@@ -1173,7 +1174,7 @@ export async function downloadMemberResultExcel(
   contributions: Contribution[],
   criteria: Criteria,
   meetingNotes: MeetingNote[],
-  peerReviews: PeerReview[],
+  peerReviews: PeerInput[],
 ) {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
   const row = results.find((r) => r.member.id === member.id)

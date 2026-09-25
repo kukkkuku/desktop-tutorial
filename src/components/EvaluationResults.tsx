@@ -24,6 +24,7 @@ import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
 import IconButton from './IconButton'
+import { peerInputsOf } from '../utils/peerScores'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
   evaluating: '평가중',
@@ -73,11 +74,13 @@ export default function EvaluationResults() {
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
   const { openMemberDetail } = useMemberDetail()
-  const { tasks, members, contributions, criteria, meetingNotes, peerReviews, evaluationStatus } = state
+  const { tasks, members, contributions, criteria, meetingNotes, evaluationStatus } = state
   const periodsForTeam = useMemo(() => workspaces.filter((w) => w.teamName === teamName), [workspaces, teamName])
 
   const taskScores = calcAllTaskScores(tasks, criteria)
-  const results = calcMemberResults(members, tasks, contributions, criteria, peerReviews)
+  // 점수 계산용 피어리뷰: 예전 등급 리뷰 + 새 순위·과제별 리뷰 변환값
+  const peerInputs = peerInputsOf(state)
+  const results = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
   const activeMembers = members.filter((m) => m.active)
 
   // 전년도(직전 평가기간) 고과 — 같은 계산 로직을 다른 기간 스냅샷에 재실행해서
@@ -230,8 +233,8 @@ export default function EvaluationResults() {
           </Button>
           <CurrentDataDownloadControls
             label="통합 결과 리포트"
-            onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerReviews, periodsForTeam)}
-            onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerReviews)}
+            onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerInputs, periodsForTeam)}
+            onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs)}
           />
           <CurrentDataDownloadControls
             label={selectedIds.size > 0 ? `선택 팀원 리포트 (${selectedIds.size})` : '전체 팀원별 리포트'}
@@ -242,7 +245,7 @@ export default function EvaluationResults() {
                 contributions,
                 criteria,
                 meetingNotes,
-                peerReviews,
+                peerInputs,
                 selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
               )
             }
@@ -255,7 +258,7 @@ export default function EvaluationResults() {
                 contributions,
                 criteria,
                 meetingNotes,
-                peerReviews,
+                peerInputs,
                 selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
               )
             }
@@ -377,13 +380,13 @@ export default function EvaluationResults() {
                       <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1.5">
                           <IconButton
-                            onClick={() => previewMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+                            onClick={() => previewMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
                             title="미리보기"
                           >
                             <PreviewIcon className="h-4 w-4" />
                           </IconButton>
                           <IconButton
-                            onClick={() => downloadMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerReviews)}
+                            onClick={() => downloadMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
                             title="PDF 다운로드"
                           >
                             <DownloadIcon className="h-4 w-4" />

@@ -6,6 +6,7 @@ import { calcYearsSince } from '../../utils/tenure'
 import Badge from '../Badge'
 import Button from '../Button'
 import type { TeamMember } from '../../types'
+import { peerInputsOf } from '../../utils/peerScores'
 
 function UploadIcon({ className }: { className?: string }) {
   return (
@@ -37,7 +38,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   const { state } = useAppState()
   const { profile } = useTeamProfile()
   const activeMembers = state.members.filter((m) => m.active)
-  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
 
   function currentGrade(memberId: string) {
     return memberResults.find((r) => r.member.id === memberId)?.grade ?? null

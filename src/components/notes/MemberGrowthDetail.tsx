@@ -15,6 +15,7 @@ import GradeNoteButton from '../GradeNoteButton'
 import TrendSparkline from './TrendSparkline'
 import PromotionDatePicker from '../PromotionDatePicker'
 import CollapseToggleButton from '../CollapseToggleButton'
+import { peerInputsOf } from '../../utils/peerScores'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
@@ -403,7 +404,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     return <p className="rounded-md bg-gray-50 px-4 py-6 text-center text-sm text-gray-500">팀원을 찾을 수 없습니다.</p>
   }
 
-  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, state.peerReviews)
+  const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
   const resultIdx = memberResults.findIndex((r) => r.member.id === memberId)
   const memberResult = resultIdx >= 0 ? memberResults[resultIdx] : undefined
   const cardYear = currentWorkspace?.evaluationYear ?? new Date().getFullYear()
