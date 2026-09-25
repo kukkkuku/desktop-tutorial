@@ -451,7 +451,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
                 <button
                   onMouseDown={(e) => e.stopPropagation()}
-                  onClick={() => ungroupRows(all.map((i) => i.id))}
+                  onClick={() => ungroupRows(here.map((i) => i.id))}
                   title={done ? '묶음 풀기(하위 과제를 모두 낱개로 · 평가과제는 그대로)' : '묶음 풀기(하위 과제를 모두 낱개로)'}
                   className="rounded px-1.5 text-label-2 hover:bg-black/[0.07] hover:text-label"
                 >
