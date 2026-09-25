@@ -71,6 +71,8 @@ interface DataGridProps<R extends { id: string }> {
   // 데이터 행 사이에 끼우는 머리 행(묶음 제목 등). anchor = 이 머리 행 바로 뒤에 올 데이터 행
   // index(끝이면 rows.length). 선택·편집 대상이 아니다.
   groupHeaders?: (anchor: number) => GroupHeaderRow[]
+  // 왼쪽 번호 칸에 보일 값. 없으면 보이는 순서(1부터).
+  rowNumber?: (row: R, index: number) => ReactNode
   // 행 앞 체크박스(셀 선택과 별개). 넘기면 체크 열이 생긴다.
   check?: {
     isChecked: (row: R) => boolean
@@ -84,9 +86,9 @@ interface DataGridProps<R extends { id: string }> {
 
 export interface GroupHeaderRow {
   key: string
-  caret?: ReactNode
+  number?: ReactNode // 왼쪽 번호 칸
   check?: { checked: boolean; indeterminate?: boolean; disabled?: boolean; title?: string; onChange: (on: boolean) => void }
-  content: ReactNode
+  cell: (colId: string) => ReactNode // 열마다 보여 줄 내용(편집 대상 아님)
 }
 
 export interface RowAction {
@@ -805,10 +807,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     const list = props.groupHeaders?.(anchor)
     if (!list?.length) return null
     return list.map((h) => (
-      <tr key={`gh:${h.key}`} className="bg-[#F3F5F8]">
-        <td className="h-9 border-b border-r border-[#D6DAE0] text-center text-xs text-gray-500">{h.caret}</td>
+      <tr key={`gh:${h.key}`} data-group-head className="bg-[#F3F5F8]">
+        <td className="h-9 border-b border-r border-dotted border-[#C9CDD3] text-center text-xs tabular-nums text-gray-500">{h.number}</td>
         {check && (
-          <td className="border-b border-r border-[#D6DAE0] text-center" title={h.check?.title}>
+          <td className="border-b border-r border-dotted border-[#C9CDD3] text-center" title={h.check?.title}>
             {h.check && (
               <input
                 type="checkbox"
@@ -823,9 +825,12 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             )}
           </td>
         )}
-        <td colSpan={nC + 1} className="border-b border-[#D6DAE0] px-2 py-1.5">
-          {h.content}
-        </td>
+        {columns.map((col) => (
+          <td key={col.id} className="h-9 overflow-hidden border-b border-r border-dotted border-[#C9CDD3] px-2 align-middle">
+            {h.cell(col.id)}
+          </td>
+        ))}
+        <td className="border-b border-dotted border-[#C9CDD3]" />
       </tr>
     ))
   }
@@ -950,7 +955,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     >
                       <span className="inline-flex items-center gap-1">
                         <span className={`${rowSelected ? 'text-white/80' : 'text-gray-300 group-hover:text-gray-500'}`}>⋮⋮</span>
-                        {r + 1}
+                        {props.rowNumber ? props.rowNumber(row, r) : r + 1}
                         {props.rowMarker?.(row)}
                       </span>
                     </td>

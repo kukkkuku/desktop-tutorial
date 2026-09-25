@@ -10,6 +10,7 @@ import {
   COL_ASSIGNEES,
   COL_CATEGORY,
   COL_EVAL_GROUP,
+  COL_NAME,
   STATUS_OPTIONS,
   evalGroupOf,
   newEvalGroupName,
@@ -224,7 +225,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const groupItems = useMemo(() => (activeGroup ? itemsOfGroup(board, activeGroup.id) : []), [board, activeGroup])
   // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const { viewRows, headerAt } = useMemo(() => {
+  const { viewRows, headerAt, numbers } = useMemo(() => {
     const gathered: WorkItem[] = []
     const done = new Set<string>()
     for (const i of groupItems) {
@@ -235,6 +236,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         gathered.push(x)
         done.add(x.id)
       }
+    }
+    // 번호는 최상위(낱개 L3·묶음)에만, 접기·찾기와 무관하게 전체 순서로 매긴다.
+    const numbers = new Map<string, number>()
+    let n = 0
+    for (const i of gathered) {
+      const g = evalGroupOf(i)
+      const k = g ? `g:${g}` : i.id
+      if (!numbers.has(k)) numbers.set(k, ++n)
     }
     const q = search.trim()
     const matches = q ? gathered.filter((i) => board.columns.some((c) => getCellText(i, c.id, members).includes(q))) : gathered
@@ -249,7 +258,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       }
       if (!g || !collapsed.has(g)) rows.push(i)
     }
-    return { viewRows: rows, headerAt: heads }
+    return { viewRows: rows, headerAt: heads, numbers }
   }, [groupItems, search, board.columns, members, collapsed])
   const filtered = search.trim() !== ''
 
@@ -259,30 +268,25 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const free = all.filter((i) => !exportedIds.has(i.id))
     const done = free.length === 0
     const isOpen = !collapsed.has(g)
-    const cats = IMPORTANCE_OPTIONS.map((o) => [o, all.filter((i) => i.category === o).length] as const).filter(([, n]) => n > 0)
-    const noCat = all.filter((i) => !i.category).length
-    const fixedGrade = new Set(free.map((i) => i.category)).size === 1 ? free[0]?.category ?? null : null
+    const fixedGrade = new Set(all.map((i) => i.category)).size === 1 ? all[0]?.category ?? null : null
     const key = `g:${g}`
     const on = free.filter((i) => checked.has(i.id)).length
     const taskNames = Array.from(new Set(all.flatMap((i) => linkedTasks.get(i.id) ?? [])))
+    const doneCount = all.filter((i) => i.fields.status === '완료').length
+    const starts = all.map((i) => i.fields.startDate).filter(Boolean).sort()
+    const ends = all.map((i) => i.fields.doneDate).filter(Boolean).sort()
+    const byId = new Map(members.map((m) => [m.id, m.name]))
+    const people = Array.from(new Set(all.flatMap((i) => [...i.assigneeIds.map((id) => byId.get(id) ?? ''), ...i.unmatchedAssignees]).filter(Boolean)))
+    const toggle = () =>
+      setCollapsed((cur) => {
+        const next = new Set(cur)
+        if (next.has(g)) next.delete(g)
+        else next.add(g)
+        return next
+      })
     return {
       key: g,
-      caret: (
-        <button
-          onClick={() =>
-            setCollapsed((cur) => {
-              const next = new Set(cur)
-              if (next.has(g)) next.delete(g)
-              else next.add(g)
-              return next
-            })
-          }
-          title={isOpen ? '접기' : '펼치기'}
-          className="h-6 w-6 rounded hover:bg-gray-200"
-        >
-          {isOpen ? '▾' : '▸'}
-        </button>
-      ),
+      number: numbers.get(key),
       check: {
         checked: !done && on === free.length,
         indeterminate: on > 0,
@@ -290,66 +294,115 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         title: done ? `이미 내보냄: ${taskNames.join(', ')}` : '묶음 전체 선택',
         onChange: (v) => toggleCheck(free, v),
       },
-      content: (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          {renamingEval === g ? (
-            <input
-              autoFocus
-              defaultValue={g}
-              onFocus={(e) => e.target.select()}
-              onBlur={(e) => renameGroup(g, e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                if (e.key === 'Escape') renameGroup(g, g)
-              }}
-              className="h-7 w-96 rounded-md border border-accent px-2 text-sm outline-none"
-            />
-          ) : (
-            <>
-              <span className={`${CHIP_BASE} ${evalGroupTone(g)} text-[13px] font-semibold`}>{g}</span>
-              {!done && (
-                <button onClick={() => setRenamingEval(g)} title="묶음 이름 바꾸기" className="rounded px-1 text-gray-400 hover:bg-gray-200 hover:text-black">
-                  ✎
-                </button>
-              )}
-            </>
-          )}
-          <span className="text-gray-500">
-            {here.length}건{all.length !== here.length && ` (다른 L2 포함 ${all.length}건)`}
-            {' · '}
-            {[...cats.map(([o, n]) => `${o} ${n}`), ...(noCat ? [`분류 없음 ${noCat}`] : [])].join(' · ')}
-          </span>
-          {done ? (
-            <span className="rounded bg-accent/10 px-1.5 py-0.5 font-semibold text-accent">내보냄 · {taskNames.join(', ')}</span>
-          ) : (
-            <>
-              {!fixedGrade && (
-                <select
-                  value={exportGrades[key] ?? ''}
-                  onChange={(e) => setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))}
-                  title="분류가 섞였거나 비어 있어 과제등급을 골라야 내보낼 수 있습니다"
-                  className={`h-7 rounded-md border px-1.5 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-gray-300'}`}
-                >
-                  <option value="">과제등급 고르기</option>
-                  {IMPORTANCE_OPTIONS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                onClick={() => ungroupRows(free.map((i) => i.id))}
-                className="ml-auto rounded px-2 py-1 text-gray-500 hover:bg-gray-200 hover:text-black"
-              >
-                묶음 풀기
+      cell: (colId) => {
+        if (colId === COL_NAME)
+          return (
+            <div className="group/gh flex items-center gap-1.5 py-1">
+              <button onClick={toggle} title={isOpen ? '접기' : '펼치기'} className="h-6 w-5 shrink-0 rounded text-gray-500 hover:bg-gray-200">
+                {isOpen ? '▾' : '▸'}
               </button>
-            </>
-          )}
-        </div>
-      ),
+              {renamingEval === g ? (
+                <input
+                  autoFocus
+                  defaultValue={g}
+                  onFocus={(e) => e.target.select()}
+                  onBlur={(e) => renameGroup(g, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                    if (e.key === 'Escape') renameGroup(g, g)
+                  }}
+                  className="h-7 min-w-0 flex-1 rounded-md border border-accent px-2 text-sm font-bold outline-none"
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => !done && setRenamingEval(g)}
+                  className="min-w-0 break-words font-bold text-black"
+                  title={done ? undefined : '두 번 눌러 이름 바꾸기'}
+                >
+                  {g}
+                </span>
+              )}
+              <span className="shrink-0 rounded bg-white px-1.5 text-[11px] font-semibold text-gray-500 ring-1 ring-gray-200">
+                하위 {here.length}
+                {all.length !== here.length && ` · 전체 ${all.length}`}
+              </span>
+              {done ? (
+                <span className="shrink-0 rounded bg-accent/10 px-1.5 text-[11px] font-semibold text-accent" title={taskNames.join(', ')}>
+                  내보냄
+                </span>
+              ) : (
+                <span className="ml-auto flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover/gh:opacity-100">
+                  <button onClick={() => setRenamingEval(g)} title="묶음 이름 바꾸기" className="rounded px-1.5 text-gray-500 hover:bg-gray-200 hover:text-black">
+                    ✎
+                  </button>
+                  <button onClick={() => ungroupRows(free.map((i) => i.id))} title="묶음 풀기(하위 과제를 모두 낱개로)" className="rounded px-1.5 text-gray-500 hover:bg-gray-200 hover:text-black">
+                    <UngroupIcon />
+                  </button>
+                </span>
+              )}
+            </div>
+          )
+        if (colId === COL_CATEGORY) {
+          if (fixedGrade) return <Chip tone={toneFor(COL_CATEGORY)(fixedGrade, true)}>{fixedGrade}</Chip>
+          if (done) return null
+          return (
+            <select
+              value={exportGrades[key] ?? ''}
+              onChange={(e) => setExportGrades((cur) => ({ ...cur, [key]: e.target.value as Importance }))}
+              title="하위 과제의 분류가 섞였거나 비어 있어 과제등급을 골라야 내보낼 수 있습니다"
+              className={`h-7 w-full rounded-md border bg-white px-1 text-xs ${!exportGrades[key] && on > 0 ? 'border-orange-400 ring-2 ring-orange-200' : 'border-gray-300'}`}
+            >
+              <option value="">등급 선택</option>
+              {IMPORTANCE_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          )
+        }
+        if (colId === 'status') return <span className="text-xs text-gray-500">완료 {doneCount}/{all.length}</span>
+        if (colId === COL_ASSIGNEES)
+          return (
+            <div className="flex flex-wrap gap-1 py-1">
+              {people.map((n) => (
+                <Chip key={n} tone={PERSON_TONE}>
+                  {n}
+                </Chip>
+              ))}
+            </div>
+          )
+        if (colId === 'startDate') return <span className="text-gray-500">{starts[0] ?? ''}</span>
+        if (colId === 'doneDate') return <span className="text-gray-500">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
+        return null
+      },
     }
   }
+
+  // 하위 과제(묶음 안 L3)의 과제명: ㄴ 표시 + 묶음에서 빼기 아이콘
+  function renderCell(row: WorkItem, col: GridColumn) {
+    if (col.id === COL_NAME && evalGroupOf(row)) {
+      const locked = exportedIds.has(row.id)
+      return (
+        <div className="group/child flex items-start gap-1 py-1.5 pl-5 leading-snug">
+          <span className="shrink-0 text-gray-400">ㄴ</span>
+          <span className="min-w-0 flex-1 whitespace-pre-line break-words">{row.name}</span>
+          {!locked && (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => ungroupRows([row.id])}
+              title="묶음에서 빼기"
+              className="shrink-0 rounded px-1 text-gray-300 hover:bg-gray-200 hover:text-black group-hover/child:text-gray-500"
+            >
+              <UngroupIcon />
+            </button>
+          )}
+        </div>
+      )
+    }
+    return renderWorkCell(row, col, members)
+  }
+
 
   const visibleCols = board.columns.filter((c) => !c.hidden)
   const hiddenCols = board.columns.filter((c) => c.hidden)
@@ -723,7 +776,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             columns={gridColumns}
             rows={viewRows}
             getText={(row, colId) => getCellText(row, colId, members)}
-            renderCell={(row, col) => renderWorkCell(row, col, members)}
+            renderCell={renderCell}
+            rowNumber={(row) => (evalGroupOf(row) ? '' : numbers.get(row.id))}
             rowClassName={(row) => (row.missingInSheet ? 'bg-orange-50/50 text-gray-500' : evalGroupOf(row) ? 'bg-[#FAFBFD]' : '')}
             rowMarker={(row) => (
               <>
@@ -877,6 +931,15 @@ function toneFor(colId: string) {
     if (colId === COL_ASSIGNEES) return known ? PERSON_TONE : UNKNOWN_TONE
     return TONES[colId]?.[value] ?? DEFAULT_TONE
   }
+}
+
+function UngroupIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 3H3v10h3" />
+      <path d="M9 8h5M11.5 5.5 14 8l-2.5 2.5" />
+    </svg>
+  )
 }
 
 function Chip({ tone, title, children }: { tone: string; title?: string; children: React.ReactNode }) {
