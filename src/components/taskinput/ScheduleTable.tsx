@@ -357,7 +357,10 @@ export default function ScheduleTable({
         onScheduleMenu(e)
       }
     : undefined
-  const w = (key: string, def: number) => widths[key] ?? def
+  // 열 폭은 글자 13px 기준으로 기억하고, 글자 크기에 맞춰 같이 늘고 준다(줄이면 안 보이던 열이 들어온다).
+  const scale = fontSize / 13
+  const w = (key: string, def: number) => Math.round((widths[key] ?? def) * scale)
+  const resizeTo = (key: string, px: number) => onResize?.(key, Math.round(px / scale))
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
   const wL3 = w('l3', DEFAULT_WIDTHS.l3)
   // 줄여보기는 12px 고정, 전체 펴기는 24px(머리글 끝을 끌어 바꿀 수 있음)
@@ -447,11 +450,11 @@ export default function ScheduleTable({
           <tr>
             <th rowSpan={2} style={blackTh} className={`sticky left-0 z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
-              {onResize && <ResizeHandle width={wL2} onResize={(v) => onResize('l2', v)} />}
+              {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} />}
             </th>
             <th rowSpan={2} style={{ left: wL2, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               과제(L3)
-              {onResize && <ResizeHandle width={wL3} onResize={(v) => onResize('l3', v)} />}
+              {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} />}
             </th>
             {scheduleOpen ? (
               months.map((m, i) => (
@@ -495,7 +498,7 @@ export default function ScheduleTable({
                     <ChevronsRight size={14} strokeWidth={2} />
                   </button>
                 )}
-                {onResize && <ResizeHandle width={wSummary} onResize={(v) => onResize('summary', v)} />}
+                {onResize && <ResizeHandle width={wSummary} onResize={(v) => resizeTo('summary', v)} />}
               </th>
             ) : null}
             {cols.map((f) => {
@@ -516,7 +519,7 @@ export default function ScheduleTable({
               return (
                 <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`relative px-1 py-2 font-bold ${thBorder}`} title={f.label}>
                   {headLabel(f)}
-                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
+                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
                 </th>
               )
             })}
@@ -531,7 +534,7 @@ export default function ScheduleTable({
                   className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
                 >
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => onResize('week', Math.max(10, v))} />}
+                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => resizeTo('week', Math.max(8, v))} />}
                 </th>
               ))}
             {cols
@@ -539,7 +542,7 @@ export default function ScheduleTable({
               .map((f) => (
                 <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`relative px-1 pb-1.5 font-bold ${thBorder}`} title={f.label}>
                   {headLabel(f)}
-                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => onResize(f.id, v)} />}
+                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
                 </th>
               ))}
           </tr>
