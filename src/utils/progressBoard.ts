@@ -46,6 +46,16 @@ export interface FieldDef {
   options?: string[]
 }
 
+// 머리글 색(시트 그대로, RRGGBB · 없으면 null)과 묶음 머리글(예: "CATCH UP 일정")
+export interface HeaderStyle {
+  l2: string | null
+  l3: string | null
+  months: Record<number, string | null>
+  weeks: Record<string, string | null>
+  fields: Record<string, string | null>
+  groups: { label: string; fieldIds: string[]; bg: string | null }[]
+}
+
 export interface ProgressData {
   spreadsheetId: string | null
   source: string // 탭 이름 또는 파일 이름
@@ -56,6 +66,7 @@ export interface ProgressData {
   fetchedAt: string
   weekCols: (WeekColumn & { col: number })[]
   fields: FieldDef[]
+  headerStyle?: HeaderStyle
   rows: ProgressRow[]
 }
 
@@ -117,6 +128,37 @@ export function buildFieldDefs(header: ParsedHeader, columnMap: Record<string, n
     defs.push({ id: `col${col}`, col, label: cleanLabel(label), kind: 'text' })
   })
   return defs.sort((a, b) => a.col - b.col)
+}
+
+export function buildHeaderStyle(header: ParsedHeader, raw: RawSheet, fields: FieldDef[]): HeaderStyle {
+  const top = header.headerRow
+  const sub = Math.max(top, header.dataStartRow - 1)
+  const bg = (r: number, c: number) => raw.fills?.[r]?.[c] ?? null
+  // 병합된 머리글은 첫 칸에만 색이 있을 수 있어 병합 첫 칸 색도 본다.
+  const anchorBg = (r: number, c: number) => {
+    const m = raw.merges.find((x) => x.r1 <= r && r <= x.r2 && x.c1 <= c && c <= x.c2)
+    return m ? bg(m.r1, m.c1) : null
+  }
+  const at = (r: number, c: number) => bg(r, c) ?? anchorBg(r, c)
+  const months: Record<number, string | null> = {}
+  const weeks: Record<string, string | null> = {}
+  for (const w of header.weekCols) {
+    if (!(w.month in months)) months[w.month] = at(top, w.col)
+    weeks[w.key] = at(sub, w.col) ?? at(top, w.col)
+  }
+  const fieldBg: Record<string, string | null> = {}
+  for (const f of fields) fieldBg[f.id] = at(sub, f.col) ?? at(top, f.col)
+  // 윗줄에서 여러 열을 합친 머리글 아래에 아랫줄 머리글이 따로 있으면 묶음 머리글이다.
+  const groups: HeaderStyle['groups'] = []
+  if (sub > top) {
+    for (const m of raw.merges) {
+      if (m.r1 !== top || m.r2 !== top || m.c2 <= m.c1) continue
+      const label = cellText(raw.rows[top]?.[m.c1]).replace(/\s+/g, ' ').trim()
+      const ids = fields.filter((f) => f.col >= m.c1 && f.col <= m.c2 && f.id !== 'name' && cellText(raw.rows[sub]?.[f.col])).map((f) => f.id)
+      if (label && ids.length > 0) groups.push({ label, fieldIds: ids, bg: bg(top, m.c1) })
+    }
+  }
+  return { l2: at(top, header.l2Col), l3: at(top, header.l3Col), months, weeks, fields: fieldBg, groups }
 }
 
 export function toProgressRows(rows: ParsedRow[], raw?: RawSheet, fields: FieldDef[] = []): ProgressRow[] {

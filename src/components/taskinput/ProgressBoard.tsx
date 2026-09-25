@@ -30,6 +30,7 @@ import {
   writeLinkedSheet,
   NEW_PREFIX,
   buildFieldDefs,
+  buildHeaderStyle,
   countDrafts,
   currentWeekKey,
   effectiveCells,
@@ -94,6 +95,7 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
     fetchedAt: new Date().toISOString(),
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
     fields,
+    headerStyle: buildHeaderStyle(parsed.header, raw, fields),
     rows: toProgressRows(parsed.rows, raw, fields),
   }
 }
@@ -107,9 +109,19 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
   const raw: RawSheet = await fetchSheetTab(spreadsheetId, title)
   const first = parseSheet(raw)
   if ('error' in first) throw new Error(first.error)
+  // 칸 배경색: 머리글 줄(모든 열, 머리글 색) + 주차 칸(계획 회색 / 실적 분홍)
   const cols = first.header.weekCols.map((w) => w.col)
-  if (cols.length > 0 && raw.rows.length > first.header.dataStartRow)
-    raw.fills = await fetchSheetFills(spreadsheetId, title, first.header.dataStartRow, raw.rows.length - 1, Math.min(...cols), Math.max(...cols))
+  const lastCol = Math.max(0, ...cols, ...Object.values(first.columnMap).filter((v): v is number => v !== null), (raw.rows[first.header.headerRow]?.length ?? 1) - 1)
+  const [headFills, weekFills] = await Promise.all([
+    fetchSheetFills(spreadsheetId, title, 0, first.header.dataStartRow - 1, 0, lastCol),
+    cols.length > 0 && raw.rows.length > first.header.dataStartRow
+      ? fetchSheetFills(spreadsheetId, title, first.header.dataStartRow, raw.rows.length - 1, Math.min(...cols), Math.max(...cols))
+      : Promise.resolve([] as (string | null)[][]),
+  ])
+  const fills: (string | null)[][] = []
+  headFills.forEach((row, r) => (fills[r] = row))
+  weekFills.forEach((row, r) => row && (fills[r] = row))
+  raw.fills = fills
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
   return { ...toData(parsed, raw, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
@@ -140,6 +152,8 @@ export default function ProgressBoard() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   const [tool, setTool] = useState<PaintTool>('S')
+  // 일정(주차 칸) 접기 -- 접으면 계획·실적 기간 요약 한 칸만 보인다
+  const [scheduleOpen, setScheduleOpen] = useState(true)
   // 표 글자 크기(가▲/가▼) -- 이 브라우저에 기억
   const [fontSize, setFontSizeState] = useState<number>(() => {
     try {
@@ -663,6 +677,10 @@ export default function ProgressBoard() {
             fontSize={fontSize}
             fields={data.fields}
             optionsOf={optionsOf}
+            headerStyle={data.headerStyle}
+            scheduleOpen={scheduleOpen}
+            onToggleSchedule={() => setScheduleOpen((v) => !v)}
+            allWeekCols={data.weekCols}
           />
         )}
       </div>

@@ -3,8 +3,8 @@
 // 입력 중에는 고른 도구로 칸을 누르거나 한 줄 안에서 끌어 칠한다.
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { WeekColumn } from '../../types'
-import type { CellState, FieldDef, ProgressRow } from '../../utils/progressBoard'
-import { FILL_HEX } from '../../utils/progressBoard'
+import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
+import { FILL_HEX, planRange } from '../../utils/progressBoard'
 
 export interface ScheduleRowView {
   row: ProgressRow
@@ -47,15 +47,15 @@ function FieldCell({ f, value, edited, fontSize, onCommit }: { f: FieldDef; valu
   }
   const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
   let display: React.ReactNode = value
-  if (f.id === 'status' && value) display = <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[0.85em] font-semibold ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
+  if (f.id === 'status' && value) display = <span className={`inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
   else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(2).replace(/-/g, '.')
   return (
     <td
       onClick={editing ? undefined : start}
       title={value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력`}
-      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-1 align-middle text-[0.92em] text-label hover:bg-accent/[0.06]"
+      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-[2px] align-middle text-[0.92em] text-label hover:bg-accent/[0.06]"
     >
-      <div className={`${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'truncate'} break-all`}>{display}</div>
+      <div className="truncate">{typeof display === 'string' ? display.replace(/\s*\n\s*/g, ' · ') : display}</div>
       {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
       {editing &&
         (f.kind === 'memo' ? (
@@ -117,6 +117,10 @@ export default function ScheduleTable({
   fontSize = 13,
   fields = [],
   optionsOf,
+  headerStyle: hs,
+  scheduleOpen = true,
+  onToggleSchedule,
+  allWeekCols = weekCols,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -129,7 +133,16 @@ export default function ScheduleTable({
   fontSize?: number
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
+  headerStyle?: HeaderStyle // 시트 머리글 색 · 묶음 머리글
+  scheduleOpen?: boolean
+  onToggleSchedule?: () => void
+  allWeekCols?: WeekColumn[] // 접었을 때 요약에 쓰는 전체 주차
 }) {
+  // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
+  const thStyle = (hex: string | null | undefined): React.CSSProperties =>
+    hs ? { background: hex ? `#${hex}` : '#FFFFFF', color: '#14161A' } : { background: '#14161A', color: '#FFFFFF' }
+  const thBorder = hs ? 'border border-[#A6A6A6]' : 'border-l border-white/25'
+  const groupOf = new Map((hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => [id, g] as const)))
   const cols = fields.filter((f) => f.id !== 'name')
   const colW = (f: FieldDef) => Math.round((FIELD_WIDTH[f.kind] * fontSize) / 13)
   const col1 = Math.round(fontSize * 11.5) // 구분 열 폭(항목 열이 이만큼 왼쪽에 붙는다)
@@ -153,42 +166,76 @@ export default function ScheduleTable({
   }
 
   return (
-    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: col1 + fontSize * 20 + weekCols.length * 24 + cols.reduce((n, f) => n + colW(f), 0), fontSize }}>
+    <table className="w-full table-fixed border-collapse select-none" style={{ minWidth: col1 + fontSize * 20 + (scheduleOpen ? weekCols.length * 24 : fontSize * 17) + cols.reduce((n, f) => n + colW(f), 0), fontSize }}>
       <colgroup>
         <col style={{ width: col1 }} />
         <col style={{ width: Math.round(fontSize * 20) }} />
-        {weekCols.map((w) => (
-          <col key={w.key} />
-        ))}
+        {scheduleOpen ? weekCols.map((w) => <col key={w.key} />) : <col style={{ width: Math.round(fontSize * 17) }} />}
         {cols.map((f) => (
           <col key={f.id} style={{ width: colW(f) }} />
         ))}
       </colgroup>
       <thead className="sticky top-0 z-10">
-        <tr className="bg-[#14161A] text-white">
-          <th rowSpan={2} className="sticky left-0 z-20 bg-[#14161A] px-2 py-2 text-[1em] font-bold">
+        <tr>
+          <th rowSpan={2} style={thStyle(hs?.l2)} className={`sticky left-0 z-20 px-2 py-2 text-[1em] font-bold ${thBorder}`}>
             구분
           </th>
-          <th rowSpan={2} style={{ left: col1 }} className="sticky z-20 bg-[#14161A] px-2 py-2 text-[1em] font-bold">
+          <th rowSpan={2} style={{ left: col1, ...thStyle(hs?.l3) }} className={`sticky z-20 px-2 py-2 text-[1em] font-bold ${thBorder}`}>
             항목
           </th>
-          {months.map((m) => (
-            <th key={m} colSpan={weekCols.filter((w) => w.month === m).length} className="border-l border-white/25 pb-0.5 pt-2 text-[1em] font-bold">
-              {m}월
+          {scheduleOpen ? (
+            months.map((m, i) => (
+              <th key={m} colSpan={weekCols.filter((w) => w.month === m).length} style={thStyle(hs?.months[m])} className={`pb-0.5 pt-2 text-[1em] font-bold ${thBorder}`}>
+                {i === 0 && onToggleSchedule ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <button onClick={onToggleSchedule} title="일정 접기" aria-label="일정 접기" className="rounded px-0.5 text-[0.85em] opacity-60 hover:opacity-100">
+                      ◂
+                    </button>
+                    {m}월
+                  </span>
+                ) : (
+                  `${m}월`
+                )}
+              </th>
+            ))
+          ) : (
+            <th rowSpan={2} style={thStyle(hs?.months[months[0]])} className={`px-1.5 py-2 text-[0.92em] font-bold ${thBorder}`}>
+              <button onClick={onToggleSchedule} title="일정 펼치기" className="flex w-full items-center justify-center gap-1 hover:text-accent">
+                일정 ▸
+              </button>
             </th>
-          ))}
-          {cols.map((f) => (
-            <th key={f.id} rowSpan={2} className="border-l border-white/25 px-1.5 py-2 text-[0.92em] font-bold" title={f.label}>
-              <span className="line-clamp-2 break-keep">{f.label}</span>
-            </th>
-          ))}
+          )}
+          {cols.map((f) => {
+            const g = groupOf.get(f.id)
+            if (g) {
+              if (g.fieldIds[0] !== f.id) return null
+              return (
+                <th key={`g-${f.id}`} colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length} style={thStyle(g.bg ?? hs?.fields[f.id])} className={`px-1.5 pb-0.5 pt-2 text-[0.92em] font-bold ${thBorder}`}>
+                  {g.label}
+                </th>
+              )
+            }
+            return (
+              <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`px-1.5 py-2 text-[0.92em] font-bold ${thBorder}`} title={f.label}>
+                <span className="line-clamp-2 break-keep">{f.label}</span>
+              </th>
+            )
+          })}
         </tr>
-        <tr className="bg-[#14161A] text-[#9AA1AC]">
-          {weekCols.map((w, i) => (
-            <th key={w.key} className={`pb-1.5 text-[0.85em] font-medium ${monthStart.has(w.key) ? 'border-l border-white/25' : ''} ${i === curIdx ? 'text-[#FF6F63]' : ''}`}>
-              {i === curIdx ? '▼' : w.week}
-            </th>
-          ))}
+        <tr>
+          {scheduleOpen &&
+            weekCols.map((w, i) => (
+              <th key={w.key} style={thStyle(hs?.weeks[w.key])} className={`pb-1.5 text-[0.85em] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}>
+                {i === curIdx ? '▼' : w.week}
+              </th>
+            ))}
+          {cols
+            .filter((f) => groupOf.has(f.id))
+            .map((f) => (
+              <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`px-1.5 pb-1.5 text-[0.92em] font-bold ${thBorder}`} title={f.label}>
+                <span className="line-clamp-2 break-keep">{f.label}</span>
+              </th>
+            ))}
         </tr>
       </thead>
       <tbody>
@@ -197,7 +244,7 @@ export default function ScheduleTable({
             {g.rows.map((v, ri) => {
               const zebra = gi % 2 === 0 ? 'bg-[#F4F5F7]' : 'bg-white'
               return (
-                <tr key={v.row.key} className={zebra} style={{ height: Math.round(fontSize * 3.4) }}>
+                <tr key={v.row.key} className={`${zebra} leading-snug`}>
                   {ri === 0 && (
                     <td
                       rowSpan={g.rows.length}
@@ -216,41 +263,62 @@ export default function ScheduleTable({
                       </div>
                     </td>
                   )}
-                  <td style={{ left: col1 }} className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2.5 py-1.5 ${zebra}`}>
+                  <td style={{ left: col1 }} className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-[2px] ${zebra}`}>
                     <button onClick={() => onOpenRow(v.row)} className="flex w-full min-w-0 items-center gap-1 text-left" title={`${v.vals.name || '(이름 없음)'} · 눌러서 모든 항목 보기·입력`}>
                       {v.row.isNew && <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
                       <span className={`truncate font-semibold hover:text-accent hover:underline ${v.vals.name ? 'text-label' : 'text-label-3'}`}>{v.vals.name || '(이름을 입력하세요)'}</span>
                       {(v.editedFields.size > 0 || v.row.isNew) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                     </button>
                   </td>
+                  {scheduleOpen ? (
+                    <>
                   {weekCols.map((w, i) => {
-                    const c = v.cells[w.key]
-                    const edited = v.editedCells.has(w.key)
-                    return (
-                      <td
-                        key={w.key}
-                        onMouseDown={
-                          editing
-                            ? (e) => {
-                                e.preventDefault()
-                                dragRow.current = v.row.key
-                                onPaint(v.row, w.key)
-                              }
-                            : undefined
+                      const c = v.cells[w.key]
+                      const edited = v.editedCells.has(w.key)
+                      return (
+                        <td
+                          key={w.key}
+                          onMouseDown={
+                            editing
+                              ? (e) => {
+                                  e.preventDefault()
+                                  dragRow.current = v.row.key
+                                  onPaint(v.row, w.key)
+                                }
+                              : undefined
+                          }
+                          onMouseEnter={editing ? () => dragRow.current === v.row.key && onPaint(v.row, w.key) : undefined}
+                          title={`${w.month}월 ${w.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 이 화면에서 고침(아직 시트에 저장 안 됨)' : ''}`}
+                          style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
+                          className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
+                            monthStart.has(w.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
+                          } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
+                        >
+                          {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
+                          <span className="relative">{c?.m}</span>
+                          {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
+                        </td>
+                      )
+                    })}
+                    </>
+                  ) : (
+                    <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-[2px] text-[0.85em] leading-tight text-label-2">
+                      {(() => {
+                        const pr = planRange(v.cells, allWeekCols)
+                        const wk = (k: string | null) => {
+                          const w = k ? allWeekCols.find((x) => x.key === k) : null
+                          return w ? `${w.month}/${w.week}주` : '-'
                         }
-                        onMouseEnter={editing ? () => dragRow.current === v.row.key && onPaint(v.row, w.key) : undefined}
-                        title={`${w.month}월 ${w.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 이 화면에서 고침(아직 시트에 저장 안 됨)' : ''}`}
-                        style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
-                        className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.92em] font-bold text-[#14161A] ${
-                          monthStart.has(w.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
-                        } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
-                      >
-                        {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
-                        <span className="relative">{c?.m}</span>
-                        {edited && <span className="pointer-events-none absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
-                      </td>
-                    )
-                  })}
+                        const plan = pr.planStart || pr.planEnd ? `${wk(pr.planStart)}~${wk(pr.planEnd)}` : '-'
+                        const act = pr.started ? `${wk(pr.started)}~${pr.done ? wk(pr.done) : ''}` : '-'
+                        return (
+                          <p className="truncate" title={`계획 ${plan} · 실적 ${act}`}>
+                            <span className="text-label-3">계획</span> {plan} <span className="text-label-3">실적</span> {act}
+                          </p>
+                        )
+                      })()}
+                    </td>
+                  )}
                   {cols.map((f) => (
                     <FieldCell
                       key={f.id}
