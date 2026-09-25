@@ -130,8 +130,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                   <Segmented
                     className="mb-5"
                     items={[
-                      { key: 'work', label: '과제 리스트', title: '구글시트와 연결된 L2/L3 과제' },
-                      { key: 'tasks', label: '평가 과제', title: '과제 리스트에서 내보낸 평가용 과제' },
+                      { key: 'work', label: '과제리스트', title: '구글시트와 연결된 L2/L3 과제' },
+                      { key: 'tasks', label: '평가과제', title: '과제리스트에서 내보낸 평가용 과제' },
                     ]}
                     value={stage}
                     onChange={(k) => handleStageChange(k)}

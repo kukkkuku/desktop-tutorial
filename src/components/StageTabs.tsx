@@ -19,9 +19,9 @@ export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'not
 //
 // 과제관리는 구글시트와 연동되는 L2/L3 보드(WorkStage)다. 예전 과제관리
 // 화면(평가용 과제 목록)은 "평가과제"로 이름을 바꿔 평가하기 앞에 둔다 --
-// L3를 하나씩 또는 묶어서 평가 과제로 만드는 흐름은 다음 단계에서 붙인다
+// L3를 하나씩 또는 묶어서 평가과제로 만드는 흐름은 다음 단계에서 붙인다
 // (docs/PLAN-TASK-MANAGEMENT.md 6.1).
-// 과제 리스트(L2/L3 보드)와 평가 과제는 한 메뉴 "과제관리" 안의 두 화면이다(화면 위 세그먼트로 전환).
+// 과제리스트(L2/L3 보드)와 평가과제는 한 메뉴 "과제관리" 안의 두 화면이다(화면 위 세그먼트로 전환).
 const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[] }[] = [
   { key: 'work', label: '과제관리', Icon: LayoutList, also: ['tasks'] },
   { key: 'members', label: '팀원관리', Icon: Users },

@@ -184,7 +184,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       })
     })
     if (rowIndex + matrix.length > state.tasks.length)
-      setNotice('평가 과제는 과제 리스트에서 내보내 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
+      setNotice('평가과제는 과제리스트에서 내보내 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
     applyEdits(edits)
   }
 
@@ -267,7 +267,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           if (!it)
             return (
               <li key={id} className="text-[13px] text-label-3">
-                과제 리스트에서 지워진 L3
+                과제리스트에서 지워진 L3
               </li>
             )
           const status = it.fields.status ?? ''
@@ -293,7 +293,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <h3 className="mr-2 text-[17px] font-semibold text-label">평가 과제</h3>
+          <h3 className="mr-2 text-[17px] font-semibold text-label">평가과제</h3>
           <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
             <Undo2 {...ic} />
           </IconButton>
@@ -309,15 +309,15 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           />
         </div>
       </div>
-      <p className="mt-1 text-[13px] text-label-2">새 평가 과제는 과제 리스트에서 L3를 체크해 내보냅니다. 여기서는 등급·목표·성과를 바로 입력하세요.</p>
+      <p className="mt-1 text-[13px] text-label-2">새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 등급·목표·성과를 바로 입력하세요.</p>
 
       {state.tasks.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
-          <p className="text-[13px] font-medium text-label">아직 평가 과제가 없습니다</p>
-          <p className="mt-1 text-xs text-label-2">과제 리스트에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
+          <p className="text-[13px] font-medium text-label">아직 평가과제가 없습니다</p>
+          <p className="mt-1 text-xs text-label-2">과제리스트에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
           {onGoToWork && (
             <Button variant="primary" onClick={onGoToWork} className="mt-4">
-              과제 리스트로 이동
+              과제리스트로 이동
             </Button>
           )}
         </div>
