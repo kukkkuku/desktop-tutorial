@@ -583,9 +583,16 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
 // 회색이면 끝 칸에 F를 자동으로 붙인다(묶음을 늘리면 따라 옮겨진다).
 // 분홍 끝의 "완"은 끝났을 때만 직접 넣는다(진행 중인 과제에 자동으로 붙이지 않음).
 // 이미 그 색인 칸을 다시 누르면(끌기 아님) S → 끝 글자(회색 F / 분홍 완) → 지움 순서로 바뀐다.
-export function paintCells(cells: Record<string, CellState>, weekKeys: string[], key: string, color: WeekFill, click: boolean): Record<string, CellState> {
+// 지우개('erase')는 누르거나 끈 칸을 비우고, 남은 묶음의 S/F를 다시 맞춘다.
+export type PaintBrush = WeekFill | 'erase'
+export function paintCells(cells: Record<string, CellState>, weekKeys: string[], key: string, color: PaintBrush, click: boolean): Record<string, CellState> {
   const out = { ...cells }
   const cur = out[key]
+  if (color === 'erase') {
+    if (!cur) return out
+    delete out[key]
+    return cur.f ? autoRunLetters(out, weekKeys, cur.f) : out
+  }
   if (cur?.f === color) {
     if (!click) return out
     const end: WeekMark = color === 'plan' ? 'F' : '완'

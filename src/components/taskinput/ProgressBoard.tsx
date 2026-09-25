@@ -2,13 +2,13 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarRange, CloudUpload, Pencil, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
+import { CalendarRange, CloudUpload, Eraser, Pencil, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
 import Spinner from '../Spinner'
 import { ic, icSm } from '../ui/icon'
-import { parseSheet, type ParsedSheet, type RawSheet, type WeekFill } from '../../utils/sheetImport'
+import { parseSheet, type ParsedSheet, type RawSheet } from '../../utils/sheetImport'
 import {
   chooseSheetsAccountNext,
   fetchSheetFormats,
@@ -41,6 +41,7 @@ import {
   loadProgress,
   makeNewRow,
   orderWithNewRows,
+  type PaintBrush,
   saveDrafts,
   saveProgressData,
   setCellEdit,
@@ -158,7 +159,7 @@ export default function ProgressBoard() {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState(false)
   // 칠하기 도구: 회색(계획) / 분홍(실적)
-  const [tool, setTool] = useState<WeekFill>('plan')
+  const [tool, setTool] = useState<PaintBrush>('plan')
   // 행 지브라(기본 흰색) · 열 폭 -- 이 브라우저에 기억
   const [zebra, setZebraState] = useState<boolean>(() => {
     try {
@@ -741,16 +742,21 @@ export default function ProgressBoard() {
                 [
                   ['plan', '계획(회색) 칠하기'],
                   ['actual', '실적(분홍) 칠하기'],
+                  ['erase', '지우개'],
                 ] as const
               ).map(([c, label]) => (
                 <button
                   key={c}
                   onClick={() => setTool(c)}
-                  title={`${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움`}
+                  title={
+                    c === 'erase'
+                      ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
+                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움`
+                  }
                   aria-label={label}
                   className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
                 >
-                  <CellSwatch cell={{ m: '', f: c }} size={18} />
+                  {c === 'erase' ? <Eraser size={17} strokeWidth={1.75} className="text-label-2" /> : <CellSwatch cell={{ m: '', f: c }} size={18} />}
                 </button>
               ))}
             </>
