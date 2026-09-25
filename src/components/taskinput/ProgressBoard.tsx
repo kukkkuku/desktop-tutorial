@@ -603,40 +603,7 @@ export default function ProgressBoard() {
         </div>
       </div>
 
-      {/* 제목 + 기간 */}
-      <div className="mt-3 flex flex-wrap items-end justify-end gap-3">
-        <div className="flex flex-wrap items-center gap-2 text-[13px]">
-          <div className="flex overflow-hidden rounded-control border border-hairline">
-            {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
-              const on = period.start === p.start && period.months === p.months
-              return (
-                <button
-                  key={label}
-                  onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-          <select
-            value={period.months === 1 ? period.start : ''}
-            onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
-            className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
-            title="월별로 보기"
-          >
-            <option value="">월별</option>
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i + 1}>
-                {i + 1}월
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* 거르기 · 입력 */}
+      {/* 1줄: 보기(찾기·거르기) ─ 기간·글자 크기 */}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
         <label className="relative">
           <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
@@ -679,42 +646,36 @@ export default function ProgressBoard() {
           <input type="checkbox" checked={zebra} onChange={(e) => setZebra(e.target.checked)} />
           지브라
         </label>
-        <span className="ml-auto flex items-center gap-2">
-          <span className="flex items-center">
-            <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
-              <Undo2 {...ic} />
-            </IconButton>
-            <IconButton onClick={redo} disabled={future.current.length === 0} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
-              <Redo2 {...ic} />
-            </IconButton>
-          </span>
-          {editCount > 0 && (
-            <>
-              <span className="text-label-2">
-                저장 안 한 변경 <b className="text-orange-600">{editCount}</b>
-              </span>
-              <Button variant="secondary" size="sm" onClick={() => updateDrafts({ edits: {}, newRows: [] })} title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다" disabled={saving}>
-                <RotateCcw {...icSm} />
-                모두 되돌리기
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setConfirmSave(true)}
-                disabled={!canSave || saving}
-                title={
-                  canSave
-                    ? '고친 칸을 연결된 시트에 씁니다'
-                    : protectedSheet
-                      ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
-                      : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
-                }
-              >
-                {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-                구글시트에 저장
-              </Button>
-            </>
-          )}
+        <span className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <div className="flex overflow-hidden rounded-control border border-hairline">
+            {[...PERIOD_BUTTONS, ...QUARTERS].map(({ label, p }, i) => {
+              const on = period.start === p.start && period.months === p.months
+              return (
+                <button
+                  key={label}
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 py-1 ${i === PERIOD_BUTTONS.length ? 'border-l border-hairline' : ''} ${on ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+          <select
+            value={period.months === 1 ? period.start : ''}
+            onChange={(e) => e.target.value && setPeriod({ start: Number(e.target.value), months: 1 })}
+            className={`h-7 rounded-control border px-1.5 ${period.months === 1 ? 'border-label bg-label text-white' : 'border-hairline bg-white text-label-2'}`}
+            title="월별로 보기"
+          >
+            <option value="">월별</option>
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1}월
+              </option>
+            ))}
+          </select>
+        </div>
           <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
             <button onClick={() => setFontSize(fontSize + 1)} disabled={fontSize >= 18} className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30" aria-label="표 글자 크게">
               가<span className="text-[9px] text-accent">▲</span>
@@ -723,19 +684,12 @@ export default function ProgressBoard() {
               가<span className="text-[9px] text-accent">▼</span>
             </button>
           </span>
-          <Button variant="secondary" size="sm" onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)} disabled={!l2OfTab.length} title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다">
-            <Plus {...icSm} />
-            과제 추가
-          </Button>
-          <Button variant={editing ? 'primary' : 'secondary'} size="sm" onClick={() => setEditing((v) => !v)}>
-            <Pencil {...icSm} />
-            {editing ? '입력 끝내기' : '입력하기'}
-          </Button>
         </span>
       </div>
 
-      {/* 입력 도구 / 범례 */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-label-2">
+      {/* 2줄: 입력(범례·칠하기 도구) ─ 되돌리기·저장·과제 추가·입력하기 */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-label-2">
         {editing ? (
           <>
             <span className="mr-1 font-medium text-accent">칠하기</span>
@@ -786,6 +740,52 @@ export default function ProgressBoard() {
             </span>
           </>
         )}
+        </div>
+        <span className="ml-auto flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="flex items-center">
+            <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
+              <Undo2 {...ic} />
+            </IconButton>
+            <IconButton onClick={redo} disabled={future.current.length === 0} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
+              <Redo2 {...ic} />
+            </IconButton>
+          </span>
+          {editCount > 0 && (
+            <>
+              <span className="text-label-2">
+                저장 안 한 변경 <b className="text-orange-600">{editCount}</b>
+              </span>
+              <Button variant="secondary" size="sm" onClick={() => updateDrafts({ edits: {}, newRows: [] })} title="이 화면에서 고친 내용과 새 과제를 모두 지우고 시트 값으로 되돌립니다" disabled={saving}>
+                <RotateCcw {...icSm} />
+                모두 되돌리기
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setConfirmSave(true)}
+                disabled={!canSave || saving}
+                title={
+                  canSave
+                    ? '고친 칸을 연결된 시트에 씁니다'
+                    : protectedSheet
+                      ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
+                      : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
+                }
+              >
+                {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+                구글시트에 저장
+              </Button>
+            </>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => l2OfTab[0] && addRow(l2OfTab[0].l2)} disabled={!l2OfTab.length} title="이 L1에 과제(L3) 추가 · 각 L2 칸의 + 추가로도 넣을 수 있습니다">
+            <Plus {...icSm} />
+            과제 추가
+          </Button>
+          <Button variant={editing ? 'primary' : 'secondary'} size="sm" onClick={() => setEditing((v) => !v)}>
+            <Pencil {...icSm} />
+            {editing ? '입력 끝내기' : '입력하기'}
+          </Button>
+        </span>
       </div>
 
       <div className="mt-3 max-h-[calc(100vh-18rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
