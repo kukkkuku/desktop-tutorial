@@ -18,7 +18,7 @@ import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { Check, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, PanelRightOpen, Redo2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -49,6 +49,8 @@ export default function TeamManagement() {
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
   const [notice, setNotice] = useState('')
+  // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
+  const [unmatchedOpen, setUnmatchedOpen] = useState(false)
   const [widths, setWidths] = useState<Record<string, number>>({})
 
   const boardTeams = useMemo(
@@ -353,11 +355,23 @@ export default function TeamManagement() {
         칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께 지워집니다.
       </p>
 
-      {unmatched.length > 0 && (
+      {unmatched.length > 0 && !unmatchedOpen && (
+        <button
+          onClick={() => setUnmatchedOpen(true)}
+          className="mt-3 flex items-center gap-1 text-[13px] text-label-2 hover:text-accent"
+        >
+          <ChevronRight {...icSm} />
+          과제 담당자 중 팀원 목록에 없는 사람 <span className="font-semibold text-label">{unmatched.length}명</span> · 눌러서 추가
+        </button>
+      )}
+      {unmatched.length > 0 && unmatchedOpen && (
         <div className="mt-4 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-[13px] font-semibold text-label">과제관리 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명</p>
+              <button onClick={() => setUnmatchedOpen(false)} className="flex items-center gap-1 text-[13px] font-semibold text-label hover:text-accent" title="접기">
+                <ChevronDown {...icSm} />
+                과제 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명
+              </button>
               <p className="mt-0.5 text-[13px] text-label-2">
                 시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만 추가하세요.
               </p>
