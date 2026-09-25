@@ -133,7 +133,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                     }}
                   />
                 )}
-                {stage === 'tasks' && <TasksStage />}
+                {stage === 'tasks' && <TasksStage onGoToWork={() => handleStageChange('work')} />}
                 {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
                 {stage === 'evaluate' && <EvaluationMatrix />}
                 {stage === 'results' && <EvaluationResults />}

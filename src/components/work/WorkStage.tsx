@@ -12,6 +12,7 @@ import {
   COL_EVAL_GROUP,
   COL_NAME,
   STATUS_OPTIONS,
+  applyDoneRule,
   evalGroupOf,
   newEvalGroupName,
   renameEvalGroup,
@@ -567,7 +568,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     for (const e of edits) {
       const item = updates.get(e.rowId) ?? byId.get(e.rowId)
       if (!item) continue
-      updates.set(e.rowId, setCellText(item, e.colId, e.text, members))
+      updates.set(e.rowId, applyDoneRule(setCellText(item, e.colId, e.text, members), e.colId, members))
     }
     apply(updateItems(board, updates))
   }
@@ -596,7 +597,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       line.forEach((text, j) => {
         const col = visibleCols[colIndex + j]
         if (col?.id === COL_EVAL_GROUP && existing && exportedIds.has(existing.id)) return
-        if (col && allowed(col.id, text.trim())) item = setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members)
+        if (col && allowed(col.id, text.trim())) item = applyDoneRule(setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members), col.id, members)
       })
       if (existing) updates.set(existing.id, item)
       else created.push(item)

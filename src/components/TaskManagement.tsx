@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
@@ -9,10 +8,8 @@ import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
 import { GRADE_COLORS, calcAllTaskScores } from '../utils/calculations'
 import { useResizableColumns } from '../hooks/useResizableColumns'
 import ResizableTh from './table/ResizableTh'
-import TitleUploadControls from './TitleUploadControls'
 import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import EmptyStateDropzone from './EmptyStateDropzone'
-import { downloadCurrentTasksExcel, downloadTaskTemplate, parseTaskWorkbook } from '../utils/excel'
+import { downloadCurrentTasksExcel } from '../utils/excel'
 import { downloadTasksPdf } from '../utils/pdfReports'
 import Button from './Button'
 import IconButton from './IconButton'
@@ -36,21 +33,14 @@ interface TaskFormValues {
   achievement: string
 }
 
-export default function TaskManagement() {
-  const { state, dispatch, recentlyAddedIds, markRecentlyAdded } = useAppState()
+// 평가과제는 과제관리에서 내보내 만든다(여기서 직접 추가하지 않음 -- 출처를 하나로).
+export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void }) {
+  const { state, dispatch, recentlyAddedIds } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
   const periodName = currentWorkspace?.periodName ?? ''
   const cols = useResizableColumns(TASK_COLUMNS)
   const [deletingTask, setDeletingTask] = useState<Task | null>(null)
-
-  const [newName, setNewName] = useState('')
-  const [newImportance, setNewImportance] = useState<Importance>('일반')
-  const [newWorkload, setNewWorkload] = useState<Workload>('중')
-  const [newPerformanceGrade, setNewPerformanceGrade] = useState<PerformanceGrade | null>(null)
-  const [newObjective, setNewObjective] = useState('')
-  const [newAchievement, setNewAchievement] = useState('')
-  const [newFormError, setNewFormError] = useState('')
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<TaskFormValues>({
@@ -126,53 +116,6 @@ export default function TaskManagement() {
     }
   }
 
-  function handleQuickAdd() {
-    const trimmedName = newName.trim()
-    if (!trimmedName) {
-      setNewFormError('과제명을 입력하세요.')
-      return
-    }
-    if (state.tasks.some((t) => t.name === trimmedName)) {
-      setNewFormError(`과제명 '${trimmedName}'은(는) 이미 존재합니다.`)
-      return
-    }
-    const task: Task = {
-      id: uuidv4(),
-      name: trimmedName,
-      importance: newImportance,
-      performanceGrade: newPerformanceGrade,
-      workload: newWorkload,
-      objective: newObjective.trim(),
-      achievement: newAchievement.trim(),
-    }
-    dispatch({ type: 'ADD_TASK', payload: task })
-    markRecentlyAdded([task.id])
-    setNewName('')
-    setNewImportance('일반')
-    setNewWorkload('중')
-    setNewPerformanceGrade(null)
-    setNewObjective('')
-    setNewAchievement('')
-    setNewFormError('')
-  }
-
-  async function handleUploadFiles(files: File[]) {
-    let list = state.tasks
-    let addedCount = 0
-    let updatedCount = 0
-    const errors: string[] = []
-    for (const file of files) {
-      const buffer = await file.arrayBuffer()
-      const result = parseTaskWorkbook(buffer, list)
-      list = result.tasks
-      addedCount += result.addedCount
-      updatedCount += result.updatedCount
-      errors.push(...result.errors.map((m) => (files.length > 1 ? `[${file.name}] ${m}` : m)))
-    }
-    dispatch({ type: 'IMPORT_TASKS', payload: list })
-    return { addedCount, updatedCount, errors }
-  }
-
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -183,115 +126,28 @@ export default function TaskManagement() {
             onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
             onPdfDownload={() => downloadTasksPdf(teamName, periodName, state.tasks, state.criteria)}
           />
-          <TitleUploadControls busyLabel="과제 업로드 중..." onDownload={downloadTaskTemplate} onFiles={handleUploadFiles} />
+          {onGoToWork && (
+            <Button variant="secondary" onClick={onGoToWork}>
+              과제관리에서 추가
+            </Button>
+          )}
         </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">
-        과제를 추가/삭제하면 평가 매트릭스와 리포트에 즉시 반영됩니다. 삭제 시 관련된 모든 평가 데이터도 함께 제거됩니다.
+        과제관리에서 내보낸 평가과제입니다. 등급과 이름은 여기서 고치고, 새 과제는 과제관리에서 묶어 내보내세요. 삭제하면 그 과제의 평가 데이터도 함께 지워집니다.
       </p>
 
-      <div className="mt-4 rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_2fr_2fr_auto]">
-          <div>
-            <label className="block text-sm font-medium text-black">
-              과제명 <span className="text-danger">*</span>
-            </label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="예: 신규 랜딩페이지 제작"
-              className={`mt-1 w-full rounded-md border px-3 py-2 text-sm text-black ${
-                newFormError ? 'border-danger' : 'border-gray-300'
-              }`}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-black">과제등급</label>
-            <select
-              value={newImportance}
-              onChange={(e) => setNewImportance(e.target.value as Importance)}
-              disabled={!isImportanceUsed}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              {IMPORTANCE_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-          {isWorkloadUsed && (
-          <div>
-            <label className="block text-sm font-medium text-black">업무량</label>
-            <select
-              value={newWorkload}
-              onChange={(e) => setNewWorkload(e.target.value as Workload)}
-              disabled={!isWorkloadUsed}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              {WORKLOAD_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-black">성과등급</label>
-            <select
-              value={newPerformanceGrade ?? ''}
-              onChange={(e) => setNewPerformanceGrade(e.target.value ? (e.target.value as PerformanceGrade) : null)}
-              disabled={!isPerformanceGradeUsed}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
-            >
-              <option value="">미입력</option>
-              {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-black">목표</label>
-            <input
-              type="text"
-              value={newObjective}
-              onChange={(e) => setNewObjective(e.target.value)}
-              placeholder="예: 전환율 15% 개선"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-black">성과</label>
-            <input
-              type="text"
-              value={newAchievement}
-              onChange={(e) => setNewAchievement(e.target.value)}
-              placeholder="예: 전환율 18% 달성 (선택)"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-black"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button variant="primary" onClick={handleQuickAdd} className="w-full whitespace-nowrap sm:w-auto">
-              + 과제 추가
-            </Button>
-          </div>
-        </div>
-
-        {newFormError && <p className="mt-2 text-xs text-danger">{newFormError}</p>}
-      </div>
 
       {state.tasks.length === 0 ? (
-        <EmptyStateDropzone
-          title="등록된 과제가 없습니다"
-          addHint="위의 '+ 과제 추가' 버튼으로 하나씩 등록하거나, 엑셀 파일로 한 번에 등록하세요"
-          busyLabel="과제 업로드 중..."
-          onDownloadTemplate={downloadTaskTemplate}
-          onFiles={handleUploadFiles}
-        />
+        <div className="mt-4 rounded-lg border border-dashed border-gray-300 px-6 py-12 text-center">
+          <p className="text-sm font-medium text-gray-800">아직 평가과제가 없습니다</p>
+          <p className="mt-1 text-xs text-gray-500">과제관리에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
+          {onGoToWork && (
+            <Button variant="primary" onClick={onGoToWork} className="mt-4">
+              과제관리로 이동
+            </Button>
+          )}
+        </div>
       ) : (
       <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
         {/* 팀원관리 표와 같은 규칙 -- 컨테이너를 꽉 채우되(width 100%), 너무
@@ -437,6 +293,11 @@ export default function TaskManagement() {
                 <td className="px-4 py-3 font-medium">
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     {task.name}
+                    {!task.workItemIds?.length && (
+                      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500" title="과제관리에서 내보내지 않고 직접 만든 과제입니다">
+                        과제관리 연결 없음
+                      </span>
+                    )}
                     {recentlyAddedIds.has(task.id) && (
                       <span className="rounded-full bg-success px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                         N

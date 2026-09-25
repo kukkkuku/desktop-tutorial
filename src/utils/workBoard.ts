@@ -186,6 +186,13 @@ export function renameEvalGroup(board: WorkBoard, from: string, to: string, memb
   return setEvalGroup(board, board.items.filter((i) => evalGroupOf(i) === from).map((i) => i.id), to.trim(), members)
 }
 
+// 완료일을 넣으면 상태를 완료로 맞춘다(사람이 넣은 값이므로 editedAt도 찍힘).
+// 완료일을 지워도 상태는 그대로 둔다(되돌릴 근거가 없음).
+export function applyDoneRule(item: WorkItem, colId: string, members: TeamMember[]): WorkItem {
+  if (colId !== 'doneDate' || !item.fields.doneDate || item.fields.status === '완료') return item
+  return setCellText(item, 'status', '완료', members)
+}
+
 // ---------- 보드 조작 ----------
 
 export function newWorkItem(groupId: string): WorkItem {

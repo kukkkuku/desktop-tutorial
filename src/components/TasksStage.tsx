@@ -1,9 +1,9 @@
 import TaskManagement from './TaskManagement'
 
-export default function TasksStage() {
+export default function TasksStage({ onGoToWork }: { onGoToWork: () => void }) {
   return (
     <div>
-      <TaskManagement />
+      <TaskManagement onGoToWork={onGoToWork} />
     </div>
   )
 }
