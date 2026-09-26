@@ -5,7 +5,7 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronsLeft, ChevronsRight, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, GripVertical, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -121,6 +121,7 @@ function CellEditor({
   editSignal,
   onCommit,
   onMove,
+  onMoveRow,
 }: {
   value: string
   kind: 'text' | 'memo' | 'date'
@@ -130,6 +131,7 @@ function CellEditor({
   editSignal?: number // 바뀌면 고치기 시작(더블클릭 · 새 과제 추가 직후)
   onCommit: (v: string) => void
   onMove: (dx: number, dy: number) => void
+  onMoveRow?: (dir: -1 | 1) => void // Alt+↑/↓: 이 줄을 위/아래로 옮기기
 }) {
   const [mode, setMode] = useState<EditMode>('select')
   const [draft, setDraft] = useState('')
@@ -179,7 +181,10 @@ function CellEditor({
     if (mode === 'select') {
       if (e.nativeEvent.isComposing || e.keyCode === 229) return // 한글 조합 시작 -- 타이핑으로 넘어간다
       const a = ARROWS[e.key]
-      if (a) {
+      if (a && e.altKey && a[1] !== 0) {
+        e.preventDefault()
+        if (!disabled) onMoveRow?.(a[1] as -1 | 1)
+      } else if (a) {
         e.preventDefault()
         onMove(a[0], a[1])
       } else if (e.key === 'Tab') {
@@ -287,6 +292,7 @@ function FieldCell({
   onMove,
   rowH,
   cellId,
+  onMoveRow,
 }: {
   f: FieldDef
   value: string
@@ -303,6 +309,7 @@ function FieldCell({
   onMove: (dx: number, dy: number) => void
   rowH?: number // 사용자가 정한 행 높이(px) -- 넘치는 내용은 가린다
   cellId?: string // 선택을 옮길 때 화면에 보이게 스크롤하는 데 씀
+  onMoveRow?: (dir: -1 | 1) => void
 }) {
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
@@ -350,6 +357,7 @@ function FieldCell({
           editSignal={editSignal}
           onCommit={onCommit}
           onMove={onMove}
+          onMoveRow={onMoveRow}
         />
       )}
     </td>
@@ -498,6 +506,7 @@ export default function ScheduleTable({
   onRenameGroup,
   onRevertRow,
   onAddRow,
+  onMoveRow,
   onBg,
   onNote,
   fontSize = 13,
@@ -533,6 +542,7 @@ export default function ScheduleTable({
   onRenameGroup?: (row: ProgressRow, name: string) => void // 새 구분 이름 고치기
   onRevertRow?: (row: ProgressRow) => void // 이 행 고친 내용 되돌리기
   onAddRow?: (row: ProgressRow, where: 'above' | 'below') => void // 우클릭: 위/아래에 과제 추가
+  onMoveRow?: (row: ProgressRow, target: ProgressRow, where: 'above' | 'below') => void // 줄 옮기기(같은 구분 안에서)
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
   fontSize?: number
@@ -748,6 +758,46 @@ export default function ScheduleTable({
       document.querySelector(`[data-cell="${CSS.escape(`${target.row.key}|${tid}`)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
     )
   }
+  // 줄 옮기기: 과제 칸 왼쪽 손잡이를 끌어 같은 구분(L2) 안의 다른 줄 위/아래에 놓는다 · Alt+↑/↓로 한 칸씩
+  const groupOfRow = (r: ProgressRow) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
+  const [drag, setDrag] = useState<{ key: string; over: { key: string; where: 'above' | 'below' } | null } | null>(null)
+  function startRowDrag(e: React.MouseEvent, v: ScheduleRowView) {
+    if (!onMoveRow) return
+    e.preventDefault()
+    e.stopPropagation()
+    const g = groupOfRow(v.row)
+    let over: { key: string; where: 'above' | 'below' } | null = null
+    setDrag({ key: v.row.key, over: null })
+    const move = (ev: MouseEvent) => {
+      const tr = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('tr[data-row]') as HTMLElement | null
+      const key = tr?.dataset.row
+      const target = key ? rows.find((x) => x.row.key === key) : undefined
+      if (!tr || !target || groupOfRow(target.row) !== g || target.row.key === v.row.key) over = null
+      else {
+        const r = tr.getBoundingClientRect()
+        over = { key: target.row.key, where: ev.clientY < r.top + r.height / 2 ? 'above' : 'below' }
+      }
+      setDrag({ key: v.row.key, over })
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.documentElement.classList.remove('cursor-grabbing')
+      const target = over && rows.find((x) => x.row.key === over!.key)
+      if (target && over) onMoveRow(v.row, target.row, over.where)
+      setDrag(null)
+    }
+    document.documentElement.classList.add('cursor-grabbing')
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  function moveRowBy(v: ScheduleRowView, dir: -1 | 1) {
+    if (!onMoveRow) return
+    const i = rows.findIndex((x) => x.row.key === v.row.key)
+    const t = rows[i + dir]
+    if (!t || groupOfRow(t.row) !== groupOfRow(v.row)) return
+    onMoveRow(v.row, t.row, dir < 0 ? 'above' : 'below')
+  }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
@@ -876,8 +926,12 @@ export default function ScheduleTable({
                 return (
                   <tr
                     key={v.row.key}
-                    style={rowH ? { height: rowH } : undefined}
-                    className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}
+                    data-row={v.row.key}
+                    style={{
+                      ...(rowH ? { height: rowH } : {}),
+                      ...(drag?.over?.key === v.row.key ? { boxShadow: drag.over.where === 'above' ? 'inset 0 2px 0 #007AFF' : 'inset 0 -2px 0 #007AFF' } : {}),
+                    }}
+                    className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''}`}
                   >
                     {ri === 0 && (
                       <td
@@ -955,6 +1009,19 @@ export default function ScheduleTable({
                         title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
                         className="absolute -bottom-[3px] left-0 z-20 h-[6px] w-full cursor-row-resize hover:bg-accent/50"
                       />
+                      {/* 줄 옮기기 손잡이: 줄에 마우스를 올리거나 그 줄의 칸을 고르면 왼쪽에 보인다 */}
+                      {onMoveRow && !v.deleted && (
+                        <span
+                          onMouseDown={(e) => startRowDrag(e, v)}
+                          title="끌어서 줄 옮기기(같은 구분 안에서) · Alt+↑/↓"
+                          aria-label="줄 옮기기"
+                          className={`absolute left-0 top-1/2 z-20 flex h-6 w-3.5 -translate-y-1/2 cursor-grab items-center justify-center rounded-r bg-black/[0.06] text-label-3 hover:bg-accent-soft hover:text-accent ${
+                            sel?.row === v.row.key || drag?.key === v.row.key ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
+                          }`}
+                        >
+                          <GripVertical size={11} strokeWidth={2} />
+                        </span>
+                      )}
                       {isSel(v.row.key, 'name') && (
                         <CellEditor
                           value={v.vals.name}
@@ -964,6 +1031,7 @@ export default function ScheduleTable({
                           editSignal={sigOf(v.row.key, 'name')}
                           onCommit={(val) => onField(v.row, 'name', val)}
                           onMove={(dx, dy) => moveSel(v.row.key, 'name', dx, dy)}
+                          onMoveRow={(dir) => moveRowBy(v, dir)}
                         />
                       )}
                       <div
@@ -1080,6 +1148,7 @@ export default function ScheduleTable({
                         onMove={(dx, dy) => moveSel(v.row.key, f.id, dx, dy)}
                         rowH={rowH}
                         cellId={`${v.row.key}|${f.id}`}
+                        onMoveRow={(dir) => moveRowBy(v, dir)}
                       />
                     ))}
                   </tr>

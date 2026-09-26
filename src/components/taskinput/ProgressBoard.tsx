@@ -615,12 +615,27 @@ export default function ProgressBoard() {
     const cur = orderWithNewRows(
       data.rows.filter((r) => r.l1 === l1),
       drafts.newRows.filter((n) => n.l1 === l1),
+      drafts.moves,
     )
     const last = cur[cur.length - 1]
     const g = makeNewGroup(l2name, { l1: name, h: last?.h ?? null }, { key: last?.key ?? '', where: 'below' })
     updateDrafts((d) => ({ ...d, newRows: [...d.newRows, g] }))
     setActiveL1(name)
     setOpenKey(NEW_PREFIX + g.id)
+  }
+  // 줄 옮기기(같은 구분 안에서): 새 과제는 기준 줄만 바꾸고, 시트 과제는 옮기기로 적어 둔다(저장하면 시트에서 줄을 옮김)
+  function moveRow(row: ProgressRow, target: ProgressRow, where: 'above' | 'below') {
+    if (row.key === target.key) return
+    updateDrafts((d) => {
+      if (row.isNew) {
+        const nid = row.key.slice(NEW_PREFIX.length)
+        const n = d.newRows.find((x) => x.id === nid)
+        if (!n) return d
+        // 새 과제는 목록 맨 뒤로 보내 이번 기준이 마지막에 적용되게 한다
+        return { ...d, newRows: [...d.newRows.filter((x) => x.id !== nid), { ...n, anchor: { key: target.key, where } }] }
+      }
+      return { ...d, moves: [...(d.moves ?? []).filter((m) => m.key !== row.key), { key: row.key, anchor: { key: target.key, where } }] }
+    })
   }
   // 우클릭한 행의 위/아래에 새 과제
   function addRow(row: ProgressRow, where: 'above' | 'below') {
@@ -644,15 +659,15 @@ export default function ProgressBoard() {
     try {
       const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
-      const { writes, deletes, inserts, after, remerge, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
-      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, deletes, inserts, after, remerge })
+      const { writes, unmergeFirst, moves, deletes, inserts, after, remerge, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
+      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, unmergeFirst, moves, deletes, inserts, after, remerge })
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
       updateDrafts(kept)
       clearHistory()
       setOpenKey(null)
       setMessage(
-        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}${deletes.length ? ` · 지운 과제 ${deletes.length}건` : ''}.` +
+        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}${deletes.length ? ` · 지운 과제 ${deletes.length}건` : ''}${moves.length ? ` · 옮긴 줄 ${moves.length}` : ''}.` +
           (conflicts
             ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).`
             : ''),
@@ -726,6 +741,7 @@ export default function ProgressBoard() {
   const ordered: ProgressRow[] = orderWithNewRows(
     tabRows,
     drafts.newRows.filter((n) => n.l1 === l1),
+    drafts.moves,
   )
   // 이 행이 든 구분(L2) 전체(필터와 상관없이 이 탭에서 이어진 같은 L2 줄)
   const groupRowsOf = (row: ProgressRow): ProgressRow[] => {
@@ -1230,6 +1246,7 @@ export default function ProgressBoard() {
               })
             }
             onAddRow={addRow}
+            onMoveRow={readOnly ? undefined : moveRow}
             fontSize={fontSize}
             rowPad={rowPad}
             readOnly={readOnly}

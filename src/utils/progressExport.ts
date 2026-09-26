@@ -32,6 +32,7 @@ export function exportRows(data: ProgressData, drafts: Drafts, l1s: string[]): P
     orderWithNewRows(
       data.rows.filter((r) => r.l1 === l1),
       drafts.newRows.filter((n) => n.l1 === l1),
+      drafts.moves,
     ).filter((r) => !deleted.has(r.key)),
   )
 }

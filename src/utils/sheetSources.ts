@@ -289,11 +289,19 @@ export interface SheetMergeOp {
   merge: boolean
 }
 
+// 줄 옮기기(한 줄): from 자리의 줄을 빼서 to 자리에 둔다(둘 다 그때의 행 번호, to는 뺀 뒤 기준)
+export interface SheetMove {
+  from: number
+  to: number
+}
+
 // 한 번에 보낼 저장 묶음
 export interface SheetPlan {
   writes: SheetCellWrite[] // 지금 행 번호 기준
-  deletes?: number[] // 지울 줄(지금 행 번호)
-  inserts?: SheetInsert[] // 지운 뒤 행 번호 기준, 아래쪽부터
+  unmergeFirst?: SheetMergeOp[] // 줄을 옮기기 전에 풀 병합(지금 행 번호)
+  moves?: SheetMove[] // 칸 쓰기 뒤, 적힌 순서대로
+  deletes?: number[] // 지울 줄(옮긴 뒤 행 번호)
+  inserts?: SheetInsert[] // 적힌 순서대로(그때의 행 번호)
   after?: SheetCellWrite[] // 모두 끝난 뒤 행 번호 기준
   remerge?: SheetMergeOp[]
 }
@@ -326,10 +334,21 @@ function cellRequest(sheetGid: number, c: SheetCellWrite) {
   }
 }
 
-// 한 번의 요청으로: 칸 쓰기(기존 행 번호) → 줄 지우기(아래부터) → 줄 끼워 넣기(주어진 순서대로, 아래쪽부터)
+// 한 번의 요청으로: 칸 쓰기(기존 행 번호) → 줄 옮기기 → 줄 지우기(아래부터) → 줄 끼워 넣기(주어진 순서대로)
 // → 병합 풀기 → 이름 칸 쓰기 → 다시 병합. 쓰기 권한 동의를 한 번 받는다.
 export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
   const requests: object[] = plan.writes.map((c) => cellRequest(sheetGid, c))
+  for (const m of plan.unmergeFirst ?? [])
+    requests.push({ unmergeCells: { range: { sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.col, endColumnIndex: m.col + 1 } } })
+  for (const m of plan.moves ?? []) {
+    // destinationIndex는 줄을 빼기 전 기준이라, 아래로 옮길 때는 한 칸 더
+    requests.push({
+      moveDimension: {
+        source: { sheetId: sheetGid, dimension: 'ROWS', startIndex: m.from, endIndex: m.from + 1 },
+        destinationIndex: m.to > m.from ? m.to + 1 : m.to,
+      },
+    })
+  }
   for (const r of [...(plan.deletes ?? [])].sort((a, b) => b - a)) {
     requests.push({ deleteDimension: { range: { sheetId: sheetGid, dimension: 'ROWS', startIndex: r, endIndex: r + 1 } } })
   }

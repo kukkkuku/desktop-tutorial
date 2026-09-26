@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
 import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
-import type { SheetCellWrite, SheetInsert, SheetMergeOp } from './sheetSources'
+import type { SheetCellWrite, SheetInsert, SheetMergeOp, SheetMove } from './sheetSources'
 import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
 
 export interface ProgressRow {
@@ -111,9 +111,16 @@ export interface NewRow {
   anchor?: { key: string; where: 'above' | 'below' }
 }
 
+// 기존 과제 줄 옮기기(같은 구분 안에서): 이 줄을 기준 줄의 위/아래로
+export interface RowMove {
+  key: string
+  anchor: { key: string; where: 'above' | 'below' }
+}
+
 export interface Drafts {
   edits: ProgressEdits
   newRows: NewRow[]
+  moves?: RowMove[] // 순서대로 적용
   deleted?: string[] // 지우기로 한 기존 행 키(저장하면 시트에서 그 줄을 지운다)
 }
 
@@ -374,7 +381,24 @@ export function makeNewGroup(name: string, from: { l1: string; h: string | null 
 
 // 시트 행 사이에 새 과제를 끼운 화면 순서. 새 과제는 추가한 순서대로 기준 행의 위/아래에 들어가고,
 // 기준 행이 없어졌으면 그 L2의 맨 아래로 간다.
-export function orderWithNewRows(base: ProgressRow[], newRows: NewRow[]): ProgressRow[] {
+// 옮긴 줄은 새 과제까지 넣은 뒤 순서대로 기준 줄의 위/아래로 옮긴다(기준 줄이 없으면 그대로).
+export function orderWithNewRows(base: ProgressRow[], newRows: NewRow[], moves: RowMove[] = []): ProgressRow[] {
+  const out = placeNewRows(base, newRows)
+  for (const m of moves) {
+    const from = out.findIndex((r) => r.key === m.key)
+    if (from < 0 || m.anchor.key === m.key) continue
+    const [row] = out.splice(from, 1)
+    const at = out.findIndex((r) => r.key === m.anchor.key)
+    if (at < 0) {
+      out.splice(from, 0, row)
+      continue
+    }
+    out.splice(m.anchor.where === 'above' ? at : at + 1, 0, row)
+  }
+  return out
+}
+
+function placeNewRows(base: ProgressRow[], newRows: NewRow[]): ProgressRow[] {
   const out = [...base]
   for (const n of newRows) {
     const row = newRowAsRow(n)
@@ -455,7 +479,8 @@ export function countDrafts(d: Drafts): number {
       0,
     ) +
     d.newRows.length +
-    (d.deleted?.length ?? 0)
+    (d.deleted?.length ?? 0) +
+    (d.moves?.length ?? 0)
   )
 }
 
@@ -505,7 +530,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
   const weekCol = new Map(fresh.weekCols.map((w) => [w.key, w.col]))
   const fieldById = new Map(fresh.fields.map((f) => [f.id, f]))
   const writes: SheetCellWrite[] = []
-  const kept: Drafts = { edits: {}, newRows: [], deleted: [] }
+  const kept: Drafts = { edits: {}, newRows: [], deleted: [], moves: [] }
   let conflicts = 0
   const editCount = (e: RowEdit) =>
     Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length
@@ -577,30 +602,84 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     if (keep.cells || keep.fields || keep.bg || keep.notes) kept.edits[key] = keep
   }
 
-  // 줄 지운 뒤의 행 번호
-  const delSorted = [...delRows].sort((a, b) => a - b)
-  const shift = (i: number) => i - delSorted.filter((d) => d < i).length
+  // ---- 시트 줄을 흉내 내며 순서대로 바꾼다: arr[i] = 지금 i번째 줄에 있는 원래 줄(시트 행 번호) 또는 새 줄('n:…')
+  const maxRow = Math.max(-1, ...fresh.rows.map((r) => r.row), ...(fresh.levelMerges ?? []).map((m) => m.r2))
+  const arr: (number | string)[] = Array.from({ length: maxRow + 1 }, (_, i) => i)
+  const order = orderWithNewRows(base.rows, drafts.newRows, drafts.moves ?? [])
+  const gkey = (r: ProgressRow) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
 
-  // 새 과제: 화면 순서에서 같은 L2의 다음 시트 행 바로 위(없으면 앞 시트 행 바로 아래).
-  // 새 구분(L2)은 위에 넣었으면 다음 시트 행 위, 아니면 앞 시트 행 아래.
-  const order = orderWithNewRows(base.rows, drafts.newRows)
-  const posOf = new Map(order.map((r, i) => [r.key, i]))
-  const alive = (r: ProgressRow) => !r.isNew && !delKeys.has(r.key) && freshByKey.has(r.key)
+  // 1) 같은 구분 안에서 줄 옮기기(구분의 줄이 시트에서 붙어 있을 때만 -- 사이에 다른 줄이 끼어 있으면 남긴다)
+  const moves: SheetMove[] = []
+  kept.moves = []
+  const movedKeys = (drafts.moves ?? []).map((m) => m.key)
+  const touched = new Set(order.filter((r) => movedKeys.includes(r.key)).map(gkey))
+  for (const g of touched) {
+    const want = order.filter((r) => !r.isNew && gkey(r) === g && freshByKey.has(r.key)).map((r) => freshByKey.get(r.key)!.row)
+    const slots = [...want].sort((x, y) => x - y)
+    const contiguous = slots.every((v, i) => i === 0 || v === slots[i - 1] + 1)
+    if (!contiguous) {
+      for (const m of drafts.moves ?? []) {
+        const r = order.find((x) => x.key === m.key)
+        if (r && gkey(r) === g) {
+          kept.moves.push(m)
+          conflicts++
+        }
+      }
+      continue
+    }
+    want.forEach((orig, i) => {
+      const to = slots[0] + i
+      const from = arr.indexOf(orig)
+      if (from === to) return
+      arr.splice(from, 1)
+      arr.splice(to, 0, orig)
+      moves.push({ from, to })
+    })
+  }
+  for (const m of drafts.moves ?? []) if (!order.some((r) => r.key === m.key)) kept.moves.push(m)
+  // 옮긴 줄(원래 시트 행 번호)과, 옮기기 전에 풀어 둘 이름 칸 병합(구글시트는 병합 칸 일부만 옮기지 못한다)
+  const movedRows = new Set<number>()
+  for (const g of touched) {
+    if (kept.moves.some((m) => gkey(order.find((x) => x.key === m.key)!) === g)) continue
+    for (const r of order) if (!r.isNew && gkey(r) === g && freshByKey.has(r.key)) movedRows.add(freshByKey.get(r.key)!.row)
+  }
+  const unmergeFirst: SheetMergeOp[] = moves.length
+    ? (fresh.levelMerges ?? [])
+        .filter((m) => [...movedRows].some((r) => r >= m.r1 && r <= m.r2))
+        .map((m) => ({ col: m.c1, r1: m.r1, r2: m.r2, merge: false }))
+    : []
+
+  // 2) 줄 지우기(아래부터)
+  const delAt = [...delRows].map((r) => arr.indexOf(r)).sort((x, y) => y - x)
+  for (const i of delAt) arr.splice(i, 1)
+  const delSorted = delAt
+
+  // 3) 새 과제 줄 넣기: 화면 순서대로, 같은 구분의 앞 줄 바로 아래(없으면 같은 구분의 다음 줄 바로 위).
+  //    새 구분(L2)은 위에 넣었으면 다음 줄 위, 아니면 앞 줄 아래.
+  const tokenOf = (r: ProgressRow): number | string | null =>
+    r.isNew ? r.key : !delKeys.has(r.key) && freshByKey.has(r.key) ? freshByKey.get(r.key)!.row : null
   const inserts: SheetInsert[] = []
-  const newById = new Map<number, NewRow>() // insert 순번 → 새 과제
-  drafts.newRows.forEach((n) => {
-    const idx = posOf.get(NEW_PREFIX + n.id) ?? 0
-    let next: ProgressRow | undefined
-    let prev: ProgressRow | undefined
-    for (let i = idx + 1; i < order.length && !next; i++) if (alive(order[i])) next = freshByKey.get(order[i].key)
-    for (let i = idx - 1; i >= 0 && !prev; i--) if (alive(order[i])) prev = freshByKey.get(order[i].key)
-    const same = (r?: ProgressRow) => !!r && r.l2 === n.l2 && r.l1 === n.l1
+  const newByToken = new Map<string, NewRow>()
+  order.forEach((item, idx) => {
+    if (!item.isNew) return
+    const n = drafts.newRows.find((x) => NEW_PREFIX + x.id === item.key)!
+    let prev: { r: ProgressRow; t: number | string } | undefined
+    let next: { r: ProgressRow; t: number | string } | undefined
+    for (let i = idx - 1; i >= 0 && !prev; i--) {
+      const t = tokenOf(order[i])
+      if (t !== null && arr.includes(t)) prev = { r: order[i], t }
+    }
+    for (let i = idx + 1; i < order.length && !next; i++) {
+      const t = tokenOf(order[i])
+      if (t !== null && !order[i].isNew && arr.includes(t)) next = { r: order[i], t }
+    }
+    const same = (x?: { r: ProgressRow }) => !!x && x.r.l2 === n.l2 && x.r.l1 === n.l1
     let at: number | undefined
-    if (same(next)) at = next!.row
-    else if (same(prev)) at = prev!.row + 1
-    else if (n.anchor?.where === 'above' && next) at = next.row
-    else if (prev) at = prev.row + 1
-    else if (next) at = next.row
+    if (prev && same(prev)) at = arr.indexOf(prev.t) + 1
+    else if (next && same(next)) at = arr.indexOf(next.t)
+    else if (n.anchor?.where === 'above' && next) at = arr.indexOf(next.t)
+    else if (prev) at = arr.indexOf(prev.t) + 1
+    else if (next) at = arr.indexOf(next.t)
     if (at === undefined || !n.fields.name?.trim()) {
       kept.newRows.push(n)
       conflicts++
@@ -630,24 +709,19 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       const c = n.cells[w.key]
       cells.push({ col: w.col, value: c?.m ?? '', fill: c?.f ? FILL_HEX[c.f] : null })
     }
-    newById.set(idx, n)
-    inserts.push({ at: shift(at), cells, order: idx })
+    arr.splice(at, 0, item.key)
+    newByToken.set(item.key, n)
+    inserts.push({ at, cells, order: idx })
   })
-  // 아래쪽부터 넣는다. 같은 자리면 화면에서 아래에 있는 것을 먼저 넣어야 최종 순서가 화면 순서와 같다.
-  inserts.sort((a, b) => b.at - a.at || b.order - a.order)
 
-  // 다 끝난 뒤의 행 번호: 남은 시트 행(지우기 전 번호 i)과 새 줄
-  const finalOf = (i: number) => {
-    const s = shift(i)
-    return s + inserts.filter((x) => x.at <= s).length
-  }
-  const finalOfInsert = (k: SheetInsert) => k.at + inserts.filter((x) => x.at < k.at || (x.at === k.at && x.order < k.order)).length
+  // 다 끝난 뒤의 행 번호
+  const finalOf = (i: number) => arr.indexOf(i)
 
   // 다 끝난 뒤의 과제 줄 순서(시트에서 다시 읽은 행 기준 + 새 줄)
   type Item = { at: number; row: ProgressRow; fresh: boolean }
   const items: Item[] = [
     ...fresh.rows.filter((r) => !delRows.has(r.row)).map((r) => ({ at: finalOf(r.row), row: r, fresh: true })),
-    ...inserts.map((k) => ({ at: finalOfInsert(k), row: newRowAsRow(newById.get(k.order)!), fresh: false })),
+    ...[...newByToken].map(([t, n]) => ({ at: arr.indexOf(t), row: newRowAsRow(n), fresh: false })),
   ].sort((a, b) => a.at - b.at)
 
   // 구분 이름 칸(H · L1 · L2) 옮기기: 이름은 묶음 맨 위 칸에만 적혀 있으므로,
@@ -688,7 +762,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       prevBlock = b
       blockItems.set(b, [...(blockItems.get(b) ?? []), it])
     })
-    for (const r of fresh.rows) if (delRows.has(r.row)) touched.add(`f${blockOf.get(r.row)}`)
+    for (const r of fresh.rows) if (delRows.has(r.row) || (moves.length && movedRows.has(r.row))) touched.add(`f${blockOf.get(r.row)}`)
 
     for (const b of touched) {
       const list = blockItems.get(b)
@@ -721,7 +795,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       }
     }
   }
-  return { writes, deletes: delSorted, inserts, after, remerge, kept, conflicts }
+  return { writes, unmergeFirst, moves, deletes: delSorted, inserts, after, remerge, kept, conflicts }
 }
 
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
