@@ -919,24 +919,26 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
       {activeGroup && (
         <>
-          {/* 정보 줄: 위치(H › L1), 제목 + 시트 연결 */}
-          <div className="min-w-0">
-            <p className="truncate text-xs text-label-2">
+          {/* 정보 줄 한 줄: H › L1 › L2(제목은 굵고 크게) */}
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1">
+            <span className="shrink-0 text-xs text-label-2">
               {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
               {activeGroup.hierarchyInferred && (
                 <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
                   (추정)
                 </span>
               )}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h2 className="truncate text-[17px] font-semibold text-label">{activeGroup.name}</h2>
-              {missingCount > 0 && (
-                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700" title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다.">
-                  시트에 없음 {missingCount}
-                </span>
-              )}
-            </div>
+            </span>
+            <span className="text-xs text-label-3">›</span>
+            <h2 className="min-w-0 truncate text-[17px] font-semibold text-label">{activeGroup.name}</h2>
+            {missingCount > 0 && (
+              <span
+                className="ml-1.5 self-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700"
+                title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다."
+              >
+                시트에 없음 {missingCount}
+              </span>
+            )}
           </div>
 
           {/* 도구 줄 -- 체크한 행이 있으면 선택 동작 줄로 바뀐다 */}
