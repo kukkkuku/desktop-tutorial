@@ -3,8 +3,10 @@
 // 머리글 색 · 칸 색(계획 회색/실적 분홍 · 칸 강조) · 칸 메모 · 병합(구분 이름)까지 옮긴다.
 import ExcelJS from 'exceljs'
 import { downloadStyledWorkbook } from './excel'
+import { parseFmt } from './sheetSources'
 import {
   effectiveBg,
+  effectiveFmt,
   effectiveCells,
   effectiveField,
   effectiveNote,
@@ -150,6 +152,15 @@ export function buildProgressWorkbook(data: ProgressData, drafts: Drafts, l1s: s
         if (c.kind === 'name') cell.font = { size: 10, bold: true }
         const bg = effectiveBg(row, e, key)
         if (bg) cell.fill = fill(bg)
+        const fm = parseFmt(effectiveFmt(row, e, key))
+        if (fm.b || fm.c || fm.s)
+          cell.font = {
+            ...(cell.font ?? {}),
+            ...(fm.b ? { bold: true } : {}),
+            ...(fm.c ? { color: { argb: `FF${fm.c}` } } : {}),
+            ...(fm.s ? { size: fm.s } : {}),
+          }
+        if (fm.a) cell.alignment = { ...(cell.alignment ?? {}), horizontal: fm.a }
       }
       const note = effectiveNote(row, e, key)
       if (note) cell.note = note

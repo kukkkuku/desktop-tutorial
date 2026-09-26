@@ -55,6 +55,8 @@ export interface RawSheet {
   fills?: (string | null)[][]
   // 칸 메모(구글시트 "메모" / 엑셀 메모). 없으면 null.
   notes?: (string | null)[][]
+  // 칸 글자 서식(굵게·글자색·크기·정렬, fmtString 모양). 없으면 null.
+  fmts?: (string | null)[][]
 }
 
 export interface ParsedHeader {

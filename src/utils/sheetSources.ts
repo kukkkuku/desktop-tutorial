@@ -92,7 +92,11 @@ async function openSheetsPopup(write = false): Promise<string> {
         ),
       callback: (resp) => {
         if (resp.error || !resp.access_token) {
-          reject(new Error(resp.error === 'access_denied' ? `시트 ${write ? '저장' : '읽기'} 권한을 허용하지 않았습니다.` : resp.error || '로그인이 취소되었습니다.'))
+          reject(
+            new Error(
+              resp.error === 'access_denied' ? `시트 ${write ? '저장' : '읽기'} 권한을 허용하지 않았습니다.` : resp.error || '로그인이 취소되었습니다.',
+            ),
+          )
           return
         }
         const tok = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
@@ -116,7 +120,7 @@ interface GoogleApiError {
     code?: number
     message?: string
     status?: string
-    details?: { reason?: string; metadata?: { activationUrl?: string; consumer?: string } ; links?: { url?: string }[] }[]
+    details?: { reason?: string; metadata?: { activationUrl?: string; consumer?: string }; links?: { url?: string }[] }[]
   }
 }
 
@@ -230,9 +234,35 @@ function colLetter(c: number): string {
 
 function toHex(c: { red?: number; green?: number; blue?: number } | undefined): string | null {
   if (!c) return null
-  const h = (v?: number) => Math.round((v ?? 0) * 255).toString(16).padStart(2, '0').toUpperCase()
+  const h = (v?: number) =>
+    Math.round((v ?? 0) * 255)
+      .toString(16)
+      .padStart(2, '0')
+      .toUpperCase()
   const hex = `${h(c.red)}${h(c.green)}${h(c.blue)}`
   return hex === 'FFFFFF' ? null : hex
+}
+
+// 칸 글자 서식. 저장·비교는 문자열(fmtString)로: 'b|c:FF0000|s:12|a:center', '' = 기본
+export type CellAlign = 'left' | 'center' | 'right'
+export interface CellFmt {
+  b?: boolean // 굵게
+  c?: string // 글자색 RRGGBB
+  s?: number // 글자 크기(pt)
+  a?: CellAlign // 가로 정렬
+}
+export function parseFmt(v: string | undefined | null): CellFmt {
+  const out: CellFmt = {}
+  for (const part of (v ?? '').split('|')) {
+    if (part === 'b') out.b = true
+    else if (part.startsWith('c:') && /^[0-9A-F]{6}$/i.test(part.slice(2))) out.c = part.slice(2).toUpperCase()
+    else if (part.startsWith('s:') && Number(part.slice(2)) > 0) out.s = Number(part.slice(2))
+    else if (part === 'a:left' || part === 'a:center' || part === 'a:right') out.a = part.slice(2) as CellAlign
+  }
+  return out
+}
+export function fmtString(f: CellFmt): string {
+  return [f.b && 'b', f.c && f.c !== '000000' && `c:${f.c}`, f.s && `s:${f.s}`, f.a && `a:${f.a}`].filter(Boolean).join('|')
 }
 
 // r1..r2, c1..c2(0-based, 끝 포함) 칸의 배경색(RRGGBB, 흰색·없음은 null)과 메모.
@@ -243,26 +273,52 @@ export async function fetchSheetFormats(
   r2: number,
   c1: number,
   c2: number,
-): Promise<{ fills: (string | null)[][]; notes: (string | null)[][] }> {
+): Promise<{ fills: (string | null)[][]; notes: (string | null)[][]; fmts: (string | null)[][] }> {
   const range = `${quoteTab(title)}!${colLetter(c1)}${r1 + 1}:${colLetter(c2)}${r2 + 1}`
   const data = await sheetsFetch<{
-    sheets: { data?: { rowData?: { values?: { note?: string; effectiveFormat?: { backgroundColor?: { red?: number; green?: number; blue?: number } } }[] }[] }[] }[]
+    sheets: {
+      data?: {
+        rowData?: {
+          values?: {
+            note?: string
+            effectiveFormat?: { backgroundColor?: { red?: number; green?: number; blue?: number } }
+            userEnteredFormat?: {
+              horizontalAlignment?: string
+              textFormat?: { bold?: boolean; fontSize?: number; foregroundColor?: { red?: number; green?: number; blue?: number } }
+            }
+          }[]
+        }[]
+      }[]
+    }[]
   }>(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowData.values(note,effectiveFormat.backgroundColor))`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,fontSize,foregroundColor))))`,
   )
   const grid = data.sheets[0]?.data?.[0]
   const fills: (string | null)[][] = []
   const notes: (string | null)[][] = []
+  const fmts: (string | null)[][] = []
   ;(grid?.rowData ?? []).forEach((row, i) => {
     const r = r1 + i
     fills[r] = []
     notes[r] = []
+    fmts[r] = []
     ;(row.values ?? []).forEach((v, j) => {
       fills[r][c1 + j] = toHex(v.effectiveFormat?.backgroundColor)
       notes[r][c1 + j] = v.note ?? null
+      const u = v.userEnteredFormat
+      const t = u?.textFormat
+      const al = u?.horizontalAlignment?.toLowerCase()
+      const color = t?.foregroundColor ? toHex(t.foregroundColor) : null
+      const s = fmtString({
+        b: t?.bold || undefined,
+        c: color && color !== '000000' ? color : undefined,
+        s: t?.fontSize,
+        a: al === 'left' || al === 'center' || al === 'right' ? al : undefined,
+      })
+      fmts[r][c1 + j] = s || null
     })
   })
-  return { fills, notes }
+  return { fills, notes, fmts }
 }
 
 export interface SheetCellWrite {
@@ -272,6 +328,7 @@ export interface SheetCellWrite {
   num?: number // 있으면 숫자(날짜 일련번호)로 쓴다
   fill?: string | null // RRGGBB, null = 흰색. undefined면 배경은 건드리지 않음
   note?: string // 칸 메모. '' = 지움. undefined면 건드리지 않음
+  fmt?: CellFmt // 글자 서식(굵게·색·크기·정렬). 빈 {} = 기본으로. undefined면 건드리지 않음
 }
 
 // 줄 끼워 넣기: at(0-based) 자리에 빈 줄을 넣고 그 줄의 칸들을 쓴다.
@@ -314,7 +371,24 @@ function fromHex(hex: string | null) {
 function cellRequest(sheetGid: number, c: SheetCellWrite) {
   const setValue = c.num !== undefined || c.value !== undefined
   const value = c.num !== undefined ? { numberValue: c.num } : c.value ? { stringValue: c.value } : null
-  const fields = [setValue && 'userEnteredValue', c.fill !== undefined && 'userEnteredFormat.backgroundColor', c.note !== undefined && 'note'].filter(Boolean).join(',')
+  const fields = [
+    setValue && 'userEnteredValue',
+    c.fill !== undefined && 'userEnteredFormat.backgroundColor',
+    c.fmt !== undefined &&
+      'userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.fontSize,userEnteredFormat.textFormat.foregroundColor,userEnteredFormat.horizontalAlignment',
+    c.note !== undefined && 'note',
+  ]
+    .filter(Boolean)
+    .join(',')
+  // 서식 마스크에 넣고 값을 비우면 기본으로 돌아간다
+  const text = c.fmt
+    ? { ...(c.fmt.b ? { bold: true } : {}), ...(c.fmt.s ? { fontSize: c.fmt.s } : {}), ...(c.fmt.c ? { foregroundColor: fromHex(c.fmt.c) } : {}) }
+    : null
+  const format = {
+    ...(c.fill !== undefined ? { backgroundColor: fromHex(c.fill) } : {}),
+    ...(text && Object.keys(text).length ? { textFormat: text } : {}),
+    ...(c.fmt?.a ? { horizontalAlignment: c.fmt.a.toUpperCase() } : {}),
+  }
   return {
     updateCells: {
       range: { sheetId: sheetGid, startRowIndex: c.row, endRowIndex: c.row + 1, startColumnIndex: c.col, endColumnIndex: c.col + 1 },
@@ -323,7 +397,7 @@ function cellRequest(sheetGid: number, c: SheetCellWrite) {
           values: [
             {
               ...(value ? { userEnteredValue: value } : {}),
-              ...(c.fill !== undefined ? { userEnteredFormat: { backgroundColor: fromHex(c.fill) } } : {}),
+              ...(Object.keys(format).length ? { userEnteredFormat: format } : {}),
               ...(c.note ? { note: c.note } : {}),
             },
           ],
@@ -339,7 +413,9 @@ function cellRequest(sheetGid: number, c: SheetCellWrite) {
 export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
   const requests: object[] = plan.writes.map((c) => cellRequest(sheetGid, c))
   for (const m of plan.unmergeFirst ?? [])
-    requests.push({ unmergeCells: { range: { sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.col, endColumnIndex: m.col + 1 } } })
+    requests.push({
+      unmergeCells: { range: { sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.col, endColumnIndex: m.col + 1 } },
+    })
   for (const m of plan.moves ?? []) {
     // destinationIndex는 줄을 빼기 전 기준이라, 아래로 옮길 때는 한 칸 더
     requests.push({
@@ -397,7 +473,12 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
         for (let c = 0; c <= range.e.c; c++) {
           const cell = ws[XLSX.utils.encode_cell({ r, c })]
           const cm = (cell as { c?: { t?: string }[] } | undefined)?.c
-          notes[r][c] = cm?.length ? cm.map((x) => x.t ?? '').join('\n').trim() || null : null
+          notes[r][c] = cm?.length
+            ? cm
+                .map((x) => x.t ?? '')
+                .join('\n')
+                .trim() || null
+            : null
           const rgb = (cell?.s as { fgColor?: { rgb?: string } } | undefined)?.fgColor?.rgb
           fills[r][c] = rgb && /^[0-9A-F]{6,8}$/i.test(rgb) && !/^(FF)?FFFFFF$/i.test(rgb) ? rgb.slice(-6).toUpperCase() : null
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {

@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
 import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
-import type { SheetCellWrite, SheetInsert, SheetMergeOp, SheetMove } from './sheetSources'
+import { parseFmt, type SheetCellWrite, type SheetInsert, type SheetMergeOp, type SheetMove } from './sheetSources'
 import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
 
 export interface ProgressRow {
@@ -29,6 +29,8 @@ export interface ProgressRow {
   bg: Record<string, string>
   // 칸 메모. 키는 열 id 또는 주차 키
   notes: Record<string, string>
+  // 칸 글자 서식(fmtString 모양, 기본은 없음). 키는 열 id
+  fmt?: Record<string, string>
   // 이 행에 직접 적힌 H·L1·L2 칸 글자(병합이면 맨 위 칸에만 있음). 줄을 넣거나 지울 때 이름 칸을 옮기는 데 쓴다.
   labels?: Partial<Record<Level, string>>
   isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
@@ -94,6 +96,7 @@ export interface RowEdit {
   fields?: Record<string, string> // 'name'이면 L3 이름
   bg?: Record<string, string> // 칸 배경색. '' = 색 없음(흰색)
   notes?: Record<string, string> // 칸 메모. '' = 지움
+  fmt?: Record<string, string> // 칸 글자 서식(fmtString). '' = 기본
 }
 export type ProgressEdits = Record<string, RowEdit>
 
@@ -108,6 +111,7 @@ export interface NewRow {
   cells: Record<string, CellState>
   bg?: Record<string, string>
   notes?: Record<string, string>
+  fmt?: Record<string, string>
   // 어느 행의 위/아래에 넣었는지(행 키 · 새 과제면 'new:…'). 없으면 그 L2의 맨 아래
   anchor?: { key: string; where: 'above' | 'below' }
 }
@@ -213,11 +217,14 @@ export function toProgressRows(
     }
     const bg: Record<string, string> = {}
     const notes: Record<string, string> = {}
+    const fmt: Record<string, string> = {}
     for (const f of fields) {
       const hex = raw?.fills?.[r.row]?.[f.col]
       if (hex && hex !== 'FFFFFF') bg[f.id] = hex
       const n = raw?.notes?.[r.row]?.[f.col]
       if (n) notes[f.id] = n
+      const t = raw?.fmts?.[r.row]?.[f.col]
+      if (t) fmt[f.id] = t
     }
     for (const w of weekCols) {
       const n = raw?.notes?.[r.row]?.[w.col]
@@ -241,6 +248,7 @@ export function toProgressRows(
       fills: r.fills ?? {},
       bg,
       notes,
+      ...(Object.keys(fmt).length ? { fmt } : {}),
       ...(Object.keys(labels).length ? { labels } : {}),
     }
   })
@@ -344,6 +352,11 @@ export function effectiveNote(row: ProgressRow, edit: RowEdit | undefined, key: 
   return v !== undefined ? v : (row.notes[key] ?? '')
 }
 
+export function effectiveFmt(row: ProgressRow, edit: RowEdit | undefined, id: string): string {
+  const v = edit?.fmt?.[id]
+  return v !== undefined ? v : (row.fmt?.[id] ?? '')
+}
+
 // 새 과제를 표에 그리기 위한 행 모양
 export function newRowAsRow(n: NewRow): ProgressRow {
   const weeks: Record<string, WeekMark> = {}
@@ -366,6 +379,7 @@ export function newRowAsRow(n: NewRow): ProgressRow {
     fills,
     bg: { ...(n.bg ?? {}) },
     notes: { ...(n.notes ?? {}) },
+    fmt: { ...(n.fmt ?? {}) },
     isNew: true,
   }
 }
@@ -433,7 +447,7 @@ export const TOOL_CELL: Record<PaintTool, CellState> = {
 
 function pruneEdit(edits: ProgressEdits, key: string, cur: RowEdit): ProgressEdits {
   const next = { ...edits }
-  if (!cur.cells && !cur.fields && !cur.bg && !cur.notes) delete next[key]
+  if (!cur.cells && !cur.fields && !cur.bg && !cur.notes && !cur.fmt) delete next[key]
   else next[key] = cur
   return next
 }
@@ -457,10 +471,10 @@ export function setFieldEdit(edits: ProgressEdits, row: ProgressRow, id: string,
   return pruneEdit(edits, row.key, cur)
 }
 
-function setMapEdit(edits: ProgressEdits, row: ProgressRow, which: 'bg' | 'notes', id: string, value: string): ProgressEdits {
+function setMapEdit(edits: ProgressEdits, row: ProgressRow, which: 'bg' | 'notes' | 'fmt', id: string, value: string): ProgressEdits {
   const cur = { ...(edits[row.key] ?? {}) }
   const map = { ...(cur[which] ?? {}) }
-  const base = (which === 'bg' ? row.bg[id] : row.notes[id]) ?? ''
+  const base = (which === 'bg' ? row.bg[id] : which === 'fmt' ? row.fmt?.[id] : row.notes[id]) ?? ''
   if (base === value) delete map[id]
   else map[id] = value
   cur[which] = Object.keys(map).length ? map : undefined
@@ -469,6 +483,9 @@ function setMapEdit(edits: ProgressEdits, row: ProgressRow, which: 'bg' | 'notes
 export function setBgEdit(edits: ProgressEdits, row: ProgressRow, id: string, hex: string): ProgressEdits {
   return setMapEdit(edits, row, 'bg', id, hex)
 }
+export function setFmtEdit(edits: ProgressEdits, row: ProgressRow, id: string, fmt: string): ProgressEdits {
+  return setMapEdit(edits, row, 'fmt', id, fmt)
+}
 export function setNoteEdit(edits: ProgressEdits, row: ProgressRow, key: string, note: string): ProgressEdits {
   return setMapEdit(edits, row, 'notes', key, note.trim())
 }
@@ -476,7 +493,13 @@ export function setNoteEdit(edits: ProgressEdits, row: ProgressRow, key: string,
 export function countDrafts(d: Drafts): number {
   return (
     Object.values(d.edits).reduce(
-      (n, e) => n + Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length,
+      (n, e) =>
+        n +
+        Object.keys(e.cells ?? {}).length +
+        Object.keys(e.fields ?? {}).length +
+        Object.keys(e.bg ?? {}).length +
+        Object.keys(e.notes ?? {}).length +
+        Object.keys(e.fmt ?? {}).length,
       0,
     ) +
     d.newRows.length +
@@ -534,7 +557,11 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
   const kept: Drafts = { edits: {}, newRows: [], deleted: [], moves: [] }
   let conflicts = 0
   const editCount = (e: RowEdit) =>
-    Object.keys(e.cells ?? {}).length + Object.keys(e.fields ?? {}).length + Object.keys(e.bg ?? {}).length + Object.keys(e.notes ?? {}).length
+    Object.keys(e.cells ?? {}).length +
+    Object.keys(e.fields ?? {}).length +
+    Object.keys(e.bg ?? {}).length +
+    Object.keys(e.notes ?? {}).length +
+    Object.keys(e.fmt ?? {}).length
 
   // 지울 줄: 시트에서 다시 찾지 못하면 남긴다.
   const delKeys = new Set(drafts.deleted ?? [])
@@ -600,7 +627,16 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       }
       writes.push({ row: fr.row, col, note })
     }
-    if (keep.cells || keep.fields || keep.bg || keep.notes) kept.edits[key] = keep
+    for (const [id, v] of Object.entries(e.fmt ?? {})) {
+      const f = fieldById.get(id)
+      if (!f || (fr.fmt?.[id] ?? '') !== (b.fmt?.[id] ?? '')) {
+        keep.fmt = { ...(keep.fmt ?? {}), [id]: v }
+        conflicts++
+        continue
+      }
+      writes.push({ row: fr.row, col: f.col, fmt: parseFmt(v) })
+    }
+    if (keep.cells || keep.fields || keep.bg || keep.notes || keep.fmt) kept.edits[key] = keep
   }
 
   // ---- 시트 줄을 흉내 내며 순서대로 바꾼다: arr[i] = 지금 i번째 줄에 있는 원래 줄(시트 행 번호) 또는 새 줄('n:…')
@@ -645,9 +681,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     for (const r of order) if (!r.isNew && gkey(r) === g && freshByKey.has(r.key)) movedRows.add(freshByKey.get(r.key)!.row)
   }
   const unmergeFirst: SheetMergeOp[] = moves.length
-    ? (fresh.levelMerges ?? [])
-        .filter((m) => [...movedRows].some((r) => r >= m.r1 && r <= m.r2))
-        .map((m) => ({ col: m.c1, r1: m.r1, r2: m.r2, merge: false }))
+    ? (fresh.levelMerges ?? []).filter((m) => [...movedRows].some((r) => r >= m.r1 && r <= m.r2)).map((m) => ({ col: m.c1, r1: m.r1, r2: m.r2, merge: false }))
     : []
 
   // 2) 줄 지우기(아래부터)
@@ -697,6 +731,8 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       const ex = cells.find((c) => c.col === f.col)
       if (ex) ex.fill = hex || null
       else cells.push({ col: f.col, fill: hex || null })
+      // 글자 서식은 이 화면에서 정했을 때만(아니면 위 줄 서식을 물려받는다)
+      if (n.fmt?.[f.id] !== undefined) cells.find((c) => c.col === f.col)!.fmt = parseFmt(n.fmt[f.id])
     }
     for (const [k, note] of Object.entries(n.notes ?? {})) {
       const col = fieldById.get(k)?.col ?? weekCol.get(k)

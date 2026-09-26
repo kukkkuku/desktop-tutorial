@@ -47,6 +47,9 @@ import {
   type XlsxBook,
   sheetUrl,
   writeSheetCells,
+  parseFmt,
+  fmtString,
+  type CellFmt,
 } from '../../utils/sheetSources'
 import {
   NO_L1,
@@ -65,6 +68,7 @@ import {
   effectiveBg,
   effectiveField,
   effectiveNote,
+  effectiveFmt,
   loadProgress,
   makeNewRow,
   makeNewGroup,
@@ -79,6 +83,7 @@ import {
   setFieldEdit,
   paintCells,
   setNoteEdit,
+  setFmtEdit,
   toProgressRows,
   type Drafts,
   type FieldDef,
@@ -93,7 +98,7 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, HEAD_DEFAULT, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
@@ -172,6 +177,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
   const fmt = await fetchSheetFormats(spreadsheetId, title, 0, Math.max(0, raw.rows.length - 1), 0, lastCol)
   raw.fills = fmt.fills
   raw.notes = fmt.notes
+  raw.fmts = fmt.fmts
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
   return {
@@ -639,6 +645,20 @@ export default function ProgressBoard() {
       return { ...d, edits }
     })
   }
+  // 고른 칸들 글자 서식: patch에 적힌 항목만 바꾼다(undefined = 그 항목 기본으로), null = 모두 기본으로
+  function setFmt(list: { row: ProgressRow; id: string }[], patch: CellFmt | null) {
+    const live = list.filter((x) => !isDeleted(x.row))
+    if (!live.length) return
+    updateDrafts((d) =>
+      live.reduce((acc, { row, id }) => {
+        const nid = row.isNew ? row.key.slice(NEW_PREFIX.length) : ''
+        const cur = row.isNew ? (acc.newRows.find((n) => n.id === nid)?.fmt?.[id] ?? '') : effectiveFmt(row, acc.edits[row.key], id)
+        const next = patch ? fmtString({ ...parseFmt(cur), ...patch }) : ''
+        if (row.isNew) return { ...acc, newRows: acc.newRows.map((n) => (n.id === nid ? { ...n, fmt: { ...(n.fmt ?? {}), [id]: next } } : n)) }
+        return { ...acc, edits: setFmtEdit(acc.edits, row, id, next) }
+      }, d),
+    )
+  }
   function setNote(row: ProgressRow, key: string, note: string) {
     updateDrafts((d) => {
       if (row.isNew) {
@@ -832,14 +852,20 @@ export default function ProgressBoard() {
       const n = effectiveNote(row, e, k)
       if (n) notes[k] = n
     }
+    const fmt: Record<string, string> = {}
+    for (const k of new Set([...Object.keys(row.fmt ?? {}), ...Object.keys(e?.fmt ?? {})])) {
+      const t = effectiveFmt(row, e, k)
+      if (t) fmt[k] = t
+    }
     return {
       row,
       cells: effectiveCells(row, e),
       vals,
       bg,
       notes,
+      fmt,
       editedCells: new Set(Object.keys(e?.cells ?? {})),
-      editedFields: new Set([...Object.keys(e?.fields ?? {}), ...Object.keys(e?.bg ?? {}), ...Object.keys(e?.notes ?? {})]),
+      editedFields: new Set([...Object.keys(e?.fields ?? {}), ...Object.keys(e?.bg ?? {}), ...Object.keys(e?.notes ?? {}), ...Object.keys(e?.fmt ?? {})]),
       deleted: deletedSet.has(row.key),
     }
   }
@@ -1252,6 +1278,7 @@ export default function ProgressBoard() {
               </span>
             </>
           )}
+          <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
           {scheduleMode === 'hidden' && (
             <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
               <CalendarRange {...icSm} />
@@ -1355,6 +1382,7 @@ export default function ProgressBoard() {
             allWeekCols={data.weekCols}
             onBg={setBg}
             onNote={setNote}
+            onFmt={readOnly ? undefined : setFmt}
             zebra={zebra}
             sheetColors={sheetColors}
             headColors={headColors}

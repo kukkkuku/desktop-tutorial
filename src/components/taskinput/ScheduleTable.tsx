@@ -5,12 +5,30 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronsLeft, ChevronsRight, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import ColorPalette from './ColorPalette'
+import FormatBar from './FormatBar'
+import { parseFmt, type CellFmt } from '../../utils/sheetSources'
+
+// 서식 막대를 띄울 자리(ProgressBoard 도구 줄)
+export const FORMAT_BAR_SLOT = 'pb-format-slot'
+
+// 칸 글자 서식 → 화면 스타일(크기는 시트 기본 10pt를 기준으로 비율)
+function fmtStyle(fmt: string | undefined): React.CSSProperties {
+  if (!fmt) return {}
+  const f = parseFmt(fmt)
+  return {
+    ...(f.b ? { fontWeight: 700 } : {}),
+    ...(f.c ? { color: `#${f.c}` } : {}),
+    ...(f.s ? { fontSize: `${(f.s / 10).toFixed(2)}em` } : {}),
+    ...(f.a ? { textAlign: f.a } : {}),
+  }
+}
 
 export interface ScheduleRowView {
   row: ProgressRow
@@ -18,6 +36,7 @@ export interface ScheduleRowView {
   vals: Record<string, string> // 고친 값을 얹은 열 값(name, status, assignees, category, note …)
   bg: Record<string, string> // 고친 값을 얹은 칸 배경색(열 id → RRGGBB)
   notes: Record<string, string> // 고친 값을 얹은 칸 메모(열 id 또는 주차 키 → 메모)
+  fmt?: Record<string, string> // 고친 값을 얹은 칸 글자 서식(열 id → fmtString)
   editedCells: Set<string>
   editedFields: Set<string> // 값·색·메모 중 무엇이든 고친 열 id / 주차 키
   deleted?: boolean // 지우기로 함(저장하면 시트에서 줄을 지움)
@@ -315,9 +334,11 @@ function FieldCell({
   onPointerEnter,
   onExtend,
   onClearRange,
+  fmt,
 }: {
   f: FieldDef
   value: string
+  fmt?: string
   bg: string
   note: string
   edited: boolean
@@ -373,7 +394,7 @@ function FieldCell({
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
       <div
         className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'} ${rowH ? 'overflow-hidden' : ''}`}
-        style={rowH ? { maxHeight: Math.max(12, rowH - 4) } : undefined}
+        style={{ ...fmtStyle(fmt), ...(rowH ? { maxHeight: Math.max(12, rowH - 4) } : {}) }}
       >
         {display}
       </div>
@@ -543,6 +564,7 @@ export default function ScheduleTable({
   onMoveRow,
   onBg,
   onNote,
+  onFmt,
   fontSize = 13,
   rowPad = 0,
   readOnly = false,
@@ -582,6 +604,7 @@ export default function ScheduleTable({
   onMoveRow?: (row: ProgressRow, target: ProgressRow, where: 'above' | 'below') => void // 줄 옮기기(같은 구분 안에서)
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
+  onFmt?: (list: { row: ProgressRow; id: string }[], patch: CellFmt | null) => void // 고른 칸 글자 서식(null = 기본으로)
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
   readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
@@ -845,6 +868,56 @@ export default function ScheduleTable({
     if (onFields) onFields(list)
     else list.forEach((x) => onField(x.row, x.id, ''))
   }
+  // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
+  const fmtTargets = (() => {
+    if (!sel) return []
+    const out: { v: ScheduleRowView; id: string }[] = []
+    if (range) {
+      for (let ri = range.r1; ri <= range.r2; ri++) {
+        const v = rows[ri]
+        if (v && !v.deleted) for (let ci = range.c1; ci <= range.c2; ci++) out.push({ v, id: editIds[ci] })
+      }
+      return out
+    }
+    const v = rows.find((x) => x.row.key === sel.row)
+    return v && !v.deleted && editIds.includes(sel.id) ? [{ v, id: sel.id }] : []
+  })()
+  const anchorView = sel ? rows.find((x) => x.row.key === sel.row) : undefined
+  const anchorFmt = parseFmt(sel ? anchorView?.fmt?.[sel.id] : '')
+  function applyFmt(patch: CellFmt | null) {
+    if (!onFmt || readOnly || !fmtTargets.length) return
+    onFmt(
+      fmtTargets.map((t) => ({ row: t.v.row, id: t.id })),
+      patch,
+    )
+  }
+  function applyBg(hex: string) {
+    if (readOnly) return
+    const byRow = new Map<string, { row: ProgressRow; ids: string[] }>()
+    for (const t of fmtTargets) {
+      const g = byRow.get(t.v.row.key) ?? { row: t.v.row, ids: [] }
+      g.ids.push(t.id)
+      byRow.set(t.v.row.key, g)
+    }
+    byRow.forEach((g) => onBg(g.row, g.ids, hex))
+  }
+  const [fmtSlot, setFmtSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => setFmtSlot(document.getElementById(FORMAT_BAR_SLOT)), [])
+  // ⌘/Ctrl+B: 고른 칸 굵게 켜기/끄기
+  const boldRef = useRef<() => void>(() => {})
+  boldRef.current = () => applyFmt({ b: anchorFmt.b ? undefined : true })
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        const el = document.activeElement as HTMLElement | null
+        if (!el?.closest('td[data-cell]')) return
+        e.preventDefault()
+        boldRef.current()
+      }
+    }
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [])
   function moveSel(rowKey: string, id: string, dx: number, dy: number) {
     let ri = rows.findIndex((v) => v.row.key === rowKey)
     let ci = editIds.indexOf(id)
@@ -1224,7 +1297,8 @@ export default function ScheduleTable({
                         {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
                         {v.deleted && <span className="mt-[2px] shrink-0 rounded-[3px] bg-danger px-1 text-[0.77em] font-bold text-white">삭제</span>}
                         <span
-                          className={`whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'} ${v.deleted ? 'line-through' : ''}`}
+                          className={`min-w-0 ${parseFmt(v.fmt?.name).a ? 'flex-1' : ''} whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'} ${v.deleted ? 'line-through' : ''}`}
+                          style={v.vals.name ? fmtStyle(v.fmt?.name) : undefined}
                         >
                           {v.vals.name || '(이름을 입력하세요)'}
                         </span>
@@ -1317,6 +1391,7 @@ export default function ScheduleTable({
                         key={f.id}
                         f={f}
                         value={v.vals[f.id] ?? ''}
+                        fmt={v.fmt?.[f.id]}
                         bg={v.bg[f.id] ?? ''}
                         note={v.notes[f.id] ?? ''}
                         edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
@@ -1378,6 +1453,24 @@ export default function ScheduleTable({
         />
       )}
 
+      {fmtSlot &&
+        onFmt &&
+        !readOnly &&
+        createPortal(
+          <FormatBar
+            fmt={anchorFmt}
+            bg={(sel && anchorView?.bg[sel.id]) ?? ''}
+            count={fmtTargets.length}
+            sheetColors={sheetColors}
+            onFmt={(patch) => applyFmt(patch)}
+            onBg={applyBg}
+            onClear={() => {
+              applyFmt(null)
+              applyBg('')
+            }}
+          />,
+          fmtSlot,
+        )}
       {hoverNote && !menu && !noteEdit && (
         <div
           className="pointer-events-none fixed z-50 max-w-[300px] whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[12px] leading-relaxed text-label shadow-dialog"
