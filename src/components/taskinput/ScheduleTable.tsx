@@ -755,6 +755,7 @@ export default function ScheduleTable({
   onDeleteGroup,
   onRestoreGroup,
   onAddGroup,
+  onSplitGroup,
   onRenameGroup,
   onRevertRow,
   onAddRow,
@@ -805,6 +806,7 @@ export default function ScheduleTable({
   onDeleteGroup?: (row: ProgressRow) => void // 이 행이 든 구분(L2) 통째로 지우기
   onRestoreGroup?: (row: ProgressRow) => void
   onAddGroup?: (row: ProgressRow, where: 'above' | 'below', name: string) => void // 이 구분 위/아래에 새 구분(L2)
+  onSplitGroup?: (row: ProgressRow, name: string) => void // 이 줄부터 아래를 새 구분(L2)으로 나누기
   onRenameGroup?: (row: ProgressRow, name: string) => void // 새 구분 이름 고치기
   onRevertRow?: (row: ProgressRow) => void // 이 행 고친 내용 되돌리기
   onAddRow?: (row: ProgressRow, where: 'above' | 'below') => void // 우클릭: 위/아래에 과제 추가
@@ -1209,12 +1211,20 @@ export default function ScheduleTable({
   }, [menu])
   const [noteEdit, setNoteEdit] = useState<(Menu & { text: string }) | null>(null)
   // 새 구분(L2) 이름 입력: 위/아래에 추가 또는 새 구분 이름 고치기
-  const [groupEdit, setGroupEdit] = useState<{ row: ProgressRow; mode: 'above' | 'below' | 'rename'; text: string; x: number; y: number } | null>(null)
+  const [groupEdit, setGroupEdit] = useState<{
+    row: ProgressRow
+    mode: 'above' | 'below' | 'rename' | 'split'
+    text: string
+    x: number
+    y: number
+    count?: number
+  } | null>(null)
   function commitGroup() {
     if (!groupEdit) return
     const name = groupEdit.text.trim()
     if (name) {
       if (groupEdit.mode === 'rename') onRenameGroup?.(groupEdit.row, name)
+      else if (groupEdit.mode === 'split') onSplitGroup?.(groupEdit.row, name)
       else onAddGroup?.(groupEdit.row, groupEdit.mode, name)
     }
     setGroupEdit(null)
@@ -2096,6 +2106,25 @@ export default function ScheduleTable({
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
+                      {/* 구분 안의 줄 경계: 마우스를 올리면 빨간 줄 · 누르면 이 줄부터 아래를 새 구분으로 나누기 */}
+                      {!readOnly && onSplitGroup && ri > 0 && !v.row.isNew && !v.deleted && !g.rows[ri - 1].deleted && (
+                        <span
+                          className="group/split absolute -top-[5px] left-0 z-40 h-[10px] cursor-pointer"
+                          style={{ width: WH + wL2 }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const r = e.currentTarget.getBoundingClientRect()
+                            setGroupEdit({ row: v.row, mode: 'split', text: '', x: r.left + WH, y: r.bottom + 6, count: g.rows.length - ri })
+                          }}
+                          title="여기서 구분(L2) 나누기 · 이 줄부터 아래가 새 구분"
+                        >
+                          <span className="pointer-events-none absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/split:opacity-100" />
+                          <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/split:opacity-100">
+                            여기서 나누기
+                          </span>
+                        </span>
+                      )}
                       {/* 행 경계의 +: 이 행 아래에 과제 추가 */}
                       {!readOnly && !v.deleted && onAddRow && (
                         <button
@@ -2146,7 +2175,7 @@ export default function ScheduleTable({
                         }}
                         title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
-                        className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
+                        className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-1px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
@@ -3136,7 +3165,11 @@ export default function ScheduleTable({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <p className="text-[12px] font-semibold text-label">
-              {groupEdit.mode === 'rename' ? '구분(L2) 이름 고치기' : `${groupEdit.mode === 'above' ? '위에' : '아래에'} 새 구분(L2) 추가`}
+              {groupEdit.mode === 'rename'
+                ? '구분(L2) 이름 고치기'
+                : groupEdit.mode === 'split'
+                  ? '여기서 구분(L2) 나누기'
+                  : `${groupEdit.mode === 'above' ? '위에' : '아래에'} 새 구분(L2) 추가`}
             </p>
             <input
               autoFocus
@@ -3149,7 +3182,13 @@ export default function ScheduleTable({
               placeholder="구분 이름 (태그는 끝에 [태그])"
               className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px] text-label"
             />
-            {groupEdit.mode !== 'rename' && <p className="mt-1 text-[11px] text-label-3">과제 한 줄과 함께 만들어집니다. 과제 이름을 넣어야 저장됩니다.</p>}
+            {groupEdit.mode === 'split' ? (
+              <p className="mt-1 text-[11px] text-label-3">
+                이 줄부터 아래 과제 {groupEdit.count ?? 0}건이 새 구분이 됩니다. 저장하면 시트의 구분 칸도 둘로 나뉩니다.
+              </p>
+            ) : (
+              groupEdit.mode !== 'rename' && <p className="mt-1 text-[11px] text-label-3">과제 한 줄과 함께 만들어집니다. 과제 이름을 넣어야 저장됩니다.</p>
+            )}
             <div className="mt-2 flex justify-end gap-1.5">
               <button onClick={() => setGroupEdit(null)} className="h-7 rounded-control px-2.5 text-[12px] text-label-2 hover:bg-black/[0.05]">
                 취소
@@ -3159,7 +3198,7 @@ export default function ScheduleTable({
                 disabled={!groupEdit.text.trim()}
                 className="h-7 rounded-control bg-accent px-3 text-[12px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
               >
-                {groupEdit.mode === 'rename' ? '바꾸기' : '추가'}
+                {groupEdit.mode === 'rename' ? '바꾸기' : groupEdit.mode === 'split' ? '나누기' : '추가'}
               </button>
             </div>
           </div>

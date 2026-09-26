@@ -6,6 +6,7 @@ import { downloadStyledWorkbook } from './excel'
 import { parseFmt } from './sheetSources'
 import {
   applyL2Renames,
+  applyL2Splits,
   effectiveBg,
   effectiveFmt,
   effectiveMerges,
@@ -63,14 +64,17 @@ const fill = (hex: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid'
 export function exportRows(data: ProgressData, drafts: Drafts, l1s: string[]): ProgressRow[] {
   const deleted = new Set(drafts.deleted ?? [])
   return l1s.flatMap((l1) =>
-    applyL2Renames(
-      orderWithNewRows(
-        data.rows.filter((r) => r.l1 === l1),
-        drafts.newRows.filter((n) => n.l1 === l1),
-        drafts.moves,
-      ).filter((r) => !deleted.has(r.key)),
+    applyL2Splits(
+      applyL2Renames(
+        orderWithNewRows(
+          data.rows.filter((r) => r.l1 === l1),
+          drafts.newRows.filter((n) => n.l1 === l1),
+          drafts.moves,
+        ),
+        drafts,
+      ),
       drafts,
-    ),
+    ).filter((r) => !deleted.has(r.key)),
   )
 }
 

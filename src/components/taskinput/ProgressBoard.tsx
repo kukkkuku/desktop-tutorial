@@ -75,6 +75,7 @@ import {
   effectiveMerges,
   effectiveFields,
   applyL2Renames,
+  applyL2Splits,
   renameL2,
   NEW_COL_PREFIX,
   type NewCol,
@@ -1096,7 +1097,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     const n = values?.length ?? count
     for (let i = 0; i < n; i++) {
       const anchor = i === 0 ? { key: row.key, where } : { key: NEW_PREFIX + list[i - 1].id, where: 'below' as const }
-      const r = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, anchor)
+      const r = makeNewRow({ l1: row.l1, ...baseGroupOf(row), h: row.h }, anchor)
       const v = values?.[i]
       if (v) Object.assign(r, { fields: { name: '', ...v.fields }, bg: v.bg, fmt: v.fmt })
       list.push(r)
@@ -1167,8 +1168,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       ),
     )
   }
+  // 새 과제의 구분: 기준 줄의 원래 구분(시트 값 · 새 과제면 그 과제의 구분). 고친 이름 · 나누기는 화면에서 다시 얹힌다
+  function baseGroupOf(row: ProgressRow): { l2: string; l2Tag: string | null } {
+    const b = data?.rows.find((r) => r.key === row.key) ?? drafts.newRows.find((n) => NEW_PREFIX + n.id === row.key)
+    return b ? { l2: b.l2, l2Tag: b.l2Tag } : { l2: row.l2, l2Tag: row.l2Tag }
+  }
   function addRow(row: ProgressRow, where: 'above' | 'below') {
-    const n = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, { key: row.key, where })
+    const n = makeNewRow({ l1: row.l1, ...baseGroupOf(row), h: row.h }, { key: row.key, where })
     updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
     setOpenKey(NEW_PREFIX + n.id)
   }
@@ -1380,11 +1386,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const q = query.trim().toLowerCase()
   // 새 과제는 그 L2의 마지막 줄 바로 아래에 보여 준다(저장하면 시트에서도 그 자리).
   // 새 과제는 우클릭한 행의 위/아래에(저장하면 시트에서도 그 자리)
-  const ordered: ProgressRow[] = applyL2Renames(
-    orderWithNewRows(
-      tabRows,
-      drafts.newRows.filter((n) => n.l1 === l1),
-      drafts.moves,
+  const ordered: ProgressRow[] = applyL2Splits(
+    applyL2Renames(
+      orderWithNewRows(
+        tabRows,
+        drafts.newRows.filter((n) => n.l1 === l1),
+        drafts.moves,
+      ),
+      drafts,
     ),
     drafts,
   )
@@ -1966,6 +1975,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onDeleteGroup={(row) => deleteRows(groupRowsOf(row))}
               onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
               onAddGroup={addGroup}
+              onSplitGroup={(row, name) => {
+                const label = name.trim()
+                if (!label) return
+                updateDrafts((d) => ({ ...d, l2Splits: [...(d.l2Splits ?? []).filter((sp) => sp.key !== row.key), { key: row.key, label }] }))
+              }}
               onRenameGroup={(row, name) => {
                 const rowsOfGroup = groupRowsOf(row)
                 if (rowsOfGroup.every((r) => r.isNew)) {
@@ -1973,6 +1987,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   const ids = new Set(rowsOfGroup.map((r) => r.key.slice(NEW_PREFIX.length)))
                   const { name: l2, tag } = splitL2(name)
                   updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
+                  return
+                }
+                // 나눈 구분: 나누기 이름을 바꾼다
+                const split = (drafts.l2Splits ?? []).find((sp) => sp.key === rowsOfGroup[0].key)
+                if (split) {
+                  updateDrafts((d) => ({ ...d, l2Splits: (d.l2Splits ?? []).map((sp) => (sp === split ? { ...sp, label: name } : sp)) }))
                   return
                 }
                 // 시트 구분: 원래 이름(시트 값) 기준으로 고친 이름을 얹고, 저장하면 이름 칸에 쓴다

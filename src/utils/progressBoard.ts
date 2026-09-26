@@ -134,6 +134,12 @@ export interface Drafts {
   newCols?: NewCol[] // 새 입력 열(저장하면 시트에 열을 끼워 넣는다)
   delCols?: string[] // 지울 입력 열 id(저장하면 시트에서 열을 지운다)
   l2Renames?: Record<string, string> // 구분(L2) 이름 고치기: '그룹(L1)␟원래 L2␟원래 태그' → 새 이름("이름 [태그]")
+  l2Splits?: L2Split[] // 구분(L2) 나누기: 이 줄부터 그 구분 끝까지 새 구분(순서대로 적용)
+}
+// 구분 나누기: key = 새 구분의 첫 줄(시트 과제) · label = 새 구분 이름("이름 [태그]")
+export interface L2Split {
+  key: string
+  label: string
 }
 
 const l2GroupKey = (r: { l1: string; l2: string; l2Tag: string | null }) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
@@ -147,6 +153,23 @@ export function applyL2Renames(rows: ProgressRow[], drafts: Pick<Drafts, 'l2Rena
     const { name, tag } = splitL2(to)
     return { ...r, l2: name, l2Tag: tag }
   })
+}
+// 구분 나누기를 화면 순서에 얹는다(이름 고치기 뒤에). 나눈 줄부터 원래 구분이 끝날 때까지 새 이름으로.
+export function applyL2Splits(rows: ProgressRow[], drafts: Pick<Drafts, 'l2Splits'>): ProgressRow[] {
+  const splits = drafts.l2Splits
+  if (!splits?.length) return rows
+  const gk = (r: ProgressRow) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
+  const out = [...rows]
+  for (const sp of splits) {
+    const i = out.findIndex((r) => r.key === sp.key)
+    if (i <= 0) continue
+    const g = gk(out[i])
+    if (gk(out[i - 1]) !== g) continue // 이미 구분 경계
+    const { name, tag } = splitL2(sp.label)
+    const ng = `${out[i].l1}␟${name}␟${tag ?? ''}`
+    for (let j = i; j < out.length && (gk(out[j]) === g || gk(out[j]) === ng); j++) out[j] = { ...out[j], l2: name, l2Tag: tag }
+  }
+  return out
 }
 export function renameL2(
   drafts: Drafts,
@@ -708,7 +731,8 @@ export function countDrafts(d: Drafts): number {
     (d.merges?.length ?? 0) +
     (d.newCols?.length ?? 0) +
     (d.delCols?.length ?? 0) +
-    Object.keys(d.l2Renames ?? {}).length
+    Object.keys(d.l2Renames ?? {}).length +
+    (d.l2Splits?.length ?? 0)
   )
 }
 
@@ -1116,6 +1140,46 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
         if (origAt !== null) after.push({ row: origAt, col, value: '' })
       }
     }
+  }
+  // 구분(L2) 나누기: 나눈 줄에 새 이름을 쓰고, 이름 칸 병합을 둘로 나눈다.
+  // 그 구분 안에서 줄을 넣거나 지우거나 옮기지 않았을 때만(아니면 남겨 두고 다음 저장 때)
+  kept.l2Splits = []
+  const l2Col = fresh.levelCols?.l2
+  for (const sp of draftsIn.l2Splits ?? []) {
+    const fr = freshByKey.get(sp.key)
+    const keep = () => {
+      kept.l2Splits!.push(sp)
+      conflicts++
+    }
+    if (l2Col === undefined || !fr || delRows.has(fr.row)) {
+      keep()
+      continue
+    }
+    const { name, tag } = splitL2(sp.label)
+    const text = tag ? `${name}\n\n[${tag}]` : name
+    const m = (fresh.levelMerges ?? []).find((x) => x.c1 === l2Col && x.c2 === l2Col && x.r1 <= fr.row && fr.row <= x.r2)
+    if (!m) {
+      after.push({ row: finalOf(fr.row), col: l2Col, value: text })
+      continue
+    }
+    if (m.r1 === fr.row) {
+      // 이미 경계: 이름만
+      after.push({ row: finalOf(fr.row), col: l2Col, value: text })
+      continue
+    }
+    const r1 = finalOf(m.r1)
+    const r2 = finalOf(m.r2)
+    const at = finalOf(fr.row)
+    let intact = r1 >= 0 && r2 - r1 === m.r2 - m.r1
+    for (let i = m.r1; i <= m.r2 && intact; i++) if (delRows.has(i) || finalOf(i) !== r1 + (i - m.r1)) intact = false
+    if (!intact || remerge.some((x) => x.col === l2Col && x.r1 <= r2 && x.r2 >= r1)) {
+      keep()
+      continue
+    }
+    unmergeFirst.push({ col: l2Col, r1: m.r1, r2: m.r2, merge: false })
+    remerge.push({ col: l2Col, r1, r2: at - 1, merge: at - 1 > r1 })
+    remerge.push({ col: l2Col, r1: at, r2, merge: r2 > at })
+    after.push({ row: at, col: l2Col, value: text })
   }
   // 병합은 맨 끝에(모두 끝난 뒤 행 번호). 줄이나 열이 붙어 있지 않으면 남긴다.
   const mergeCells: SheetRange[] = []
