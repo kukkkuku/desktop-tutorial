@@ -956,28 +956,28 @@ export default function ScheduleTable({
   // ---- 복사 · 붙여넣기(⌘/Ctrl+C · V, 우클릭). 이 표에서 복사한 것은 서식 · 칸 색까지 붙인다.
   type ClipCell = { value: string; fmt?: string; bg?: string }
   const [clip, setClip] = useState<{ tsv: string; ids: string[]; cells: ClipCell[][] } | null>(null)
-  function copySel() {
-    if (!selRect) return null
-    const ids = editIds.slice(selRect.c1, selRect.c2 + 1)
-    const cells = rows.slice(selRect.r1, selRect.r2 + 1).map((v) => ids.map((id) => ({ value: v.vals[id] ?? '', fmt: v.fmt?.[id] ?? '', bg: v.bg[id] ?? '' })))
+  function copySel(rect: typeof selRect = selRect) {
+    if (!rect) return null
+    const ids = editIds.slice(rect.c1, rect.c2 + 1)
+    const cells = rows.slice(rect.r1, rect.r2 + 1).map((v) => ids.map((id) => ({ value: v.vals[id] ?? '', fmt: v.fmt?.[id] ?? '', bg: v.bg[id] ?? '' })))
     const q = (t: string) => (/[\t\n"]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t)
     const c = { tsv: cells.map((r) => r.map((x) => q(x.value)).join('\t')).join('\n'), ids, cells }
     setClip(c)
     return c
   }
-  function pasteCells(cells: ClipCell[][]) {
-    if (!selRect || !onCells || readOnly || !cells.length || !cells[0].length) return
+  function pasteCells(cells: ClipCell[][], rect: typeof selRect = selRect) {
+    if (!rect || !onCells || readOnly || !cells.length || !cells[0].length) return
     const one = cells.length === 1 && cells[0].length === 1
-    const fill = one && (selRect.r2 > selRect.r1 || selRect.c2 > selRect.c1) // 한 칸을 복사해 여러 칸에 붙이면 모두 채움
-    const H = fill ? selRect.r2 - selRect.r1 + 1 : cells.length
-    const W = fill ? selRect.c2 - selRect.c1 + 1 : cells[0].length
+    const fill = one && (rect.r2 > rect.r1 || rect.c2 > rect.c1) // 한 칸을 복사해 여러 칸에 붙이면 모두 채움
+    const H = fill ? rect.r2 - rect.r1 + 1 : cells.length
+    const W = fill ? rect.c2 - rect.c1 + 1 : cells[0].length
     const list: { row: ProgressRow; id: string; value?: string; fmt?: string; bg?: string }[] = []
     for (let i = 0; i < H; i++) {
-      const v = rows[selRect.r1 + i]
+      const v = rows[rect.r1 + i]
       if (!v) break
       if (v.deleted) continue
       for (let j = 0; j < W; j++) {
-        const id = editIds[selRect.c1 + j]
+        const id = editIds[rect.c1 + j]
         if (!id) break
         const x = fill ? cells[0][0] : cells[i][j]
         if (!x) continue
@@ -986,23 +986,36 @@ export default function ScheduleTable({
     }
     if (!list.length) return
     onCells(list)
-    const last = rows[Math.min(rows.length - 1, selRect.r1 + H - 1)]
-    const lastId = editIds[Math.min(editIds.length - 1, selRect.c1 + W - 1)]
-    if (H > 1 || W > 1) setSelEnd({ row: last.row.key, id: lastId })
+    const last = rows[Math.min(rows.length - 1, rect.r1 + H - 1)]
+    const lastId = editIds[Math.min(editIds.length - 1, rect.c1 + W - 1)]
+    if ((H > 1 || W > 1) && rect === selRect) setSelEnd({ row: last.row.key, id: lastId })
   }
-  function pasteText(text: string) {
+  function pasteText(text: string, rect: typeof selRect = selRect) {
     const t = text.replace(/\r\n?/g, '\n').replace(/\n$/, '')
-    if (clip && clip.tsv === t) pasteCells(clip.cells)
-    else pasteCells(parseTsv(t).map((r) => r.map((value) => ({ value }))))
+    if (clip && clip.tsv === t) pasteCells(clip.cells, rect)
+    else
+      pasteCells(
+        parseTsv(t).map((r) => r.map((value) => ({ value }))),
+        rect,
+      )
   }
-  function pasteFromMenu() {
-    if (clip) return pasteCells(clip.cells)
-    void navigator.clipboard?.readText?.().then(pasteText, () => {})
+  function pasteFromMenu(rect: typeof selRect = selRect) {
+    if (clip) return pasteCells(clip.cells, rect)
+    void navigator.clipboard?.readText?.().then(
+      (t) => pasteText(t, rect),
+      () => {},
+    )
   }
-  const clipRef = useRef({ copySel, pasteText, cut: () => {} })
+  // 행 전체(L3 ~ 마지막 입력 열)
+  const rowRect = (key: string) => {
+    const r = rowIndexOf.get(key)
+    return r === undefined ? null : { r1: r, r2: r, c1: 0, c2: editIds.length - 1 }
+  }
+  const clipRef = useRef({ copySel, pasteText, rowRect, cut: () => {} })
   clipRef.current = {
     copySel,
     pasteText,
+    rowRect,
     cut: () => {
       if (!selRect || !onCells || readOnly) return
       const list: { row: ProgressRow; id: string; value: string }[] = []
@@ -1013,7 +1026,18 @@ export default function ScheduleTable({
   }
   useEffect(() => {
     const inCell = () => !!(document.activeElement as HTMLElement | null)?.dataset?.cellSelect
+    // 번호칸(행 선택)에 초점이 있으면 행 전체
+    const rowKey = () => (document.activeElement as HTMLElement | null)?.dataset?.rowhead
     const copy = (e: ClipboardEvent) => {
+      const rk = rowKey()
+      if (rk) {
+        const c = clipRef.current.copySel(clipRef.current.rowRect(rk))
+        if (c) {
+          e.clipboardData?.setData('text/plain', c.tsv)
+          e.preventDefault()
+        }
+        return
+      }
       if (!inCell()) return
       const c = clipRef.current.copySel()
       if (!c) return
@@ -1026,11 +1050,12 @@ export default function ScheduleTable({
       clipRef.current.cut()
     }
     const paste = (e: ClipboardEvent) => {
-      if (!inCell()) return
+      const rk = rowKey()
+      if (!inCell() && !rk) return
       const t = e.clipboardData?.getData('text/plain')
       if (t === undefined) return
       e.preventDefault()
-      clipRef.current.pasteText(t)
+      clipRef.current.pasteText(t, rk ? clipRef.current.rowRect(rk) : undefined)
     }
     document.addEventListener('copy', copy)
     document.addEventListener('cut', cut)
@@ -2006,29 +2031,28 @@ export default function ScheduleTable({
                       메모 삭제
                     </button>
                   )}
-                  {menu.kind === 'field' && onCells && (
+                  {menu.kind === 'row' && onCells && (
                     <>
                       {sep}
                       <button
                         onClick={() => {
-                          const c = copySel()
+                          const c = copySel(rowRect(menu.row.key))
                           if (c) void navigator.clipboard?.writeText?.(c.tsv).catch(() => {})
                           close()
                         }}
                         className={item}
                       >
-                        <Copy {...ic} />
-                        복사{hint('⌘C')}
+                        <Copy {...ic} />행 복사{hint('⌘C')}
                       </button>
                       <button
                         onClick={() => {
-                          pasteFromMenu()
+                          pasteFromMenu(rowRect(menu.row.key))
                           close()
                         }}
                         className={item}
+                        title="복사한 행 값으로 이 행을 덮어씁니다"
                       >
-                        <ClipboardPaste {...ic} />
-                        붙여넣기{hint('⌘V')}
+                        <ClipboardPaste {...ic} />행 붙여넣기(덮어쓰기){hint('⌘V')}
                       </button>
                       {clip && onAddRows && (
                         <>
