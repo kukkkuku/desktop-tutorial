@@ -571,6 +571,7 @@ export default function ScheduleTable({
   onNote,
   onFmt,
   merges = [],
+  heightReset = 0,
   onMerge,
   fontSize = 13,
   rowPad = 0,
@@ -617,6 +618,7 @@ export default function ScheduleTable({
   onMerge?: (rows: ProgressRow[], ids: string[], merge: boolean) => void // 고른 칸 병합 · 병합 해제
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
+  heightReset?: number // 바뀌면 끌어서 정한 행 높이를 모두 지운다
   readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
@@ -747,6 +749,16 @@ export default function ScheduleTable({
       return {}
     }
   })
+  // 모두 기본 높이로(도구 줄 버튼)
+  useEffect(() => {
+    if (!heightReset) return
+    setRowHeights({})
+    try {
+      localStorage.removeItem('progress-board:row-heights')
+    } catch {
+      // 기억 못 해도 지금 화면엔 반영
+    }
+  }, [heightReset])
   function setRowHeight(key: string, h: number | null) {
     setRowHeights((cur) => {
       const next = { ...cur }
@@ -1368,7 +1380,7 @@ export default function ScheduleTable({
                         if (l3Note) showNote(e, l3Note)
                       }}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
-                      style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
+                      style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}), ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }) }}
                       className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                         isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
                       } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''}`}

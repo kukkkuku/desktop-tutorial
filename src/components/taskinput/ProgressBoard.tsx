@@ -18,6 +18,7 @@ import {
   RefreshCw,
   RotateCcw,
   Rows3,
+  AlignVerticalSpaceAround,
   Search,
   Send,
   Settings2,
@@ -27,7 +28,6 @@ import {
   Undo2,
   Upload,
   X,
-  PaintBucket,
 } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
@@ -138,6 +138,10 @@ function fmt(iso: string) {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+
+const ROW_PAD_KEY = 'progress-board:row-pad-v2'
+const ROW_PAD_DEFAULT = 4
+const ROW_PAD_MAX = 12
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
   const fields = buildFieldDefs(parsed.header, parsed.columnMap)
@@ -374,23 +378,26 @@ export default function ProgressBoard() {
   const [, setFillTick] = useState(0)
   function openFillMenu(el: HTMLElement, which: WeekFill) {
     const r = el.getBoundingClientRect()
-    setFillMenu({ which, x: Math.min(r.left, window.innerWidth - 290), y: r.bottom + 6 })
+    setFillMenu({ which, x: Math.max(8, Math.min(r.left - 8, window.innerWidth - 290)), y: r.bottom + 6 })
   }
 
-  // 행간(칸 위아래 여백 0~8px) -- 이 브라우저에 기억
+  // 행간(칸 위아래 여백 0~12px, 기본 ROW_PAD_DEFAULT) -- 이 브라우저에 기억
   const [rowPad, setRowPadState] = useState<number>(() => {
     try {
-      const v = Number(localStorage.getItem('progress-board:row-pad'))
-      return v >= 0 && v <= 8 ? v : 0
+      const raw = localStorage.getItem(ROW_PAD_KEY)
+      const v = Number(raw)
+      return raw !== null && v >= 0 && v <= ROW_PAD_MAX ? v : ROW_PAD_DEFAULT
     } catch {
-      return 0
+      return ROW_PAD_DEFAULT
     }
   })
+  // 모두 기본 높이로: 행간을 기본으로, 끌어서 정한 행 높이는 모두 지운다
+  const [heightReset, setHeightReset] = useState(0)
   function setRowPad(v: number) {
-    const n = Math.max(0, Math.min(8, v))
+    const n = Math.max(0, Math.min(ROW_PAD_MAX, v))
     setRowPadState(n)
     try {
-      localStorage.setItem('progress-board:row-pad', String(n))
+      localStorage.setItem(ROW_PAD_KEY, String(n))
     } catch {
       // 기억 못 해도 지금 화면에는 반영
     }
@@ -1188,7 +1195,7 @@ export default function ProgressBoard() {
         <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
           <button
             onClick={() => setRowPad(rowPad + 2)}
-            disabled={rowPad >= 8}
+            disabled={rowPad >= ROW_PAD_MAX}
             className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
             aria-label="행간 넓게"
             title={`행간 넓게 (지금 ${rowPad}px)`}
@@ -1203,6 +1210,17 @@ export default function ProgressBoard() {
             title={`행간 좁게 (지금 ${rowPad}px)`}
           >
             <FoldVertical {...icSm} />
+          </button>
+          <button
+            onClick={() => {
+              setRowPad(ROW_PAD_DEFAULT)
+              setHeightReset((n) => n + 1)
+            }}
+            className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04]"
+            aria-label="모두 기본 높이로"
+            title="모든 행을 기본 높이로 통일(행간 기본값 · 끌어서 바꾼 행 높이 모두 되돌림)"
+          >
+            <AlignVerticalSpaceAround {...icSm} />
           </button>
         </span>
         <span className="h-5 w-px shrink-0 bg-separator" />
@@ -1240,16 +1258,14 @@ export default function ProgressBoard() {
               ).map(([c, label]) => (
                 <button
                   key={c}
-                  onClick={() => setTool(c)}
-                  onContextMenu={(e) => {
-                    if (c === 'erase') return
-                    e.preventDefault()
-                    openFillMenu(e.currentTarget, c)
+                  onClick={(e) => {
+                    setTool(c)
+                    if (c !== 'erase') openFillMenu(e.currentTarget, c) // 고르면 바로 아래에 색 팔레트
                   }}
                   title={
                     c === 'erase'
                       ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
-                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
+                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 누르면 아래에서 색을 바꿀 수 있음`
                   }
                   aria-label={label}
                   className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
@@ -1257,14 +1273,6 @@ export default function ProgressBoard() {
                   {c === 'erase' ? <Eraser size={17} strokeWidth={1.75} className="text-label-2" /> : <CellSwatch cell={{ m: '', f: c }} size={18} />}
                 </button>
               ))}
-              {/* 칠하기 색 바꾸기(계획 · 실적) */}
-              <IconButton
-                onClick={(e) => openFillMenu(e.currentTarget, tool === 'actual' ? 'actual' : 'plan')}
-                title="칠하기 색 바꾸기(계획 · 실적)"
-                aria-label="칠하기 색 바꾸기"
-              >
-                <PaintBucket {...icSm} />
-              </IconButton>
             </>
           ) : (
             <>
@@ -1386,6 +1394,7 @@ export default function ProgressBoard() {
             onMoveRow={readOnly ? undefined : moveRow}
             fontSize={fontSize}
             rowPad={rowPad}
+            heightReset={heightReset}
             readOnly={readOnly}
             fields={data.fields}
             optionsOf={optionsOf}
@@ -1515,29 +1524,17 @@ export default function ProgressBoard() {
       {fillMenu && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
           <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            <div className="mb-2 flex items-center gap-1 rounded-control bg-black/[0.05] p-0.5 text-[12px]">
-              {(
-                [
-                  ['plan', '계획 색'],
-                  ['actual', '실적 색'],
-                ] as const
-              ).map(([f, label]) => (
-                <button
-                  key={f}
-                  onClick={() => setFillMenu({ ...fillMenu, which: f })}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-[6px] py-1 font-semibold ${fillMenu.which === f ? 'bg-white text-label shadow-sm' : 'text-label-2'}`}
-                >
-                  <CellSwatch cell={{ m: '', f }} size={14} />
-                  {label}
-                </button>
-              ))}
-            </div>
+            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
+              <CellSwatch cell={{ m: '', f: fillMenu.which }} size={14} />
+              {fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색
+            </p>
             <ColorPalette
               current={fillHex(fillMenu.which)}
               sheetColors={sheetColors}
               onPick={(hex) => {
                 setFillHex(fillMenu.which, hex)
                 setFillTick((n) => n + 1)
+                setFillMenu(null)
               }}
             />
             <p className="mt-2 text-[11px] leading-snug text-label-3">
