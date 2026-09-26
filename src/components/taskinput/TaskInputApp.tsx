@@ -23,27 +23,25 @@ export default function TaskInputApp() {
       <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
         <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <AreaSwitch className="-ml-1" />
+          <span className="hidden h-5 w-px bg-separator sm:inline-block" />
+          {/* 추진현황 연도(성과관리의 프로젝트 고르기와 같은 모양) -- 추진현황 화면이 채운다 */}
+          <span id={PROGRESS_MENU_SLOT} className="flex" />
           {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}
           <nav className="ml-2 flex items-center gap-1" role="tablist">
-            {MENUS.map(({ key, label, Icon }) =>
-              // 추진현황을 보고 있으면 그 자리를 추진현황 화면이 "YYYY 추진현황 ▾"(연도 고르기)로 채운다
-              key === 'progress' && menu === 'progress' ? (
-                <span key={key} id={PROGRESS_MENU_SLOT} className="flex" />
-              ) : (
-                <button
-                  key={key}
-                  role="tab"
-                  aria-selected={menu === key}
-                  onClick={() => setMenu(key)}
-                  className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
-                    menu === key ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
-                  }`}
-                >
-                  <Icon {...icSm} />
-                  {label}
-                </button>
-              ),
-            )}
+            {MENUS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={menu === key}
+                onClick={() => setMenu(key)}
+                className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+                  menu === key ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
+                }`}
+              >
+                <Icon {...icSm} />
+                {label}
+              </button>
+            ))}
           </nav>
           {accountEmail && (
             <div className="ml-auto flex shrink-0 items-center gap-3">
@@ -63,7 +61,10 @@ export default function TaskInputApp() {
         </div>
       </header>
       <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-        {menu === 'progress' && <ProgressBoard />}
+        {/* 진척률을 보는 동안에도 추진현황(연도 · 고친 내용)은 그대로 두고 숨긴다 */}
+        <div className={menu === 'progress' ? '' : 'hidden'}>
+          <ProgressBoard />
+        </div>
         {menu === 'rate' && (
           <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-dashed border-separator p-8 text-center">
             <h2 className="text-[17px] font-bold text-label">진척률은 준비 중입니다</h2>

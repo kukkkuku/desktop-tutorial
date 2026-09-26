@@ -4,9 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTabFit } from '../../hooks/useTabFit'
+import YearSwitcher from './YearSwitcher'
 import {
   CalendarRange,
-  ChevronDown,
   CloudUpload,
   Eraser,
   Pencil,
@@ -674,10 +674,7 @@ export default function ProgressBoard() {
     return (
       <>
         <MenuSlot>
-          <span className="flex items-center gap-1.5 rounded-control bg-label px-2.5 py-1.5 text-[13px] font-medium text-white">
-            <CalendarRange {...icSm} />
-            추진현황
-          </span>
+          <YearSwitcher title={`${now.getFullYear()} 추진현황`} tabs={[]} editableTitle={`${now.getFullYear()} 추진현황`} onPick={() => {}} />
         </MenuSlot>
         <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
           <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
@@ -822,36 +819,14 @@ export default function ProgressBoard() {
   return (
     <div>
       <MenuSlot>
-        <label
-          className={`relative flex items-center rounded-control text-[13px] font-medium text-white ${readOnly ? 'bg-orange-600' : 'bg-label'}`}
-          title="연도 고르기 · 지난 연도는 보기 전용"
-        >
-          <CalendarRange {...icSm} className="pointer-events-none absolute left-2.5" />
-          {(data.yearTabs?.length ?? 0) > 1 ? (
-            <select
-              value={data.tabTitle}
-              onChange={(e) => void viewYear(e.target.value)}
-              disabled={yearLoading || loading || saving}
-              aria-label="연도"
-              className="h-[30px] cursor-pointer appearance-none rounded-control bg-transparent bg-none pl-8 pr-7 font-medium text-white outline-none"
-            >
-              {data.yearTabs!.map((t) => (
-                <option key={t} value={t} className="text-label">
-                  {t}
-                  {t === (archive?.data.tabTitle ?? data.tabTitle) ? '' : ' (보기 전용)'}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="py-1.5 pl-8 pr-2.5">{data.tabTitle || '추진현황'}</span>
-          )}
-          {(data.yearTabs?.length ?? 0) > 1 &&
-            (yearLoading ? (
-              <Spinner className="pointer-events-none absolute right-2 h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown size={14} strokeWidth={2} className="pointer-events-none absolute right-2" />
-            ))}
-        </label>
+        <YearSwitcher
+          title={data.tabTitle}
+          tabs={data.yearTabs ?? [data.tabTitle]}
+          editableTitle={archive?.data.tabTitle ?? data.tabTitle}
+          loading={yearLoading}
+          disabled={loading || saving}
+          onPick={(t) => void viewYear(t)}
+        />
       </MenuSlot>
       {linkOpen && (
         <SheetLinkForm
