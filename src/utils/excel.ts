@@ -78,7 +78,7 @@ async function saveStyledViaClaudeDownloads(wb: ExcelJS.Workbook, filename: stri
   }
 }
 
-async function downloadStyledWorkbook(wb: ExcelJS.Workbook, filename: string): Promise<boolean> {
+export async function downloadStyledWorkbook(wb: ExcelJS.Workbook, filename: string): Promise<boolean> {
   if (window.claude?.downloads) return saveStyledViaClaudeDownloads(wb, filename)
   try {
     const buffer = await wb.xlsx.writeBuffer()

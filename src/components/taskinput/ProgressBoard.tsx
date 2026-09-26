@@ -2,7 +2,26 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Settings2, Undo2, Upload, X } from 'lucide-react'
+import {
+  CalendarRange,
+  CloudUpload,
+  Eraser,
+  Pencil,
+  Plus,
+  Redo2,
+  RefreshCw,
+  RotateCcw,
+  Rows3,
+  Search,
+  Send,
+  Settings2,
+  UnfoldVertical,
+  FileDown,
+  FoldVertical,
+  Undo2,
+  Upload,
+  X,
+} from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -59,6 +78,9 @@ import {
   type ProgressRow,
 } from '../../utils/progressBoard'
 import SheetLinkChip from '../SheetLinkChip'
+import { downloadProgressExcel } from '../../utils/progressExport'
+import { requestPerfImport } from '../../utils/perfImportRequest'
+import { useAppMode } from '../../state/AppMode'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 
@@ -167,6 +189,8 @@ export default function ProgressBoard() {
     }
     return list
   }, [data, drafts.newRows])
+  const [exportAsk, setExportAsk] = useState(false)
+  const { setMode } = useAppMode()
   const [tabAdd, setTabAdd] = useState<{ l1: string; l2: string; x: number; y: number } | null>(null)
   const [activeL1, setActiveL1] = useState<string | null>(null)
   // 보기: 숨긴 그룹(L1) 탭 -- 시트는 그대로, 이 브라우저에서만 안 보이게
@@ -273,6 +297,25 @@ export default function ProgressBoard() {
     setFontSizeState(n)
     try {
       localStorage.setItem('progress-board:font', String(n))
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+
+  // 행간(칸 위아래 여백 0~8px) -- 이 브라우저에 기억
+  const [rowPad, setRowPadState] = useState<number>(() => {
+    try {
+      const v = Number(localStorage.getItem('progress-board:row-pad'))
+      return v >= 0 && v <= 8 ? v : 0
+    } catch {
+      return 0
+    }
+  })
+  function setRowPad(v: number) {
+    const n = Math.max(0, Math.min(8, v))
+    setRowPadState(n)
+    try {
+      localStorage.setItem('progress-board:row-pad', String(n))
     } catch {
       // 기억 못 해도 지금 화면에는 반영
     }
@@ -749,6 +792,21 @@ export default function ProgressBoard() {
             그룹 추가
           </button>
         </div>
+        {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
+        <div className="shrink-0 pb-1.5">
+          <IconButton
+            onClick={() => setExportAsk(true)}
+            disabled={!data.spreadsheetId || !l1}
+            title={
+              data.spreadsheetId
+                ? `「${l1 === NO_L1 ? 'L1 없음' : l1}」 그룹을 성과관리 과제리스트로 내보내기`
+                : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
+            }
+            aria-label="성과관리 과제리스트로 내보내기"
+          >
+            <Send {...icSm} />
+          </IconButton>
+        </div>
         {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
         <div className="relative shrink-0 pb-1.5">
           <IconButton
@@ -897,6 +955,26 @@ export default function ProgressBoard() {
             가<span className="text-[9px] text-accent">▼</span>
           </button>
         </span>
+        <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
+          <button
+            onClick={() => setRowPad(rowPad + 2)}
+            disabled={rowPad >= 8}
+            className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
+            aria-label="행간 넓게"
+            title={`행간 넓게 (지금 ${rowPad}px)`}
+          >
+            <UnfoldVertical {...icSm} />
+          </button>
+          <button
+            onClick={() => setRowPad(rowPad - 2)}
+            disabled={rowPad <= 0}
+            className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04] disabled:opacity-30"
+            aria-label="행간 좁게"
+            title={`행간 좁게 (지금 ${rowPad}px)`}
+          >
+            <FoldVertical {...icSm} />
+          </button>
+        </span>
         <span className="h-5 w-px shrink-0 bg-separator" />
         {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면 */}
         <Button
@@ -943,9 +1021,6 @@ export default function ProgressBoard() {
               <span title="현재 주" className="flex h-8 w-5 items-center justify-center">
                 <span className="h-4 border-l border-dashed border-[#E8342A]" />
               </span>
-              <span title="고쳤지만 아직 저장 안 한 칸" className="flex h-8 w-5 items-center justify-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-              </span>
             </>
           )}
           {scheduleMode === 'hidden' && (
@@ -964,9 +1039,20 @@ export default function ProgressBoard() {
               <Redo2 {...ic} />
             </IconButton>
           </span>
+          <IconButton
+            onClick={() => void downloadProgressExcel(data, drafts, l1s)}
+            title={`엑셀 파일로 받기 -- 시트 모양 그대로(칸 색·메모 포함)${editCount ? ', 저장 안 한 변경도 반영' : ''}`}
+            aria-label="엑셀 파일로 받기"
+          >
+            <FileDown {...ic} />
+          </IconButton>
           {editCount > 0 && (
             <>
-              <span className="whitespace-nowrap text-label-2" title="고친 내용과 새 과제는 구글시트에 저장하기 전까지 이 브라우저에만 남습니다">
+              <span
+                className="flex items-center gap-1.5 whitespace-nowrap text-label-2"
+                title="주황 점 = 고쳤지만 아직 저장 안 한 칸. 구글시트에 저장하기 전까지 이 브라우저에만 남습니다"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
                 변경 <b className="text-orange-600">{editCount}</b>
               </span>
               <IconButton
@@ -1027,6 +1113,7 @@ export default function ProgressBoard() {
             }
             onAddRow={addRow}
             fontSize={fontSize}
+            rowPad={rowPad}
             fields={data.fields}
             optionsOf={optionsOf}
             headerStyle={data.headerStyle}
@@ -1046,6 +1133,25 @@ export default function ProgressBoard() {
           />
         }
       </div>
+      <ConfirmDialog
+        open={exportAsk}
+        title="성과관리 과제리스트로 내보내기"
+        message={`「${l1 === NO_L1 ? 'L1 없음' : (l1 ?? '')}」 그룹을 성과관리로 가져갑니다. 성과관리의 「구글시트 연결」 화면이 이 시트·이 그룹이 골라진 채로 열리고, 거기서 L2를 확인한 뒤 가져오면 과제리스트에 들어갑니다.`}
+        confirmLabel="성과관리로 이동"
+        onConfirm={() => {
+          setExportAsk(false)
+          if (!data.spreadsheetId || !l1) return
+          requestPerfImport({ url: sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined), l1 })
+          setMode('perf')
+        }}
+        onCancel={() => setExportAsk(false)}
+      >
+        {editCount > 0 && (
+          <p className="mt-2 text-[12px] font-semibold text-orange-600">
+            저장 안 한 변경 {editCount}건은 들어가지 않습니다(성과관리는 구글시트를 읽습니다). 먼저 「구글시트에 저장」을 눌러 주세요.
+          </p>
+        )}
+      </ConfirmDialog>
       {tabAdd && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setTabAdd(null)}>
           <form

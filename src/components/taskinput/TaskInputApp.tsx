@@ -1,6 +1,8 @@
 // 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 두 메뉴.
 import { useState } from 'react'
-import { CalendarRange, Gauge } from 'lucide-react'
+import { CalendarRange, ChevronDown, Gauge } from 'lucide-react'
+import GoogleAccountMenu from '../GoogleAccountMenu'
+import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import HomeButton from '../HomeButton'
 import { icSm } from '../ui/icon'
 import { IS_PREVIEW } from '../../utils/previewMode'
@@ -14,6 +16,8 @@ const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
 
 export default function TaskInputApp() {
   const [menu, setMenu] = useState<Menu>('progress')
+  // 맨 위 오른쪽 로그인 정보(성과관리 화면과 같은 모양)
+  const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
@@ -38,6 +42,21 @@ export default function TaskInputApp() {
               </button>
             ))}
           </nav>
+          {accountEmail && (
+            <div className="ml-auto flex shrink-0 items-center gap-3">
+              <GoogleAccountMenu
+                className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
+                onAccountChange={refreshAccount}
+              >
+                {accountEmail}
+                {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">관리자</span>}
+                <ChevronDown {...icSm} className="text-label-3" />
+              </GoogleAccountMenu>
+              <button onClick={handleLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
+                로그아웃
+              </button>
+            </div>
+          )}
         </div>
       </header>
       <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">

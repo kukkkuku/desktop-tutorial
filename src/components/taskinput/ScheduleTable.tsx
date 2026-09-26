@@ -83,6 +83,8 @@ function FieldCell({
   onMenu,
   onHoverNote,
   disabled,
+  autoEdit,
+  onMove,
 }: {
   f: FieldDef
   value: string
@@ -93,8 +95,14 @@ function FieldCell({
   onMenu: (e: React.MouseEvent) => void
   onHoverNote: (e: React.MouseEvent | null) => void
   disabled?: boolean
+  autoEdit?: number // 값이 바뀌면 입력 상태로(Tab·Enter로 옮겨 왔을 때)
+  onMove?: (dx: number, dy: number) => void // Tab/Shift+Tab = 옆 칸, Enter/Shift+Enter = 아래/위 칸
 }) {
   const [editing, setEditing] = useState(false)
+  useEffect(() => {
+    if (autoEdit && !disabled) start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit])
   const [draft, setDraft] = useState(value)
   const cancelled = useRef(false)
   function start() {
@@ -111,7 +119,17 @@ function FieldCell({
       cancelled.current = true
       ;(e.target as HTMLElement).blur()
     }
-    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) (e.target as HTMLElement).blur()
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      ;(e.target as HTMLElement).blur()
+      onMove?.(e.shiftKey ? -1 : 1, 0)
+      return
+    }
+    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      ;(e.target as HTMLElement).blur()
+      if (f.kind !== 'memo') onMove?.(0, e.shiftKey ? -1 : 1)
+    }
   }
   const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
@@ -128,7 +146,7 @@ function FieldCell({
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력 · 우클릭: 메모·색`}
       style={bg ? { background: `#${bg}` } : undefined}
-      className="relative cursor-text border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#D6DAE0] px-1.5 py-0 align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
+      className="relative cursor-text border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만(전체는 칸을 누르거나 오른쪽 L3 패널에서) */}
       <div className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'}`}>{display}</div>
@@ -315,6 +333,7 @@ export default function ScheduleTable({
   onBg,
   onNote,
   fontSize = 13,
+  rowPad = 0,
   fields = [],
   optionsOf,
   headerStyle: hs,
@@ -348,6 +367,7 @@ export default function ScheduleTable({
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
   fontSize?: number
+  rowPad?: number // 행간: 칸 위아래 여백(px)
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
   headerStyle?: HeaderStyle // 시트 머리글 색 · 묶음 머리글
@@ -484,6 +504,33 @@ export default function ScheduleTable({
     if (last && last.l2 === r.row.l2) last.rows.push(r)
     else groups.push({ l2: r.row.l2, tag: r.row.l2Tag, rows: [r] })
   }
+  // 키보드로 칸 옮기기(구글시트처럼): Tab → 오른쪽, 줄 끝이면 다음 줄 과제(L3)부터 · Enter → 아래 줄 같은 열
+  const [editReq, setEditReq] = useState<{ row: string; id: string; n: number } | null>(null)
+  const editIds = ['name', ...cols.map((f) => f.id)]
+  function moveEdit(rowKey: string, id: string, dx: number, dy: number) {
+    let ri = rows.findIndex((v) => v.row.key === rowKey)
+    let ci = editIds.indexOf(id)
+    if (ri < 0 || ci < 0) return
+    if (dx) {
+      ci += dx
+      if (ci >= editIds.length) {
+        ci = 0
+        ri += 1
+      }
+      if (ci < 0) {
+        ci = editIds.length - 1
+        ri -= 1
+      }
+    }
+    const step = dy || dx
+    ri += dy
+    while (rows[ri]?.deleted) ri += step > 0 ? 1 : -1
+    const target = rows[ri]
+    if (!target) return
+    const tid = editIds[ci]
+    if (tid === 'name') setNameEditing(target.row.key)
+    else setEditReq({ row: target.row.key, id: tid, n: Date.now() })
+  }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
@@ -491,7 +538,7 @@ export default function ScheduleTable({
 
   return (
     <>
-      <table className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize }}>
+      <table className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
         <colgroup>
           <col style={{ width: wL2 }} />
           <col style={{ width: wL3 }} />
@@ -660,7 +707,7 @@ export default function ScheduleTable({
                       onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
                       style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
-                      className={`sticky z-[5] border-b border-r border-dotted border-b-[#C9CDD3] border-r-[#C9CDD3] px-2 py-0 ${l3Bg ? '' : rowBg}`}
+                      className={`sticky z-[5] border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg}`}
                     >
                       {nameEditing === v.row.key && (
                         <input
@@ -673,7 +720,12 @@ export default function ScheduleTable({
                           }}
                           onKeyDown={(e) => {
                             const el = e.target as HTMLInputElement
-                            if (e.key === 'Enter') el.blur()
+                            if (e.key === 'Tab' || e.key === 'Enter') {
+                              e.preventDefault()
+                              el.blur()
+                              if (e.key === 'Tab') moveEdit(v.row.key, 'name', e.shiftKey ? -1 : 1, 0)
+                              else moveEdit(v.row.key, 'name', 0, e.shiftKey ? -1 : 1)
+                            }
                             if (e.key === 'Escape') {
                               el.value = v.vals.name
                               el.blur()
@@ -747,7 +799,7 @@ export default function ScheduleTable({
                                 : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`
                             }
                             style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
-                            className={`relative border-b border-dotted border-b-[#C9CDD3] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
+                            className={`relative border-b border-b-[#DADDE2] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                             } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
                           >
@@ -759,7 +811,7 @@ export default function ScheduleTable({
                         )
                       })
                     ) : showSummary ? (
-                      <td className="border-b border-l border-dotted border-b-[#C9CDD3] border-l-[#A6A6A6] px-1.5 py-0 text-[0.85em] leading-tight text-label-2">
+                      <td className="border-b border-l border-b-[#DADDE2] border-l-[#A6A6A6] px-1.5 py-[var(--row-pad)] text-[0.85em] leading-tight text-label-2">
                         {(() => {
                           const pr = planRange(v.cells, allWeekCols)
                           const wk = (k: string | null) => {
@@ -788,6 +840,8 @@ export default function ScheduleTable({
                         onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
                         onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
                         disabled={v.deleted}
+                        autoEdit={editReq && editReq.row === v.row.key && editReq.id === f.id ? editReq.n : 0}
+                        onMove={(dx, dy) => moveEdit(v.row.key, f.id, dx, dy)}
                       />
                     ))}
                   </tr>

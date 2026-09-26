@@ -61,6 +61,8 @@ interface Props {
   source?: 'sheet' | 'xlsx'
   // L1 탭 줄이 한 줄로 들어가는 폭(px) -- 빠른 시작 창이 이 폭에 딱 맞게 넓어진다
   onNaturalWidth?: (w: number) => void
+  // 과제 입력에서 내보낸 L1 -- 그 L1 탭을 열고 그 아래 L2를 모두 골라 둔다(한 번만)
+  initialL1?: string
 }
 
 
@@ -70,7 +72,7 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1 }: Props) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
@@ -123,7 +125,8 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       setTabs(info.tabs)
       const fromGid = parsed.gid !== null ? info.tabs.find((t) => t.sheetId === parsed.gid) : undefined
       const remembered = link && link.spreadsheetId === parsed.spreadsheetId ? info.tabs.find((t) => t.title === link.tabName) : undefined
-      const pick = remembered?.title ?? fromGid?.title ?? pickDefaultTab(info.tabs, currentWorkspace?.evaluationYear ?? null)
+      // 과제 입력에서 내보냈으면 그 링크의 탭(gid)을 먼저 연다.
+      const pick = (initialL1 ? fromGid?.title : undefined) ?? remembered?.title ?? fromGid?.title ?? pickDefaultTab(info.tabs, currentWorkspace?.evaluationYear ?? null)
       if (pick) await loadTab(pick, parsed.spreadsheetId, null)
     })
   }
@@ -203,6 +206,15 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l1Tabs.map(([l1]) => l1).join('|'), selected, activeL1])
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
+  const l1Applied = useRef(false)
+  useEffect(() => {
+    if (!initialL1 || l1Applied.current) return
+    const hit = l1Tabs.find(([l1]) => l1 === initialL1)
+    if (!hit) return
+    l1Applied.current = true
+    setActiveL1(initialL1)
+    setSelected((cur) => new Set([...cur, ...hit[1].map((g) => g.name)]))
+  }, [l1Tabs, initialL1])
   const [confirming, setConfirming] = useState(false)
 
   function toggle(names: string[], on: boolean) {
