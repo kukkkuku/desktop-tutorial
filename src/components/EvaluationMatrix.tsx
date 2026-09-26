@@ -24,6 +24,7 @@ import PeerLine from './PeerLine'
 import Button from './Button'
 import { Trophy } from 'lucide-react'
 import { icSm } from './ui/icon'
+import { tasksOutOfSync } from '../utils/assigneeSync'
 
 const MIN_COL_WIDTH = 56
 
@@ -68,6 +69,8 @@ export default function EvaluationMatrix() {
   const periodName = currentWorkspace?.periodName ?? ''
   const peerInputs = peerInputsOf(state)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
+  // 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 -- 담당자를 바꾼 뒤 예전에 내보낸 과제
+  const outOfSync = useMemo(() => tasksOutOfSync(state), [state])
   // 과제별 피어리뷰(순위)의 평균 -- 기여도 칸 아래 참고로 보여 준다. 본인 평가 제외.
   const peerRankOf = useMemo(() => {
     const acc = new Map<string, { sum: number; count: number }>()
@@ -123,17 +126,11 @@ export default function EvaluationMatrix() {
   }
 
   function handleGradeChange(taskId: string, memberId: string, grade: PerformanceGrade) {
-    dispatch({
-      type: 'SET_CONTRIBUTION_GRADE',
-      payload: { taskId, memberId, personalPerformanceGrade: grade },
-    })
+    dispatch({ type: 'SET_CONTRIBUTION_GRADE', payload: { taskId, memberId, personalPerformanceGrade: grade } })
   }
 
   function handleGradeNoteSave(taskId: string, memberId: string, note: string) {
-    dispatch({
-      type: 'SET_CONTRIBUTION_NOTE',
-      payload: { taskId, memberId, personalGradeNote: note },
-    })
+    dispatch({ type: 'SET_CONTRIBUTION_NOTE', payload: { taskId, memberId, personalGradeNote: note } })
   }
 
   const invalidTasks = tasks
@@ -168,13 +165,32 @@ export default function EvaluationMatrix() {
       </div>
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
-      <p className="mt-1 text-[13px] text-label-2">과제마다 성과등급을 고르고, 팀원 기여도를 합계 100%가 되게 입력하세요. 참여하지 않은 칸은 비워 두면 됩니다.</p>
+      <p className="mt-1 text-[13px] text-label-2">
+        과제마다 성과등급을 고르고, 팀원 기여도를 합계 100%가 되게 입력하세요. 참여하지 않은 칸은 비워 두면 됩니다.
+      </p>
+      {outOfSync.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[13px] text-orange-800">
+          <span>
+            과제리스트의 담당자와 기여도(참여자)가 다른 평가과제가 <b>{outOfSync.length}개</b> 있습니다
+            <span className="text-orange-700/80">
+              {' '}
+              ·{' '}
+              {outOfSync
+                .slice(0, 3)
+                .map((t) => t.name)
+                .join(', ')}
+              {outOfSync.length > 3 ? ` 외 ${outOfSync.length - 3}개` : ''}
+            </span>
+          </span>
+          <Button type="button" size="sm" variant="secondary" className="ml-auto" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' })}>
+            담당자대로 맞추기
+          </Button>
+        </div>
+      )}
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
         <p className="mt-4 rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">
-          {tasks.length === 0
-            ? '평가 매트릭스를 입력하려면 먼저 과제를 등록하세요.'
-            : '활성화된 팀원이 없습니다. 팀원 관리에서 팀원을 활성화하세요.'}
+          {tasks.length === 0 ? '평가 매트릭스를 입력하려면 먼저 과제를 등록하세요.' : '활성화된 팀원이 없습니다. 팀원 관리에서 팀원을 활성화하세요.'}
         </p>
       ) : (
         <>
@@ -211,18 +227,12 @@ export default function EvaluationMatrix() {
                     const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
                     const result = resultIdx >= 0 ? memberResults[resultIdx] : undefined
                     return (
-                      <th
-                        key={member.id}
-                        colSpan={showGrade ? 2 : 1}
-                        className="border-b border-l border-separator px-3 py-2 text-center font-semibold"
-                      >
+                      <th key={member.id} colSpan={showGrade ? 2 : 1} className="border-b border-l border-separator px-3 py-2 text-center font-semibold">
                         <div className="flex items-center justify-center gap-1.5">
                           <span className="text-label">{member.name}</span>
                           {result && hasScores ? (
                             <>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[result.grade]}`}>
-                                {result.grade}
-                              </span>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[result.grade]}`}>{result.grade}</span>
                               <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
                               <span
                                 className="cursor-help text-xs font-normal text-label-2 underline decoration-dotted underline-offset-2"
@@ -284,9 +294,7 @@ export default function EvaluationMatrix() {
                         </div>
                       </td>
                       <td
-                        className={`sticky z-10 border-l border-separator bg-white px-3 py-3 font-semibold ${
-                          valid ? 'text-success' : 'text-danger'
-                        }`}
+                        className={`sticky z-10 border-l border-separator bg-white px-3 py-3 font-semibold ${valid ? 'text-success' : 'text-danger'}`}
                         style={{ left: taskWidth }}
                         title={valid ? '기여도 합계 100%' : `100% 기준 ${sumLabel} (${delta > 0 ? '초과' : '부족'})`}
                       >
@@ -323,38 +331,38 @@ export default function EvaluationMatrix() {
                               })()}
                             </td>
                             {showGrade && (
-                            <td className="px-3 py-2">
-                              <div className="flex items-center gap-1">
-                                {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-1">
+                                  {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼
                                     'B'가 미리 선택돼 있으면 팀장이 고른 것인지
                                     앱이 채운 것인지 구분할 수 없다. */}
-                                <select
-                                  value={grade ?? ''}
-                                  disabled={!gradeEnabled}
-                                  title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
-                                  onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                  className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[13px] ${
-                                    gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'
-                                  }`}
-                                >
-                                  <option value="" disabled>
-                                    미입력
-                                  </option>
-                                  {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                                    <option key={opt} value={opt}>
-                                      {opt}
+                                  <select
+                                    value={grade ?? ''}
+                                    disabled={!gradeEnabled}
+                                    title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
+                                    onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
+                                    className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[13px] ${
+                                      gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'
+                                    }`}
+                                  >
+                                    <option value="" disabled>
+                                      미입력
                                     </option>
-                                  ))}
-                                </select>
-                                {gradeEnabled && (
-                                  <GradeNoteButton
-                                    note={note}
-                                    label={`${task.name} · ${member.name}`}
-                                    onSave={(next) => handleGradeNoteSave(task.id, member.id, next)}
-                                  />
-                                )}
-                              </div>
-                            </td>
+                                    {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {gradeEnabled && (
+                                    <GradeNoteButton
+                                      note={note}
+                                      label={`${task.name} · ${member.name}`}
+                                      onSave={(next) => handleGradeNoteSave(task.id, member.id, next)}
+                                    />
+                                  )}
+                                </div>
+                              </td>
                             )}
                           </Fragment>
                         )
@@ -365,7 +373,6 @@ export default function EvaluationMatrix() {
               </tbody>
             </table>
           </div>
-
 
           {invalidTasks.length > 0 && (
             <div className="mt-3 space-y-1 rounded-control border border-danger/30 bg-danger/10 px-4 py-3">

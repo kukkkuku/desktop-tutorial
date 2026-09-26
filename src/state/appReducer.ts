@@ -1,11 +1,30 @@
 import { DEFAULT_GRADE_DISTRIBUTION, IMPORTANCE_OPTIONS } from '../types'
-import type { MemberTableConfig, AppState, Contribution, RankReview, RankReviewMode, Criteria, EvaluationStatus, Importance, MeetingNote, PeerReview, PerformanceGrade, Task, TaskPeerMethod, TaskPeerReview, TeamMember, WorkBoard } from '../types'
+import type {
+  MemberTableConfig,
+  AppState,
+  Contribution,
+  RankReview,
+  RankReviewMode,
+  Criteria,
+  EvaluationStatus,
+  Importance,
+  MeetingNote,
+  PeerReview,
+  PerformanceGrade,
+  Task,
+  TaskPeerMethod,
+  TaskPeerReview,
+  TeamMember,
+  WorkBoard,
+} from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
+import { syncContributionsToAssignees } from '../utils/assigneeSync'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
   // 과제관리(L2/L3) 보드는 통째로 교체한다 -- 되돌리기가 스냅샷 방식이라서(utils/workBoard.ts).
   | { type: 'SET_WORK_BOARD'; payload: WorkBoard }
+  | { type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' }
   // 한 평가자의 한 방식 순위 리뷰를 통째로 바꾼다(다시 올리거나 다시 입력하면 덮어씀).
   | { type: 'SET_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode; reviews: RankReview[] } }
   | { type: 'DELETE_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode } }
@@ -73,9 +92,7 @@ function upsertContribution(
 ): Contribution[] {
   const exists = contributions.some((c) => c.taskId === taskId && c.memberId === memberId)
   if (exists) {
-    return contributions.map((c) =>
-      c.taskId === taskId && c.memberId === memberId ? { ...c, ...patch } : c,
-    )
+    return contributions.map((c) => (c.taskId === taskId && c.memberId === memberId ? { ...c, ...patch } : c))
   }
   return [
     ...contributions,
@@ -172,17 +189,14 @@ export function syncAutoDistribution(
     const desired: Contribution[] = activeMembers.map((member, i) => ({
       taskId: task.id,
       memberId: member.id,
-      contributionPercent: peerShares ? peerShares.get(member.id) ?? 0 : equalShares[i],
-      personalPerformanceGrade:
-        taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? null,
+      contributionPercent: peerShares ? (peerShares.get(member.id) ?? 0) : equalShares[i],
+      personalPerformanceGrade: taskContributions.find((c) => c.memberId === member.id)?.personalPerformanceGrade ?? null,
       isAutoDistributed: true,
     }))
 
     const alreadyCorrect =
       taskContributions.length === desired.length &&
-      desired.every((d) =>
-        taskContributions.some((c) => c.memberId === d.memberId && c.contributionPercent === d.contributionPercent),
-      )
+      desired.every((d) => taskContributions.some((c) => c.memberId === d.memberId && c.contributionPercent === d.contributionPercent))
     if (alreadyCorrect) continue
 
     result = [...result.filter((c) => c.taskId !== task.id), ...desired]
@@ -196,7 +210,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return action.payload
 
     case 'SET_WORK_BOARD':
-      return { ...state, workBoard: action.payload }
+      // 과제리스트에서 담당자를 바꾸면 그 L3가 묶인 평가과제의 기여도(참여자)도 맞춘다
+      return { ...state, workBoard: action.payload, contributions: syncContributionsToAssignees(state, action.payload.items, state.workBoard.items) }
+
+    case 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES':
+      return { ...state, contributions: syncContributionsToAssignees(state, state.workBoard.items) }
 
     case 'SET_RANK_REVIEWS': {
       const { reviewerMemberId, mode, reviews } = action.payload
@@ -250,10 +268,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'UPDATE_TASK':
-      return {
-        ...state,
-        tasks: state.tasks.map((t) => (t.id === action.payload.id ? action.payload : t)),
-      }
+      return { ...state, tasks: state.tasks.map((t) => (t.id === action.payload.id ? action.payload : t)) }
 
     // 평가과제 묶기: 고른 과제들을 첫 과제 하나로 합친다. L3 연결은 모두 모으고, 목표·성과는 다른 내용만 줄을 바꿔 잇는다.
     // 기여도는 어느 과제에든 참여한 팀원끼리 균등으로 다시 나누고(자동 계산 아님 -- 팀장이 고칠 수 있게),
@@ -276,9 +291,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const old = state.contributions.filter((c) => all.has(c.taskId))
       const order = picked.map((t) => t.id)
       const firstOf = <K extends 'personalPerformanceGrade' | 'personalGradeNote'>(memberId: string, k: K) =>
-        old
-          .filter((c) => c.memberId === memberId && c[k])
-          .sort((a, b) => order.indexOf(a.taskId) - order.indexOf(b.taskId))[0]?.[k]
+        old.filter((c) => c.memberId === memberId && c[k]).sort((a, b) => order.indexOf(a.taskId) - order.indexOf(b.taskId))[0]?.[k]
       const active = state.members.filter((m) => m.active)
       const ids = active.filter((m) => old.some((c) => c.memberId === m.id && c.contributionPercent > 0)).map((m) => m.id)
       const shares = distributeEqually(ids.length)
@@ -312,16 +325,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return v
       }
       const first: Task = { ...task, name: uniq(items[0].name), workItemIds: [items[0].id] }
-      const extra: Task[] = items.slice(1).map((it, k) => ({
-        id: action.payload.newIds[k],
-        name: uniq(it.name),
-        importance: it.category && (IMPORTANCE_OPTIONS as string[]).includes(it.category) ? (it.category as Importance) : task.importance,
-        performanceGrade: null,
-        workload: task.workload,
-        objective: '',
-        achievement: '',
-        workItemIds: [it.id],
-      }))
+      const extra: Task[] = items
+        .slice(1)
+        .map((it, k) => ({
+          id: action.payload.newIds[k],
+          name: uniq(it.name),
+          importance: it.category && (IMPORTANCE_OPTIONS as string[]).includes(it.category) ? (it.category as Importance) : task.importance,
+          performanceGrade: null,
+          workload: task.workload,
+          objective: '',
+          achievement: '',
+          workItemIds: [it.id],
+        }))
       const at = state.tasks.findIndex((t) => t.id === task.id)
       const tasks = [...state.tasks.slice(0, at), first, ...extra, ...state.tasks.slice(at + 1)]
       const active = state.members.filter((m) => m.active)
@@ -351,15 +366,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case 'IMPORT_TASKS':
-      return {
-        ...state,
-        tasks: action.payload,
-        contributions: syncAutoDistribution(action.payload, state.members, state.contributions, state.peerReviews),
-      }
+      return { ...state, tasks: action.payload, contributions: syncAutoDistribution(action.payload, state.members, state.contributions, state.peerReviews) }
 
     case 'ADD_MEMBER': {
       const members = [...state.members, action.payload]
-      return { ...state, members, workBoard: rematchAssignees(state.workBoard, members), contributions: syncAutoDistribution(state.tasks, members, state.contributions, state.peerReviews) }
+      return {
+        ...state,
+        members,
+        workBoard: rematchAssignees(state.workBoard, members),
+        contributions: syncAutoDistribution(state.tasks, members, state.contributions, state.peerReviews),
+      }
     }
 
     case 'UPDATE_MEMBER': {
@@ -405,29 +421,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case 'SET_CONTRIBUTION_PERCENT': {
       const { taskId, memberId, contributionPercent } = action.payload
-      return {
-        ...state,
-        contributions: upsertContribution(state.contributions, taskId, memberId, {
-          contributionPercent,
-          isAutoDistributed: false,
-        }),
-      }
+      return { ...state, contributions: upsertContribution(state.contributions, taskId, memberId, { contributionPercent, isAutoDistributed: false }) }
     }
 
     case 'SET_CONTRIBUTION_GRADE': {
       const { taskId, memberId, personalPerformanceGrade } = action.payload
-      return {
-        ...state,
-        contributions: upsertContribution(state.contributions, taskId, memberId, { personalPerformanceGrade }),
-      }
+      return { ...state, contributions: upsertContribution(state.contributions, taskId, memberId, { personalPerformanceGrade }) }
     }
 
     case 'SET_CONTRIBUTION_NOTE': {
       const { taskId, memberId, personalGradeNote } = action.payload
-      return {
-        ...state,
-        contributions: upsertContribution(state.contributions, taskId, memberId, { personalGradeNote }),
-      }
+      return { ...state, contributions: upsertContribution(state.contributions, taskId, memberId, { personalGradeNote }) }
     }
 
     case 'SET_MEMBER_TABLE':
@@ -443,59 +447,34 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, meetingNotes: [...state.meetingNotes, action.payload] }
 
     case 'UPDATE_MEETING_NOTE':
-      return {
-        ...state,
-        meetingNotes: state.meetingNotes.map((n) => (n.id === action.payload.id ? action.payload : n)),
-      }
+      return { ...state, meetingNotes: state.meetingNotes.map((n) => (n.id === action.payload.id ? action.payload : n)) }
 
     case 'DELETE_MEETING_NOTE':
-      return {
-        ...state,
-        meetingNotes: state.meetingNotes.filter((n) => n.id !== action.payload.id),
-      }
+      return { ...state, meetingNotes: state.meetingNotes.filter((n) => n.id !== action.payload.id) }
 
     // 피어리뷰가 바뀌면(추가/수정/삭제/일괄가져오기), 아직 팀장이 손대지
     // 않은(auto 상태인) 과제의 기여도 배분도 그 피어리뷰 평균을 따라
     // 함께 갱신한다 -- "피어리뷰 받으면 그걸로 우선 배분, 팀장이 수정".
     case 'IMPORT_PEER_REVIEWS':
-      return {
-        ...state,
-        peerReviews: action.payload,
-        contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, action.payload),
-      }
+      return { ...state, peerReviews: action.payload, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, action.payload) }
 
     case 'ADD_PEER_REVIEW': {
       const peerReviews = [...state.peerReviews, action.payload]
-      return {
-        ...state,
-        peerReviews,
-        contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews),
-      }
+      return { ...state, peerReviews, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews) }
     }
 
     case 'UPDATE_PEER_REVIEW': {
       const peerReviews = state.peerReviews.map((r) => (r.id === action.payload.id ? action.payload : r))
-      return {
-        ...state,
-        peerReviews,
-        contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews),
-      }
+      return { ...state, peerReviews, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews) }
     }
 
     case 'DELETE_PEER_REVIEW': {
       const peerReviews = state.peerReviews.filter((r) => r.id !== action.payload.id)
-      return {
-        ...state,
-        peerReviews,
-        contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews),
-      }
+      return { ...state, peerReviews, contributions: syncAutoDistribution(state.tasks, state.members, state.contributions, peerReviews) }
     }
 
     case 'SET_EVALUATION_STATUS':
-      return {
-        ...state,
-        evaluationStatus: { ...state.evaluationStatus, [action.payload.memberId]: action.payload.status },
-      }
+      return { ...state, evaluationStatus: { ...state.evaluationStatus, [action.payload.memberId]: action.payload.status } }
 
     case 'SET_ALL_EVALUATION_STATUS': {
       const next = { ...state.evaluationStatus }

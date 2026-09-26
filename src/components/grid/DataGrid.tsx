@@ -99,7 +99,9 @@ interface DataGridProps<R extends { id: string }> {
   // 번호를 숨긴다(칸은 좁게 남겨 행 선택·끌어 옮기기 손잡이로 쓴다).
   hideNumbers?: boolean
   // 행 바로 아래에 펼쳐 보일 내용(아코디언). null이면 접힘.
-  rowDetail?: (row: R) => ReactNode | null
+  // 줄 목록(DetailLine[])을 주면 줄마다 한 행으로, rowDetailSplit 열부터는 두 번째 칸에 그린다(열 넓이를 따라감).
+  rowDetail?: (row: R) => ReactNode | DetailLine[] | null
+  rowDetailSplit?: string
   addRowLabel?: string
   emptyText?: string
 }
@@ -191,6 +193,12 @@ export function parseTsv(text: string): string[][] {
 
 function toTsv(matrix: string[][]): string {
   return matrix.map((r) => r.map((c) => (/[\t\n"]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join('\t')).join('\n')
+}
+
+export interface DetailLine {
+  key: string
+  lead: ReactNode
+  rest?: ReactNode
 }
 
 export default function DataGrid<R extends { id: string }>(props: DataGridProps<R>) {
@@ -1370,10 +1378,29 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     {(() => {
                       const detail = props.rowDetail?.(row)
                       if (detail == null) return null
+                      const span = nC + (noNum ? 0 : 1) + (check ? 1 : 0)
+                      if (Array.isArray(detail)) {
+                        const s = Math.max(
+                          1,
+                          columns.findIndex((c) => c.id === props.rowDetailSplit),
+                        )
+                        const lead = s + (check ? 1 : 0)
+                        return detail.map((line) => (
+                          <tr key={line.key} data-row-detail>
+                            <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
+                            <td colSpan={lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-4 py-[10px] align-middle">
+                              {line.lead}
+                            </td>
+                            <td colSpan={span - lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-3 py-[10px] align-middle">
+                              {line.rest}
+                            </td>
+                          </tr>
+                        ))
+                      }
                       return (
                         <tr data-row-detail>
                           <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
-                          <td colSpan={nC + (noNum ? 0 : 1) + (check ? 1 : 0)} className="bg-[#E7EAEE] p-0">
+                          <td colSpan={span} className="bg-[#E7EAEE] p-0">
                             {detail}
                           </td>
                         </tr>

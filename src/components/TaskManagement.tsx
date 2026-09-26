@@ -12,7 +12,7 @@ import { downloadCurrentTasksExcel } from '../utils/excel'
 import { downloadTasksPdf } from '../utils/pdfReports'
 import Button from './Button'
 import IconButton from './IconButton'
-import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
+import DataGrid, { CHIP_BASE, type CellEdit, type DetailLine, type GridColumn } from './grid/DataGrid'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { ChevronRight, Redo2, Undo2 } from 'lucide-react'
 import { ic } from './ui/icon'
@@ -276,41 +276,40 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     return undefined
   }
 
-  // 펼친 L3 목록: 회색 줄마다 그룹 · L3 과제 · 상태 · 담당자 · 기간(머리글 없음). 과제 이름은 줄이지 않고 다 보인다.
-  const DETAIL_COLS = 'grid grid-cols-[minmax(0,257px)_minmax(160px,1fr)_65px_minmax(0,184px)_164px] items-center gap-x-[38px]'
-  function renderDetail(task: Task) {
+  // 펼친 L3 목록: 줄마다 회색 행. 앞칸 = 그룹 > · 과제 이름(20px 사이), 목표 열부터 = 상태 · 담당자 · 기간(열 넓이를 따라감)
+  function renderDetail(task: Task): DetailLine[] | null {
     if (!expanded.has(task.id) || !task.workItemIds?.length) return null
-    return (
-      <div className="text-[13px]">
-        {task.workItemIds.map((id) => {
-          const it = itemById.get(id)
-          if (!it)
-            return (
-              <div key={id} className="border-b border-[#DBDBDB] py-[10px] pl-4 text-[#9CA3AF]">
-                과제리스트에서 지워진 L3
-              </div>
-            )
-          const status = it.fields.status ?? ''
-          const people = it.assigneeIds.map((a) => memberName.get(a)).filter(Boolean) as string[]
-          const start = it.fields.startDate ?? ''
-          const done = it.fields.doneDate ?? ''
-          const group = groupName.get(it.groupId) ?? ''
-          return (
-            <div key={id} className={`${DETAIL_COLS} min-h-[39px] border-b border-[#DBDBDB] py-[10px] pl-4 pr-4`}>
-              <span className="truncate text-[#646971]" title={group}>
-                {group ? `${group} >` : ''}
+    return task.workItemIds.map((id) => {
+      const it = itemById.get(id)
+      if (!it) return { key: id, lead: <span className="text-[13px] text-[#9CA3AF]">과제리스트에서 지워진 L3</span> }
+      const status = it.fields.status ?? ''
+      const people = it.assigneeIds.map((a) => memberName.get(a)).filter(Boolean) as string[]
+      const start = it.fields.startDate ?? ''
+      const done = it.fields.doneDate ?? ''
+      const group = groupName.get(it.groupId) ?? ''
+      return {
+        key: id,
+        lead: (
+          <div className="flex min-w-0 items-center gap-5 text-[13px]">
+            {group && (
+              <span className="min-w-0 max-w-[45%] shrink truncate text-[#646971]" title={group}>
+                {group} &gt;
               </span>
-              <span className="whitespace-pre-line break-words font-medium leading-snug text-[#1F2937]">{it.name}</span>
-              <span>
-                {status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-[#9CA3AF]">-</span>}
-              </span>
-              <span className="break-words text-[#4B5563]">{people.join(', ') || '-'}</span>
-              <span className="tabular-nums text-[#9CA3AF]">{start || done ? `${start || '?'} ~ ${done}` : '-'}</span>
-            </div>
-          )
-        })}
-      </div>
-    )
+            )}
+            <span className="min-w-0 whitespace-pre-line break-words font-medium leading-snug text-[#1F2937]">{it.name}</span>
+          </div>
+        ),
+        rest: (
+          <div className="flex items-center gap-5 text-[13px]">
+            <span className="shrink-0">
+              {status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-[#9CA3AF]">-</span>}
+            </span>
+            <span className="min-w-0 break-words text-[#4B5563]">{people.join(', ') || '-'}</span>
+            <span className="shrink-0 tabular-nums text-[#9CA3AF]">{start || done ? `${start || '?'} ~ ${done}` : '-'}</span>
+          </div>
+        ),
+      }
+    })
   }
 
   return (
@@ -376,6 +375,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             getText={textOf}
             renderCell={renderCell}
             rowDetail={renderDetail}
+            rowDetailSplit="objective"
             onCommit={applyEdits}
             onPaste={paste}
             onDeleteRows={(ids) => setDeleting(state.tasks.filter((t) => ids.includes(t.id)))}
