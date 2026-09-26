@@ -105,7 +105,172 @@ function navKeyUp(e: React.KeyboardEvent, enter: boolean, go: NavGo) {
   fireNav(e, go)
 }
 
-// 시트 칸 하나 -- 누르면 그 자리에서 입력(Enter/바깥 누르면 반영, Esc 취소).
+// 선택한 칸의 입력기(구글시트처럼):
+//   선택  -- 보이지 않는 입력창이 초점을 잡고 있다. 방향키 · Tab으로 칸 이동, Enter · F2 · 더블클릭으로 고치기,
+//           Delete · Backspace로 지우기, 바로 타이핑하면(한글 조합 포함) 새 값으로 입력 시작.
+//   타이핑 -- 방향키 · Tab · Enter는 반영하고 이동, Esc는 취소.
+//   고치기 -- 지금 값에서 이어 고친다. Tab · Enter는 반영하고 이동(메모는 Enter가 줄바꿈, ⌘/Ctrl+Enter로 반영).
+type EditMode = 'select' | 'type' | 'edit'
+const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }
+function CellEditor({
+  value,
+  kind,
+  list,
+  bold,
+  disabled,
+  editSignal,
+  onCommit,
+  onMove,
+}: {
+  value: string
+  kind: 'text' | 'memo' | 'date'
+  list?: string
+  bold?: boolean
+  disabled?: boolean
+  editSignal?: number // 바뀌면 고치기 시작(더블클릭 · 새 과제 추가 직후)
+  onCommit: (v: string) => void
+  onMove: (dx: number, dy: number) => void
+}) {
+  const [mode, setMode] = useState<EditMode>('select')
+  const [draft, setDraft] = useState('')
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
+  const done = useRef(false)
+  // 다른 칸을 눌러 선택이 옮겨 가면(입력창이 초점을 잃기 전에 사라지면) 입력하던 값을 반영한다
+  const latest = useRef({ mode, draft, value, kind, onCommit })
+  latest.current = { mode, draft, value, kind, onCommit }
+  useEffect(
+    () => () => {
+      const l = latest.current
+      if (l.mode === 'select' || done.current) return
+      const v = l.kind === 'text' ? l.draft.trim() : l.draft
+      if (v !== l.value) l.onCommit(v)
+    },
+    [],
+  )
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: mode === 'select' })
+  }, [mode])
+  useEffect(() => {
+    if (editSignal && !disabled) startEdit()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSignal])
+  function startEdit() {
+    if (disabled) return
+    setDraft(value)
+    done.current = false
+    setMode('edit')
+  }
+  function commit() {
+    if (done.current) return
+    done.current = true
+    const v = kind === 'text' ? draft.trim() : draft
+    if (mode !== 'select' && v !== value) onCommit(v)
+    setMode('select')
+  }
+  function cancel() {
+    done.current = true
+    setMode('select')
+  }
+  const go = (dx: number, dy: number) => {
+    commit()
+    onMove(dx, dy)
+  }
+  function keyDown(e: React.KeyboardEvent) {
+    if (mode === 'select') {
+      if (e.nativeEvent.isComposing || e.keyCode === 229) return // 한글 조합 시작 -- 타이핑으로 넘어간다
+      const a = ARROWS[e.key]
+      if (a) {
+        e.preventDefault()
+        onMove(a[0], a[1])
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        onMove(e.shiftKey ? -1 : 1, 0)
+      } else if (e.key === 'Enter' || e.key === 'F2') {
+        e.preventDefault()
+        if (e.key === 'Enter' && e.shiftKey) onMove(0, -1)
+        else startEdit()
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !disabled) {
+        e.preventDefault()
+        if (value) onCommit('')
+      } else if (kind === 'date' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault()
+        startEdit()
+      }
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      cancel()
+      return
+    }
+    if (kind === 'memo' && mode === 'edit' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      commit()
+      return
+    }
+    // 타이핑 중 방향키는 반영하고 이동(고치기 중에는 글자 사이 이동)
+    if (mode === 'type' && ARROWS[e.key] && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+      e.preventDefault()
+      go(...ARROWS[e.key])
+      return
+    }
+    navKeyDown(e, !(kind === 'memo' && mode === 'edit'), go)
+  }
+  const keyUp = (e: React.KeyboardEvent) => mode !== 'select' && navKeyUp(e, !(kind === 'memo' && mode === 'edit'), go)
+  function typeStart(v: string) {
+    if (disabled) return
+    done.current = false
+    setDraft(v)
+    setMode('type')
+  }
+  const shown = 'absolute z-30 border-2 border-accent bg-white text-[1em] text-label outline-none'
+  if (mode === 'edit' && kind === 'memo')
+    return (
+      <textarea
+        ref={ref}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={keyDown}
+        onKeyUp={keyUp}
+        placeholder="⌘/Ctrl+Enter로 반영"
+        className={`${shown} left-0 top-0 h-[9em] w-[max(100%,260px)] rounded-control p-1.5 shadow-dialog`}
+      />
+    )
+  if (mode === 'edit' && kind === 'date')
+    return (
+      <input
+        ref={ref}
+        type="date"
+        value={/^\d{4}-\d{2}-\d{2}$/.test(draft) ? draft : ''}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={keyDown}
+        onKeyUp={keyUp}
+        className={`${shown} inset-0 h-full w-full px-1.5`}
+      />
+    )
+  return (
+    <input
+      ref={ref}
+      value={mode === 'select' ? '' : draft}
+      onChange={(e) => (mode === 'select' ? typeStart(e.target.value) : setDraft(e.target.value))}
+      onCompositionStart={() => mode === 'select' && typeStart('')}
+      onBlur={() => mode !== 'select' && commit()}
+      onKeyDown={keyDown}
+      onKeyUp={keyUp}
+      list={mode === 'select' ? undefined : list}
+      aria-label="칸 입력"
+      className={
+        mode === 'select'
+          ? 'pointer-events-none absolute inset-0 h-full w-full cursor-default opacity-0'
+          : `${shown} inset-0 h-full w-full px-1.5 ${bold ? 'font-semibold' : ''}`
+      }
+    />
+  )
+}
+
+// 시트 칸 하나 -- 한 번 누르면 선택, 더블클릭 · Enter · 타이핑으로 입력(구글시트처럼).
 function FieldCell({
   f,
   value,
@@ -116,8 +281,12 @@ function FieldCell({
   onMenu,
   onHoverNote,
   disabled,
-  autoEdit,
+  selected,
+  onSelect,
+  editSignal,
   onMove,
+  rowH,
+  cellId,
 }: {
   f: FieldDef
   value: string
@@ -128,46 +297,13 @@ function FieldCell({
   onMenu: (e: React.MouseEvent) => void
   onHoverNote: (e: React.MouseEvent | null) => void
   disabled?: boolean
-  autoEdit?: number // 값이 바뀌면 입력 상태로(Tab·Enter로 옮겨 왔을 때)
-  onMove?: (dx: number, dy: number) => void // Tab/Shift+Tab = 옆 칸, Enter/Shift+Enter = 아래/위 칸
+  selected?: boolean
+  onSelect?: (edit: boolean) => void // 누르면 선택(더블클릭이면 edit = true)
+  editSignal?: number
+  onMove: (dx: number, dy: number) => void
+  rowH?: number // 사용자가 정한 행 높이(px) -- 넘치는 내용은 가린다
+  cellId?: string // 선택을 옮길 때 화면에 보이게 스크롤하는 데 씀
 }) {
-  const [editing, setEditing] = useState(false)
-  useEffect(() => {
-    if (autoEdit && !disabled) start()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoEdit])
-  const [draft, setDraft] = useState(value)
-  const cancelled = useRef(false)
-  function start() {
-    setDraft(value)
-    cancelled.current = false
-    setEditing(true)
-  }
-  function finish() {
-    setEditing(false)
-    if (!cancelled.current && draft !== value) onCommit(draft)
-  }
-  // 메모 칸의 Enter는 줄바꿈(⌘/Ctrl+Enter는 반영만)
-  const go = (el: HTMLElement) => (dx: number, dy: number) => {
-    el.blur()
-    onMove?.(dx, dy)
-  }
-  const keys = (e: React.KeyboardEvent) => {
-    const el = e.target as HTMLElement
-    if (e.key === 'Escape') {
-      cancelled.current = true
-      el.blur()
-      return
-    }
-    if (f.kind === 'memo' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
-      el.blur()
-      return
-    }
-    navKeyDown(e, f.kind !== 'memo', go(el))
-  }
-  const keysUp = (e: React.KeyboardEvent) => navKeyUp(e, f.kind !== 'memo', go(e.target as HTMLElement))
-  const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
   let display: React.ReactNode = f.kind === 'memo' ? value.trim() : value.replace(/\s*\n\s*/g, ' · ')
@@ -176,53 +312,46 @@ function FieldCell({
   else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
   return (
     <td
-      onClick={editing || disabled ? undefined : start}
-      onContextMenu={onMenu}
+      data-cell={cellId}
+      onMouseDown={(e) => {
+        if (e.button !== 0) return
+        // 누른 칸의 입력창이 초점을 계속 갖도록(브라우저가 초점을 칸 밖으로 옮기지 않게)
+        if (!(e.target as HTMLElement).closest('input,textarea,button,a')) e.preventDefault()
+        if (!selected) onSelect?.(false)
+      }}
+      onDoubleClick={() => onSelect?.(true)}
+      onContextMenu={(e) => {
+        onSelect?.(false)
+        onMenu(e)
+      }}
       onMouseEnter={note ? (e) => onHoverNote(e) : undefined}
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
-      title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 눌러서 입력 · 우클릭: 메모·색`}
+      title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 더블클릭 · Enter · 타이핑으로 입력 · 우클릭: 메모·색`}
       style={bg ? { background: `#${bg}` } : undefined}
-      className="relative cursor-text border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label hover:outline hover:outline-1 hover:-outline-offset-1 hover:outline-accent/60"
+      className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
+        selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
+      }`}
     >
-      {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만(전체는 칸을 누르거나 오른쪽 L3 패널에서) */}
-      <div className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'}`}>{display}</div>
+      {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
+      <div
+        className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'} ${rowH ? 'overflow-hidden' : ''}`}
+        style={rowH ? { maxHeight: Math.max(12, rowH - 4) } : undefined}
+      >
+        {display}
+      </div>
       {note && <NoteMark />}
       {edited && <span className="pointer-events-none absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
-      {editing &&
-        (f.kind === 'memo' ? (
-          <textarea
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={finish}
-            onKeyDown={keys}
-            onKeyUp={keysUp}
-            placeholder="⌘/Ctrl+Enter로 반영"
-            className="absolute left-0 top-0 z-30 h-[9em] w-[max(100%,260px)] rounded-control border-2 border-accent bg-white p-1.5 text-[1em] text-label shadow-dialog outline-none"
-          />
-        ) : f.kind === 'date' ? (
-          <input
-            autoFocus
-            type="date"
-            value={/^\d{4}-\d{2}-\d{2}$/.test(draft) ? draft : ''}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={finish}
-            onKeyDown={keys}
-            onKeyUp={keysUp}
-            className={inputCls}
-          />
-        ) : (
-          <input
-            autoFocus
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={finish}
-            onKeyDown={keys}
-            onKeyUp={keysUp}
-            list={`pb-opts-${f.id}`}
-            className={inputCls}
-          />
-        ))}
+      {selected && (
+        <CellEditor
+          value={value}
+          kind={f.kind === 'memo' ? 'memo' : f.kind === 'date' ? 'date' : 'text'}
+          list={`pb-opts-${f.id}`}
+          disabled={disabled}
+          editSignal={editSignal}
+          onCommit={onCommit}
+          onMove={onMove}
+        />
+      )}
     </td>
   )
 }
@@ -493,10 +622,56 @@ export default function ScheduleTable({
 
   // 우클릭 메뉴 · 메모 편집 · 메모 미리보기(표 밖에 떠서 잘리지 않게 fixed)
   const [menu, setMenu] = useState<Menu | null>(null)
-  const [nameEditing, setNameEditing] = useState<string | null>(null)
+  // 선택한 칸(구글시트처럼 한 번 누르면 선택) · 고치기 시작 신호
+  const [sel, setSel] = useState<{ row: string; id: string } | null>(null)
+  const [editSig, setEditSig] = useState<{ row: string; id: string; n: number } | null>(null)
+  function selectCell(row: string, id: string, edit = false) {
+    setSel({ row, id })
+    if (edit) setEditSig({ row, id, n: Date.now() })
+  }
+  const isSel = (row: string, id: string) => sel?.row === row && sel.id === id
+  const sigOf = (row: string, id: string) => (editSig && editSig.row === row && editSig.id === id ? editSig.n : 0)
+  // 새 과제를 추가하면 그 과제 이름 칸을 바로 입력
   useEffect(() => {
-    if (editNameKey) setNameEditing(editNameKey)
+    if (editNameKey) selectCell(editNameKey, 'name', true)
   }, [editNameKey])
+  // 행 높이(과제 칸 아래 경계를 끌어 조절 · 더블클릭하면 자동) -- 이 브라우저에 기억
+  const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:row-heights') ?? '{}')
+      return v && typeof v === 'object' ? v : {}
+    } catch {
+      return {}
+    }
+  })
+  function setRowHeight(key: string, h: number | null) {
+    setRowHeights((cur) => {
+      const next = { ...cur }
+      if (h === null) delete next[key]
+      else next[key] = h
+      try {
+        localStorage.setItem('progress-board:row-heights', JSON.stringify(next))
+      } catch {
+        // 기억 못 해도 지금 화면엔 반영
+      }
+      return next
+    })
+  }
+  function startRowResize(e: React.MouseEvent, key: string, tr: HTMLElement | null) {
+    e.preventDefault()
+    e.stopPropagation()
+    const y0 = e.clientY
+    const h0 = tr?.getBoundingClientRect().height ?? 24
+    const move = (ev: MouseEvent) => setRowHeight(key, Math.max(16, Math.round(h0 + ev.clientY - y0)))
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.documentElement.classList.remove('cursor-row-resize')
+    }
+    document.documentElement.classList.add('cursor-row-resize')
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
   const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | null>(null)
   useEffect(() => {
     if (!menu) setPaletteFor(null)
@@ -547,9 +722,9 @@ export default function ScheduleTable({
     else groups.push({ l2: r.row.l2, tag: r.row.l2Tag, rows: [r] })
   }
   // 키보드로 칸 옮기기(구글시트처럼): Tab → 오른쪽, 줄 끝이면 다음 줄 과제(L3)부터 · Enter → 아래 줄 같은 열
-  const [editReq, setEditReq] = useState<{ row: string; id: string; n: number } | null>(null)
+  // 방향키 · Tab · Enter로 선택 옮기기: Tab은 줄 끝에서 다음 줄 과제(L3)로
   const editIds = ['name', ...cols.map((f) => f.id)]
-  function moveEdit(rowKey: string, id: string, dx: number, dy: number) {
+  function moveSel(rowKey: string, id: string, dx: number, dy: number) {
     let ri = rows.findIndex((v) => v.row.key === rowKey)
     let ci = editIds.indexOf(id)
     if (ri < 0 || ci < 0) return
@@ -564,14 +739,14 @@ export default function ScheduleTable({
         ri -= 1
       }
     }
-    const step = dy || dx
     ri += dy
-    while (rows[ri]?.deleted) ri += step > 0 ? 1 : -1
-    const target = rows[ri]
+    const target = rows[Math.max(0, Math.min(rows.length - 1, ri))]
     if (!target) return
     const tid = editIds[ci]
-    if (tid === 'name') setNameEditing(target.row.key)
-    else setEditReq({ row: target.row.key, id: tid, n: Date.now() })
+    setSel({ row: target.row.key, id: tid })
+    requestAnimationFrame(() =>
+      document.querySelector(`[data-cell="${CSS.escape(`${target.row.key}|${tid}`)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
+    )
   }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
@@ -696,9 +871,14 @@ export default function ScheduleTable({
               {g.rows.map((v, ri) => {
                 const rowBg = zebra && rowIndex++ % 2 === 1 ? 'bg-[#F7F8FA]' : 'bg-white'
                 const l3Bg = v.bg.name
+                const rowH = rowHeights[v.row.key]
                 const l3Note = v.notes.name
                 return (
-                  <tr key={v.row.key} className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}>
+                  <tr
+                    key={v.row.key}
+                    style={rowH ? { height: rowH } : undefined}
+                    className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}
+                  >
                     {ri === 0 && (
                       <td
                         rowSpan={g.rows.length}
@@ -747,48 +927,49 @@ export default function ScheduleTable({
                       </td>
                     )}
                     <td
-                      onContextMenu={(e) => openMenu(e, v.row, 'name', 'field')}
+                      data-cell={`${v.row.key}|name`}
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return
+                        if (!(e.target as HTMLElement).closest('input,textarea,button,a')) e.preventDefault()
+                        if (!isSel(v.row.key, 'name')) selectCell(v.row.key, 'name')
+                      }}
+                      onDoubleClick={() => selectCell(v.row.key, 'name', true)}
+                      onContextMenu={(e) => {
+                        selectCell(v.row.key, 'name')
+                        openMenu(e, v.row, 'name', 'field')
+                      }}
                       onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
                       style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
-                      className={`sticky z-[5] border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg}`}
+                      className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
+                        isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
+                      }`}
                     >
-                      {nameEditing === v.row.key && (
-                        <input
-                          autoFocus
-                          defaultValue={v.vals.name}
-                          placeholder="과제(L3) 이름"
-                          onBlur={(e) => {
-                            if (e.target.value.trim() !== v.vals.name) onField(v.row, 'name', e.target.value.trim())
-                            setNameEditing(null)
-                          }}
-                          onKeyUp={(e) =>
-                            navKeyUp(e, true, (dx, dy) => {
-                              ;(e.target as HTMLInputElement).blur()
-                              moveEdit(v.row.key, 'name', dx, dy)
-                            })
-                          }
-                          onKeyDown={(e) => {
-                            const el = e.target as HTMLInputElement
-                            if (
-                              navKeyDown(e, true, (dx, dy) => {
-                                el.blur()
-                                moveEdit(v.row.key, 'name', dx, dy)
-                              })
-                            )
-                              return
-                            if (e.key === 'Escape') {
-                              el.value = v.vals.name
-                              el.blur()
-                            }
-                          }}
-                          className="absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-2 text-[1em] font-semibold text-label outline-none"
+                      {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
+                      <span
+                        onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          setRowHeight(v.row.key, null)
+                        }}
+                        title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
+                        className="absolute -bottom-[3px] left-0 z-20 h-[6px] w-full cursor-row-resize hover:bg-accent/50"
+                      />
+                      {isSel(v.row.key, 'name') && (
+                        <CellEditor
+                          value={v.vals.name}
+                          kind="text"
+                          bold
+                          disabled={v.deleted || readOnly}
+                          editSignal={sigOf(v.row.key, 'name')}
+                          onCommit={(val) => onField(v.row, 'name', val)}
+                          onMove={(dx, dy) => moveSel(v.row.key, 'name', dx, dy)}
                         />
                       )}
                       <div
-                        onClick={v.deleted || readOnly ? undefined : () => setNameEditing(v.row.key)}
-                        className="flex w-full min-w-0 cursor-text items-start gap-1 text-left"
-                        title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 이름 고치기 · 우클릭: 메모·색`}
+                        className={`flex w-full min-w-0 items-start gap-1 text-left ${rowH ? 'overflow-hidden' : ''}`}
+                        style={rowH ? { maxHeight: Math.max(12, rowH - 4) } : undefined}
+                        title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 더블클릭 · Enter · 타이핑으로 이름 고치기 · 우클릭: 메모·색`}
                       >
                         {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
                         {v.deleted && <span className="mt-[2px] shrink-0 rounded-[3px] bg-danger px-1 text-[0.77em] font-bold text-white">삭제</span>}
@@ -893,8 +1074,12 @@ export default function ScheduleTable({
                         onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
                         onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
                         disabled={v.deleted || readOnly}
-                        autoEdit={editReq && editReq.row === v.row.key && editReq.id === f.id ? editReq.n : 0}
-                        onMove={(dx, dy) => moveEdit(v.row.key, f.id, dx, dy)}
+                        selected={isSel(v.row.key, f.id)}
+                        onSelect={(edit) => selectCell(v.row.key, f.id, edit)}
+                        editSignal={sigOf(v.row.key, f.id)}
+                        onMove={(dx, dy) => moveSel(v.row.key, f.id, dx, dy)}
+                        rowH={rowH}
+                        cellId={`${v.row.key}|${f.id}`}
                       />
                     ))}
                   </tr>
