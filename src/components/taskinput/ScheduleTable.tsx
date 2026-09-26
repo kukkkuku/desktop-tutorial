@@ -6,9 +6,9 @@
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronsLeft, ChevronsRight, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, ListFilter, Plus, TableCellsMerge, TableCellsSplit, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
-import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
+import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import ColorPalette from './ColorPalette'
@@ -335,10 +335,12 @@ function FieldCell({
   onExtend,
   onClearRange,
   fmt,
+  span,
 }: {
   f: FieldDef
   value: string
   fmt?: string
+  span?: { r: number; c: number } // 병합 칸(맨 위 왼쪽 칸이 여러 줄 · 열을 차지)
   bg: string
   note: string
   edited: boolean
@@ -368,6 +370,8 @@ function FieldCell({
   return (
     <td
       data-cell={cellId}
+      rowSpan={span && span.r > 1 ? span.r : undefined}
+      colSpan={span && span.c > 1 ? span.c : undefined}
       onMouseDown={(e) => {
         if (e.button !== 0) return
         // 누른 칸의 입력창이 초점을 계속 갖도록(브라우저가 초점을 칸 밖으로 옮기지 않게)
@@ -377,7 +381,7 @@ function FieldCell({
       }}
       onDoubleClick={() => onSelect?.(true)}
       onContextMenu={(e) => {
-        onSelect?.(false)
+        if (!inRange) onSelect?.(false) // 고른 범위 안에서 우클릭하면 범위를 그대로 둔다
         onMenu(e)
       }}
       onMouseEnter={(e) => {
@@ -394,7 +398,7 @@ function FieldCell({
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
       <div
         className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'} ${rowH ? 'overflow-hidden' : ''}`}
-        style={{ ...fmtStyle(fmt), ...(rowH ? { maxHeight: Math.max(12, rowH - 4) } : {}) }}
+        style={{ ...fmtStyle(fmt), ...(rowH && !(span && span.r > 1) ? { maxHeight: Math.max(12, rowH - 4) } : {}) }}
       >
         {display}
       </div>
@@ -552,6 +556,7 @@ export default function ScheduleTable({
   onPaint,
   onField,
   onFields,
+  onDeleteRows,
   editNameKey,
   onDeleteRow,
   onRestoreRow,
@@ -565,6 +570,8 @@ export default function ScheduleTable({
   onBg,
   onNote,
   onFmt,
+  merges = [],
+  onMerge,
   fontSize = 13,
   rowPad = 0,
   readOnly = false,
@@ -593,6 +600,7 @@ export default function ScheduleTable({
   onField: (row: ProgressRow, id: string, value: string) => void
   onFields?: (list: { row: ProgressRow; id: string; value: string }[]) => void // 여러 칸 한 번에(범위 지우기 등)
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
+  onDeleteRows?: (rows: ProgressRow[]) => void // 여러 과제 한 번에 지우기
   onDeleteRow?: (row: ProgressRow) => void // 과제 지우기(새 과제는 바로 빼고, 시트 과제는 저장할 때 줄을 지움)
   onRestoreRow?: (row: ProgressRow) => void // 지우기 취소
   onDeleteGroup?: (row: ProgressRow) => void // 이 행이 든 구분(L2) 통째로 지우기
@@ -605,6 +613,8 @@ export default function ScheduleTable({
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
   onFmt?: (list: { row: ProgressRow; id: string }[], patch: CellFmt | null) => void // 고른 칸 글자 서식(null = 기본으로)
+  merges?: CellMerge[] // 입력 열 칸 병합(행 키 × 열 id)
+  onMerge?: (rows: ProgressRow[], ids: string[], merge: boolean) => void // 고른 칸 병합 · 병합 해제
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
   readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
@@ -922,6 +932,12 @@ export default function ScheduleTable({
     let ri = rows.findIndex((v) => v.row.key === rowKey)
     let ci = editIds.indexOf(id)
     if (ri < 0 || ci < 0) return
+    // 병합 칸에서는 병합 끝 너머로
+    const here = mergeOf(rowKey, id)?.m
+    if (here) {
+      if (dy > 0) ri = rowIndexOf.get(here.rows[here.rows.length - 1]) ?? ri
+      if (dx > 0) ci = editIds.indexOf(here.ids[here.ids.length - 1])
+    }
     if (dx) {
       ci += dx
       if (ci >= editIds.length) {
@@ -936,7 +952,20 @@ export default function ScheduleTable({
     ri += dy
     const target = rows[Math.max(0, Math.min(rows.length - 1, ri))]
     if (!target) return
-    const tid = editIds[ci]
+    let tid = editIds[ci]
+    // 병합에 가려진 칸이면 병합의 맨 위 왼쪽 칸으로
+    const cover = mergeOf(target.row.key, tid)
+    if (cover && !cover.span) {
+      const [ak, aid] = [cover.m.rows[0], cover.m.ids[0]]
+      const t2 = rows.find((v) => v.row.key === ak)
+      if (t2) {
+        setSel({ row: ak, id: aid })
+        requestAnimationFrame(() =>
+          document.querySelector(`[data-cell="${CSS.escape(`${ak}|${aid}`)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
+        )
+        return
+      }
+    }
     setSel({ row: target.row.key, id: tid })
     requestAnimationFrame(() =>
       document.querySelector(`[data-cell="${CSS.escape(`${target.row.key}|${tid}`)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' }),
@@ -1017,7 +1046,33 @@ export default function ScheduleTable({
     onMoveRow(v.row, t.row, dir < 0 ? 'above' : 'below')
   }
   const rowIndexOf = new Map(rows.map((v, i) => [v.row.key, i]))
+  // 병합 칸 배치: 지금 보이는 순서에서 줄 · 열이 붙어 있을 때만 합쳐 그린다(필터 등으로 떨어지면 따로 그림)
+  const mergeAt = new Map<string, { span?: { r: number; c: number }; anchor: string; m: CellMerge; src: CellMerge }>() // 'rowKey|id' →
+  for (const m0 of merges) {
+    // 줄을 옮겼으면 보이는 순서대로
+    const m = { ...m0, rows: [...m0.rows].sort((x, y) => (rowIndexOf.get(x) ?? -1) - (rowIndexOf.get(y) ?? -1)) }
+    const ris = m.rows.map((k) => rowIndexOf.get(k) ?? -1)
+    const cis = m.ids.map((id) => editIds.indexOf(id))
+    const tight = (xs: number[]) => xs.every((x) => x >= 0) && xs.every((x, i) => i === 0 || x === xs[i - 1] + 1)
+    if (!tight(ris) || !tight(cis)) continue
+    const anchor = `${m.rows[0]}|${m.ids[0]}`
+    m.rows.forEach((k, i) =>
+      m.ids.forEach((id, j) =>
+        mergeAt.set(`${k}|${id}`, { anchor, m, src: m0, ...(i === 0 && j === 0 ? { span: { r: m.rows.length, c: m.ids.length } } : {}) }),
+      ),
+    )
+  }
+  const mergeOf = (rowKey: string, id: string) => mergeAt.get(`${rowKey}|${id}`)
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
+  // 고른 범위 안에서 연 메뉴면 범위 전체에 적용(색 · 서식 · 지우기)
+  const menuInRange = !!menu && inRange(rowIndexOf.get(menu.row.key) ?? -1, menu.key)
+  const menuRangeRows =
+    menuInRange && range
+      ? rows
+          .slice(range.r1, range.r2 + 1)
+          .filter((v) => !v.deleted)
+          .map((v) => v.row)
+      : []
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
   let rowIndex = 0
@@ -1189,11 +1244,26 @@ export default function ScheduleTable({
                       }}
                       title={`${v.row.row >= 0 ? `시트 ${v.row.row + 1}행` : '새 과제'} · 눌러서 행 선택 · 끌어서 옮기기(같은 구분 안에서) · Alt+↑/↓`}
                       style={{ left: 0 }}
-                      className={`sticky z-[6] cursor-grab select-none border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] p-0 text-center text-[0.72em] tabular-nums outline-none ${
+                      className={`group/rh sticky z-[6] cursor-grab hover:z-[8] select-none border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] p-0 text-center text-[0.72em] tabular-nums outline-none ${
                         rowSel === v.row.key ? 'bg-accent font-semibold text-white' : 'bg-[#F8F9FA] text-label-3 hover:bg-[#EEF0F2]'
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
+                      {/* 행 경계의 +: 이 행 아래에 과제 추가 */}
+                      {!readOnly && !v.deleted && onAddRow && (
+                        <button
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onAddRow(v.row, 'below')
+                          }}
+                          title="여기에 과제 추가(이 행 아래)"
+                          aria-label="이 행 아래에 과제 추가"
+                          className="absolute -bottom-[8px] -right-[8px] z-30 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-white opacity-0 shadow ring-2 ring-white transition-opacity hover:scale-110 group-hover/rh:opacity-100"
+                        >
+                          <Plus size={11} strokeWidth={3} />
+                        </button>
+                      )}
                       {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
                       <span
                         onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
@@ -1262,7 +1332,7 @@ export default function ScheduleTable({
                       }}
                       onDoubleClick={() => selectCell(v.row.key, 'name', true)}
                       onContextMenu={(e) => {
-                        selectCell(v.row.key, 'name')
+                        if (!inRange(ri2, 'name')) selectCell(v.row.key, 'name')
                         openMenu(e, v.row, 'name', 'field')
                       }}
                       onMouseEnter={(e) => {
@@ -1386,33 +1456,38 @@ export default function ScheduleTable({
                         })()}
                       </td>
                     ) : null}
-                    {cols.map((f) => (
-                      <FieldCell
-                        key={f.id}
-                        f={f}
-                        value={v.vals[f.id] ?? ''}
-                        fmt={v.fmt?.[f.id]}
-                        bg={v.bg[f.id] ?? ''}
-                        note={v.notes[f.id] ?? ''}
-                        edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
-                        onCommit={(val) => onField(v.row, f.id, val)}
-                        onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
-                        onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
-                        disabled={v.deleted || readOnly}
-                        selected={isSel(v.row.key, f.id)}
-                        onSelect={(edit) => selectCell(v.row.key, f.id, edit)}
-                        editSignal={sigOf(v.row.key, f.id)}
-                        onMove={(dx, dy) => moveSel(v.row.key, f.id, dx, dy)}
-                        rowH={rowH}
-                        cellId={`${v.row.key}|${f.id}`}
-                        onMoveRow={(dir) => moveRowBy(v, dir)}
-                        inRange={inRange(ri2, f.id)}
-                        onPointerDown={(e) => cellDown(e, v.row.key, f.id)}
-                        onPointerEnter={() => cellEnter(v.row.key, f.id)}
-                        onExtend={extendSel}
-                        onClearRange={range ? clearRange : undefined}
-                      />
-                    ))}
+                    {cols.map((f) => {
+                      const mg = mergeOf(v.row.key, f.id)
+                      if (mg && !mg.span) return null
+                      return (
+                        <FieldCell
+                          span={mg?.span}
+                          key={f.id}
+                          f={f}
+                          value={v.vals[f.id] ?? ''}
+                          fmt={v.fmt?.[f.id]}
+                          bg={v.bg[f.id] ?? ''}
+                          note={v.notes[f.id] ?? ''}
+                          edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
+                          onCommit={(val) => onField(v.row, f.id, val)}
+                          onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
+                          onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
+                          disabled={v.deleted || readOnly}
+                          selected={isSel(v.row.key, f.id)}
+                          onSelect={(edit) => selectCell(v.row.key, f.id, edit)}
+                          editSignal={sigOf(v.row.key, f.id)}
+                          onMove={(dx, dy) => moveSel(v.row.key, f.id, dx, dy)}
+                          rowH={rowH}
+                          cellId={`${v.row.key}|${f.id}`}
+                          onMoveRow={(dir) => moveRowBy(v, dir)}
+                          inRange={inRange(ri2, f.id)}
+                          onPointerDown={(e) => cellDown(e, v.row.key, f.id)}
+                          onPointerEnter={() => cellEnter(v.row.key, f.id)}
+                          onExtend={extendSel}
+                          onClearRange={range ? clearRange : undefined}
+                        />
+                      )
+                    })}
                   </tr>
                 )
               })}
@@ -1564,7 +1639,8 @@ export default function ScheduleTable({
                 current={menuView.bg[menu.key] ?? ''}
                 sheetColors={sheetColors}
                 onPick={(hex) => {
-                  onBg(menu.row, paletteFor === 'cell' ? [menu.key] : allIds, hex)
+                  if (paletteFor === 'cell' && menuInRange) applyBg(hex)
+                  else onBg(menu.row, paletteFor === 'cell' ? [menu.key] : allIds, hex)
                   setMenu(null)
                 }}
               />
@@ -1616,12 +1692,13 @@ export default function ScheduleTable({
               {onDeleteRow && (
                 <button
                   onClick={() => {
-                    onDeleteRow(menu.row)
+                    if (menuRangeRows.length > 1) onDeleteRows ? onDeleteRows(menuRangeRows) : menuRangeRows.forEach(onDeleteRow)
+                    else onDeleteRow(menu.row)
                     setMenu(null)
                   }}
                   className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
                 >
-                  과제 삭제
+                  {menuRangeRows.length > 1 ? `선택한 과제 ${menuRangeRows.length}개 삭제` : '과제 삭제'}
                 </button>
               )}
               {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (
@@ -1634,6 +1711,107 @@ export default function ScheduleTable({
                 >
                   이 행 고친 내용 되돌리기
                 </button>
+              )}
+              {menu.kind === 'field' &&
+                onMerge &&
+                (() => {
+                  // 병합: 고른 범위(L3 열 제외). 병합 해제: 우클릭한 칸 또는 범위에 걸친 병합
+                  const mRows = range && menuInRange ? rows.slice(range.r1, range.r2 + 1) : []
+                  const mIds = range && menuInRange ? editIds.slice(range.c1, range.c2 + 1).filter((id) => id !== 'name') : []
+                  const canMerge = mRows.length * mIds.length > 1 && mRows.every((v) => !v.deleted)
+                  const hit = merges.filter((m) =>
+                    mRows.length
+                      ? m.rows.some((k) => mRows.some((v) => v.row.key === k)) && m.ids.some((id) => mIds.includes(id))
+                      : m === mergeOf(menu.row.key, menu.key)?.src,
+                  )
+                  if (!canMerge && !hit.length) return null
+                  const lost = mRows.some((v, i) => mIds.some((id, j) => (i || j) && (v.vals[id] ?? '').trim()))
+                  return (
+                    <>
+                      <div className="mac-menu-sep" />
+                      {canMerge && (
+                        <button
+                          onClick={() => {
+                            onMerge(
+                              mRows.map((v) => v.row),
+                              mIds,
+                              true,
+                            )
+                            setMenu(null)
+                          }}
+                          className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                          title={lost ? '병합하면 맨 위 왼쪽 칸 값만 남고 나머지 칸 값은 지워집니다' : undefined}
+                        >
+                          <span className="flex items-center gap-2">
+                            <TableCellsMerge size={14} strokeWidth={1.9} className="text-label-2" />
+                            병합
+                          </span>
+                          <span className="text-[11px] text-label-3">{lost ? '왼쪽 위 값만 남음' : `${mRows.length}×${mIds.length}`}</span>
+                        </button>
+                      )}
+                      {hit.length > 0 && (
+                        <button
+                          onClick={() => {
+                            for (const m of hit) {
+                              const list = m.rows.map((k) => rows.find((v) => v.row.key === k)?.row).filter((r): r is ProgressRow => !!r)
+                              if (list.length) onMerge(list, m.ids, false)
+                            }
+                            setMenu(null)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                        >
+                          <TableCellsSplit size={14} strokeWidth={1.9} className="text-label-2" />
+                          병합 해제(나누기){hit.length > 1 ? ` · ${hit.length}곳` : ''}
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
+              {menu.kind === 'field' && onFmt && (
+                <>
+                  <div className="mac-menu-sep" />
+                  {menuInRange && (
+                    <button
+                      onClick={() => {
+                        clearRange()
+                        setMenu(null)
+                      }}
+                      className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      선택한 칸 {fmtTargets.length}개 내용 지우기
+                    </button>
+                  )}
+                  {(
+                    [
+                      ['bold', anchorFmt.b ? '굵게 해제' : '굵게', '⌘B'],
+                      ['1155CC', '글자 파랑', ''],
+                      ['FF0000', '글자 빨강', ''],
+                      ['plain', '글자 서식 · 색 없애기', ''],
+                    ] as const
+                  ).map(([k, label, hint]) => (
+                    <button
+                      key={k}
+                      onClick={() => {
+                        if (k === 'bold') applyFmt({ b: anchorFmt.b ? undefined : true })
+                        else if (k === 'plain') applyFmt(null)
+                        else applyFmt({ c: k })
+                        setMenu(null)
+                      }}
+                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="w-3.5 text-center text-[12px]"
+                          style={{ fontWeight: k === 'bold' ? 800 : 600, color: k === 'bold' || k === 'plain' ? undefined : `#${k}` }}
+                        >
+                          {k === 'plain' ? '–' : k === 'bold' ? 'B' : 'A'}
+                        </span>
+                        {label}
+                      </span>
+                      {hint && <span className="text-[11px] text-label-3">{hint}</span>}
+                    </button>
+                  ))}
+                </>
               )}
               {menu.kind === 'field' && (
                 <>

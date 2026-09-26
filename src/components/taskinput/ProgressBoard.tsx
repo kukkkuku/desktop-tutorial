@@ -69,6 +69,7 @@ import {
   effectiveField,
   effectiveNote,
   effectiveFmt,
+  effectiveMerges,
   loadProgress,
   makeNewRow,
   makeNewGroup,
@@ -153,6 +154,12 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
     rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols, levelCols),
     levelCols,
     levelMerges: raw.merges.filter((m) => m.c1 === m.c2 && lc.includes(m.c1)),
+    // 입력 열(L3 제외)끼리의 병합만(머리글 아래)
+    fieldMerges: raw.merges.filter((m) => {
+      if (m.r1 < parsed.header.dataStartRow) return false
+      const inside = fields.filter((f) => f.id !== 'name' && f.col >= m.c1 && f.col <= m.c2)
+      return inside.length === m.c2 - m.c1 + 1
+    }),
   }
 }
 
@@ -618,18 +625,23 @@ export default function ProgressBoard() {
       return { ...d, edits: setFieldEdit(d.edits, row, id, value) }
     })
   }
+  const withFields = (d: Drafts, list: { row: ProgressRow; id: string; value: string }[]) =>
+    list.reduce((acc, { row, id, value }) => {
+      if (row.isNew) {
+        const nid = row.key.slice(NEW_PREFIX.length)
+        return { ...acc, newRows: acc.newRows.map((n) => (n.id === nid ? { ...n, fields: { ...n.fields, [id]: value } } : n)) }
+      }
+      return { ...acc, edits: setFieldEdit(acc.edits, row, id, value) }
+    }, d)
   function setFields(list: { row: ProgressRow; id: string; value: string }[]) {
     const live = list.filter((x) => !isDeleted(x.row))
     if (!live.length) return
-    updateDrafts((d) =>
-      live.reduce((acc, { row, id, value }) => {
-        if (row.isNew) {
-          const nid = row.key.slice(NEW_PREFIX.length)
-          return { ...acc, newRows: acc.newRows.map((n) => (n.id === nid ? { ...n, fields: { ...n.fields, [id]: value } } : n)) }
-        }
-        return { ...acc, edits: setFieldEdit(acc.edits, row, id, value) }
-      }, d),
-    )
+    updateDrafts((d) => withFields(d, live))
+  }
+  // 칸 병합 · 병합 해제(구글시트처럼 맨 위 왼쪽 칸 값만 남기고 나머지 칸은 비운다)
+  function mergeCells(list: ProgressRow[], ids: string[], merge: boolean) {
+    const clear = list.flatMap((row, i) => ids.filter((_, j) => i || j).map((id) => ({ row, id, value: '' })))
+    updateDrafts((d) => withFields({ ...d, merges: [...(d.merges ?? []), { rows: list.map((r) => r.key), ids, merge }] }, clear))
   }
   function setBg(row: ProgressRow, ids: string[], hex: string) {
     updateDrafts((d) => {
@@ -734,8 +746,8 @@ export default function ProgressBoard() {
     try {
       const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
-      const { writes, unmergeFirst, moves, deletes, inserts, after, remerge, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
-      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, unmergeFirst, moves, deletes, inserts, after, remerge })
+      const { writes, unmergeFirst, unmergeCells, moves, deletes, inserts, after, remerge, mergeCells, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
+      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, unmergeFirst, unmergeCells, moves, deletes, inserts, after, remerge, mergeCells })
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
       updateDrafts(kept)
@@ -918,6 +930,7 @@ export default function ProgressBoard() {
     return seen.size <= 60 ? Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko')) : []
   }
   const editCount = countDrafts(drafts)
+  const merges = effectiveMerges(data, drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
 
@@ -1352,6 +1365,7 @@ export default function ProgressBoard() {
             onFields={setFields}
             editNameKey={openKey}
             onDeleteRow={(row) => deleteRows([row])}
+            onDeleteRows={deleteRows}
             onRestoreRow={(row) => restoreRows([row])}
             onDeleteGroup={(row) => deleteRows(groupRowsOf(row))}
             onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
@@ -1383,6 +1397,8 @@ export default function ProgressBoard() {
             onBg={setBg}
             onNote={setNote}
             onFmt={readOnly ? undefined : setFmt}
+            merges={merges}
+            onMerge={readOnly ? undefined : mergeCells}
             zebra={zebra}
             sheetColors={sheetColors}
             headColors={headColors}

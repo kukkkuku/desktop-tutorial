@@ -352,6 +352,14 @@ export interface SheetMove {
   to: number
 }
 
+// 칸 범위(0-based, 끝 포함) -- 여러 열 병합 · 병합 풀기
+export interface SheetRange {
+  r1: number
+  r2: number
+  c1: number
+  c2: number
+}
+
 // 한 번에 보낼 저장 묶음
 export interface SheetPlan {
   writes: SheetCellWrite[] // 지금 행 번호 기준
@@ -361,6 +369,8 @@ export interface SheetPlan {
   inserts?: SheetInsert[] // 적힌 순서대로(그때의 행 번호)
   after?: SheetCellWrite[] // 모두 끝난 뒤 행 번호 기준
   remerge?: SheetMergeOp[]
+  unmergeCells?: SheetRange[] // 줄을 옮기기 전에 풀 입력 열 병합(지금 행 번호)
+  mergeCells?: SheetRange[] // 모두 끝난 뒤 병합할 입력 열 칸(끝난 뒤 행 번호)
 }
 
 function fromHex(hex: string | null) {
@@ -416,6 +426,8 @@ export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
     requests.push({
       unmergeCells: { range: { sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.col, endColumnIndex: m.col + 1 } },
     })
+  const rect = (m: SheetRange) => ({ sheetId: sheetGid, startRowIndex: m.r1, endRowIndex: m.r2 + 1, startColumnIndex: m.c1, endColumnIndex: m.c2 + 1 })
+  for (const m of plan.unmergeCells ?? []) requests.push({ unmergeCells: { range: rect(m) } })
   for (const m of plan.moves ?? []) {
     // destinationIndex는 줄을 빼기 전 기준이라, 아래로 옮길 때는 한 칸 더
     requests.push({
@@ -438,6 +450,7 @@ export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
   for (const m of plan.remerge ?? []) requests.push({ unmergeCells: { range: range(m) } })
   for (const c of plan.after ?? []) requests.push(cellRequest(sheetGid, c))
   for (const m of plan.remerge ?? []) if (m.merge) requests.push({ mergeCells: { range: range(m), mergeType: 'MERGE_ALL' } })
+  for (const m of plan.mergeCells ?? []) requests.push({ mergeCells: { range: rect(m), mergeType: 'MERGE_ALL' } })
   return requests
 }
 

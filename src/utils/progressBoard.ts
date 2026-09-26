@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
 import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
-import { parseFmt, type SheetCellWrite, type SheetInsert, type SheetMergeOp, type SheetMove } from './sheetSources'
+import { parseFmt, type SheetCellWrite, type SheetInsert, type SheetMergeOp, type SheetMove, type SheetRange } from './sheetSources'
 import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
 
 export interface ProgressRow {
@@ -81,6 +81,7 @@ export interface ProgressData {
   rows: ProgressRow[]
   levelCols?: Partial<Record<Level, number>> // H · L1 · L2 열 위치(0-based)
   levelMerges?: SheetMerge[] // H · L1 · L2 열의 병합 범위
+  fieldMerges?: SheetMerge[] // 입력 열(속성·분류·상태…, L3 제외) 칸의 병합 범위
   yearTabs?: string[] // 같은 파일 안의 「YYYY 추진현황」 탭들(최근 연도부터) -- 연도 고르기
 }
 
@@ -127,6 +128,59 @@ export interface Drafts {
   newRows: NewRow[]
   moves?: RowMove[] // 순서대로 적용
   deleted?: string[] // 지우기로 한 기존 행 키(저장하면 시트에서 그 줄을 지운다)
+  merges?: MergeEdit[] // 입력 열 칸 병합 · 병합 해제(순서대로 적용)
+}
+
+// 입력 열 칸 병합: 행 키(위→아래) × 열 id(왼→오른). L3(name)은 병합하지 않는다.
+export interface CellMerge {
+  rows: string[]
+  ids: string[]
+  src?: SheetMerge // 시트에서 읽은 병합이면 그 범위(시트 행 번호)
+}
+export interface MergeEdit {
+  rows: string[]
+  ids: string[]
+  merge: boolean // false = 겹치는 병합 풀기
+}
+
+const mergesOverlap = (a: { rows: string[]; ids: string[] }, b: { rows: string[]; ids: string[] }) =>
+  a.rows.some((r) => b.rows.includes(r)) && a.ids.some((i) => b.ids.includes(i))
+
+// 시트 병합을 행 키 · 열 id로
+export function baseMerges(data: ProgressData): CellMerge[] {
+  const byRow = new Map(data.rows.map((r) => [r.row, r.key]))
+  const out: CellMerge[] = []
+  for (const m of data.fieldMerges ?? []) {
+    const rows: string[] = []
+    for (let i = m.r1; i <= m.r2; i++) {
+      const k = byRow.get(i)
+      if (k) rows.push(k)
+    }
+    const ids = data.fields
+      .filter((f) => f.id !== 'name' && f.col >= m.c1 && f.col <= m.c2)
+      .sort((a, b) => a.col - b.col)
+      .map((f) => f.id)
+    if (rows.length && ids.length && rows.length * ids.length > 1) out.push({ rows, ids, src: m })
+  }
+  return out
+}
+
+// 병합 고친 것을 얹는다. drop = 지운 줄(병합에서 뺀다)
+export function applyMergeEdits(list: CellMerge[], edits: MergeEdit[], drop?: (key: string) => boolean): CellMerge[] {
+  let out = [...list]
+  for (const e of edits) {
+    out = out.filter((m) => !mergesOverlap(m, e))
+    if (e.merge) out.push({ rows: e.rows, ids: e.ids })
+  }
+  if (!drop) return out
+  return out.map((m) => ({ ...m, rows: m.rows.filter((k) => !drop(k)) })).filter((m) => m.rows.length * m.ids.length > 1)
+}
+
+// 화면에 보일 병합(시트 병합 + 고친 것, 지운 줄 · 없어진 새 줄 빼고)
+export function effectiveMerges(data: ProgressData, drafts: Drafts): CellMerge[] {
+  const alive = new Set([...data.rows.map((r) => r.key), ...drafts.newRows.map((n) => NEW_PREFIX + n.id)])
+  const del = new Set(drafts.deleted ?? [])
+  return applyMergeEdits(baseMerges(data), drafts.merges ?? [], (k) => !alive.has(k) || del.has(k))
 }
 
 export const NO_L1 = '(L1 없음)'
@@ -504,7 +558,8 @@ export function countDrafts(d: Drafts): number {
     ) +
     d.newRows.length +
     (d.deleted?.length ?? 0) +
-    (d.moves?.length ?? 0)
+    (d.moves?.length ?? 0) +
+    (d.merges?.length ?? 0)
   )
 }
 
@@ -684,6 +739,24 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     ? (fresh.levelMerges ?? []).filter((m) => [...movedRows].some((r) => r >= m.r1 && r <= m.r2)).map((m) => ({ col: m.c1, r1: m.r1, r2: m.r2, merge: false }))
     : []
 
+  // 입력 열 칸 병합: 바뀐 시트 병합과 옮기는 줄에 걸친 병합은 옮기기 전에 풀고, 원하는 병합은 모두 끝난 뒤 다시 잡는다.
+  const mergeEdits = drafts.merges ?? []
+  const freshMerges = baseMerges(fresh)
+  const wanted = applyMergeEdits(freshMerges, mergeEdits)
+  const sigOf = (m: { rows: string[]; ids: string[] }) => `${m.rows.join('␞')}|${m.ids.join('␞')}`
+  const wantedSig = new Set(wanted.map(sigOf))
+  const freshSig = new Set(freshMerges.map(sigOf))
+  const unmergeCells: SheetRange[] = []
+  const mergeLater: CellMerge[] = wanted.filter((m) => !freshSig.has(sigOf(m)))
+  for (const m of freshMerges) {
+    const src = m.src!
+    const moved = moves.length > 0 && [...movedRows].some((r) => r >= src.r1 && r <= src.r2)
+    const stays = wantedSig.has(sigOf(m))
+    if (stays && !moved) continue
+    unmergeCells.push({ r1: src.r1, r2: src.r2, c1: src.c1, c2: src.c2 })
+    if (stays) mergeLater.push(m)
+  }
+
   // 2) 줄 지우기(아래부터)
   const delAt = [...delRows].map((r) => arr.indexOf(r)).sort((x, y) => y - x)
   for (const i of delAt) arr.splice(i, 1)
@@ -832,7 +905,24 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       }
     }
   }
-  return { writes, unmergeFirst, moves, deletes: delSorted, inserts, after, remerge, kept, conflicts }
+  // 병합은 맨 끝에(모두 끝난 뒤 행 번호). 줄이나 열이 붙어 있지 않으면 남긴다.
+  const mergeCells: SheetRange[] = []
+  kept.merges = []
+  for (const m of mergeLater) {
+    const at = m.rows
+      .filter((k) => !delKeys.has(k))
+      .map((k) => (k.startsWith(NEW_PREFIX) ? arr.indexOf(k) : freshByKey.has(k) ? finalOf(freshByKey.get(k)!.row) : -1))
+    const cols = m.ids.map((id) => fieldById.get(id)?.col ?? -1)
+    const ok = (xs: number[]) => xs.length > 0 && xs.every((x) => x >= 0) && Math.max(...xs) - Math.min(...xs) + 1 === new Set(xs).size
+    if (at.length * cols.length < 2) continue
+    if (!ok(at) || !ok(cols)) {
+      kept.merges.push({ rows: m.rows, ids: m.ids, merge: true })
+      conflicts++
+      continue
+    }
+    mergeCells.push({ r1: Math.min(...at), r2: Math.max(...at), c1: Math.min(...cols), c2: Math.max(...cols) })
+  }
+  return { writes, unmergeFirst, unmergeCells, moves, deletes: delSorted, inserts, after, remerge, mergeCells, kept, conflicts }
 }
 
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------

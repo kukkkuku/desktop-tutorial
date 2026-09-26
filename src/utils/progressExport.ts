@@ -7,6 +7,7 @@ import { parseFmt } from './sheetSources'
 import {
   effectiveBg,
   effectiveFmt,
+  effectiveMerges,
   effectiveCells,
   effectiveField,
   effectiveNote,
@@ -166,6 +167,18 @@ export function buildProgressWorkbook(data: ProgressData, drafts: Drafts, l1s: s
       if (note) cell.note = note
     })
   })
+
+  // ---- 입력 열 칸 병합(줄 · 열이 붙어 있을 때만) ----
+  const yOf = new Map(rows.map((r, ri) => [r.key, ri + 3]))
+  for (const m of effectiveMerges(data, drafts)) {
+    const ys = m.rows.map((k) => yOf.get(k) ?? -1).sort((p, q) => p - q)
+    const xs = m.ids
+      .map((id) => all.findIndex((c) => c.kind === 'field' && c.id === id))
+      .map((i) => (i < 0 ? -1 : at(i)))
+      .sort((p, q) => p - q)
+    const tight = (v: number[]) => v.every((n) => n > 0) && v.every((n, i) => i === 0 || n === v[i - 1] + 1)
+    if (tight(ys) && tight(xs) && ys.length * xs.length > 1) ws.mergeCells(ys[0], xs[0], ys[ys.length - 1], xs[xs.length - 1])
+  }
 
   // ---- 폭 · 틀 고정 ----
   all.forEach((c, i) => {
