@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useReducer, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import type { AppState } from '../types'
 import { appReducer, createEmptyState, syncAutoDistribution, type AppAction } from './appReducer'
 import { isUntouchedLegacySample, migrateAppState } from '../utils/migrate'
@@ -30,7 +30,10 @@ interface AppContextValue {
   // 리로드/리마운트 시 초기화되며 별도로 저장하지 않는다.
   recentlyAddedIds: Set<string>
   markRecentlyAdded: (ids: string[]) => void
+  // 이 브라우저에 저장하는 상태(머리글의 저장 중 · 저장됨). 처음 불러온 뒤 고친 적이 없으면 idle
+  localSave: LocalSaveStatus
 }
+export type LocalSaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
 
@@ -44,13 +47,24 @@ export function AppProvider({ workspaceId, children }: { workspaceId: string; ch
     setRecentlyAddedIds(new Set(ids))
   }
 
+  const [localSave, setLocalSave] = useState<LocalSaveStatus>('idle')
+  const firstSave = useRef(true)
   useEffect(() => {
+    const first = firstSave.current
+    firstSave.current = false
+    if (!first) setLocalSave('saving')
     try {
       localStorage.setItem(storageKey, JSON.stringify(state))
     } catch {
       // Storage may be unavailable (private browsing, sandboxed embed, quota exceeded).
       // Keep running in-memory; nothing else depends on persistence succeeding.
+      if (!first) setLocalSave('error')
+      return
     }
+    if (first) return
+    // 잠깐 "저장 중"을 보여 준 뒤 "저장됨"
+    const t = window.setTimeout(() => setLocalSave('saved'), 500)
+    return () => window.clearTimeout(t)
   }, [state, storageKey])
 
   // 워크스페이스를 열기만 해도(수정 없이 구경만 해도) "최근 수정"이 갱신돼
@@ -67,11 +81,7 @@ export function AppProvider({ workspaceId, children }: { workspaceId: string; ch
     [touchWorkspace, workspaceId],
   )
 
-  return (
-    <AppContext.Provider value={{ state, dispatch, workspaceId, recentlyAddedIds, markRecentlyAdded }}>
-      {children}
-    </AppContext.Provider>
-  )
+  return <AppContext.Provider value={{ state, dispatch, workspaceId, recentlyAddedIds, markRecentlyAdded, localSave }}>{children}</AppContext.Provider>
 }
 
 export function useAppState() {

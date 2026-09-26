@@ -1,4 +1,5 @@
 // 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 두 메뉴.
+import ManualLink from '../ManualLink'
 import { useState } from 'react'
 import { CalendarRange, ChevronDown, Gauge } from 'lucide-react'
 import GoogleAccountMenu from '../GoogleAccountMenu'
@@ -54,6 +55,7 @@ export default function TaskInputApp() {
                 <span className={`mac-badge ${role === 'member' ? 'bg-black/[0.05] text-label-2' : 'bg-accent-soft text-accent'}`}>{ROLE_LABEL[role]}</span>
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
+              <ManualLink />
               <button onClick={handleLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
                 로그아웃
               </button>

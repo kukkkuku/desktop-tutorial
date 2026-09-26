@@ -8,6 +8,7 @@ import { IS_PREVIEW } from '../utils/previewMode'
 import { sheetUrl } from '../utils/sheetSources'
 import { useAppState } from '../state/AppContext'
 import SheetsIcon from './SheetsIcon'
+import ManualLink from './ManualLink'
 import { withGoogleAccount } from '../utils/googleDrive'
 import { BarChart3, ChevronDown, Database, LayoutList, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
 import { icSm } from './ui/icon'
@@ -77,7 +78,8 @@ export default function StageTabs({
   onAccountChange,
   saveStatus = 'idle',
 }: StageTabsProps) {
-  const sheetLink = useAppState().state.workBoard.sheetLink
+  const { state: appState, localSave } = useAppState()
+  const sheetLink = appState.workBoard.sheetLink
   return (
     <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
       <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
@@ -164,24 +166,6 @@ export default function StageTabs({
               {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
               <ChevronDown {...icSm} className="text-label-3" />
             </GoogleAccountMenu>
-            {saveStatus === 'saving' && (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600">
-                <Spinner className="h-3 w-3" />
-                저장 중
-              </span>
-            )}
-            {saveStatus === 'error' && (
-              <button
-                onClick={onOpenDataManager}
-                title="데이터 관리에서 다시 저장"
-                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger hover:bg-red-100"
-              >
-                저장 실패 · 재시도
-              </button>
-            )}
-            {saveStatus !== 'saving' && saveStatus !== 'error' && hasSavedCurrentPeriod && (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">저장됨</span>
-            )}
             <button
               onClick={onOpenDataManager}
               className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
@@ -190,6 +174,38 @@ export default function StageTabs({
               <Database {...icSm} />
               데이터 백업
             </button>
+            {/* 저장 상태: 드라이브 저장이 진행 중 · 실패면 그것을, 아니면 이 브라우저 저장 */}
+            {saveStatus === 'saving' || localSave === 'saving' ? (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600">
+                <Spinner className="h-3 w-3" />
+                저장 중
+              </span>
+            ) : saveStatus === 'error' ? (
+              <button
+                onClick={onOpenDataManager}
+                title="데이터 관리에서 다시 저장"
+                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger hover:bg-red-100"
+              >
+                저장 실패 · 재시도
+              </button>
+            ) : localSave === 'error' ? (
+              <span
+                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger"
+                title="브라우저 저장 공간에 쓰지 못했습니다. 데이터 백업으로 파일을 받아 두세요."
+              >
+                저장 실패
+              </span>
+            ) : (
+              (localSave === 'saved' || saveStatus === 'saved' || hasSavedCurrentPeriod) && (
+                <span
+                  className="shrink-0 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700"
+                  title="이 브라우저에 저장됨"
+                >
+                  저장됨
+                </span>
+              )
+            )}
+            <ManualLink />
             <button onClick={onLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
               로그아웃
             </button>

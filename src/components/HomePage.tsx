@@ -2,6 +2,7 @@
 //   과제 입력(연구소 공용): 지금 연도 · 연결된 시트 · 저장 안 한 고침
 //   성과관리(팀장만): 최근 프로젝트로 바로 들어가기 · 프로젝트 목록
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
+import ManualLink from './ManualLink'
 import { useMemo } from 'react'
 import { ArrowRight, ChartColumn, ChevronDown, ClipboardList } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
@@ -68,6 +69,7 @@ export default function HomePage() {
                 <span className={`mac-badge ${role === 'member' ? 'bg-black/[0.05] text-label-2' : 'bg-accent-soft text-accent'}`}>{ROLE_LABEL[role]}</span>
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
+              <ManualLink />
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 로그아웃
               </Button>
@@ -79,10 +81,8 @@ export default function HomePage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <h1 className="text-[26px] font-bold tracking-tight text-label">무엇을 할까요?</h1>
         <p className="mt-1 text-[14px] text-label-2">
-          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 위쪽 홈 버튼으로 언제든 이 화면으로 돌아옵니다.{' '}
-          <a href={`${import.meta.env.BASE_URL}manual/index.html`} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
-            사용 설명서 ↗
-          </a>
+          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 위쪽 홈 버튼으로 언제든 이 화면으로, 책 아이콘으로 사용
+          매뉴얼을 엽니다.
         </p>
 
         <div className={`mt-8 grid gap-5 ${canPerf ? 'sm:grid-cols-2' : 'max-w-[460px]'}`}>
