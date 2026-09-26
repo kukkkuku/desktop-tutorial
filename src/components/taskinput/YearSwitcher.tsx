@@ -22,6 +22,10 @@ export default function YearSwitcher({
   onPick,
   localTabs = [],
   onCreate,
+  editableFrom,
+  connectedTitle,
+  onConnect,
+  footer,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -31,7 +35,12 @@ export default function YearSwitcher({
   onPick: (title: string) => void
   localTabs?: string[] // 이 화면에서 만든 연도(이 브라우저에 저장 · 입력 가능)
   onCreate?: () => void // + 새 연도 만들기
+  editableFrom?: number // 이 연도부터는 입력 가능(지난 연도만 보기 전용)
+  connectedTitle?: string // 구글시트와 연결된(입력하는) 연도 탭
+  onConnect?: (title: string) => void // 이 연도 탭을 연결(입력)하기 -- 관리자
+  footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
 }) {
+  const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -94,28 +103,54 @@ export default function YearSwitcher({
       {open &&
         pos &&
         createPortal(
-          <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-60 overflow-hidden py-1">
+          <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-[300px] overflow-hidden py-1">
             <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">실적관리 연도</p>
             {all.map(({ t, local }) => {
               const selected = t === title
               return (
-                <button
+                <div
                   key={`${local}-${t}`}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     if (!selected) onPick(t)
                     setOpen(false)
                   }}
-                  className={`mac-menu-item ${selected ? 'font-semibold' : ''}`}
+                  className={`mac-menu-item group/yr ${selected ? 'font-semibold' : ''}`}
                 >
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
                   {yearLabel(t)}
                   {local ? (
                     <span className="ml-auto text-[11px] text-accent">이 브라우저</span>
+                  ) : connectedTitle !== undefined ? (
+                    t === connectedTitle ? (
+                      <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-success">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                        연결됨 · 편집
+                      </span>
+                    ) : (
+                      <span className="ml-auto flex items-center gap-1.5 text-[11px] font-normal text-label-3">
+                        보기 전용
+                        {onConnect && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpen(false)
+                              onConnect(t)
+                            }}
+                            title={`「${t}」 탭을 연결해 입력합니다(지금 입력하던 연도는 그대로 남아 다시 고를 수 있음)`}
+                            className="rounded-full border border-accent/40 px-2 py-[1px] font-semibold text-accent hover:bg-accent hover:text-white"
+                          >
+                            연결하기
+                          </button>
+                        )}
+                      </span>
+                    )
                   ) : (
-                    t !== editableTitle && <span className="ml-auto text-[11px] text-label-3">보기 전용</span>
+                    t !== editableTitle && pastYear(t) && <span className="ml-auto text-[11px] text-label-3">보기 전용</span>
                   )}
-                </button>
+                </div>
               )
             })}
             {onCreate && (
@@ -131,6 +166,12 @@ export default function YearSwitcher({
                 >
                   <Plus {...icSm} className="shrink-0" />새 연도 만들기
                 </button>
+              </>
+            )}
+            {footer && (
+              <>
+                <div className="mac-menu-sep" />
+                <div onClick={() => setOpen(false)}>{footer}</div>
               </>
             )}
           </div>,

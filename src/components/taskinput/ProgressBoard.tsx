@@ -90,6 +90,8 @@ import {
   paintCells,
   setNoteEdit,
   setFmtEdit,
+  readActiveTab,
+  writeActiveTab,
   loadShelf,
   saveShelf,
   type ShelfItem,
@@ -160,7 +162,8 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
 // pick을 주면 그 탭(지난 연도 보기), 없으면 올해 탭을 읽는다.
 async function readFromSheet(spreadsheetId: string, year: number, pick?: string): Promise<ProgressData> {
   const { title: fileTitle, tabs } = await fetchSpreadsheetTabs(spreadsheetId)
-  const title = pick ?? pickDefaultTab(tabs, year)
+  // 고른 탭이 없으면(지워졌거나 이름이 바뀜) 올해 탭으로
+  const title = (pick && tabs.some((t) => t.title === pick) ? pick : null) ?? pickDefaultTab(tabs, year)
   const tab = tabs.find((t) => t.title === title)
   if (!title || !tab) throw new Error('시트에서 「추진현황」 탭을 찾지 못했습니다.')
   const raw: RawSheet = await fetchSheetTab(spreadsheetId, title)
@@ -435,6 +438,7 @@ export default function ProgressBoard() {
     dataRef.current = null
   }
   function activate(p: ShelfItem, rest: Record<string, ShelfItem>) {
+    if (!p.data.local && p.data.spreadsheetId) writeActiveTab(p.data.tabTitle)
     setArchive(null)
     setShelf(rest)
     setData(p.data)
@@ -470,6 +474,27 @@ export default function ProgressBoard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
+  // 올해 이후 시트 연도: 그 탭을 입력하는 연도로 불러온다(지금 연도는 선반에). 지난 연도는 보기 전용.
+  const yearOf = (t: string) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)
+  async function openSheetYear(t: string) {
+    const cur = currentProject()
+    const id = (cur && !cur.data.local ? cur.data.spreadsheetId : null) ?? parseSheetUrl(sheetLink)?.spreadsheetId
+    if (!id) return viewYear(t)
+    // 이미 선반에 있으면(전에 입력하던 연도) 그대로
+    if (shelfRef.current[`sheet:${t}`]) return switchProject(`sheet:${t}`)
+    setYearLoading(true)
+    setError('')
+    try {
+      const fresh = await readFromSheet(id, yearOf(t) || now.getFullYear(), t)
+      const rest = { ...shelfRef.current }
+      if (cur) rest[shelfKeyOf(cur.data)] = cur
+      activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `「${t}」 탭을 읽지 못했습니다.`)
+    } finally {
+      setYearLoading(false)
+    }
+  }
   function pickYear(t: string) {
     if (shelfRef.current[t]) return switchProject(t)
     const cur = currentProject()
@@ -652,6 +677,7 @@ export default function ProgressBoard() {
       return
     }
     parkLocal()
+    writeActiveTab(null) // 다른 파일이면 올해 탭부터
     const clean = sheetUrl(link.spreadsheetId)
     setSheetLink(clean)
     writeLinkedSheet(clean === TASK_INPUT_SHEET_URL ? null : clean)
@@ -670,7 +696,7 @@ export default function ProgressBoard() {
     setError('')
     setMessage('')
     try {
-      accept(await readFromSheet(link.spreadsheetId, now.getFullYear()))
+      accept(await readFromSheet(link.spreadsheetId, now.getFullYear(), readActiveTab() ?? undefined))
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
     } finally {
@@ -1041,6 +1067,22 @@ export default function ProgressBoard() {
   ]
   const sheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
   const allYears = [...localTabs, ...sheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
+  // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
+  const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
+  const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
+  const yearMenuFooter = (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-1.5 text-[12px] text-label-2">
+      <span className="text-label-3">구글시트</span>
+      <a href={sheetLink} target="_blank" rel="noreferrer" className="max-w-[170px] truncate font-medium text-accent hover:underline" title={sheetLink}>
+        {sheetFileTitle ?? (isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '운영 팀 시트' : '연결된 시트')} ↗
+      </a>
+      {canManage && (
+        <button onClick={() => setLinkOpen(true)} className="ml-auto font-medium text-label-2 hover:text-accent">
+          시트 바꾸기
+        </button>
+      )}
+    </div>
+  )
   const newYearDialog = newYearOpen && (
     <NewYearDialog
       defaultYear={allYears.length ? Math.max(...allYears) + 1 : now.getFullYear()}
@@ -1062,6 +1104,7 @@ export default function ProgressBoard() {
             localTabs={localTabs}
             onPick={pickYear}
             onCreate={() => setNewYearOpen(true)}
+            footer={yearMenuFooter}
           />
         </MenuSlot>
         {newYearDialog}
@@ -1236,6 +1279,10 @@ export default function ProgressBoard() {
           loading={yearLoading}
           disabled={loading || saving}
           onPick={pickYear}
+          editableFrom={now.getFullYear()}
+          connectedTitle={connectedTitle}
+          onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
+          footer={yearMenuFooter}
           localTabs={localTabs}
           onCreate={() => setNewYearOpen(true)}
         />

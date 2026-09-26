@@ -379,6 +379,24 @@ export const TASK_INPUT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1JK9
 
 // 과제 입력이 연결한 시트(링크). 없으면 위 기본 시트.
 const sheetKey = () => `progress-board:sheet:${accountScope()}`
+// 입력하는 시트 연도 탭(올해 이후 연도를 골랐으면 새로 불러와도 그 탭으로)
+const activeTabKey = () => `progress-board:tab:${accountScope()}`
+export function readActiveTab(): string | null {
+  try {
+    return localStorage.getItem(activeTabKey())
+  } catch {
+    return null
+  }
+}
+export function writeActiveTab(title: string | null) {
+  try {
+    if (title) localStorage.setItem(activeTabKey(), title)
+    else localStorage.removeItem(activeTabKey())
+  } catch {
+    // 무시
+  }
+}
+
 export function readLinkedSheet(): string | null {
   try {
     return localStorage.getItem(sheetKey())
