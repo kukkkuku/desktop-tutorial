@@ -52,6 +52,8 @@ interface DataGridProps<R extends { id: string }> {
   columns: GridColumn[]
   rows: R[]
   getText: (row: R, colId: string) => string
+  // 행마다 다른 읽기 전용(예: 과제리스트와 이어진 평가과제의 과제등급)
+  isReadOnly?: (row: R, colId: string) => boolean
   renderCell?: (row: R, col: GridColumn) => ReactNode | undefined
   rowClassName?: (row: R) => string
   rowMarker?: (row: R) => ReactNode
@@ -203,6 +205,7 @@ export interface DetailLine {
 
 export default function DataGrid<R extends { id: string }>(props: DataGridProps<R>) {
   const { columns, rows, getText } = props
+  const ro = (row: R | undefined, col: GridColumn | undefined) => !!col && (!!col.readOnly || (!!row && !!props.isReadOnly?.(row, col.id)))
   const nR = rows.length
   const nC = columns.length
 
@@ -276,7 +279,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   function openPicker(r: number, c: number) {
     const col = columns[c]
     const row = rows[r]
-    if (!col?.picker || col.readOnly || !row) return
+    if (!col?.picker || ro(row, col) || !row) return
     select(r, c)
     beginPicker(col, getText(row, col.id))
     setSinkValue('')
@@ -347,7 +350,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   }
 
   function startEdit(initial?: string) {
-    if (!activeRow || !activeCol || activeCol.readOnly) return
+    if (!activeRow || !activeCol || ro(activeRow, activeCol)) return
     if (activeCol.picker && initial === undefined) {
       beginPicker(activeCol, getText(activeRow, activeCol.id))
       setSinkValue('')
@@ -626,7 +629,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 선택 상태에서 글자가 들어오면 그 글자로 새로 쓰기 시작한다.
   function onSinkChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     if (!editing) {
-      if (!activeRow || !activeCol || activeCol.readOnly) return
+      if (!activeRow || !activeCol || ro(activeRow, activeCol)) return
       if (activeCol.picker) beginPicker(activeCol, getText(activeRow, activeCol.id))
       setChoiceIndex(0)
       setEditing(true)
@@ -1336,7 +1339,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                   {text}
                                 </div>
                               )}
-                              {col.type === 'date' && !col.picker && !col.readOnly && (
+                              {col.type === 'date' && !col.picker && !ro(row, col) && (
                                 <span
                                   onMouseDown={(e) => {
                                     // 달력 아이콘을 누르면 바로 달력을 연다.
@@ -1354,7 +1357,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                   <Calendar {...icSm} />
                                 </span>
                               )}
-                              {col.picker && !col.readOnly && (
+                              {col.picker && !ro(row, col) && (
                                 <span
                                   onMouseDown={(e) => {
                                     // ▾를 누르면 바로 목록을 연다.
@@ -1431,7 +1434,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               onKeyDown={onSinkKeyDown}
               onCompositionStart={() => {
                 composing.current = true
-                if (!editing && !activeCol?.readOnly) setEditing(true)
+                if (!editing && !ro(activeRow, activeCol)) setEditing(true)
               }}
               onCompositionEnd={() => {
                 composing.current = false

@@ -167,7 +167,7 @@ export default function EvaluationMatrix() {
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-[13px] text-label-2">
-        과제마다 성과등급을 고르고, 팀원 기여도를 합계 100%가 되게 입력하세요. 참여하지 않은 칸은 비워 두면 됩니다.
+        기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 필요하면 고쳐서 과제마다 합계 100%로 맞추세요. 성과등급은 평가과제에서 입력합니다.
       </p>
       {outOfSync.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[13px] text-orange-800">
@@ -275,23 +275,14 @@ export default function EvaluationMatrix() {
                           <span>{task.importance}</span>
                           {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
                           <span>·</span>
-                          <Select
-                            value={task.performanceGrade ?? ''}
-                            onChange={(e) =>
-                              dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })
-                            }
-                            title={`성과등급 · 과제 점수 ${taskScore.toFixed(1)}`}
-                            className={`h-7 rounded-control border px-1.5 text-xs ${
-                              task.performanceGrade ? 'border-hairline text-label' : 'border-warning/50 bg-warning/10 text-warning'
+                          <span
+                            title={`성과등급은 평가과제에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
+                            className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${
+                              task.performanceGrade ? 'bg-black/[0.05] text-label' : 'bg-warning/10 text-warning'
                             }`}
                           >
-                            <option value="">성과등급 미입력</option>
-                            {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                              <option key={opt} value={opt}>
-                                성과 {opt}
-                              </option>
-                            ))}
-                          </Select>
+                            {task.performanceGrade ? `성과 ${task.performanceGrade}` : '성과등급 미입력'}
+                          </span>
                         </div>
                       </td>
                       <td

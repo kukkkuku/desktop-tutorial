@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
@@ -139,6 +138,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         case 'importance': {
           if (!isImportanceUsed) break
           if (!v) break
+          if (linked(t)) {
+            if (t.importance !== v) problems.push('과제리스트에서 온 과제의 과제등급은 과제리스트 묶음 행의 분류에서 바꿉니다')
+            break
+          }
           if (!ALL_IMPORTANCE_OPTIONS.includes(v as Importance)) {
             problems.push(`과제등급 '${v}'은(는) 없는 값입니다`)
             break
@@ -197,23 +200,8 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     dispatch({ type: 'IMPORT_TASKS', payload: [...rest.slice(0, at), ...moving, ...rest.slice(at)] })
   }
 
-  // 우클릭 → 묶기/풀기(과제리스트와 같은 방식). 과제별 피어리뷰를 받은 과제는 리뷰 대상이 바뀌므로 묶지 않는다.
-  const hasTaskPeer = (id: string) => state.taskPeerReviews.some((r) => r.taskId === id)
-  function mergeRows(ids: string[]) {
-    const picked = state.tasks.filter((t) => ids.includes(t.id))
-    if (picked.length < 2 || picked.some((t) => hasTaskPeer(t.id))) return
-    history.record()
-    dispatch({ type: 'MERGE_TASKS', payload: { ids: picked.map((t) => t.id) } })
-    setExpanded((cur) => new Set(cur).add(picked[0].id))
-    setNotice('')
-  }
-  function splitRows(ids: string[]) {
-    const targets = state.tasks.filter((t) => ids.includes(t.id) && (t.workItemIds?.length ?? 0) >= 2)
-    if (targets.length === 0) return
-    history.record()
-    for (const t of targets) dispatch({ type: 'SPLIT_TASK', payload: { id: t.id, newIds: (t.workItemIds ?? []).slice(1).map(() => uuidv4()) } })
-    setNotice('')
-  }
+  // 과제리스트와 이어진 평가과제는 과제등급·묶기를 과제리스트(묶음 행 분류)에서만 고친다. 여기서는 보여 주기만.
+  const linked = (t: Task) => (t.workItemIds?.length ?? 0) > 0
 
   function confirmDelete() {
     if (!deleting) return
@@ -237,15 +225,15 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
 
   function renderCell(task: Task, col: GridColumn) {
     if (col.id === 'name') {
-      const linked = task.workItemIds?.length ?? 0
+      const l3Count = task.workItemIds?.length ?? 0
       const open = expanded.has(task.id)
       return (
         <div className="flex items-start gap-1 py-1">
-          {linked > 0 ? (
+          {l3Count > 0 ? (
             <button
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => toggle(task.id)}
-              title={open ? '접기' : `L3 ${linked}건 펼치기`}
+              title={open ? '접기' : `L3 ${l3Count}건 펼치기`}
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.07] hover:text-label"
             >
               <ChevronRight size={16} strokeWidth={2} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
@@ -261,7 +249,14 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       )
     }
     if (col.id === 'importance')
-      return <span className={`${CHIP_BASE} ${isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : MUTED}`}>{task.importance}</span>
+      return (
+        <span
+          className={`${CHIP_BASE} ${isImportanceUsed ? IMPORTANCE_COLORS[task.importance] : MUTED}`}
+          title={linked(task) ? '과제리스트 묶음 행의 분류를 따릅니다' : undefined}
+        >
+          {task.importance}
+        </span>
+      )
     if (col.id === 'performanceGrade')
       return task.performanceGrade ? (
         <span className={`${CHIP_BASE} ${isPerformanceGradeUsed ? GRADE_COLORS[task.performanceGrade] : MUTED}`}>{task.performanceGrade}</span>
@@ -333,7 +328,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         </div>
       </div>
       <p className="mt-1 text-[13px] text-label-2">
-        새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 등급·목표·성과를 바로 입력하고, 여러 행을 골라 우클릭하면 묶거나 풀 수 있습니다.
+        새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 성과등급·목표·성과를 입력합니다. 과제등급과 묶기·풀기는 과제리스트에서 바꿉니다.
       </p>
 
       {state.tasks.length === 0 ? (
@@ -350,29 +345,11 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         <div className="mt-4">
           {notice && <p className="mb-2 text-[13px] text-danger">{notice}</p>}
           <DataGrid
-            rowActions={(ids) => {
-              const picked = state.tasks.filter((t) => ids.includes(t.id))
-              const peerLocked = picked.filter((t) => hasTaskPeer(t.id)).length
-              const splittable = picked.filter((t) => (t.workItemIds?.length ?? 0) >= 2).length
-              return [
-                {
-                  label: `평가과제 묶기 (${picked.length}건)`,
-                  hint: peerLocked > 0 ? `과제별 피어리뷰가 있는 과제 ${peerLocked}건은 묶을 수 없음` : '첫 과제 이름으로 합치고 기여도는 참여자끼리 균등',
-                  disabled: picked.length < 2 || peerLocked > 0,
-                  onClick: () => mergeRows(ids),
-                },
-                {
-                  label: '묶음 풀기 (L3별 과제로)',
-                  hint: splittable ? undefined : 'L3가 2개 이상 묶인 과제만',
-                  disabled: splittable === 0,
-                  onClick: () => splitRows(ids),
-                },
-              ]
-            }}
             columns={columns}
             rows={state.tasks}
             fixedColumns
             getText={textOf}
+            isReadOnly={(t, colId) => colId === 'importance' && linked(t)}
             renderCell={renderCell}
             rowDetail={renderDetail}
             rowDetailSplit="objective"
