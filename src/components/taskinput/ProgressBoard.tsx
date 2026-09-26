@@ -524,6 +524,35 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       setYearLoading(false)
     }
   }
+  // 연도 메뉴를 열 때 시트의 탭 목록을 다시 읽는다(구글시트에서 탭을 지우거나 이름을 바꿨으면 목록에서도 빠지게).
+  const tabsCheckedAt = useRef(0)
+  async function refreshYearTabs() {
+    const d = dataRef.current
+    const a = archiveRef.current
+    const sheetData = d && !d.local ? d : (Object.values(shelfRef.current).find((x) => !x.data.local)?.data ?? null)
+    const id = sheetData?.spreadsheetId
+    if (!id || Date.now() - tabsCheckedAt.current < 5000) return
+    tabsCheckedAt.current = Date.now()
+    let tabs: string[]
+    try {
+      tabs = progressYearTabs((await fetchSpreadsheetTabs(id)).tabs.map((t) => t.title))
+    } catch {
+      return // 못 읽으면 지금 목록 그대로
+    }
+    const same = (x?: string[]) => !!x && x.length === tabs.length && x.every((t, i) => t === tabs[i])
+    const fix = (x: ProgressData): ProgressData => (!x.local && x.spreadsheetId === id && !same(x.yearTabs) ? { ...x, yearTabs: tabs } : x)
+    const cur = dataRef.current
+    if (cur && fix(cur) !== cur) {
+      const next = fix(cur)
+      setData(next)
+      dataRef.current = next
+      saveProgressData(next)
+    }
+    if (a && fix(a.data) !== a.data) setArchive({ ...a, data: fix(a.data) })
+    const shelfNow = shelfRef.current
+    if (Object.values(shelfNow).some((x) => fix(x.data) !== x.data))
+      setShelf(Object.fromEntries(Object.entries(shelfNow).map(([k, x]) => [k, fix(x.data) === x.data ? x : { ...x, data: fix(x.data) }])))
+  }
   function pickYear(t: string) {
     if (shelfRef.current[t]) return switchProject(t)
     const cur = currentProject()
@@ -1356,6 +1385,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             onCreate={() => setNewYearOpen(true)}
             footer={yearMenuFooter}
             onDeleteLocal={(id) => void deleteLocal(id)}
+            onOpenMenu={() => void refreshYearTabs()}
           />
         </MenuSlot>
         {newYearDialog}
@@ -1540,6 +1570,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
           footer={yearMenuFooter}
           onDeleteLocal={(id) => void deleteLocal(id)}
+          onOpenMenu={() => void refreshYearTabs()}
           localTabs={localTabs}
           onCreate={() => setNewYearOpen(true)}
         />

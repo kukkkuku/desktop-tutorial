@@ -1,22 +1,25 @@
-// 팀원관리 › 피어리뷰. 두 가지 방식 중 골라 쓴다 -- 둘 다 근거가 필수.
+// 팀원관리 › 피어리뷰. 요청(팀원이 과제 입력에서 직접 제출)과 두 가지 방식 -- 모두 근거가 필수.
+//   - 요청 · 제출 현황: 요청을 열고 · 마감하고, 제출을 단순 순위 결과로 가져온다 (PeerRequestPanel)
 //   - 단순 순위: 과제와 상관없이 팀원 전체(본인 제외)에 1위부터 순위 + 근거 (RankPeerReview)
 //   - 과제별: 참여한 과제마다 참여자 전원(본인 포함)에게 순위 + 근거 (TaskPeerPanel)
 import { useState } from 'react'
 import RankPeerReview from './RankPeerReview'
 import TaskPeerPanel from './TaskPeerPanel'
+import PeerRequestPanel from './PeerRequestPanel'
 import { useAppState } from '../state/AppContext'
 import Segmented from './ui/Segmented'
 
-type Mode = 'simple' | 'task'
+type Mode = 'request' | 'simple' | 'task'
 
 export default function PeerReviewHub() {
-  const [mode, setMode] = useState<Mode>('simple')
+  const [mode, setMode] = useState<Mode>('request')
   const weight = useAppState().state.criteria.peerReviewWeight
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <Segmented
           items={[
+            { key: 'request', label: '요청 · 제출 현황' },
             { key: 'simple', label: '단순 순위' },
             { key: 'task', label: '과제별' },
           ]}
@@ -24,9 +27,11 @@ export default function PeerReviewHub() {
           onChange={setMode}
         />
         <span className="text-[13px] text-label-2">
-          {mode === 'simple'
-            ? '팀원 전체(본인 제외)에게 1위부터 순위 + 근거'
-            : '참여한 평가과제마다 참여자 전원(본인 포함)에게 순위 + 근거 (기여도는 팀장이 평가하기에서)'}
+          {mode === 'request'
+            ? '팀원이 과제 입력 › 피어리뷰에서 직접 제출'
+            : mode === 'simple'
+              ? '팀원 전체(본인 제외)에게 1위부터 순위 + 근거'
+              : '참여한 평가과제마다 참여자 전원(본인 포함)에게 순위 + 근거 (기여도는 팀장이 평가하기에서)'}
         </span>
         <span
           className={`mac-badge ml-auto ${weight > 0 ? 'bg-accent-soft text-accent' : 'bg-black/[0.05] text-label-2'}`}
@@ -35,7 +40,7 @@ export default function PeerReviewHub() {
           {weight > 0 ? `점수 반영 ${weight}%` : '점수 반영 안 함 · 기준설정에서 켜기'}
         </span>
       </div>
-      {mode === 'simple' ? <RankPeerReview /> : <TaskPeerPanel />}
+      {mode === 'request' ? <PeerRequestPanel onShowResults={() => setMode('simple')} /> : mode === 'simple' ? <RankPeerReview /> : <TaskPeerPanel />}
     </div>
   )
 }

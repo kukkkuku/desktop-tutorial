@@ -34,6 +34,7 @@ export default function YearSwitcher({
   onConnect,
   footer,
   onDeleteLocal,
+  onOpenMenu,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -48,6 +49,7 @@ export default function YearSwitcher({
   onConnect?: (title: string) => void // 이 연도 탭을 연결(입력)하기 -- 관리자
   footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
   onDeleteLocal?: (id: string) => void // 이 브라우저에서 만든 연도 지우기
+  onOpenMenu?: () => void // 메뉴를 열 때(시트 탭 목록 다시 읽기)
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
@@ -86,7 +88,11 @@ export default function YearSwitcher({
       <button
         ref={btnRef}
         type="button"
-        onClick={() => canPick && setOpen((v) => !v)}
+        onClick={() => {
+          if (!canPick) return
+          if (!open) onOpenMenu?.()
+          setOpen(!open)
+        }}
         title={canPick ? `연도 고르기 · 지난 연도는 보기 전용 (시트 탭: ${title})` : `시트 탭: ${title}`}
         className={`flex h-8 shrink-0 items-center gap-2 rounded-control px-2 text-[17px] font-semibold text-label transition-colors ${
           canPick ? 'hover:bg-black/[0.05]' : 'cursor-default'

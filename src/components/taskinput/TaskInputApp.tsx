@@ -1,17 +1,19 @@
-// 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 두 메뉴.
+// 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 / 피어리뷰(요청이 열렸을 때 입력) 메뉴.
 import { useState } from 'react'
-import { CalendarRange, ChevronDown, Gauge } from 'lucide-react'
+import { CalendarRange, ChevronDown, Gauge, Users } from 'lucide-react'
 import GoogleAccountMenu from '../GoogleAccountMenu'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import AreaSwitch from '../AreaSwitch'
 import { icSm } from '../ui/icon'
 import { IS_PREVIEW } from '../../utils/previewMode'
 import ProgressBoard, { PROGRESS_MENU_SLOT } from './ProgressBoard'
+import PeerReviewInput from './PeerReviewInput'
 
-type Menu = 'progress' | 'rate'
+type Menu = 'progress' | 'rate' | 'peer'
 const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
   { key: 'progress', label: '추진현황', Icon: CalendarRange },
   { key: 'rate', label: '진척률', Icon: Gauge },
+  { key: 'peer', label: '피어리뷰', Icon: Users },
 ]
 
 export default function TaskInputApp() {
@@ -62,7 +64,11 @@ export default function TaskInputApp() {
       </header>
       <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {/* 추진현황 · 진척률은 같은 연도 · 같은 고친 내용을 쓴다(연도 고르기도 같이) */}
-        <ProgressBoard view={menu === 'progress' ? 'progress' : 'rate'} />
+        {/* 피어리뷰 화면에서는 표를 숨기기만 한다(고친 내용 · 연도 고르기 유지) */}
+        <div className={menu === 'peer' ? 'hidden' : undefined}>
+          <ProgressBoard view={menu === 'rate' ? 'rate' : 'progress'} />
+        </div>
+        {menu === 'peer' && <PeerReviewInput />}
       </main>
     </div>
   )
