@@ -2,7 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Settings2, Undo2, Upload } from 'lucide-react'
+import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Settings2, Undo2, Upload, X } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -41,6 +41,7 @@ import {
   loadProgress,
   makeNewRow,
   makeNewGroup,
+  newRowAsRow,
   orderWithNewRows,
   type PaintBrush,
   saveDrafts,
@@ -719,19 +720,20 @@ export default function ProgressBoard() {
                 {newOf.length > 0 && rowsOf.length === 0 && <span className="rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
                 <span className={gone ? 'text-label-3 line-through' : ''}>{name === NO_L1 ? 'L1 없음' : name}</span>
                 <span className="text-[11px] font-medium text-label-3">{alive}</span>
-                {gone && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      restoreRows(rowsOf)
-                    }}
-                    title="이 그룹의 삭제 표시 되돌리기"
-                    aria-label="삭제 되돌리기"
-                    className="-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
-                  >
-                    <Undo2 size={12} strokeWidth={2} />
-                  </button>
-                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (gone) restoreRows(rowsOf)
+                    else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
+                  }}
+                  title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
+                  aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
+                  className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                    on || gone ? '' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                >
+                  {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
+                </button>
               </div>
             )
           })}
