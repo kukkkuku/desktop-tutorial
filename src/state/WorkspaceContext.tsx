@@ -140,7 +140,7 @@ interface WorkspaceContextValue {
   selectWorkspace: (id: string) => void
   exitToLanding: () => void
   deleteWorkspace: (id: string) => void
-  renameWorkspace: (id: string, teamName: string, periodName: string) => void
+  renameWorkspace: (id: string, teamName: string, periodName: string, evaluationYear?: number) => void
   // 프로젝트를 통째로 복제(과제·팀원·평가·면담까지). 이름은 "… 사본". 새 프로젝트 id를 돌려준다.
   duplicateWorkspace: (id: string) => string | null
   touchWorkspace: (id: string) => void
@@ -279,9 +279,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setCurrentWorkspaceId((prev) => (prev === id ? null : prev))
   }
 
-  function renameWorkspace(id: string, teamName: string, periodName: string) {
+  function renameWorkspace(id: string, teamName: string, periodName: string, evaluationYear?: number) {
     setWorkspaces((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, teamName: teamName.trim(), periodName: periodName.trim() } : w)),
+      prev.map((w) =>
+        w.id === id
+          ? { ...w, teamName: teamName.trim(), periodName: periodName.trim(), ...(evaluationYear ? { evaluationYear } : {}) }
+          : w,
+      ),
     )
   }
 

@@ -77,7 +77,7 @@ interface ProjectCardProps {
   workspace: WorkspaceMeta
   isCurrent: boolean
   onOpen: (id: string) => void
-  onRename: (workspace: WorkspaceMeta, periodName: string) => void
+  onRename: (workspace: WorkspaceMeta, periodName: string, year: number) => void
   onEdit: (workspace: WorkspaceMeta) => void
   onDuplicate: (workspace: WorkspaceMeta) => void
   onDelete: (workspace: WorkspaceMeta) => void
@@ -128,28 +128,48 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
       )}
       <div className="flex min-h-7 items-center justify-between gap-2">
         {renaming ? (
-          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-semibold text-label" onClick={(e) => e.stopPropagation()}>
-            <span className="shrink-0">{workspace.evaluationYear}</span>
+          // 연도 · 기간 이름을 그 자리에서 고친다(Enter 저장 · Esc 취소 · 카드 밖을 누르면 저장)
+          <form
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-semibold text-label"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              const f = new FormData(e.currentTarget)
+              const y = Number(f.get('year'))
+              const name = String(f.get('period') ?? '').trim()
+              const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : workspace.evaluationYear
+              if ((name && name !== workspace.periodName) || year !== workspace.evaluationYear) onRename(workspace, name || workspace.periodName, year)
+              setRenaming(false)
+            }}
+            onBlur={(e) => {
+              // 두 칸 사이를 오갈 때는 닫지 않는다
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) e.currentTarget.requestSubmit()
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation()
+                setRenaming(false)
+              }
+            }}
+          >
             <input
+              name="year"
+              type="number"
+              min={2000}
+              max={2100}
+              defaultValue={workspace.evaluationYear}
+              aria-label="연도"
+              className="h-7 w-[4.6em] shrink-0 rounded-control border border-hairline px-1.5 text-[15px] font-semibold tabular-nums"
+            />
+            <input
+              name="period"
               autoFocus
               defaultValue={workspace.periodName}
               onFocus={(e) => e.target.select()}
-              onBlur={(e) => {
-                const v = e.target.value.trim()
-                if (v && v !== workspace.periodName) onRename(workspace, v)
-                setRenaming(false)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                if (e.key === 'Escape') {
-                  ;(e.target as HTMLInputElement).value = workspace.periodName
-                  ;(e.target as HTMLInputElement).blur()
-                }
-              }}
-              aria-label="프로젝트 이름"
+              aria-label="기간 이름"
               className="h-7 min-w-0 flex-1 rounded-control border border-accent px-1.5 text-[15px] font-semibold"
             />
-          </span>
+          </form>
         ) : (
           <>
             <p className="min-w-0 truncate text-[15px] font-semibold text-label">
@@ -160,7 +180,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
                 e.stopPropagation()
                 setRenaming(true)
               }}
-              title="이름 바꾸기"
+              title="연도 · 이름 바꾸기"
               aria-label="이름 바꾸기"
               className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
             >
@@ -200,7 +220,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
               }}
             >
               <Pencil {...icSm} />
-              이름 바꾸기
+              연도 · 이름 바꾸기
             </button>
             <button
               className={item}
@@ -410,7 +430,7 @@ export default function WorkspaceLanding() {
                     workspace={w}
                     isCurrent={w.id === mostRecentWorkspaceId}
                     onOpen={selectWorkspace}
-                    onRename={(ws, periodName) => renameWorkspace(ws.id, ws.teamName, periodName)}
+                    onRename={(ws, periodName, year) => renameWorkspace(ws.id, ws.teamName, periodName, year)}
                     onEdit={openRename}
                     onDuplicate={(ws) => {
                       if (!duplicateWorkspace(ws.id)) setDupError('저장 공간이 모자라 복제하지 못했습니다. 데이터 백업 후 필요 없는 프로젝트를 지워 주세요.')
