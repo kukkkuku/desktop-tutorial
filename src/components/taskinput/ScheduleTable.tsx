@@ -5,7 +5,7 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronsLeft, ChevronsRight, GripVertical, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -603,6 +603,7 @@ export default function ScheduleTable({
   const scale = fontSize / 13
   const w = (key: string, def: number) => Math.round((widths[key] ?? def) * scale)
   const resizeTo = (key: string, px: number) => onResize?.(key, Math.round(px / scale))
+  const WH = 36 // 맨 왼쪽 행 머리(시트 행 번호) 폭
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
   const wL3 = w('l3', DEFAULT_WIDTHS.l3)
   // 줄여보기는 12px 고정, 전체 펴기는 24px(머리글 끝을 끌어 바꿀 수 있음)
@@ -635,7 +636,10 @@ export default function ScheduleTable({
   // 선택한 칸(구글시트처럼 한 번 누르면 선택) · 고치기 시작 신호
   const [sel, setSel] = useState<{ row: string; id: string } | null>(null)
   const [editSig, setEditSig] = useState<{ row: string; id: string; n: number } | null>(null)
+  // 행 전체 선택(행 머리를 눌렀을 때) -- 칸 선택과 둘 중 하나만
+  const [rowSel, setRowSel] = useState<string | null>(null)
   function selectCell(row: string, id: string, edit = false) {
+    setRowSel(null)
     setSel({ row, id })
     if (edit) setEditSig({ row, id, n: Date.now() })
   }
@@ -761,14 +765,25 @@ export default function ScheduleTable({
   // 줄 옮기기: 과제 칸 왼쪽 손잡이를 끌어 같은 구분(L2) 안의 다른 줄 위/아래에 놓는다 · Alt+↑/↓로 한 칸씩
   const groupOfRow = (r: ProgressRow) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
   const [drag, setDrag] = useState<{ key: string; over: { key: string; where: 'above' | 'below' } | null } | null>(null)
-  function startRowDrag(e: React.MouseEvent, v: ScheduleRowView) {
-    if (!onMoveRow) return
+  // 행 머리를 누르면 행 전체 선택, 누른 채 끌면(4px 넘게) 같은 구분 안의 다른 줄 위/아래로 옮기기
+  function rowHeadDown(e: React.MouseEvent, v: ScheduleRowView) {
+    if (e.button !== 0) return
     e.preventDefault()
-    e.stopPropagation()
+    const head = e.currentTarget as HTMLElement
+    setSel(null)
+    setRowSel(v.row.key)
+    head.focus({ preventScroll: true })
+    if (!onMoveRow || v.deleted || readOnly) return
     const g = groupOfRow(v.row)
+    const y0 = e.clientY
+    let dragging = false
     let over: { key: string; where: 'above' | 'below' } | null = null
-    setDrag({ key: v.row.key, over: null })
     const move = (ev: MouseEvent) => {
+      if (!dragging && Math.abs(ev.clientY - y0) < 4) return
+      if (!dragging) {
+        dragging = true
+        document.documentElement.classList.add('cursor-grabbing')
+      }
       const tr = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('tr[data-row]') as HTMLElement | null
       const key = tr?.dataset.row
       const target = key ? rows.find((x) => x.row.key === key) : undefined
@@ -784,12 +799,35 @@ export default function ScheduleTable({
       window.removeEventListener('mouseup', up)
       document.documentElement.classList.remove('cursor-grabbing')
       const target = over && rows.find((x) => x.row.key === over!.key)
-      if (target && over) onMoveRow(v.row, target.row, over.where)
+      if (dragging && target && over) onMoveRow(v.row, target.row, over.where)
       setDrag(null)
+      head.focus({ preventScroll: true })
     }
-    document.documentElement.classList.add('cursor-grabbing')
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
+  }
+  // 행을 고른 상태: ↑/↓로 행 선택 옮기기, Alt+↑/↓로 행 옮기기, →/Enter로 그 행의 과제 칸 선택, Esc로 선택 해제
+  function rowHeadKey(e: React.KeyboardEvent, v: ScheduleRowView) {
+    const i = rows.findIndex((x) => x.row.key === v.row.key)
+    const focusHead = (key: string) =>
+      requestAnimationFrame(() => (document.querySelector(`[data-rowhead="${CSS.escape(key)}"]`) as HTMLElement | null)?.focus({ preventScroll: false }))
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.altKey) {
+      e.preventDefault()
+      if (!readOnly && !v.deleted) moveRowBy(v, e.key === 'ArrowUp' ? -1 : 1)
+      focusHead(v.row.key)
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault()
+      const t = rows[i + (e.key === 'ArrowUp' ? -1 : 1)]
+      if (t) {
+        setRowSel(t.row.key)
+        focusHead(t.row.key)
+      }
+    } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      e.preventDefault()
+      selectCell(v.row.key, 'name')
+    } else if (e.key === 'Escape') {
+      setRowSel(null)
+    }
   }
   function moveRowBy(v: ScheduleRowView, dir: -1 | 1) {
     if (!onMoveRow) return
@@ -800,13 +838,14 @@ export default function ScheduleTable({
   }
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
-  const tableWidth = wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
+  const tableWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
   let rowIndex = 0
 
   return (
     <>
       <table className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
         <colgroup>
+          <col style={{ width: WH }} />
           <col style={{ width: wL2 }} />
           <col style={{ width: wL3 }} />
           {scheduleOpen ? weekCols.map((x) => <col key={x.key} style={{ width: wWeek }} />) : showSummary ? <col style={{ width: wSummary }} /> : null}
@@ -816,11 +855,13 @@ export default function ScheduleTable({
         </colgroup>
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
           <tr>
-            <th rowSpan={2} style={blackTh} className={`sticky left-0 z-20 px-2 py-2 font-bold ${thBorder}`}>
+            {/* 행 머리(구글시트의 행 번호): 누르면 행 전체 선택, 끌어서 옮기기, 아래 경계로 높이 조절 */}
+            <th rowSpan={2} style={{ left: 0, background: '#F1F3F4' }} className={`sticky z-20 ${thBorder}`} aria-label="행" />
+            <th rowSpan={2} style={{ left: WH, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} />}
             </th>
-            <th rowSpan={2} style={{ left: wL2, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
+            <th rowSpan={2} style={{ left: WH + wL2, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               과제(L3)
               {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} />}
             </th>
@@ -931,14 +972,45 @@ export default function ScheduleTable({
                       ...(rowH ? { height: rowH } : {}),
                       ...(drag?.over?.key === v.row.key ? { boxShadow: drag.over.where === 'above' ? 'inset 0 2px 0 #007AFF' : 'inset 0 -2px 0 #007AFF' } : {}),
                     }}
-                    className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''}`}
+                    className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
+                      rowSel === v.row.key ? '[&>td:not(:first-child)]:shadow-[inset_0_0_0_9999px_rgba(0,122,255,0.09)]' : ''
+                    }`}
                   >
+                    {/* 행 머리: 시트 행 번호(새 과제는 +). 누르면 행 전체 선택 · 끌면 같은 구분 안에서 옮기기 · 아래 경계로 높이 조절 */}
+                    <td
+                      tabIndex={-1}
+                      data-rowhead={v.row.key}
+                      onMouseDown={(e) => rowHeadDown(e, v)}
+                      onKeyDown={(e) => rowHeadKey(e, v)}
+                      onContextMenu={(e) => {
+                        setRowSel(v.row.key)
+                        openMenu(e, v.row, 'name', 'field')
+                      }}
+                      title={`${v.row.row >= 0 ? `시트 ${v.row.row + 1}행` : '새 과제'} · 눌러서 행 선택 · 끌어서 옮기기(같은 구분 안에서) · Alt+↑/↓`}
+                      style={{ left: 0 }}
+                      className={`sticky z-[6] cursor-grab select-none border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] p-0 text-center text-[0.72em] tabular-nums outline-none ${
+                        rowSel === v.row.key ? 'bg-accent font-semibold text-white' : 'bg-[#F8F9FA] text-label-3 hover:bg-[#EEF0F2]'
+                      }`}
+                    >
+                      {v.row.row >= 0 ? v.row.row + 1 : '+'}
+                      {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
+                      <span
+                        onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          setRowHeight(v.row.key, null)
+                        }}
+                        title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
+                        className="absolute -bottom-[3px] left-0 z-20 h-[6px] w-full cursor-row-resize hover:bg-accent/50"
+                      />
+                    </td>
                     {ri === 0 && (
                       <td
                         rowSpan={g.rows.length}
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
                         title={`${g.l2} · 우클릭: 구분(L2) 추가·삭제`}
-                        className={`group/l2 sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
+                        style={{ left: WH }}
+                        className={`group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         }`}
                       >
@@ -994,34 +1066,11 @@ export default function ScheduleTable({
                       }}
                       onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
-                      style={{ left: wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
+                      style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
                       className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                         isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
                       }`}
                     >
-                      {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
-                      <span
-                        onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation()
-                          setRowHeight(v.row.key, null)
-                        }}
-                        title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
-                        className="absolute -bottom-[3px] left-0 z-20 h-[6px] w-full cursor-row-resize hover:bg-accent/50"
-                      />
-                      {/* 줄 옮기기 손잡이: 줄에 마우스를 올리거나 그 줄의 칸을 고르면 왼쪽에 보인다 */}
-                      {onMoveRow && !v.deleted && (
-                        <span
-                          onMouseDown={(e) => startRowDrag(e, v)}
-                          title="끌어서 줄 옮기기(같은 구분 안에서) · Alt+↑/↓"
-                          aria-label="줄 옮기기"
-                          className={`absolute left-0 top-1/2 z-20 flex h-6 w-3.5 -translate-y-1/2 cursor-grab items-center justify-center rounded-r bg-black/[0.06] text-label-3 hover:bg-accent-soft hover:text-accent ${
-                            sel?.row === v.row.key || drag?.key === v.row.key ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'
-                          }`}
-                        >
-                          <GripVertical size={11} strokeWidth={2} />
-                        </span>
-                      )}
                       {isSel(v.row.key, 'name') && (
                         <CellEditor
                           value={v.vals.name}
@@ -1158,7 +1207,7 @@ export default function ScheduleTable({
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={2 + (scheduleOpen ? weekCols.length : showSummary ? 1 : 0) + cols.length} className="px-4 py-12 text-left text-[13px] text-label-3">
+              <td colSpan={3 + (scheduleOpen ? weekCols.length : showSummary ? 1 : 0) + cols.length} className="px-4 py-12 text-left text-[13px] text-label-3">
                 <span className="sticky left-4">조건에 맞는 과제가 없습니다. 머리글 필터나 찾기를 확인해 주세요.</span>
               </td>
             </tr>
