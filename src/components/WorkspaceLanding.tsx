@@ -1,3 +1,4 @@
+import { ROLE_LABEL } from '../utils/roles'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
@@ -225,8 +226,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
                 onEdit(workspace)
               }}
             >
-              <Users {...icSm} />
-              팀 이름까지 바꾸기…
+              <Users {...icSm} />팀 이름까지 바꾸기…
             </button>
             <div className="mac-menu-sep" />
             <button
@@ -295,9 +295,7 @@ export default function WorkspaceLanding() {
   // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가
   // 뭐가 있는지" 한눈에 보이는 게 이 화면의 첫 번째 목적이라, 평가기간
   // 선택기보다 이 목록을 먼저 보여준다.
-  const teamWorkspaces = workspaces
-    .filter((w) => w.teamName === teamName)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
   function openRename(workspace: WorkspaceMeta) {
     setRenamingWorkspace(workspace)
@@ -336,9 +334,7 @@ export default function WorkspaceLanding() {
                 onAccountChange={handleAccountChange}
               >
                 {accountEmail}
-                {isAdminUser && (
-                  <span className="mac-badge bg-accent-soft text-accent">관리자</span>
-                )}
+                {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
               <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -441,10 +437,7 @@ export default function WorkspaceLanding() {
       </main>
 
       {teamNameModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
-          onClick={() => setTeamNameModalOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamNameModalOpen(false)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-[15px] font-semibold text-label">새 팀 만들기</h3>
             <div className="mt-4">
@@ -462,16 +455,8 @@ export default function WorkspaceLanding() {
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button
-                onClick={() => setTeamNameModalOpen(false)}
-              >
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                onClick={confirmTeamName}
-                disabled={!newTeamInput.trim()}
-              >
+              <Button onClick={() => setTeamNameModalOpen(false)}>취소</Button>
+              <Button variant="primary" onClick={confirmTeamName} disabled={!newTeamInput.trim()}>
                 다음
               </Button>
             </div>
@@ -480,10 +465,7 @@ export default function WorkspaceLanding() {
       )}
 
       {periodModalTeam && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
-          onClick={() => setPeriodModalTeam(null)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setPeriodModalTeam(null)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-[15px] font-semibold text-label">새 평가 프로젝트</h3>
@@ -531,15 +513,8 @@ export default function WorkspaceLanding() {
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button
-                onClick={() => setRenamingWorkspace(null)}
-              >
-                취소
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleRenameSave}
-              >
+              <Button onClick={() => setRenamingWorkspace(null)}>취소</Button>
+              <Button variant="primary" onClick={handleRenameSave}>
                 저장
               </Button>
             </div>

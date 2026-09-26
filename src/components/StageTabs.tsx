@@ -1,3 +1,4 @@
+import { ROLE_LABEL } from '../utils/roles'
 import type { WorkspaceMeta } from '../types'
 import AreaSwitch from './AreaSwitch'
 import GoogleAccountMenu from './GoogleAccountMenu'
@@ -149,14 +150,18 @@ export default function StageTabs({
               onAccountChange={onAccountChange}
               extraLinks={
                 sheetLink?.spreadsheetId
-                  ? [{ label: '구글시트 과제로 이동', href: withGoogleAccount(sheetUrl(sheetLink.spreadsheetId, sheetLink.gid)), icon: <SheetsIcon className="h-4 w-4 shrink-0" /> }]
+                  ? [
+                      {
+                        label: '구글시트 과제로 이동',
+                        href: withGoogleAccount(sheetUrl(sheetLink.spreadsheetId, sheetLink.gid)),
+                        icon: <SheetsIcon className="h-4 w-4 shrink-0" />,
+                      },
+                    ]
                   : []
               }
             >
               {accountEmail}
-              {isAdminUser && (
-                <span className="mac-badge bg-accent-soft text-accent">관리자</span>
-              )}
+              {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
               <ChevronDown {...icSm} className="text-label-3" />
             </GoogleAccountMenu>
             {saveStatus === 'saving' && (
