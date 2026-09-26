@@ -2,7 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarRange, CloudUpload, Eraser, Pencil, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload } from 'lucide-react'
+import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload, X } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -41,6 +41,7 @@ import {
   loadProgress,
   makeNewRow,
   makeNewGroup,
+  newRowAsRow,
   orderWithNewRows,
   type PaintBrush,
   saveDrafts,
@@ -154,9 +155,26 @@ export default function ProgressBoard() {
   const [message, setMessage] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const l1s = useMemo(() => Array.from(new Set((data?.rows ?? []).map((r) => r.l1))), [data])
+  // L1 탭: 시트 순서 + 새로 만든 L1(기준 행의 L1 바로 뒤)
+  const l1s = useMemo(() => {
+    const list = Array.from(new Set((data?.rows ?? []).map((r) => r.l1)))
+    for (const n of drafts.newRows) {
+      if (list.includes(n.l1)) continue
+      const k = n.anchor?.key
+      const a = k ? ((data?.rows ?? []).find((r) => r.key === k)?.l1 ?? drafts.newRows.find((x) => NEW_PREFIX + x.id === k)?.l1) : undefined
+      const i = a ? list.indexOf(a) : -1
+      list.splice(i >= 0 ? i + 1 : list.length, 0, n.l1)
+    }
+    return list
+  }, [data, drafts.newRows])
+  const [tabAdd, setTabAdd] = useState<{ l1: string; l2: string; x: number; y: number } | null>(null)
   const [activeL1, setActiveL1] = useState<string | null>(null)
   const l1 = activeL1 && l1s.includes(activeL1) ? activeL1 : (l1s[0] ?? null)
+  // 고른 탭이 가려져 있으면 보이게 옮긴다(새 탭을 만든 직후 등)
+  useEffect(() => {
+    if (!l1) return
+    document.querySelector(`[data-l1-tab="${CSS.escape(l1)}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [l1])
 
   const now = new Date()
   const [period, setPeriod] = useState<Period>({ start: 1, months: 12 })
@@ -443,6 +461,19 @@ export default function ProgressBoard() {
     updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
     setOpenKey(NEW_PREFIX + n.id)
   }
+  // 새 탭(L1): 지금 탭의 맨 아래 뒤에 새 L1 · 첫 구분(L2) · 빈 과제 한 줄
+  function addTab(name: string, l2name: string) {
+    if (!data || !l1) return
+    const cur = orderWithNewRows(
+      data.rows.filter((r) => r.l1 === l1),
+      drafts.newRows.filter((n) => n.l1 === l1),
+    )
+    const last = cur[cur.length - 1]
+    const g = makeNewGroup(l2name, { l1: name, h: last?.h ?? null }, { key: last?.key ?? '', where: 'below' })
+    updateDrafts((d) => ({ ...d, newRows: [...d.newRows, g] }))
+    setActiveL1(name)
+    setOpenKey(NEW_PREFIX + g.id)
+  }
   // 우클릭한 행의 위/아래에 새 과제
   function addRow(row: ProgressRow, where: 'above' | 'below') {
     const n = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, { key: row.key, where })
@@ -646,26 +677,58 @@ export default function ProgressBoard() {
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       {message && <p className="mt-3 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">{message}</p>}
 
-      {/* L1 탭 + 오른쪽에 연결된 시트(과제관리와 같은 모양) */}
-      <div className="flex items-end gap-2 border-b border-separator">
-        <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto">
+      {/* L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
+      <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+        <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {l1s.map((name) => {
-            const n = data.rows.filter((r) => r.l1 === name).length
+            const rowsOf = data.rows.filter((r) => r.l1 === name)
+            const newOf = drafts.newRows.filter((n) => n.l1 === name)
+            const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
+            const gone = alive === 0 && rowsOf.length > 0
             const on = name === l1
             return (
-              <button
+              <div
                 key={name}
                 onClick={() => setActiveL1(name)}
-                className={`flex shrink-0 items-center gap-1.5 rounded-t-[9px] border border-b-0 px-3.5 py-2 text-[13px] font-semibold transition-colors ${
-                  on ? '-mb-px border-separator bg-white text-label' : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
+                data-l1-tab={name}
+                className={`group flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+                  on
+                    ? 'border-[#E3E3E8] border-b-white bg-white text-label'
+                    : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
                 }`}
+                title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : name}
               >
-                {name === NO_L1 ? 'L1 없음' : name}
-                <span className="text-[11px] font-medium text-label-3">{n}</span>
-              </button>
+                {newOf.length > 0 && rowsOf.length === 0 && <span className="rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
+                <span className={gone ? 'text-label-3 line-through' : ''}>{name === NO_L1 ? 'L1 없음' : name}</span>
+                <span className="text-[11px] font-medium text-label-3">{alive}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (gone) restoreRows(rowsOf)
+                    else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
+                  }}
+                  title={gone ? '탭(L1) 삭제 취소' : `탭(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
+                  aria-label={gone ? '탭 삭제 취소' : '탭 삭제'}
+                  className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                    on ? '' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                >
+                  {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
+                </button>
+              </div>
             )
           })}
         </div>
+        <button
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
+          }}
+          title="탭(L1) 추가"
+          className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+        >
+          <Plus {...icSm} />탭 추가
+        </button>
         <div className="shrink-0 pb-1.5">
           <SheetLinkChip
             label={data.fileTitle || data.source}
@@ -910,6 +973,49 @@ export default function ProgressBoard() {
           />
         }
       </div>
+      {tabAdd && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setTabAdd(null)}>
+          <form
+            className="mac-pop absolute w-[320px] p-3"
+            style={{ left: tabAdd.x, top: tabAdd.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              const name = tabAdd.l1.trim()
+              if (!name || !tabAdd.l2.trim() || l1s.includes(name)) return
+              addTab(name, tabAdd.l2.trim())
+              setTabAdd(null)
+            }}
+          >
+            <p className="text-[13px] font-semibold text-label">탭(L1) 추가</p>
+            <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 탭 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
+            <input
+              autoFocus
+              value={tabAdd.l1}
+              onChange={(e) => setTabAdd({ ...tabAdd, l1: e.target.value })}
+              onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
+              placeholder="L1 이름"
+              className="mt-2 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+            />
+            {l1s.includes(tabAdd.l1.trim()) && <p className="mt-1 text-[11px] text-danger">이미 있는 L1입니다.</p>}
+            <input
+              value={tabAdd.l2}
+              onChange={(e) => setTabAdd({ ...tabAdd, l2: e.target.value })}
+              onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
+              placeholder="첫 구분(L2) 이름 (태그는 끝에 [태그])"
+              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+            />
+            <div className="mt-2.5 flex justify-end gap-1.5">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setTabAdd(null)}>
+                취소
+              </Button>
+              <Button variant="primary" size="sm" type="submit" disabled={!tabAdd.l1.trim() || !tabAdd.l2.trim() || l1s.includes(tabAdd.l1.trim())}>
+                추가
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
       {schMenu && (
         <div
           className="fixed inset-0 z-50"

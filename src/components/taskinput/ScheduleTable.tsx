@@ -5,7 +5,7 @@
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { ChevronsLeft, ChevronsRight, ListFilter } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, ListFilter, Plus, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -192,6 +192,34 @@ function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number
       title="끌어서 열 폭 조절"
       className="absolute -right-[3px] top-0 z-10 h-full w-[6px] cursor-col-resize hover:bg-accent/50"
     />
+  )
+}
+
+// 행·구분 칸에 마우스를 올리면 뜨는 작은 아이콘 버튼
+function RowIcon({
+  label,
+  danger,
+  onClick,
+  children,
+}: {
+  label: string
+  danger?: boolean
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick(e)
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      title={label}
+      aria-label={label}
+      className={`flex h-5 w-5 items-center justify-center rounded text-label-2 hover:bg-black/[0.08] ${danger ? 'hover:text-danger' : 'hover:text-label'}`}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -581,13 +609,13 @@ export default function ScheduleTable({
                 const l3Bg = v.bg.name
                 const l3Note = v.notes.name
                 return (
-                  <tr key={v.row.key} className={`${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}>
+                  <tr key={v.row.key} className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''}`}>
                     {ri === 0 && (
                       <td
                         rowSpan={g.rows.length}
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
                         title={`${g.l2} · 우클릭: 구분(L2) 추가·삭제`}
-                        className={`sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
+                        className={`group/l2 sticky left-0 z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         }`}
                       >
@@ -599,6 +627,31 @@ export default function ScheduleTable({
                           <span className="block whitespace-pre-line break-words">{g.l2}</span>
                           {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
+                          {/* 마우스를 올리면: 아래에 구분 추가 · 구분 삭제(취소) */}
+                          <span className="mt-1 flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/l2:opacity-100">
+                            {onAddGroup && (
+                              <RowIcon
+                                label="아래에 구분(L2) 추가"
+                                onClick={(e) => {
+                                  const r = e.currentTarget.getBoundingClientRect()
+                                  setGroupEdit({ row: g.rows[g.rows.length - 1].row, mode: 'below', text: '', x: r.left, y: r.bottom + 4 })
+                                }}
+                              >
+                                <Plus size={13} strokeWidth={2} />
+                              </RowIcon>
+                            )}
+                            {g.rows.every((x) => x.deleted)
+                              ? onRestoreGroup && (
+                                  <RowIcon label="구분 삭제 취소" onClick={() => onRestoreGroup(g.rows[0].row)}>
+                                    <Undo2 size={13} strokeWidth={2} />
+                                  </RowIcon>
+                                )
+                              : onDeleteGroup && (
+                                  <RowIcon label={`구분(L2) 삭제 · 과제 ${g.rows.length}건`} danger onClick={() => onDeleteGroup(g.rows[0].row)}>
+                                    <Trash2 size={13} strokeWidth={2} />
+                                  </RowIcon>
+                                )}
+                          </span>
                         </div>
                       </td>
                     )}
@@ -644,6 +697,25 @@ export default function ScheduleTable({
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                       </div>
                       {l3Note && <NoteMark />}
+                      {/* 마우스를 올리면 오른쪽에: 아래에 과제 추가 · 과제 삭제(취소) */}
+                      <span className="absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100">
+                        {!v.deleted && onAddRow && (
+                          <RowIcon label="아래에 과제 추가" onClick={() => onAddRow(v.row, 'below')}>
+                            <Plus size={13} strokeWidth={2} />
+                          </RowIcon>
+                        )}
+                        {v.deleted
+                          ? onRestoreRow && (
+                              <RowIcon label="삭제 취소" onClick={() => onRestoreRow(v.row)}>
+                                <Undo2 size={13} strokeWidth={2} />
+                              </RowIcon>
+                            )
+                          : onDeleteRow && (
+                              <RowIcon label="과제 삭제" danger onClick={() => onDeleteRow(v.row)}>
+                                <Trash2 size={13} strokeWidth={2} />
+                              </RowIcon>
+                            )}
+                      </span>
                     </td>
                     {scheduleOpen ? (
                       weekCols.map((x, i) => {

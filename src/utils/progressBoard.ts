@@ -696,19 +696,21 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
         label = lv === 'h' ? (r.h ?? undefined) : lv === 'l1' ? (r.l1 !== NO_L1 ? r.l1 : undefined) : r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2
       }
       if (!label) continue // 이름이 다른 줄(과제 없는 머리 줄 등)에 있으면 건드리지 않는다
-      const ownerIsOrig = owner.fresh && owner.row.row === origRow
-      if (!ownerIsOrig) {
-        after.push({ row: owner.at, col, value: label })
-        if (orig && !delRows.has(orig.row)) after.push({ row: finalOf(orig.row), col, value: '' })
-      }
-      // 이름 칸이 병합돼 있었으면 새 범위로 다시 병합
+      // 이름 칸이 병합돼 있었으면 새 범위로 다시 병합하고, 이름은 병합 맨 윗칸에 둔다.
       const m = orig ? fresh.levelMerges?.find((x) => x.c1 === col && x.c2 === col && x.r1 === orig.row) : undefined
+      let target = owner.at
       if (m) {
         const survivors: number[] = []
         for (let i = m.r1; i <= m.r2; i++) if (!delRows.has(i)) survivors.push(finalOf(i))
         const r1 = Math.min(owner.at, ...survivors)
         const r2 = Math.max(list[list.length - 1].at, ...survivors)
         remerge.push({ col, r1, r2, merge: r2 > r1 })
+        target = r1
+      }
+      const origAt = orig && !delRows.has(orig.row) ? finalOf(orig.row) : null
+      if (target !== origAt) {
+        after.push({ row: target, col, value: label })
+        if (origAt !== null) after.push({ row: origAt, col, value: '' })
       }
     }
   }

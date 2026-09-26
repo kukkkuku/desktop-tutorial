@@ -1,7 +1,8 @@
-// 연결된 구글시트 칩 -- 누르면 연결 정보와 링크 입력창이 뜬다(다른 시트로 바꿔 연결 · 다시 불러오기 · 시트 열기).
+// 연결된 구글시트 칩 -- 시트 아이콘과 다시 불러오기만 보이고, 아이콘을 누르면 파일·탭 이름, 불러온 때,
+// 링크 입력창이 뜬다(다른 시트로 바꿔 연결 · 시트 열기).
 // 과제관리(성과관리)와 과제 입력(추진현황)이 같이 쓴다.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, ExternalLink, RotateCw } from 'lucide-react'
+import { ExternalLink, RotateCw } from 'lucide-react'
 import Button from './Button'
 import SheetsIcon from './SheetsIcon'
 import { icSm } from './ui/icon'
@@ -22,7 +23,7 @@ export default function SheetLinkChip({
 }: {
   label: string // 시트 파일 이름
   sub?: string // 탭 이름(마우스를 올리면 보임)
-  meta?: ReactNode // 옆에 붙는 작은 표시(예: "3시간 전")
+  meta?: ReactNode // 팝오버 안 이름 옆 작은 표시(예: "3시간 전")
   currentUrl: string | null // 링크 입력창에 미리 채울 주소(xlsx면 null)
   openUrl?: string | null // "시트 열기" 주소
   note?: ReactNode // 팝오버 안 설명
@@ -69,14 +70,12 @@ export default function SheetLinkChip({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        title={`${label}${sub ? ` › ${sub}` : ''}\n눌러서 연결 링크 바꾸기`}
-        className={`flex max-w-[320px] items-center gap-1.5 rounded-control px-1.5 py-1 font-medium hover:bg-black/[0.05] hover:text-label ${open ? 'bg-black/[0.05] text-label' : ''}`}
+        title={`${label}${sub ? ` › ${sub}` : ''}\n눌러서 연결 정보 보기·링크 바꾸기`}
+        aria-label="연결된 구글시트"
+        className={`flex h-7 w-7 items-center justify-center rounded-control hover:bg-black/[0.05] ${open ? 'bg-black/[0.05]' : ''}`}
       >
         <SheetsIcon className="h-4 w-3.5 shrink-0" />
-        <span className="truncate">{label}</span>
-        <ChevronDown size={12} strokeWidth={2} className="shrink-0 text-label-3" />
       </button>
-      {meta}
       {onReload && (
         <button
           onClick={onReload}
@@ -92,10 +91,13 @@ export default function SheetLinkChip({
       {open && (
         <div className="mac-pop absolute right-0 top-full z-50 mt-1.5 w-[440px] p-3 text-[13px]">
           <p className="font-semibold text-label">연결된 구글시트</p>
-          <p className="mt-0.5 truncate text-[12px] text-label">
-            {label}
-            {sub && <span className="text-label-3"> › {sub}</span>}
-          </p>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] text-label">
+            <span className="min-w-0 truncate">
+              {label}
+              {sub && <span className="text-label-3"> › {sub}</span>}
+            </span>
+            {meta && <span className="shrink-0">{meta}</span>}
+          </div>
           {note && <div className="mt-0.5 text-[12px] text-label-2">{note}</div>}
           <form
             onSubmit={(e) => {
