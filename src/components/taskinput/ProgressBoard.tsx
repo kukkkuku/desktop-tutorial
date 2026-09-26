@@ -189,7 +189,7 @@ export default function ProgressBoard() {
     }
     return list
   }, [data, drafts.newRows])
-  const [exportAsk, setExportAsk] = useState(false)
+  const [exportSel, setExportSel] = useState<string[] | null>(null) // 내보낼 그룹(L1) · null = 창 닫힘
   const { setMode } = useAppMode()
   const [tabAdd, setTabAdd] = useState<{ l1: string; l2: string; x: number; y: number } | null>(null)
   const [activeL1, setActiveL1] = useState<string | null>(null)
@@ -795,12 +795,10 @@ export default function ProgressBoard() {
         {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
         <div className="shrink-0 pb-1.5">
           <IconButton
-            onClick={() => setExportAsk(true)}
+            onClick={() => setExportSel(l1 ? [l1] : [])}
             disabled={!data.spreadsheetId || !l1}
             title={
-              data.spreadsheetId
-                ? `「${l1 === NO_L1 ? 'L1 없음' : l1}」 그룹을 성과관리 과제리스트로 내보내기`
-                : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
+              data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
             }
             aria-label="성과관리 과제리스트로 내보내기"
           >
@@ -1134,18 +1132,42 @@ export default function ProgressBoard() {
         }
       </div>
       <ConfirmDialog
-        open={exportAsk}
+        open={exportSel !== null}
         title="성과관리 과제리스트로 내보내기"
-        message={`「${l1 === NO_L1 ? 'L1 없음' : (l1 ?? '')}」 그룹을 성과관리로 가져갑니다. 성과관리의 「구글시트 연결」 화면이 이 시트·이 그룹이 골라진 채로 열리고, 거기서 L2를 확인한 뒤 가져오면 과제리스트에 들어갑니다.`}
-        confirmLabel="성과관리로 이동"
+        message="보낼 그룹(L1)을 고르세요. 성과관리의 「구글시트 연결」 화면이 이 시트와 고른 그룹의 L2가 모두 체크된 채로 열리고, 거기서 확인한 뒤 가져오면 과제리스트에 들어갑니다."
+        confirmLabel={`${exportSel?.length ?? 0}개 그룹 보내기`}
+        tone="accent"
         onConfirm={() => {
-          setExportAsk(false)
-          if (!data.spreadsheetId || !l1) return
-          requestPerfImport({ url: sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined), l1 })
+          const sel = l1s.filter((x) => exportSel?.includes(x))
+          if (!data.spreadsheetId || sel.length === 0) return
+          setExportSel(null)
+          requestPerfImport({ url: sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined), l1s: sel })
           setMode('perf')
         }}
-        onCancel={() => setExportAsk(false)}
+        onCancel={() => setExportSel(null)}
       >
+        <div className="mt-3 max-h-[45vh] overflow-y-auto rounded-card border border-separator py-1 text-[13px]">
+          <label className="flex cursor-pointer items-center gap-2 border-b border-separator px-3 py-1.5 font-semibold hover:bg-black/[0.04]">
+            <input type="checkbox" checked={!!exportSel && exportSel.length === l1s.length} onChange={(e) => setExportSel(e.target.checked ? [...l1s] : [])} />
+            전체
+          </label>
+          {l1s.map((name) => {
+            const on = !!exportSel?.includes(name)
+            const n = data.rows.filter((r) => r.l1 === name).length
+            return (
+              <label key={name} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => setExportSel((cur) => (on ? (cur ?? []).filter((x) => x !== name) : [...(cur ?? []), name]))}
+                />
+                <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
+                <span className="ml-auto text-[11px] text-label-3">{n}</span>
+              </label>
+            )
+          })}
+        </div>
+        {exportSel?.length === 0 && <p className="mt-1.5 text-[12px] text-danger">그룹을 하나 이상 고르세요.</p>}
         {editCount > 0 && (
           <p className="mt-2 text-[12px] font-semibold text-orange-600">
             저장 안 한 변경 {editCount}건은 들어가지 않습니다(성과관리는 구글시트를 읽습니다). 먼저 「구글시트에 저장」을 눌러 주세요.

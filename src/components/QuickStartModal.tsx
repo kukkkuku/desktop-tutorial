@@ -24,7 +24,7 @@ interface QuickStartModalProps {
   // 처음 열 탭(과제리스트의 "구글시트에서 가져오기"는 'sheet')
   initialTab?: Tab
   initialSheetUrl?: string | null
-  initialL1?: string | null // 과제 입력에서 내보낸 L1(그 L2를 골라 둔다)
+  initialL1s?: string[] | null // 과제 입력에서 내보낸 L1들(그 L2를 골라 둔다)
   // 구글시트에서 가져온 뒤(과제리스트로 이동)
   onSheetImported?: () => void
 }
@@ -236,7 +236,7 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 탭 전환으로 바꿨다. 각 탭의 실제 동작은 이미 있는 화면의 로직을
 // 그대로 재사용한다 -- Excel은 데이터 관리 드로어와 같은 BulkUploadPanel,
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
-export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', initialSheetUrl, initialL1, onSheetImported }: QuickStartModalProps) {
+export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', initialSheetUrl, initialL1s, onSheetImported }: QuickStartModalProps) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
@@ -296,7 +296,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         <div className="flex-1 overflow-y-auto p-6">
           {tab === 'sheet' && (
             <div className="flex min-h-full flex-col">
-              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} initialUrl={initialSheetUrl ?? undefined} initialL1={initialL1 ?? undefined} />
+              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} initialUrl={initialSheetUrl ?? undefined} initialL1s={initialL1s ?? undefined} />
             </div>
           )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
