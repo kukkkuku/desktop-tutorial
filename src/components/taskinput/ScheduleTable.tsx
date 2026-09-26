@@ -878,6 +878,14 @@ export default function ScheduleTable({
     if (onFields) onFields(list)
     else list.forEach((x) => onField(x.row, x.id, ''))
   }
+  // 모서리 칸: 보이는 과제 전체(L3 ~ 마지막 입력 열) 선택
+  function selectAll() {
+    if (!rows.length) return
+    setRowSel(null)
+    setSel({ row: rows[0].row.key, id: 'name' })
+    setSelEnd({ row: rows[rows.length - 1].row.key, id: editIds[editIds.length - 1] })
+  }
+  const allSelected = !!range && range.r1 === 0 && range.r2 === rows.length - 1 && range.c1 === 0 && range.c2 === editIds.length - 1 && rows.length > 0
   // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
   const fmtTargets = (() => {
     if (!sel) return []
@@ -1092,7 +1100,27 @@ export default function ScheduleTable({
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
           <tr>
             {/* 행 머리(구글시트의 행 번호): 누르면 행 전체 선택, 끌어서 옮기기, 아래 경계로 높이 조절 */}
-            <th rowSpan={2} style={{ left: 0, background: '#F1F3F4' }} className={`sticky z-20 ${thBorder}`} aria-label="행" />
+            {/* 모서리 칸(구글시트처럼): 누르면 보이는 과제 전체 선택 · 다시 누르면 해제 */}
+            <th
+              rowSpan={2}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                if (allSelected) {
+                  setSel(null)
+                  setSelEnd(null)
+                } else selectAll()
+              }}
+              title={allSelected ? '전체 선택 해제' : '표 전체 선택(보이는 과제 모두) · 서식 · 칸 색 · 지우기를 한꺼번에'}
+              aria-label="표 전체 선택"
+              style={{ left: 0, background: allSelected ? '#D3E3FD' : '#F1F3F4' }}
+              className={`group/all sticky z-20 cursor-pointer hover:!bg-[#E3E6E8] ${thBorder}`}
+            >
+              <span
+                className={`absolute bottom-[4px] right-[4px] h-0 w-0 border-b-[9px] border-l-[9px] border-l-transparent ${
+                  allSelected ? 'border-b-accent' : 'border-b-[#B7BCC2] group-hover/all:border-b-[#80868B]'
+                }`}
+              />
+            </th>
             <th rowSpan={2} style={{ left: WH, ...blackTh('l2') }} onContextMenu={headMenuOn('l2')} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} />}
