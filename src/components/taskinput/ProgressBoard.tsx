@@ -114,6 +114,7 @@ import ProgressRate from './ProgressRate'
 import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
+import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
@@ -824,6 +825,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
   // 시트 연결을 바꾸는 것(링크 · xlsx)은 관리자만
   const canManage = useCanManageSheets()
+  const { canPerf } = useGoogleAccount() // 팀원은 성과관리로 내보내기 없음
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkInput, setLinkInput] = useState('')
@@ -1667,8 +1669,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </button>
             )}
           </div>
-          {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
-          <div className="shrink-0 pb-1.5">
+          {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) -- 팀장만 */}
+          <div className={`shrink-0 pb-1.5 ${canPerf ? '' : 'hidden'}`}>
             <IconButton
               onClick={() => setExportOpen(true)}
               disabled={!l1 || readOnly}

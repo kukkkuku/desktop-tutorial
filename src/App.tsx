@@ -204,7 +204,8 @@ function WorkspaceGate() {
 // 메인에서 고른 곳으로: 성과관리(기존 평가 앱) / 과제 입력(추진현황·진척률)
 function ModeGate() {
   const { mode } = useAppMode()
-  if (mode === 'tasks') return <TaskInputApp />
+  const { canPerf } = useGoogleAccount()
+  if (mode === 'tasks' || !canPerf) return <TaskInputApp />
   return <WorkspaceGate />
 }
 

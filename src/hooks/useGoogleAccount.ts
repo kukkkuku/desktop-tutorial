@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { GATE_KEY } from '../components/GoogleSignInGate'
-import { ADMIN_EMAILS } from '../utils/adminInvite'
+import { canUsePerf, isAdminEmail, roleOf } from '../utils/roles'
 import { disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/googleDrive'
 
 // 헤더의 계정 정보(이메일/관리자 여부)와 로그아웃 -- 워크스페이스 화면
@@ -9,7 +9,9 @@ import { disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/google
 export function useGoogleAccount() {
   const [accountEmail, setAccountEmail] = useState<string | null>(() => getConnectedEmail())
   const refreshAccount = () => setAccountEmail(getConnectedEmail())
-  const isAdminUser = ADMIN_EMAILS.includes(accountEmail ?? '')
+  const isAdminUser = isAdminEmail(accountEmail)
+  const role = roleOf(accountEmail)
+  const canPerf = canUsePerf(accountEmail)
 
   function handleLogout() {
     disconnectDrive()
@@ -24,5 +26,5 @@ export function useGoogleAccount() {
     window.location.reload()
   }
 
-  return { accountEmail, isAdminUser, refreshAccount, handleLogout }
+  return { accountEmail, isAdminUser, role, canPerf, refreshAccount, handleLogout }
 }

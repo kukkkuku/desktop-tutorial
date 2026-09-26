@@ -8,6 +8,7 @@ import { icSm } from '../ui/icon'
 import { IS_PREVIEW } from '../../utils/previewMode'
 import ProgressBoard, { PROGRESS_MENU_SLOT } from './ProgressBoard'
 import PeerReviewInput from './PeerReviewInput'
+import { ROLE_LABEL } from '../../utils/roles'
 
 type Menu = 'progress' | 'rate' | 'peer'
 const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
@@ -19,13 +20,13 @@ const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
 export default function TaskInputApp() {
   const [menu, setMenu] = useState<Menu>('progress')
   // 맨 위 오른쪽 로그인 정보(성과관리 화면과 같은 모양)
-  const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
+  const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
         <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <AreaSwitch className="-ml-1" />
-          <span className="hidden h-5 w-px bg-separator sm:inline-block" />
+          {canPerf && <span className="hidden h-5 w-px bg-separator sm:inline-block" />}
           {/* 추진현황 연도(성과관리의 프로젝트 고르기와 같은 모양) -- 추진현황 화면이 채운다 */}
           <span id={PROGRESS_MENU_SLOT} className="flex" />
           {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}
@@ -52,7 +53,7 @@ export default function TaskInputApp() {
                 onAccountChange={refreshAccount}
               >
                 {accountEmail}
-                {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">관리자</span>}
+                <span className={`mac-badge ${role === 'member' ? 'bg-black/[0.05] text-label-2' : 'bg-accent-soft text-accent'}`}>{ROLE_LABEL[role]}</span>
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
               <button onClick={handleLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">

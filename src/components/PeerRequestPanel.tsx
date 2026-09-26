@@ -13,6 +13,7 @@ import Spinner from './Spinner'
 import DatePicker from './DatePicker'
 import ConfirmDialog from './ConfirmDialog'
 import { getConnectedEmail, withGoogleAccount } from '../utils/googleDrive'
+import { memberEmail } from '../utils/roles'
 import { SheetsAuthError, chooseSheetsAccountNext, sheetUrl } from '../utils/sheetSources'
 import {
   dueLabel,
@@ -85,7 +86,9 @@ export default function PeerRequestPanel({ onShowResults }: { onShowResults?: ()
   const [title, setTitle] = useState(`${periodLabel} 피어리뷰`.trim())
   const [due, setDue] = useState(() => ymd(new Date(Date.now() + 7 * 86_400_000)))
   const [picked, setPicked] = useState<Set<string>>(() => new Set(active.map((m) => m.id)))
-  const roster = active.filter((m) => picked.has(m.id)).map((m) => m.name.trim())
+  const pickedMembers = active.filter((m) => picked.has(m.id))
+  const roster = pickedMembers.map((m) => m.name.trim())
+  const noEmail = pickedMembers.filter((m) => !memberEmail(m)).map((m) => m.name)
   const dupNames = roster.filter((n, i) => roster.indexOf(n) !== i)
   const openOne = requests.find((r) => r.open) ?? null
   const canOpen = writable && !openOne && roster.length >= 2 && dupNames.length === 0 && title.trim() !== '' && busy === null
@@ -229,6 +232,12 @@ export default function PeerRequestPanel({ onShowResults }: { onShowResults?: ()
                   )
                 })}
               </div>
+              {noEmail.length > 0 && (
+                <p className="mt-1 text-[12px] text-orange-600">
+                  이메일이 없는 팀원: {noEmail.join(', ')} -- 팀원 표의 "이메일"에 구글 계정을 넣으면 그 계정으로 로그인했을 때 자동으로 본인이 됩니다(없으면
+                  제출할 때 이름을 직접 고릅니다).
+                </p>
+              )}
               {dupNames.length > 0 && (
                 <p className="mt-1 text-[12px] text-danger">이름이 같은 팀원이 있습니다({dupNames.join(', ')}). 팀원 이름을 구분되게 바꿔 주세요.</p>
               )}
@@ -240,7 +249,12 @@ export default function PeerRequestPanel({ onShowResults }: { onShowResults?: ()
                 disabled={!canOpen}
                 onClick={() =>
                   void run('요청을 여는 중', async () => {
-                    await openPeerRequest(sheetId!, { title: title.trim(), roster, due, openedBy: getConnectedEmail() ?? '' })
+                    await openPeerRequest(sheetId!, {
+                      title: title.trim(),
+                      roster: pickedMembers.map((m) => ({ name: m.name.trim(), email: memberEmail(m) })),
+                      due,
+                      openedBy: getConnectedEmail() ?? '',
+                    })
                     setNotice(null)
                   })
                 }
@@ -305,14 +319,22 @@ export default function PeerRequestPanel({ onShowResults }: { onShowResults?: ()
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {r.roster.map((n) => {
                     const s = by.get(n)
+                    // 명단의 계정과 제출한 계정이 다르면(다른 사람이 이름을 골라 냈을 수 있음) 표시
+                    const odd = !!s && !!r.emails[n] && s.email.toLowerCase() !== r.emails[n]
                     return (
                       <span
                         key={n}
-                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${s ? 'bg-success/10 text-success' : 'bg-white text-label-2 shadow-control'}`}
-                        title={s ? `${when(s.submittedAt)} 제출${s.email ? ` · ${s.email}` : ''}` : '미제출'}
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          odd ? 'bg-orange-100 text-orange-700' : s ? 'bg-success/10 text-success' : 'bg-white text-label-2 shadow-control'
+                        }`}
+                        title={
+                          s
+                            ? `${when(s.submittedAt)} 제출${s.email ? ` · ${s.email}` : ''}${odd ? ` · 명단 계정(${r.emails[n]})과 다름` : ''}`
+                            : `미제출${r.emails[n] ? ` · ${r.emails[n]}` : ' · 계정 없음'}`
+                        }
                       >
                         {n}
-                        <span className="ml-1 opacity-60">{s ? when(s.submittedAt) : '미제출'}</span>
+                        <span className="ml-1 opacity-60">{odd ? '계정 다름' : s ? when(s.submittedAt) : '미제출'}</span>
                       </span>
                     )
                   })}

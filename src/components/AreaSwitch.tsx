@@ -5,6 +5,7 @@ import { ChartColumn, ClipboardList } from 'lucide-react'
 import { useAppMode, type AppMode } from '../state/AppMode'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { icSm } from './ui/icon'
+import { useGoogleAccount } from '../hooks/useGoogleAccount'
 
 const AREAS: { mode: AppMode; label: string; title: string; Icon: typeof ChartColumn }[] = [
   { mode: 'tasks', label: '과제 입력', title: '과제 입력 · 추진현황 · 진척률 (연구소 공용)', Icon: ClipboardList },
@@ -14,6 +15,9 @@ const AREAS: { mode: AppMode; label: string; title: string; Icon: typeof ChartCo
 export default function AreaSwitch({ className = '' }: { className?: string }) {
   const { mode, setMode } = useAppMode()
   const { currentWorkspaceId, exitToLanding } = useWorkspaces()
+  // 팀원 계정에는 성과관리(팀장 영역)를 보여 주지 않는다
+  const { canPerf } = useGoogleAccount()
+  if (!canPerf) return null
   return (
     <nav className={`flex shrink-0 items-center rounded-[9px] bg-black/[0.05] p-0.5 ${className}`} aria-label="영역">
       {AREAS.map(({ mode: m, label, title, Icon }) => {

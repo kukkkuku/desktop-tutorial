@@ -1,6 +1,6 @@
 // 피어리뷰 요청: 팀장이 성과관리에서 요청을 열면 팀원이 과제 입력 › 피어리뷰에서 순위 · 근거를 제출한다.
 // 둘은 다른 브라우저라서, 과제 입력이 연결한 구글시트의 숨은 탭 두 개로 주고받는다.
-//   _피어리뷰_요청: 요청ID | 제목 | 대상 팀원(이름, 줄바꿈) | 마감일 | 상태(열림/마감) | 연 사람 | 연 시각
+//   _피어리뷰_요청: 요청ID | 제목 | 대상 팀원(줄마다 '이름 <계정>', 계정은 없을 수 있음) | 마감일 | 상태(열림/마감) | 연 사람 | 연 시각
 //   _피어리뷰_응답: 요청ID | 평가자 | 평가자 계정 | 대상 팀원 | 순위 | 근거 | 제출 시각
 // 다시 제출하면 줄을 덧붙이고, 읽을 때 평가자마다 가장 늦은 제출만 쓴다.
 import { v4 as uuidv4 } from 'uuid'
@@ -17,6 +17,7 @@ export interface PeerRequest {
   id: string
   title: string
   roster: string[] // 평가에 참여하는 팀원 이름(서로 평가)
+  emails: Record<string, string> // 이름 → 구글 계정(팀원 정보에 이메일이 있을 때). 로그인한 계정으로 '나'를 찾는다
   due: string // YYYY-MM-DD
   open: boolean
   openedBy: string
@@ -60,13 +61,22 @@ export function parseRequests(rows: string[][]): PeerRequest[] {
   const out: PeerRequest[] = []
   rows.forEach((r, i) => {
     if (i === 0 || !r[0]) return
+    const emails: Record<string, string> = {}
+    const roster = (r[2] ?? '')
+      .split(/\n|,/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => {
+        const m = /^(.*?)\s*<([^>]+)>$/.exec(s)
+        if (!m) return s
+        emails[m[1]] = m[2].trim().toLowerCase()
+        return m[1]
+      })
     out.push({
       id: r[0],
       title: r[1] ?? '',
-      roster: (r[2] ?? '')
-        .split(/\n|,/)
-        .map((s) => s.trim())
-        .filter(Boolean),
+      roster,
+      emails,
       due: r[3] ?? '',
       open: (r[4] ?? '') !== '마감',
       openedBy: r[5] ?? '',
@@ -99,10 +109,23 @@ export async function loadPeerBoard(id: string): Promise<{ requests: PeerRequest
   return { requests: req ? parseRequests(req) : [], submissions: res ? parseSubmissions(res) : [] }
 }
 
-export async function openPeerRequest(id: string, r: { title: string; roster: string[]; due: string; openedBy: string }): Promise<void> {
+export async function openPeerRequest(
+  id: string,
+  r: { title: string; roster: { name: string; email?: string }[]; due: string; openedBy: string },
+): Promise<void> {
   await ensureHiddenTab(id, REQ_TAB, REQ_HEADER)
   await ensureHiddenTab(id, RES_TAB, RES_HEADER)
-  await appendSheetValues(id, REQ_TAB, [[uuidv4(), r.title, r.roster.join('\n'), r.due, '열림', r.openedBy, new Date().toISOString()]])
+  await appendSheetValues(id, REQ_TAB, [
+    [
+      uuidv4(),
+      r.title,
+      r.roster.map((p) => (p.email ? `${p.name} <${p.email.trim().toLowerCase()}>` : p.name)).join('\n'),
+      r.due,
+      '열림',
+      r.openedBy,
+      new Date().toISOString(),
+    ],
+  ])
 }
 
 export async function setPeerRequestOpen(id: string, req: PeerRequest, open: boolean): Promise<void> {

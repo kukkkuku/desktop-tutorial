@@ -7,6 +7,7 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
 import { getConnectedEmail } from '../../utils/googleDrive'
+import { isLeaderEmail } from '../../utils/roles'
 import { SheetsAuthError, chooseSheetsAccountNext } from '../../utils/sheetSources'
 import {
   checkEntries,
@@ -136,10 +137,15 @@ function RequestForm({
   onSubmitted: () => Promise<void>
   onRefresh: () => void
 }) {
-  const [me, setMe] = useState(() => {
+  // 로그인한 계정이 명단에 있으면 그 사람으로 고정. 없으면 계정이 안 적힌 이름 중에서 고른다(로그인 없이 쓰면 누구든).
+  const email = (getConnectedEmail() ?? '').toLowerCase()
+  const byEmail = req.roster.find((n) => email && req.emails[n] === email) ?? ''
+  const choices = byEmail ? [byEmail] : req.roster.filter((n) => !email || !req.emails[n])
+  const [picked, setMe] = useState(() => {
     const m = readMe()
-    return req.roster.includes(m) ? m : ''
+    return choices.includes(m) ? m : ''
   })
+  const me = byEmail || picked
   const mine = subs.find((s) => s.reviewer === me) ?? null
   const others = useMemo(() => req.roster.filter((n) => n !== me), [req.roster, me])
   const initial = useCallback((): PeerEntry[] => {
@@ -207,23 +213,39 @@ function RequestForm({
 
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-[12px] bg-black/[0.03] px-3 py-2.5">
         <span className="text-[13px] font-semibold text-label">나</span>
-        <select
-          value={me}
-          onChange={(e) => {
-            setMe(e.target.value)
-            writeMe(e.target.value)
-            setErrors([])
-          }}
-          className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px]"
-          aria-label="나(평가자)"
-        >
-          <option value="">이름을 고르세요</option>
-          {req.roster.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        {byEmail ? (
+          <span className="text-[13px] font-semibold text-label" title={`로그인한 계정(${email})으로 찾았습니다`}>
+            {byEmail} <span className="font-normal text-label-3">· {email}</span>
+          </span>
+        ) : choices.length === 0 ? (
+          isLeaderEmail(email) ? (
+            <span className="text-[12.5px] text-label-2">
+              팀장 계정({email})은 평가 명단에 없어 제출하지 않습니다. 요청 · 마감 · 제출 현황은 성과관리 › 팀원관리 › 피어리뷰에서 봅니다.
+            </span>
+          ) : (
+            <span className="text-[12.5px] text-danger">
+              이 요청의 명단에 로그인한 계정({email})이 없습니다. 팀장에게 팀원 정보의 이메일을 확인해 달라고 해 주세요.
+            </span>
+          )
+        ) : (
+          <select
+            value={me}
+            onChange={(e) => {
+              setMe(e.target.value)
+              writeMe(e.target.value)
+              setErrors([])
+            }}
+            className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px]"
+            aria-label="나(평가자)"
+          >
+            <option value="">이름을 고르세요</option>
+            {choices.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        )}
         {me && mine && (
           <span className="flex items-center gap-1 text-[12.5px] text-success">
             <CheckCircle2 size={14} />
@@ -234,7 +256,9 @@ function RequestForm({
       </div>
 
       {!me ? (
-        <p className="mt-6 text-[13px] text-label-2">명단에서 내 이름을 고르면 다른 팀원 {req.roster.length - 1}명의 순위와 근거를 적을 수 있습니다.</p>
+        choices.length > 0 && (
+          <p className="mt-6 text-[13px] text-label-2">명단에서 내 이름을 고르면 다른 팀원 {req.roster.length - 1}명의 순위와 근거를 적을 수 있습니다.</p>
+        )
       ) : (
         <>
           <p className="mb-2 mt-5 text-[12.5px] text-label-2">1위부터 줄을 세우세요(끌어서 옮기거나 ↑↓). 모든 사람에게 근거를 적어야 제출됩니다.</p>
