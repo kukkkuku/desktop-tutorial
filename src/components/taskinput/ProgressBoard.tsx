@@ -376,6 +376,12 @@ export default function ProgressBoard() {
   // 칠하기 색(계획 · 실적) 바꾸기 팝업
   const [fillMenu, setFillMenu] = useState<{ which: WeekFill; x: number; y: number } | null>(null)
   const [, setFillTick] = useState(0)
+  useEffect(() => {
+    if (!fillMenu) return
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setFillMenu(null)
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [fillMenu])
   function openFillMenu(el: HTMLElement, which: WeekFill) {
     const r = el.getBoundingClientRect()
     setFillMenu({ which, x: Math.max(8, Math.min(r.left - 8, window.innerWidth - 290)), y: r.bottom + 6 })
@@ -1524,10 +1530,18 @@ export default function ProgressBoard() {
       {fillMenu && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
           <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
               <CellSwatch cell={{ m: '', f: fillMenu.which }} size={14} />
-              {fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색
-            </p>
+              <span className="flex-1">{fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색</span>
+              <button
+                onClick={() => setFillMenu(null)}
+                className="-mr-1 flex h-6 w-6 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.06] hover:text-label"
+                aria-label="닫기"
+                title="닫기 (Esc)"
+              >
+                <X size={14} strokeWidth={2} />
+              </button>
+            </div>
             <ColorPalette
               current={fillHex(fillMenu.which)}
               sheetColors={sheetColors}
