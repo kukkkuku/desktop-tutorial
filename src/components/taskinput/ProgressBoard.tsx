@@ -99,7 +99,7 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
@@ -1282,27 +1282,23 @@ export default function ProgressBoard() {
             </>
           ) : (
             <>
-              {/* 범례(누르는 버튼이 아님): 칸 모양 + 이름 */}
+              {/* 범례(누르는 버튼이 아님): 칸 모양 바로 뒤에 이름(한 쌍은 붙이고 쌍 사이는 띄움) */}
               {(
                 [
                   ['계획', LEGEND.slice(0, 3), ['착수', '기간', '완료']],
                   ['실적', LEGEND.slice(3), ['착수', '진행', '완료']],
                 ] as const
               ).map(([group, tools, names], gi) => (
-                <span key={group} className={`flex items-center gap-2 text-[12px] text-label-2 ${gi ? 'border-l border-separator pl-2.5' : 'ml-1.5'}`}>
-                  <span className="font-semibold text-label-3">{group}</span>
+                <span key={group} className={`flex items-center gap-3.5 text-[12px] text-label-2 ${gi ? 'border-l border-separator pl-3' : 'ml-1.5'}`}>
+                  <span className="-mr-1 font-semibold text-label-3">{group}</span>
                   {tools.map((t, i) => (
-                    <span key={t} className="flex items-center gap-1" title={cellLabel(TOOL_CELL[t])}>
+                    <span key={t} className="flex items-center gap-[3px]">
                       <CellSwatch cell={TOOL_CELL[t]} size={16} />
                       {names[i]}
                     </span>
                   ))}
                 </span>
               ))}
-              <span className="flex items-center gap-1 border-l border-separator pl-2.5 text-[12px] text-label-2">
-                <span className="h-4 border-l border-dashed border-[#E8342A]" />
-                현재 주
-              </span>
             </>
           )}
           <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />

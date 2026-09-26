@@ -1571,17 +1571,16 @@ export default function ScheduleTable({
       {fmtSlot &&
         onFmt &&
         !readOnly &&
+        editing &&
         createPortal(
           <FormatBar
             fmt={anchorFmt}
-            bg={(sel && anchorView?.bg[sel.id]) ?? ''}
             count={fmtTargets.length}
             sheetColors={sheetColors}
             onFmt={(patch) => applyFmt(patch)}
-            onBg={applyBg}
-            onClear={() => {
-              applyFmt(null)
-              applyBg('')
+            onDone={() => {
+              setSel(null)
+              setSelEnd(null)
             }}
           />,
           fmtSlot,
