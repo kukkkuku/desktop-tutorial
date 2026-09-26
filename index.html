@@ -9,6 +9,42 @@
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#ffffff" />
     <title>성과관리 시스템 V2</title>
+    <script>
+      // 배포 직후 브라우저가 예전 index.html을 잠깐 기억하고 있으면, 이미 지워진 예전 스크립트를 불러오다 빈 화면이 된다.
+      // 스크립트 · 스타일을 못 불러오면 index.html을 새로 받아 한 번만 다시 연다.
+      ;(function () {
+        var KEY = 'app:asset-reload'
+        function retry() {
+          try {
+            if (sessionStorage.getItem(KEY)) return
+            sessionStorage.setItem(KEY, '1')
+          } catch (e) {}
+          fetch(location.href, { cache: 'reload' }).finally(function () {
+            location.reload()
+          })
+        }
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target
+            if (t && (t.tagName === 'SCRIPT' || (t.tagName === 'LINK' && t.rel === 'stylesheet'))) retry()
+          },
+          true,
+        )
+        // 뒤늦게 불러오는 조각(PPT 등)을 못 찾을 때(Vite)
+        window.addEventListener('vite:preloadError', function (e) {
+          e.preventDefault()
+          retry()
+        })
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            try {
+              sessionStorage.removeItem(KEY)
+            } catch (e) {}
+          }, 5000)
+        })
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
