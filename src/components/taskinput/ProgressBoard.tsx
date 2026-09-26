@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTabFit } from '../../hooks/useTabFit'
+import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import {
   CalendarRange,
@@ -406,6 +407,8 @@ export default function ProgressBoard() {
     }
   }
 
+  // 시트 연결을 바꾸는 것(링크 · xlsx)은 관리자만
+  const canManage = useCanManageSheets()
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkInput, setLinkInput] = useState('')
@@ -705,15 +708,17 @@ export default function ProgressBoard() {
                 구글시트에서 불러오기
               </Button>
             )}
-            <Button
-              variant="secondary"
-              onClick={() => fileRef.current?.click()}
-              disabled={loading}
-              title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-            >
-              <Upload {...icSm} />
-              xlsx 올리기
-            </Button>
+            {canManage && (
+              <Button
+                variant="secondary"
+                onClick={() => fileRef.current?.click()}
+                disabled={loading}
+                title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+              >
+                <Upload {...icSm} />
+                xlsx 올리기
+              </Button>
+            )}
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           <p className="mt-4 text-[12px] text-label-3">
@@ -722,11 +727,17 @@ export default function ProgressBoard() {
               : sheetLink === TASK_INPUT_SHEET_URL
                 ? '지금 연결: 테스트 시트(운영 시트의 사본)'
                 : `지금 연결: ${sheetLink}`}{' '}
-            <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
-              시트 바꾸기
-            </button>
+            {canManage ? (
+              <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
+                시트 바꾸기
+              </button>
+            ) : (
+              <span>· 시트 연결은 관리자가 정합니다</span>
+            )}
           </p>
-          {linkOpen && <SheetLinkForm value={linkInput} onChange={setLinkInput} onSubmit={() => connectSheet(linkInput)} onCancel={() => setLinkOpen(false)} />}
+          {canManage && linkOpen && (
+            <SheetLinkForm value={linkInput} onChange={setLinkInput} onSubmit={() => connectSheet(linkInput)} onCancel={() => setLinkOpen(false)} />
+          )}
           {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
         </div>
       </>
@@ -844,7 +855,7 @@ export default function ProgressBoard() {
           onPick={(t) => void viewYear(t)}
         />
       </MenuSlot>
-      {linkOpen && (
+      {canManage && linkOpen && (
         <SheetLinkForm
           value={linkInput}
           onChange={setLinkInput}
@@ -1000,21 +1011,27 @@ export default function ProgressBoard() {
             }
             currentUrl={data.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : null}
             openUrl={data.spreadsheetId ? withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)) : null}
-            note="다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다."
-            onConnect={(url) => connectSheet(url)}
+            note={
+              canManage
+                ? '다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다.'
+                : SHEET_ADMIN_ONLY
+            }
+            onConnect={canManage ? (url) => connectSheet(url) : undefined}
             onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
             reloadDisabled={saving}
             reloading={loading}
             extra={
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={loading || saving}
-                className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
-                title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-              >
-                <Upload {...icSm} />
-                xlsx 파일로 보기
-              </button>
+              canManage && (
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={loading || saving}
+                  className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
+                  title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+                >
+                  <Upload {...icSm} />
+                  xlsx 파일로 보기
+                </button>
+              )
             }
           />
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />

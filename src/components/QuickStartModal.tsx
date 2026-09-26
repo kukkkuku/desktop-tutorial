@@ -7,6 +7,7 @@ import BulkUploadPanel from './BulkUploadPanel'
 import ImportFromPreviousPanel from './ImportFromPreviousPanel'
 import Button from './Button'
 import { readProgressSource } from '../utils/progressImport'
+import { useCanManageSheets } from '../hooks/useSheetManager'
 import SheetImportPanel from './work/SheetImportPanel'
 import SheetsIcon from './SheetsIcon'
 import IconButton from './IconButton'
@@ -245,8 +246,13 @@ export default function QuickStartModal({
   // 과제 입력 › 추진현황에 불러온 데이터(이 브라우저) -- 창을 여는 동안 한 번 읽는다
   const progress = useMemo(() => readProgressSource(), [])
   // 빠른 시작을 그냥 열면 추진현황이 있을 때 "추진현황에서"부터(시트 링크를 넣고 연 경우는 구글시트 연결)
-  const [tab, setTab] = useState<Tab>(initialTab === 'auto' ? (progress && !initialSheetUrl ? 'progress' : 'sheet') : initialTab)
-  const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
+  // 구글시트 연결 · 추진현황 xlsx 올리기는 관리자만(팀원은 추진현황에서 가져오기)
+  const canManageSheets = useCanManageSheets()
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = initialTab === 'auto' ? (progress && !initialSheetUrl ? 'progress' : 'sheet') : initialTab
+    return t === 'sheet' && !canManageSheets ? 'progress' : t
+  })
+  const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>(canManageSheets ? 'progress' : 'bulk')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
   const [sheetLoaded, setSheetLoaded] = useState(false)
   // 불러온 뒤 창 폭: L1 탭 줄이 한 줄에 딱 들어가는 폭(양쪽 여백 포함). 모르면 기본 폭
@@ -254,7 +260,7 @@ export default function QuickStartModal({
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
     { key: 'progress', label: '추진현황에서', hint: '과제 입력 › 추진현황에서 필요한 그룹(L2)만 골라 가져오기(저장 안 한 변경 포함)' },
-    { key: 'sheet', label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' },
+    ...(canManageSheets ? [{ key: 'sheet' as const, label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' }] : []),
     { key: 'direct', label: '직접 입력', hint: '선택한 영역에 이름을 빠르게 등록' },
     { key: 'excel', label: 'Excel로 시작', hint: '통합 양식으로 내려받고 일괄 등록' },
     ...(hasOtherPeriods ? [{ key: 'import' as const, label: '이전 평가 가져오기', hint: '팀과 평가기간을 골라 선택 복사' }] : []),
@@ -330,7 +336,7 @@ export default function QuickStartModal({
           {tab === 'excel' && (
             <div>
               {/* 추진현황 xlsx(구글시트에서 받은 파일)로 과제 가져오기 / 통합 양식으로 일괄 등록 */}
-              <div className="mb-4 inline-flex overflow-hidden rounded-control border border-hairline text-[13px]">
+              <div className={`mb-4 inline-flex overflow-hidden rounded-control border border-hairline text-[13px] ${canManageSheets ? '' : 'hidden'}`}>
                 {(
                   [
                     ['progress', '추진현황 xlsx 올리기'],

@@ -42,6 +42,7 @@ import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheet
 import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
 import SheetLinkChip from '../SheetLinkChip'
 import { useTabFit } from '../../hooks/useTabFit'
+import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
@@ -194,6 +195,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [tabMenu, setTabMenu] = useState<{ x: number; y: number; groupId: string } | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   // 브라우저 탭처럼 줄어드는 L2 탭 줄(좁으면 개수를 숨기고 여백을 줄임)
+  const canManageSheets = useCanManageSheets() // 시트 연결을 바꾸는 것은 관리자만(팀원은 새로고침만)
   const tabStripRef = useRef<HTMLDivElement>(null)
   const tabsCompact = useTabFit(tabStripRef, board.groups.length + 1, 130)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)
@@ -775,9 +777,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           <Button variant="primary" onClick={() => onOpenSheetImport(undefined, 'progress')}>
             추진현황에서 가져오기
           </Button>
-          <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'sheet')}>
-            구글시트에서 가져오기
-          </Button>
+          {canManageSheets && (
+            <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'sheet')}>
+              구글시트에서 가져오기
+            </Button>
+          )}
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>
@@ -890,8 +894,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
             currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
             openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}
-            note={board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
-            onConnect={(url) => onOpenSheetImport(url)}
+            note={!canManageSheets ? SHEET_ADMIN_ONLY : board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
+            onConnect={canManageSheets ? (url) => onOpenSheetImport(url) : undefined}
             onReload={() => void reloadFromSheet()}
             reloading={reloading}
           />

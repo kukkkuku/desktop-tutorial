@@ -27,7 +27,7 @@ export default function SheetLinkChip({
   currentUrl: string | null // 링크 입력창에 미리 채울 주소(xlsx면 null)
   openUrl?: string | null // "시트 열기" 주소
   note?: ReactNode // 팝오버 안 설명
-  onConnect: (url: string) => void
+  onConnect?: (url: string) => void // 없으면 링크 입력칸을 숨긴다(관리자만 연결을 바꾼다)
   onReload?: () => void
   reloadDisabled?: boolean
   reloading?: boolean
@@ -62,7 +62,7 @@ export default function SheetLinkChip({
       return
     }
     setOpen(false)
-    onConnect(url.trim())
+    onConnect?.(url.trim())
   }
 
   return (
@@ -99,6 +99,7 @@ export default function SheetLinkChip({
             {meta && <span className="shrink-0">{meta}</span>}
           </div>
           {note && <div className="mt-0.5 text-[12px] text-label-2">{note}</div>}
+          {onConnect && (
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -107,7 +108,7 @@ export default function SheetLinkChip({
             className="mt-2 flex gap-1.5"
           >
             <input
-              autoFocus
+              autoFocus={!!onConnect}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onFocus={(e) => e.target.select()}
@@ -118,6 +119,7 @@ export default function SheetLinkChip({
               연결
             </Button>
           </form>
+          )}
           {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
           {(openUrl || extra) && (
             <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-separator pt-2">
