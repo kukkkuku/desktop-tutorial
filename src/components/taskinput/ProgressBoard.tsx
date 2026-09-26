@@ -1750,14 +1750,18 @@ export default function ProgressBoard() {
               ).map(([c, label]) => (
                 <button
                   key={c}
-                  onClick={(e) => {
+                  onClick={() => setTool(c)}
+                  onContextMenu={(e) => {
+                    // 우클릭: 바로 아래에 색 팔레트
+                    if (c === 'erase') return
+                    e.preventDefault()
                     setTool(c)
-                    if (c !== 'erase') openFillMenu(e.currentTarget, c) // 고르면 바로 아래에 색 팔레트
+                    openFillMenu(e.currentTarget, c)
                   }}
                   title={
                     c === 'erase'
                       ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
-                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 누르면 아래에서 색을 바꿀 수 있음`
+                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
                   }
                   aria-label={label}
                   className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
