@@ -615,12 +615,19 @@ function FillDot({ onStart }: { onStart: (e: React.MouseEvent) => void }) {
 }
 
 // 머리글 오른쪽 끝을 끌어 열 폭 바꾸기
-function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number) => void }) {
+// 경계 위 버튼(열 추가 · 행 추가 · 구분 나누기): 흰 바탕 · 파란 글자(연결하기 버튼과 같은 모양)
+const LINE_BTN =
+  'pointer-events-auto whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
+
+// 열 경계: 마우스를 올리면 표 끝까지 파란 선(끌어서 폭 조절) · 선 위에 추가 버튼(extra)
+function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResize?: (w: number) => void; lineH?: number; extra?: React.ReactNode }) {
   return (
     <span
       onMouseDown={(e) => {
+        if ((e.target as HTMLElement).closest('button')) return
         e.preventDefault()
         e.stopPropagation()
+        if (!onResize) return
         const x0 = e.clientX
         const move = (ev: MouseEvent) => onResize(Math.max(36, Math.round(width + ev.clientX - x0)))
         const up = () => {
@@ -633,9 +640,19 @@ function ResizeHandle({ width, onResize }: { width: number; onResize: (w: number
         window.addEventListener('mouseup', up)
       }}
       onClick={(e) => e.stopPropagation()}
-      title="끌어서 열 폭 조절"
-      className="absolute -right-[3px] top-0 z-10 h-full w-[6px] cursor-col-resize hover:bg-accent/50"
-    />
+      title={onResize ? '끌어서 열 폭 조절' : ''}
+      className={`group/rs absolute -right-[4px] top-0 z-30 h-full w-[8px] ${onResize ? 'cursor-col-resize' : ''}`}
+    >
+      <span
+        className="pointer-events-none absolute left-1/2 top-0 w-[2px] -translate-x-1/2 bg-accent opacity-0 group-hover/rs:opacity-100"
+        style={{ height: lineH ?? '100%' }}
+      />
+      {extra && (
+        <span title="" className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100">
+          {extra}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -1537,27 +1554,22 @@ export default function ScheduleTable({
     return null
   }
   // 머리글 오른쪽 경계 위쪽: 마우스를 올리면 "+ 열"과 빨간 세로선, 누르면 이 열 오른쪽에 새 열
-  const addColZone = (f: FieldDef, sub = false) =>
+  // 열 경계 위 "+ 열" 버튼(열 폭 조절 선 위에 뜬다)
+  const addColButton = (f: FieldDef) =>
     onAddColumns && !readOnly ? (
-      <span
-        className="group/addc absolute -right-[7px] top-0 z-30 h-[45%] w-[14px] cursor-pointer"
+      <button
+        className={LINE_BTN}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
           const r = e.currentTarget.getBoundingClientRect()
           setColAdd({ anchor: f.id, side: 'right', count: 1, x: Math.min(r.left - 120, window.innerWidth - 300), y: r.bottom + 30, text: '' })
         }}
-        aria-label="여기에 열 추가"
       >
-        <span className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/addc:opacity-100">
-          + 열
-        </span>
-        <span
-          className="pointer-events-none absolute left-1/2 top-0 w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100"
-          style={{ height: Math.max(0, tableH - (sub ? headTopH : 0)) }}
-        />
-      </span>
+        + 열
+      </button>
     ) : null
+  const subLineH = Math.max(0, tableH - headTopH) // 머리글 아래 줄에서 시작하는 선의 길이
   // ---- 채우기 점: 고른 범위를 아래·위·오른쪽·왼쪽으로 끌어 늘리면 원래 칸 값(서식 · 색 포함)을 반복해 채운다
   const [fillTo, setFillTo] = useState<{ r1: number; r2: number; c1: number; c2: number } | null>(null)
   const fillCorner = selRect && !readOnly && onCells ? `${rows[selRect.r2]?.row.key}|${editIds[selRect.c2]}` : null
@@ -1964,7 +1976,7 @@ export default function ScheduleTable({
             </th>
             <th rowSpan={2} style={{ left: WH, ...blackTh('l2') }} onContextMenu={headMenuOn('l2')} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
-              {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} />}
+              {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} lineH={tableH} />}
             </th>
             <th
               rowSpan={2}
@@ -1973,7 +1985,7 @@ export default function ScheduleTable({
               className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}
             >
               과제(L3)
-              {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} />}
+              {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} lineH={tableH} />}
             </th>
             {scheduleOpen ? (
               months.map((m, i) => (
@@ -2017,7 +2029,7 @@ export default function ScheduleTable({
                     <ChevronsRight size={14} strokeWidth={2} />
                   </button>
                 )}
-                {onResize && <ResizeHandle width={wSummary} onResize={(v) => resizeTo('summary', v)} />}
+                {onResize && <ResizeHandle width={wSummary} onResize={(v) => resizeTo('summary', v)} lineH={tableH} />}
               </th>
             ) : null}
             {cols.map((f) => {
@@ -2047,8 +2059,9 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
-                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
-                  {addColZone(f)}
+                  {(onResize || onAddColumns) && (
+                    <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={tableH} extra={addColButton(f)} />
+                  )}
                 </th>
               )
             })}
@@ -2063,7 +2076,7 @@ export default function ScheduleTable({
                   className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
                 >
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => resizeTo('week', Math.max(8, v))} />}
+                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => resizeTo('week', Math.max(8, v))} lineH={subLineH} />}
                 </th>
               ))}
             {cols
@@ -2078,8 +2091,9 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
-                  {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
-                  {addColZone(f, true)}
+                  {(onResize || onAddColumns) && (
+                    <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={subLineH} extra={addColButton(f)} />
+                  )}
                 </th>
               ))}
           </tr>
@@ -2123,31 +2137,41 @@ export default function ScheduleTable({
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
-                      {/* 행 경계(이 행 아래): 행 머리 왼쪽 절반에 마우스를 올리면 표 끝까지 빨간 선 + "+ 행" · "구분 나누기"
-                          (열 머리의 "+ 열"과 같은 모양 · 오른쪽 절반은 행 높이 조절) */}
-                      {!readOnly &&
-                        !v.deleted &&
-                        (() => {
-                          const next = g.rows[ri + 1]
-                          const canSplit = !!onSplitGroup && !!next && !next.row.isNew && !next.deleted
-                          if (!onAddRow && !canSplit) return null
-                          const pill = 'whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white shadow hover:bg-black'
-                          return (
+                      {/* 행 아래 경계: 마우스를 올리면 표 끝까지 파란 선 · 끌면 행 높이 조절(더블클릭 = 자동 높이)
+                          선 위에 "+ 행" · "구분 나누기"(같은 구분 안 줄 사이) -- 열 경계와 같은 모양 */}
+                      {(() => {
+                        const next = g.rows[ri + 1]
+                        const canAdd = !readOnly && !v.deleted && !!onAddRow
+                        const canSplit = !readOnly && !v.deleted && !!onSplitGroup && !!next && !next.row.isNew && !next.deleted
+                        return (
+                          <span
+                            onMouseDown={(e) => {
+                              if ((e.target as HTMLElement).closest('button')) return
+                              startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))
+                            }}
+                            onDoubleClick={(e) => {
+                              if ((e.target as HTMLElement).closest('button')) return
+                              e.stopPropagation()
+                              setRowHeight(v.row.key, null)
+                            }}
+                            title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
+                            className="group/bd absolute -bottom-[4px] left-0 z-40 h-[8px] w-full cursor-row-resize"
+                          >
                             <span
-                              className="group/bd absolute -bottom-[2px] left-0 z-40 h-[9px] w-[45%] cursor-pointer"
-                              onMouseDown={(e) => e.stopPropagation()}
-                            >
+                              className="pointer-events-none absolute left-0 top-1/2 h-[2px] -translate-y-1/2 bg-accent opacity-0 group-hover/bd:opacity-100"
+                              style={{ width: tableWidth }}
+                            />
+                            {(canAdd || canSplit) && (
                               <span
-                                className="pointer-events-none absolute left-0 top-1/2 h-[2px] -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/bd:opacity-100"
-                                style={{ width: tableWidth }}
-                              />
-                              <span className="pointer-events-none absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 pl-1 opacity-0 group-hover/bd:pointer-events-auto group-hover/bd:opacity-100">
-                                {onAddRow && (
+                                title=""
+                                className="pointer-events-none absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 pl-1 opacity-0 group-hover/bd:opacity-100"
+                              >
+                                {canAdd && (
                                   <button
-                                    className={pill}
+                                    className={LINE_BTN}
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      onAddRow(v.row, 'below')
+                                      onAddRow!(v.row, 'below')
                                     }}
                                   >
                                     + 행
@@ -2155,7 +2179,7 @@ export default function ScheduleTable({
                                 )}
                                 {canSplit && (
                                   <button
-                                    className={pill}
+                                    className={LINE_BTN}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       const r = e.currentTarget.getBoundingClientRect()
@@ -2166,19 +2190,10 @@ export default function ScheduleTable({
                                   </button>
                                 )}
                               </span>
-                            </span>
-                          )
-                        })()}
-                      {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
-                      <span
-                        onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation()
-                          setRowHeight(v.row.key, null)
-                        }}
-                        title={rowH ? `행 높이 ${rowH}px · 끌어서 조절 · 더블클릭하면 자동` : '끌어서 행 높이 조절'}
-                        className="absolute -bottom-[3px] left-0 z-20 h-[6px] w-full cursor-row-resize hover:bg-accent/50"
-                      />
+                            )}
+                          </span>
+                        )
+                      })()}
                     </td>
                     {ri === 0 && (
                       <td
@@ -2204,7 +2219,7 @@ export default function ScheduleTable({
                         }}
                         title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
-                        className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-1px_0_#C9CDD3] text-center align-top font-bold text-label ${
+                        className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-0.5px_0_#C9CDD3,0_0.5px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
@@ -2330,42 +2345,14 @@ export default function ScheduleTable({
                         </div>
                         {l3Note && <NoteMark />}
                         {fillCorner === `${v.row.key}|name` && <FillDot onStart={fillStart} />}
-                        {/* 마우스를 올리면 오른쪽에: 메모 추가(수정) · 메모 삭제 / 지운 과제는 삭제 취소 */}
-                        <span
-                          className={`absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100 ${readOnly ? 'hidden' : ''}`}
-                        >
-                          {v.deleted ? (
-                            onRestoreRow && (
-                              <RowIcon label="삭제 취소" onClick={() => onRestoreRow(v.row)}>
-                                <Undo2 size={13} strokeWidth={2} />
-                              </RowIcon>
-                            )
-                          ) : (
-                            <>
-                              <RowIcon
-                                label={l3Note ? '메모 수정' : '메모 추가'}
-                                onClick={(e) => {
-                                  const r = e.currentTarget.getBoundingClientRect()
-                                  setNoteEdit({
-                                    row: v.row,
-                                    key: 'name',
-                                    kind: 'field',
-                                    x: Math.min(r.left, window.innerWidth - 300),
-                                    y: Math.min(r.bottom + 4, window.innerHeight - 220),
-                                    text: l3Note ?? '',
-                                  })
-                                }}
-                              >
-                                <StickyNote size={13} strokeWidth={2} />
-                              </RowIcon>
-                              {l3Note && (
-                                <RowIcon label="메모 삭제" danger onClick={() => onNote(v.row, 'name', '')}>
-                                  <Trash2 size={13} strokeWidth={2} />
-                                </RowIcon>
-                              )}
-                            </>
-                          )}
-                        </span>
+                        {/* 지운 과제: 마우스를 올리면 삭제 취소 (메모 추가 · 수정 · 삭제는 우클릭 메뉴에서만) */}
+                        {v.deleted && onRestoreRow && !readOnly && (
+                          <span className="absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100">
+                            <RowIcon label="삭제 취소" onClick={() => onRestoreRow(v.row)}>
+                              <Undo2 size={13} strokeWidth={2} />
+                            </RowIcon>
+                          </span>
+                        )}
                       </td>
                     )}
                     {scheduleOpen ? (
