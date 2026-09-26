@@ -18,13 +18,13 @@ const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
 export default function TaskInputApp() {
   const [menu, setMenu] = useState<Menu>('progress')
   // 맨 위 오른쪽 로그인 정보(성과관리 화면과 같은 모양)
-  const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
+  const { accountEmail, role, refreshAccount, handleLogout } = useGoogleAccount()
   return (
     <div className="flex min-h-screen flex-col bg-white">
       <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
         <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
           <AreaSwitch className="-ml-1" />
-          {canPerf && <span className="hidden h-5 w-px bg-separator sm:inline-block" />}
+          <span className="hidden h-5 w-px bg-separator sm:inline-block" />
           {/* 추진현황 연도(성과관리의 프로젝트 고르기와 같은 모양) -- 추진현황 화면이 채운다 */}
           <span id={PROGRESS_MENU_SLOT} className="flex" />
           {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}

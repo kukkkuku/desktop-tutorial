@@ -22,6 +22,7 @@ import SheetImportPanel from './work/SheetImportPanel'
 import Segmented from './ui/Segmented'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
+import { clearTaskInputData } from '../utils/progressBoard'
 
 interface DataManagerDrawerProps {
   open: boolean
@@ -66,6 +67,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   const [resetError, setResetError] = useState<string | null>(null)
   const [backupJson, setBackupJson] = useState(true)
   const [backupExcel, setBackupExcel] = useState(true)
+  // 과제 입력(이 브라우저에 저장된 추진현황)도 같이 지우기
+  const [clearTasks, setClearTasks] = useState(false)
   const isBusy = loadingLabel !== null
 
   // 로컬 저장 위치 -- 지정해두면 "전체 양식 ZIP/JSON 백업/엑셀 백업"이 브라우저
@@ -100,10 +103,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   // 남아있을 수 있고, 초기화는 그것까지 전부 지우기 때문이다.
   const hasAnyWorkspaceData = workspaces.length > 0
 
-  const periodsForTeam = useMemo(
-    () => workspaces.filter((w) => w.teamName === currentWorkspace?.teamName),
-    [workspaces, currentWorkspace],
-  )
+  const periodsForTeam = useMemo(() => workspaces.filter((w) => w.teamName === currentWorkspace?.teamName), [workspaces, currentWorkspace])
 
   // 전체 데이터 초기화는 지금 열린 프로젝트 하나가 아니라, 지금 로그인된
   // 이 계정에 저장된 모든 팀·평가 데이터를 지운다(계정별로 저장 키가
@@ -140,15 +140,14 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         return
       }
     }
-    wipeAllAppData()
+    if (clearTasks) clearTaskInputData()
+    if (hasAnyWorkspaceData) wipeAllAppData()
+    else window.location.reload()
   }
 
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
-      <div
-        className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}
-        onClick={onClose}
-      />
+      <div className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       <div
         className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
@@ -166,8 +165,24 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             value={tab === 'reset' ? ('' as Tab) : tab}
             onChange={setTab}
             items={[
-              { key: 'local', label: <span className="flex items-center gap-1.5"><Monitor {...icSm} />로컬 파일</span> },
-              { key: 'drive', label: <span className="flex items-center gap-1.5"><HardDrive {...icSm} />Google Drive</span> },
+              {
+                key: 'local',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <Monitor {...icSm} />
+                    로컬 파일
+                  </span>
+                ),
+              },
+              {
+                key: 'drive',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <HardDrive {...icSm} />
+                    Google Drive
+                  </span>
+                ),
+              },
             ]}
           />
           <Button
@@ -234,9 +249,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   뺐다. */}
               <div className="rounded-card border border-separator p-4">
                 <p className="text-[13px] font-semibold text-label">지금 데이터 백업</p>
-                <p className="mt-0.5 text-[13px] text-label-2">
-                  현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.
-                </p>
+                <p className="mt-0.5 text-[13px] text-label-2">현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     로컬 파일로 백업 (JSON)
@@ -280,13 +293,13 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             </div>
           )}
 
-
           {tab === 'reset' && (
             <div className="mx-auto max-w-2xl space-y-4">
               <div className="rounded-card border border-danger/25 bg-danger/[0.04] p-5">
                 <p className="text-[15px] font-semibold text-danger">전체 데이터 초기화</p>
                 <p className="mt-2 text-[13px] leading-relaxed text-label">
-                  초기화 범위를 선택하세요. 두 기능 모두 지금 열려 있는 프로젝트 하나가 아니라 <span className="font-semibold">모든 팀·프로젝트 데이터</span>를 대상으로 합니다.
+                  초기화 범위를 선택하세요. 두 기능 모두 지금 열려 있는 프로젝트 하나가 아니라 <span className="font-semibold">모든 팀·프로젝트 데이터</span>를
+                  대상으로 합니다.
                 </p>
                 <p className="text-[13px] text-danger">아래에서 먼저 백업하세요.</p>
 
@@ -315,13 +328,24 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 </div>
               </div>
 
+              <label className="flex items-start gap-2 rounded-card border border-separator bg-white px-5 py-3 text-[13px] text-label">
+                <input type="checkbox" className="mt-0.5" checked={clearTasks} onChange={(e) => setClearTasks(e.target.checked)} />
+                <span>
+                  <span className="font-semibold">과제 입력 데이터도 같이 지우기</span>
+                  <span className="block text-xs text-label-2">
+                    이 브라우저에 저장된 추진현황 · 저장 안 한 고친 내용 · 이 브라우저에서 만든 연도 · 진척률 수정값. 구글시트는 건드리지 않고, 연결한 시트는
+                    그대로입니다.
+                  </span>
+                </span>
+              </label>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-card border border-separator bg-white p-5">
                   <p className="text-[15px] font-semibold text-label">이 브라우저 데이터만 초기화</p>
                   <p className="mt-2 text-xs leading-relaxed text-label-2">
                     이 브라우저에 저장된 데이터를 비웁니다. Google Drive에 저장한 데이터는 그대로 남아, 다시 연결하면 복원할 수 있습니다.
                   </p>
-                  <Button variant="secondary" onClick={() => setResetMode('local')} disabled={!hasAnyWorkspaceData} className="mt-4">
+                  <Button variant="secondary" onClick={() => setResetMode('local')} disabled={!hasAnyWorkspaceData && !clearTasks} className="mt-4">
                     이 브라우저만 초기화
                   </Button>
                 </div>
@@ -346,9 +370,10 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         open={resetMode !== null}
         title={resetMode === 'drive' ? 'Google Drive 포함 전체 초기화' : '이 브라우저 데이터만 초기화'}
         message={
-          resetMode === 'drive'
+          (resetMode === 'drive'
             ? `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개 데이터를 지우고,\n${getConnectedEmail() ?? ''} 드라이브의 성장관리 폴더를 휴지통으로 옮깁니다.\n휴지통은 드라이브에서 30일 안에 되살릴 수 있습니다. 계속하시겠습니까?`
-            : `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개 데이터를 지우고 처음 화면으로 돌아갑니다.\nGoogle Drive에 저장한 데이터는 남아 있어 다시 연결하면 복원할 수 있습니다. 계속하시겠습니까?`
+            : `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개 데이터를 지우고 처음 화면으로 돌아갑니다.\nGoogle Drive에 저장한 데이터는 남아 있어 다시 연결하면 복원할 수 있습니다. 계속하시겠습니까?`) +
+          (clearTasks ? '\n\n과제 입력 데이터(이 브라우저에 저장된 추진현황 · 고친 내용 · 만든 연도)도 함께 지웁니다.' : '')
         }
         onConfirm={handleResetConfirm}
         onCancel={() => setResetMode(null)}

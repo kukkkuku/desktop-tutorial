@@ -1273,3 +1273,21 @@ function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], co
   flush()
   return out
 }
+
+// 과제 입력 데이터(이 브라우저에 저장된 추진현황 · 고친 내용 · 만든 연도 · 진척률 수정값)를 지운다.
+// 구글시트와 연결 설정(어느 시트를 쓰는지)은 그대로 둔다 -- 다시 불러오면 시트 내용으로 시작한다.
+export function clearTaskInputData() {
+  const scope = accountScope()
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (!k) continue
+      const mine = k.endsWith(`:${scope}`) || k.includes(`:${scope}:`)
+      if (mine && (k.startsWith('progress-rate:') || (k.startsWith('progress-board:') && !k.startsWith('progress-board:sheet:')))) keys.push(k)
+    }
+    for (const k of keys) localStorage.removeItem(k)
+  } catch {
+    // 무시
+  }
+}
