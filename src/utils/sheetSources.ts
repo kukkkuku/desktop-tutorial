@@ -371,6 +371,10 @@ export interface SheetPlan {
   remerge?: SheetMergeOp[]
   unmergeCells?: SheetRange[] // 줄을 옮기기 전에 풀 입력 열 병합(지금 행 번호)
   mergeCells?: SheetRange[] // 모두 끝난 뒤 병합할 입력 열 칸(끝난 뒤 행 번호)
+  colDeletes?: number[] // 맨 끝에 지울 열(오른쪽부터)
+  colInserts?: number[] // 그다음 끼워 넣을 열 자리(적힌 순서대로)
+  colAfter?: SheetCellWrite[] // 열 작업이 끝난 뒤 쓸 칸(새 열 머리글 · 값)
+  colMerges?: SheetRange[] // 새 열 머리글 세로 병합
 }
 
 function fromHex(hex: string | null) {
@@ -451,6 +455,12 @@ export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
   for (const c of plan.after ?? []) requests.push(cellRequest(sheetGid, c))
   for (const m of plan.remerge ?? []) if (m.merge) requests.push({ mergeCells: { range: range(m), mergeType: 'MERGE_ALL' } })
   for (const m of plan.mergeCells ?? []) requests.push({ mergeCells: { range: rect(m), mergeType: 'MERGE_ALL' } })
+  for (const c of [...(plan.colDeletes ?? [])].sort((a, b) => b - a))
+    requests.push({ deleteDimension: { range: { sheetId: sheetGid, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 } } })
+  for (const c of plan.colInserts ?? [])
+    requests.push({ insertDimension: { range: { sheetId: sheetGid, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, inheritFromBefore: c > 0 } })
+  for (const c of plan.colAfter ?? []) requests.push(cellRequest(sheetGid, c))
+  for (const m of plan.colMerges ?? []) requests.push({ mergeCells: { range: rect(m), mergeType: 'MERGE_ALL' } })
   return requests
 }
 

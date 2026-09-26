@@ -8,6 +8,7 @@ import {
   effectiveBg,
   effectiveFmt,
   effectiveMerges,
+  effectiveFields,
   effectiveCells,
   effectiveField,
   effectiveNote,
@@ -40,7 +41,10 @@ export function exportRows(data: ProgressData, drafts: Drafts, l1s: string[]): P
   )
 }
 
-export function buildProgressWorkbook(data: ProgressData, drafts: Drafts, l1s: string[]): ExcelJS.Workbook {
+export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: string[]): ExcelJS.Workbook {
+  // 새 열 · 지운 열을 얹은 입력 열로
+  const eff = effectiveFields(data0.fields, data0.headerStyle, drafts)
+  const data: ProgressData = { ...data0, fields: eff.fields, headerStyle: eff.headerStyle }
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet((data.tabTitle || '추진현황').slice(0, 31))
   const hs = data.headerStyle

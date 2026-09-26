@@ -605,7 +605,9 @@ export function countDrafts(d: Drafts): number {
     d.newRows.length +
     (d.deleted?.length ?? 0) +
     (d.moves?.length ?? 0) +
-    (d.merges?.length ?? 0)
+    (d.merges?.length ?? 0) +
+    (d.newCols?.length ?? 0) +
+    (d.delCols?.length ?? 0)
   )
 }
 

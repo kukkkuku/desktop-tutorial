@@ -4,9 +4,24 @@
 //   · 입력 열(속성·분류·상태…)은 칸을 눌러 그 자리에서 입력한다.
 //   · 칸에서 우클릭: 메모 추가·수정·삭제, 칸 색 / 행 색 바꾸기.
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronsLeft, ChevronsRight, ListFilter, Plus, StickyNote, TableCellsMerge, TableCellsSplit, Trash2, Undo2 } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Bold,
+  ChevronsLeft,
+  ChevronsRight,
+  ClipboardPaste,
+  Copy,
+  ListFilter,
+  Plus,
+  StickyNote,
+  TableCellsMerge,
+  TableCellsSplit,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -14,6 +29,33 @@ import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import ColorPalette from './ColorPalette'
 import FormatBar from './FormatBar'
 import { parseFmt, type CellFmt } from '../../utils/sheetSources'
+
+// 붙여넣은 글(탭 · 줄바꿈으로 나눈 표, 따옴표 안 줄바꿈 허용)
+function parseTsv(text: string): string[][] {
+  const out: string[][] = [[]]
+  let cur = ''
+  let q = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (q) {
+      if (ch === '"' && text[i + 1] === '"') {
+        cur += '"'
+        i++
+      } else if (ch === '"') q = false
+      else cur += ch
+    } else if (ch === '"' && cur === '') q = true
+    else if (ch === '\t') {
+      out[out.length - 1].push(cur)
+      cur = ''
+    } else if (ch === '\n') {
+      out[out.length - 1].push(cur)
+      out.push([])
+      cur = ''
+    } else cur += ch
+  }
+  out[out.length - 1].push(cur)
+  return out
+}
 
 // 서식 막대를 띄울 자리(ProgressBoard 도구 줄)
 export const FORMAT_BAR_SLOT = 'pb-format-slot'
@@ -476,7 +518,7 @@ function RowIcon({
   )
 }
 
-type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week' | 'group'; x: number; y: number }
+type Menu = { row: ProgressRow; key: string; kind: 'field' | 'week' | 'group' | 'row'; x: number; y: number }
 
 export interface FilterOption {
   value: string
@@ -574,6 +616,11 @@ export default function ScheduleTable({
   merges = [],
   heightReset = 0,
   onMerge,
+  onCells,
+  onAddRows,
+  onAddColumns,
+  onDeleteColumns,
+  onRenameColumn,
   fontSize = 13,
   rowPad = 0,
   readOnly = false,
@@ -617,6 +664,19 @@ export default function ScheduleTable({
   onFmt?: (list: { row: ProgressRow; id: string }[], patch: CellFmt | null) => void // 고른 칸 글자 서식(null = 기본으로)
   merges?: CellMerge[] // 입력 열 칸 병합(행 키 × 열 id)
   onMerge?: (rows: ProgressRow[], ids: string[], merge: boolean) => void // 고른 칸 병합 · 병합 해제
+  onCells?: (
+    list: { row: ProgressRow; id: string; value?: string; fmt?: string; bg?: string }[],
+    append?: { row: ProgressRow; values: { fields: Record<string, string>; bg: Record<string, string>; fmt: Record<string, string> }[] },
+  ) => void // 여러 칸 값 · 서식 · 색(붙여넣기 · 셀 삽입). append = 끝에 새 과제 줄도 같이
+  onAddRows?: (
+    row: ProgressRow,
+    where: 'above' | 'below',
+    count: number,
+    values?: { fields: Record<string, string>; bg: Record<string, string>; fmt: Record<string, string> }[],
+  ) => void
+  onAddColumns?: (anchor: string, side: 'left' | 'right', labels: string[]) => void // 입력 열 끼워 넣기
+  onDeleteColumns?: (ids: string[]) => void
+  onRenameColumn?: (id: string, label: string) => void // 새 열 이름 고치기
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
   heightReset?: number // 바뀌면 끌어서 정한 행 높이를 모두 지운다
@@ -788,7 +848,16 @@ export default function ScheduleTable({
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
-  const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | null>(null)
+  const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | 'text' | null>(null)
+  // 메뉴가 화면 아래로 넘치면 위로 올린다
+  const menuBoxRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = menuBoxRef.current
+    if (!el || !menu) return
+    el.style.top = `${menu.y}px`
+    const r = el.getBoundingClientRect()
+    if (r.bottom > window.innerHeight - 8) el.style.top = `${Math.max(8, window.innerHeight - r.height - 8)}px`
+  })
   useEffect(() => {
     if (!menu) setPaletteFor(null)
   }, [menu])
@@ -840,6 +909,7 @@ export default function ScheduleTable({
   // 키보드로 칸 옮기기(구글시트처럼): Tab → 오른쪽, 줄 끝이면 다음 줄 과제(L3)부터 · Enter → 아래 줄 같은 열
   // 방향키 · Tab · Enter로 선택 옮기기: Tab은 줄 끝에서 다음 줄 과제(L3)로
   const editIds = ['name', ...cols.map((f) => f.id)]
+  const rowIndexOf = new Map(rows.map((v, i) => [v.row.key, i]))
   // 선택 범위(행 · 열 번호). 한 칸만 골랐으면 null
   const range = (() => {
     if (!sel || !selEnd || (sel.row === selEnd.row && sel.id === selEnd.id)) return null
@@ -875,6 +945,182 @@ export default function ScheduleTable({
     const t = rows[ri]
     if (t) setSelEnd({ row: t.row.key, id: editIds[ci] })
   }
+  // 지금 고른 칸 범위(범위가 없으면 고른 칸 하나)
+  const selRect = (() => {
+    if (range) return range
+    if (!sel) return null
+    const r = rowIndexOf.get(sel.row)
+    const c = editIds.indexOf(sel.id)
+    return r !== undefined && c >= 0 ? { r1: r, r2: r, c1: c, c2: c } : null
+  })()
+  // ---- 복사 · 붙여넣기(⌘/Ctrl+C · V, 우클릭). 이 표에서 복사한 것은 서식 · 칸 색까지 붙인다.
+  type ClipCell = { value: string; fmt?: string; bg?: string }
+  const [clip, setClip] = useState<{ tsv: string; ids: string[]; cells: ClipCell[][] } | null>(null)
+  function copySel() {
+    if (!selRect) return null
+    const ids = editIds.slice(selRect.c1, selRect.c2 + 1)
+    const cells = rows.slice(selRect.r1, selRect.r2 + 1).map((v) => ids.map((id) => ({ value: v.vals[id] ?? '', fmt: v.fmt?.[id] ?? '', bg: v.bg[id] ?? '' })))
+    const q = (t: string) => (/[\t\n"]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t)
+    const c = { tsv: cells.map((r) => r.map((x) => q(x.value)).join('\t')).join('\n'), ids, cells }
+    setClip(c)
+    return c
+  }
+  function pasteCells(cells: ClipCell[][]) {
+    if (!selRect || !onCells || readOnly || !cells.length || !cells[0].length) return
+    const one = cells.length === 1 && cells[0].length === 1
+    const fill = one && (selRect.r2 > selRect.r1 || selRect.c2 > selRect.c1) // 한 칸을 복사해 여러 칸에 붙이면 모두 채움
+    const H = fill ? selRect.r2 - selRect.r1 + 1 : cells.length
+    const W = fill ? selRect.c2 - selRect.c1 + 1 : cells[0].length
+    const list: { row: ProgressRow; id: string; value?: string; fmt?: string; bg?: string }[] = []
+    for (let i = 0; i < H; i++) {
+      const v = rows[selRect.r1 + i]
+      if (!v) break
+      if (v.deleted) continue
+      for (let j = 0; j < W; j++) {
+        const id = editIds[selRect.c1 + j]
+        if (!id) break
+        const x = fill ? cells[0][0] : cells[i][j]
+        if (!x) continue
+        list.push({ row: v.row, id, value: x.value, ...(x.fmt !== undefined ? { fmt: x.fmt } : {}), ...(x.bg !== undefined ? { bg: x.bg } : {}) })
+      }
+    }
+    if (!list.length) return
+    onCells(list)
+    const last = rows[Math.min(rows.length - 1, selRect.r1 + H - 1)]
+    const lastId = editIds[Math.min(editIds.length - 1, selRect.c1 + W - 1)]
+    if (H > 1 || W > 1) setSelEnd({ row: last.row.key, id: lastId })
+  }
+  function pasteText(text: string) {
+    const t = text.replace(/\r\n?/g, '\n').replace(/\n$/, '')
+    if (clip && clip.tsv === t) pasteCells(clip.cells)
+    else pasteCells(parseTsv(t).map((r) => r.map((value) => ({ value }))))
+  }
+  function pasteFromMenu() {
+    if (clip) return pasteCells(clip.cells)
+    void navigator.clipboard?.readText?.().then(pasteText, () => {})
+  }
+  const clipRef = useRef({ copySel, pasteText, cut: () => {} })
+  clipRef.current = {
+    copySel,
+    pasteText,
+    cut: () => {
+      if (!selRect || !onCells || readOnly) return
+      const list: { row: ProgressRow; id: string; value: string }[] = []
+      for (let ri = selRect.r1; ri <= selRect.r2; ri++)
+        for (let ci = selRect.c1; ci <= selRect.c2; ci++) if (rows[ri] && !rows[ri].deleted) list.push({ row: rows[ri].row, id: editIds[ci], value: '' })
+      onCells(list)
+    },
+  }
+  useEffect(() => {
+    const inCell = () => !!(document.activeElement as HTMLElement | null)?.dataset?.cellSelect
+    const copy = (e: ClipboardEvent) => {
+      if (!inCell()) return
+      const c = clipRef.current.copySel()
+      if (!c) return
+      e.clipboardData?.setData('text/plain', c.tsv)
+      e.preventDefault()
+    }
+    const cut = (e: ClipboardEvent) => {
+      if (!inCell()) return
+      copy(e)
+      clipRef.current.cut()
+    }
+    const paste = (e: ClipboardEvent) => {
+      if (!inCell()) return
+      const t = e.clipboardData?.getData('text/plain')
+      if (t === undefined) return
+      e.preventDefault()
+      clipRef.current.pasteText(t)
+    }
+    document.addEventListener('copy', copy)
+    document.addEventListener('cut', cut)
+    document.addEventListener('paste', paste)
+    return () => {
+      document.removeEventListener('copy', copy)
+      document.removeEventListener('cut', cut)
+      document.removeEventListener('paste', paste)
+    }
+  }, [])
+  // 복사한 줄을 새 과제로 위/아래에 끼워 넣기
+  function insertCopied(row: ProgressRow, where: 'above' | 'below') {
+    if (!clip || !onAddRows) return
+    onAddRows(
+      row,
+      where,
+      clip.cells.length,
+      clip.cells.map((r) => ({
+        fields: Object.fromEntries(clip.ids.map((id, j) => [id, r[j].value])),
+        bg: Object.fromEntries(clip.ids.flatMap((id, j) => (r[j].bg ? [[id, r[j].bg!]] : []))),
+        fmt: Object.fromEntries(clip.ids.flatMap((id, j) => (r[j].fmt ? [[id, r[j].fmt!]] : []))),
+      })),
+    )
+  }
+  // ---- 셀 삽입: 고른 칸 자리에 빈 칸을 넣고 기존 칸을 오른쪽/아래로 민다(입력 열만 · 끝에서 밀려나는 값이 있으면 막음)
+  function shiftCells(dir: 'right' | 'down'): string | null {
+    if (!selRect || !onCells || readOnly) return null
+    const c1 = Math.max(1, selRect.c1)
+    const c2 = selRect.c2
+    if (c2 < c1) return 'L3(과제) 열에는 셀 삽입을 할 수 없습니다.'
+    const live = rows.filter((v) => !v.deleted)
+    const lr1 = live.findIndex((v) => v.row.key === rows[selRect.r1]?.row.key)
+    const lr2 = live.findIndex((v) => v.row.key === rows[selRect.r2]?.row.key)
+    if (lr1 < 0 || lr2 < 0) return null
+    const get = (v: ScheduleRowView, id: string) => ({ value: v.vals[id] ?? '', fmt: v.fmt?.[id] ?? '', bg: v.bg[id] ?? '' })
+    const empty = { value: '', fmt: '', bg: '' }
+    const list: { row: ProgressRow; id: string; value: string; fmt: string; bg: string }[] = []
+    if (dir === 'right') {
+      const n = c2 - c1 + 1
+      for (let r = lr1; r <= lr2; r++) {
+        const v = live[r]
+        const ids = editIds.slice(c1)
+        if (ids.slice(ids.length - n).some((id) => (v.vals[id] ?? '').trim())) return '맨 오른쪽 칸에 값이 있어 밀 수 없습니다. 열을 먼저 추가해 주세요.'
+        for (let j = ids.length - 1; j >= 0; j--) list.push({ row: v.row, id: ids[j], ...(j >= n ? get(v, ids[j - n]) : empty) })
+      }
+    } else {
+      const n = lr2 - lr1 + 1
+      const tail = live.slice(lr1)
+      const ids = editIds.slice(c1, c2 + 1)
+      for (const id of ids) for (let i = tail.length - 1; i >= 0; i--) list.push({ row: tail[i].row, id, ...(i >= n ? get(tail[i - n], id) : empty) })
+      // 맨 아래에서 밀려나는 값은 표 끝에 새 과제 줄을 만들어 담는다(이름을 넣어야 저장됨)
+      const out = tail.slice(Math.max(0, tail.length - n))
+      if (out.some((v) => ids.some((id) => (v.vals[id] ?? '').trim()))) {
+        onCells(list, {
+          row: live[live.length - 1].row,
+          values: out.map((v) => ({
+            fields: Object.fromEntries(ids.map((id) => [id, v.vals[id] ?? ''])),
+            bg: Object.fromEntries(ids.flatMap((id) => (v.bg[id] ? [[id, v.bg[id]]] : []))),
+            fmt: Object.fromEntries(ids.flatMap((id) => (v.fmt?.[id] ? [[id, v.fmt[id]]] : []))),
+          })),
+        })
+        return null
+      }
+    }
+    onCells(list)
+    return null
+  }
+  // 머리글 오른쪽 경계 위쪽: 마우스를 올리면 "+ 열"과 빨간 세로선, 누르면 이 열 오른쪽에 새 열
+  const addColZone = (f: FieldDef) =>
+    onAddColumns && !readOnly ? (
+      <span
+        className="group/addc absolute -right-[7px] top-0 z-30 h-[45%] w-[14px] cursor-pointer"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          const r = e.currentTarget.getBoundingClientRect()
+          setColAdd({ anchor: f.id, side: 'right', count: 1, x: Math.min(r.left - 120, window.innerWidth - 300), y: r.bottom + 30, text: '' })
+        }}
+        title="여기에 열 추가"
+      >
+        <span className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/addc:opacity-100">
+          + 열
+        </span>
+        <span className="pointer-events-none absolute left-1/2 top-0 h-[100vh] w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100" />
+      </span>
+    ) : null
+  // ---- 열 추가 이름 입력(우클릭 · 머리글 + 열)
+  const [colAdd, setColAdd] = useState<{ anchor: string; side: 'left' | 'right'; count: number; x: number; y: number; text: string; rename?: string } | null>(
+    null,
+  )
   // 범위 지우기(Delete): 지운 행 · 보기 전용은 건너뛴다
   function clearRange() {
     if (!range || readOnly) return
@@ -1066,7 +1312,6 @@ export default function ScheduleTable({
     if (!t || groupOfRow(t.row) !== groupOfRow(v.row)) return
     onMoveRow(v.row, t.row, dir < 0 ? 'above' : 'below')
   }
-  const rowIndexOf = new Map(rows.map((v, i) => [v.row.key, i]))
   // 병합 칸 배치: 지금 보이는 순서에서 줄 · 열이 붙어 있을 때만 합쳐 그린다(필터 등으로 떨어지면 따로 그림)
   const mergeAt = new Map<string, { span?: { r: number; c: number }; anchor: string; m: CellMerge; src: CellMerge }>() // 'rowKey|id' →
   for (const m0 of merges) {
@@ -1219,6 +1464,7 @@ export default function ScheduleTable({
                 >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
+                  {addColZone(f)}
                 </th>
               )
             })}
@@ -1248,6 +1494,7 @@ export default function ScheduleTable({
                 >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
+                  {addColZone(f)}
                 </th>
               ))}
           </tr>
@@ -1281,7 +1528,7 @@ export default function ScheduleTable({
                       onKeyDown={(e) => rowHeadKey(e, v)}
                       onContextMenu={(e) => {
                         setRowSel(v.row.key)
-                        openMenu(e, v.row, 'name', 'field')
+                        openMenu(e, v.row, 'name', 'row')
                       }}
                       title={`${v.row.row >= 0 ? `시트 ${v.row.row + 1}행` : '새 과제'} · 눌러서 행 선택 · 끌어서 옮기기(같은 구분 안에서) · Alt+↑/↓`}
                       style={{ left: 0 }}
@@ -1612,6 +1859,7 @@ export default function ScheduleTable({
 
       {menu && menuView && (
         <div
+          ref={menuBoxRef}
           className={`mac-pop fixed z-50 py-1 text-[13px] ${paletteFor ? 'w-[268px]' : 'w-[240px]'}`}
           style={{ left: Math.min(menu.x, window.innerWidth - (paletteFor ? 276 : 248)), top: menu.y }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -1688,220 +1936,433 @@ export default function ScheduleTable({
           ) : paletteFor ? (
             <div className="px-3 py-1.5">
               <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
-                ‹ {paletteFor === 'cell' ? '칸 색' : '행 색 (L3 · 입력 열 전체)'}
+                ‹ {paletteFor === 'cell' ? '칸 색' : paletteFor === 'text' ? '글자 색' : '행 색 (L3 · 입력 열 전체)'}
               </button>
               <ColorPalette
-                current={menuView.bg[menu.key] ?? ''}
+                current={
+                  paletteFor === 'text'
+                    ? (parseFmt(menuView.fmt?.[menu.key]).c ?? '')
+                    : paletteFor === 'row'
+                      ? (menuView.bg.name ?? '')
+                      : (menuView.bg[menu.key] ?? '')
+                }
                 sheetColors={sheetColors}
                 onPick={(hex) => {
-                  if (paletteFor === 'cell' && menuInRange) applyBg(hex)
-                  else onBg(menu.row, paletteFor === 'cell' ? [menu.key] : allIds, hex)
+                  if (paletteFor === 'text') applyFmt({ c: hex && hex !== '000000' ? hex : undefined })
+                  else if (paletteFor === 'cell') applyBg(hex)
+                  else onBg(menu.row, allIds, hex)
                   setMenu(null)
                 }}
               />
             </div>
           ) : (
-            <>
-              <button
-                onClick={() => {
-                  setNoteEdit({ ...menu, text: menuView.notes[menu.key] ?? '' })
-                  setMenu(null)
-                }}
-                className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
-              >
-                {menuView.notes[menu.key] ? '메모 수정' : '메모 추가'}
-              </button>
-              {menuView.notes[menu.key] && (
-                <button
-                  onClick={() => {
-                    onNote(menu.row, menu.key, '')
-                    setMenu(null)
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
-                >
-                  메모 삭제
-                </button>
-              )}
-              {onAddRow && (
+            (() => {
+              const noteKey = menu.kind === 'row' ? 'name' : menu.key
+              const item = 'flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05] disabled:opacity-40 disabled:hover:bg-transparent'
+              const ic = { size: 14, strokeWidth: 1.9, className: 'shrink-0 text-label-2' }
+              const hint = (t: string) => <span className="ml-auto text-[11px] text-label-3">{t}</span>
+              const close = () => setMenu(null)
+              // 고른 범위(우클릭한 칸이 범위 안일 때)
+              const rect = menu.kind === 'field' && menuInRange && range ? range : null
+              const nRows = rect ? rect.r2 - rect.r1 + 1 : 1
+              const selIds = rect ? editIds.slice(rect.c1, rect.c2 + 1) : [menu.key]
+              const colIds = selIds.filter((id) => id !== 'name')
+              const nCols = Math.max(1, colIds.length)
+              const topRow = rect ? rows[rect.r1].row : menu.row
+              const bottomRow = rect ? rows[rect.r2].row : menu.row
+              // 열 넣을 자리: L3만 골랐으면 첫 입력 열 왼쪽
+              const leftAt = colIds[0] ? { anchor: colIds[0], side: 'left' as const } : null
+              const rightAt = colIds.length
+                ? { anchor: colIds[colIds.length - 1], side: 'right' as const }
+                : cols[0]
+                  ? { anchor: cols[0].id, side: 'left' as const }
+                  : null
+              const askCols = (at: { anchor: string; side: 'left' | 'right' }) => {
+                setColAdd({ ...at, count: nCols, x: menu.x, y: menu.y, text: '' })
+                close()
+              }
+              const sep = <div className="mac-menu-sep" />
+              return (
                 <>
-                  <div className="mac-menu-sep" />
-                  {(
-                    [
-                      ['above', '위에 과제 추가'],
-                      ['below', '아래에 과제 추가'],
-                    ] as const
-                  ).map(([where, label]) => (
-                    <button
-                      key={where}
-                      onClick={() => {
-                        onAddRow(menu.row, where)
-                        setMenu(null)
-                      }}
-                      className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </>
-              )}
-              {onDeleteRow && (
-                <button
-                  onClick={() => {
-                    if (menuRangeRows.length > 1) onDeleteRows ? onDeleteRows(menuRangeRows) : menuRangeRows.forEach(onDeleteRow)
-                    else onDeleteRow(menu.row)
-                    setMenu(null)
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
-                >
-                  {menuRangeRows.length > 1 ? `선택한 과제 ${menuRangeRows.length}개 삭제` : '과제 삭제'}
-                </button>
-              )}
-              {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (
-                <button
-                  onClick={() => {
-                    onRevertRow(menu.row)
-                    setMenu(null)
-                  }}
-                  className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                >
-                  이 행 고친 내용 되돌리기
-                </button>
-              )}
-              {menu.kind === 'field' &&
-                onMerge &&
-                (() => {
-                  // 병합: 고른 범위(L3 열 제외). 병합 해제: 우클릭한 칸 또는 범위에 걸친 병합
-                  const mRows = range && menuInRange ? rows.slice(range.r1, range.r2 + 1) : []
-                  const mIds = range && menuInRange ? editIds.slice(range.c1, range.c2 + 1).filter((id) => id !== 'name') : []
-                  const canMerge = mRows.length * mIds.length > 1 && mRows.every((v) => !v.deleted)
-                  const hit = merges.filter((m) =>
-                    mRows.length
-                      ? m.rows.some((k) => mRows.some((v) => v.row.key === k)) && m.ids.some((id) => mIds.includes(id))
-                      : m === mergeOf(menu.row.key, menu.key)?.src,
-                  )
-                  if (!canMerge && !hit.length) return null
-                  const lost = mRows.some((v, i) => mIds.some((id, j) => (i || j) && (v.vals[id] ?? '').trim()))
-                  return (
-                    <>
-                      <div className="mac-menu-sep" />
-                      {canMerge && (
-                        <button
-                          onClick={() => {
-                            onMerge(
-                              mRows.map((v) => v.row),
-                              mIds,
-                              true,
-                            )
-                            setMenu(null)
-                          }}
-                          className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                          title={lost ? '병합하면 맨 위 왼쪽 칸 값만 남고 나머지 칸 값은 지워집니다' : undefined}
-                        >
-                          <span className="flex items-center gap-2">
-                            <TableCellsMerge size={14} strokeWidth={1.9} className="text-label-2" />
-                            병합
-                          </span>
-                          <span className="text-[11px] text-label-3">{lost ? '왼쪽 위 값만 남음' : `${mRows.length}×${mIds.length}`}</span>
-                        </button>
-                      )}
-                      {hit.length > 0 && (
-                        <button
-                          onClick={() => {
-                            for (const m of hit) {
-                              const list = m.rows.map((k) => rows.find((v) => v.row.key === k)?.row).filter((r): r is ProgressRow => !!r)
-                              if (list.length) onMerge(list, m.ids, false)
-                            }
-                            setMenu(null)
-                          }}
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                        >
-                          <TableCellsSplit size={14} strokeWidth={1.9} className="text-label-2" />
-                          병합 해제(나누기){hit.length > 1 ? ` · ${hit.length}곳` : ''}
-                        </button>
-                      )}
-                    </>
-                  )
-                })()}
-              {menu.kind === 'field' && onFmt && (
-                <>
-                  <div className="mac-menu-sep" />
-                  {menuInRange && (
+                  <button
+                    onClick={() => {
+                      setNoteEdit({ ...menu, key: noteKey, text: menuView.notes[noteKey] ?? '' })
+                      close()
+                    }}
+                    className={item}
+                  >
+                    <StickyNote {...ic} />
+                    {menuView.notes[noteKey] ? '메모 수정' : '메모 추가'}
+                  </button>
+                  {menuView.notes[noteKey] && (
                     <button
                       onClick={() => {
-                        clearRange()
-                        setMenu(null)
+                        onNote(menu.row, noteKey, '')
+                        close()
                       }}
-                      className="block w-full px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                      className={`${item} text-danger`}
                     >
-                      선택한 칸 {fmtTargets.length}개 내용 지우기
+                      <Trash2 {...ic} className="shrink-0 text-danger" />
+                      메모 삭제
                     </button>
                   )}
-                  {(
-                    [
-                      ['bold', anchorFmt.b ? '굵게 해제' : '굵게', '⌘B'],
-                      ['1155CC', '글자 파랑', ''],
-                      ['FF0000', '글자 빨강', ''],
-                      ['plain', '글자 서식 · 색 없애기', ''],
-                    ] as const
-                  ).map(([k, label, hint]) => (
+                  {menu.kind === 'field' && onCells && (
+                    <>
+                      {sep}
+                      <button
+                        onClick={() => {
+                          const c = copySel()
+                          if (c) void navigator.clipboard?.writeText?.(c.tsv).catch(() => {})
+                          close()
+                        }}
+                        className={item}
+                      >
+                        <Copy {...ic} />
+                        복사{hint('⌘C')}
+                      </button>
+                      <button
+                        onClick={() => {
+                          pasteFromMenu()
+                          close()
+                        }}
+                        className={item}
+                      >
+                        <ClipboardPaste {...ic} />
+                        붙여넣기{hint('⌘V')}
+                      </button>
+                      {clip && onAddRows && (
+                        <>
+                          <button
+                            onClick={() => {
+                              insertCopied(topRow, 'above')
+                              close()
+                            }}
+                            className={item}
+                          >
+                            <ArrowUpToLine {...ic} />
+                            복사한 행 {clip.cells.length}개 위에 삽입
+                          </button>
+                          <button
+                            onClick={() => {
+                              insertCopied(bottomRow, 'below')
+                              close()
+                            }}
+                            className={item}
+                          >
+                            <ArrowDownToLine {...ic} />
+                            복사한 행 {clip.cells.length}개 아래에 삽입
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                  {(menu.kind === 'field' || menu.kind === 'row') && (onAddRows || onAddColumns) && (
+                    <>
+                      {sep}
+                      {onAddRows && (
+                        <>
+                          <button
+                            onClick={() => {
+                              onAddRows(topRow, 'above', nRows)
+                              close()
+                            }}
+                            className={item}
+                          >
+                            <Plus {...ic} />
+                            위에 행 {nRows}개 삽입
+                          </button>
+                          <button
+                            onClick={() => {
+                              onAddRows(bottomRow, 'below', nRows)
+                              close()
+                            }}
+                            className={item}
+                          >
+                            <Plus {...ic} />
+                            아래에 행 {nRows}개 삽입
+                          </button>
+                        </>
+                      )}
+                      {menu.kind === 'field' && onAddColumns && (
+                        <>
+                          {leftAt && (
+                            <button onClick={() => askCols(leftAt)} className={item}>
+                              <Plus {...ic} />
+                              왼쪽에 열 {nCols}개 삽입
+                            </button>
+                          )}
+                          {rightAt && (
+                            <button onClick={() => askCols(rightAt)} className={item}>
+                              <Plus {...ic} />
+                              오른쪽에 열 {nCols}개 삽입
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {menu.kind === 'field' && onCells && colIds.length > 0 && (
+                        <div className="group/sub relative">
+                          <button className={item}>
+                            <Plus {...ic} />셀 삽입
+                            <span className="ml-auto text-label-3">▸</span>
+                          </button>
+                          <div className="mac-pop invisible absolute left-full top-0 z-10 -ml-1 w-[250px] py-1 group-hover/sub:visible">
+                            {(
+                              [
+                                ['right', '셀을 삽입하고 기존 셀을 오른쪽으로 이동'],
+                                ['down', '셀을 삽입하고 기존 셀을 아래로 이동'],
+                              ] as const
+                            ).map(([d, label]) => (
+                              <button
+                                key={d}
+                                onClick={() => {
+                                  const why = shiftCells(d)
+                                  if (why) window.alert(why)
+                                  close()
+                                }}
+                                className={item}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {(onDeleteRow || (menu.kind === 'field' && onDeleteColumns && colIds.length > 0)) && sep}
+                  {onDeleteRow && (
                     <button
-                      key={k}
                       onClick={() => {
-                        if (k === 'bold') applyFmt({ b: anchorFmt.b ? undefined : true })
-                        else if (k === 'plain') applyFmt(null)
-                        else applyFmt({ c: k })
-                        setMenu(null)
+                        if (menuRangeRows.length > 1) onDeleteRows ? onDeleteRows(menuRangeRows) : menuRangeRows.forEach(onDeleteRow)
+                        else onDeleteRow(menu.row)
+                        close()
                       }}
-                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                      className={`${item} text-danger`}
                     >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="w-3.5 text-center text-[12px]"
-                          style={{ fontWeight: k === 'bold' ? 800 : 600, color: k === 'bold' || k === 'plain' ? undefined : `#${k}` }}
-                        >
-                          {k === 'plain' ? '–' : k === 'bold' ? 'B' : 'A'}
-                        </span>
-                        {label}
-                      </span>
-                      {hint && <span className="text-[11px] text-label-3">{hint}</span>}
+                      <Trash2 {...ic} className="shrink-0 text-danger" />
+                      {menuRangeRows.length > 1 ? `행 ${menuRangeRows.length}개 삭제` : '행 삭제'}
                     </button>
-                  ))}
-                </>
-              )}
-              {menu.kind === 'field' && (
-                <>
-                  <div className="mac-menu-sep" />
-                  {(
-                    [
-                      ['cell', '칸 색'],
-                      ['row', '행 색 (L3 · 입력 열 전체)'],
-                    ] as const
-                  ).map(([k, label]) => (
+                  )}
+                  {menu.kind === 'field' && onDeleteColumns && colIds.length > 0 && (
                     <button
-                      key={k}
-                      onClick={() => setPaletteFor(k)}
-                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                      onClick={() => {
+                        close()
+                        onDeleteColumns(colIds)
+                      }}
+                      className={`${item} text-danger`}
                     >
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/15"
-                          style={{ background: menuView.bg[menu.key] ? `#${menuView.bg[menu.key]}` : '#FFFFFF' }}
-                        />
-                        {label}
-                      </span>
-                      <span className="text-label-3">▸</span>
+                      <Trash2 {...ic} className="shrink-0 text-danger" />
+                      {colIds.length > 1 ? `열 ${colIds.length}개 삭제` : '열 삭제'}
                     </button>
-                  ))}
+                  )}
+                  {menu.kind === 'field' &&
+                    onMerge &&
+                    (() => {
+                      // 병합: 고른 범위(L3 열 제외). 병합 해제: 우클릭한 칸 또는 범위에 걸친 병합
+                      const mRows = range && menuInRange ? rows.slice(range.r1, range.r2 + 1) : []
+                      const mIds = range && menuInRange ? editIds.slice(range.c1, range.c2 + 1).filter((id) => id !== 'name') : []
+                      const canMerge = mRows.length * mIds.length > 1 && mRows.every((v) => !v.deleted)
+                      const hit = merges.filter((m) =>
+                        mRows.length
+                          ? m.rows.some((k) => mRows.some((v) => v.row.key === k)) && m.ids.some((id) => mIds.includes(id))
+                          : m === mergeOf(menu.row.key, menu.key)?.src,
+                      )
+                      if (!canMerge && !hit.length) return null
+                      const lost = mRows.some((v, i) => mIds.some((id, j) => (i || j) && (v.vals[id] ?? '').trim()))
+                      return (
+                        <>
+                          <div className="mac-menu-sep" />
+                          {canMerge && (
+                            <button
+                              onClick={() => {
+                                onMerge(
+                                  mRows.map((v) => v.row),
+                                  mIds,
+                                  true,
+                                )
+                                setMenu(null)
+                              }}
+                              className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                              title={lost ? '병합하면 맨 위 왼쪽 칸 값만 남고 나머지 칸 값은 지워집니다' : undefined}
+                            >
+                              <span className="flex items-center gap-2">
+                                <TableCellsMerge size={14} strokeWidth={1.9} className="text-label-2" />
+                                병합
+                              </span>
+                              <span className="text-[11px] text-label-3">{lost ? '왼쪽 위 값만 남음' : `${mRows.length}×${mIds.length}`}</span>
+                            </button>
+                          )}
+                          {hit.length > 0 && (
+                            <button
+                              onClick={() => {
+                                for (const m of hit) {
+                                  const list = m.rows.map((k) => rows.find((v) => v.row.key === k)?.row).filter((r): r is ProgressRow => !!r)
+                                  if (list.length) onMerge(list, m.ids, false)
+                                }
+                                setMenu(null)
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                            >
+                              <TableCellsSplit size={14} strokeWidth={1.9} className="text-label-2" />
+                              병합 해제(나누기){hit.length > 1 ? ` · ${hit.length}곳` : ''}
+                            </button>
+                          )}
+                        </>
+                      )
+                    })()}
+                  {menu.kind === 'field' && onFmt && (
+                    <>
+                      {sep}
+                      <button
+                        onClick={() => {
+                          applyFmt({ b: anchorFmt.b ? undefined : true })
+                          close()
+                        }}
+                        className={item}
+                      >
+                        <Bold {...ic} />
+                        {anchorFmt.b ? '굵게 해제' : '굵게'}
+                        {hint('⌘B')}
+                      </button>
+                      {(
+                        [
+                          ['text', '글자 색', parseFmt(menuView.fmt?.[menu.key]).c ?? '1D1D1F'],
+                          ['cell', '칸 색', menuView.bg[menu.key] ?? 'FFFFFF'],
+                        ] as const
+                      ).map(([k, label, hex]) => (
+                        <button key={k} onClick={() => setPaletteFor(k)} className={item}>
+                          <span className="h-3.5 w-3.5 shrink-0 rounded-[3px] ring-1 ring-inset ring-black/15" style={{ background: `#${hex}` }} />
+                          {label}
+                          <span className="ml-auto text-label-3">▸</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  {menu.kind === 'row' && (
+                    <>
+                      {sep}
+                      <button onClick={() => setPaletteFor('row')} className={item}>
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-[3px] ring-1 ring-inset ring-black/15"
+                          style={{ background: menuView.bg.name ? `#${menuView.bg.name}` : '#FFFFFF' }}
+                        />
+                        행 색 (L3 · 입력 열 전체)
+                        <span className="ml-auto text-label-3">▸</span>
+                      </button>
+                    </>
+                  )}
+                  {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (
+                    <>
+                      {sep}
+                      <button
+                        onClick={() => {
+                          onRevertRow(menu.row)
+                          close()
+                        }}
+                        className={item}
+                      >
+                        <Undo2 {...ic} />이 행 고친 내용 되돌리기
+                      </button>
+                    </>
+                  )}
                 </>
-              )}
-            </>
+              )
+            })()
           )}
+        </div>
+      )}
+
+      {colAdd && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setColAdd(null)}>
+          <form
+            className="mac-pop absolute w-[290px] p-2.5"
+            style={{ left: Math.max(8, Math.min(colAdd.x, window.innerWidth - 298)), top: Math.min(colAdd.y, window.innerHeight - 140) }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault()
+              const label = colAdd.text.trim() || '새 열'
+              if (colAdd.rename) onRenameColumn?.(colAdd.rename, label)
+              else
+                onAddColumns?.(colAdd.anchor, colAdd.side, colAdd.count === 1 ? [label] : Array.from({ length: colAdd.count }, (_, i) => `${label} ${i + 1}`))
+              setColAdd(null)
+            }}
+          >
+            <p className="text-[12px] font-semibold text-label">
+              {colAdd.rename ? '열 이름 고치기' : `${colAdd.side === 'left' ? '왼쪽' : '오른쪽'}에 새 열${colAdd.count > 1 ? ` ${colAdd.count}개` : ''}`}
+            </p>
+            <input
+              autoFocus
+              value={colAdd.text}
+              onChange={(e) => setColAdd({ ...colAdd, text: e.target.value })}
+              onKeyDown={(e) => e.key === 'Escape' && setColAdd(null)}
+              placeholder="열 이름(머리글)"
+              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+            />
+            {!colAdd.rename && <p className="mt-1 text-[11px] leading-snug text-label-3">저장하면 구글시트에도 이 자리에 열이 생깁니다.</p>}
+            <div className="mt-2 flex justify-end gap-1.5">
+              <button type="button" onClick={() => setColAdd(null)} className="rounded-control px-2.5 py-1 text-[12px] text-label-2 hover:bg-black/[0.05]">
+                취소
+              </button>
+              <button type="submit" className="rounded-control bg-accent px-2.5 py-1 text-[12px] font-semibold text-white">
+                {colAdd.rename ? '바꾸기' : '추가'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
       {headMenu && onHeadColor && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setHeadMenu(null)} onContextMenu={(e) => (e.preventDefault(), setHeadMenu(null))}>
           <div className="mac-pop absolute w-[268px] px-3 py-2" style={{ left: headMenu.x, top: headMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+            {cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns) && (
+              <div className="-mx-3 mb-1.5 border-b border-separator pb-1 text-[13px]">
+                {onAddColumns &&
+                  (['left', 'right'] as const).map((side) => (
+                    <button
+                      key={side}
+                      onClick={() => {
+                        setColAdd({ anchor: headMenu.key, side, count: 1, x: headMenu.x, y: headMenu.y, text: '' })
+                        setHeadMenu(null)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      <Plus size={14} strokeWidth={1.9} className="text-label-2" />
+                      {side === 'left' ? '왼쪽' : '오른쪽'}에 열 삽입
+                    </button>
+                  ))}
+                {onRenameColumn && headMenu.key.startsWith('newcol:') && (
+                  <button
+                    onClick={() => {
+                      setColAdd({
+                        anchor: headMenu.key,
+                        side: 'right',
+                        count: 1,
+                        x: headMenu.x,
+                        y: headMenu.y,
+                        text: cols.find((f) => f.id === headMenu.key)?.label ?? '',
+                        rename: headMenu.key,
+                      })
+                      setHeadMenu(null)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                  >
+                    <span className="w-3.5" />열 이름 고치기
+                  </button>
+                )}
+                {onDeleteColumns && (
+                  <button
+                    onClick={() => {
+                      const k = headMenu.key
+                      setHeadMenu(null)
+                      onDeleteColumns([k])
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
+                  >
+                    <Trash2 size={14} strokeWidth={1.9} />열 삭제
+                  </button>
+                )}
+              </div>
+            )}
             <p className="mb-1 text-[12px] font-semibold text-label-2">머리글 색</p>
             <ColorPalette
               current={headColors[headMenu.key] ?? ''}

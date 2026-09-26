@@ -70,6 +70,10 @@ import {
   effectiveNote,
   effectiveFmt,
   effectiveMerges,
+  effectiveFields,
+  NEW_COL_PREFIX,
+  type NewCol,
+  type NewRow,
   loadProgress,
   makeNewRow,
   makeNewGroup,
@@ -158,6 +162,7 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
     rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols, levelCols),
     levelCols,
     levelMerges: raw.merges.filter((m) => m.c1 === m.c2 && lc.includes(m.c1)),
+    headerRows: { top: parsed.header.headerRow, sub: Math.max(parsed.header.headerRow, parsed.header.dataStartRow - 1) },
     // 입력 열(L3 제외)끼리의 병합만(머리글 아래)
     fieldMerges: raw.merges.filter((m) => {
       if (m.r1 < parsed.header.dataStartRow) return false
@@ -739,6 +744,83 @@ export default function ProgressBoard() {
     })
   }
   // 우클릭한 행의 위/아래에 새 과제
+  // 위/아래에 과제 여러 줄(values가 있으면 그 값 · 색 · 서식으로 채운다: 복사한 줄 끼워 넣기)
+  type RowValues = { fields: Record<string, string>; bg: Record<string, string>; fmt: Record<string, string> }
+  function addRows(row: ProgressRow, where: 'above' | 'below', count: number, values?: RowValues[]) {
+    const list = buildNewRows(row, where, count, values)
+    if (!list.length) return
+    updateDrafts((d) => ({ ...d, newRows: [...d.newRows, ...list] }))
+    if (!values) setOpenKey(NEW_PREFIX + list[0].id)
+  }
+  function buildNewRows(row: ProgressRow, where: 'above' | 'below', count: number, values?: RowValues[]): NewRow[] {
+    const list: NewRow[] = []
+    const n = values?.length ?? count
+    for (let i = 0; i < n; i++) {
+      const anchor = i === 0 ? { key: row.key, where } : { key: NEW_PREFIX + list[i - 1].id, where: 'below' as const }
+      const r = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, anchor)
+      const v = values?.[i]
+      if (v) Object.assign(r, { fields: { name: '', ...v.fields }, bg: v.bg, fmt: v.fmt })
+      list.push(r)
+    }
+    return list
+  }
+  // 입력 열 끼워 넣기(저장하면 시트에 열을 넣는다) · 지우기
+  function addColumns(anchor: string, side: 'left' | 'right', labels: string[]) {
+    const cols: NewCol[] = labels.map((label) => ({ id: NEW_COL_PREFIX + crypto.randomUUID(), label, anchor, side }))
+    updateDrafts((d) => ({ ...d, newCols: [...(d.newCols ?? []), ...cols] }))
+  }
+  function deleteColumns(ids: string[]) {
+    const newIds = ids.filter((id) => id.startsWith(NEW_COL_PREFIX))
+    const oldIds = ids.filter((id) => !id.startsWith(NEW_COL_PREFIX) && id !== 'name')
+    if (oldIds.length) {
+      const names = oldIds.map((id) => data?.fields.find((f) => f.id === id)?.label ?? id).join(', ')
+      if (!window.confirm(`「${names}」 열을 지웁니다.\n저장하면 구글시트에서 이 열이 통째로(모든 그룹의 값까지) 지워집니다. 계속할까요?`)) return
+    }
+    updateDrafts((d) => {
+      // 지우는 새 열에 붙어 있던 새 열은 그 자리(지운 열의 기준)로 옮긴다
+      let nc = d.newCols ?? []
+      for (const id of newIds) {
+        const gone = nc.find((c) => c.id === id)
+        nc = nc.filter((c) => c.id !== id).map((c) => (gone && c.anchor === id ? { ...c, anchor: gone.anchor, side: gone.side } : c))
+      }
+      return { ...d, newCols: nc, delCols: Array.from(new Set([...(d.delCols ?? []), ...oldIds])) }
+    })
+  }
+  // 여러 칸 한 번에: 값 · 서식 · 칸 색(준 것만)
+  // append: 같은 한 번(되돌리기 한 번)에 끝에 새 과제 줄도 더한다(셀 삽입으로 밀려난 값)
+  function setCells(list: { row: ProgressRow; id: string; value?: string; fmt?: string; bg?: string }[], append?: { row: ProgressRow; values: RowValues[] }) {
+    const live = list.filter((x) => !isDeleted(x.row))
+    const extra = append ? buildNewRows(append.row, 'below', append.values.length, append.values) : []
+    if (!live.length && !extra.length) return
+    updateDrafts((d0) =>
+      live.reduce(
+        (acc, { row, id, value, fmt, bg }) => {
+          if (row.isNew) {
+            const nid = row.key.slice(NEW_PREFIX.length)
+            return {
+              ...acc,
+              newRows: acc.newRows.map((n) =>
+                n.id === nid
+                  ? {
+                      ...n,
+                      fields: value !== undefined ? { ...n.fields, [id]: value } : n.fields,
+                      fmt: fmt !== undefined ? { ...(n.fmt ?? {}), [id]: fmt } : n.fmt,
+                      bg: bg !== undefined ? { ...(n.bg ?? {}), [id]: bg } : n.bg,
+                    }
+                  : n,
+              ),
+            }
+          }
+          let edits = acc.edits
+          if (value !== undefined) edits = setFieldEdit(edits, row, id, value)
+          if (fmt !== undefined) edits = setFmtEdit(edits, row, id, fmt)
+          if (bg !== undefined) edits = setBgEdit(edits, row, id, bg)
+          return { ...acc, edits }
+        },
+        extra.length ? { ...d0, newRows: [...d0.newRows, ...extra] } : d0,
+      ),
+    )
+  }
   function addRow(row: ProgressRow, where: 'above' | 'below') {
     const n = makeNewRow({ l1: row.l1, l2: row.l2, l2Tag: row.l2Tag, h: row.h }, { key: row.key, where })
     updateDrafts((d) => ({ ...d, newRows: [...d.newRows, n] }))
@@ -760,15 +842,15 @@ export default function ProgressBoard() {
     try {
       const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
-      const { writes, unmergeFirst, unmergeCells, moves, deletes, inserts, after, remerge, mergeCells, kept, conflicts } = buildSheetWrites(data, fresh, drafts)
-      await writeSheetCells(data.spreadsheetId, data.sheetGid, { writes, unmergeFirst, unmergeCells, moves, deletes, inserts, after, remerge, mergeCells })
+      const { kept, conflicts, ...plan } = buildSheetWrites(data, fresh, drafts)
+      await writeSheetCells(data.spreadsheetId, data.sheetGid, plan)
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
       updateDrafts(kept)
       clearHistory()
       setOpenKey(null)
       setMessage(
-        `구글시트에 저장했습니다 · 고친 칸 ${writes.length}${inserts.length ? ` · 새 과제 ${inserts.length}건` : ''}${deletes.length ? ` · 지운 과제 ${deletes.length}건` : ''}${moves.length ? ` · 옮긴 줄 ${moves.length}` : ''}.` +
+        `구글시트에 저장했습니다 · 고친 칸 ${plan.writes.length}${plan.inserts.length ? ` · 새 과제 ${plan.inserts.length}건` : ''}${plan.deletes.length ? ` · 지운 과제 ${plan.deletes.length}건` : ''}${plan.moves.length ? ` · 옮긴 줄 ${plan.moves.length}` : ''}${plan.colInserts.length ? ` · 새 열 ${plan.colInserts.length}` : ''}${plan.colDeletes.length ? ` · 지운 열 ${plan.colDeletes.length}` : ''}.` +
           (conflicts
             ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).`
             : ''),
@@ -863,7 +945,9 @@ export default function ProgressBoard() {
     return ordered.slice(a, b + 1)
   }
   const deletedSet = new Set(drafts.deleted ?? [])
-  const fieldIds = data.fields.map((f) => f.id)
+  // 새 열 · 지운 열을 얹은 입력 열
+  const eff = effectiveFields(data.fields, data.headerStyle, drafts)
+  const fieldIds = eff.fields.map((f) => f.id)
   const viewOf = (row: ProgressRow): ScheduleRowView => {
     const e = row.isNew ? undefined : edits[row.key]
     const vals: Record<string, string> = {}
@@ -904,7 +988,7 @@ export default function ProgressBoard() {
     }
     return [v ? v.replace(/\s*\n\s*/g, ' · ') : '(빈 칸)']
   }
-  const fieldById = new Map(data.fields.map((f) => [f.id, f]))
+  const fieldById = new Map(eff.fields.map((f) => [f.id, f]))
   const allViews = ordered.map(viewOf)
   const passes = (v: ScheduleRowView, skip?: string) =>
     Object.entries(filters).every(([id, hidden]) => {
@@ -1399,9 +1483,9 @@ export default function ProgressBoard() {
             rowPad={rowPad}
             heightReset={heightReset}
             readOnly={readOnly}
-            fields={data.fields}
+            fields={eff.fields}
             optionsOf={optionsOf}
-            headerStyle={data.headerStyle}
+            headerStyle={eff.headerStyle}
             scheduleMode={scheduleMode}
             onToggleSchedule={() => setScheduleMode(scheduleMode === 'full' ? 'compact' : 'full')}
             onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
@@ -1409,6 +1493,13 @@ export default function ProgressBoard() {
             onBg={setBg}
             onNote={setNote}
             onFmt={readOnly ? undefined : setFmt}
+            onCells={readOnly ? undefined : setCells}
+            onAddRows={readOnly ? undefined : addRows}
+            onAddColumns={readOnly ? undefined : addColumns}
+            onDeleteColumns={readOnly ? undefined : deleteColumns}
+            onRenameColumn={
+              readOnly ? undefined : (id, label) => updateDrafts((d) => ({ ...d, newCols: (d.newCols ?? []).map((c) => (c.id === id ? { ...c, label } : c)) }))
+            }
             merges={merges}
             onMerge={readOnly ? undefined : mergeCells}
             zebra={zebra}
