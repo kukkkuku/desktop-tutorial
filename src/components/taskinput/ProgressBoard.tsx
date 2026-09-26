@@ -2,7 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Undo2, Upload, X } from 'lucide-react'
+import { CalendarRange, CloudUpload, Eraser, Pencil, Plus, Redo2, RefreshCw, RotateCcw, Rows3, Search, Settings2, Undo2, Upload } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
 import ConfirmDialog from '../ConfirmDialog'
@@ -41,7 +41,6 @@ import {
   loadProgress,
   makeNewRow,
   makeNewGroup,
-  newRowAsRow,
   orderWithNewRows,
   type PaintBrush,
   saveDrafts,
@@ -169,7 +168,26 @@ export default function ProgressBoard() {
   }, [data, drafts.newRows])
   const [tabAdd, setTabAdd] = useState<{ l1: string; l2: string; x: number; y: number } | null>(null)
   const [activeL1, setActiveL1] = useState<string | null>(null)
-  const l1 = activeL1 && l1s.includes(activeL1) ? activeL1 : (l1s[0] ?? null)
+  // 보기: 숨긴 그룹(L1) 탭 -- 시트는 그대로, 이 브라우저에서만 안 보이게
+  const [hiddenL1, setHiddenL1State] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:hidden-l1') ?? '[]')
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  })
+  function setHiddenL1(next: string[]) {
+    setHiddenL1State(next)
+    try {
+      localStorage.setItem('progress-board:hidden-l1', JSON.stringify(next))
+    } catch {
+      // 기억 못 해도 지금 화면엔 반영
+    }
+  }
+  const [viewOpen, setViewOpen] = useState<{ x: number; y: number } | null>(null)
+  const shownL1s = l1s.filter((x) => !hiddenL1.includes(x))
+  const l1 = activeL1 && shownL1s.includes(activeL1) ? activeL1 : (shownL1s[0] ?? l1s[0] ?? null)
   // 고른 탭이 가려져 있으면 보이게 옮긴다(새 탭을 만든 직후 등)
   useEffect(() => {
     if (!l1) return
@@ -680,7 +698,7 @@ export default function ProgressBoard() {
       {/* L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
       <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
         <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {l1s.map((name) => {
+          {shownL1s.map((name) => {
             const rowsOf = data.rows.filter((r) => r.l1 === name)
             const newOf = drafts.newRows.filter((n) => n.l1 === name)
             const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
@@ -701,20 +719,19 @@ export default function ProgressBoard() {
                 {newOf.length > 0 && rowsOf.length === 0 && <span className="rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
                 <span className={gone ? 'text-label-3 line-through' : ''}>{name === NO_L1 ? 'L1 없음' : name}</span>
                 <span className="text-[11px] font-medium text-label-3">{alive}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (gone) restoreRows(rowsOf)
-                    else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
-                  }}
-                  title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
-                  aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
-                  className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                    on ? '' : 'opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
-                </button>
+                {gone && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      restoreRows(rowsOf)
+                    }}
+                    title="이 그룹의 삭제 표시 되돌리기"
+                    aria-label="삭제 되돌리기"
+                    className="-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
+                  >
+                    <Undo2 size={12} strokeWidth={2} />
+                  </button>
+                )}
               </div>
             )
           })}
@@ -729,6 +746,59 @@ export default function ProgressBoard() {
             <Plus {...icSm} />
             그룹 추가
           </button>
+        </div>
+        {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
+        <div className="relative shrink-0 pb-1.5">
+          <IconButton
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setViewOpen(viewOpen ? null : { x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 })
+            }}
+            title="보이는 그룹 고르기"
+            aria-label="보이는 그룹 고르기"
+            className={viewOpen || hiddenL1.some((x) => l1s.includes(x)) ? 'bg-black/[0.05] text-label' : ''}
+          >
+            <Settings2 {...icSm} />
+          </IconButton>
+          {viewOpen && (
+            <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
+              <div
+                className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
+                style={{ left: viewOpen.x, top: viewOpen.y }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[12px] font-semibold text-label-2">보이는 그룹</span>
+                  {hiddenL1.length > 0 && (
+                    <button onClick={() => setHiddenL1([])} className="text-[12px] font-medium text-accent hover:underline">
+                      모두 보기
+                    </button>
+                  )}
+                </div>
+                {l1s.map((name) => {
+                  const shown = !hiddenL1.includes(name)
+                  const last = shown && shownL1s.length === 1
+                  return (
+                    <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
+                      <input
+                        type="checkbox"
+                        checked={shown}
+                        disabled={last}
+                        onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
+                      />
+                      <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
+                      <span className="ml-auto text-[11px] text-label-3">
+                        {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
+                      </span>
+                    </label>
+                  )
+                })}
+                <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[11px] leading-snug text-label-3">
+                  숨겨도 시트에서는 지워지지 않습니다. 이 브라우저에서만 안 보입니다.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
         <div className="shrink-0 pb-1.5">
           <SheetLinkChip
