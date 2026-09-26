@@ -439,7 +439,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const starts = all.map((i) => i.fields.startDate).filter(Boolean).sort()
     const ends = all.map((i) => i.fields.doneDate).filter(Boolean).sort()
     const byId = new Map(members.map((m) => [m.id, m.name]))
-    const people = Array.from(new Set(all.flatMap((i) => [...i.assigneeIds.map((id) => byId.get(id) ?? ''), ...i.unmatchedAssignees]).filter(Boolean)))
+    // 묶음 담당자: 팀원(실선)과 팀원 목록에 없는 이름(점선)을 나눠 보여 준다
+    const people = Array.from(new Set(all.flatMap((i) => i.assigneeIds.map((id) => byId.get(id) ?? '')).filter(Boolean)))
+    const strangers = Array.from(new Set(all.flatMap((i) => i.unmatchedAssignees).filter((n) => n && !people.includes(n))))
     const toggle = () =>
       setCollapsed((cur) => {
         const next = new Set(cur)
@@ -529,6 +531,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             <div className="flex flex-wrap gap-1 py-1">
               {people.map((n) => (
                 <Chip key={n} tone={PERSON_TONE}>
+                  {n}
+                </Chip>
+              ))}
+              {strangers.map((n) => (
+                <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.">
                   {n}
                 </Chip>
               ))}
