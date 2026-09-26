@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>디자인연구소 앱 사용 설명서</title>
+<style>
+:root{
+  --bg:#FFFFFF; --side:#F5F5F7; --ink:#1D1D1F; --ink-2:#515154; --ink-3:#86868B; --line:#E5E5EA; --line-2:#F0F0F3;
+  --accent:#0071E3; --accent-soft:#E8F1FD; --task:#0B8F6A; --task-soft:#E3F4EE; --perf:#1F5FD6; --perf-soft:#E6EEFC;
+  --admin:#6B4FB8; --admin-soft:#EFEAFA; --warn:#B45309; --warn-soft:#FDF1E3; --plan:#BFBFBF; --actual:#F4B6C2;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--side);border-right:1px solid var(--line);padding:28px 18px}
+nav.toc .brand{font-weight:700;font-size:15px;margin-bottom:2px}
+nav.toc .ver{font-size:12px;color:var(--ink-3);margin-bottom:18px}
+nav.toc p{margin:18px 0 4px;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--ink-3)}
+nav.toc a{display:block;padding:4px 10px;border-radius:7px;color:var(--ink-2);font-size:13.5px}
+nav.toc a:hover{background:rgba(0,0,0,.05);text-decoration:none;color:var(--ink)}
+main{padding:44px 56px 96px;max-width:900px}
+h1{font-size:30px;line-height:1.3;margin:0 0 8px;letter-spacing:-.01em}
+h2{font-size:23px;margin:64px 0 6px;padding-top:12px;border-top:1px solid var(--line);letter-spacing:-.01em}
+h3{font-size:17px;margin:32px 0 6px}
+p{margin:8px 0}
+.lede{color:var(--ink-2);font-size:16px;max-width:64ch}
+.who{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;vertical-align:3px;margin-left:6px}
+.who.all{background:var(--line-2);color:var(--ink-2)} .who.task{background:var(--task-soft);color:var(--task)}
+.who.lead{background:var(--perf-soft);color:var(--perf)} .who.admin{background:var(--admin-soft);color:var(--admin)}
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:12px 0}
+ol.steps>li{counter-increment:s;position:relative;padding:6px 0 6px 38px}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+ul{padding-left:20px} li{margin:3px 0}
+.btn{display:inline-block;font-size:12.5px;font-weight:600;line-height:1.5;padding:1px 9px;border-radius:7px;border:1px solid #D2D2D7;background:#fff;color:var(--ink);white-space:nowrap;vertical-align:1px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.menu{display:inline-block;font-size:13px;font-weight:600;color:var(--ink);background:var(--line-2);padding:0 7px;border-radius:5px;white-space:nowrap}
+kbd{font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;padding:1px 6px;border:1px solid #D2D2D7;border-bottom-width:2px;border-radius:5px;background:#fff;white-space:nowrap}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;border:1px solid rgba(0,0,0,.1)}
+.note,.warn{border-radius:10px;padding:12px 16px;margin:14px 0;font-size:14px}
+.note{background:var(--accent-soft)} .warn{background:var(--warn-soft)}
+.note b:first-child,.warn b:first-child{display:block;margin-bottom:2px}
+.scroll{overflow-x:auto;margin:14px 0}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{font-size:12.5px;color:var(--ink-2);background:var(--side);font-weight:600}
+td.c,th.c{text-align:center}
+.y{color:var(--task);font-weight:600} .n{color:var(--ink-3)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}
+.card{border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card b{display:block;margin-bottom:2px}
+.card span{font-size:13.5px;color:var(--ink-2)}
+dl.faq dt{font-weight:600;margin-top:18px}
+dl.faq dd{margin:4px 0 0;color:var(--ink-2)}
+footer{margin-top:72px;color:var(--ink-3);font-size:12.5px}
+@media (max-width:860px){
+  .layout{display:block}
+  nav.toc{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:18px 16px}
+  nav.toc .links{display:flex;flex-wrap:wrap;gap:2px}
+  nav.toc p{width:100%;margin:10px 0 2px}
+  main{padding:28px 16px 64px}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="목차">
+  <div class="brand">디자인연구소 앱</div>
+  <div class="ver">사용 설명서 · 2026년 9월</div>
+  <div class="links">
+    <p>시작</p>
+    <a href="#start">로그인과 홈</a>
+    <a href="#roles">역할별로 할 수 있는 일</a>
+    <p>과제 입력 · 모두</p>
+    <a href="#year">연도 고르기</a>
+    <a href="#table">추진현황 보기</a>
+    <a href="#edit">추진현황 입력하기</a>
+    <a href="#schedule">일정 칠하기</a>
+    <a href="#save">저장 · 되돌리기 · 받기</a>
+    <a href="#rate">진척률</a>
+    <p>성과관리 · 팀장</p>
+    <a href="#project">프로젝트 만들기</a>
+    <a href="#tasks">과제관리</a>
+    <a href="#members">팀원관리</a>
+    <a href="#peer">피어리뷰 (엑셀)</a>
+    <a href="#eval">평가 · 결과 · 면담</a>
+    <a href="#backup">데이터 백업 · 초기화</a>
+    <p>관리자</p>
+    <a href="#admin">시트 연결 · 연도 탭</a>
+    <p>도움말</p>
+    <a href="#faq">자주 묻는 질문</a>
+  </div>
+</nav>
+
+<main>
+  <h1>디자인연구소 앱 사용 설명서</h1>
+  <p class="lede">연구소 전체가 한 해 동안 함께 쓰는 <b>과제 입력</b>(추진현황 · 진척률)과, 팀장이 반기마다 운영하는 <b>성과관리</b>(평가 · 피어리뷰 · 면담)를 한 앱에서 합니다. 팀원은 과제 입력만 쓰고, 성과관리는 팀장에게만 보입니다.</p>
+
+  <h2 id="start">로그인과 홈 <span class="who all">모두</span></h2>
+  <ol class="steps">
+    <li>앱 주소를 열고 <span class="btn">Google 계정으로 시작</span>을 누릅니다. 회사에서 받은 구글 계정으로 로그인합니다.</li>
+    <li>처음 쓰는 계정이면 구글이 권한 동의 화면을 띄웁니다. 앱이 구글시트를 읽고 저장하려면 허용해야 합니다.</li>
+    <li>로그인하면 <b>홈</b>이 열립니다. 카드를 눌러 할 일로 들어갑니다.</li>
+  </ol>
+  <div class="cards">
+    <div class="card"><b>과제 입력 카드</b><span>지금 연도, 연결된 시트, 과제 수, 저장 안 한 고침이 몇 건인지 보여 줍니다. 누르면 추진현황으로 갑니다.</span></div>
+    <div class="card"><b>성과관리 카드 (팀장)</b><span>최근 프로젝트를 누르면 바로 들어가고, 아래 링크로 프로젝트 목록이나 팀 만들기로 갑니다.</span></div>
+  </div>
+  <p>어느 화면에서든 머리글 맨 왼쪽의 <b>홈 버튼</b>(집 모양)을 누르면 홈으로 돌아옵니다. 팀장은 그 옆의 <span class="menu">과제 입력</span> <span class="menu">성과관리</span>로 두 영역을 바로 오갈 수 있습니다.</p>
+  <div class="note"><b>새로고침해도 괜찮습니다</b>보던 화면에 그대로 머뭅니다. 새 창에서 열면 홈부터 시작합니다.</div>
+
+  <h2 id="roles">역할별로 할 수 있는 일</h2>
+  <p>역할은 로그인한 구글 계정으로 정해지고, 머리글 오른쪽 계정 옆에 배지(<b>팀원</b> / <b>관리자 · 팀장</b>)로 보입니다. 시트를 실제로 고칠 수 있는지는 구글시트의 공유 권한(편집자)이 정합니다.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>할 일</th><th class="c">팀원</th><th class="c">팀장</th><th class="c">관리자</th></tr></thead>
+    <tbody>
+      <tr><td>추진현황 입력 · 구글시트에 저장</td><td class="c y">○</td><td class="c y">○</td><td class="c y">○</td></tr>
+      <tr><td>진척률 보기 · PPT로 내보내기</td><td class="c y">○</td><td class="c y">○</td><td class="c y">○</td></tr>
+      <tr><td>새 연도 만들기 (이 브라우저)</td><td class="c y">○</td><td class="c y">○</td><td class="c y">○</td></tr>
+      <tr><td>성과관리로 내보내기 · 성과관리 전체</td><td class="c n">—</td><td class="c y">○</td><td class="c y">○</td></tr>
+      <tr><td>피어리뷰</td><td class="c">엑셀 작성</td><td class="c y">양식 배포 · 회수</td><td class="c y">양식 배포 · 회수</td></tr>
+      <tr><td>시트 연결 · 연도 탭을 구글시트로 만들기 · 팀원 초대</td><td class="c n">—</td><td class="c n">—</td><td class="c y">○</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="year">연도 고르기 <span class="who task">과제 입력</span></h2>
+  <p>머리글의 <span class="menu">2026 실적관리 ▾</span>를 누르면 연도 메뉴가 열립니다. 메뉴를 열 때마다 구글시트의 탭 목록을 다시 읽어서, 시트에서 지운 탭은 목록에서도 빠집니다.</p>
+  <ul>
+    <li><b>연결됨 · 편집</b>: 지금 입력하는 연도입니다. 여기서 고친 내용이 이 탭에 저장됩니다.</li>
+    <li><b>보기 전용</b>: 지난 연도입니다. 눌러서 볼 수 있지만 고칠 수는 없습니다. 관리자는 <span class="btn">연결하기</span>로 그 탭을 입력하는 연도로 바꿀 수 있습니다.</li>
+    <li><b>이 브라우저</b>: 구글시트 없이 이 화면에서 만든 연도입니다. 휴지통 아이콘으로 지울 수 있습니다.</li>
+    <li><b>목록에서 지우기</b>: 쓰지 않는 연도에 마우스를 올리면 오른쪽에 <b>×</b>가 나옵니다. 목록에서만 빠지고 구글시트 탭은 그대로입니다. 메뉴 아래 <b>숨긴 연도 n개 다시 보이기</b>로 되돌립니다.</li>
+  </ul>
+  <h3>새 연도 만들기</h3>
+  <ol class="steps">
+    <li>연도 메뉴에서 <b>+ 새 연도 만들기</b>를 누릅니다.</li>
+    <li>연도를 고르고 시작 방법을 정합니다. <b>이어받기</b>는 지금 연도의 그룹(L1) · 구분(L2) · 열 구성을 가져오고, 과제는 <i>완료 안 된 과제만</i> / <i>과제 모두</i> / <i>구분만</i> 중에서 고릅니다. <b>빈 표로 시작</b>은 기본 열로 새로 만듭니다.</li>
+    <li>만든 표는 이 브라우저에 저장됩니다. 연구소가 함께 쓰려면 관리자가 <span class="btn">구글시트로 만들기</span>로 시트에 탭을 만듭니다.</li>
+  </ol>
+
+  <h2 id="table">추진현황 보기 <span class="who task">과제 입력</span></h2>
+  <ul>
+    <li><b>그룹(L1) 탭</b>: 표 위의 탭으로 그룹을 바꿉니다. 보기 아이콘으로 보이는 그룹을 켜고 끕니다.</li>
+    <li><b>찾기</b>: 검색 칸에 L2 · L3 · 담당자 이름을 넣으면 해당 줄만 남습니다. 머리글을 눌러 칸별로 거를 수도 있습니다.</li>
+    <li><b>글자 · 행간</b>: 도구 줄의 글자 작게 · 크게 버튼으로 표 글자 크기를, 행간 버튼으로 줄 간격을 바꿉니다. 행 아래 경계를 끌면 그 행 높이만 바뀌고, 더블클릭하면 자동 높이로 돌아갑니다.</li>
+    <li><b>일정 접기</b>: 일정 머리글을 우클릭하면 보이는 기간을 바꿀 수 있습니다.</li>
+  </ul>
+
+  <h2 id="edit">추진현황 입력하기 <span class="who task">과제 입력</span></h2>
+  <ol class="steps">
+    <li>도구 줄 오른쪽의 파란 <span class="btn primary">입력하기</span>를 누르면 입력 모드가 됩니다. 끝나면 <span class="btn">입력 끝내기</span>를 누릅니다.</li>
+    <li>칸을 한 번 누르면 <b>선택</b>, 더블클릭하거나 바로 타자를 치면 <b>입력</b>이 됩니다. <kbd>Enter</kbd>로 반영하고 <kbd>Esc</kbd>로 취소합니다.</li>
+    <li>여러 칸은 끌거나 <kbd>Shift</kbd>+클릭으로 고릅니다. 행 번호를 누르면 행 전체, 열 머리글을 누르면 열 전체가 선택됩니다.</li>
+  </ol>
+  <h3>입력 중에 쓰는 기능</h3>
+  <ul>
+    <li><b>서식 막대</b>: 칸을 고르면 위에 뜹니다. 글자 색 · 글자 크기 · 굵게 <kbd>⌘/Ctrl+B</kbd> · 기울임 <kbd>⌘/Ctrl+I</kbd> · 취소선 · 정렬 · 병합 / 나누기 · ✓(선택 끝내기).</li>
+    <li><b>분류 · 상태</b>: 칸을 누르면 칩 목록이 열려 골라 넣습니다.</li>
+    <li><b>채우기</b>: 고른 칸 오른쪽 아래의 작은 점을 끌면 엑셀처럼 같은 값이 반복해 채워집니다.</li>
+    <li><b>복사 · 붙여넣기</b>: <kbd>⌘/Ctrl+C</kbd> · <kbd>⌘/Ctrl+V</kbd>. 엑셀이나 구글시트에서 여러 칸을 복사해 붙여넣어도 됩니다.</li>
+    <li><b>우클릭 메뉴</b>: 칸 · 행 · 열 · 구분마다 행 추가 · 삭제, 열 추가 · 삭제, 칸 색, 서식 지우기, 병합 같은 메뉴가 나옵니다.</li>
+    <li><b>구분(L2) 칸</b>: 클릭하면 선택되고, 더블클릭하거나 <kbd>Enter</kbd>를 누르면 이름을 고칩니다. <i>이름 [중점]</i>처럼 쓰면 [중점] 태그가 붙습니다. 마우스를 올리면 아래에 구분 추가 · 삭제 아이콘이 나옵니다.</li>
+    <li><b>과제 추가</b>: 행 번호 오른쪽 아래의 파란 + 를 누르면 그 행 아래에 과제가 생깁니다. 그룹은 탭 줄의 <b>그룹 추가</b>로 만듭니다.</li>
+    <li><b>+ 열</b>: 표 오른쪽 끝에서 새 입력 열을 만듭니다.</li>
+  </ul>
+
+  <h2 id="schedule">일정 칠하기 <span class="who task">과제 입력</span></h2>
+  <p>주 칸(월별 주차)에 계획과 실적을 칠합니다. 입력 모드에서 도구 줄에 칠하기 도구가 나옵니다.</p>
+  <ul>
+    <li><span class="sw" style="background:var(--plan)"></span> <b>계획(회색) 칠하기</b> · <span class="sw" style="background:var(--actual)"></span> <b>실적(분홍) 칠하기</b> · <b>지우개</b>: 도구를 고르고 주 칸을 누르거나 끌어서 칠합니다. 도구를 우클릭하면 색 팔레트가 열립니다.</li>
+    <li>계획이 끝나는 주에는 <b>F</b>, 실적이 끝나는 주에는 <b>완</b>이 자동으로 찍힙니다.</li>
+    <li>입력 모드가 아닐 때도 주 칸을 골라 복사 · 붙여넣기할 수 있고, 고른 칸 오른쪽 아래 점을 끌면 같은 모양으로 채워집니다.</li>
+  </ul>
+  <div class="note"><b>진척률이 이 칠하기로 계산됩니다</b>계획(회색)이 없는 과제는 실적(분홍) 시점을 계획으로 봅니다. 착수와 완료 주를 정확히 칠해 두면 진척률이 맞게 나옵니다.</div>
+
+  <h2 id="save">저장 · 되돌리기 · 받기 <span class="who task">과제 입력</span></h2>
+  <ul>
+    <li><b>구글시트에 저장</b>: 고친 내용은 먼저 이 브라우저에 쌓이고, 저장 버튼을 눌러야 구글시트에 들어갑니다. 저장 전에는 홈 카드에 "저장 안 한 고침 n건"이 보입니다.</li>
+    <li><b>되돌리기 · 다시 하기</b>: <kbd>⌘/Ctrl+Z</kbd> · <kbd>⌘/Ctrl+Shift+Z</kbd>. 저장하기 전의 고침은 <b>모두 되돌리기</b>로 한 번에 버릴 수 있습니다.</li>
+    <li><b>엑셀 파일로 받기</b>: 지금 보이는 표를 추진현황 기본 모양(맑은 고딕 8pt)의 엑셀로 받습니다.</li>
+    <li><b>성과관리로 내보내기</b> <span class="who lead">팀장</span>: 그룹(L1)을 골라 성과관리 프로젝트의 과제리스트로 보냅니다.</li>
+  </ul>
+  <div class="warn"><b>저장이 안 되면</b>로그인한 계정이 그 구글시트의 편집자인지 확인하세요. 여러 사람이 같은 연도를 고친다면 입력 전에 시트를 새로 불러오는 것이 안전합니다.</div>
+
+  <h2 id="rate">진척률 <span class="who task">과제 입력</span></h2>
+  <p>머리글의 <span class="menu">진척률</span>을 누르면 추진현황의 일정 칸으로 자동 계산한 표가 나옵니다. 연도는 추진현황과 같이 움직입니다.</p>
+  <ul>
+    <li><b>합산 탭</b>: [중점] 구분과 일반업무 실적을 모아 봅니다.</li>
+    <li><b>실별 탭</b>: 실마다 구분(L2) 한 줄씩과 소계를 봅니다.</li>
+    <li><b>칸</b>: 과제계획 · 착수(계획 · 실적 · 달성률) · 현재 진행중 · 완료(계획 · 실적 · 진척률).</li>
+    <li><b>숫자 고치기</b>: 숫자 칸을 더블클릭하면 고칠 수 있습니다. 고친 값은 이 브라우저에만 기억됩니다. 우클릭하면 해당 과제 목록을 보거나 자동값으로 되돌립니다.</li>
+    <li><b>PPT로 내보내기 · 미리보기</b>: 탭마다 한 장씩, 미리보기에서 고른 탭만 PPT로 받습니다.</li>
+  </ul>
+
+  <h2 id="project">프로젝트 만들기 <span class="who lead">팀장</span></h2>
+  <ol class="steps">
+    <li>홈에서 성과관리 카드의 <b>팀 만들기</b>(또는 프로젝트 목록)를 누릅니다.</li>
+    <li>팀 이름을 넣고 <span class="btn">다음</span> → 평가기간(연도 · 상반기/하반기)을 골라 <span class="btn primary">평가 만들기</span>를 누릅니다.</li>
+    <li>이후에는 머리글의 프로젝트 이름 ▾로 다른 프로젝트로 바꿉니다. 프로젝트 카드를 우클릭하면 복제하거나 지울 수 있습니다.</li>
+  </ol>
+
+  <h2 id="tasks">과제관리 <span class="who lead">팀장</span></h2>
+  <h3>과제리스트</h3>
+  <ul>
+    <li><b>추진현황에서 가져오기</b>: 과제 입력의 표에서 필요한 구분(L2)만 골라 가져옵니다. 과제 입력의 <b>성과관리로 내보내기</b>와 같은 화면입니다.</li>
+    <li><b>구글시트에서 가져오기</b> · <b>L2 직접 만들기</b>도 됩니다.</li>
+    <li>L3 과제를 체크하고 <span class="btn">평가과제로 내보내기</span>를 누르면 평가과제가 생깁니다. 여러 줄을 체크해 <b>평가과제로 묶기</b>로 하나로 묶을 수 있습니다.</li>
+  </ul>
+  <h3>평가과제</h3>
+  <ul>
+    <li>과제등급 · 성과등급 · 목표 · 성과를 표에서 바로 입력합니다. 점수와 참여 인원은 자동으로 계산됩니다.</li>
+    <li>과제명 앞의 ›를 누르면 묶인 L3가 회색 줄로 펼쳐집니다(그룹 · 과제 · 상태 · 담당자 · 기간).</li>
+    <li>여러 행을 골라 우클릭하면 묶거나 풉니다.</li>
+  </ul>
+
+  <h2 id="members">팀원관리 <span class="who lead">팀장</span></h2>
+  <ul>
+    <li><b>팀원</b>: 칸을 눌러 바로 입력하고, 표 아래 <b>팀원 추가</b>로 줄을 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다.</li>
+    <li><b>인사기록 불러오기</b>: 인사기록 파일에서 입사일 · 직급 같은 정보를 채웁니다.</li>
+    <li><b>팀원 초대</b> <span class="who admin">관리자</span>: 팀원에게 앱 사용 안내 메일을 보냅니다.</li>
+  </ul>
+  <div class="warn"><b>팀원을 지우면</b>그 팀원의 기여도 · 피어리뷰 · 면담 기록도 함께 지워집니다. 바로 <kbd>⌘/Ctrl+Z</kbd>로 되돌릴 수 있습니다.</div>
+
+  <h2 id="peer">피어리뷰 (엑셀) <span class="who lead">팀장</span></h2>
+  <p>팀원관리 › <span class="menu">피어리뷰</span>에서 합니다. 팀원은 앱에 들어오지 않고, 팀장이 나눠 준 엑셀 양식에 적어 돌려줍니다. <b>단순 순위</b>(팀원 전체, 본인 제외)와 <b>과제별</b>(함께한 평가과제마다) 두 방식이 있습니다.</p>
+  <ol class="steps">
+    <li><span class="btn">엑셀 양식 받기</span>를 누르면 팀원별 양식이 ZIP으로 내려받아집니다.</li>
+    <li>각자에게 자기 파일을 메일이나 메신저로 보냅니다.</li>
+    <li>팀원은 다른 팀원에게 1위부터 순위를 겹치지 않게 매기고, 사람마다 <b>순위 근거</b>를 꼭 적어 돌려줍니다.</li>
+    <li>받은 파일을 <span class="btn">엑셀 올리기</span>로 한꺼번에 올립니다(여러 개 선택 가능). 순위가 겹치거나 근거가 빠진 파일은 반영하지 않고 이유를 보여 줍니다.</li>
+    <li>위쪽 <b>응답 현황 n/N명</b>에서 누가 냈는지 봅니다. 파일을 못 받은 사람은 이름을 눌러 팀장이 직접 입력할 수 있습니다.</li>
+    <li>아래 <b>피어리뷰 결과</b>에서 대상자별 평균 순위와 근거를 봅니다. 점수 반영 비율은 기준설정의 피어리뷰에서 정합니다.</li>
+  </ol>
+
+  <h2 id="eval">평가 · 결과 · 면담 <span class="who lead">팀장</span></h2>
+  <ul>
+    <li><b>평가하기</b>: 평가과제마다 팀원의 기여도를 넣습니다.</li>
+    <li><b>평가결과</b>: 등급 · 기여도 · 피어리뷰(반영 비율을 켠 경우)를 합친 점수와 순위를 봅니다.</li>
+    <li><b>면담</b>: 팀원별 면담 기록을 남깁니다.</li>
+  </ul>
+
+  <h2 id="backup">데이터 백업 · 초기화 <span class="who lead">팀장</span></h2>
+  <p>성과관리 데이터는 팀장의 브라우저와 구글 드라이브에 저장됩니다. 머리글의 <span class="menu">데이터 백업</span>에서 관리합니다.</p>
+  <ul>
+    <li><b>로컬 파일</b>: JSON(복원용 원본) · 엑셀(보관용 사본)로 내려받습니다.</li>
+    <li><b>Google Drive</b>: 드라이브에 저장하고 다른 기기에서 불러옵니다.</li>
+    <li><b>데이터 초기화</b>: <i>이 브라우저만</i> 또는 <i>Drive 포함 전체</i>를 지웁니다. <b>과제 입력 데이터도 같이 지우기</b>를 체크하면 이 브라우저에 저장된 추진현황 · 저장 안 한 고침 · 만든 연도 · 진척률 수정값도 지웁니다. 구글시트와 연결 설정은 그대로입니다.</li>
+  </ul>
+  <div class="warn"><b>초기화는 되돌릴 수 없습니다</b>먼저 같은 화면 위쪽에서 JSON 백업을 받아 두세요.</div>
+
+  <h2 id="admin">시트 연결 · 연도 탭 <span class="who admin">관리자</span></h2>
+  <ul>
+    <li><b>시트 바꾸기</b>: 연도 메뉴 아래에서 과제 입력이 읽고 저장할 구글시트를 바꿉니다.</li>
+    <li><b>구글시트로 만들기</b>: "이 브라우저" 연도를 연결된 시트에 「YYYY 추진현황」 탭으로 만듭니다. 기본 모양(맑은 고딕 8pt · 열 폭 · 줄 높이)이 함께 적용됩니다.</li>
+    <li><b>연결하기</b>: 연도 메뉴에서 다른 연도 탭을 입력하는 연도로 바꿉니다.</li>
+  </ul>
+  <div class="note"><b>운영 시트 보호</b>지금 운영 중인 팀 시트는 앱에서 읽기만 하고 저장하거나 탭을 만들지 않습니다. 테스트 시트를 연결해 저장합니다.</div>
+
+  <h2 id="faq">자주 묻는 질문</h2>
+  <dl class="faq">
+    <dt>구글시트에서 탭을 지웠는데 연도 목록에 남아 있어요.</dt>
+    <dd>연도 메뉴를 다시 열면 시트 목록을 새로 읽어 빠집니다. 탭은 남겨 두고 목록에서만 빼려면 그 연도의 <b>×</b>를 누르세요.</dd>
+    <dt>화면이 하얗게 나와요.</dt>
+    <dd>새 버전이 올라온 직후일 수 있습니다. <kbd>⌘/Ctrl+Shift+R</kbd>로 강력 새로고침하세요.</dd>
+    <dt>구글 로그인 창에 "400 · That's an error"가 떠요.</dt>
+    <dd>브라우저에 구글 계정이 여러 개 로그인돼 있을 때 생깁니다. 오류 안내 아래의 <b>계정 골라서 다시 연결</b>을 눌러 계정을 직접 고르세요.</dd>
+    <dt>저장하면 "편집할 권한이 없습니다"라고 나와요.</dt>
+    <dd>로그인한 계정이 그 구글시트의 편집자가 아닙니다. 시트 소유자에게 편집 권한을 요청하세요.</dd>
+    <dt>성과관리가 안 보여요.</dt>
+    <dd>성과관리는 팀장 계정에만 보입니다. 머리글 계정 옆 배지가 "팀원"이면 과제 입력만 쓸 수 있습니다.</dd>
+    <dt>성과관리를 초기화했는데 과제 입력에 예전 표가 그대로 보여요.</dt>
+    <dd>두 영역의 데이터는 따로 저장됩니다. 초기화할 때 <b>과제 입력 데이터도 같이 지우기</b>를 체크하세요.</dd>
+  </dl>
+
+  <footer>디자인연구소 앱 · 사용 설명서 · 2026-09-26 기준. 화면이 바뀌면 이 문서도 함께 고칩니다.</footer>
+</main>
+</div>
+</body>
+</html>

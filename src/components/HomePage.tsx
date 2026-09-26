@@ -79,7 +79,10 @@ export default function HomePage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <h1 className="text-[26px] font-bold tracking-tight text-label">무엇을 할까요?</h1>
         <p className="mt-1 text-[14px] text-label-2">
-          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 위쪽 홈 버튼으로 언제든 이 화면으로 돌아옵니다.
+          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 위쪽 홈 버튼으로 언제든 이 화면으로 돌아옵니다.{' '}
+          <a href={`${import.meta.env.BASE_URL}manual/index.html`} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
+            사용 설명서 ↗
+          </a>
         </p>
 
         <div className={`mt-8 grid gap-5 ${canPerf ? 'sm:grid-cols-2' : 'max-w-[460px]'}`}>
