@@ -6,7 +6,7 @@
 //   · 머리글 오른쪽 끝을 끌어 열 폭을 바꾸고, 좁히면 글자가 줄바꿈된다.
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronsLeft, ChevronsRight, ListFilter, Plus, TableCellsMerge, TableCellsSplit, Trash2, Undo2 } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, ListFilter, Plus, StickyNote, TableCellsMerge, TableCellsSplit, Trash2, Undo2 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
 import { FILL_HEX, planRange } from '../../utils/progressBoard'
@@ -1415,26 +1415,41 @@ export default function ScheduleTable({
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                       </div>
                       {l3Note && <NoteMark />}
-                      {/* 마우스를 올리면 오른쪽에: 아래에 과제 추가 · 과제 삭제(취소) */}
+                      {/* 마우스를 올리면 오른쪽에: 메모 추가(수정) · 메모 삭제 / 지운 과제는 삭제 취소 */}
                       <span
                         className={`absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100 ${readOnly ? 'hidden' : ''}`}
                       >
-                        {!v.deleted && onAddRow && (
-                          <RowIcon label="아래에 과제 추가" onClick={() => onAddRow(v.row, 'below')}>
-                            <Plus size={13} strokeWidth={2} />
-                          </RowIcon>
-                        )}
-                        {v.deleted
-                          ? onRestoreRow && (
-                              <RowIcon label="삭제 취소" onClick={() => onRestoreRow(v.row)}>
-                                <Undo2 size={13} strokeWidth={2} />
-                              </RowIcon>
-                            )
-                          : onDeleteRow && (
-                              <RowIcon label="과제 삭제" danger onClick={() => onDeleteRow(v.row)}>
+                        {v.deleted ? (
+                          onRestoreRow && (
+                            <RowIcon label="삭제 취소" onClick={() => onRestoreRow(v.row)}>
+                              <Undo2 size={13} strokeWidth={2} />
+                            </RowIcon>
+                          )
+                        ) : (
+                          <>
+                            <RowIcon
+                              label={l3Note ? '메모 수정' : '메모 추가'}
+                              onClick={(e) => {
+                                const r = e.currentTarget.getBoundingClientRect()
+                                setNoteEdit({
+                                  row: v.row,
+                                  key: 'name',
+                                  kind: 'field',
+                                  x: Math.min(r.left, window.innerWidth - 300),
+                                  y: Math.min(r.bottom + 4, window.innerHeight - 220),
+                                  text: l3Note ?? '',
+                                })
+                              }}
+                            >
+                              <StickyNote size={13} strokeWidth={2} />
+                            </RowIcon>
+                            {l3Note && (
+                              <RowIcon label="메모 삭제" danger onClick={() => onNote(v.row, 'name', '')}>
                                 <Trash2 size={13} strokeWidth={2} />
                               </RowIcon>
                             )}
+                          </>
+                        )}
                       </span>
                     </td>
                     {scheduleOpen ? (
