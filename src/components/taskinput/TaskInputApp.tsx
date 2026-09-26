@@ -61,18 +61,8 @@ export default function TaskInputApp() {
         </div>
       </header>
       <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-        {/* 진척률을 보는 동안에도 추진현황(연도 · 고친 내용)은 그대로 두고 숨긴다 */}
-        <div className={menu === 'progress' ? '' : 'hidden'}>
-          <ProgressBoard />
-        </div>
-        {menu === 'rate' && (
-          <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-dashed border-separator p-8 text-center">
-            <h2 className="text-[17px] font-bold text-label">진척률은 준비 중입니다</h2>
-            <p className="mt-2 text-[13px] leading-relaxed text-label-2">
-              시트 「진척률」 탭의 업무계획·착수·완료 칸을 추진현황에서 어떻게 셀지 정한 뒤 만듭니다.
-            </p>
-          </div>
-        )}
+        {/* 추진현황 · 진척률은 같은 연도 · 같은 고친 내용을 쓴다(연도 고르기도 같이) */}
+        <ProgressBoard view={menu === 'progress' ? 'progress' : 'rate'} />
       </main>
     </div>
   )

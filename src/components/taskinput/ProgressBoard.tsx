@@ -110,6 +110,7 @@ import SheetLinkChip from '../SheetLinkChip'
 import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
 import { blankProgress, materialize, sheetStyleRequests, sheetToData, worksheetRequests } from '../../utils/progressLocal'
 import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
+import ProgressRate from './ProgressRate'
 import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
@@ -195,7 +196,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
   }
 }
 
-export default function ProgressBoard() {
+export default function ProgressBoard({ view = 'progress' }: { view?: 'progress' | 'rate' }) {
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
   const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
@@ -1508,744 +1509,752 @@ export default function ProgressBoard() {
         </p>
       )}
 
-      {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
-      <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
-        {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
-        <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
-          {shownL1s.map((name) => {
-            const rowsOf = data.rows.filter((r) => r.l1 === name)
-            const newOf = drafts.newRows.filter((n) => n.l1 === name)
-            const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
-            const gone = alive === 0 && rowsOf.length > 0
-            const on = name === l1
-            return (
-              <div
-                key={name}
-                onClick={() => setActiveL1(name)}
-                data-l1-tab={name}
-                className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[13px] font-semibold transition-colors ${
-                  tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
-                } ${
-                  on
-                    ? 'border-[#E3E3E8] border-b-white bg-white text-label'
-                    : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
-                }`}
-                title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : name}
-              >
-                {newOf.length > 0 && rowsOf.length === 0 && <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
-                <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                {!tabsCompact && <span className="shrink-0 text-[11px] font-medium text-label-3">{alive}</span>}
-                {!readOnly && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (gone) restoreRows(rowsOf)
-                      else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
-                    }}
-                    title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
-                    aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
-                    className={`-mr-1.5 h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                      on || gone ? 'flex' : 'hidden group-hover:flex'
-                    }`}
-                  >
-                    {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
-                  </button>
-                )}
-              </div>
-            )
-          })}
-          {!readOnly && (
-            <button
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect()
-                setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
-              }}
-              title="그룹(L1) 추가"
-              className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
-            >
-              <Plus {...icSm} />
-              그룹 추가
-            </button>
-          )}
-        </div>
-        {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
-        <div className="shrink-0 pb-1.5">
-          <IconButton
-            onClick={() => setExportOpen(true)}
-            disabled={!l1 || readOnly}
-            title={
-              data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
-            }
-            aria-label="성과관리 과제리스트로 내보내기"
-          >
-            <Send {...icSm} />
-          </IconButton>
-        </div>
-        {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
-        <div className="relative shrink-0 pb-1.5">
-          <IconButton
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect()
-              setViewOpen(viewOpen ? null : { x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 })
-            }}
-            title="보이는 그룹 고르기"
-            aria-label="보이는 그룹 고르기"
-            className={viewOpen || hiddenL1.some((x) => l1s.includes(x)) ? 'bg-black/[0.05] text-label' : ''}
-          >
-            <Settings2 {...icSm} />
-          </IconButton>
-          {viewOpen && (
-            <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
-              <div
-                className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
-                style={{ left: viewOpen.x, top: viewOpen.y }}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between px-3 py-1.5">
-                  <span className="text-[12px] font-semibold text-label-2">보이는 그룹</span>
-                  {hiddenL1.length > 0 && (
-                    <button onClick={() => setHiddenL1([])} className="text-[12px] font-medium text-accent hover:underline">
-                      모두 보기
+      {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
+      {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}
+      <div className={view === 'rate' ? 'hidden' : ''}>
+        {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
+        <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+          {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
+          <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
+            {shownL1s.map((name) => {
+              const rowsOf = data.rows.filter((r) => r.l1 === name)
+              const newOf = drafts.newRows.filter((n) => n.l1 === name)
+              const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
+              const gone = alive === 0 && rowsOf.length > 0
+              const on = name === l1
+              return (
+                <div
+                  key={name}
+                  onClick={() => setActiveL1(name)}
+                  data-l1-tab={name}
+                  className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[13px] font-semibold transition-colors ${
+                    tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
+                  } ${
+                    on
+                      ? 'border-[#E3E3E8] border-b-white bg-white text-label'
+                      : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
+                  }`}
+                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : name}
+                >
+                  {newOf.length > 0 && rowsOf.length === 0 && (
+                    <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
+                  )}
+                  <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
+                  {!tabsCompact && <span className="shrink-0 text-[11px] font-medium text-label-3">{alive}</span>}
+                  {!readOnly && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (gone) restoreRows(rowsOf)
+                        else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
+                      }}
+                      title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
+                      aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
+                      className={`-mr-1.5 h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                        on || gone ? 'flex' : 'hidden group-hover:flex'
+                      }`}
+                    >
+                      {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
                     </button>
                   )}
                 </div>
-                {l1s.map((name) => {
-                  const shown = !hiddenL1.includes(name)
-                  const last = shown && shownL1s.length === 1
-                  return (
-                    <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
-                      <input
-                        type="checkbox"
-                        checked={shown}
-                        disabled={last}
-                        onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
-                      />
-                      <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
-                      <span className="ml-auto text-[11px] text-label-3">
-                        {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
-                      </span>
-                    </label>
-                  )
-                })}
-                <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[11px] leading-snug text-label-3">
-                  숨겨도 시트에서는 지워지지 않습니다. 이 브라우저에서만 안 보입니다.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="shrink-0 pb-1.5">
-          <SheetLinkChip
-            label={data.fileTitle || data.source}
-            sub={data.fileTitle ? data.tabTitle : undefined}
-            meta={
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2" title={`${fmt(data.fetchedAt)} 불러옴`}>
-                  {timeAgo(data.fetchedAt)}
-                </span>
-                {protectedSheet && (
-                  <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
-                    읽기 전용
-                  </span>
-                )}
-              </span>
-            }
-            currentUrl={data.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : null}
-            openUrl={data.spreadsheetId ? withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)) : null}
-            note={
-              canManage
-                ? '다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다.'
-                : SHEET_ADMIN_ONLY
-            }
-            onConnect={canManage ? (url) => connectSheet(url) : undefined}
-            onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
-            reloadDisabled={saving}
-            reloading={loading}
-            extra={
-              canManage && (
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  disabled={loading || saving}
-                  className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
-                  title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-                >
-                  <Upload {...icSm} />
-                  xlsx 파일로 보기
-                </button>
               )
-            }
-          />
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
-        </div>
-      </div>
-
-      {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
-        <label className="relative">
-          <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="L2 · L3 · 담당자 찾기"
-            className="h-8 w-48 rounded-control border border-hairline pl-7 pr-2"
-          />
-        </label>
-        {activeFilters > 0 && (
-          <button
-            onClick={() => setFilters({})}
-            className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
-            title="머리글 필터 모두 해제"
-          >
-            필터 {activeFilters} ✕
-          </button>
-        )}
-        {!(period.start === 1 && period.months === 12) && (
-          <button
-            onClick={() => setPeriod({ start: 1, months: 12 })}
-            className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
-            title="일정 기간을 전체로(일정 머리글 우클릭으로 바꿀 수 있음)"
-          >
-            기간 {periodLabel(period)} ✕
-          </button>
-        )}
-        <span className="h-5 w-px shrink-0 bg-separator" />
-        <button
-          onClick={() => setZebra(!zebra)}
-          title={zebra ? '지브라 끄기(행 흰색)' : '지브라 켜기(한 줄씩 연한 회색)'}
-          aria-pressed={zebra}
-          className={`flex h-8 w-8 items-center justify-center rounded-control border ${zebra ? 'border-accent bg-accent-soft text-accent' : 'border-hairline text-label-2 hover:bg-black/[0.04]'}`}
-        >
-          <Rows3 {...ic} />
-        </button>
-        <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
-          <button
-            onClick={() => setFontSize(fontSize + 1)}
-            disabled={fontSize >= 18}
-            className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
-            aria-label="표 글자 크게"
-          >
-            가<span className="text-[9px] text-accent">▲</span>
-          </button>
-          <button
-            onClick={() => setFontSize(fontSize - 1)}
-            disabled={fontSize <= 10}
-            className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
-            aria-label="표 글자 작게"
-          >
-            가<span className="text-[9px] text-accent">▼</span>
-          </button>
-        </span>
-        <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
-          <button
-            onClick={() => setRowPad(rowPad + 2)}
-            disabled={rowPad >= ROW_PAD_MAX}
-            className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
-            aria-label="행간 넓게"
-            title={`행간 넓게 (지금 ${rowPad}px)`}
-          >
-            <UnfoldVertical {...icSm} />
-          </button>
-          <button
-            onClick={() => setRowPad(rowPad - 2)}
-            disabled={rowPad <= 0}
-            className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04] disabled:opacity-30"
-            aria-label="행간 좁게"
-            title={`행간 좁게 (지금 ${rowPad}px)`}
-          >
-            <FoldVertical {...icSm} />
-          </button>
-          <button
-            onClick={() => {
-              setRowPad(ROW_PAD_DEFAULT)
-              setHeightReset((n) => n + 1)
-            }}
-            className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04]"
-            aria-label="모두 기본 높이로"
-            title="모든 행을 기본 높이로 통일(행간 기본값 · 끌어서 바꾼 행 높이 모두 되돌림)"
-          >
-            <AlignVerticalSpaceAround {...icSm} />
-          </button>
-        </span>
-        <span className="h-5 w-px shrink-0 bg-separator" />
-        {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
-        {readOnly ? (
-          <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-orange-800 ring-1 ring-orange-200">
-            {data.tabTitle.replace(/추진현황/, '실적관리')} · 보기 전용
-            <button
-              onClick={() => archive && void viewYear(archive.data.tabTitle)}
-              className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-accent hover:bg-white"
-            >
-              {archive?.data.tabTitle.replace(/추진현황/, '실적관리')}로 돌아가기
-            </button>
-          </span>
-        ) : (
-          <Button variant="primary" size="sm" onClick={() => setEditing((v) => !v)} title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)">
-            <Pencil {...icSm} />
-            {editing ? '입력 끝내기' : '입력하기'}
-          </Button>
-        )}
-        <span className="flex items-center gap-1">
-          {editing ? (
-            <>
-              {(
-                [
-                  ['plan', '계획(회색) 칠하기'],
-                  ['actual', '실적(분홍) 칠하기'],
-                  ['erase', '지우개'],
-                ] as const
-              ).map(([c, label]) => (
-                <button
-                  key={c}
-                  onClick={() => setTool(c)}
-                  onContextMenu={(e) => {
-                    // 우클릭: 바로 아래에 색 팔레트
-                    if (c === 'erase') return
-                    e.preventDefault()
-                    setTool(c)
-                    openFillMenu(e.currentTarget, c)
-                  }}
-                  title={
-                    c === 'erase'
-                      ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
-                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
-                  }
-                  aria-label={label}
-                  className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
-                >
-                  {c === 'erase' ? <Eraser size={17} strokeWidth={1.75} className="text-label-2" /> : <CellSwatch cell={{ m: '', f: c }} size={18} />}
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              {/* 범례(누르는 버튼이 아님): 칸 모양 바로 뒤에 이름(한 쌍은 붙이고 쌍 사이는 띄움) */}
-              {(
-                [
-                  ['계획', LEGEND.slice(0, 3), ['착수', '기간', '완료']],
-                  ['실적', LEGEND.slice(3), ['착수', '진행', '완료']],
-                ] as const
-              ).map(([group, tools, names], gi) => (
-                <span key={group} className={`flex items-center gap-3.5 text-[12px] text-label-2 ${gi ? 'border-l border-separator pl-3' : 'ml-1.5'}`}>
-                  <span className="-mr-1 font-semibold text-label-3">{group}</span>
-                  {tools.map((t, i) => (
-                    <span key={t} className="flex items-center gap-[3px]">
-                      <CellSwatch cell={TOOL_CELL[t]} size={16} />
-                      {names[i]}
-                    </span>
-                  ))}
-                </span>
-              ))}
-            </>
-          )}
-          <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
-          {scheduleMode === 'hidden' && (
-            <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
-              <CalendarRange {...icSm} />
-              일정 열기
-            </Button>
-          )}
-        </span>
-        <span className="ml-auto flex items-center gap-2">
-          <span className={`flex items-center ${readOnly ? 'hidden' : ''}`}>
-            <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
-              <Undo2 {...ic} />
-            </IconButton>
-            <IconButton onClick={redo} disabled={future.current.length === 0} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
-              <Redo2 {...ic} />
-            </IconButton>
-          </span>
-          <IconButton
-            onClick={() => void downloadProgressExcel(data, drafts, l1s)}
-            title={`엑셀 파일로 받기 -- 시트 모양 그대로(칸 색·메모 포함)${editCount ? ', 저장 안 한 변경도 반영' : ''}`}
-            aria-label="엑셀 파일로 받기"
-          >
-            <FileDown {...ic} />
-          </IconButton>
-          {data.local && canManage && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => void createInSheet()}
-              disabled={saving}
-              title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
-            >
-              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-              구글시트로 만들기
-            </Button>
-          )}
-          {editCount > 0 && (
-            <>
-              <span
-                className="flex items-center gap-1.5 whitespace-nowrap text-label-2"
-                title="주황 점 = 고쳤지만 아직 저장 안 한 칸. 구글시트에 저장하기 전까지 이 브라우저에만 남습니다"
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
-                변경 <b className="text-orange-600">{editCount}</b>
-              </span>
-              <IconButton
-                onClick={() => updateDrafts({ edits: {}, newRows: [] })}
-                disabled={saving}
-                title="모두 되돌리기 -- 고친 내용과 새 과제를 모두 지우고 시트 값으로"
-                aria-label="모두 되돌리기"
-              >
-                <RotateCcw {...ic} />
-              </IconButton>
-              {data.local ? (
-                <Button variant="primary" size="sm" onClick={commitLocal} disabled={saving} title="고친 내용을 표에 반영해 이 브라우저에 저장합니다">
-                  <Save {...icSm} />
-                  저장
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setConfirmSave(true)}
-                  disabled={!canSave || saving}
-                  title={
-                    canSave
-                      ? '고친 칸을 연결된 시트에 씁니다'
-                      : protectedSheet
-                        ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
-                        : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
-                  }
-                >
-                  {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-                  구글시트에 저장
-                </Button>
-              )}
-            </>
-          )}
-        </span>
-      </div>
-
-      <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto">
-        {
-          <ScheduleTable
-            weekCols={weekCols}
-            rows={views}
-            editing={editing}
-            currentKey={currentKey}
-            onPaint={paintCell}
-            onWeekCells={readOnly ? undefined : setWeekCells}
-            onField={setField}
-            onFields={setFields}
-            editNameKey={openKey}
-            onDeleteRow={(row) => deleteRows([row])}
-            onDeleteRows={deleteRows}
-            onRestoreRow={(row) => restoreRows([row])}
-            onDeleteGroup={(row) => deleteRows(groupRowsOf(row))}
-            onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
-            onAddGroup={addGroup}
-            onRenameGroup={(row, name) => {
-              const rowsOfGroup = groupRowsOf(row)
-              if (rowsOfGroup.every((r) => r.isNew)) {
-                // 새 구분: 새 과제들의 구분 이름을 바로 바꾼다
-                const ids = new Set(rowsOfGroup.map((r) => r.key.slice(NEW_PREFIX.length)))
-                const { name: l2, tag } = splitL2(name)
-                updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
-                return
-              }
-              // 시트 구분: 원래 이름(시트 값) 기준으로 고친 이름을 얹고, 저장하면 이름 칸에 쓴다
-              const src = rowsOfGroup.find((r) => !r.isNew)!
-              const orig = data.rows.find((r) => r.key === src.key) ?? src
-              updateDrafts((d) => renameL2(d, orig, name))
-            }}
-            onRevertRow={(row) =>
-              updateDrafts((d) => {
-                const next = { ...d.edits }
-                delete next[row.key]
-                return { ...d, edits: next }
-              })
-            }
-            onAddRow={addRow}
-            onMoveRow={readOnly ? undefined : moveRow}
-            fontSize={fontSize}
-            rowPad={rowPad}
-            heightReset={heightReset}
-            readOnly={readOnly}
-            fields={eff.fields}
-            optionsOf={optionsOf}
-            headerStyle={eff.headerStyle}
-            scheduleMode={scheduleMode}
-            onToggleSchedule={() => setScheduleMode(scheduleMode === 'full' ? 'compact' : 'full')}
-            onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
-            allWeekCols={data.weekCols}
-            onBg={setBg}
-            onNote={setNote}
-            onFmt={readOnly ? undefined : setFmt}
-            onCells={readOnly ? undefined : setCells}
-            onAddRows={readOnly ? undefined : addRows}
-            onAddColumns={readOnly ? undefined : addColumns}
-            onDeleteColumns={readOnly ? undefined : deleteColumns}
-            onRenameColumn={
-              readOnly ? undefined : (id, label) => updateDrafts((d) => ({ ...d, newCols: (d.newCols ?? []).map((c) => (c.id === id ? { ...c, label } : c)) }))
-            }
-            merges={merges}
-            onMerge={readOnly ? undefined : mergeCells}
-            zebra={zebra}
-            sheetColors={sheetColors}
-            headColors={headColors}
-            onHeadColor={setHeadColor}
-            filterOptions={filterOptions}
-            hiddenOf={(id) => filters[id] ?? []}
-            onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
-            widths={widths}
-            onResize={resizeCol}
-          />
-        }
-      </div>
-      {exportOpen && (
-        // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-          <div className="flex h-[min(900px,92vh)] w-[min(1180px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
-            <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
-              <div className="min-w-0">
-                <h3 className="text-[15px] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
-                  <span className="font-semibold text-label-2">보낼 곳</span>
-                  {workspaces.length > 0 ? (
-                    <select
-                      value={target}
-                      onChange={(e) => setExportTo(e.target.value)}
-                      aria-label="보낼 성과관리 프로젝트"
-                      className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px] font-semibold text-label"
-                    >
-                      {workspaces.map((w) => (
-                        <option key={w.id} value={w.id}>
-                          {w.teamName} {w.evaluationYear} {w.periodName}
-                          {w.id === currentWorkspaceId ? ' (지금 열린 프로젝트)' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="text-label-2">
-                      성과관리에 아직 프로젝트(팀 · 평가기간)가 없습니다.{' '}
-                      <button onClick={() => setMode('perf')} className="font-semibold text-accent hover:underline">
-                        성과관리에서 프로젝트 만들기
-                      </button>
-                    </span>
-                  )}
-                </div>
-              </div>
-              <IconButton onClick={() => setExportOpen(false)} aria-label="닫기" className="shrink-0">
-                <X {...ic} />
-              </IconButton>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {target && (
-                <AppProvider key={target} workspaceId={target}>
-                  <ExportTargetSync id={target} />
-                  <SheetImportPanel
-                    source="progress"
-                    progress={exportSource}
-                    verb="export"
-                    initialL1s={l1 ? [l1] : undefined}
-                    onCancel={() => setExportOpen(false)}
-                    onDone={() => {
-                      setExportOpen(false)
-                      setMode('perf')
-                    }}
-                  />
-                </AppProvider>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {tabAdd && (
-        <div className="fixed inset-0 z-50" onMouseDown={() => setTabAdd(null)}>
-          <form
-            className="mac-pop absolute w-[320px] p-3"
-            style={{ left: tabAdd.x, top: tabAdd.y }}
-            onMouseDown={(e) => e.stopPropagation()}
-            onSubmit={(e) => {
-              e.preventDefault()
-              const name = tabAdd.l1.trim()
-              if (!name || !tabAdd.l2.trim() || l1s.includes(name)) return
-              addTab(name, tabAdd.l2.trim())
-              setTabAdd(null)
-            }}
-          >
-            <p className="text-[13px] font-semibold text-label">그룹(L1) 추가</p>
-            <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 그룹 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
-            <input
-              autoFocus
-              value={tabAdd.l1}
-              onChange={(e) => setTabAdd({ ...tabAdd, l1: e.target.value })}
-              onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
-              placeholder="L1 이름"
-              className="mt-2 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
-            />
-            {l1s.includes(tabAdd.l1.trim()) && <p className="mt-1 text-[11px] text-danger">이미 있는 L1입니다.</p>}
-            <input
-              value={tabAdd.l2}
-              onChange={(e) => setTabAdd({ ...tabAdd, l2: e.target.value })}
-              onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
-              placeholder="첫 구분(L2) 이름 (태그는 끝에 [태그])"
-              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
-            />
-            <div className="mt-2.5 flex justify-end gap-1.5">
-              <Button variant="secondary" size="sm" type="button" onClick={() => setTabAdd(null)}>
-                취소
-              </Button>
-              <Button variant="primary" size="sm" type="submit" disabled={!tabAdd.l1.trim() || !tabAdd.l2.trim() || l1s.includes(tabAdd.l1.trim())}>
-                추가
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
-      {fillMenu && (
-        <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
-          <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
-              <CellSwatch cell={{ m: '', f: fillMenu.which }} size={14} />
-              <span className="flex-1">{fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색</span>
+            })}
+            {!readOnly && (
               <button
-                onClick={() => setFillMenu(null)}
-                className="-mr-1 flex h-6 w-6 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.06] hover:text-label"
-                aria-label="닫기"
-                title="닫기 (Esc)"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
+                }}
+                title="그룹(L1) 추가"
+                className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
               >
-                <X size={14} strokeWidth={2} />
+                <Plus {...icSm} />
+                그룹 추가
               </button>
-            </div>
-            <ColorPalette
-              current={fillHex(fillMenu.which)}
-              sheetColors={sheetColors}
-              onPick={(hex) => {
-                setFillHex(fillMenu.which, hex)
-                setFillTick((n) => n + 1)
-                setFillMenu(null)
-              }}
-            />
-            <p className="mt-2 text-[11px] leading-snug text-label-3">
-              이 브라우저에 기억합니다. 새로 칠하거나 고친 칸은 구글시트에 이 색으로 저장되고, 시트를 다시 읽을 때 이 색을 계획/실적으로 알아봅니다. 재설정하면
-              기본색(회색 · 분홍)입니다.
-            </p>
-          </div>
-        </div>
-      )}
-      {schMenu && (
-        <div
-          className="fixed inset-0 z-50"
-          onMouseDown={() => setSchMenu(null)}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            setSchMenu(null)
-          }}
-        >
-          <div
-            className={`mac-pop absolute py-1 text-[13px] ${schPalette ? 'w-[268px]' : 'w-[220px]'}`}
-            style={{ left: Math.min(schMenu.x, window.innerWidth - 276), top: schMenu.y }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {schPalette ? (
-              <div className="px-3 py-1.5">
-                <button onClick={() => setSchPalette(false)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
-                  ‹ 일정 머리글 색
-                </button>
-                <ColorPalette
-                  current={headColors.schedule ?? ''}
-                  sheetColors={sheetColors}
-                  onPick={(hex) => {
-                    setHeadColor('schedule', hex)
-                    setSchMenu(null)
-                  }}
-                />
-              </div>
-            ) : (
-              <>
-                <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
-                {(
-                  [
-                    ['full', '전체 펴기'],
-                    ['compact', '줄여보기'],
-                    ['hidden', '숨기기'],
-                  ] as const
-                ).map(([m, label]) => (
-                  <button
-                    key={m}
-                    onClick={() => {
-                      setScheduleMode(m)
-                      setSchMenu(null)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                  >
-                    <span className="w-3 text-accent">{scheduleMode === m ? '✓' : ''}</span>
-                    {label}
-                  </button>
-                ))}
-                <div className="mac-menu-sep" />
-                <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
-                {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
-                {(
-                  [
-                    [PERIOD_BUTTONS, 'grid-cols-3'],
-                    [QUARTERS, 'grid-cols-4'],
-                    [MONTHS, 'grid-cols-3'],
-                  ] as const
-                ).map(([list, cols], gi) => (
-                  <div key={gi}>
-                    {gi > 0 && <div className="mac-menu-sep" />}
-                    <div className={`grid ${cols} gap-1 px-2 py-1`}>
-                      {list.map(({ label, p }) => {
-                        const on = period.start === p.start && period.months === p.months
-                        return (
-                          <button
-                            key={label}
-                            onClick={() => {
-                              setPeriod(p)
-                              if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
-                              setSchMenu(null)
-                            }}
-                            className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
-                <div className="mac-menu-sep" />
-                <button onClick={() => setSchPalette(true)} className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]">
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/15"
-                      style={{ background: `#${headColors.schedule || HEAD_DEFAULT.schedule}` }}
-                    />
-                    일정 머리글 색
-                  </span>
-                  <span className="text-label-3">▸</span>
-                </button>
-              </>
             )}
           </div>
+          {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
+          <div className="shrink-0 pb-1.5">
+            <IconButton
+              onClick={() => setExportOpen(true)}
+              disabled={!l1 || readOnly}
+              title={
+                data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
+              }
+              aria-label="성과관리 과제리스트로 내보내기"
+            >
+              <Send {...icSm} />
+            </IconButton>
+          </div>
+          {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
+          <div className="relative shrink-0 pb-1.5">
+            <IconButton
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setViewOpen(viewOpen ? null : { x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 })
+              }}
+              title="보이는 그룹 고르기"
+              aria-label="보이는 그룹 고르기"
+              className={viewOpen || hiddenL1.some((x) => l1s.includes(x)) ? 'bg-black/[0.05] text-label' : ''}
+            >
+              <Settings2 {...icSm} />
+            </IconButton>
+            {viewOpen && (
+              <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
+                <div
+                  className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
+                  style={{ left: viewOpen.x, top: viewOpen.y }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between px-3 py-1.5">
+                    <span className="text-[12px] font-semibold text-label-2">보이는 그룹</span>
+                    {hiddenL1.length > 0 && (
+                      <button onClick={() => setHiddenL1([])} className="text-[12px] font-medium text-accent hover:underline">
+                        모두 보기
+                      </button>
+                    )}
+                  </div>
+                  {l1s.map((name) => {
+                    const shown = !hiddenL1.includes(name)
+                    const last = shown && shownL1s.length === 1
+                    return (
+                      <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
+                        <input
+                          type="checkbox"
+                          checked={shown}
+                          disabled={last}
+                          onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
+                        />
+                        <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
+                        <span className="ml-auto text-[11px] text-label-3">
+                          {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
+                        </span>
+                      </label>
+                    )
+                  })}
+                  <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[11px] leading-snug text-label-3">
+                    숨겨도 시트에서는 지워지지 않습니다. 이 브라우저에서만 안 보입니다.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="shrink-0 pb-1.5">
+            <SheetLinkChip
+              label={data.fileTitle || data.source}
+              sub={data.fileTitle ? data.tabTitle : undefined}
+              meta={
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2" title={`${fmt(data.fetchedAt)} 불러옴`}>
+                    {timeAgo(data.fetchedAt)}
+                  </span>
+                  {protectedSheet && (
+                    <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
+                      읽기 전용
+                    </span>
+                  )}
+                </span>
+              }
+              currentUrl={data.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : null}
+              openUrl={data.spreadsheetId ? withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)) : null}
+              note={
+                canManage
+                  ? '다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다.'
+                  : SHEET_ADMIN_ONLY
+              }
+              onConnect={canManage ? (url) => connectSheet(url) : undefined}
+              onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
+              reloadDisabled={saving}
+              reloading={loading}
+              extra={
+                canManage && (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    disabled={loading || saving}
+                    className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
+                    title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+                  >
+                    <Upload {...icSm} />
+                    xlsx 파일로 보기
+                  </button>
+                )
+              }
+            />
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
+          </div>
         </div>
-      )}
 
-      <ConfirmDialog
-        open={confirmSave}
-        title="구글시트에 저장"
-        message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
-        confirmLabel="저장"
-        tone="accent"
-        onConfirm={saveToSheet}
-        onCancel={() => setConfirmSave(false)}
-      >
-        {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
-        <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-          <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
-          <p className="mt-0.5 break-all text-[14px] font-bold text-label">
-            {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
-          </p>
-          {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
-          {(drafts.deleted?.length ?? 0) > 0 && (
-            <p className="mt-1 text-[12px] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
+        {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
+          <label className="relative">
+            <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="L2 · L3 · 담당자 찾기"
+              className="h-8 w-48 rounded-control border border-hairline pl-7 pr-2"
+            />
+          </label>
+          {activeFilters > 0 && (
+            <button
+              onClick={() => setFilters({})}
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              title="머리글 필터 모두 해제"
+            >
+              필터 {activeFilters} ✕
+            </button>
           )}
+          {!(period.start === 1 && period.months === 12) && (
+            <button
+              onClick={() => setPeriod({ start: 1, months: 12 })}
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              title="일정 기간을 전체로(일정 머리글 우클릭으로 바꿀 수 있음)"
+            >
+              기간 {periodLabel(period)} ✕
+            </button>
+          )}
+          <span className="h-5 w-px shrink-0 bg-separator" />
+          <button
+            onClick={() => setZebra(!zebra)}
+            title={zebra ? '지브라 끄기(행 흰색)' : '지브라 켜기(한 줄씩 연한 회색)'}
+            aria-pressed={zebra}
+            className={`flex h-8 w-8 items-center justify-center rounded-control border ${zebra ? 'border-accent bg-accent-soft text-accent' : 'border-hairline text-label-2 hover:bg-black/[0.04]'}`}
+          >
+            <Rows3 {...ic} />
+          </button>
+          <span className="flex overflow-hidden rounded-control border border-hairline" title={`표 글자 크기 ${fontSize}px`}>
+            <button
+              onClick={() => setFontSize(fontSize + 1)}
+              disabled={fontSize >= 18}
+              className="flex h-8 items-center gap-0.5 px-2 text-[15px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="표 글자 크게"
+            >
+              가<span className="text-[9px] text-accent">▲</span>
+            </button>
+            <button
+              onClick={() => setFontSize(fontSize - 1)}
+              disabled={fontSize <= 10}
+              className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="표 글자 작게"
+            >
+              가<span className="text-[9px] text-accent">▼</span>
+            </button>
+          </span>
+          <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
+            <button
+              onClick={() => setRowPad(rowPad + 2)}
+              disabled={rowPad >= ROW_PAD_MAX}
+              className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="행간 넓게"
+              title={`행간 넓게 (지금 ${rowPad}px)`}
+            >
+              <UnfoldVertical {...icSm} />
+            </button>
+            <button
+              onClick={() => setRowPad(rowPad - 2)}
+              disabled={rowPad <= 0}
+              className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04] disabled:opacity-30"
+              aria-label="행간 좁게"
+              title={`행간 좁게 (지금 ${rowPad}px)`}
+            >
+              <FoldVertical {...icSm} />
+            </button>
+            <button
+              onClick={() => {
+                setRowPad(ROW_PAD_DEFAULT)
+                setHeightReset((n) => n + 1)
+              }}
+              className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04]"
+              aria-label="모두 기본 높이로"
+              title="모든 행을 기본 높이로 통일(행간 기본값 · 끌어서 바꾼 행 높이 모두 되돌림)"
+            >
+              <AlignVerticalSpaceAround {...icSm} />
+            </button>
+          </span>
+          <span className="h-5 w-px shrink-0 bg-separator" />
+          {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
+          {readOnly ? (
+            <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-orange-800 ring-1 ring-orange-200">
+              {data.tabTitle.replace(/추진현황/, '실적관리')} · 보기 전용
+              <button
+                onClick={() => archive && void viewYear(archive.data.tabTitle)}
+                className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-accent hover:bg-white"
+              >
+                {archive?.data.tabTitle.replace(/추진현황/, '실적관리')}로 돌아가기
+              </button>
+            </span>
+          ) : (
+            <Button variant="primary" size="sm" onClick={() => setEditing((v) => !v)} title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)">
+              <Pencil {...icSm} />
+              {editing ? '입력 끝내기' : '입력하기'}
+            </Button>
+          )}
+          <span className="flex items-center gap-1">
+            {editing ? (
+              <>
+                {(
+                  [
+                    ['plan', '계획(회색) 칠하기'],
+                    ['actual', '실적(분홍) 칠하기'],
+                    ['erase', '지우개'],
+                  ] as const
+                ).map(([c, label]) => (
+                  <button
+                    key={c}
+                    onClick={() => setTool(c)}
+                    onContextMenu={(e) => {
+                      // 우클릭: 바로 아래에 색 팔레트
+                      if (c === 'erase') return
+                      e.preventDefault()
+                      setTool(c)
+                      openFillMenu(e.currentTarget, c)
+                    }}
+                    title={
+                      c === 'erase'
+                        ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
+                        : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
+                    }
+                    aria-label={label}
+                    className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
+                  >
+                    {c === 'erase' ? <Eraser size={17} strokeWidth={1.75} className="text-label-2" /> : <CellSwatch cell={{ m: '', f: c }} size={18} />}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                {/* 범례(누르는 버튼이 아님): 칸 모양 바로 뒤에 이름(한 쌍은 붙이고 쌍 사이는 띄움) */}
+                {(
+                  [
+                    ['계획', LEGEND.slice(0, 3), ['착수', '기간', '완료']],
+                    ['실적', LEGEND.slice(3), ['착수', '진행', '완료']],
+                  ] as const
+                ).map(([group, tools, names], gi) => (
+                  <span key={group} className={`flex items-center gap-3.5 text-[12px] text-label-2 ${gi ? 'border-l border-separator pl-3' : 'ml-1.5'}`}>
+                    <span className="-mr-1 font-semibold text-label-3">{group}</span>
+                    {tools.map((t, i) => (
+                      <span key={t} className="flex items-center gap-[3px]">
+                        <CellSwatch cell={TOOL_CELL[t]} size={16} />
+                        {names[i]}
+                      </span>
+                    ))}
+                  </span>
+                ))}
+              </>
+            )}
+            <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
+            {scheduleMode === 'hidden' && (
+              <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
+                <CalendarRange {...icSm} />
+                일정 열기
+              </Button>
+            )}
+          </span>
+          <span className="ml-auto flex items-center gap-2">
+            <span className={`flex items-center ${readOnly ? 'hidden' : ''}`}>
+              <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
+                <Undo2 {...ic} />
+              </IconButton>
+              <IconButton onClick={redo} disabled={future.current.length === 0} title="다시 하기 (⌘⇧Z)" aria-label="다시 하기">
+                <Redo2 {...ic} />
+              </IconButton>
+            </span>
+            <IconButton
+              onClick={() => void downloadProgressExcel(data, drafts, l1s)}
+              title={`엑셀 파일로 받기 -- 시트 모양 그대로(칸 색·메모 포함)${editCount ? ', 저장 안 한 변경도 반영' : ''}`}
+              aria-label="엑셀 파일로 받기"
+            >
+              <FileDown {...ic} />
+            </IconButton>
+            {data.local && canManage && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void createInSheet()}
+                disabled={saving}
+                title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
+              >
+                {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+                구글시트로 만들기
+              </Button>
+            )}
+            {editCount > 0 && (
+              <>
+                <span
+                  className="flex items-center gap-1.5 whitespace-nowrap text-label-2"
+                  title="주황 점 = 고쳤지만 아직 저장 안 한 칸. 구글시트에 저장하기 전까지 이 브라우저에만 남습니다"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+                  변경 <b className="text-orange-600">{editCount}</b>
+                </span>
+                <IconButton
+                  onClick={() => updateDrafts({ edits: {}, newRows: [] })}
+                  disabled={saving}
+                  title="모두 되돌리기 -- 고친 내용과 새 과제를 모두 지우고 시트 값으로"
+                  aria-label="모두 되돌리기"
+                >
+                  <RotateCcw {...ic} />
+                </IconButton>
+                {data.local ? (
+                  <Button variant="primary" size="sm" onClick={commitLocal} disabled={saving} title="고친 내용을 표에 반영해 이 브라우저에 저장합니다">
+                    <Save {...icSm} />
+                    저장
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setConfirmSave(true)}
+                    disabled={!canSave || saving}
+                    title={
+                      canSave
+                        ? '고친 칸을 연결된 시트에 씁니다'
+                        : protectedSheet
+                          ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
+                          : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
+                    }
+                  >
+                    {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+                    구글시트에 저장
+                  </Button>
+                )}
+              </>
+            )}
+          </span>
         </div>
-      </ConfirmDialog>
+
+        <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto">
+          {
+            <ScheduleTable
+              weekCols={weekCols}
+              rows={views}
+              editing={editing}
+              currentKey={currentKey}
+              onPaint={paintCell}
+              onWeekCells={readOnly ? undefined : setWeekCells}
+              onField={setField}
+              onFields={setFields}
+              editNameKey={openKey}
+              onDeleteRow={(row) => deleteRows([row])}
+              onDeleteRows={deleteRows}
+              onRestoreRow={(row) => restoreRows([row])}
+              onDeleteGroup={(row) => deleteRows(groupRowsOf(row))}
+              onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
+              onAddGroup={addGroup}
+              onRenameGroup={(row, name) => {
+                const rowsOfGroup = groupRowsOf(row)
+                if (rowsOfGroup.every((r) => r.isNew)) {
+                  // 새 구분: 새 과제들의 구분 이름을 바로 바꾼다
+                  const ids = new Set(rowsOfGroup.map((r) => r.key.slice(NEW_PREFIX.length)))
+                  const { name: l2, tag } = splitL2(name)
+                  updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
+                  return
+                }
+                // 시트 구분: 원래 이름(시트 값) 기준으로 고친 이름을 얹고, 저장하면 이름 칸에 쓴다
+                const src = rowsOfGroup.find((r) => !r.isNew)!
+                const orig = data.rows.find((r) => r.key === src.key) ?? src
+                updateDrafts((d) => renameL2(d, orig, name))
+              }}
+              onRevertRow={(row) =>
+                updateDrafts((d) => {
+                  const next = { ...d.edits }
+                  delete next[row.key]
+                  return { ...d, edits: next }
+                })
+              }
+              onAddRow={addRow}
+              onMoveRow={readOnly ? undefined : moveRow}
+              fontSize={fontSize}
+              rowPad={rowPad}
+              heightReset={heightReset}
+              readOnly={readOnly}
+              fields={eff.fields}
+              optionsOf={optionsOf}
+              headerStyle={eff.headerStyle}
+              scheduleMode={scheduleMode}
+              onToggleSchedule={() => setScheduleMode(scheduleMode === 'full' ? 'compact' : 'full')}
+              onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
+              allWeekCols={data.weekCols}
+              onBg={setBg}
+              onNote={setNote}
+              onFmt={readOnly ? undefined : setFmt}
+              onCells={readOnly ? undefined : setCells}
+              onAddRows={readOnly ? undefined : addRows}
+              onAddColumns={readOnly ? undefined : addColumns}
+              onDeleteColumns={readOnly ? undefined : deleteColumns}
+              onRenameColumn={
+                readOnly
+                  ? undefined
+                  : (id, label) => updateDrafts((d) => ({ ...d, newCols: (d.newCols ?? []).map((c) => (c.id === id ? { ...c, label } : c)) }))
+              }
+              merges={merges}
+              onMerge={readOnly ? undefined : mergeCells}
+              zebra={zebra}
+              sheetColors={sheetColors}
+              headColors={headColors}
+              onHeadColor={setHeadColor}
+              filterOptions={filterOptions}
+              hiddenOf={(id) => filters[id] ?? []}
+              onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
+              widths={widths}
+              onResize={resizeCol}
+            />
+          }
+        </div>
+        {exportOpen && (
+          // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
+            <div className="flex h-[min(900px,92vh)] w-[min(1180px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+              <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
+                <div className="min-w-0">
+                  <h3 className="text-[15px] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+                    <span className="font-semibold text-label-2">보낼 곳</span>
+                    {workspaces.length > 0 ? (
+                      <select
+                        value={target}
+                        onChange={(e) => setExportTo(e.target.value)}
+                        aria-label="보낼 성과관리 프로젝트"
+                        className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px] font-semibold text-label"
+                      >
+                        {workspaces.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.teamName} {w.evaluationYear} {w.periodName}
+                            {w.id === currentWorkspaceId ? ' (지금 열린 프로젝트)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-label-2">
+                        성과관리에 아직 프로젝트(팀 · 평가기간)가 없습니다.{' '}
+                        <button onClick={() => setMode('perf')} className="font-semibold text-accent hover:underline">
+                          성과관리에서 프로젝트 만들기
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <IconButton onClick={() => setExportOpen(false)} aria-label="닫기" className="shrink-0">
+                  <X {...ic} />
+                </IconButton>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                {target && (
+                  <AppProvider key={target} workspaceId={target}>
+                    <ExportTargetSync id={target} />
+                    <SheetImportPanel
+                      source="progress"
+                      progress={exportSource}
+                      verb="export"
+                      initialL1s={l1 ? [l1] : undefined}
+                      onCancel={() => setExportOpen(false)}
+                      onDone={() => {
+                        setExportOpen(false)
+                        setMode('perf')
+                      }}
+                    />
+                  </AppProvider>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {tabAdd && (
+          <div className="fixed inset-0 z-50" onMouseDown={() => setTabAdd(null)}>
+            <form
+              className="mac-pop absolute w-[320px] p-3"
+              style={{ left: tabAdd.x, top: tabAdd.y }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onSubmit={(e) => {
+                e.preventDefault()
+                const name = tabAdd.l1.trim()
+                if (!name || !tabAdd.l2.trim() || l1s.includes(name)) return
+                addTab(name, tabAdd.l2.trim())
+                setTabAdd(null)
+              }}
+            >
+              <p className="text-[13px] font-semibold text-label">그룹(L1) 추가</p>
+              <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 그룹 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
+              <input
+                autoFocus
+                value={tabAdd.l1}
+                onChange={(e) => setTabAdd({ ...tabAdd, l1: e.target.value })}
+                onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
+                placeholder="L1 이름"
+                className="mt-2 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+              />
+              {l1s.includes(tabAdd.l1.trim()) && <p className="mt-1 text-[11px] text-danger">이미 있는 L1입니다.</p>}
+              <input
+                value={tabAdd.l2}
+                onChange={(e) => setTabAdd({ ...tabAdd, l2: e.target.value })}
+                onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
+                placeholder="첫 구분(L2) 이름 (태그는 끝에 [태그])"
+                className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+              />
+              <div className="mt-2.5 flex justify-end gap-1.5">
+                <Button variant="secondary" size="sm" type="button" onClick={() => setTabAdd(null)}>
+                  취소
+                </Button>
+                <Button variant="primary" size="sm" type="submit" disabled={!tabAdd.l1.trim() || !tabAdd.l2.trim() || l1s.includes(tabAdd.l1.trim())}>
+                  추가
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+        {fillMenu && (
+          <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
+            <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+              <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
+                <CellSwatch cell={{ m: '', f: fillMenu.which }} size={14} />
+                <span className="flex-1">{fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색</span>
+                <button
+                  onClick={() => setFillMenu(null)}
+                  className="-mr-1 flex h-6 w-6 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.06] hover:text-label"
+                  aria-label="닫기"
+                  title="닫기 (Esc)"
+                >
+                  <X size={14} strokeWidth={2} />
+                </button>
+              </div>
+              <ColorPalette
+                current={fillHex(fillMenu.which)}
+                sheetColors={sheetColors}
+                onPick={(hex) => {
+                  setFillHex(fillMenu.which, hex)
+                  setFillTick((n) => n + 1)
+                  setFillMenu(null)
+                }}
+              />
+              <p className="mt-2 text-[11px] leading-snug text-label-3">
+                이 브라우저에 기억합니다. 새로 칠하거나 고친 칸은 구글시트에 이 색으로 저장되고, 시트를 다시 읽을 때 이 색을 계획/실적으로 알아봅니다.
+                재설정하면 기본색(회색 · 분홍)입니다.
+              </p>
+            </div>
+          </div>
+        )}
+        {schMenu && (
+          <div
+            className="fixed inset-0 z-50"
+            onMouseDown={() => setSchMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setSchMenu(null)
+            }}
+          >
+            <div
+              className={`mac-pop absolute py-1 text-[13px] ${schPalette ? 'w-[268px]' : 'w-[220px]'}`}
+              style={{ left: Math.min(schMenu.x, window.innerWidth - 276), top: schMenu.y }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {schPalette ? (
+                <div className="px-3 py-1.5">
+                  <button onClick={() => setSchPalette(false)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
+                    ‹ 일정 머리글 색
+                  </button>
+                  <ColorPalette
+                    current={headColors.schedule ?? ''}
+                    sheetColors={sheetColors}
+                    onPick={(hex) => {
+                      setHeadColor('schedule', hex)
+                      setSchMenu(null)
+                    }}
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
+                  {(
+                    [
+                      ['full', '전체 펴기'],
+                      ['compact', '줄여보기'],
+                      ['hidden', '숨기기'],
+                    ] as const
+                  ).map(([m, label]) => (
+                    <button
+                      key={m}
+                      onClick={() => {
+                        setScheduleMode(m)
+                        setSchMenu(null)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                    >
+                      <span className="w-3 text-accent">{scheduleMode === m ? '✓' : ''}</span>
+                      {label}
+                    </button>
+                  ))}
+                  <div className="mac-menu-sep" />
+                  <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
+                  {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
+                  {(
+                    [
+                      [PERIOD_BUTTONS, 'grid-cols-3'],
+                      [QUARTERS, 'grid-cols-4'],
+                      [MONTHS, 'grid-cols-3'],
+                    ] as const
+                  ).map(([list, cols], gi) => (
+                    <div key={gi}>
+                      {gi > 0 && <div className="mac-menu-sep" />}
+                      <div className={`grid ${cols} gap-1 px-2 py-1`}>
+                        {list.map(({ label, p }) => {
+                          const on = period.start === p.start && period.months === p.months
+                          return (
+                            <button
+                              key={label}
+                              onClick={() => {
+                                setPeriod(p)
+                                if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
+                                setSchMenu(null)
+                              }}
+                              className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
+                            >
+                              {label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="mac-menu-sep" />
+                  <button onClick={() => setSchPalette(true)} className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/15"
+                        style={{ background: `#${headColors.schedule || HEAD_DEFAULT.schedule}` }}
+                      />
+                      일정 머리글 색
+                    </span>
+                    <span className="text-label-3">▸</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        <ConfirmDialog
+          open={confirmSave}
+          title="구글시트에 저장"
+          message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
+          confirmLabel="저장"
+          tone="accent"
+          onConfirm={saveToSheet}
+          onCancel={() => setConfirmSave(false)}
+        >
+          {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
+          <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
+            <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
+            <p className="mt-0.5 break-all text-[14px] font-bold text-label">
+              {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
+            </p>
+            {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
+            {(drafts.deleted?.length ?? 0) > 0 && (
+              <p className="mt-1 text-[12px] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
+            )}
+          </div>
+        </ConfirmDialog>
+      </div>
     </div>
   )
 }
