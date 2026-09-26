@@ -1221,6 +1221,27 @@ export default function ScheduleTable({
   }
   // 구분(L2) 이름 그 자리에서 고치기
   const [l2Edit, setL2Edit] = useState<{ key: string; text: string } | null>(null)
+  // 구분(L2) 칸: 누르면 칸 선택, 더블클릭 · Enter · F2로 이름 고치기
+  const [l2Sel, setL2Sel] = useState<string | null>(null)
+  useEffect(() => {
+    if (!l2Sel) return
+    const out = (e: MouseEvent) => !(e.target as HTMLElement).closest(`[data-l2="${l2Sel}"]`) && setL2Sel(null)
+    const key = (e: KeyboardEvent) => {
+      if (l2Edit || e.isComposing) return
+      if (e.key === 'Escape') setL2Sel(null)
+      else if ((e.key === 'Enter' || e.key === 'F2') && startL2Edit.current) {
+        e.preventDefault()
+        startL2Edit.current()
+      }
+    }
+    window.addEventListener('mousedown', out)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('mousedown', out)
+      window.removeEventListener('keydown', key)
+    }
+  }, [l2Sel, l2Edit])
+  const startL2Edit = useRef<(() => void) | null>(null)
   function commitL2(row: ProgressRow) {
     if (!l2Edit) return
     const name = l2Edit.text.replace(/\s*\n\s*/g, ' ').trim()
@@ -2105,17 +2126,29 @@ export default function ScheduleTable({
                       <td
                         rowSpan={g.rows.length}
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
-                        onClick={(e) => {
-                          // 누르면 그 자리에서 구분 이름 고치기(아이콘 · 입력창을 누른 건 제외)
-                          if ((e.target as HTMLElement).closest('button,input,textarea')) return
-                          if (!onRenameGroup || readOnly || g.rows.every((x) => x.deleted)) return
-                          setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 })
+                        data-l2={g.rows[0].row.key}
+                        onMouseDown={(e) => {
+                          // 누르면 칸 선택(아이콘 · 입력창을 누른 건 제외) -- 다른 칸 선택은 푼다
+                          if (e.button !== 0 || (e.target as HTMLElement).closest('button,input,textarea')) return
+                          e.preventDefault()
+                          setSel(null)
+                          setSelEnd(null)
+                          setRowSel(null)
+                          setWeekSel(null)
+                          setL2Sel(g.rows[0].row.key)
+                          const canEdit = !!onRenameGroup && !readOnly && !g.rows.every((x) => x.deleted)
+                          startL2Edit.current = canEdit ? () => setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 }) : null
                         }}
-                        title={`${g.l2} · 눌러서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
+                        onDoubleClick={(e) => {
+                          // 더블클릭하면 그 자리에서 구분 이름 고치기
+                          if ((e.target as HTMLElement).closest('button,input,textarea')) return
+                          startL2Edit.current?.()
+                        }}
+                        title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
                         className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
-                        }`}
+                        } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         <div className="sticky top-[64px] py-1">
@@ -2134,7 +2167,10 @@ export default function ScheduleTable({
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault()
                                   commitL2(g.rows[0].row)
-                                } else if (e.key === 'Escape') setL2Edit(null)
+                                } else if (e.key === 'Escape') {
+                                  e.stopPropagation() // 칸 선택은 그대로
+                                  setL2Edit(null)
+                                }
                               }}
                               onBlur={() => commitL2(g.rows[0].row)}
                               title="Enter 반영 · Esc 취소 · [중점]처럼 쓰면 태그"
@@ -2142,7 +2178,7 @@ export default function ScheduleTable({
                             />
                           ) : (
                             <>
-                              <span className="block cursor-text whitespace-pre-line break-words">{g.l2}</span>
+                              <span className="block cursor-default whitespace-pre-line break-words">{g.l2}</span>
                               {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                             </>
                           )}
