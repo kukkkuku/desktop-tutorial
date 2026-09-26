@@ -21,7 +21,7 @@ import {
 } from '../utils/rankReview'
 import Button from './Button'
 import Spinner from './Spinner'
-import { Download, Upload } from 'lucide-react'
+import { Download, Upload, X } from 'lucide-react'
 import { icSm } from './ui/icon'
 
 export default function RankPeerReview() {
@@ -97,9 +97,7 @@ export default function RankPeerReview() {
       // 같은 순위는 둘일 수 없다 -- 이미 그 순위를 가진 사람과 순위를 맞바꾼다.
       const oldRank = i >= 0 ? cur[i].rank : null
       const swapped =
-        patch.rank != null
-          ? cur.map((e, k) => (k !== i && (e.taskId ?? '') === (taskId ?? '') && e.rank === patch.rank ? { ...e, rank: oldRank } : e))
-          : cur
+        patch.rank != null ? cur.map((e, k) => (k !== i && (e.taskId ?? '') === (taskId ?? '') && e.rank === patch.rank ? { ...e, rank: oldRank } : e)) : cur
       if (i < 0) return [...swapped, { taskId, targetMemberId: targetId, rank: null, reason: '', ...patch }]
       const next = [...swapped]
       next[i] = { ...next[i], ...patch }
@@ -122,10 +120,8 @@ export default function RankPeerReview() {
   const expected = activeMembers.filter((m) => rankGroupsFor(m, mode, state).length > 0)
   const summary = useMemo(() => summarizeRanks(state.rankReviews, mode, state), [state, mode])
 
-
   return (
     <div className="space-y-6">
-
       {/* 응답 현황 + 직접 입력 */}
       <section className="mac-card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -154,7 +150,13 @@ export default function RankPeerReview() {
               <Download {...icSm} />
               엑셀 양식 받기
             </Button>
-            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy !== null} size="sm" title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)">
+            <Button
+              variant="secondary"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy !== null}
+              size="sm"
+              title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)"
+            >
               <Upload {...icSm} />
               엑셀 올리기
             </Button>
@@ -179,11 +181,38 @@ export default function RankPeerReview() {
           {expected.length === 0 && <p className="text-xs text-label-3">활성 팀원이 2명 이상 필요합니다.</p>}
         </div>
 
-        {notice && <p className="mt-3 text-[13px] text-success">{notice}</p>}
+        {notice && (
+          <p className="mt-3 flex items-start gap-2 text-[13px] text-success">
+            <span className="flex-1">{notice}</span>
+            <button
+              onClick={() => setNotice(null)}
+              className="shrink-0 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
+              aria-label="알림 닫기"
+              title="닫기"
+            >
+              <X size={14} />
+            </button>
+          </p>
+        )}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-[13px]">
+            {uploads.length > 1 && (
+              <li className="flex justify-end">
+                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[12px] text-label-2 hover:bg-black/[0.05] hover:text-label">
+                  모두 닫기
+                </button>
+              </li>
+            )}
             {uploads.map((u) => (
-              <li key={u.fileName} className={`rounded-control px-3 py-2 ${u.saved ? 'bg-success/10' : 'bg-danger/10'}`}>
+              <li key={u.fileName} className={`relative rounded-control py-2 pl-3 pr-9 ${u.saved ? 'bg-success/10' : 'bg-danger/10'}`}>
+                <button
+                  onClick={() => setUploads((cur) => cur.filter((x) => x.fileName !== u.fileName))}
+                  className="absolute right-2 top-1.5 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
+                  aria-label={`${u.fileName} 알림 닫기`}
+                  title="닫기"
+                >
+                  <X size={14} />
+                </button>
                 <p className={`font-medium ${u.saved ? 'text-success' : 'text-danger'}`}>
                   {u.saved ? '반영' : '반영 안 함'} · {u.fileName}
                   {u.reviewer && ` · 평가자 ${u.reviewer.name}`}
@@ -217,10 +246,12 @@ export default function RankPeerReview() {
       {/* 결과 */}
       <section>
         <p className="text-[13px] font-semibold text-label">피어리뷰 결과 · {RANK_MODE_LABEL[mode]}</p>
-        <p className="mt-0.5 text-xs text-label-2">
-          대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.
-        </p>
-        {state.rankReviews.some((r) => r.mode === mode) ? <SummaryTable rows={summary} mode={mode} /> : <p className="mt-3 text-[13px] text-label-3">아직 받은 리뷰가 없습니다.</p>}
+        <p className="mt-0.5 text-xs text-label-2">대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.</p>
+        {state.rankReviews.some((r) => r.mode === mode) ? (
+          <SummaryTable rows={summary} mode={mode} />
+        ) : (
+          <p className="mt-3 text-[13px] text-label-3">아직 받은 리뷰가 없습니다.</p>
+        )}
       </section>
     </div>
   )
@@ -347,7 +378,13 @@ function SummaryTable({ rows, mode, compact }: { rows: RankSummaryRow[]; mode: R
                 <td className="px-4 py-2.5 tabular-nums">{has ? place : '-'}</td>
                 <td className="px-4 py-2.5 font-medium">{r.member.name}</td>
                 <td className="px-4 py-2.5 tabular-nums">
-                  {mode === 'simple' ? (r.avgRank !== null ? `${r.avgRank.toFixed(1)}위` : '-') : r.avgPercentile !== null ? `${Math.round(r.avgPercentile)}%` : '-'}
+                  {mode === 'simple'
+                    ? r.avgRank !== null
+                      ? `${r.avgRank.toFixed(1)}위`
+                      : '-'
+                    : r.avgPercentile !== null
+                      ? `${Math.round(r.avgPercentile)}%`
+                      : '-'}
                 </td>
                 <td className="px-4 py-2.5 tabular-nums">{r.count}명</td>
                 <td className="px-4 py-2.5">

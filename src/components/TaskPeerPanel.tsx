@@ -21,7 +21,7 @@ import {
 import { taskParticipants } from '../utils/rankReview'
 import Button from './Button'
 import Spinner from './Spinner'
-import { Download, Upload } from 'lucide-react'
+import { Download, Upload, X } from 'lucide-react'
 import { icSm } from './ui/icon'
 
 export default function TaskPeerPanel() {
@@ -58,7 +58,6 @@ export default function TaskPeerPanel() {
 
   // ---------- 과제별 방식 ----------
   const peerTasks = state.tasks.filter((t) => taskParticipants(t, state).length >= 2)
-
 
   async function handleFiles(files: FileList) {
     setBusy('파일을 읽는 중')
@@ -157,7 +156,13 @@ export default function TaskPeerPanel() {
               <Download {...icSm} />
               엑셀 양식 받기
             </Button>
-            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy !== null} size="sm" title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)">
+            <Button
+              variant="secondary"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy !== null}
+              size="sm"
+              title="작성해 돌려받은 파일을 한꺼번에 올립니다(여러 개 선택 가능)"
+            >
               <Upload {...icSm} />
               엑셀 올리기
             </Button>
@@ -181,11 +186,38 @@ export default function TaskPeerPanel() {
           })}
         </div>
 
-        {notice && <p className="mt-3 text-[13px] text-success">{notice}</p>}
+        {notice && (
+          <p className="mt-3 flex items-start gap-2 text-[13px] text-success">
+            <span className="flex-1">{notice}</span>
+            <button
+              onClick={() => setNotice(null)}
+              className="shrink-0 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
+              aria-label="알림 닫기"
+              title="닫기"
+            >
+              <X size={14} />
+            </button>
+          </p>
+        )}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-[13px]">
+            {uploads.length > 1 && (
+              <li className="flex justify-end">
+                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[12px] text-label-2 hover:bg-black/[0.05] hover:text-label">
+                  모두 닫기
+                </button>
+              </li>
+            )}
             {uploads.map((u) => (
-              <li key={u.fileName} className={`rounded-control px-3 py-2 ${u.saved ? 'bg-success/10' : 'bg-danger/10'}`}>
+              <li key={u.fileName} className={`relative rounded-control py-2 pl-3 pr-9 ${u.saved ? 'bg-success/10' : 'bg-danger/10'}`}>
+                <button
+                  onClick={() => setUploads((cur) => cur.filter((x) => x.fileName !== u.fileName))}
+                  className="absolute right-2 top-1.5 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
+                  aria-label={`${u.fileName} 알림 닫기`}
+                  title="닫기"
+                >
+                  <X size={14} />
+                </button>
                 <p className={`font-medium ${u.saved ? 'text-success' : 'text-danger'}`}>
                   {u.saved ? '반영' : '반영 안 함'} · {u.fileName}
                   {u.reviewer && ` · 평가자 ${u.reviewer.name}`}
@@ -324,9 +356,7 @@ export default function TaskPeerPanel() {
 
       <section>
         <p className="text-[13px] font-semibold text-label">피어리뷰 결과 · 과제별</p>
-        <p className="mt-0.5 text-xs text-label-2">
-          과제마다 대상자가 받은 평균 순위(본인이 매긴 값 포함, 점수에는 본인 평가 제외).
-        </p>
+        <p className="mt-0.5 text-xs text-label-2">과제마다 대상자가 받은 평균 순위(본인이 매긴 값 포함, 점수에는 본인 평가 제외).</p>
         {resultTasks.length === 0 && <p className="mt-3 text-[13px] text-label-3">아직 받은 리뷰가 없습니다.</p>}
         {resultTasks.map((t) => {
           const isRank = peerMethodOf(t) === 'rank'
