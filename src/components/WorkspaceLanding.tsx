@@ -3,7 +3,8 @@ import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
 import { getConnectedEmail } from '../utils/googleDrive'
-import { ChevronDown, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ChevronDown, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
@@ -76,21 +77,46 @@ interface ProjectCardProps {
   workspace: WorkspaceMeta
   isCurrent: boolean
   onOpen: (id: string) => void
+  onRename: (workspace: WorkspaceMeta, periodName: string) => void
   onEdit: (workspace: WorkspaceMeta) => void
+  onDuplicate: (workspace: WorkspaceMeta) => void
   onDelete: (workspace: WorkspaceMeta) => void
 }
 
-function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: ProjectCardProps) {
+// 프로젝트 카드: 누르면 들어가기 · 마우스를 올리면 연필(이름 바꾸기) · 우클릭하면 복제 · 삭제
+function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
+  const [renaming, setRenaming] = useState(false)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(null)
+    window.addEventListener('mousedown', close)
+    window.addEventListener('keydown', key)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('keydown', key)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [menu])
+  const item = 'flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]'
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onOpen(workspace.id)}
+      onClick={() => !renaming && onOpen(workspace.id)}
       onKeyDown={(e) => {
+        if (renaming) return
         if (e.key === 'Enter' || e.key === ' ') onOpen(workspace.id)
       }}
-      className={`flex cursor-pointer flex-col gap-3 rounded-card bg-white p-5 text-left transition-shadow ${
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setMenu({ x: Math.min(e.clientX, window.innerWidth - 240), y: Math.min(e.clientY, window.innerHeight - 140) })
+      }}
+      title="눌러서 들어가기 · 우클릭: 복제 · 삭제"
+      className={`group flex cursor-pointer flex-col gap-3 rounded-card bg-white p-5 text-left transition-shadow ${
         isCurrent ? 'shadow-card ring-[1.5px] ring-accent' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
     >
@@ -100,45 +126,113 @@ function ProjectCard({ workspace, isCurrent, onOpen, onEdit, onDelete }: Project
           평가 진행중
         </span>
       )}
-      <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-[15px] font-semibold text-label">
-          {workspace.evaluationYear} {workspace.periodName}
-        </p>
-        <div className="flex shrink-0 items-center gap-1">
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation()
-              onEdit(workspace)
-            }}
-            title="수정"
-            aria-label="수정"
-          >
-            <Pencil {...ic} />
-          </IconButton>
-          <IconButton
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(workspace)
-            }}
-            title="삭제"
-            aria-label="삭제"
-            tone="danger"
-          >
-            <Trash2 {...ic} />
-          </IconButton>
-        </div>
+      <div className="flex min-h-7 items-center justify-between gap-2">
+        {renaming ? (
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-semibold text-label" onClick={(e) => e.stopPropagation()}>
+            <span className="shrink-0">{workspace.evaluationYear}</span>
+            <input
+              autoFocus
+              defaultValue={workspace.periodName}
+              onFocus={(e) => e.target.select()}
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v && v !== workspace.periodName) onRename(workspace, v)
+                setRenaming(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') {
+                  ;(e.target as HTMLInputElement).value = workspace.periodName
+                  ;(e.target as HTMLInputElement).blur()
+                }
+              }}
+              aria-label="프로젝트 이름"
+              className="h-7 min-w-0 flex-1 rounded-control border border-accent px-1.5 text-[15px] font-semibold"
+            />
+          </span>
+        ) : (
+          <>
+            <p className="min-w-0 truncate text-[15px] font-semibold text-label">
+              {workspace.evaluationYear} {workspace.periodName}
+            </p>
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation()
+                setRenaming(true)
+              }}
+              title="이름 바꾸기"
+              aria-label="이름 바꾸기"
+              className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Pencil {...ic} />
+            </IconButton>
+          </>
+        )}
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 flex-1 truncate text-[13px] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
         <span className="shrink-0 text-[13px] text-label-3">팀원 {counts.memberCount}명</span>
       </div>
       <AvatarRow names={counts.memberNames} />
+      {menu &&
+        createPortal(
+          <div
+            className="mac-pop fixed z-50 w-[230px] py-1 text-[13px]"
+            style={{ left: menu.x, top: menu.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className={item}
+              onClick={() => {
+                setMenu(null)
+                onDuplicate(workspace)
+              }}
+            >
+              <Copy {...icSm} />
+              복제해서 새 프로젝트 만들기
+            </button>
+            <button
+              className={item}
+              onClick={() => {
+                setMenu(null)
+                setRenaming(true)
+              }}
+            >
+              <Pencil {...icSm} />
+              이름 바꾸기
+            </button>
+            <button
+              className={item}
+              onClick={() => {
+                setMenu(null)
+                onEdit(workspace)
+              }}
+            >
+              <Users {...icSm} />
+              팀 이름까지 바꾸기…
+            </button>
+            <div className="mac-menu-sep" />
+            <button
+              className={`${item} text-danger`}
+              onClick={() => {
+                setMenu(null)
+                onDelete(workspace)
+              }}
+            >
+              <Trash2 {...icSm} />
+              삭제하기
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }
 
 export default function WorkspaceLanding() {
-  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, reloadForAccount } = useWorkspaces()
+  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, duplicateWorkspace, reloadForAccount } = useWorkspaces()
+  const [dupError, setDupError] = useState('')
   const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
 
   // "계정이 바뀌었을 수 있다"는 신호가 실제 전환이 아닐 수도 있으므로,
@@ -239,7 +333,8 @@ export default function WorkspaceLanding() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-10">
-        <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요.</p>
+        <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요. 프로젝트를 우클릭하면 복제하거나 지울 수 있습니다.</p>
+        {dupError && <p className="mt-2 text-[13px] text-danger">{dupError}</p>}
 
         {existingTeamNames.length > 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-6">
@@ -315,7 +410,11 @@ export default function WorkspaceLanding() {
                     workspace={w}
                     isCurrent={w.id === mostRecentWorkspaceId}
                     onOpen={selectWorkspace}
+                    onRename={(ws, periodName) => renameWorkspace(ws.id, ws.teamName, periodName)}
                     onEdit={openRename}
+                    onDuplicate={(ws) => {
+                      if (!duplicateWorkspace(ws.id)) setDupError('저장 공간이 모자라 복제하지 못했습니다. 데이터 백업 후 필요 없는 프로젝트를 지워 주세요.')
+                    }}
                     onDelete={setDeletingWorkspace}
                   />
                 ))}

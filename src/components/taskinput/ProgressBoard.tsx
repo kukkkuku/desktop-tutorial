@@ -1085,12 +1085,12 @@ export default function ProgressBoard() {
         {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
         {readOnly ? (
           <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-orange-800 ring-1 ring-orange-200">
-            {data.tabTitle} · 보기 전용
+            {data.tabTitle.replace(/추진현황/, '실적관리')} · 보기 전용
             <button
               onClick={() => archive && void viewYear(archive.data.tabTitle)}
               className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-accent hover:bg-white"
             >
-              {archive?.data.tabTitle}으로 돌아가기
+              {archive?.data.tabTitle.replace(/추진현황/, '실적관리')}로 돌아가기
             </button>
           </span>
         ) : (

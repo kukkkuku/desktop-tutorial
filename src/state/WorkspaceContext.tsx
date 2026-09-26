@@ -141,6 +141,8 @@ interface WorkspaceContextValue {
   exitToLanding: () => void
   deleteWorkspace: (id: string) => void
   renameWorkspace: (id: string, teamName: string, periodName: string) => void
+  // 프로젝트를 통째로 복제(과제·팀원·평가·면담까지). 이름은 "… 사본". 새 프로젝트 id를 돌려준다.
+  duplicateWorkspace: (id: string) => string | null
   touchWorkspace: (id: string) => void
   // 로그인 게이트 통과 직후, 그리고 "다른 Google 계정 연결" 직후 호출한다 --
   // 지금 연결된 계정 스코프의 데이터로 워크스페이스 상태를 다시 읽어들인다.
@@ -283,6 +285,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  function duplicateWorkspace(id: string): string | null {
+    const src = workspaces.find((w) => w.id === id)
+    if (!src) return null
+    const names = new Set(workspaces.filter((w) => w.teamName === src.teamName && w.evaluationYear === src.evaluationYear).map((w) => w.periodName))
+    let periodName = `${src.periodName} 사본`
+    for (let n = 2; names.has(periodName); n++) periodName = `${src.periodName} 사본 ${n}`
+    const now = new Date().toISOString()
+    const meta: WorkspaceMeta = { ...src, id: uuidv4(), periodName, createdAt: now, updatedAt: now }
+    try {
+      const raw = localStorage.getItem(workspaceStateKey(src.id))
+      localStorage.setItem(workspaceStateKey(meta.id), raw ?? JSON.stringify(createEmptyState()))
+    } catch {
+      return null // 저장 공간이 모자라면 복제하지 않는다
+    }
+    setWorkspaces((prev) => [...prev, meta])
+    return meta.id
+  }
+
   function touchWorkspace(id: string) {
     setWorkspaces((prev) => {
       const now = new Date().toISOString()
@@ -312,6 +332,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         exitToLanding,
         deleteWorkspace,
         renameWorkspace,
+        duplicateWorkspace,
         touchWorkspace,
         reloadForAccount,
       }}
