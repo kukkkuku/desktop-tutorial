@@ -78,6 +78,13 @@ export interface ProgressData {
   rows: ProgressRow[]
   levelCols?: Partial<Record<Level, number>> // H · L1 · L2 열 위치(0-based)
   levelMerges?: SheetMerge[] // H · L1 · L2 열의 병합 범위
+  yearTabs?: string[] // 같은 파일 안의 「YYYY 추진현황」 탭들(최근 연도부터) -- 연도 고르기
+}
+
+// 파일 안의 추진현황 탭 이름들을 최근 연도부터
+export function progressYearTabs(titles: string[]): string[] {
+  const y = (t: string) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)
+  return titles.filter((t) => t.includes('추진현황')).sort((a, b) => y(b) - y(a) || a.localeCompare(b))
 }
 
 // 기존 행에서 고친 값. 시트 값과 같아지면 지운다.

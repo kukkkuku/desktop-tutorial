@@ -334,6 +334,7 @@ export default function ScheduleTable({
   onNote,
   fontSize = 13,
   rowPad = 0,
+  readOnly = false,
   fields = [],
   optionsOf,
   headerStyle: hs,
@@ -368,6 +369,7 @@ export default function ScheduleTable({
   onNote: (row: ProgressRow, key: string, note: string) => void
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
+  readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
   headerStyle?: HeaderStyle // 시트 머리글 색 · 묶음 머리글
@@ -488,6 +490,7 @@ export default function ScheduleTable({
   }, [menu])
   function openMenu(e: React.MouseEvent, row: ProgressRow, key: string, kind: Menu['kind']) {
     e.preventDefault()
+    if (readOnly) return
     setHoverNote(null)
     setMenu({ row, key, kind, x: Math.min(e.clientX, window.innerWidth - 250), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 440)) })
   }
@@ -675,7 +678,9 @@ export default function ScheduleTable({
                           {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
                           {/* 마우스를 올리면: 아래에 구분 추가 · 구분 삭제(취소) */}
-                          <span className="mt-1 flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/l2:opacity-100">
+                          <span
+                            className={`mt-1 flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/l2:opacity-100 ${readOnly ? 'hidden' : ''}`}
+                          >
                             {onAddGroup && (
                               <RowIcon
                                 label="아래에 구분(L2) 추가"
@@ -735,7 +740,7 @@ export default function ScheduleTable({
                         />
                       )}
                       <div
-                        onClick={v.deleted ? undefined : () => setNameEditing(v.row.key)}
+                        onClick={v.deleted || readOnly ? undefined : () => setNameEditing(v.row.key)}
                         className="flex w-full min-w-0 cursor-text items-start gap-1 text-left"
                         title={l3Note ? undefined : `${v.vals.name || '(이름 없음)'} · 눌러서 이름 고치기 · 우클릭: 메모·색`}
                       >
@@ -750,7 +755,9 @@ export default function ScheduleTable({
                       </div>
                       {l3Note && <NoteMark />}
                       {/* 마우스를 올리면 오른쪽에: 아래에 과제 추가 · 과제 삭제(취소) */}
-                      <span className="absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100">
+                      <span
+                        className={`absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100 ${readOnly ? 'hidden' : ''}`}
+                      >
                         {!v.deleted && onAddRow && (
                           <RowIcon label="아래에 과제 추가" onClick={() => onAddRow(v.row, 'below')}>
                             <Plus size={13} strokeWidth={2} />
@@ -839,7 +846,7 @@ export default function ScheduleTable({
                         onCommit={(val) => onField(v.row, f.id, val)}
                         onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
                         onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
-                        disabled={v.deleted}
+                        disabled={v.deleted || readOnly}
                         autoEdit={editReq && editReq.row === v.row.key && editReq.id === f.id ? editReq.n : 0}
                         onMove={(dx, dy) => moveEdit(v.row.key, f.id, dx, dy)}
                       />

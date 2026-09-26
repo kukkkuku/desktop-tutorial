@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarRange,
+  ChevronDown,
   CloudUpload,
   Eraser,
   Pencil,
@@ -37,6 +38,7 @@ import {
   parseSheetUrl,
   pickDefaultTab,
   readXlsxBook,
+  type XlsxBook,
   sheetUrl,
   writeSheetCells,
 } from '../../utils/sheetSources'
@@ -62,6 +64,7 @@ import {
   makeNewGroup,
   newRowAsRow,
   orderWithNewRows,
+  progressYearTabs,
   type PaintBrush,
   saveDrafts,
   saveProgressData,
@@ -141,9 +144,10 @@ function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'sp
 }
 
 // 시트에서 추진현황 탭을 값 + 주차 칸 배경색까지 읽는다.
-async function readFromSheet(spreadsheetId: string, year: number): Promise<ProgressData> {
+// pick을 주면 그 탭(지난 연도 보기), 없으면 올해 탭을 읽는다.
+async function readFromSheet(spreadsheetId: string, year: number, pick?: string): Promise<ProgressData> {
   const { title: fileTitle, tabs } = await fetchSpreadsheetTabs(spreadsheetId)
-  const title = pickDefaultTab(tabs, year)
+  const title = pick ?? pickDefaultTab(tabs, year)
   const tab = tabs.find((t) => t.title === title)
   if (!title || !tab) throw new Error('시트에서 「추진현황」 탭을 찾지 못했습니다.')
   const raw: RawSheet = await fetchSheetTab(spreadsheetId, title)
@@ -162,7 +166,11 @@ async function readFromSheet(spreadsheetId: string, year: number): Promise<Progr
   raw.notes = fmt.notes
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
-  return { ...toData(parsed, raw, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }), fileTitle }
+  return {
+    ...toData(parsed, raw, { spreadsheetId, source: title, tabTitle: title, sheetGid: tab.sheetId }),
+    fileTitle,
+    yearTabs: progressYearTabs(tabs.map((t) => t.title)),
+  }
 }
 
 export default function ProgressBoard() {
@@ -328,9 +336,66 @@ export default function ProgressBoard() {
   }
 
   function accept(next: ProgressData) {
+    leaveArchive()
     setData(next)
     saveProgressData(next)
     setError('')
+  }
+
+  // 지난 연도 보기(보기 전용): 올해 데이터와 고친 내용은 옆에 맡겨 두고, 지난 연도 탭을 그대로 보여 준다.
+  // 이 동안 고친 내용은 브라우저 저장에도 손대지 않는다(돌아오면 그대로).
+  const [archive, setArchiveState] = useState<{ data: ProgressData; drafts: Drafts } | null>(null)
+  const archiveRef = useRef(archive)
+  function setArchive(v: { data: ProgressData; drafts: Drafts } | null) {
+    archiveRef.current = v
+    setArchiveState(v)
+  }
+  const readOnly = archive !== null
+  const bookRef = useRef<XlsxBook | null>(null) // xlsx로 불러왔을 때 지난 연도 탭을 읽는 데 씀(이 화면에서만)
+  const [yearLoading, setYearLoading] = useState(false)
+  function leaveArchive() {
+    const a = archiveRef.current
+    if (!a) return
+    draftsRef.current = a.drafts
+    setDrafts(a.drafts)
+    setArchive(null)
+  }
+  async function viewYear(title: string) {
+    if (!data) return
+    const cur = archiveRef.current ?? { data, drafts: draftsRef.current }
+    if (title === cur.data.tabTitle) {
+      // 올해로 돌아가기
+      if (archiveRef.current) {
+        setData(cur.data)
+        leaveArchive()
+      }
+      return
+    }
+    setYearLoading(true)
+    setError('')
+    try {
+      let past: ProgressData
+      if (cur.data.spreadsheetId) past = await readFromSheet(cur.data.spreadsheetId, now.getFullYear(), title)
+      else {
+        const sheet = bookRef.current?.sheets.find((x) => x.title === title)
+        if (!sheet) throw new Error('지난 연도를 보려면 xlsx 파일을 다시 올려 주세요.')
+        const parsed = parseSheet(sheet)
+        if ('error' in parsed) throw new Error(parsed.error)
+        past = { ...toData(parsed, sheet, { spreadsheetId: null, source: sheet.title, tabTitle: sheet.title, sheetGid: null }), yearTabs: cur.data.yearTabs }
+      }
+      setArchive(cur)
+      draftsRef.current = { edits: {}, newRows: [] }
+      setDrafts(draftsRef.current)
+      setData(past)
+      setEditing(false)
+      setFilters({})
+      setActiveL1(null)
+      setOpenKey(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `「${title}」 탭을 읽지 못했습니다.`)
+    } finally {
+      setYearLoading(false)
+    }
   }
 
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
@@ -376,6 +441,7 @@ export default function ProgressBoard() {
     setMessage('')
     try {
       const book = readXlsxBook(await file.arrayBuffer(), file.name)
+      bookRef.current = book
       const title = pickDefaultTab(
         book.sheets.map((s) => ({ title: s.title, hidden: !!s.hidden })),
         now.getFullYear(),
@@ -384,7 +450,10 @@ export default function ProgressBoard() {
       if (!sheet) throw new Error('파일에서 「추진현황」 탭을 찾지 못했습니다.')
       const parsed = parseSheet(sheet)
       if ('error' in parsed) throw new Error(parsed.error)
-      accept(toData(parsed, sheet, { spreadsheetId: null, source: `${file.name} · ${sheet.title}`, tabTitle: sheet.title, sheetGid: null }))
+      accept({
+        ...toData(parsed, sheet, { spreadsheetId: null, source: `${file.name} · ${sheet.title}`, tabTitle: sheet.title, sheetGid: null }),
+        yearTabs: progressYearTabs(book.sheets.map((x) => x.title)),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : '파일을 읽지 못했습니다.')
     } finally {
@@ -405,6 +474,7 @@ export default function ProgressBoard() {
     setHistoryTick((n) => n + 1)
   }
   function updateDrafts(next: Drafts | ((cur: Drafts) => Drafts), kind = '') {
+    if (archiveRef.current) return // 지난 연도는 보기 전용
     const cur = draftsRef.current
     const v = typeof next === 'function' ? next(cur) : next
     if (v === cur) return
@@ -424,6 +494,7 @@ export default function ProgressBoard() {
     setHistoryTick((n) => n + 1)
   }
   function undo() {
+    if (archiveRef.current) return
     const prev = past.current.pop()
     if (!prev) return
     future.current.push(draftsRef.current)
@@ -431,6 +502,7 @@ export default function ProgressBoard() {
     applyDrafts(prev)
   }
   function redo() {
+    if (archiveRef.current) return
     const next = future.current.pop()
     if (!next) return
     past.current.push(draftsRef.current)
@@ -745,8 +817,36 @@ export default function ProgressBoard() {
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       {message && <p className="mt-3 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">{message}</p>}
 
-      {/* L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
+      {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
       <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+        {(data.yearTabs?.length ?? 0) > 1 && (
+          <label className="relative mb-1.5 flex shrink-0 items-center" title="연도 고르기 · 지난 연도는 보기 전용">
+            <select
+              value={data.tabTitle}
+              onChange={(e) => void viewYear(e.target.value)}
+              disabled={yearLoading || loading || saving}
+              aria-label="연도"
+              className={`h-8 appearance-none rounded-control border pl-2.5 pr-7 text-[13px] font-bold ${
+                readOnly ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-hairline bg-white text-label'
+              }`}
+            >
+              {data.yearTabs!.map((t) => {
+                const current = t === (archive?.data.tabTitle ?? data.tabTitle)
+                return (
+                  <option key={t} value={t}>
+                    {t}
+                    {current ? '' : ' (보기 전용)'}
+                  </option>
+                )
+              })}
+            </select>
+            {yearLoading ? (
+              <Spinner className="pointer-events-none absolute right-2 h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2} className="pointer-events-none absolute right-2 text-label-3" />
+            )}
+          </label>
+        )}
         <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {shownL1s.map((name) => {
             const rowsOf = data.rows.filter((r) => r.l1 === name)
@@ -769,40 +869,44 @@ export default function ProgressBoard() {
                 {newOf.length > 0 && rowsOf.length === 0 && <span className="rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
                 <span className={gone ? 'text-label-3 line-through' : ''}>{name === NO_L1 ? 'L1 없음' : name}</span>
                 <span className="text-[11px] font-medium text-label-3">{alive}</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (gone) restoreRows(rowsOf)
-                    else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
-                  }}
-                  title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
-                  aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
-                  className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                    on || gone ? '' : 'opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (gone) restoreRows(rowsOf)
+                      else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
+                    }}
+                    title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
+                    aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
+                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                      on || gone ? '' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
+                    {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
+                  </button>
+                )}
               </div>
             )
           })}
-          <button
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect()
-              setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
-            }}
-            title="그룹(L1) 추가"
-            className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
-          >
-            <Plus {...icSm} />
-            그룹 추가
-          </button>
+          {!readOnly && (
+            <button
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
+              }}
+              title="그룹(L1) 추가"
+              className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+            >
+              <Plus {...icSm} />
+              그룹 추가
+            </button>
+          )}
         </div>
         {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) */}
         <div className="shrink-0 pb-1.5">
           <IconButton
             onClick={() => setExportSel(l1 ? [l1] : [])}
-            disabled={!data.spreadsheetId || !l1}
+            disabled={!data.spreadsheetId || !l1 || readOnly}
             title={
               data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
             }
@@ -980,16 +1084,28 @@ export default function ProgressBoard() {
           </button>
         </span>
         <span className="h-5 w-px shrink-0 bg-separator" />
-        {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면 */}
-        <Button
-          variant={editing ? 'primary' : 'secondary'}
-          size="sm"
-          onClick={() => setEditing((v) => !v)}
-          title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
-        >
-          <Pencil {...icSm} />
-          {editing ? '입력 끝내기' : '입력하기'}
-        </Button>
+        {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
+        {readOnly ? (
+          <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-orange-800 ring-1 ring-orange-200">
+            {data.tabTitle} · 보기 전용
+            <button
+              onClick={() => archive && void viewYear(archive.data.tabTitle)}
+              className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-accent hover:bg-white"
+            >
+              {archive?.data.tabTitle}으로 돌아가기
+            </button>
+          </span>
+        ) : (
+          <Button
+            variant={editing ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => setEditing((v) => !v)}
+            title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
+          >
+            <Pencil {...icSm} />
+            {editing ? '입력 끝내기' : '입력하기'}
+          </Button>
+        )}
         <span className="flex items-center gap-1">
           {editing ? (
             <>
@@ -1035,7 +1151,7 @@ export default function ProgressBoard() {
           )}
         </span>
         <span className="ml-auto flex items-center gap-2">
-          <span className="flex items-center">
+          <span className={`flex items-center ${readOnly ? 'hidden' : ''}`}>
             <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
               <Undo2 {...ic} />
             </IconButton>
@@ -1118,6 +1234,7 @@ export default function ProgressBoard() {
             onAddRow={addRow}
             fontSize={fontSize}
             rowPad={rowPad}
+            readOnly={readOnly}
             fields={data.fields}
             optionsOf={optionsOf}
             headerStyle={data.headerStyle}

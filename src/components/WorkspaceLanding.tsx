@@ -9,7 +9,7 @@ import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
-import HomeButton from './HomeButton'
+import AreaSwitch from './AreaSwitch'
 import { ic, icSm } from './ui/icon'
 
 const MAX_VISIBLE_AVATARS = 6
@@ -211,12 +211,13 @@ export default function WorkspaceLanding() {
 
   return (
     <div className="min-h-screen bg-window">
-      <header className="border-b border-separator bg-white/80 px-6 py-3 backdrop-blur-xl sm:px-10">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <HomeButton className="-ml-2" />
+      {/* 다른 화면과 같은 머리글(영역 전환 자리가 화면마다 같게) */}
+      <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <AreaSwitch className="-ml-1" />
             <span className="h-5 w-px bg-separator" />
-            <p className="whitespace-nowrap text-[17px] font-semibold text-label">성과·성장관리</p>
+            <p className="whitespace-nowrap text-[15px] font-bold text-label">프로젝트 목록</p>
           </div>
           {accountEmail && (
             <div className="flex shrink-0 items-center gap-3">

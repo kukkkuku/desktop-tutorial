@@ -20,7 +20,6 @@ import UnderlineTabs from './components/ui/UnderlineTabs'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 import { AppModeProvider, useAppMode } from './state/AppMode'
-import AppHome from './components/AppHome'
 import TaskInputApp from './components/taskinput/TaskInputApp'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
@@ -219,8 +218,7 @@ function WorkspaceGate() {
 function ModeGate() {
   const { mode } = useAppMode()
   if (mode === 'tasks') return <TaskInputApp />
-  if (mode === 'perf') return <WorkspaceGate />
-  return <AppHome />
+  return <WorkspaceGate />
 }
 
 export default function App() {

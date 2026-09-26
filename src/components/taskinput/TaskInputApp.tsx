@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { CalendarRange, ChevronDown, Gauge } from 'lucide-react'
 import GoogleAccountMenu from '../GoogleAccountMenu'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
-import HomeButton from '../HomeButton'
+import AreaSwitch from '../AreaSwitch'
 import { icSm } from '../ui/icon'
 import { IS_PREVIEW } from '../../utils/previewMode'
 import ProgressBoard from './ProgressBoard'
@@ -22,9 +22,7 @@ export default function TaskInputApp() {
     <div className="flex min-h-screen flex-col bg-white">
       <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
         <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <HomeButton />
-          <span className="h-5 w-px bg-separator" />
-          <span className="text-[15px] font-bold text-label">과제 입력</span>
+          <AreaSwitch className="-ml-1" />
           {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}
           <nav className="ml-2 flex items-center gap-1" role="tablist">
             {MENUS.map(({ key, label, Icon }) => (
