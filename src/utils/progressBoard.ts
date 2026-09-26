@@ -133,6 +133,35 @@ export interface Drafts {
   merges?: MergeEdit[] // 입력 열 칸 병합 · 병합 해제(순서대로 적용)
   newCols?: NewCol[] // 새 입력 열(저장하면 시트에 열을 끼워 넣는다)
   delCols?: string[] // 지울 입력 열 id(저장하면 시트에서 열을 지운다)
+  l2Renames?: Record<string, string> // 구분(L2) 이름 고치기: '그룹(L1)␟원래 L2␟원래 태그' → 새 이름("이름 [태그]")
+}
+
+const l2GroupKey = (r: { l1: string; l2: string; l2Tag: string | null }) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
+// 고친 구분 이름을 행에 얹는다(행 키는 그대로)
+export function applyL2Renames(rows: ProgressRow[], drafts: Pick<Drafts, 'l2Renames'>): ProgressRow[] {
+  const map = drafts.l2Renames
+  if (!map || !Object.keys(map).length) return rows
+  return rows.map((r) => {
+    const to = map[l2GroupKey(r)]
+    if (to === undefined) return r
+    const { name, tag } = splitL2(to)
+    return { ...r, l2: name, l2Tag: tag }
+  })
+}
+export function renameL2(
+  drafts: Drafts,
+  row: { l1: string; l2: string; l2Tag: string | null },
+  label: string,
+  original?: { l1: string; l2: string; l2Tag: string | null },
+): Drafts {
+  // original = 이름을 처음 고치기 전의 값(이미 고친 구분을 다시 고칠 때)
+  const k = l2GroupKey(original ?? row)
+  const next = { ...(drafts.l2Renames ?? {}) }
+  const { name, tag } = splitL2(label)
+  const o = original ?? row
+  if (o.l2 === name && (o.l2Tag ?? null) === (tag ?? null)) delete next[k]
+  else next[k] = label
+  return { ...drafts, l2Renames: next }
 }
 
 // 새 입력 열: 기준 열(시트 열 또는 먼저 만든 새 열)의 왼쪽/오른쪽
@@ -678,7 +707,8 @@ export function countDrafts(d: Drafts): number {
     (d.moves?.length ?? 0) +
     (d.merges?.length ?? 0) +
     (d.newCols?.length ?? 0) +
-    (d.delCols?.length ?? 0)
+    (d.delCols?.length ?? 0) +
+    Object.keys(d.l2Renames ?? {}).length
   )
 }
 
@@ -858,6 +888,22 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       writes.push({ row: fr.row, col, fmt: parseFmt(v) })
     }
     if (keep.cells || keep.fields || keep.bg || keep.notes || keep.fmt) kept.edits[key] = keep
+  }
+
+  // 구분(L2) 이름 고치기: 그 구분의 이름 칸(이름이 적힌 맨 위 칸)에 새 이름
+  if (fresh.levelCols?.l2 !== undefined) {
+    for (const [k, label] of Object.entries(drafts.l2Renames ?? {})) {
+      const [l1, l2, tag] = k.split('␟')
+      const { name, tag: newTag } = splitL2(label)
+      const text = newTag ? `${name}\n\n[${newTag}]` : name
+      const hits = fresh.rows.filter((r) => r.l1 === l1 && r.l2 === l2 && (r.l2Tag ?? '') === tag && r.labels?.l2)
+      if (!hits.length) {
+        kept.l2Renames = { ...(kept.l2Renames ?? {}), [k]: label }
+        conflicts++
+        continue
+      }
+      for (const r of hits) writes.push({ row: r.row, col: fresh.levelCols.l2, value: text })
+    }
   }
 
   // ---- 시트 줄을 흉내 내며 순서대로 바꾼다: arr[i] = 지금 i번째 줄에 있는 원래 줄(시트 행 번호) 또는 새 줄('n:…')

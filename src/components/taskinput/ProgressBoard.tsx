@@ -73,6 +73,8 @@ import {
   effectiveFmt,
   effectiveMerges,
   effectiveFields,
+  applyL2Renames,
+  renameL2,
   NEW_COL_PREFIX,
   type NewCol,
   type NewRow,
@@ -1355,10 +1357,13 @@ export default function ProgressBoard() {
   const q = query.trim().toLowerCase()
   // 새 과제는 그 L2의 마지막 줄 바로 아래에 보여 준다(저장하면 시트에서도 그 자리).
   // 새 과제는 우클릭한 행의 위/아래에(저장하면 시트에서도 그 자리)
-  const ordered: ProgressRow[] = orderWithNewRows(
-    tabRows,
-    drafts.newRows.filter((n) => n.l1 === l1),
-    drafts.moves,
+  const ordered: ProgressRow[] = applyL2Renames(
+    orderWithNewRows(
+      tabRows,
+      drafts.newRows.filter((n) => n.l1 === l1),
+      drafts.moves,
+    ),
+    drafts,
   )
   // 이 행이 든 구분(L2) 전체(필터와 상관없이 이 탭에서 이어진 같은 L2 줄)
   const groupRowsOf = (row: ProgressRow): ProgressRow[] => {
@@ -1932,9 +1937,18 @@ export default function ProgressBoard() {
             onRestoreGroup={(row) => restoreRows(groupRowsOf(row))}
             onAddGroup={addGroup}
             onRenameGroup={(row, name) => {
-              const ids = new Set(groupRowsOf(row).map((r) => r.key.slice(NEW_PREFIX.length)))
-              const { name: l2, tag } = splitL2(name)
-              updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
+              const rowsOfGroup = groupRowsOf(row)
+              if (rowsOfGroup.every((r) => r.isNew)) {
+                // 새 구분: 새 과제들의 구분 이름을 바로 바꾼다
+                const ids = new Set(rowsOfGroup.map((r) => r.key.slice(NEW_PREFIX.length)))
+                const { name: l2, tag } = splitL2(name)
+                updateDrafts((d) => ({ ...d, newRows: d.newRows.map((n) => (ids.has(n.id) ? { ...n, l2, l2Tag: tag } : n)) }))
+                return
+              }
+              // 시트 구분: 원래 이름(시트 값) 기준으로 고친 이름을 얹고, 저장하면 이름 칸에 쓴다
+              const src = rowsOfGroup.find((r) => !r.isNew)!
+              const orig = data.rows.find((r) => r.key === src.key) ?? src
+              updateDrafts((d) => renameL2(d, orig, name))
             }}
             onRevertRow={(row) =>
               updateDrafts((d) => {

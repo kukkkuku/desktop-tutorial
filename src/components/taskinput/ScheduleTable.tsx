@@ -2097,7 +2097,19 @@ export default function ScheduleTable({
                       <td
                         rowSpan={g.rows.length}
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
-                        title={`${g.l2} · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
+                        onDoubleClick={(e) => {
+                          // 더블클릭: 구분 이름 고치기
+                          if (!onRenameGroup || readOnly || g.rows.every((x) => x.deleted)) return
+                          const r = g.rows[0].row
+                          setGroupEdit({
+                            row: r,
+                            mode: 'rename',
+                            text: g.tag ? `${g.l2} [${g.tag}]` : g.l2,
+                            x: Math.min(e.clientX, window.innerWidth - 310),
+                            y: e.clientY,
+                          })
+                        }}
+                        title={`${g.l2} · 더블클릭: 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
                         className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
@@ -2471,7 +2483,7 @@ export default function ScheduleTable({
                       {label}
                     </button>
                   ))}
-                {onRenameGroup && menuGroup.rows.every((x) => x.row.isNew) && (
+                {onRenameGroup && !menuGroup.rows.every((x) => x.deleted) && (
                   <button
                     onClick={() => {
                       const r = menuGroup.rows[0].row
