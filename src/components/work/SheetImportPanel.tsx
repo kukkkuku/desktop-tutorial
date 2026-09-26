@@ -67,6 +67,8 @@ interface Props {
   onNaturalWidth?: (w: number) => void
   // 추진현황에서 가져올 때 미리 고를 L1들 -- 첫 L1 탭을 열고 그 아래 L2를 모두 골라 둔다
   initialL1s?: string[]
+  // 'export' = 과제 입력에서 여는 "내보내기" 창(같은 화면, 문구만 내보내기로)
+  verb?: 'import' | 'export'
 }
 
 
@@ -76,7 +78,8 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1s, progress: progressProp }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1s, progress: progressProp, verb = 'import' }: Props) {
+  const V = verb === 'export' ? { go: '내보내기', done: '내보냈습니다', doing: '내보냅니다', badge: '내보냄' } : { go: '가져오기', done: '가져왔습니다', doing: '가져옵니다', badge: '가져옴' }
   const progress = source === 'progress' ? (progressProp ?? null) : null
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
@@ -291,8 +294,12 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     <div className="flex min-h-full flex-col">
       {source === 'progress' ? (
         <div>
-          <h3 className="text-[15px] font-semibold text-label">추진현황에서 과제 가져오기</h3>
-          <p className="mt-1 text-[13px] text-label-2">과제 입력 › 추진현황에 불러온 과제에서 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
+          <h3 className="text-[15px] font-semibold text-label">{verb === 'export' ? '추진현황 과제 내보내기' : '추진현황에서 과제 가져오기'}</h3>
+          <p className="mt-1 text-[13px] text-label-2">
+            {verb === 'export'
+              ? '추진현황에서 L1/L2 분류를 골라 L3 과제와 담당자를 성과관리 과제리스트로 내보냅니다. 내보낸 L2는 과제관리의 탭이 됩니다.'
+              : '과제 입력 › 추진현황에 불러온 과제에서 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.'}
+          </p>
           {progress ? (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-label">
               <SheetsIcon className="h-4 w-3.5 shrink-0" />
@@ -503,7 +510,8 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                 })}
               </div>
             </div>
-            <div className="mac-seg m-2.5 flex-wrap">
+            {/* 한 줄로: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(브라우저 탭처럼) */}
+            <div className="mac-seg m-2.5 flex max-w-[calc(100%-1.25rem)] overflow-hidden">
               {l1Tabs.map(([l1, gs]) => {
                 const on = l1 === currentL1[0]
                 const picked = gs.filter((g) => selected.has(g.name)).length
@@ -511,9 +519,11 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                   <button
                     key={l1}
                     onClick={() => setActiveL1(l1)}
-                    className={`mac-seg-item ${on ? 'mac-seg-item-on' : ''}`}
+                    title={l1}
+                    className={`mac-seg-item flex min-w-[48px] flex-[0_1_auto] items-center gap-1 ${on ? 'mac-seg-item-on' : ''}`}
                   >
-                    {l1} <span className="text-label-3">{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
+                    <span className="min-w-0 truncate break-all">{l1}</span>
+                    <span className={`shrink-0 ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
                   </button>
                 )
               })}
@@ -529,7 +539,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                       <span className="flex flex-wrap items-center gap-x-2 text-[14px] font-semibold text-label">
                         {g.name}
                         {g.tag ? ` [${g.tag}]` : ''}
-                        {already && <span className="mac-badge bg-success/15 text-success">가져옴</span>}
+                        {already && <span className="mac-badge bg-success/15 text-success">{V.badge}</span>}
                         {g.inferred && (
                           <span className="text-[13px] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
                             H/L1 추정
@@ -551,7 +561,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-auto flex flex-wrap items-end gap-3 border-t border-separator bg-white pt-4">
+          <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-3 border-t border-separator bg-white pb-1 pt-4">
             <div className="min-w-0 flex-1">
               <p className="text-[13px] text-label-2">
                 선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
@@ -587,7 +597,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                 </Button>
               )}
               <Button variant="primary" onClick={() => setConfirming(true)} disabled={importRows.length === 0}>
-                선택 과제 가져오기
+                선택 과제 {V.go}
               </Button>
             </span>
           </div>
@@ -598,7 +608,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       {header && confirming && !result && (
         <div className="mt-4 rounded-card border border-separator p-4">
           <p className="text-[13px] font-semibold text-label">
-            L2 {selectedGroups.length}개 · L3 {importRows.length}건을 가져옵니다
+            L2 {selectedGroups.length}개 · L3 {importRows.length}건을 {V.doing}
           </p>
           <ul className="mt-2 space-y-1.5 text-[13px]">
             {warnings.inferredRows.length > 0 && (
@@ -656,7 +666,8 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
               뒤로
             </Button>
             <Button variant="primary" onClick={doImport}>
-              가져오기{addNames.size > 0 ? ` · 팀원 ${addNames.size}명 추가` : ''}
+              {V.go}
+              {addNames.size > 0 ? ` · 팀원 ${addNames.size}명 추가` : ''}
             </Button>
           </div>
         </div>
@@ -664,7 +675,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
 
       {result && (
         <div className="mt-4 rounded-card border border-success/25 bg-success/[0.08] p-4">
-          <p className="text-[13px] font-semibold text-success">가져왔습니다</p>
+          <p className="text-[13px] font-semibold text-success">{V.done}</p>
           <p className="mt-1 text-[13px] text-success">
             새 L2 {result.newGroups}개 · 새 L3 {result.added}건 · 바뀐 L3 {result.updated}건
             {result.keptEdits > 0 && ` · 앱에서 고친 값 ${result.keptEdits}칸 유지`}

@@ -29,7 +29,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   // 이제 첫 화면인 과제관리의 빈 상태가 시작 안내(구글시트에서 가져오기 / L2
   // 직접 만들기)를 맡는다.
   const [quickStartOpen, setQuickStartOpen] = useState(false)
-  const [quickStartTab, setQuickStartTab] = useState<'sheet' | 'direct'>('sheet')
+  const [quickStartTab, setQuickStartTab] = useState<'auto' | 'sheet' | 'progress' | 'direct'>('auto')
   // 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
   const [quickStartUrl, setQuickStartUrl] = useState<string | null>(null)
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
@@ -120,7 +120,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 onOpenDataManager={() => setDataManagerOpen(true)}
                 onOpenQuickStart={() => {
                   setQuickStartUrl(null)
-                  setQuickStartTab('sheet')
+                  setQuickStartTab('auto')
                   setQuickStartOpen(true)
                 }}
                 quickStartOpen={quickStartOpen}
@@ -148,9 +148,9 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 )}
                 {stage === 'work' && (
                   <WorkStage
-                    onOpenSheetImport={(url) => {
+                    onOpenSheetImport={(url, tab) => {
                       setQuickStartUrl(url ?? null)
-                      setQuickStartTab('sheet')
+                      setQuickStartTab(tab ?? 'sheet')
                       setQuickStartOpen(true)
                     }}
                   />

@@ -11,6 +11,7 @@ import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
 import AreaSwitch from './AreaSwitch'
+import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
 
 const MAX_VISIBLE_AVATARS = 6
@@ -87,6 +88,7 @@ interface ProjectCardProps {
 function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   const [renaming, setRenaming] = useState(false)
+  const [editYear, setEditYear] = useState(workspace.evaluationYear)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   useEffect(() => {
     if (!menu) return
@@ -135,9 +137,8 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
             onSubmit={(e) => {
               e.preventDefault()
               const f = new FormData(e.currentTarget)
-              const y = Number(f.get('year'))
               const name = String(f.get('period') ?? '').trim()
-              const year = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : workspace.evaluationYear
+              const year = editYear
               if ((name && name !== workspace.periodName) || year !== workspace.evaluationYear) onRename(workspace, name || workspace.periodName, year)
               setRenaming(false)
             }}
@@ -152,15 +153,8 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
               }
             }}
           >
-            <input
-              name="year"
-              type="number"
-              min={2000}
-              max={2100}
-              defaultValue={workspace.evaluationYear}
-              aria-label="연도"
-              className="h-7 w-[4.6em] shrink-0 rounded-control border border-hairline px-1.5 text-[15px] font-semibold tabular-nums"
-            />
+            {/* 연도는 앱 공통 연도 피커(연도 그리드) */}
+            <YearPicker year={editYear} onChange={setEditYear} className="shrink-0" />
             <input
               name="period"
               autoFocus
@@ -178,6 +172,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
             <IconButton
               onClick={(e) => {
                 e.stopPropagation()
+                setEditYear(workspace.evaluationYear)
                 setRenaming(true)
               }}
               title="연도 · 이름 바꾸기"
@@ -216,6 +211,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
               className={item}
               onClick={() => {
                 setMenu(null)
+                setEditYear(workspace.evaluationYear)
                 setRenaming(true)
               }}
             >

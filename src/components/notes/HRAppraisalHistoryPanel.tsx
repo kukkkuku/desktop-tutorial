@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import YearPicker from '../YearPicker'
 import { v4 as uuidv4 } from 'uuid'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { EvaluationGrade, HRAppraisalRecord, TeamMember } from '../../types'
@@ -106,18 +107,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   return (
     <div>
-      <p className="text-[13px] text-label-2">
-        <input
-          type="number"
-          value={reviewYear}
-          onChange={(e) => changeReviewYear(Number(e.target.value))}
-          className="mx-0.5 h-8 w-16 rounded-control border border-hairline px-2 text-center text-[13px] text-label"
-        />
-        년 {kind === 'special' ? '9월 특별심사' : '4월 정기심사'} 기준,{' '}
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] text-label-2">
+        {/* 연도는 앱 공통 연도 피커 */}
+        <YearPicker year={reviewYear} onChange={changeReviewYear} />
+        {kind === 'special' ? '9월 특별심사' : '4월 정기심사'} 기준,{' '}
         {kind === 'special'
           ? `${recentYears[recentYears.length - 1]}~${recentYears[1]}년과 ${recentYears[0]}년 상반기를 반영합니다.`
           : `${recentYears[recentYears.length - 1]}~${recentYears[0]}년 5개년을 반영합니다.`}
-      </p>
+      </div>
 
       <div className="mt-3 overflow-x-auto rounded-card border border-separator">
         <table className="w-full min-w-[320px] table-fixed text-[13px]">

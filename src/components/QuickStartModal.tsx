@@ -23,7 +23,7 @@ interface QuickStartModalProps {
   // 결과를 바로 보여준다.
   onDataReady: () => void
   // 처음 열 탭(과제리스트의 "구글시트에서 가져오기"는 'sheet')
-  initialTab?: Tab
+  initialTab?: Tab | 'auto' // auto = 추진현황을 불러온 적이 있으면 '추진현황에서', 없으면 구글시트 연결
   initialSheetUrl?: string | null
   // 구글시트에서 가져온 뒤(과제리스트로 이동)
   onSheetImported?: () => void
@@ -245,7 +245,7 @@ export default function QuickStartModal({
   // 과제 입력 › 추진현황에 불러온 데이터(이 브라우저) -- 창을 여는 동안 한 번 읽는다
   const progress = useMemo(() => readProgressSource(), [])
   // 빠른 시작을 그냥 열면 추진현황이 있을 때 "추진현황에서"부터(시트 링크를 넣고 연 경우는 구글시트 연결)
-  const [tab, setTab] = useState<Tab>(initialTab === 'sheet' && !initialSheetUrl && progress ? 'progress' : initialTab)
+  const [tab, setTab] = useState<Tab>(initialTab === 'auto' ? (progress && !initialSheetUrl ? 'progress' : 'sheet') : initialTab)
   const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
   const [sheetLoaded, setSheetLoaded] = useState(false)

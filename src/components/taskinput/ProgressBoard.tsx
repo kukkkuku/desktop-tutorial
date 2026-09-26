@@ -1296,6 +1296,7 @@ export default function ProgressBoard() {
                   <SheetImportPanel
                     source="progress"
                     progress={exportSource}
+                    verb="export"
                     initialL1s={l1 ? [l1] : undefined}
                     onCancel={() => setExportOpen(false)}
                     onDone={() => {

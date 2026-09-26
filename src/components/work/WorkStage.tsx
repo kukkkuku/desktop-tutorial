@@ -53,7 +53,7 @@ import ConfirmDialog from '../ConfirmDialog'
 const HISTORY_LIMIT = 60
 
 interface WorkStageProps {
-  onOpenSheetImport: (url?: string) => void
+  onOpenSheetImport: (url?: string, tab?: 'sheet' | 'progress') => void
 }
 
 function timeAgo(iso: string | undefined): string {
@@ -767,12 +767,17 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       <div className="mx-auto max-w-2xl py-16 text-center">
         <h2 className="text-xl font-bold text-label">과제관리</h2>
         <p className="mt-2 text-sm leading-relaxed text-label-2">
-          회사 과제관리 구글시트에서 필요한 L2만 골라 가져오거나, L2를 직접 만들어 시작하세요.
+          과제 입력의 추진현황이나 회사 과제관리 구글시트에서 필요한 L2만 골라 가져오거나, L2를 직접 만들어 시작하세요.
           <br />
           L2는 탭으로, 그 아래 L3 과제는 표로 편집합니다.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button variant="primary" onClick={() => onOpenSheetImport()}>구글시트에서 가져오기</Button>
+          <Button variant="primary" onClick={() => onOpenSheetImport(undefined, 'progress')}>
+            추진현황에서 가져오기
+          </Button>
+          <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'sheet')}>
+            구글시트에서 가져오기
+          </Button>
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>
