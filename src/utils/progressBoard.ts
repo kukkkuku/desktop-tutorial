@@ -84,6 +84,7 @@ export interface ProgressData {
   fieldMerges?: SheetMerge[] // 입력 열(속성·분류·상태…, L3 제외) 칸의 병합 범위
   headerRows?: { top: number; sub: number } // 머리글 줄(0-based): 위 줄 · 아래 줄(한 줄 머리글이면 같음)
   yearTabs?: string[] // 같은 파일 안의 「YYYY 추진현황」 탭들(최근 연도부터) -- 연도 고르기
+  local?: boolean // 이 화면에서 새로 만든 연도(아직 구글시트에 없음 · 이 브라우저에 저장)
 }
 
 // 파일 안의 추진현황 탭 이름들을 최근 연도부터
@@ -409,12 +410,54 @@ export function saveProgressData(data: ProgressData) {
   }
 }
 
+export function clearProgressData() {
+  try {
+    localStorage.removeItem(dataKey())
+  } catch {
+    // 무시
+  }
+}
+
 export function saveDrafts(drafts: Drafts) {
   try {
     localStorage.setItem(draftsKey(), JSON.stringify(drafts))
   } catch {
     // 위와 같음
   }
+}
+
+// 지금 보지 않는 연도(이 브라우저에서 만든 연도 · 잠시 내려 둔 시트 연도)를 탭 이름별로 둔다.
+export interface ShelfItem {
+  data: ProgressData
+  drafts: Drafts
+}
+const shelfKey = () => `progress-board:shelf:${accountScope()}`
+export function loadShelf(): Record<string, ShelfItem> {
+  try {
+    const v = JSON.parse(localStorage.getItem(shelfKey()) ?? '{}')
+    return v && typeof v === 'object' ? v : {}
+  } catch {
+    return {}
+  }
+}
+export function saveShelf(shelf: Record<string, ShelfItem>) {
+  try {
+    localStorage.setItem(shelfKey(), JSON.stringify(shelf))
+  } catch {
+    // 저장 공간이 모자라면 지금 화면에만 남는다
+  }
+}
+
+// 새 연도의 주 칸: 그 달에 든 목요일 수(4~5주, 한 주는 목요일이 든 달에 속함)
+export function yearWeeks(year: number): { month: number; week: number }[] {
+  const out: { month: number; week: number }[] = []
+  for (let m = 1; m <= 12; m++) {
+    let n = 0
+    const days = new Date(year, m, 0).getDate()
+    for (let d = 1; d <= days; d++) if (new Date(year, m - 1, d).getDay() === 4) n++
+    for (let w = 1; w <= n; w++) out.push({ month: m, week: w })
+  }
+  return out
 }
 
 // ---------- 값 읽기 ----------

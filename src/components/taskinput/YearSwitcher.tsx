@@ -3,7 +3,7 @@
 // 올해는 입력, 지난 연도는 보기 전용.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, Folder } from 'lucide-react'
+import { Check, ChevronDown, Folder, Plus } from 'lucide-react'
 import Spinner from '../Spinner'
 import { ic, icLg, icSm } from '../ui/icon'
 
@@ -20,6 +20,8 @@ export default function YearSwitcher({
   loading,
   disabled,
   onPick,
+  localTabs = [],
+  onCreate,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -27,13 +29,19 @@ export default function YearSwitcher({
   loading?: boolean
   disabled?: boolean
   onPick: (title: string) => void
+  localTabs?: string[] // 이 화면에서 만든 연도(이 브라우저에 저장 · 입력 가능)
+  onCreate?: () => void // + 새 연도 만들기
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const readOnly = title !== editableTitle
-  const canPick = tabs.length > 1 && !disabled
+  const isLocal = localTabs.includes(title)
+  const readOnly = title !== editableTitle && !isLocal
+  const all = [...localTabs.map((t) => ({ t, local: true })), ...tabs.filter((t) => !localTabs.includes(t)).map((t) => ({ t, local: false }))].sort(
+    (a, b) => Number(b.t.match(/(20\d{2})/)?.[1] ?? 0) - Number(a.t.match(/(20\d{2})/)?.[1] ?? 0),
+  )
+  const canPick = (all.length > 1 || !!onCreate) && !disabled
 
   useEffect(() => {
     if (!open) return
@@ -69,6 +77,14 @@ export default function YearSwitcher({
         <Folder {...icLg} className={`shrink-0 ${readOnly ? 'text-orange-500' : 'text-accent'}`} />
         <span className="whitespace-nowrap">{yearLabel(title)}</span>
         {readOnly && <span className="mac-badge bg-orange-100 text-[11px] text-orange-700">보기 전용</span>}
+        {isLocal && (
+          <span
+            className="mac-badge bg-accent-soft text-[11px] text-accent"
+            title="이 화면에서 만든 연도 · 이 브라우저에 저장(관리자가 구글시트로 만들 수 있음)"
+          >
+            이 브라우저
+          </span>
+        )}
         {loading ? (
           <Spinner className="h-3.5 w-3.5 text-label-3" />
         ) : (
@@ -80,24 +96,43 @@ export default function YearSwitcher({
         createPortal(
           <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-60 overflow-hidden py-1">
             <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">실적관리 연도</p>
-            {tabs.map((t) => {
+            {all.map(({ t, local }) => {
               const selected = t === title
               return (
                 <button
-                  key={t}
+                  key={`${local}-${t}`}
                   type="button"
                   onClick={() => {
-                    onPick(t)
+                    if (!selected) onPick(t)
                     setOpen(false)
                   }}
                   className={`mac-menu-item ${selected ? 'font-semibold' : ''}`}
                 >
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
                   {yearLabel(t)}
-                  {t !== editableTitle && <span className="ml-auto text-[11px] text-label-3">보기 전용</span>}
+                  {local ? (
+                    <span className="ml-auto text-[11px] text-accent">이 브라우저</span>
+                  ) : (
+                    t !== editableTitle && <span className="ml-auto text-[11px] text-label-3">보기 전용</span>
+                  )}
                 </button>
               )
             })}
+            {onCreate && (
+              <>
+                {all.length > 0 && <div className="mac-menu-sep" />}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    onCreate()
+                  }}
+                  className="mac-menu-item text-accent"
+                >
+                  <Plus {...icSm} className="shrink-0" />새 연도 만들기
+                </button>
+              </>
+            )}
           </div>,
           document.body,
         )}

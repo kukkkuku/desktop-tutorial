@@ -16,6 +16,8 @@ import {
   Plus,
   Redo2,
   RefreshCw,
+  FilePlus2,
+  Save,
   RotateCcw,
   Rows3,
   AlignVerticalSpaceAround,
@@ -47,6 +49,7 @@ import {
   type XlsxBook,
   sheetUrl,
   writeSheetCells,
+  createSheetTab,
   parseFmt,
   fmtString,
   type CellFmt,
@@ -60,8 +63,6 @@ import {
   readLinkedSheet,
   writeLinkedSheet,
   NEW_PREFIX,
-  buildFieldDefs,
-  buildHeaderStyle,
   countDrafts,
   currentWeekKey,
   effectiveCells,
@@ -89,7 +90,9 @@ import {
   paintCells,
   setNoteEdit,
   setFmtEdit,
-  toProgressRows,
+  loadShelf,
+  saveShelf,
+  type ShelfItem,
   type Drafts,
   type FieldDef,
   type PaintTool,
@@ -97,7 +100,9 @@ import {
   type ProgressRow,
 } from '../../utils/progressBoard'
 import SheetLinkChip from '../SheetLinkChip'
-import { downloadProgressExcel } from '../../utils/progressExport'
+import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
+import { blankProgress, materialize, sheetToData, worksheetRequests } from '../../utils/progressLocal'
+import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
 import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
@@ -148,28 +153,7 @@ const ROW_PAD_DEFAULT = 4
 const ROW_PAD_MAX = 12
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
-  const fields = buildFieldDefs(parsed.header, parsed.columnMap)
-  const { hCol, l1Col, l2Col } = parsed.header
-  const levelCols: ProgressData['levelCols'] = { l2: l2Col, ...(l1Col !== null ? { l1: l1Col } : {}), ...(hCol !== null ? { h: hCol } : {}) }
-  const lc = Object.values(levelCols)
-  return {
-    ...meta,
-    year: Number(meta.tabTitle.match(/(20\d{2})/)?.[1]) || null,
-    fetchedAt: new Date().toISOString(),
-    weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
-    fields,
-    headerStyle: buildHeaderStyle(parsed.header, raw, fields),
-    rows: toProgressRows(parsed.rows, raw, fields, parsed.header.weekCols, levelCols),
-    levelCols,
-    levelMerges: raw.merges.filter((m) => m.c1 === m.c2 && lc.includes(m.c1)),
-    headerRows: { top: parsed.header.headerRow, sub: Math.max(parsed.header.headerRow, parsed.header.dataStartRow - 1) },
-    // 입력 열(L3 제외)끼리의 병합만(머리글 아래)
-    fieldMerges: raw.merges.filter((m) => {
-      if (m.r1 < parsed.header.dataStartRow) return false
-      const inside = fields.filter((f) => f.id !== 'name' && f.col >= m.c1 && f.col <= m.c2)
-      return inside.length === m.c2 - m.c1 + 1
-    }),
-  }
+  return sheetToData(parsed, raw, meta)
 }
 
 // 시트에서 추진현황 탭을 값 + 주차 칸 배경색까지 읽는다.
@@ -415,10 +399,187 @@ export default function ProgressBoard() {
   }
 
   function accept(next: ProgressData) {
+    parkLocal()
     leaveArchive()
     setData(next)
+    dataRef.current = next
     saveProgressData(next)
     setError('')
+  }
+
+  // ---- 이 화면에서 만든 연도(이 브라우저) · 잠시 내려 둔 연도(선반) ----
+  const dataRef = useRef(data)
+  dataRef.current = data
+  const [shelf, setShelfState] = useState<Record<string, ShelfItem>>(() => loadShelf())
+  const shelfRef = useRef(shelf)
+  function setShelf(next: Record<string, ShelfItem>) {
+    shelfRef.current = next
+    setShelfState(next)
+    saveShelf(next)
+  }
+  const [newYearOpen, setNewYearOpen] = useState(false)
+  // 지금 입력하는 연도(지난 연도 보기 중이면 맡겨 둔 올해)
+  function currentProject(): ShelfItem | null {
+    const a = archiveRef.current
+    if (a) return a
+    const d = dataRef.current
+    return d ? { data: d, drafts: draftsRef.current } : null
+  }
+  // 선반 키: 이 브라우저 연도 'local:탭', 시트 연도 'sheet:탭'(같은 연도가 둘 다 있을 수 있음)
+  const shelfKeyOf = (d: ProgressData) => `${d.local ? 'local' : 'sheet'}:${d.tabTitle}`
+  // 지금 연도가 이 브라우저에서 만든 연도면 선반에 올려 둔다(시트를 불러오기 전에)
+  function parkLocal() {
+    const cur = currentProject()
+    if (!cur?.data.local) return
+    setShelf({ ...shelfRef.current, [shelfKeyOf(cur.data)]: cur })
+    dataRef.current = null
+  }
+  function activate(p: ShelfItem, rest: Record<string, ShelfItem>) {
+    setArchive(null)
+    setShelf(rest)
+    setData(p.data)
+    dataRef.current = p.data
+    saveProgressData(p.data)
+    draftsRef.current = p.drafts
+    setDrafts(p.drafts)
+    saveDrafts(p.drafts)
+    clearHistory()
+    setEditing(false)
+    setFilters({})
+    setActiveL1(null)
+    setOpenKey(null)
+    setError('')
+    setMessage('')
+  }
+  // 선반의 연도로 바꾸기(지금 연도는 선반에)
+  function switchProject(title: string) {
+    const next = shelfRef.current[title]
+    if (!next) return
+    const rest = { ...shelfRef.current }
+    delete rest[title]
+    const cur = currentProject()
+    if (cur) rest[shelfKeyOf(cur.data)] = cur
+    activate(next, rest)
+  }
+  const pendingView = useRef<string | null>(null)
+  useEffect(() => {
+    const t = pendingView.current
+    if (t && data && !data.local) {
+      pendingView.current = null
+      if (t !== data.tabTitle) void viewYear(t)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data])
+  function pickYear(t: string) {
+    if (shelfRef.current[t]) return switchProject(t)
+    const cur = currentProject()
+    if (cur?.data.local) {
+      // 시트 연도: 내려 둔 시트 연도를 다시 올린 뒤 그 탭을 본다
+      const parked = Object.values(shelfRef.current).find((x) => !x.data.local && (x.data.yearTabs ?? [x.data.tabTitle]).includes(t))
+      if (parked) {
+        pendingView.current = t
+        switchProject(shelfKeyOf(parked.data))
+      }
+      return
+    }
+    void viewYear(t)
+  }
+  function createYear(o: NewYearOptions) {
+    setNewYearOpen(false)
+    try {
+      const cur = currentProject()
+      let base = blankProgress(o.year)
+      let rows: NewRow[] = []
+      if (o.mode === 'inherit' && cur) {
+        const srcL1s = Array.from(new Set([...cur.data.rows.map((r) => r.l1), ...cur.drafts.newRows.map((n) => n.l1)]))
+        const m = materialize(cur.data, cur.drafts, srcL1s).data
+        base = blankProgress(
+          o.year,
+          m.fields.filter((f) => f.id !== 'name').map((f) => f.label),
+        )
+        const idByLabel = new Map(base.fields.map((f) => [f.label, f.id]))
+        const mapId = (id: string) => (id === 'name' ? 'name' : idByLabel.get(m.fields.find((f) => f.id === id)?.label ?? ''))
+        const remap = (rec: Record<string, string> | undefined) =>
+          Object.fromEntries(Object.entries(rec ?? {}).flatMap(([id, v]) => (mapId(id) && v ? [[mapId(id)!, v]] : [])))
+        const done = (st: string) => /완료|취소|중단|drop/i.test(st)
+        const seen = new Set<string>()
+        for (const r of m.rows) {
+          if (o.carry === 'open' && done(r.values.status ?? '')) continue
+          const g = `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
+          if (o.carry === 'structure') {
+            if (seen.has(g)) continue
+            seen.add(g)
+            rows.push(makeNewRow({ l1: r.l1, l2: r.l2, l2Tag: r.l2Tag, h: r.h }))
+            continue
+          }
+          const n = makeNewRow({ l1: r.l1, l2: r.l2, l2Tag: r.l2Tag, h: r.h })
+          n.fields = { ...remap(r.values), name: r.l3 }
+          n.bg = remap(r.bg)
+          n.fmt = remap(r.fmt)
+          rows.push(n)
+        }
+        if (!rows.length) rows = [makeNewRow({ l1: srcL1s[0] ?? o.l1, l2: '새 구분', l2Tag: null, h: null })]
+      } else rows = [makeNewRow({ l1: o.l1, l2: '새 구분', l2Tag: null, h: null })]
+      const order = Array.from(new Set(rows.map((n) => n.l1)))
+      const made = materialize(base, { edits: {}, newRows: rows }, order)
+      const project: ShelfItem = { data: { ...made.data, local: true, yearTabs: undefined }, drafts: { edits: {}, newRows: made.left } }
+      const rest = { ...shelfRef.current }
+      if (cur) rest[shelfKeyOf(cur.data)] = cur
+      activate(project, rest)
+      if (made.left[0]) setOpenKey(NEW_PREFIX + made.left[0].id) // 첫 과제 이름부터 입력
+      setMessage(
+        `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 오른쪽 위 "구글시트로 만들기"로 시트에 탭을 만들 수 있습니다' : ''}.`,
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '새 연도를 만들지 못했습니다.')
+    }
+  }
+  // 이 브라우저에서 만든 연도: 고친 내용을 표에 굳혀 저장
+  function commitLocal() {
+    if (!data?.local) return
+    try {
+      const m = materialize(data, drafts, l1s)
+      const next = { ...m.data, local: true, yearTabs: undefined }
+      setData(next)
+      dataRef.current = next
+      saveProgressData(next)
+      updateDrafts({ edits: {}, newRows: m.left })
+      clearHistory()
+      setMessage(`이 브라우저에 저장했습니다${m.left.length ? ` · 이름이 빈 과제 ${m.left.length}건은 이름을 넣으면 저장됩니다` : ''}.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
+    }
+  }
+  // 이 브라우저에서 만든 연도 → 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 만들어 통째로 쓴다(관리자)
+  async function createInSheet() {
+    if (!data?.local) return
+    const link = parseSheetUrl(sheetLink)
+    if (!link) return setError('연결된 구글시트가 없습니다. "시트 바꾸기"로 먼저 연결해 주세요.')
+    if (isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
+    setSaving(true)
+    setError('')
+    setMessage('')
+    try {
+      const m = materialize(data, drafts, l1s)
+      const { tabs } = await fetchSpreadsheetTabs(link.spreadsheetId)
+      if (tabs.some((t) => t.title.replace(/\s/g, '') === data.tabTitle.replace(/\s/g, '')))
+        throw new Error(`연결된 시트에 이미 「${data.tabTitle}」 탭이 있습니다. 시트에서 탭 이름을 바꾸거나 지운 뒤 다시 해 주세요.`)
+      const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, l1s)
+      const ws = wb.worksheets[0]
+      const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
+      await createSheetTab(link.spreadsheetId, data.tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
+        worksheetRequests(ws, id),
+      )
+      const fresh = await readFromSheet(link.spreadsheetId, data.year ?? now.getFullYear(), data.tabTitle)
+      // 시트 연도가 됐으니 이 브라우저 연도와 예전에 내려 둔 시트 연도는 정리한다
+      const rest = Object.fromEntries(Object.entries(shelfRef.current).filter(([, x]) => x.data.local))
+      activate({ data: fresh, drafts: { edits: {}, newRows: m.left } }, rest)
+      setMessage(`구글시트에 「${data.tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '구글시트에 탭을 만들지 못했습니다.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   // 지난 연도 보기(보기 전용): 올해 데이터와 고친 내용은 옆에 맡겨 두고, 지난 연도 탭을 그대로 보여 준다.
@@ -490,6 +651,7 @@ export default function ProgressBoard() {
       setError('구글시트 링크를 확인해 주세요. (https://docs.google.com/spreadsheets/d/…)')
       return
     }
+    parkLocal()
     const clean = sheetUrl(link.spreadsheetId)
     setSheetLink(clean)
     writeLinkedSheet(clean === TASK_INPUT_SHEET_URL ? null : clean)
@@ -868,12 +1030,41 @@ export default function ProgressBoard() {
     [data],
   )
 
+  // 연도 고르기 목록: 시트 연도(지금 또는 내려 둔 시트 연도) + 이 브라우저에서 만든 연도
+  const curProject = archive ?? (data ? { data, drafts } : null)
+  const parkedSheet = Object.values(shelf).find((x) => !x.data.local)
+  const localTabs = [
+    ...Object.values(shelf)
+      .filter((x) => x.data.local)
+      .map((x) => `local:${x.data.tabTitle}`),
+    ...(curProject?.data.local ? [`local:${curProject.data.tabTitle}`] : []),
+  ]
+  const sheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
+  const allYears = [...localTabs, ...sheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
+  const newYearDialog = newYearOpen && (
+    <NewYearDialog
+      defaultYear={allYears.length ? Math.max(...allYears) + 1 : now.getFullYear()}
+      taken={[...localTabs.map((t) => t.slice(6)), ...sheetTabs]}
+      inheritFrom={curProject?.data.tabTitle ?? null}
+      onCreate={createYear}
+      onClose={() => setNewYearOpen(false)}
+    />
+  )
+
   if (!data) {
     return (
       <>
         <MenuSlot>
-          <YearSwitcher title={`${now.getFullYear()} 추진현황`} tabs={[]} editableTitle={`${now.getFullYear()} 추진현황`} onPick={() => {}} />
+          <YearSwitcher
+            title={`${now.getFullYear()} 추진현황`}
+            tabs={sheetTabs}
+            editableTitle={`${now.getFullYear()} 추진현황`}
+            localTabs={localTabs}
+            onPick={pickYear}
+            onCreate={() => setNewYearOpen(true)}
+          />
         </MenuSlot>
+        {newYearDialog}
         <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
           <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-label-2">
@@ -882,8 +1073,11 @@ export default function ProgressBoard() {
             시트를 볼 수 있는 구글 계정으로 한 번 권한을 허용하면 됩니다.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <Button variant="primary" onClick={() => setNewYearOpen(true)} disabled={loading} title="구글시트 없이 여기서 빈 표로 시작(이 브라우저에 저장)">
+              <FilePlus2 {...icSm} />새 연도 만들기
+            </Button>
             {isSheetsApiConfigured() && (
-              <Button variant="primary" onClick={() => loadFromSheet()} disabled={loading}>
+              <Button variant="secondary" onClick={() => loadFromSheet()} disabled={loading}>
                 {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw {...icSm} />}
                 구글시트에서 불러오기
               </Button>
@@ -1036,14 +1230,17 @@ export default function ProgressBoard() {
     <div>
       <MenuSlot>
         <YearSwitcher
-          title={data.tabTitle}
-          tabs={data.yearTabs ?? [data.tabTitle]}
-          editableTitle={archive?.data.tabTitle ?? data.tabTitle}
+          title={data.local ? `local:${data.tabTitle}` : data.tabTitle}
+          tabs={sheetTabs}
+          editableTitle={data.local ? (parkedSheet?.data.tabTitle ?? data.tabTitle) : (archive?.data.tabTitle ?? data.tabTitle)}
           loading={yearLoading}
           disabled={loading || saving}
-          onPick={(t) => void viewYear(t)}
+          onPick={pickYear}
+          localTabs={localTabs}
+          onCreate={() => setNewYearOpen(true)}
         />
       </MenuSlot>
+      {newYearDialog}
       {canManage && linkOpen && (
         <SheetLinkForm
           value={linkInput}
@@ -1410,6 +1607,18 @@ export default function ProgressBoard() {
           >
             <FileDown {...ic} />
           </IconButton>
+          {data.local && canManage && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void createInSheet()}
+              disabled={saving}
+              title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
+            >
+              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+              구글시트로 만들기
+            </Button>
+          )}
           {editCount > 0 && (
             <>
               <span
@@ -1427,22 +1636,29 @@ export default function ProgressBoard() {
               >
                 <RotateCcw {...ic} />
               </IconButton>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setConfirmSave(true)}
-                disabled={!canSave || saving}
-                title={
-                  canSave
-                    ? '고친 칸을 연결된 시트에 씁니다'
-                    : protectedSheet
-                      ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
-                      : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
-                }
-              >
-                {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-                구글시트에 저장
-              </Button>
+              {data.local ? (
+                <Button variant="primary" size="sm" onClick={commitLocal} disabled={saving} title="고친 내용을 표에 반영해 이 브라우저에 저장합니다">
+                  <Save {...icSm} />
+                  저장
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setConfirmSave(true)}
+                  disabled={!canSave || saving}
+                  title={
+                    canSave
+                      ? '고친 칸을 연결된 시트에 씁니다'
+                      : protectedSheet
+                        ? '운영 중인 팀 시트에는 저장하지 않습니다. 위 "시트 바꾸기"로 테스트 시트를 연결하세요.'
+                        : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
+                  }
+                >
+                  {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+                  구글시트에 저장
+                </Button>
+              )}
             </>
           )}
         </span>

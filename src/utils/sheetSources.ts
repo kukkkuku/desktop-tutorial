@@ -482,6 +482,44 @@ export function sheetWriteRequests(sheetGid: number, plan: SheetPlan) {
   return requests
 }
 
+// 새 탭을 만들고(맨 뒤 · 머리글 두 줄과 이름 열 고정) 그 탭에 쓸 요청을 보낸다. 만든 탭 번호(sheetId)를 돌려준다.
+export async function createSheetTab(
+  spreadsheetId: string,
+  title: string,
+  size: { rows: number; cols: number; frozenRows: number; frozenCols: number },
+  build: (sheetId: number) => object[],
+): Promise<number> {
+  const res = await sheetsFetch<{ replies: { addSheet?: { properties: { sheetId: number } } }[] }>(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        requests: [
+          {
+            addSheet: {
+              properties: {
+                title,
+                gridProperties: { rowCount: size.rows, columnCount: size.cols, frozenRowCount: size.frozenRows, frozenColumnCount: size.frozenCols },
+              },
+            },
+          },
+        ],
+      }),
+    },
+    true,
+  )
+  const sheetId = res.replies[0]?.addSheet?.properties.sheetId
+  if (sheetId === undefined) throw new Error('구글시트에 새 탭을 만들지 못했습니다.')
+  const requests = build(sheetId)
+  if (requests.length)
+    await sheetsFetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+      { method: 'POST', body: JSON.stringify({ requests }) },
+      true,
+    )
+  return sheetId
+}
+
 export async function writeSheetCells(spreadsheetId: string, sheetGid: number, plan: SheetPlan): Promise<void> {
   const requests = sheetWriteRequests(sheetGid, plan)
   if (requests.length === 0) return
