@@ -1193,13 +1193,26 @@ export default function ProgressBoard() {
             </>
           ) : (
             <>
-              {LEGEND.map((t) => (
-                <span key={t} title={cellLabel(TOOL_CELL[t])} className="flex h-8 w-8 items-center justify-center rounded-control border border-hairline">
-                  <CellSwatch cell={TOOL_CELL[t]} size={18} />
+              {/* 범례(누르는 버튼이 아님): 칸 모양 + 이름 */}
+              {(
+                [
+                  ['계획', LEGEND.slice(0, 3), ['착수', '기간', '완료']],
+                  ['실적', LEGEND.slice(3), ['착수', '진행', '완료']],
+                ] as const
+              ).map(([group, tools, names], gi) => (
+                <span key={group} className={`flex items-center gap-2 text-[12px] text-label-2 ${gi ? 'border-l border-separator pl-2.5' : 'ml-1.5'}`}>
+                  <span className="font-semibold text-label-3">{group}</span>
+                  {tools.map((t, i) => (
+                    <span key={t} className="flex items-center gap-1" title={cellLabel(TOOL_CELL[t])}>
+                      <CellSwatch cell={TOOL_CELL[t]} size={16} />
+                      {names[i]}
+                    </span>
+                  ))}
                 </span>
               ))}
-              <span title="현재 주" className="flex h-8 w-5 items-center justify-center">
+              <span className="flex items-center gap-1 border-l border-separator pl-2.5 text-[12px] text-label-2">
                 <span className="h-4 border-l border-dashed border-[#E8342A]" />
+                현재 주
               </span>
             </>
           )}
