@@ -1005,6 +1005,18 @@ export default function ScheduleTable({
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
+  // 표를 담은 칸의 폭(가로 꽉 채우기)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const [availWidth, setAvailWidth] = useState(0)
+  useEffect(() => {
+    const box = tableRef.current?.parentElement
+    if (!box) return
+    const measure = () => setAvailWidth(box.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [])
   const [paletteFor, setPaletteFor] = useState<'cell' | 'row' | 'text' | null>(null)
   // 메뉴가 화면 아래로 넘치면 위로 올린다
   const menuBoxRef = useRef<HTMLDivElement>(null)
@@ -1673,19 +1685,23 @@ export default function ScheduleTable({
             .map((v) => v.row)
         : []
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
-  const tableWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
+  const baseWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
+  // 표가 화면보다 좁으면(일정을 접었을 때 등) 마지막 열을 늘려 가로를 꽉 채운다
+  const fillExtra = Math.max(0, availWidth - baseWidth)
+  const tableWidth = baseWidth + fillExtra
+  const lastColId = cols[cols.length - 1]?.id
   let rowIndex = 0
 
   return (
     <>
-      <table className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
+      <table ref={tableRef} className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
         <colgroup>
           <col style={{ width: WH }} />
           <col style={{ width: wL2 }} />
           <col style={{ width: wL3 }} />
           {scheduleOpen ? weekCols.map((x) => <col key={x.key} style={{ width: wWeek }} />) : showSummary ? <col style={{ width: wSummary }} /> : null}
           {cols.map((f) => (
-            <col key={f.id} style={{ width: colW(f) }} />
+            <col key={f.id} style={{ width: colW(f) + (f.id === lastColId ? fillExtra : 0) }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>

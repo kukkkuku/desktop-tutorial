@@ -5,7 +5,7 @@
 import ExcelJS from 'exceljs'
 import { parseSheet, type ParsedSheet, type RawSheet, type SheetMerge } from './sheetImport'
 import { buildFieldDefs, buildHeaderStyle, effectiveFields, effectiveFmt, toProgressRows, yearWeeks, type Drafts, type ProgressData } from './progressBoard'
-import { buildProgressWorkbook, exportRows } from './progressExport'
+import { buildProgressWorkbook, exportRows, fieldWidth, LEVEL_WIDTH, SHEET_FONT, SHEET_SIZE } from './progressExport'
 
 type Meta = Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>
 
@@ -168,9 +168,14 @@ export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): objec
         ...(font.bold ? { bold: true } : {}),
         ...(font.italic ? { italic: true } : {}),
         ...(font.strike ? { strikethrough: true } : {}),
-        ...(font.size && font.size !== 10 ? { fontSize: font.size } : {}),
+        ...(font.name ? { fontFamily: font.name } : {}),
+        ...(font.size ? { fontSize: font.size } : {}),
         ...(fg && font.color?.argb !== 'FF000000' ? { foregroundColor: fg } : {}),
       }
+      const bd = cell.border ?? {}
+      const side = (x?: { style?: string; color?: { argb?: string } }) =>
+        x?.style ? { style: x.style === 'medium' ? 'SOLID_MEDIUM' : 'SOLID', color: rgb(x.color?.argb) ?? { red: 0, green: 0, blue: 0 } } : undefined
+      const borders = Object.fromEntries((['top', 'bottom', 'left', 'right'] as const).flatMap((k) => (side(bd[k]) ? [[k, side(bd[k])]] : [])))
       const note = cell.note ? (typeof cell.note === 'string' ? cell.note : (cell.note.texts ?? []).map((t) => t.text).join('')) : ''
       values.push({
         ...(v instanceof Date
@@ -186,7 +191,8 @@ export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): objec
           ...(al.horizontal ? { horizontalAlignment: String(al.horizontal).toUpperCase() } : {}),
           ...(al.vertical ? { verticalAlignment: al.vertical === 'middle' ? 'MIDDLE' : String(al.vertical).toUpperCase() } : {}),
           ...(al.wrapText ? { wrapStrategy: 'WRAP' } : {}),
-          ...(v instanceof Date ? { numberFormat: { type: 'DATE', pattern: 'mm.dd' } } : {}),
+          ...(v instanceof Date ? { numberFormat: { type: 'DATE', pattern: 'm/d' } } : {}),
+          ...(Object.keys(borders).length ? { borders } : {}),
         },
         ...(note ? { note } : {}),
       })
@@ -210,6 +216,18 @@ export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): objec
       mergeCells: { range: { sheetId, startRowIndex: pa.r, endRowIndex: pb.r + 1, startColumnIndex: pa.c, endColumnIndex: pb.c + 1 }, mergeType: 'MERGE_ALL' },
     })
   }
+  // 줄 높이(pt → px)
+  for (let r = 1; r <= ws.rowCount; r++) {
+    const h = ws.getRow(r).height
+    if (h)
+      requests.push({
+        updateDimensionProperties: {
+          range: { sheetId, dimension: 'ROWS', startIndex: r - 1, endIndex: r },
+          properties: { pixelSize: Math.round((h * 4) / 3) },
+          fields: 'pixelSize',
+        },
+      })
+  }
   for (let c = 1; c <= nCols; c++) {
     const w = ws.getColumn(c).width
     if (w)
@@ -222,4 +240,59 @@ export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): objec
       })
   }
   return requests
+}
+
+// 이미 있는 탭의 기본 모양만 맞춘다(값 · 색 · 굵게는 그대로): 글꼴 · 글자 크기 · 열 폭 · 줄 높이 · 눈금선.
+// 열 폭은 시트의 실제 열 위치(이름 모르는 열은 건드리지 않음)
+export function sheetStyleRequests(data: ProgressData, sheetId: number, rowCount: number): object[] {
+  const px = (w: number) => Math.round(w * 7 + 5)
+  const widths = new Map<number, number>()
+  for (const [lv, c] of Object.entries(data.levelCols ?? {})) widths.set(c, LEVEL_WIDTH[lv as keyof typeof LEVEL_WIDTH])
+  for (const w of data.weekCols) widths.set(w.col, 1.86)
+  for (const f of data.fields) widths.set(f.col, f.id === 'name' ? 68.71 : fieldWidth(f.label, f.kind))
+  const lastCol = Math.max(0, ...widths.keys())
+  const top = data.headerRows?.top ?? 0
+  const sub = data.headerRows?.sub ?? top
+  return [
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: rowCount, startColumnIndex: 0, endColumnIndex: lastCol + 1 },
+        cell: { userEnteredFormat: { textFormat: { fontFamily: SHEET_FONT, fontSize: SHEET_SIZE } } },
+        fields: 'userEnteredFormat.textFormat.fontFamily,userEnteredFormat.textFormat.fontSize',
+      },
+    },
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'ROWS', startIndex: top, endIndex: top + 1 },
+        properties: { pixelSize: 20 },
+        fields: 'pixelSize',
+      },
+    },
+    ...(sub > top
+      ? [
+          {
+            updateDimensionProperties: {
+              range: { sheetId, dimension: 'ROWS', startIndex: sub, endIndex: sub + 1 },
+              properties: { pixelSize: 27 },
+              fields: 'pixelSize',
+            },
+          },
+        ]
+      : []),
+    {
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'ROWS', startIndex: sub + 1, endIndex: rowCount },
+        properties: { pixelSize: 26 },
+        fields: 'pixelSize',
+      },
+    },
+    ...[...widths].map(([c, w]) => ({
+      updateDimensionProperties: {
+        range: { sheetId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 },
+        properties: { pixelSize: px(w) },
+        fields: 'pixelSize',
+      },
+    })),
+    { updateSheetProperties: { properties: { sheetId, gridProperties: { hideGridlines: true } }, fields: 'gridProperties.hideGridlines' } },
+  ]
 }

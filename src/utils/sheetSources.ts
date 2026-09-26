@@ -499,7 +499,13 @@ export async function createSheetTab(
             addSheet: {
               properties: {
                 title,
-                gridProperties: { rowCount: size.rows, columnCount: size.cols, frozenRowCount: size.frozenRows, frozenColumnCount: size.frozenCols },
+                gridProperties: {
+                  rowCount: size.rows,
+                  columnCount: size.cols,
+                  frozenRowCount: size.frozenRows,
+                  frozenColumnCount: size.frozenCols,
+                  hideGridlines: true, // 기존 추진현황 탭처럼 눈금선 숨김
+                },
               },
             },
           },
@@ -518,6 +524,12 @@ export async function createSheetTab(
       true,
     )
   return sheetId
+}
+
+// 요청 묶음을 그대로 보낸다(쓰기 권한)
+export async function sheetBatchUpdate(spreadsheetId: string, requests: object[]): Promise<void> {
+  if (!requests.length) return
+  await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
 }
 
 export async function writeSheetCells(spreadsheetId: string, sheetGid: number, plan: SheetPlan): Promise<void> {

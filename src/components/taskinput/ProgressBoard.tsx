@@ -50,6 +50,7 @@ import {
   sheetUrl,
   writeSheetCells,
   createSheetTab,
+  sheetBatchUpdate,
   parseFmt,
   fmtString,
   type CellFmt,
@@ -103,7 +104,7 @@ import {
 } from '../../utils/progressBoard'
 import SheetLinkChip from '../SheetLinkChip'
 import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
-import { blankProgress, materialize, sheetToData, worksheetRequests } from '../../utils/progressLocal'
+import { blankProgress, materialize, sheetStyleRequests, sheetToData, worksheetRequests } from '../../utils/progressLocal'
 import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
 import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
@@ -573,6 +574,28 @@ export default function ProgressBoard() {
       setMessage(`이 브라우저에 저장했습니다${m.left.length ? ` · 이름이 빈 과제 ${m.left.length}건은 이름을 넣으면 저장됩니다` : ''}.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
+    }
+  }
+  // 연결된 시트 탭의 기본 모양 맞추기(글꼴 맑은 고딕 8 · 열 폭 · 줄 높이 · 눈금선 -- 값과 색은 그대로)
+  async function applySheetStyle() {
+    if (!data?.spreadsheetId || data.sheetGid === null || data.local) return
+    if (isProtectedSheet(data.spreadsheetId)) return setError('운영 중인 팀 시트는 바꾸지 않습니다.')
+    if (
+      !window.confirm(
+        `「${data.tabTitle}」 탭의 글꼴 · 글자 크기 · 열 폭 · 줄 높이를 기존 추진현황 기본 모양(맑은 고딕 8pt)으로 맞춥니다. 값 · 색 · 굵게는 그대로입니다.`,
+      )
+    )
+      return
+    setSaving(true)
+    setError('')
+    try {
+      const lastRow = Math.max((data.headerRows?.sub ?? 1) + 1, ...data.rows.map((r) => r.row + 1))
+      await sheetBatchUpdate(data.spreadsheetId, sheetStyleRequests(data, data.sheetGid, lastRow))
+      setMessage(`「${data.tabTitle}」 탭 모양을 기본(맑은 고딕 8pt · 기존 열 폭 · 줄 높이)으로 맞췄습니다.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '시트 모양을 바꾸지 못했습니다.')
+    } finally {
+      setSaving(false)
     }
   }
   // 이 브라우저에서 만든 연도 → 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 만들어 통째로 쓴다(관리자)
@@ -1079,6 +1102,15 @@ export default function ProgressBoard() {
       {canManage && (
         <button onClick={() => setLinkOpen(true)} className="ml-auto font-medium text-label-2 hover:text-accent">
           시트 바꾸기
+        </button>
+      )}
+      {canManage && data?.spreadsheetId && !data.local && !archive && isSheetsApiConfigured() && (
+        <button
+          onClick={() => void applySheetStyle()}
+          className="w-full text-left font-medium text-label-2 hover:text-accent"
+          title="이 탭의 글꼴 · 크기 · 열 폭 · 줄 높이를 기존 추진현황 모양으로(값 · 색은 그대로)"
+        >
+          이 탭 서식을 기본 모양으로 맞추기
         </button>
       )}
     </div>

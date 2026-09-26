@@ -21,12 +21,41 @@ import {
   type ProgressRow,
 } from './progressBoard'
 
+// 기존 추진현황 시트의 기본 모양(운영 시트에서 확인): 맑은 고딕 8pt, 머리글 굵게 · 연한 파랑, 가는 검은 테두리,
+// 본문 줄 높이 19.5pt, 둘째 머리글 줄 20.25pt, 주 칸 폭 1.86, 눈금선 숨김
+export const SHEET_FONT = 'Malgun Gothic'
+export const SHEET_SIZE = 8
+const HEAD_FILL = 'CFE2F3'
 const BORDER: Partial<ExcelJS.Borders> = {
-  top: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-  bottom: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-  left: { style: 'thin', color: { argb: 'FFD3D3D3' } },
-  right: { style: 'thin', color: { argb: 'FFD3D3D3' } },
+  top: { style: 'thin', color: { argb: 'FF000000' } },
+  bottom: { style: 'thin', color: { argb: 'FF000000' } },
+  left: { style: 'thin', color: { argb: 'FF000000' } },
+  right: { style: 'thin', color: { argb: 'FF000000' } },
 }
+const font = (more: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: SHEET_FONT, size: SHEET_SIZE, ...more })
+// 열 폭(엑셀 단위): 시트 머리글 이름별 -- 모르는 열은 11.57
+export const FIELD_WIDTH: Record<string, number> = {
+  속성: 9.71,
+  분류: 7.29,
+  상태: 7.29,
+  수요부서: 15.29,
+  담당팀: 14.43,
+  담당자: 15.43,
+  '내/외': 7.29,
+  완료요청: 8.71,
+  '디자인접수/start': 25.86,
+  디자인개발: 43,
+  디자인이관: 25.86,
+  완료일: 8.71,
+  'DB 업로드': 7.29,
+  비고: 47.57,
+  'URL, LINK': 71.57,
+}
+export function fieldWidth(label: string, kind?: string): number {
+  const l = label.replace(/\s+/g, ' ').trim()
+  return FIELD_WIDTH[l] ?? FIELD_WIDTH[l.replace(/\s/g, '')] ?? (kind === 'memo' ? 25.86 : 11.57)
+}
+export const LEVEL_WIDTH: Record<Level, number> = { h: 13.71, l1: 20.14, l2: 14.43 }
 const fill = (hex: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${hex}` } })
 
 // 화면 순서 그대로의 행(모든 L1, 새 과제 포함, 삭제 표시 뺌)
@@ -71,9 +100,9 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   const head = (r: number, c: number, text: string, hex: string | null | undefined, dark = false) => {
     const cell = ws.getCell(r, c)
     cell.value = text
-    cell.font = { bold: true, size: 10, color: { argb: dark ? 'FFFFFFFF' : 'FF14161A' } }
+    cell.font = font({ bold: true, color: { argb: 'FF000000' } })
     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-    cell.fill = fill(dark ? '14161A' : (hex ?? 'FFFFFF'))
+    cell.fill = fill(dark ? HEAD_FILL : (hex ?? HEAD_FILL))
     cell.border = BORDER
   }
   const levelLabel: Record<Level, string> = { h: 'H', l1: 'L1', l2: 'L2' }
@@ -85,12 +114,12 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
       ws.mergeCells(1, x, 2, x)
     } else if (c.kind === 'week') {
       const w = data.weekCols.find((y) => y.key === c.key)!
-      head(2, x, String(w.week), hs?.weeks[c.key] ?? 'E4E6EA')
+      head(2, x, String(w.week), hs?.weeks[c.key] ?? HEAD_FILL)
       const first = data.weekCols.find((y) => y.month === w.month)!
       if (first.key === c.key) {
         const last = [...data.weekCols].reverse().find((y) => y.month === w.month)!
         const lastIdx = all.findIndex((y) => y.kind === 'week' && y.key === last.key)
-        head(1, x, `${w.month}월`, hs?.months[w.month] ?? 'E4E6EA')
+        head(1, x, `${w.month}월`, hs?.months[w.month] ?? HEAD_FILL)
         if (lastIdx > i) ws.mergeCells(1, x, 1, at(lastIdx))
       }
     } else {
@@ -126,13 +155,19 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
     all.forEach((c, i) => {
       const cell = ws.getCell(y, at(i))
       cell.border = BORDER
-      cell.alignment = { vertical: 'middle', wrapText: c.kind !== 'week', horizontal: c.kind === 'week' ? 'center' : undefined }
-      cell.font = { size: 10 }
+      // 시트처럼: 주 · 일반 입력 열은 가운데, 긴 글(메모 · 링크) 열은 왼쪽, L3는 굵게 왼쪽
+      const long = c.kind === 'field' && (fieldById.get(c.id)?.kind === 'memo' || fieldById.get(c.id)?.kind === 'link')
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: c.kind === 'name' || long ? 'left' : 'center',
+        wrapText: c.kind === 'field' && (long || c.id === 'assignees'),
+      }
+      cell.font = font()
       if (c.kind === 'level') {
         const prev = rows[ri - 1]
         if (!prev || chain(prev, c.level) !== chain(row, c.level)) {
           cell.value = labelOf(row, c.level)
-          cell.font = { size: 10, bold: true }
+          cell.font = font({ bold: c.level === 'l2' })
           if (c.level === 'l2') {
             // 구분(L2) 칸 색 · 서식
             const e2 = row.isNew ? undefined : drafts.edits[row.key]
@@ -140,14 +175,16 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
             if (hex) cell.fill = fill(hex)
             const fm = parseFmt(effectiveFmt(row, e2, 'lvl:l2'))
             cell.font = {
-              size: fm.s ?? 10,
+              name: SHEET_FONT,
+              size: fm.s ?? SHEET_SIZE,
               bold: true,
               ...(fm.i ? { italic: true } : {}),
               ...(fm.x ? { strike: true } : {}),
               ...(fm.c ? { color: { argb: `FF${fm.c}` } } : {}),
             }
           }
-          cell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true }
+          cell.alignment =
+            c.level === 'h' ? { vertical: 'middle', horizontal: 'center', wrapText: true } : { vertical: 'top', horizontal: 'left', wrapText: true }
           spanStart[`${i}`] = y
         }
         const next = rows[ri + 1]
@@ -159,16 +196,16 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
         const s = cells[c.key]
         if (s?.m) cell.value = s.m
         if (s?.f) cell.fill = fill(FILL_HEX[s.f])
-        cell.font = { size: 9, bold: true }
+        cell.font = font()
       } else {
         const v = effectiveField(row, e, key)
         const f = fieldById.get(key)
         const d = f?.kind === 'date' ? v.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null
         if (d) {
           cell.value = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]))
-          cell.numFmt = 'mm.dd'
+          cell.numFmt = 'm/d'
         } else if (v) cell.value = v
-        if (c.kind === 'name') cell.font = { size: 10, bold: true }
+        if (c.kind === 'name') cell.font = font({ bold: true })
         const bg = effectiveBg(row, e, key)
         if (bg) cell.fill = fill(bg)
         const fm = parseFmt(effectiveFmt(row, e, key))
@@ -193,7 +230,7 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   for (const m of effectiveMerges(data, drafts)) {
     const ys = m.rows.map((k) => yOf.get(k) ?? -1).sort((p, q) => p - q)
     const xs = m.ids
-      .map((id) => all.findIndex((c) => c.kind === 'field' && c.id === id))
+      .map((id) => all.findIndex((c) => (id === 'name' ? c.kind === 'name' : c.kind === 'field' && c.id === id)))
       .map((i) => (i < 0 ? -1 : at(i)))
       .sort((p, q) => p - q)
     const tight = (v: number[]) => v.every((n) => n > 0) && v.every((n, i) => i === 0 || n === v[i - 1] + 1)
@@ -203,13 +240,20 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   // ---- 폭 · 틀 고정 ----
   all.forEach((c, i) => {
     const col = ws.getColumn(at(i))
-    if (c.kind === 'week') col.width = 3.2
-    else if (c.kind === 'name') col.width = 42
-    else if (c.kind === 'level') col.width = c.level === 'l2' ? 18 : 12
-    else col.width = fieldById.get(c.id)?.kind === 'memo' ? 26 : 12
+    if (c.kind === 'week') col.width = 1.86
+    else if (c.kind === 'name') col.width = 68.71
+    else if (c.kind === 'level') col.width = LEVEL_WIDTH[c.level]
+    else {
+      const f = fieldById.get(c.id)
+      col.width = fieldWidth(f?.label ?? '', f?.kind)
+    }
   })
+  // 줄 높이(pt): 첫 머리글 15 · 둘째 20.25 · 본문 19.5
+  ws.getRow(1).height = 15
+  ws.getRow(2).height = 20.25
+  for (let r = 3; r < rows.length + 3; r++) ws.getRow(r).height = 19.5
   const nameIdx = all.findIndex((c) => c.kind === 'name')
-  ws.views = [{ state: 'frozen', xSplit: at(nameIdx), ySplit: 2 }]
+  ws.views = [{ state: 'frozen', xSplit: at(nameIdx), ySplit: 2, showGridLines: false }]
   return wb
 }
 
