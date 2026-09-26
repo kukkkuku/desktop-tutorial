@@ -1938,6 +1938,82 @@ export default function ScheduleTable({
   const lastColId = cols[cols.length - 1]?.id
   let rowIndex = 0
 
+  // ---- 본문 칸 경계에서도 행 높이 · 열 폭 조절: 칸 가장자리(4px)에 마우스가 가면 파란 선, 끌면 조절
+  const [edge, setEdge] = useState<{ kind: 'row' | 'col'; key: string; pos: number; from: number; len: number } | null>(null)
+  const colKeyOf = (td: HTMLElement): string | null => {
+    if (td.hasAttribute('data-week')) return 'week'
+    if (td.classList.contains('pb-l2')) return 'l2'
+    const id = td.getAttribute('data-cell')?.split('|')[1]
+    if (!id) return null
+    return id === 'name' ? 'l3' : id
+  }
+  const widthOf = (key: string): number =>
+    key === 'l2'
+      ? wL2
+      : key === 'l3'
+        ? wL3
+        : key === 'week'
+          ? wWeek
+          : (() => {
+              const f = cols.find((c) => c.id === key)
+              return f ? colW(f) : 0
+            })()
+  function findEdge(e: React.MouseEvent) {
+    const td = (e.target as HTMLElement).closest('td') as HTMLTableCellElement | null
+    if (!td || td.hasAttribute('data-rowhead') || (e.target as HTMLElement).closest('button,input,textarea,[role="listbox"]')) return null
+    const r = td.getBoundingClientRect()
+    const box = tableRef.current?.parentElement?.getBoundingClientRect()
+    const t = tableRef.current?.getBoundingClientRect()
+    if (!box || !t) return null
+    const left = Math.max(t.left, box.left)
+    const top = Math.max(t.top, box.top)
+    if (onResize && td.colSpan === 1 && r.right - e.clientX <= (r.width < 24 ? 2 : 4) && r.right - e.clientX >= -1) {
+      const key = colKeyOf(td)
+      if (key) return { kind: 'col' as const, key, pos: r.right, from: top, len: Math.min(t.bottom, box.bottom) - top }
+    }
+    if (td.rowSpan === 1 && r.bottom - e.clientY <= 4 && r.bottom - e.clientY >= -1) {
+      const tr = td.closest('tr') as HTMLElement | null
+      const key = tr?.getAttribute('data-row')
+      if (key) return { kind: 'row' as const, key, pos: r.bottom, from: left, len: Math.min(t.right, box.right) - left }
+    }
+    return null
+  }
+  function onBodyMove(e: React.MouseEvent) {
+    if (e.buttons) return
+    const hit = findEdge(e)
+    setEdge((cur) => (hit?.kind === cur?.kind && hit?.key === cur?.key && hit?.pos === cur?.pos ? cur : hit))
+  }
+  function onBodyDown(e: React.MouseEvent) {
+    if (e.button !== 0) return
+    const hit = findEdge(e)
+    if (!hit) return
+    setEdge(null)
+    if (hit.kind === 'row') {
+      startRowResize(e, hit.key, (e.target as HTMLElement).closest('tr'))
+      return
+    }
+    e.preventDefault()
+    e.stopPropagation()
+    const x0 = e.clientX
+    const w0 = widthOf(hit.key)
+    const move = (ev: MouseEvent) => resizeTo(hit.key, Math.max(hit.key === 'week' ? 8 : 36, Math.round(w0 + ev.clientX - x0)))
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.documentElement.classList.remove('cursor-col-resize')
+    }
+    document.documentElement.classList.add('cursor-col-resize')
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  function onBodyDouble(e: React.MouseEvent) {
+    const hit = findEdge(e)
+    if (hit?.kind !== 'row') return
+    e.preventDefault()
+    e.stopPropagation()
+    setRowHeight(hit.key, null)
+  }
+
   return (
     <>
       <table ref={tableRef} className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
@@ -2098,7 +2174,13 @@ export default function ScheduleTable({
               ))}
           </tr>
         </thead>
-        <tbody>
+        <tbody
+          onMouseMove={onBodyMove}
+          onMouseLeave={() => setEdge(null)}
+          onMouseDownCapture={onBodyDown}
+          onDoubleClickCapture={onBodyDouble}
+          style={edge ? { cursor: edge.kind === 'row' ? 'row-resize' : 'col-resize' } : undefined}
+        >
           {groups.map((g, gi) => (
             <Fragment key={`${g.l2}-${gi}`}>
               {g.rows.map((v, ri) => {
@@ -2482,6 +2564,18 @@ export default function ScheduleTable({
           )}
         </tbody>
       </table>
+      {edge &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[45] bg-accent"
+            style={
+              edge.kind === 'row'
+                ? { left: edge.from, top: edge.pos - 1, width: edge.len, height: 2 }
+                : { left: edge.pos - 1, top: edge.from, width: 2, height: edge.len }
+            }
+          />,
+          document.body,
+        )}
 
       {/* 입력 칸 제안값(시트에 이미 있는 값) */}
       {optionsOf &&
