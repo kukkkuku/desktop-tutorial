@@ -295,6 +295,7 @@ function CellEditor({
     <input
       ref={ref}
       value={mode === 'select' ? '' : draft}
+      data-cell-select={mode === 'select' ? '1' : undefined}
       onChange={(e) => (mode === 'select' ? typeStart(e.target.value) : setDraft(e.target.value))}
       onCompositionStart={() => mode === 'select' && typeStart('')}
       onBlur={() => mode !== 'select' && commit()}

@@ -588,7 +588,8 @@ export default function ProgressBoard() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      // 칸을 고른 상태(글자 입력 전)의 숨은 입력창에서는 되돌리기 단축키를 표에 쓴다
+      if (t && !t.dataset.cellSelect && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (!(e.metaKey || e.ctrlKey)) return
       const k = e.key.toLowerCase()
       if (k === 'z' && !e.shiftKey) {

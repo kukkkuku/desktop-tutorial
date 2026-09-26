@@ -82,6 +82,7 @@ export interface ProgressData {
   levelCols?: Partial<Record<Level, number>> // H · L1 · L2 열 위치(0-based)
   levelMerges?: SheetMerge[] // H · L1 · L2 열의 병합 범위
   fieldMerges?: SheetMerge[] // 입력 열(속성·분류·상태…, L3 제외) 칸의 병합 범위
+  headerRows?: { top: number; sub: number } // 머리글 줄(0-based): 위 줄 · 아래 줄(한 줄 머리글이면 같음)
   yearTabs?: string[] // 같은 파일 안의 「YYYY 추진현황」 탭들(최근 연도부터) -- 연도 고르기
 }
 
@@ -129,6 +130,51 @@ export interface Drafts {
   moves?: RowMove[] // 순서대로 적용
   deleted?: string[] // 지우기로 한 기존 행 키(저장하면 시트에서 그 줄을 지운다)
   merges?: MergeEdit[] // 입력 열 칸 병합 · 병합 해제(순서대로 적용)
+  newCols?: NewCol[] // 새 입력 열(저장하면 시트에 열을 끼워 넣는다)
+  delCols?: string[] // 지울 입력 열 id(저장하면 시트에서 열을 지운다)
+}
+
+// 새 입력 열: 기준 열(시트 열 또는 먼저 만든 새 열)의 왼쪽/오른쪽
+export const NEW_COL_PREFIX = 'newcol:'
+export interface NewCol {
+  id: string // 'newcol:…'
+  label: string
+  anchor: string
+  side: 'left' | 'right'
+}
+
+// 화면에 보일 입력 열: 지운 열은 빼고 새 열은 기준 열 옆에(같은 기준 · 같은 쪽이면 만든 순서대로 바깥으로)
+export function effectiveFields(fields: FieldDef[], headerStyle: HeaderStyle | undefined, drafts: Pick<Drafts, 'newCols' | 'delCols'>) {
+  const del = new Set(drafts.delCols ?? [])
+  const list = fields.filter((f) => !del.has(f.id))
+  const groupOf = new Map<string, string>() // 열 id → 묶음 이름
+  for (const g of headerStyle?.groups ?? []) for (const id of g.fieldIds) groupOf.set(id, g.label)
+  const byId = new Map((drafts.newCols ?? []).map((n) => [n.id, n]))
+  for (const n of drafts.newCols ?? []) {
+    const ai = list.findIndex((f) => f.id === n.anchor)
+    if (ai < 0) continue
+    let at = ai
+    if (n.side === 'right') {
+      at = ai + 1
+      while (at < list.length && byId.get(list[at].id)?.anchor === n.anchor && byId.get(list[at].id)?.side === 'right') at++
+    }
+    const prev = list[at - 1]
+    const next = list[at]
+    const col = prev && next ? (prev.col + next.col) / 2 : prev ? prev.col + 0.5 : (next?.col ?? 0) - 0.5
+    // 묶음 머리글 안쪽이면 그 묶음에 넣는다(묶음 맨 끝 바깥이면 넣지 않음)
+    const g = prev && next && groupOf.get(prev.id) && groupOf.get(prev.id) === groupOf.get(next.id) ? groupOf.get(prev.id) : undefined
+    if (g) groupOf.set(n.id, g)
+    list.splice(at, 0, { id: n.id, col, label: n.label, kind: 'text' })
+  }
+  const hs = headerStyle
+    ? {
+        ...headerStyle,
+        groups: headerStyle.groups
+          .map((g) => ({ ...g, fieldIds: list.filter((f) => groupOf.get(f.id) === g.label).map((f) => f.id) }))
+          .filter((g) => g.fieldIds.length),
+      }
+    : undefined
+  return { fields: list, headerStyle: hs }
 }
 
 // 입력 열 칸 병합: 행 키(위→아래) × 열 id(왼→오른). L3(name)은 병합하지 않는다.
@@ -603,7 +649,54 @@ export function fieldWrite(f: FieldDef, value: string): Pick<SheetCellWrite, 'va
 // 불러올 때(base)와 지금 시트 값이 다르면 그사이 누가 바꾼 것이므로 쓰지 않고 남긴다.
 // 시트에 보내는 순서: 기존 칸 쓰기(지금 행 번호) → 줄 지우기(아래부터) → 새 과제 줄 넣기(아래부터)
 //   → 구분 이름 칸 옮기기·병합 다시 잡기(다 끝난 뒤의 행 번호).
-export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts: Drafts) {
+export function buildSheetWrites(base: ProgressData, fresh: ProgressData, draftsIn: Drafts) {
+  // 새 열 · 지운 열의 칸은 따로 모은다(열은 맨 끝에 넣고 지우므로 그 뒤에 쓴다)
+  const newColIds = new Set((draftsIn.newCols ?? []).map((n) => n.id))
+  const delColIds = new Set(draftsIn.delCols ?? [])
+  type ColCell = { key: string; id: string; value?: string; fill?: string | null; fmt?: string; note?: string }
+  const colLater: ColCell[] = []
+  function strip<T>(m: Record<string, T> | undefined, put: (id: string, v: T) => void): Record<string, T> | undefined {
+    if (!m) return m
+    const out: Record<string, T> = {}
+    for (const [id, v] of Object.entries(m)) {
+      if (newColIds.has(id)) put(id, v)
+      else if (!delColIds.has(id)) out[id] = v
+    }
+    return Object.keys(out).length ? out : undefined
+  }
+  const drafts: Drafts = {
+    ...draftsIn,
+    edits: Object.fromEntries(
+      Object.entries(draftsIn.edits).map(([key, e]) => [
+        key,
+        {
+          ...e,
+          fields: strip(e.fields, (id, value) => colLater.push({ key, id, value })),
+          bg: strip(e.bg, (id, v) => colLater.push({ key, id, fill: v || null })),
+          fmt: strip(e.fmt, (id, fmt) => colLater.push({ key, id, fmt })),
+          notes: strip(e.notes, (id, note) => colLater.push({ key, id, note })),
+        },
+      ]),
+    ),
+  }
+  for (const n of draftsIn.newRows) {
+    const key = NEW_PREFIX + n.id
+    for (const id of newColIds) {
+      const value = n.fields[id]
+      const fill = n.bg?.[id]
+      const fmt = n.fmt?.[id]
+      const note = n.notes?.[id]
+      if (value?.trim() || fill || fmt || note)
+        colLater.push({
+          key,
+          id,
+          ...(value?.trim() ? { value: value.trim() } : {}),
+          ...(fill ? { fill } : {}),
+          ...(fmt ? { fmt } : {}),
+          ...(note ? { note } : {}),
+        })
+    }
+  }
   const freshByKey = new Map(fresh.rows.map((r) => [r.key, r]))
   const baseByKey = new Map(base.rows.map((r) => [r.key, r]))
   const weekCol = new Map(fresh.weekCols.map((w) => [w.key, w.col]))
@@ -922,7 +1015,88 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     }
     mergeCells.push({ r1: Math.min(...at), r2: Math.max(...at), c1: Math.min(...cols), c2: Math.max(...cols) })
   }
-  return { writes, unmergeFirst, unmergeCells, moves, deletes: delSorted, inserts, after, remerge, mergeCells, kept, conflicts }
+  // ---- 열: 모든 줄 작업이 끝난 뒤 지우고(오른쪽부터) 끼워 넣는다. 새 열 칸은 그다음에 쓴다.
+  const lastCol = Math.max(0, ...fresh.fields.map((f) => f.col), ...fresh.weekCols.map((w) => w.col), ...Object.values(fresh.levelCols ?? {}))
+  const colArr: (number | string)[] = Array.from({ length: lastCol + 1 }, (_, i) => i)
+  const colDeletes = [...delColIds]
+    .map((id) => fieldById.get(id)?.col)
+    .filter((c): c is number => c !== undefined && fieldById.get(fresh.fields.find((f) => f.col === c)!.id)?.id !== 'name')
+    .sort((a, b) => b - a)
+  for (const c of colDeletes) colArr.splice(colArr.indexOf(c), 1)
+  const colInserts: number[] = []
+  const colAfter: SheetCellWrite[] = []
+  const colMerges: SheetRange[] = []
+  kept.newCols = []
+  const newColMeta = new Map((draftsIn.newCols ?? []).map((n) => [n.id, n]))
+  const top = fresh.headerRows?.top
+  const sub = fresh.headerRows?.sub ?? top
+  const eff = effectiveFields(fresh.fields, fresh.headerStyle, draftsIn)
+  const inGroup = new Set((eff.headerStyle?.groups ?? []).flatMap((g) => g.fieldIds))
+  for (const n of draftsIn.newCols ?? []) {
+    const anchorTok = newColIds.has(n.anchor) ? n.anchor : fieldById.get(n.anchor)?.col
+    const ai = anchorTok === undefined ? -1 : colArr.indexOf(anchorTok)
+    if (ai < 0) {
+      kept.newCols.push(n)
+      conflicts++
+      continue
+    }
+    let at = ai
+    if (n.side === 'right') {
+      at = ai + 1
+      while (
+        at < colArr.length &&
+        typeof colArr[at] === 'string' &&
+        newColMeta.get(colArr[at] as string)?.anchor === n.anchor &&
+        newColMeta.get(colArr[at] as string)?.side === 'right'
+      )
+        at++
+    }
+    colArr.splice(at, 0, n.id)
+    colInserts.push(at)
+  }
+  // 머리글 이름(묶음 안이면 아래 줄, 아니면 위 줄 · 두 줄 머리글이면 세로로 병합)
+  if (top !== undefined && sub !== undefined) {
+    for (const n of draftsIn.newCols ?? []) {
+      const c = colArr.indexOf(n.id)
+      if (c < 0) continue
+      if (inGroup.has(n.id)) colAfter.push({ row: sub, col: c, value: n.label })
+      else {
+        colAfter.push({ row: top, col: c, value: n.label })
+        if (sub > top) colMerges.push({ r1: top, r2: sub, c1: c, c2: c })
+      }
+    }
+  }
+  for (const x of colLater) {
+    const c = colArr.indexOf(x.id)
+    if (c < 0) continue
+    const r = x.key.startsWith(NEW_PREFIX) ? arr.indexOf(x.key) : delKeys.has(x.key) ? -1 : freshByKey.has(x.key) ? finalOf(freshByKey.get(x.key)!.row) : -1
+    if (r < 0) continue
+    colAfter.push({
+      row: r,
+      col: c,
+      ...(x.value !== undefined ? { value: x.value } : {}),
+      ...(x.fill !== undefined ? { fill: x.fill } : {}),
+      ...(x.fmt !== undefined ? { fmt: parseFmt(x.fmt) } : {}),
+      ...(x.note !== undefined ? { note: x.note } : {}),
+    })
+  }
+  return {
+    writes,
+    unmergeFirst,
+    unmergeCells,
+    moves,
+    deletes: delSorted,
+    inserts,
+    after,
+    remerge,
+    mergeCells,
+    colDeletes,
+    colInserts,
+    colAfter,
+    colMerges,
+    kept,
+    conflicts,
+  }
 }
 
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
