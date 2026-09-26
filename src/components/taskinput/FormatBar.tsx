@@ -2,7 +2,7 @@
 // 고른 칸(여러 칸이면 범위 전체)에 한 번에 적용한다. 값은 저장할 때 시트 칸 서식으로 쓴다.
 // 칸 색 · 서식 지우기는 우클릭 메뉴에 있다.
 import { useEffect, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, Bold, Check, TableCellsMerge, TableCellsSplit } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Bold, Check, Italic, Strikethrough, TableCellsMerge, TableCellsSplit } from 'lucide-react'
 import type { CellAlign, CellFmt } from '../../utils/sheetSources'
 import ColorPalette from './ColorPalette'
 
@@ -79,17 +79,28 @@ export default function FormatBar({
         aria-label="글자 크기"
         className="h-7 w-[58px] rounded-[7px] border border-hairline bg-white pl-2 pr-0.5 text-[13px] tabular-nums text-label"
       />
-      {/* 굵게 */}
-      <button
-        disabled={off}
-        onClick={() => onFmt({ b: fmt.b ? undefined : true })}
-        className={`flex h-7 w-7 items-center justify-center rounded-[7px] ${fmt.b ? 'bg-[#1D1D1F] text-white' : 'text-label-2 hover:bg-black/[0.06]'}`}
-        title="굵게 (⌘/Ctrl+B)"
-        aria-label="굵게"
-        aria-pressed={!!fmt.b}
-      >
-        <Bold size={15} strokeWidth={2.6} />
-      </button>
+      {/* 굵게 · 기울임 · 취소선 */}
+      <span className="flex items-center gap-0.5">
+        {(
+          [
+            ['b', Bold, '굵게 (⌘/Ctrl+B)', 2.6],
+            ['i', Italic, '기울임 (⌘/Ctrl+I)', 2.2],
+            ['x', Strikethrough, '취소선 (⌘/Ctrl+Shift+X)', 2.2],
+          ] as const
+        ).map(([k, Icon, label, w]) => (
+          <button
+            key={k}
+            disabled={off}
+            onClick={() => onFmt({ [k]: fmt[k] ? undefined : true })}
+            className={`flex h-7 w-7 items-center justify-center rounded-[7px] ${fmt[k] ? 'bg-[#1D1D1F] text-white' : 'text-label-2 hover:bg-black/[0.06]'}`}
+            title={label}
+            aria-label={label.split(' ')[0]}
+            aria-pressed={!!fmt[k]}
+          >
+            <Icon size={15} strokeWidth={w} />
+          </button>
+        ))}
+      </span>
       {/* 가로 정렬: 한 묶음 */}
       <span className="flex overflow-hidden rounded-[7px] border border-hairline">
         {(

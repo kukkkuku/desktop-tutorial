@@ -247,6 +247,8 @@ function toHex(c: { red?: number; green?: number; blue?: number } | undefined): 
 export type CellAlign = 'left' | 'center' | 'right'
 export interface CellFmt {
   b?: boolean // 굵게
+  i?: boolean // 기울임
+  x?: boolean // 취소선
   c?: string // 글자색 RRGGBB
   s?: number // 글자 크기(pt)
   a?: CellAlign // 가로 정렬
@@ -255,6 +257,8 @@ export function parseFmt(v: string | undefined | null): CellFmt {
   const out: CellFmt = {}
   for (const part of (v ?? '').split('|')) {
     if (part === 'b') out.b = true
+    else if (part === 'i') out.i = true
+    else if (part === 'x') out.x = true
     else if (part.startsWith('c:') && /^[0-9A-F]{6}$/i.test(part.slice(2))) out.c = part.slice(2).toUpperCase()
     else if (part.startsWith('s:') && Number(part.slice(2)) > 0) out.s = Number(part.slice(2))
     else if (part === 'a:left' || part === 'a:center' || part === 'a:right') out.a = part.slice(2) as CellAlign
@@ -262,7 +266,7 @@ export function parseFmt(v: string | undefined | null): CellFmt {
   return out
 }
 export function fmtString(f: CellFmt): string {
-  return [f.b && 'b', f.c && f.c !== '000000' && `c:${f.c}`, f.s && `s:${f.s}`, f.a && `a:${f.a}`].filter(Boolean).join('|')
+  return [f.b && 'b', f.i && 'i', f.x && 'x', f.c && f.c !== '000000' && `c:${f.c}`, f.s && `s:${f.s}`, f.a && `a:${f.a}`].filter(Boolean).join('|')
 }
 
 // r1..r2, c1..c2(0-based, 끝 포함) 칸의 배경색(RRGGBB, 흰색·없음은 null)과 메모.
@@ -284,14 +288,20 @@ export async function fetchSheetFormats(
             effectiveFormat?: { backgroundColor?: { red?: number; green?: number; blue?: number } }
             userEnteredFormat?: {
               horizontalAlignment?: string
-              textFormat?: { bold?: boolean; fontSize?: number; foregroundColor?: { red?: number; green?: number; blue?: number } }
+              textFormat?: {
+                bold?: boolean
+                italic?: boolean
+                strikethrough?: boolean
+                fontSize?: number
+                foregroundColor?: { red?: number; green?: number; blue?: number }
+              }
             }
           }[]
         }[]
       }[]
     }[]
   }>(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,fontSize,foregroundColor))))`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,italic,strikethrough,fontSize,foregroundColor))))`,
   )
   const grid = data.sheets[0]?.data?.[0]
   const fills: (string | null)[][] = []
@@ -311,6 +321,8 @@ export async function fetchSheetFormats(
       const color = t?.foregroundColor ? toHex(t.foregroundColor) : null
       const s = fmtString({
         b: t?.bold || undefined,
+        i: t?.italic || undefined,
+        x: t?.strikethrough || undefined,
         c: color && color !== '000000' ? color : undefined,
         s: t?.fontSize,
         a: al === 'left' || al === 'center' || al === 'right' ? al : undefined,
@@ -389,14 +401,20 @@ function cellRequest(sheetGid: number, c: SheetCellWrite) {
     setValue && 'userEnteredValue',
     c.fill !== undefined && 'userEnteredFormat.backgroundColor',
     c.fmt !== undefined &&
-      'userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.fontSize,userEnteredFormat.textFormat.foregroundColor,userEnteredFormat.horizontalAlignment',
+      'userEnteredFormat.textFormat.bold,userEnteredFormat.textFormat.italic,userEnteredFormat.textFormat.strikethrough,userEnteredFormat.textFormat.fontSize,userEnteredFormat.textFormat.foregroundColor,userEnteredFormat.horizontalAlignment',
     c.note !== undefined && 'note',
   ]
     .filter(Boolean)
     .join(',')
   // 서식 마스크에 넣고 값을 비우면 기본으로 돌아간다
   const text = c.fmt
-    ? { ...(c.fmt.b ? { bold: true } : {}), ...(c.fmt.s ? { fontSize: c.fmt.s } : {}), ...(c.fmt.c ? { foregroundColor: fromHex(c.fmt.c) } : {}) }
+    ? {
+        ...(c.fmt.b ? { bold: true } : {}),
+        ...(c.fmt.i ? { italic: true } : {}),
+        ...(c.fmt.x ? { strikethrough: true } : {}),
+        ...(c.fmt.s ? { fontSize: c.fmt.s } : {}),
+        ...(c.fmt.c ? { foregroundColor: fromHex(c.fmt.c) } : {}),
+      }
     : null
   const format = {
     ...(c.fill !== undefined ? { backgroundColor: fromHex(c.fill) } : {}),

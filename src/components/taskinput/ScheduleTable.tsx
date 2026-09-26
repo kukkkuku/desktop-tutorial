@@ -66,6 +66,8 @@ function fmtStyle(fmt: string | undefined): React.CSSProperties {
   const f = parseFmt(fmt)
   return {
     ...(f.b ? { fontWeight: 700 } : {}),
+    ...(f.i ? { fontStyle: 'italic' } : {}),
+    ...(f.x ? { textDecoration: 'line-through' } : {}),
     ...(f.c ? { color: `#${f.c}` } : {}),
     ...(f.s ? { fontSize: `${(f.s / 10).toFixed(2)}em` } : {}),
     ...(f.a ? { textAlign: f.a } : {}),
@@ -379,11 +381,15 @@ function FieldCell({
   onClearRange,
   fmt,
   span,
+  onFillStart,
+  fillPreview,
 }: {
   f: FieldDef
   value: string
   fmt?: string
   span?: { r: number; c: number } // 병합 칸(맨 위 왼쪽 칸이 여러 줄 · 열을 차지)
+  onFillStart?: (e: React.MouseEvent) => void // 고른 범위 오른쪽 아래 점(끌어서 반복 채우기)
+  fillPreview?: boolean // 채우기로 끌고 있는 자리
   bg: string
   note: string
   edited: boolean
@@ -436,7 +442,7 @@ function FieldCell({
       style={bg ? { background: `#${bg}` } : undefined}
       className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
         selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-      } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''}`}
+      } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
       <div
@@ -446,6 +452,7 @@ function FieldCell({
         {display}
       </div>
       {note && <NoteMark />}
+      {onFillStart && <FillDot onStart={onFillStart} />}
       {edited && <span className="pointer-events-none absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500" />}
       {selected && (
         <CellEditor
@@ -462,6 +469,21 @@ function FieldCell({
         />
       )}
     </td>
+  )
+}
+
+// 고른 칸(범위)의 오른쪽 아래 점: 끌면 엑셀처럼 값을 반복해 채운다
+function FillDot({ onStart }: { onStart: (e: React.MouseEvent) => void }) {
+  return (
+    <span
+      onMouseDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onStart(e)
+      }}
+      title="끌어서 반복 채우기"
+      className="absolute -bottom-[5px] -right-[5px] z-20 h-[9px] w-[9px] cursor-crosshair rounded-full bg-accent ring-2 ring-white"
+    />
   )
 }
 
@@ -1162,6 +1184,69 @@ export default function ScheduleTable({
         <span className="pointer-events-none absolute left-1/2 top-0 h-[100vh] w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100" />
       </span>
     ) : null
+  // ---- 채우기 점: 고른 범위를 아래·위·오른쪽·왼쪽으로 끌어 늘리면 원래 칸 값(서식 · 색 포함)을 반복해 채운다
+  const [fillTo, setFillTo] = useState<{ r1: number; r2: number; c1: number; c2: number } | null>(null)
+  const fillCorner = selRect && !readOnly && onCells ? `${rows[selRect.r2]?.row.key}|${editIds[selRect.c2]}` : null
+  const inFill = (ri: number, id: string) => {
+    if (!fillTo || !selRect) return false
+    const c = editIds.indexOf(id)
+    const inside = ri >= fillTo.r1 && ri <= fillTo.r2 && c >= fillTo.c1 && c <= fillTo.c2
+    const src = ri >= selRect.r1 && ri <= selRect.r2 && c >= selRect.c1 && c <= selRect.c2
+    return inside && !src
+  }
+  function fillStart() {
+    const src = selRect
+    if (!src || !onCells) return
+    let to: typeof fillTo = null
+    const move = (ev: MouseEvent) => {
+      const el = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('td[data-cell]') as HTMLElement | null
+      const [rk, id] = (el?.dataset.cell ?? '').split('|')
+      const r = rowIndexOf.get(rk ?? '')
+      const c = editIds.indexOf(id ?? '')
+      if (r === undefined || c < 0) return
+      // 더 많이 벗어난 쪽(세로 · 가로) 하나로만 늘린다
+      const dy = r > src.r2 ? r - src.r2 : r < src.r1 ? r - src.r1 : 0
+      const dx = c > src.c2 ? c - src.c2 : c < src.c1 ? c - src.c1 : 0
+      if (!dy && !dx) to = null
+      else if (Math.abs(dy) >= Math.abs(dx)) to = { r1: Math.min(src.r1, r), r2: Math.max(src.r2, r), c1: src.c1, c2: src.c2 }
+      else to = { r1: src.r1, r2: src.r2, c1: Math.min(src.c1, c), c2: Math.max(src.c2, c) }
+      setFillTo(to)
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.documentElement.classList.remove('cursor-crosshair')
+      setFillTo(null)
+      if (!to) return
+      const h = src.r2 - src.r1 + 1
+      const w = src.c2 - src.c1 + 1
+      const mod = (n: number, m: number) => ((n % m) + m) % m
+      const list: { row: ProgressRow; id: string; value: string; fmt: string; bg: string }[] = []
+      for (let r = to.r1; r <= to.r2; r++)
+        for (let c = to.c1; c <= to.c2; c++) {
+          if (r >= src.r1 && r <= src.r2 && c >= src.c1 && c <= src.c2) continue
+          const v = rows[r]
+          const s0 = rows[src.r1 + mod(r - src.r1, h)]
+          const sid = editIds[src.c1 + mod(c - src.c1, w)]
+          const id = editIds[c]
+          if (!v || v.deleted || !s0 || !id) continue
+          // L3(과제 이름)는 다른 칸으로 채우지 않는다(과제 이름 칸끼리만)
+          if ((id === 'name') !== (sid === 'name')) continue
+          list.push({ row: v.row, id, value: s0.vals[sid] ?? '', fmt: s0.fmt?.[sid] ?? '', bg: s0.bg[sid] ?? '' })
+        }
+      if (list.length) onCells!(list)
+      // 채운 뒤에는 늘어난 범위를 고른 상태로
+      const a = rows[to.r1]
+      const b = rows[to.r2]
+      if (a && b) {
+        setSel({ row: a.row.key, id: editIds[to.c1] })
+        setSelEnd({ row: b.row.key, id: editIds[to.c2] })
+      }
+    }
+    document.documentElement.classList.add('cursor-crosshair')
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
   // ---- 열 전체 선택: 머리글을 누르면 그 열의 보이는 칸 전체(Shift = 여러 열)
   const colSelected = (id: string) => {
     if (!range || range.r1 !== 0 || range.r2 !== rows.length - 1) return false
@@ -1273,16 +1358,19 @@ export default function ScheduleTable({
   const [fmtSlot, setFmtSlot] = useState<HTMLElement | null>(null)
   useEffect(() => setFmtSlot(document.getElementById(FORMAT_BAR_SLOT)), [])
   // ⌘/Ctrl+B: 고른 칸 굵게 켜기/끄기
-  const boldRef = useRef<() => void>(() => {})
-  boldRef.current = () => applyFmt({ b: anchorFmt.b ? undefined : true })
+  // ⌘/Ctrl+B 굵게 · ⌘/Ctrl+I 기울임 · ⌘/Ctrl+Shift+X 취소선
+  const toggleRef = useRef<(k: 'b' | 'i' | 'x') => void>(() => {})
+  toggleRef.current = (k) => applyFmt({ [k]: anchorFmt[k] ? undefined : true })
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
-        const el = document.activeElement as HTMLElement | null
-        if (!el?.closest('td[data-cell]')) return
-        e.preventDefault()
-        boldRef.current()
-      }
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+      const k = e.key.toLowerCase()
+      const which = !e.shiftKey && k === 'b' ? 'b' : !e.shiftKey && k === 'i' ? 'i' : e.shiftKey && k === 'x' ? 'x' : null
+      if (!which) return
+      const el = document.activeElement as HTMLElement | null
+      if (!el?.closest('td[data-cell]')) return
+      e.preventDefault()
+      toggleRef.current(which)
     }
     window.addEventListener('keydown', key)
     return () => window.removeEventListener('keydown', key)
@@ -1747,7 +1835,9 @@ export default function ScheduleTable({
                       style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}), ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }) }}
                       className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                         isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-                      } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''}`}
+                      } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${
+                        inFill(ri2, 'name') ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
+                      }`}
                     >
                       {isSel(v.row.key, 'name') && (
                         <CellEditor
@@ -1779,6 +1869,7 @@ export default function ScheduleTable({
                         {(v.editedFields.size > 0 || v.row.isNew) && <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />}
                       </div>
                       {l3Note && <NoteMark />}
+                      {fillCorner === `${v.row.key}|name` && <FillDot onStart={fillStart} />}
                       {/* 마우스를 올리면 오른쪽에: 메모 추가(수정) · 메모 삭제 / 지운 과제는 삭제 취소 */}
                       <span
                         className={`absolute right-0.5 top-1/2 z-10 flex -translate-y-1/2 gap-0.5 rounded-control bg-white/95 p-0.5 opacity-0 shadow-sm ring-1 ring-black/10 transition-opacity group-hover/row:opacity-100 ${readOnly ? 'hidden' : ''}`}
@@ -1900,6 +1991,8 @@ export default function ScheduleTable({
                           cellId={`${v.row.key}|${f.id}`}
                           onMoveRow={(dir) => moveRowBy(v, dir)}
                           inRange={inRange(ri2, f.id)}
+                          onFillStart={fillCorner === `${v.row.key}|${f.id}` ? fillStart : undefined}
+                          fillPreview={inFill(ri2, f.id)}
                           onPointerDown={(e) => cellDown(e, v.row.key, f.id)}
                           onPointerEnter={() => cellEnter(v.row.key, f.id)}
                           onExtend={extendSel}

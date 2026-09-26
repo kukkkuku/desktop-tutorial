@@ -158,10 +158,12 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
         const bg = effectiveBg(row, e, key)
         if (bg) cell.fill = fill(bg)
         const fm = parseFmt(effectiveFmt(row, e, key))
-        if (fm.b || fm.c || fm.s)
+        if (fm.b || fm.i || fm.x || fm.c || fm.s)
           cell.font = {
             ...(cell.font ?? {}),
             ...(fm.b ? { bold: true } : {}),
+            ...(fm.i ? { italic: true } : {}),
+            ...(fm.x ? { strike: true } : {}),
             ...(fm.c ? { color: { argb: `FF${fm.c}` } } : {}),
             ...(fm.s ? { size: fm.s } : {}),
           }
