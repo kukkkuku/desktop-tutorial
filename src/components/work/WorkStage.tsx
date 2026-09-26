@@ -42,6 +42,7 @@ import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheet
 import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
 import SheetLinkChip from '../SheetLinkChip'
 import { useTabFit } from '../../hooks/useTabFit'
+import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -195,6 +196,19 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const [tabMenu, setTabMenu] = useState<{ x: number; y: number; groupId: string } | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
   // 브라우저 탭처럼 줄어드는 L2 탭 줄(좁으면 개수를 숨기고 여백을 줄임)
+  // 연결 시트의 파일 이름: 예전에 가져와 이름이 없으면 과제 입력에 불러 둔 같은 시트의 이름을 쓰고, 보드에도 적어 둔다
+  const linkFileTitle = useMemo(() => {
+    const l = board.sheetLink
+    if (!l) return ''
+    if (l.fileTitle) return l.fileTitle
+    const p = readProgressSource()?.data
+    return p && l.spreadsheetId && p.spreadsheetId === l.spreadsheetId ? (p.fileTitle ?? '') : ''
+  }, [board.sheetLink])
+  useEffect(() => {
+    if (board.sheetLink && !board.sheetLink.fileTitle && linkFileTitle)
+      dispatch({ type: 'SET_WORK_BOARD', payload: { ...board, sheetLink: { ...board.sheetLink, fileTitle: linkFileTitle } } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkFileTitle])
   const canManageSheets = useCanManageSheets() // 시트 연결을 바꾸는 것은 관리자만(팀원은 새로고침만)
   const tabStripRef = useRef<HTMLDivElement>(null)
   const tabsCompact = useTabFit(tabStripRef, board.groups.length + 1, 130)
@@ -889,8 +903,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       {board.sheetLink && (
         <div className="pb-1.5 pl-3">
           <SheetLinkChip
-            label={board.sheetLink.fileTitle || board.sheetLink.tabName}
-            sub={board.sheetLink.fileTitle ? board.sheetLink.tabName : undefined}
+            label={linkFileTitle || board.sheetLink.tabName}
+            sub={linkFileTitle ? board.sheetLink.tabName : undefined}
             meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
             currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
             openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}

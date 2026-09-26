@@ -125,8 +125,8 @@ export default function SheetLinkChip({
             <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-separator pt-2">
               {openUrl ? (
                 <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
-                  <ExternalLink {...icSm} />
-                  구글시트로 바로 가기
+                  <ExternalLink {...icSm} className="shrink-0" />
+                  <span className="truncate">{sub ? `${label} 구글시트로 바로 가기` : '구글시트로 바로 가기'}</span>
                 </a>
               ) : (
                 <span />
