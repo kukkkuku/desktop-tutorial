@@ -424,8 +424,8 @@ function FieldCell({
   onExtend?: (dx: number, dy: number) => void
   onClearRange?: () => void
 }) {
-  // 분류 · 상태 뱃지: 표 글자가 작아도 읽히게 최소 12px(표 글자를 키우면 같이 커진다)
-  const chip = 'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-[2px] text-[max(12px,1em)] font-semibold leading-tight'
+  // 분류 · 상태 뱃지: 글자 크기는 다른 칸과 같게(표 글자 크기를 따름) · 여백만 넉넉히
+  const chip = 'inline-flex items-center whitespace-nowrap rounded-full px-[0.7em] py-[0.15em] text-[1em] font-semibold leading-tight'
   const tdRef = useRef<HTMLTableCellElement>(null)
   const [pickOpen, setPickOpen] = useState(false)
   const canPick = !!choices && !disabled
@@ -1534,7 +1534,7 @@ export default function ScheduleTable({
           const r = e.currentTarget.getBoundingClientRect()
           setColAdd({ anchor: f.id, side: 'right', count: 1, x: Math.min(r.left - 120, window.innerWidth - 300), y: r.bottom + 30, text: '' })
         }}
-        title="여기에 열 추가"
+        aria-label="여기에 열 추가"
       >
         <span className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/addc:opacity-100">
           + 열
@@ -2107,40 +2107,49 @@ export default function ScheduleTable({
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
-                      {/* 구분 안의 줄 경계: 마우스를 올리면 빨간 줄 · 누르면 이 줄부터 아래를 새 구분으로 나누기 */}
-                      {!readOnly && onSplitGroup && ri > 0 && !v.row.isNew && !v.deleted && !g.rows[ri - 1].deleted && (
-                        <span
-                          className="group/split absolute -top-[5px] left-0 z-40 h-[10px] cursor-pointer"
-                          style={{ width: WH + wL2 }}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            const r = e.currentTarget.getBoundingClientRect()
-                            setGroupEdit({ row: v.row, mode: 'split', text: '', x: r.left + WH, y: r.bottom + 6, count: g.rows.length - ri })
-                          }}
-                          title="여기서 구분(L2) 나누기 · 이 줄부터 아래가 새 구분"
-                        >
-                          <span className="pointer-events-none absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/split:opacity-100" />
-                          <span className="pointer-events-none absolute left-1/2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/split:opacity-100">
-                            여기서 나누기
-                          </span>
-                        </span>
-                      )}
-                      {/* 행 경계의 +: 이 행 아래에 과제 추가 */}
-                      {!readOnly && !v.deleted && onAddRow && (
-                        <button
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onAddRow(v.row, 'below')
-                          }}
-                          title="여기에 과제 추가(이 행 아래)"
-                          aria-label="이 행 아래에 과제 추가"
-                          className="absolute -bottom-[8px] -right-[8px] z-30 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-white opacity-0 shadow ring-2 ring-white transition-opacity hover:scale-110 group-hover/rh:opacity-100"
-                        >
-                          <Plus size={11} strokeWidth={3} />
-                        </button>
-                      )}
+                      {/* 행 경계(이 행 아래): 행 머리 왼쪽 절반에 마우스를 올리면 표 끝까지 빨간 선 + "+ 행" · "구분 나누기"
+                          (열 머리의 "+ 열"과 같은 모양 · 오른쪽 절반은 행 높이 조절) */}
+                      {!readOnly &&
+                        !v.deleted &&
+                        (() => {
+                          const next = g.rows[ri + 1]
+                          const canSplit = !!onSplitGroup && !!next && !next.row.isNew && !next.deleted
+                          if (!onAddRow && !canSplit) return null
+                          const pill = 'whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white shadow hover:bg-black'
+                          return (
+                            <span
+                              className="group/bd absolute -bottom-[2px] left-0 z-40 h-[9px] w-[45%] cursor-pointer"
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              <span className="pointer-events-none absolute left-0 top-1/2 h-[2px] w-[10000px] -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/bd:opacity-100" />
+                              <span className="pointer-events-none absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 pl-1 opacity-0 group-hover/bd:pointer-events-auto group-hover/bd:opacity-100">
+                                {onAddRow && (
+                                  <button
+                                    className={pill}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onAddRow(v.row, 'below')
+                                    }}
+                                  >
+                                    + 행
+                                  </button>
+                                )}
+                                {canSplit && (
+                                  <button
+                                    className={pill}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const r = e.currentTarget.getBoundingClientRect()
+                                      setGroupEdit({ row: next.row, mode: 'split', text: '', x: r.left, y: r.bottom + 6, count: g.rows.length - ri - 1 })
+                                    }}
+                                  >
+                                    구분 나누기
+                                  </button>
+                                )}
+                              </span>
+                            </span>
+                          )
+                        })()}
                       {/* 아래 경계를 끌어 이 행 높이 조절 · 더블클릭하면 자동 높이 */}
                       <span
                         onMouseDown={(e) => startRowResize(e, v.row.key, (e.currentTarget as HTMLElement).closest('tr'))}
@@ -2176,7 +2185,7 @@ export default function ScheduleTable({
                         }}
                         title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
-                        className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-1px_0_#C9CDD3] text-center align-top font-bold text-label ${
+                        className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-1px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
