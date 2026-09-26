@@ -780,7 +780,13 @@ export default function ScheduleTable({
   const [sel, setSel] = useState<{ row: string; id: string } | null>(null)
   const [editSig, setEditSig] = useState<{ row: string; id: string; n: number } | null>(null)
   // 행 전체 선택(행 머리를 눌렀을 때) -- 칸 선택과 둘 중 하나만
-  const [rowSel, setRowSel] = useState<string | null>(null)
+  const [rowSel, setRowSelOnly] = useState<string | null>(null)
+  // Shift로 늘린 행 선택의 끝(없으면 한 줄)
+  const [rowSelEnd, setRowSelEnd] = useState<string | null>(null)
+  const setRowSel = (key: string | null) => {
+    setRowSelOnly(key)
+    setRowSelEnd(null)
+  }
   // 여러 칸 선택: sel(시작 칸, 입력기가 있는 칸) ~ selEnd(끝 칸) 사각형
   const [selEnd, setSelEnd] = useState<{ row: string; id: string } | null>(null)
   const selDrag = useRef(false)
@@ -910,6 +916,17 @@ export default function ScheduleTable({
   // 방향키 · Tab · Enter로 선택 옮기기: Tab은 줄 끝에서 다음 줄 과제(L3)로
   const editIds = ['name', ...cols.map((f) => f.id)]
   const rowIndexOf = new Map(rows.map((v, i) => [v.row.key, i]))
+  // 고른 행 범위(번호칸 · Shift로 늘림)
+  const rowRange = (() => {
+    const a = rowSel ? rowIndexOf.get(rowSel) : undefined
+    if (a === undefined) return null
+    const b = rowSelEnd ? (rowIndexOf.get(rowSelEnd) ?? a) : a
+    return { r1: Math.min(a, b), r2: Math.max(a, b) }
+  })()
+  const isRowSel = (key: string) => {
+    const i = rowIndexOf.get(key)
+    return !!rowRange && i !== undefined && i >= rowRange.r1 && i <= rowRange.r2
+  }
   // 선택 범위(행 · 열 번호). 한 칸만 골랐으면 null
   const range = (() => {
     if (!sel || !selEnd || (sel.row === selEnd.row && sel.id === selEnd.id)) return null
@@ -1007,9 +1024,12 @@ export default function ScheduleTable({
     )
   }
   // 행 전체(L3 ~ 마지막 입력 열)
+  // 행 전체(L3 ~ 마지막 입력 열). 고른 행 범위 안의 행이면 범위 전체
   const rowRect = (key: string) => {
     const r = rowIndexOf.get(key)
-    return r === undefined ? null : { r1: r, r2: r, c1: 0, c2: editIds.length - 1 }
+    if (r === undefined) return null
+    if (rowRange && r >= rowRange.r1 && r <= rowRange.r2) return { ...rowRange, c1: 0, c2: editIds.length - 1 }
+    return { r1: r, r2: r, c1: 0, c2: editIds.length - 1 }
   }
   const clipRef = useRef({ copySel, pasteText, rowRect, cut: () => {} })
   clipRef.current = {
@@ -1272,6 +1292,12 @@ export default function ScheduleTable({
     e.preventDefault()
     const head = e.currentTarget as HTMLElement
     setSel(null)
+    // Shift+클릭: 고른 행부터 여기까지
+    if (e.shiftKey && rowSel) {
+      setRowSelEnd(v.row.key)
+      head.focus({ preventScroll: true })
+      return
+    }
     setRowSel(v.row.key)
     head.focus({ preventScroll: true })
     if (!onMoveRow || v.deleted || readOnly) return
@@ -1316,6 +1342,16 @@ export default function ScheduleTable({
       e.preventDefault()
       if (!readOnly && !v.deleted) moveRowBy(v, e.key === 'ArrowUp' ? -1 : 1)
       focusHead(v.row.key)
+    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.shiftKey) {
+      // Shift+↑/↓: 행 선택 늘리기 · 줄이기
+      e.preventDefault()
+      const end = rowSelEnd ? (rowIndexOf.get(rowSelEnd) ?? i) : (rowIndexOf.get(rowSel ?? '') ?? i)
+      const t = rows[end + (e.key === 'ArrowUp' ? -1 : 1)]
+      if (t) {
+        if (!rowSel) setRowSelOnly(v.row.key)
+        setRowSelEnd(t.row.key)
+        focusHead(t.row.key)
+      }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault()
       const t = rows[i + (e.key === 'ArrowUp' ? -1 : 1)]
@@ -1357,13 +1393,19 @@ export default function ScheduleTable({
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   // 고른 범위 안에서 연 메뉴면 범위 전체에 적용(색 · 서식 · 지우기)
   const menuInRange = !!menu && inRange(rowIndexOf.get(menu.row.key) ?? -1, menu.key)
+  const menuRowRange = menu?.kind === 'row' && rowRange && isRowSel(menu.row.key) ? rowRange : null
   const menuRangeRows =
     menuInRange && range
       ? rows
           .slice(range.r1, range.r2 + 1)
           .filter((v) => !v.deleted)
           .map((v) => v.row)
-      : []
+      : menuRowRange
+        ? rows
+            .slice(menuRowRange.r1, menuRowRange.r2 + 1)
+            .filter((v) => !v.deleted)
+            .map((v) => v.row)
+        : []
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
   let rowIndex = 0
@@ -1542,7 +1584,7 @@ export default function ScheduleTable({
                       ...(drag?.over?.key === v.row.key ? { boxShadow: drag.over.where === 'above' ? 'inset 0 2px 0 #007AFF' : 'inset 0 -2px 0 #007AFF' } : {}),
                     }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
-                      rowSel === v.row.key ? 'pb-row-sel' : ''
+                      isRowSel(v.row.key) ? 'pb-row-sel' : ''
                     }`}
                   >
                     {/* 행 머리: 시트 행 번호(새 과제는 +). 누르면 행 전체 선택 · 끌면 같은 구분 안에서 옮기기 · 아래 경계로 높이 조절 */}
@@ -1552,13 +1594,13 @@ export default function ScheduleTable({
                       onMouseDown={(e) => rowHeadDown(e, v)}
                       onKeyDown={(e) => rowHeadKey(e, v)}
                       onContextMenu={(e) => {
-                        setRowSel(v.row.key)
+                        if (!isRowSel(v.row.key)) setRowSel(v.row.key)
                         openMenu(e, v.row, 'name', 'row')
                       }}
                       title={`${v.row.row >= 0 ? `시트 ${v.row.row + 1}행` : '새 과제'} · 눌러서 행 선택 · 끌어서 옮기기(같은 구분 안에서) · Alt+↑/↓`}
                       style={{ left: 0 }}
                       className={`group/rh sticky z-[6] cursor-grab hover:z-[8] select-none border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] p-0 text-center text-[0.72em] tabular-nums outline-none ${
-                        rowSel === v.row.key ? 'bg-accent font-semibold text-white' : 'bg-[#F8F9FA] text-label-3 hover:bg-[#EEF0F2]'
+                        isRowSel(v.row.key) ? 'bg-accent font-semibold text-white' : 'bg-[#F8F9FA] text-label-3 hover:bg-[#EEF0F2]'
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
@@ -1975,6 +2017,7 @@ export default function ScheduleTable({
                 onPick={(hex) => {
                   if (paletteFor === 'text') applyFmt({ c: hex && hex !== '000000' ? hex : undefined })
                   else if (paletteFor === 'cell') applyBg(hex)
+                  else if (menuRangeRows.length > 1) menuRangeRows.forEach((r) => onBg(r, allIds, hex))
                   else onBg(menu.row, allIds, hex)
                   setMenu(null)
                 }}
@@ -1988,7 +2031,7 @@ export default function ScheduleTable({
               const hint = (t: string) => <span className="ml-auto text-[11px] text-label-3">{t}</span>
               const close = () => setMenu(null)
               // 고른 범위(우클릭한 칸이 범위 안일 때)
-              const rect = menu.kind === 'field' && menuInRange && range ? range : null
+              const rect = menu.kind === 'field' && menuInRange && range ? range : menuRowRange ? { ...menuRowRange, c1: 0, c2: 0 } : null
               const nRows = rect ? rect.r2 - rect.r1 + 1 : 1
               const selIds = rect ? editIds.slice(rect.c1, rect.c2 + 1) : [menu.key]
               const colIds = selIds.filter((id) => id !== 'name')
@@ -2042,7 +2085,9 @@ export default function ScheduleTable({
                         }}
                         className={item}
                       >
-                        <Copy {...ic} />행 복사{hint('⌘C')}
+                        <Copy {...ic} />
+                        {nRows > 1 ? `행 ${nRows}개 복사` : '행 복사'}
+                        {hint('⌘C')}
                       </button>
                       <button
                         onClick={() => {
