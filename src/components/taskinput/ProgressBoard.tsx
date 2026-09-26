@@ -639,6 +639,35 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
     }
   }
+  // 지금 표를 연결된 파일의 새 탭으로 복사(기본 모양 · 고친 내용 포함). 지금 입력하는 연도는 그대로 둔다.
+  const [copyTab, setCopyTab] = useState<{ name: string } | null>(null)
+  async function copyToNewTab(name: string) {
+    setCopyTab(null)
+    if (!data) return
+    const title = name.trim()
+    const link = parseSheetUrl(sheetLink)
+    const id = (!data.local && data.spreadsheetId) || link?.spreadsheetId
+    if (!title) return
+    if (!id) return setError('연결된 구글시트가 없습니다. "시트 바꾸기"로 먼저 연결해 주세요.')
+    if (isProtectedSheet(id)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
+    setSaving(true)
+    setError('')
+    setMessage('')
+    try {
+      const { tabs } = await fetchSpreadsheetTabs(id)
+      if (tabs.some((t) => t.title.replace(/\s/g, '') === title.replace(/\s/g, '')))
+        throw new Error(`연결된 시트에 이미 「${title}」 탭이 있습니다. 다른 이름을 써 주세요.`)
+      const m = materialize(data, drafts, l1s)
+      const ws = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, l1s).worksheets[0]
+      const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
+      await createSheetTab(id, title, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (sid) => worksheetRequests(ws, sid))
+      setMessage(`구글시트에 「${title}」 탭을 만들었습니다(지금 표 그대로 · 기본 모양). 지금 입력하는 연도는 그대로입니다.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '새 탭을 만들지 못했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
   // 연결된 시트 탭의 기본 모양 맞추기(글꼴 맑은 고딕 8 · 열 폭 · 줄 높이 · 눈금선 -- 값과 색은 그대로)
   async function applySheetStyle() {
     if (!data?.spreadsheetId || data.sheetGid === null || data.local) return
@@ -1254,6 +1283,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           이 탭 서식을 기본 모양으로 맞추기
         </button>
       )}
+      {canManage && data && !archive && isSheetsApiConfigured() && (
+        <button
+          onClick={() => setCopyTab({ name: `${data.tabTitle}_${now.getMonth() + 1}월` })}
+          className="w-full text-left font-medium text-label-2 hover:text-accent"
+          title="지금 표(고친 내용 포함)를 연결된 파일의 새 탭으로 복사합니다(기본 모양 · 지금 연도는 그대로)"
+        >
+          이 표를 새 탭으로 복사…
+        </button>
+      )}
     </div>
   )
   const confirmDialog = ask && (
@@ -1272,6 +1310,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         setAsk(null)
       }}
     />
+  )
+  const copyTabDialog = copyTab && (
+    <ConfirmDialog
+      open
+      title="이 표를 새 탭으로 복사"
+      message={
+        '지금 보이는 표(고친 내용 포함)를 연결된 구글시트 파일에 새 탭으로 만듭니다.\n모양은 기존 추진현황 기본 모양(맑은 고딕 8pt · 열 폭 · 줄 높이)입니다.'
+      }
+      confirmLabel="탭 만들기"
+      tone="accent"
+      onConfirm={() => void copyToNewTab(copyTab.name)}
+      onCancel={() => setCopyTab(null)}
+    >
+      <input
+        autoFocus
+        value={copyTab.name}
+        onChange={(e) => setCopyTab({ name: e.target.value })}
+        onKeyDown={(e) => e.key === 'Enter' && void copyToNewTab(copyTab.name)}
+        className="mt-3 h-9 w-full rounded-control border border-hairline px-2.5 text-[13px]"
+        aria-label="새 탭 이름"
+      />
+    </ConfirmDialog>
   )
   const newYearDialog = newYearOpen && (
     <NewYearDialog
@@ -1300,6 +1360,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </MenuSlot>
         {newYearDialog}
         {confirmDialog}
+        {copyTabDialog}
         <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
           <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-label-2">
@@ -1485,6 +1546,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       </MenuSlot>
       {newYearDialog}
       {confirmDialog}
+      {copyTabDialog}
       {canManage && linkOpen && (
         <SheetLinkForm
           value={linkInput}

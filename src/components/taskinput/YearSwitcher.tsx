@@ -8,9 +8,16 @@ import Spinner from '../Spinner'
 import { ic, icLg, icSm } from '../ui/icon'
 
 // 「2026 추진현황」 → 「2026 실적관리」(연도를 못 찾으면 탭 이름 그대로)
+// 「2026 추진현황_9월」처럼 뒤에 붙은 말은 괄호로(같은 연도의 복사본 탭 구분)
 function yearLabel(tab: string): string {
-  const y = tab.match(/(20\d{2})/)?.[1]
-  return y ? `${y} 실적관리` : tab
+  const t = tab.replace(/^local:/, '')
+  const y = t.match(/(20\d{2})/)?.[1]
+  if (!y) return t
+  const rest = t
+    .split('추진현황')[1]
+    ?.replace(/^[\s_\-·]+/, '')
+    .trim()
+  return rest ? `${y} 실적관리 (${rest})` : `${y} 실적관리`
 }
 
 export default function YearSwitcher({
