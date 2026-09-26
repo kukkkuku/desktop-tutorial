@@ -707,8 +707,8 @@ export default function ProgressBoard() {
                     if (gone) restoreRows(rowsOf)
                     else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
                   }}
-                  title={gone ? '탭(L1) 삭제 취소' : `탭(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
-                  aria-label={gone ? '탭 삭제 취소' : '탭 삭제'}
+                  title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
+                  aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
                   className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
                     on ? '' : 'opacity-0 group-hover:opacity-100'
                   }`}
@@ -718,17 +718,18 @@ export default function ProgressBoard() {
               </div>
             )
           })}
+          <button
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
+            }}
+            title="그룹(L1) 추가"
+            className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+          >
+            <Plus {...icSm} />
+            그룹 추가
+          </button>
         </div>
-        <button
-          onClick={(e) => {
-            const r = e.currentTarget.getBoundingClientRect()
-            setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
-          }}
-          title="탭(L1) 추가"
-          className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
-        >
-          <Plus {...icSm} />탭 추가
-        </button>
         <div className="shrink-0 pb-1.5">
           <SheetLinkChip
             label={data.fileTitle || data.source}
@@ -987,8 +988,8 @@ export default function ProgressBoard() {
               setTabAdd(null)
             }}
           >
-            <p className="text-[13px] font-semibold text-label">탭(L1) 추가</p>
-            <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 탭 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
+            <p className="text-[13px] font-semibold text-label">그룹(L1) 추가</p>
+            <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 그룹 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
             <input
               autoFocus
               value={tabAdd.l1}
