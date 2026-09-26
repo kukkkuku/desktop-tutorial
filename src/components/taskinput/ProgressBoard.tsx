@@ -430,6 +430,19 @@ export default function ProgressBoard() {
     const d = dataRef.current
     return d ? { data: d, drafts: draftsRef.current } : null
   }
+  // 앱 안의 확인 창(브라우저 기본 확인 창은 막혀 있는 환경이 있어 쓰지 않는다)
+  const [ask, setAsk] = useState<{ title: string; message: string; confirmLabel?: string; tone?: 'danger' | 'accent'; resolve: (ok: boolean) => void } | null>(
+    null,
+  )
+  function askConfirm(o: { title: string; message: string; confirmLabel?: string; tone?: 'danger' | 'accent' }): Promise<boolean> {
+    return new Promise((resolve) => setAsk({ ...o, resolve }))
+  }
+  // 알림은 잠깐 보여 주고 닫는다(X로 바로 닫기)
+  useEffect(() => {
+    if (!message) return
+    const t = window.setTimeout(() => setMessage(''), 6000)
+    return () => window.clearTimeout(t)
+  }, [message])
   // 시트 연도를 이 브라우저 연도로(시트에서 탭이 지워졌을 때)
   const asLocal = (d: ProgressData): ProgressData => ({
     ...d,
@@ -522,7 +535,15 @@ export default function ProgressBoard() {
     void viewYear(t)
   }
   // 이 브라우저에서 만든 연도 지우기(id = 'local:탭'). 지금 보던 연도면 다른 연도로 옮긴다.
-  function deleteLocal(id: string) {
+  async function deleteLocal(id: string) {
+    const name = id.slice(6).replace(/추진현황/, '실적관리')
+    if (
+      !(await askConfirm({
+        title: '이 브라우저 연도 삭제',
+        message: `이 브라우저에서 만든 「${name}」을(를) 지웁니다.\n되돌릴 수 없습니다(구글시트에는 영향 없음).`,
+      }))
+    )
+      return
     const rest = { ...shelfRef.current }
     delete rest[id]
     const cur = currentProject()
@@ -619,9 +640,12 @@ export default function ProgressBoard() {
     if (!data?.spreadsheetId || data.sheetGid === null || data.local) return
     if (isProtectedSheet(data.spreadsheetId)) return setError('운영 중인 팀 시트는 바꾸지 않습니다.')
     if (
-      !window.confirm(
-        `「${data.tabTitle}」 탭의 글꼴 · 글자 크기 · 열 폭 · 줄 높이를 기존 추진현황 기본 모양(맑은 고딕 8pt)으로 맞춥니다. 값 · 색 · 굵게는 그대로입니다.`,
-      )
+      !(await askConfirm({
+        title: '탭 서식을 기본 모양으로',
+        message: `「${data.tabTitle}」 탭의 글꼴 · 글자 크기 · 열 폭 · 줄 높이를 기존 추진현황 기본 모양(맑은 고딕 8pt)으로 맞춥니다.\n값 · 색 · 굵게는 그대로입니다.`,
+        confirmLabel: '맞추기',
+        tone: 'accent',
+      }))
     )
       return
     setSaving(true)
@@ -1038,12 +1062,19 @@ export default function ProgressBoard() {
     const cols: NewCol[] = labels.map((label) => ({ id: NEW_COL_PREFIX + crypto.randomUUID(), label, anchor, side }))
     updateDrafts((d) => ({ ...d, newCols: [...(d.newCols ?? []), ...cols] }))
   }
-  function deleteColumns(ids: string[]) {
+  async function deleteColumns(ids: string[]) {
     const newIds = ids.filter((id) => id.startsWith(NEW_COL_PREFIX))
     const oldIds = ids.filter((id) => !id.startsWith(NEW_COL_PREFIX) && id !== 'name')
     if (oldIds.length) {
       const names = oldIds.map((id) => data?.fields.find((f) => f.id === id)?.label ?? id).join(', ')
-      if (!window.confirm(`「${names}」 열을 지웁니다.\n저장하면 구글시트에서 이 열이 통째로(모든 그룹의 값까지) 지워집니다. 계속할까요?`)) return
+      if (
+        !(await askConfirm({
+          title: '열 삭제',
+          message: `「${names}」 열을 지웁니다.\n저장하면 구글시트에서 이 열이 통째로(모든 그룹의 값까지) 지워집니다.`,
+          confirmLabel: '열 삭제',
+        }))
+      )
+        return
     }
     updateDrafts((d) => {
       // 지우는 새 열에 붙어 있던 새 열은 그 자리(지운 열의 기준)로 옮긴다
@@ -1186,6 +1217,23 @@ export default function ProgressBoard() {
       )}
     </div>
   )
+  const confirmDialog = ask && (
+    <ConfirmDialog
+      open
+      title={ask.title}
+      message={ask.message}
+      confirmLabel={ask.confirmLabel}
+      tone={ask.tone}
+      onConfirm={() => {
+        ask.resolve(true)
+        setAsk(null)
+      }}
+      onCancel={() => {
+        ask.resolve(false)
+        setAsk(null)
+      }}
+    />
+  )
   const newYearDialog = newYearOpen && (
     <NewYearDialog
       defaultYear={allYears.length ? Math.max(...allYears) + 1 : now.getFullYear()}
@@ -1208,10 +1256,11 @@ export default function ProgressBoard() {
             onPick={pickYear}
             onCreate={() => setNewYearOpen(true)}
             footer={yearMenuFooter}
-            onDeleteLocal={deleteLocal}
+            onDeleteLocal={(id) => void deleteLocal(id)}
           />
         </MenuSlot>
         {newYearDialog}
+        {confirmDialog}
         <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
           <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-label-2">
@@ -1387,12 +1436,13 @@ export default function ProgressBoard() {
           connectedTitle={connectedTitle}
           onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
           footer={yearMenuFooter}
-          onDeleteLocal={deleteLocal}
+          onDeleteLocal={(id) => void deleteLocal(id)}
           localTabs={localTabs}
           onCreate={() => setNewYearOpen(true)}
         />
       </MenuSlot>
       {newYearDialog}
+      {confirmDialog}
       {canManage && linkOpen && (
         <SheetLinkForm
           value={linkInput}
@@ -1403,7 +1453,14 @@ export default function ProgressBoard() {
         />
       )}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
-      {message && <p className="mt-3 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">{message}</p>}
+      {message && (
+        <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">
+          <span className="flex-1">{message}</span>
+          <button onClick={() => setMessage('')} className="-mr-1 rounded p-0.5 text-success/70 hover:bg-success/10 hover:text-success" aria-label="알림 닫기">
+            <X size={14} />
+          </button>
+        </p>
+      )}
 
       {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
       <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">

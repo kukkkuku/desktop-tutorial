@@ -130,12 +130,6 @@ export default function YearSwitcher({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (
-                              !window.confirm(
-                                `이 브라우저에서 만든 「${yearLabel(t)}」을(를) 지웁니다. 되돌릴 수 없습니다(구글시트에는 영향 없음). 계속할까요?`,
-                              )
-                            )
-                              return
                             setOpen(false)
                             onDeleteLocal(t)
                           }}
