@@ -131,6 +131,8 @@ function CellEditor({
   onCommit,
   onMove,
   onMoveRow,
+  onExtend,
+  onClearRange,
 }: {
   value: string
   kind: 'text' | 'memo' | 'date'
@@ -141,6 +143,8 @@ function CellEditor({
   onCommit: (v: string) => void
   onMove: (dx: number, dy: number) => void
   onMoveRow?: (dir: -1 | 1) => void // Alt+↑/↓: 이 줄을 위/아래로 옮기기
+  onExtend?: (dx: number, dy: number) => void // Shift+방향키: 선택 범위 늘리기
+  onClearRange?: () => void // 여러 칸을 골랐을 때 Delete: 고른 칸 모두 지우기
 }) {
   const [mode, setMode] = useState<EditMode>('select')
   const [draft, setDraft] = useState('')
@@ -190,7 +194,10 @@ function CellEditor({
     if (mode === 'select') {
       if (e.nativeEvent.isComposing || e.keyCode === 229) return // 한글 조합 시작 -- 타이핑으로 넘어간다
       const a = ARROWS[e.key]
-      if (a && e.altKey && a[1] !== 0) {
+      if (a && e.shiftKey && onExtend) {
+        e.preventDefault()
+        onExtend(a[0], a[1])
+      } else if (a && e.altKey && a[1] !== 0) {
         e.preventDefault()
         if (!disabled) onMoveRow?.(a[1] as -1 | 1)
       } else if (a) {
@@ -203,9 +210,10 @@ function CellEditor({
         e.preventDefault()
         if (e.key === 'Enter' && e.shiftKey) onMove(0, -1)
         else startEdit()
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && !disabled) {
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && (onClearRange || !disabled)) {
         e.preventDefault()
-        if (value) onCommit('')
+        if (onClearRange) onClearRange()
+        else if (value) onCommit('')
       } else if (kind === 'date' && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         e.preventDefault()
         startEdit()
@@ -302,6 +310,11 @@ function FieldCell({
   rowH,
   cellId,
   onMoveRow,
+  inRange,
+  onPointerDown,
+  onPointerEnter,
+  onExtend,
+  onClearRange,
 }: {
   f: FieldDef
   value: string
@@ -319,6 +332,11 @@ function FieldCell({
   rowH?: number // 사용자가 정한 행 높이(px) -- 넘치는 내용은 가린다
   cellId?: string // 선택을 옮길 때 화면에 보이게 스크롤하는 데 씀
   onMoveRow?: (dir: -1 | 1) => void
+  inRange?: boolean // 여러 칸 선택 범위 안
+  onPointerDown?: (e: React.MouseEvent) => void // 누르기(Shift = 범위 늘리기, 끌기 = 범위 고르기)
+  onPointerEnter?: () => void
+  onExtend?: (dx: number, dy: number) => void
+  onClearRange?: () => void
 }) {
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
@@ -333,20 +351,24 @@ function FieldCell({
         if (e.button !== 0) return
         // 누른 칸의 입력창이 초점을 계속 갖도록(브라우저가 초점을 칸 밖으로 옮기지 않게)
         if (!(e.target as HTMLElement).closest('input,textarea,button,a')) e.preventDefault()
-        if (!selected) onSelect?.(false)
+        if (onPointerDown) onPointerDown(e)
+        else if (!selected) onSelect?.(false)
       }}
       onDoubleClick={() => onSelect?.(true)}
       onContextMenu={(e) => {
         onSelect?.(false)
         onMenu(e)
       }}
-      onMouseEnter={note ? (e) => onHoverNote(e) : undefined}
+      onMouseEnter={(e) => {
+        onPointerEnter?.()
+        if (note) onHoverNote(e)
+      }}
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 더블클릭 · Enter · 타이핑으로 입력 · 우클릭: 메모·색`}
       style={bg ? { background: `#${bg}` } : undefined}
       className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
         selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-      }`}
+      } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''}`}
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
       <div
@@ -367,6 +389,8 @@ function FieldCell({
           onCommit={onCommit}
           onMove={onMove}
           onMoveRow={onMoveRow}
+          onExtend={onExtend}
+          onClearRange={onClearRange}
         />
       )}
     </td>
@@ -506,6 +530,7 @@ export default function ScheduleTable({
   currentKey,
   onPaint,
   onField,
+  onFields,
   editNameKey,
   onDeleteRow,
   onRestoreRow,
@@ -544,6 +569,7 @@ export default function ScheduleTable({
   currentKey: string | null
   onPaint: (row: ProgressRow, weekKey: string, click: boolean) => void // click = 누른 칸(끌기 중이면 false)
   onField: (row: ProgressRow, id: string, value: string) => void
+  onFields?: (list: { row: ProgressRow; id: string; value: string }[]) => void // 여러 칸 한 번에(범위 지우기 등)
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
   onDeleteRow?: (row: ProgressRow) => void // 과제 지우기(새 과제는 바로 빼고, 시트 과제는 저장할 때 줄을 지움)
   onRestoreRow?: (row: ProgressRow) => void // 지우기 취소
@@ -659,8 +685,17 @@ export default function ScheduleTable({
   const [editSig, setEditSig] = useState<{ row: string; id: string; n: number } | null>(null)
   // 행 전체 선택(행 머리를 눌렀을 때) -- 칸 선택과 둘 중 하나만
   const [rowSel, setRowSel] = useState<string | null>(null)
+  // 여러 칸 선택: sel(시작 칸, 입력기가 있는 칸) ~ selEnd(끝 칸) 사각형
+  const [selEnd, setSelEnd] = useState<{ row: string; id: string } | null>(null)
+  const selDrag = useRef(false)
+  useEffect(() => {
+    const up = () => (selDrag.current = false)
+    window.addEventListener('mouseup', up)
+    return () => window.removeEventListener('mouseup', up)
+  }, [])
   function selectCell(row: string, id: string, edit = false) {
     setRowSel(null)
+    setSelEnd(null)
     setSel({ row, id })
     if (edit) setEditSig({ row, id, n: Date.now() })
   }
@@ -759,6 +794,57 @@ export default function ScheduleTable({
   // 키보드로 칸 옮기기(구글시트처럼): Tab → 오른쪽, 줄 끝이면 다음 줄 과제(L3)부터 · Enter → 아래 줄 같은 열
   // 방향키 · Tab · Enter로 선택 옮기기: Tab은 줄 끝에서 다음 줄 과제(L3)로
   const editIds = ['name', ...cols.map((f) => f.id)]
+  // 선택 범위(행 · 열 번호). 한 칸만 골랐으면 null
+  const range = (() => {
+    if (!sel || !selEnd || (sel.row === selEnd.row && sel.id === selEnd.id)) return null
+    const r1 = rows.findIndex((v) => v.row.key === sel.row)
+    const r2 = rows.findIndex((v) => v.row.key === selEnd.row)
+    const c1 = editIds.indexOf(sel.id)
+    const c2 = editIds.indexOf(selEnd.id)
+    if (r1 < 0 || r2 < 0 || c1 < 0 || c2 < 0) return null
+    return { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }
+  })()
+  const inRange = (ri: number, id: string) => {
+    if (!range) return false
+    const ci = editIds.indexOf(id)
+    return ri >= range.r1 && ri <= range.r2 && ci >= range.c1 && ci <= range.c2
+  }
+  function cellDown(e: React.MouseEvent, row: string, id: string) {
+    if (e.shiftKey && sel) {
+      setRowSel(null)
+      setSelEnd({ row, id })
+      return
+    }
+    if (!isSel(row, id) || selEnd) selectCell(row, id)
+    selDrag.current = true
+  }
+  function cellEnter(row: string, id: string) {
+    if (selDrag.current && sel) setSelEnd(sel.row === row && sel.id === id ? null : { row, id })
+  }
+  function extendSel(dx: number, dy: number) {
+    if (!sel) return
+    const from = selEnd ?? sel
+    const ri = Math.max(0, Math.min(rows.length - 1, rows.findIndex((v) => v.row.key === from.row) + dy))
+    const ci = Math.max(0, Math.min(editIds.length - 1, editIds.indexOf(from.id) + dx))
+    const t = rows[ri]
+    if (t) setSelEnd({ row: t.row.key, id: editIds[ci] })
+  }
+  // 범위 지우기(Delete): 지운 행 · 보기 전용은 건너뛴다
+  function clearRange() {
+    if (!range || readOnly) return
+    const list: { row: ProgressRow; id: string; value: string }[] = []
+    for (let ri = range.r1; ri <= range.r2; ri++) {
+      const v = rows[ri]
+      if (!v || v.deleted) continue
+      for (let ci = range.c1; ci <= range.c2; ci++) {
+        const id = editIds[ci]
+        if ((v.vals[id] ?? '') !== '') list.push({ row: v.row, id, value: '' })
+      }
+    }
+    if (!list.length) return
+    if (onFields) onFields(list)
+    else list.forEach((x) => onField(x.row, x.id, ''))
+  }
   function moveSel(rowKey: string, id: string, dx: number, dy: number) {
     let ri = rows.findIndex((v) => v.row.key === rowKey)
     let ci = editIds.indexOf(id)
@@ -857,6 +943,7 @@ export default function ScheduleTable({
     if (!t || groupOfRow(t.row) !== groupOfRow(v.row)) return
     onMoveRow(v.row, t.row, dir < 0 ? 'above' : 'below')
   }
+  const rowIndexOf = new Map(rows.map((v, i) => [v.row.key, i]))
   const menuView = menu ? rows.find((v) => v.row.key === menu.row.key) : null
   const menuGroup = menu?.kind === 'group' ? groups.find((g) => g.rows[0].row.key === menu.row.key) : undefined
   const tableWidth = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0) + cols.reduce((n, f) => n + colW(f), 0)
@@ -1003,6 +1090,7 @@ export default function ScheduleTable({
                 const rowBg = zebra && rowIndex++ % 2 === 1 ? 'bg-[#F7F8FA]' : 'bg-white'
                 const l3Bg = v.bg.name
                 const rowH = rowHeights[v.row.key]
+                const ri2 = rowIndexOf.get(v.row.key) ?? -1
                 const l3Note = v.notes.name
                 return (
                   <tr
@@ -1097,19 +1185,22 @@ export default function ScheduleTable({
                       onMouseDown={(e) => {
                         if (e.button !== 0) return
                         if (!(e.target as HTMLElement).closest('input,textarea,button,a')) e.preventDefault()
-                        if (!isSel(v.row.key, 'name')) selectCell(v.row.key, 'name')
+                        cellDown(e, v.row.key, 'name')
                       }}
                       onDoubleClick={() => selectCell(v.row.key, 'name', true)}
                       onContextMenu={(e) => {
                         selectCell(v.row.key, 'name')
                         openMenu(e, v.row, 'name', 'field')
                       }}
-                      onMouseEnter={l3Note ? (e) => showNote(e, l3Note) : undefined}
+                      onMouseEnter={(e) => {
+                        cellEnter(v.row.key, 'name')
+                        if (l3Note) showNote(e, l3Note)
+                      }}
                       onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
                       style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}) }}
                       className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                         isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-                      }`}
+                      } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''}`}
                     >
                       {isSel(v.row.key, 'name') && (
                         <CellEditor
@@ -1121,6 +1212,8 @@ export default function ScheduleTable({
                           onCommit={(val) => onField(v.row, 'name', val)}
                           onMove={(dx, dy) => moveSel(v.row.key, 'name', dx, dy)}
                           onMoveRow={(dir) => moveRowBy(v, dir)}
+                          onExtend={extendSel}
+                          onClearRange={range ? clearRange : undefined}
                         />
                       )}
                       <div
@@ -1238,6 +1331,11 @@ export default function ScheduleTable({
                         rowH={rowH}
                         cellId={`${v.row.key}|${f.id}`}
                         onMoveRow={(dir) => moveRowBy(v, dir)}
+                        inRange={inRange(ri2, f.id)}
+                        onPointerDown={(e) => cellDown(e, v.row.key, f.id)}
+                        onPointerEnter={() => cellEnter(v.row.key, f.id)}
+                        onExtend={extendSel}
+                        onClearRange={range ? clearRange : undefined}
                       />
                     ))}
                   </tr>

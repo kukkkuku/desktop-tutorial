@@ -612,6 +612,19 @@ export default function ProgressBoard() {
       return { ...d, edits: setFieldEdit(d.edits, row, id, value) }
     })
   }
+  function setFields(list: { row: ProgressRow; id: string; value: string }[]) {
+    const live = list.filter((x) => !isDeleted(x.row))
+    if (!live.length) return
+    updateDrafts((d) =>
+      live.reduce((acc, { row, id, value }) => {
+        if (row.isNew) {
+          const nid = row.key.slice(NEW_PREFIX.length)
+          return { ...acc, newRows: acc.newRows.map((n) => (n.id === nid ? { ...n, fields: { ...n.fields, [id]: value } } : n)) }
+        }
+        return { ...acc, edits: setFieldEdit(acc.edits, row, id, value) }
+      }, d),
+    )
+  }
   function setBg(row: ProgressRow, ids: string[], hex: string) {
     updateDrafts((d) => {
       if (row.isNew) {
@@ -1309,6 +1322,7 @@ export default function ProgressBoard() {
             currentKey={currentKey}
             onPaint={paintCell}
             onField={setField}
+            onFields={setFields}
             editNameKey={openKey}
             onDeleteRow={(row) => deleteRows([row])}
             onRestoreRow={(row) => restoreRows([row])}
