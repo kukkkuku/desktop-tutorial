@@ -143,7 +143,23 @@ export function materialize(data: ProgressData, drafts: Drafts, l1s: string[]): 
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
   const next = sheetToData(parsed, raw, { spreadsheetId: data.spreadsheetId, source: data.source, tabTitle: data.tabTitle, sheetGid: data.sheetGid })
-  return { data: { ...next, year: data.year, local: data.local, yearTabs: data.yearTabs }, left: drafts.newRows.filter((n) => !n.fields.name?.trim()) }
+  // 이름이 빈 새 과제(표에 못 들어감)는 남기되, 기준 줄 키를 굳힌 뒤의 키로 바꿔 제자리에 두고,
+  // 기준 줄이 이름 빈 줄 자신들뿐이면 바로 윗줄(굳힌 표의 줄)에 붙인다.
+  const keyOf = new Map<string, string>()
+  const named = order.filter((r) => !(r.isNew && !r.l3.trim()))
+  named.forEach((r, i) => next.rows[i] && keyOf.set(r.key, next.rows[i].key))
+  const left = drafts.newRows.filter((n) => !n.fields.name?.trim())
+  const leftKeys = new Set(left.map((n) => `new:${n.id}`))
+  const fixed = left.map((n) => {
+    const i = order.findIndex((r) => r.key === `new:${n.id}`)
+    let prev = i - 1
+    while (prev >= 0 && leftKeys.has(order[prev].key)) prev--
+    const above = prev >= 0 ? keyOf.get(order[prev].key) : undefined
+    const mapped = n.anchor ? (keyOf.get(n.anchor.key) ?? (leftKeys.has(n.anchor.key) ? n.anchor.key : undefined)) : undefined
+    const anchor = mapped ? { key: mapped, where: n.anchor!.where } : above ? { key: above, where: 'below' as const } : undefined
+    return { ...n, ...(anchor ? { anchor } : { anchor: undefined }) }
+  })
+  return { data: { ...next, year: data.year, local: data.local, yearTabs: data.yearTabs }, left: fixed }
 }
 
 // ---------- 구글시트로 만들기: 워크시트를 새 탭에 그대로 쓰는 요청 ----------

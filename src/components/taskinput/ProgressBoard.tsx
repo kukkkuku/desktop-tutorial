@@ -667,6 +667,18 @@ export default function ProgressBoard() {
     const link = parseSheetUrl(sheetLink)
     if (!link) return setError('연결된 구글시트가 없습니다. "시트 바꾸기"로 먼저 연결해 주세요.')
     if (isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
+    // 이름이 빈 과제는 시트에 올라가지 않는다(시트는 L3 이름이 있는 줄만 과제로 읽음) -- 미리 알리고, 만든 뒤에는 화면에서도 뺀다
+    const nameless = drafts.newRows.filter((n) => !n.fields.name?.trim()).length
+    if (
+      nameless &&
+      !(await askConfirm({
+        title: '이름이 빈 과제',
+        message: `이름(L3)이 빈 과제 ${nameless}건은 구글시트에 올라가지 않고 화면에서도 빠집니다.\n남기려면 취소하고 이름을 먼저 넣어 주세요.`,
+        confirmLabel: '빼고 만들기',
+        tone: 'accent',
+      }))
+    )
+      return
     setSaving(true)
     setError('')
     setMessage('')
@@ -684,7 +696,7 @@ export default function ProgressBoard() {
       const fresh = await readFromSheet(link.spreadsheetId, data.year ?? now.getFullYear(), data.tabTitle)
       // 시트 연도가 됐으니 이 브라우저 연도와 예전에 내려 둔 시트 연도는 정리한다
       const rest = Object.fromEntries(Object.entries(shelfRef.current).filter(([, x]) => x.data.local))
-      activate({ data: fresh, drafts: { edits: {}, newRows: m.left } }, rest)
+      activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
       setMessage(`구글시트에 「${data.tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '구글시트에 탭을 만들지 못했습니다.')
@@ -1480,8 +1492,13 @@ export default function ProgressBoard() {
       {message && (
         <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">
           <span className="flex-1">{message}</span>
-          <button onClick={() => setMessage('')} className="-mr-1 rounded p-0.5 text-success/70 hover:bg-success/10 hover:text-success" aria-label="알림 닫기">
-            <X size={14} />
+          <button
+            onClick={() => setMessage('')}
+            className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-label-2 hover:bg-black/[0.08] hover:text-label"
+            aria-label="알림 닫기"
+            title="닫기"
+          >
+            <X size={14} strokeWidth={2.2} />
           </button>
         </p>
       )}
