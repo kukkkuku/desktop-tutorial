@@ -6,7 +6,7 @@ import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import AreaSwitch from '../AreaSwitch'
 import { icSm } from '../ui/icon'
 import { IS_PREVIEW } from '../../utils/previewMode'
-import ProgressBoard from './ProgressBoard'
+import ProgressBoard, { PROGRESS_MENU_SLOT } from './ProgressBoard'
 
 type Menu = 'progress' | 'rate'
 const MENUS: { key: Menu; label: string; Icon: typeof Gauge }[] = [
@@ -25,20 +25,25 @@ export default function TaskInputApp() {
           <AreaSwitch className="-ml-1" />
           {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}
           <nav className="ml-2 flex items-center gap-1" role="tablist">
-            {MENUS.map(({ key, label, Icon }) => (
-              <button
-                key={key}
-                role="tab"
-                aria-selected={menu === key}
-                onClick={() => setMenu(key)}
-                className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
-                  menu === key ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
-                }`}
-              >
-                <Icon {...icSm} />
-                {label}
-              </button>
-            ))}
+            {MENUS.map(({ key, label, Icon }) =>
+              // 추진현황을 보고 있으면 그 자리를 추진현황 화면이 "YYYY 추진현황 ▾"(연도 고르기)로 채운다
+              key === 'progress' && menu === 'progress' ? (
+                <span key={key} id={PROGRESS_MENU_SLOT} className="flex" />
+              ) : (
+                <button
+                  key={key}
+                  role="tab"
+                  aria-selected={menu === key}
+                  onClick={() => setMenu(key)}
+                  className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
+                    menu === key ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
+                  }`}
+                >
+                  <Icon {...icSm} />
+                  {label}
+                </button>
+              ),
+            )}
           </nav>
           {accountEmail && (
             <div className="ml-auto flex shrink-0 items-center gap-3">

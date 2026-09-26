@@ -41,6 +41,7 @@ import { exportUnits, unitsToTasks } from '../../utils/evalExport'
 import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheetSources'
 import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
 import SheetLinkChip from '../SheetLinkChip'
+import { useTabFit } from '../../hooks/useTabFit'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
@@ -192,6 +193,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   const [tabMenu, setTabMenu] = useState<{ x: number; y: number; groupId: string } | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<string | null>(null)
+  // 브라우저 탭처럼 줄어드는 L2 탭 줄(좁으면 개수를 숨기고 여백을 줄임)
+  const tabStripRef = useRef<HTMLDivElement>(null)
+  const tabsCompact = useTabFit(tabStripRef, board.groups.length + 1, 130)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)
   // L2 삭제 때 함께 지울 팀원(선택). 기본은 지우지 않음.
   const [removeMemberIds, setRemoveMemberIds] = useState<Set<string>>(new Set())
@@ -781,7 +785,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     <div className="space-y-3">
       {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
       <div className="flex items-end shadow-[inset_0_-1px_0_#E3E3E8]">
-      <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
+      <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
         {board.groups.map((g, idx) => {
           const on = g.id === activeGroup?.id
           const count = itemsOfGroup(board, g.id).length
@@ -811,7 +816,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative flex max-w-[280px] shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-sm transition-colors ${
+              className={`group relative flex min-w-[44px] max-w-[280px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-sm transition-colors ${
+                tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
+              } ${
                 on
                   ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
                   : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
@@ -839,9 +846,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 />
               ) : (
                 <>
-                  {g.tag && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[11px] font-semibold leading-5 text-white">{g.tag}</span>}
-                  <span className="truncate">{g.name}</span>
-                  <span className={`shrink-0 text-xs tabular-nums ${on ? 'text-label-3' : 'text-label-3'}`}>{count}</span>
+                  {g.tag && !tabsCompact && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[11px] font-semibold leading-5 text-white">{g.tag}</span>}
+                  <span className="min-w-0 truncate break-all">{g.name}</span>
+                  {!tabsCompact && <span className="shrink-0 text-xs tabular-nums text-label-3">{count}</span>}
                   {!on && moved?.groupId === g.id && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="옮겨 온 과제가 있습니다" />}
                   <button
                     draggable={false}
@@ -851,8 +858,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                       openDeleteGroup(g)
                     }}
                     title="이 L2 삭제(과제관리에서만, 구글시트는 그대로)"
-                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                      on ? '' : 'opacity-0 group-hover:opacity-100'
+                    className={`-mr-1.5 h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                      on ? 'flex' : 'hidden group-hover:flex'
                     }`}
                   >
                     <X size={12} strokeWidth={2} />

@@ -72,6 +72,39 @@ function NoteMark() {
   return <span className="pointer-events-none absolute right-0 top-0 h-0 w-0 border-l-[7px] border-t-[7px] border-l-transparent border-t-[#14161A]" />
 }
 
+// Tab/Enter로 옆·아래 칸 옮기기. 한글 입력(IME) 중에 누른 키는 조합을 끝내는 데 쓰여 keydown이
+// 'Process'(keyCode 229)나 조합 중(isComposing)으로 오므로, 그때는 키를 뗄 때(keyup) 옮긴다.
+// 한 번 누른 키로 두 번 옮겨지지 않게 잠깐(150ms)은 한 번만.
+let imeKeyPending = false
+let lastNavAt = 0
+type NavGo = (dx: number, dy: number) => void
+const navDir = (e: React.KeyboardEvent): [number, number] => (e.key === 'Tab' ? [e.shiftKey ? -1 : 1, 0] : [0, e.shiftKey ? -1 : 1])
+const isNav = (e: React.KeyboardEvent, enter: boolean) => e.key === 'Tab' || (enter && e.key === 'Enter')
+function fireNav(e: React.KeyboardEvent, go: NavGo) {
+  if (Date.now() - lastNavAt < 150) return
+  lastNavAt = Date.now()
+  const [dx, dy] = navDir(e)
+  go(dx, dy)
+}
+// 처리했으면 true
+function navKeyDown(e: React.KeyboardEvent, enter: boolean, go: NavGo): boolean {
+  if (e.nativeEvent.isComposing || e.keyCode === 229) {
+    imeKeyPending = true
+    if (isNav(e, enter)) e.preventDefault()
+    return true
+  }
+  if (!isNav(e, enter)) return false
+  e.preventDefault()
+  imeKeyPending = false
+  fireNav(e, go)
+  return true
+}
+function navKeyUp(e: React.KeyboardEvent, enter: boolean, go: NavGo) {
+  if (!imeKeyPending || !isNav(e, enter)) return
+  imeKeyPending = false
+  fireNav(e, go)
+}
+
 // 시트 칸 하나 -- 누르면 그 자리에서 입력(Enter/바깥 누르면 반영, Esc 취소).
 function FieldCell({
   f,
@@ -114,23 +147,26 @@ function FieldCell({
     setEditing(false)
     if (!cancelled.current && draft !== value) onCommit(draft)
   }
+  // 메모 칸의 Enter는 줄바꿈(⌘/Ctrl+Enter는 반영만)
+  const go = (el: HTMLElement) => (dx: number, dy: number) => {
+    el.blur()
+    onMove?.(dx, dy)
+  }
   const keys = (e: React.KeyboardEvent) => {
+    const el = e.target as HTMLElement
     if (e.key === 'Escape') {
       cancelled.current = true
-      ;(e.target as HTMLElement).blur()
-    }
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      ;(e.target as HTMLElement).blur()
-      onMove?.(e.shiftKey ? -1 : 1, 0)
+      el.blur()
       return
     }
-    if (e.key === 'Enter' && (f.kind !== 'memo' || e.metaKey || e.ctrlKey)) {
+    if (f.kind === 'memo' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
-      ;(e.target as HTMLElement).blur()
-      if (f.kind !== 'memo') onMove?.(0, e.shiftKey ? -1 : 1)
+      el.blur()
+      return
     }
+    navKeyDown(e, f.kind !== 'memo', go(el))
   }
+  const keysUp = (e: React.KeyboardEvent) => navKeyUp(e, f.kind !== 'memo', go(e.target as HTMLElement))
   const inputCls = 'absolute inset-0 z-30 h-full w-full border-2 border-accent bg-white px-1.5 text-[1em] text-label outline-none'
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
@@ -160,6 +196,7 @@ function FieldCell({
             onChange={(e) => setDraft(e.target.value)}
             onBlur={finish}
             onKeyDown={keys}
+            onKeyUp={keysUp}
             placeholder="⌘/Ctrl+Enter로 반영"
             className="absolute left-0 top-0 z-30 h-[9em] w-[max(100%,260px)] rounded-control border-2 border-accent bg-white p-1.5 text-[1em] text-label shadow-dialog outline-none"
           />
@@ -171,6 +208,7 @@ function FieldCell({
             onChange={(e) => setDraft(e.target.value)}
             onBlur={finish}
             onKeyDown={keys}
+            onKeyUp={keysUp}
             className={inputCls}
           />
         ) : (
@@ -180,6 +218,7 @@ function FieldCell({
             onChange={(e) => setDraft(e.target.value)}
             onBlur={finish}
             onKeyDown={keys}
+            onKeyUp={keysUp}
             list={`pb-opts-${f.id}`}
             className={inputCls}
           />
@@ -723,14 +762,21 @@ export default function ScheduleTable({
                             if (e.target.value.trim() !== v.vals.name) onField(v.row, 'name', e.target.value.trim())
                             setNameEditing(null)
                           }}
+                          onKeyUp={(e) =>
+                            navKeyUp(e, true, (dx, dy) => {
+                              ;(e.target as HTMLInputElement).blur()
+                              moveEdit(v.row.key, 'name', dx, dy)
+                            })
+                          }
                           onKeyDown={(e) => {
                             const el = e.target as HTMLInputElement
-                            if (e.key === 'Tab' || e.key === 'Enter') {
-                              e.preventDefault()
-                              el.blur()
-                              if (e.key === 'Tab') moveEdit(v.row.key, 'name', e.shiftKey ? -1 : 1, 0)
-                              else moveEdit(v.row.key, 'name', 0, e.shiftKey ? -1 : 1)
-                            }
+                            if (
+                              navKeyDown(e, true, (dx, dy) => {
+                                el.blur()
+                                moveEdit(v.row.key, 'name', dx, dy)
+                              })
+                            )
+                              return
                             if (e.key === 'Escape') {
                               el.value = v.vals.name
                               el.blur()

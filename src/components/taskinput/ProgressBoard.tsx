@@ -2,6 +2,8 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useTabFit } from '../../hooks/useTabFit'
 import {
   CalendarRange,
   ChevronDown,
@@ -230,6 +232,9 @@ export default function ProgressBoard() {
   const [viewOpen, setViewOpen] = useState<{ x: number; y: number } | null>(null)
   const shownL1s = l1s.filter((x) => !hiddenL1.includes(x))
   const l1 = activeL1 && shownL1s.includes(activeL1) ? activeL1 : (shownL1s[0] ?? l1s[0] ?? null)
+  // 브라우저 탭처럼 줄어드는 L1 탭 줄(좁으면 개수를 숨기고 여백을 줄임)
+  const tabStripRef = useRef<HTMLDivElement>(null)
+  const tabsCompact = useTabFit(tabStripRef, shownL1s.length + 1)
   // 고른 탭이 가려져 있으면 보이게 옮긴다(새 탭을 만든 직후 등)
   useEffect(() => {
     if (!l1) return
@@ -667,44 +672,52 @@ export default function ProgressBoard() {
 
   if (!data) {
     return (
-      <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
-        <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-label-2">
-          구글시트의 「{now.getFullYear()} 추진현황」 탭을 읽어 L1마다 일정표를 만듭니다.
-          <br />
-          시트를 볼 수 있는 구글 계정으로 한 번 권한을 허용하면 됩니다.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          {isSheetsApiConfigured() && (
-            <Button variant="primary" onClick={() => loadFromSheet()} disabled={loading}>
-              {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw {...icSm} />}
-              구글시트에서 불러오기
+      <>
+        <MenuSlot>
+          <span className="flex items-center gap-1.5 rounded-control bg-label px-2.5 py-1.5 text-[13px] font-medium text-white">
+            <CalendarRange {...icSm} />
+            추진현황
+          </span>
+        </MenuSlot>
+        <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
+          <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-label-2">
+            구글시트의 「{now.getFullYear()} 추진현황」 탭을 읽어 L1마다 일정표를 만듭니다.
+            <br />
+            시트를 볼 수 있는 구글 계정으로 한 번 권한을 허용하면 됩니다.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {isSheetsApiConfigured() && (
+              <Button variant="primary" onClick={() => loadFromSheet()} disabled={loading}>
+                {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw {...icSm} />}
+                구글시트에서 불러오기
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              onClick={() => fileRef.current?.click()}
+              disabled={loading}
+              title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+            >
+              <Upload {...icSm} />
+              xlsx 올리기
             </Button>
-          )}
-          <Button
-            variant="secondary"
-            onClick={() => fileRef.current?.click()}
-            disabled={loading}
-            title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-          >
-            <Upload {...icSm} />
-            xlsx 올리기
-          </Button>
+          </div>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
+          <p className="mt-4 text-[12px] text-label-3">
+            {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
+              ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)'
+              : sheetLink === TASK_INPUT_SHEET_URL
+                ? '지금 연결: 테스트 시트(운영 시트의 사본)'
+                : `지금 연결: ${sheetLink}`}{' '}
+            <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
+              시트 바꾸기
+            </button>
+          </p>
+          {linkOpen && <SheetLinkForm value={linkInput} onChange={setLinkInput} onSubmit={() => connectSheet(linkInput)} onCancel={() => setLinkOpen(false)} />}
+          {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
         </div>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
-        <p className="mt-4 text-[12px] text-label-3">
-          {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
-            ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)'
-            : sheetLink === TASK_INPUT_SHEET_URL
-              ? '지금 연결: 테스트 시트(운영 시트의 사본)'
-              : `지금 연결: ${sheetLink}`}{' '}
-          <button onClick={() => setLinkOpen((v) => !v)} className="font-medium text-accent hover:underline">
-            시트 바꾸기
-          </button>
-        </p>
-        {linkOpen && <SheetLinkForm value={linkInput} onChange={setLinkInput} onSubmit={() => connectSheet(linkInput)} onCancel={() => setLinkOpen(false)} />}
-        {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
-      </div>
+      </>
     )
   }
 
@@ -808,6 +821,38 @@ export default function ProgressBoard() {
 
   return (
     <div>
+      <MenuSlot>
+        <label
+          className={`relative flex items-center rounded-control text-[13px] font-medium text-white ${readOnly ? 'bg-orange-600' : 'bg-label'}`}
+          title="연도 고르기 · 지난 연도는 보기 전용"
+        >
+          <CalendarRange {...icSm} className="pointer-events-none absolute left-2.5" />
+          {(data.yearTabs?.length ?? 0) > 1 ? (
+            <select
+              value={data.tabTitle}
+              onChange={(e) => void viewYear(e.target.value)}
+              disabled={yearLoading || loading || saving}
+              aria-label="연도"
+              className="h-[30px] cursor-pointer appearance-none rounded-control bg-transparent bg-none pl-8 pr-7 font-medium text-white outline-none"
+            >
+              {data.yearTabs!.map((t) => (
+                <option key={t} value={t} className="text-label">
+                  {t}
+                  {t === (archive?.data.tabTitle ?? data.tabTitle) ? '' : ' (보기 전용)'}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="py-1.5 pl-8 pr-2.5">{data.tabTitle || '추진현황'}</span>
+          )}
+          {(data.yearTabs?.length ?? 0) > 1 &&
+            (yearLoading ? (
+              <Spinner className="pointer-events-none absolute right-2 h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown size={14} strokeWidth={2} className="pointer-events-none absolute right-2" />
+            ))}
+        </label>
+      </MenuSlot>
       {linkOpen && (
         <SheetLinkForm
           value={linkInput}
@@ -822,35 +867,8 @@ export default function ProgressBoard() {
 
       {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
       <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
-        {(data.yearTabs?.length ?? 0) > 1 && (
-          <label className="relative mb-1.5 flex shrink-0 items-center" title="연도 고르기 · 지난 연도는 보기 전용">
-            <select
-              value={data.tabTitle}
-              onChange={(e) => void viewYear(e.target.value)}
-              disabled={yearLoading || loading || saving}
-              aria-label="연도"
-              className={`h-8 appearance-none rounded-control border pl-2.5 pr-7 text-[13px] font-bold ${
-                readOnly ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-hairline bg-white text-label'
-              }`}
-            >
-              {data.yearTabs!.map((t) => {
-                const current = t === (archive?.data.tabTitle ?? data.tabTitle)
-                return (
-                  <option key={t} value={t}>
-                    {t}
-                    {current ? '' : ' (보기 전용)'}
-                  </option>
-                )
-              })}
-            </select>
-            {yearLoading ? (
-              <Spinner className="pointer-events-none absolute right-2 h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown size={14} strokeWidth={2} className="pointer-events-none absolute right-2 text-label-3" />
-            )}
-          </label>
-        )}
-        <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
+        <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
           {shownL1s.map((name) => {
             const rowsOf = data.rows.filter((r) => r.l1 === name)
             const newOf = drafts.newRows.filter((n) => n.l1 === name)
@@ -862,16 +880,18 @@ export default function ProgressBoard() {
                 key={name}
                 onClick={() => setActiveL1(name)}
                 data-l1-tab={name}
-                className={`group flex shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-t-[9px] border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+                className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[13px] font-semibold transition-colors ${
+                  tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
+                } ${
                   on
                     ? 'border-[#E3E3E8] border-b-white bg-white text-label'
                     : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
                 }`}
                 title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : name}
               >
-                {newOf.length > 0 && rowsOf.length === 0 && <span className="rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
-                <span className={gone ? 'text-label-3 line-through' : ''}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                <span className="text-[11px] font-medium text-label-3">{alive}</span>
+                {newOf.length > 0 && rowsOf.length === 0 && <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>}
+                <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
+                {!tabsCompact && <span className="shrink-0 text-[11px] font-medium text-label-3">{alive}</span>}
                 {!readOnly && (
                   <button
                     onClick={(e) => {
@@ -881,8 +901,8 @@ export default function ProgressBoard() {
                     }}
                     title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
                     aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
-                    className={`-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                      on || gone ? '' : 'opacity-0 group-hover:opacity-100'
+                    className={`-mr-1.5 h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
+                      on || gone ? 'flex' : 'hidden group-hover:flex'
                     }`}
                   >
                     {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
@@ -1518,4 +1538,12 @@ function ExportTargetSync({ id }: { id: string }) {
     if (currentWorkspaceId !== id) selectWorkspace(id)
   }, [id, currentWorkspaceId, selectWorkspace])
   return null
+}
+
+// 머리글 메뉴의 "추진현황" 자리(TaskInputApp이 비워 둔 칸)에 연도 고르기를 그린다.
+export const PROGRESS_MENU_SLOT = 'progress-menu-slot'
+function MenuSlot({ children }: { children: React.ReactNode }) {
+  const [node, setNode] = useState<HTMLElement | null>(null)
+  useEffect(() => setNode(document.getElementById(PROGRESS_MENU_SLOT)), [])
+  return node ? createPortal(children, node) : null
 }
