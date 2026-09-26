@@ -94,6 +94,7 @@ import {
   readActiveTab,
   writeActiveTab,
   loadShelf,
+  clearProgressData,
   saveShelf,
   type ShelfItem,
   type Drafts,
@@ -509,6 +510,33 @@ export default function ProgressBoard() {
       return
     }
     void viewYear(t)
+  }
+  // 이 브라우저에서 만든 연도 지우기(id = 'local:탭'). 지금 보던 연도면 다른 연도로 옮긴다.
+  function deleteLocal(id: string) {
+    const rest = { ...shelfRef.current }
+    delete rest[id]
+    const cur = currentProject()
+    if (cur?.data.local && `local:${cur.data.tabTitle}` === id) {
+      // 시트 연도(연결했던 것 우선) → 다른 이 브라우저 연도 → 빈 화면
+      const keys = Object.keys(rest)
+      const next = keys.find((k) => k.startsWith('sheet:')) ?? keys[0]
+      if (next) {
+        const p = rest[next]
+        delete rest[next]
+        activate(p, rest)
+      } else {
+        setShelf(rest)
+        setArchive(null)
+        setData(null)
+        dataRef.current = null
+        clearProgressData()
+        draftsRef.current = { edits: {}, newRows: [] }
+        setDrafts(draftsRef.current)
+        saveDrafts(draftsRef.current)
+        clearHistory()
+      }
+    } else setShelf(rest)
+    setMessage(`「${id.slice(6).replace(/추진현황/, '실적관리')}」(이 브라우저)를 지웠습니다.`)
   }
   function createYear(o: NewYearOptions) {
     setNewYearOpen(false)
@@ -1137,6 +1165,7 @@ export default function ProgressBoard() {
             onPick={pickYear}
             onCreate={() => setNewYearOpen(true)}
             footer={yearMenuFooter}
+            onDeleteLocal={deleteLocal}
           />
         </MenuSlot>
         {newYearDialog}
@@ -1315,6 +1344,7 @@ export default function ProgressBoard() {
           connectedTitle={connectedTitle}
           onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
           footer={yearMenuFooter}
+          onDeleteLocal={deleteLocal}
           localTabs={localTabs}
           onCreate={() => setNewYearOpen(true)}
         />
