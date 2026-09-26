@@ -123,10 +123,7 @@ export interface RowAction {
   onClick: () => void
 }
 
-type Sel =
-  | { t: 'cells'; r1: number; c1: number; r2: number; c2: number }
-  | { t: 'rows'; a: number; b: number }
-  | { t: 'cols'; a: number; b: number }
+type Sel = { t: 'cells'; r1: number; c1: number; r2: number; c2: number } | { t: 'rows'; a: number; b: number } | { t: 'cols'; a: number; b: number }
 
 interface Menu {
   x: number
@@ -193,9 +190,7 @@ export function parseTsv(text: string): string[][] {
 }
 
 function toTsv(matrix: string[][]): string {
-  return matrix
-    .map((r) => r.map((c) => (/[\t\n"]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join('\t'))
-    .join('\n')
+  return matrix.map((r) => r.map((c) => (/[\t\n"]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join('\t')).join('\n')
 }
 
 export default function DataGrid<R extends { id: string }>(props: DataGridProps<R>) {
@@ -612,8 +607,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         if (sel?.t === 'rows') deleteSelectedRows()
         else if (sel?.t === 'cols') {
           if (!props.fixedColumns) props.onDeleteColumns?.(selectedColIds)
-        }
-        else clearRange()
+        } else clearRange()
         return
       case 'Escape':
         setSel(active ? { t: 'cells', r1: active.r, c1: active.c, r2: active.r, c2: active.c } : null)
@@ -678,11 +672,16 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         outside = hint !== null
         const firstRow = rows.find((x) => ids.includes(x.id))
         const label = d.label ?? (firstRow && columns[0] ? getText(firstRow, columns[0].id) : '')
-        setGhost((g) => (g && g.hint === hint && g.label === label && g.count === ids.length ? g : { label, count: ids.length, hint, x: g?.x ?? e.clientX, y: g?.y ?? e.clientY }))
+        setGhost((g) =>
+          g && g.hint === hint && g.label === label && g.count === ids.length
+            ? g
+            : { label, count: ids.length, hint, x: g?.x ?? e.clientX, y: g?.y ?? e.clientY },
+        )
         if (ghostRef.current) ghostRef.current.style.transform = `translate(${e.clientX + 14}px, ${e.clientY + 10}px)`
       }
       if (outside) {
-        setDragInsert(null)      } else if (d.kind === 'rows' && d.moving) {
+        setDragInsert(null)
+      } else if (d.kind === 'rows' && d.moving) {
         // 행 드래그 이동: 마우스 아래 행 경계에 삽입선
         // 데이터 행과 묶음 머리 행(접힌 묶음 포함)을 화면 순서대로 놓고 경계를 찾는다.
         const slots: { top: number; mid: number; index: number; headKey?: string; beforeId: string | null }[] = []
@@ -1065,18 +1064,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           }`}
         >
           {!noNum && (
-          <td
-            onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
-            onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
-            style={{ boxShadow: edge(true) }}
-            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
-              inside ? 'font-semibold text-accent' : 'font-semibold text-label-2 hover:bg-black/[0.04]'
-            }`}
-            title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
-          >
-            <DragGrip active={inside} />
-            {h.number}
-          </td>
+            <td
+              onMouseDown={(e) => onGroupHeadMouseDown(e, h)}
+              onContextMenu={(e) => onGroupHeadContextMenu(e, h)}
+              style={{ boxShadow: edge(true) }}
+              className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
+                inside ? 'font-semibold text-accent' : 'font-semibold text-label-2 hover:bg-black/[0.04]'
+              }`}
+              title="클릭: 묶음 전체 선택 · 끌어서 묶음째 이동 · 우클릭: 메뉴"
+            >
+              <DragGrip active={inside} />
+              {h.number}
+            </td>
           )}
           {check && (
             <td
@@ -1131,7 +1130,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       {/* 왼쪽 여백(-ml/pl)은 표 밖에 뜨는 행 이동 손잡이(⋮⋮) 자리 */}
       <div className="-ml-7 overflow-x-auto pl-7">
         {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
-        <div ref={wrapRef} className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" style={{ width: '100%', minWidth: tableWidth }}>
+        <div
+          ref={wrapRef}
+          className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          style={{ width: '100%', minWidth: tableWidth }}
+        >
           <table
             className="table-fixed border-separate border-spacing-0 text-[13.5px] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
             style={{ width: '100%', minWidth: tableWidth }}
@@ -1149,7 +1152,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 {!noNum && (
                   <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
                     #
-                    <span onMouseDown={onResizeNumberStart} title="끌어서 너비 조절" className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
+                    <span
+                      onMouseDown={onResizeNumberStart}
+                      title="끌어서 너비 조절"
+                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30"
+                    />
                   </th>
                 )}
                 {check && (
@@ -1218,22 +1225,19 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           {!col.system && <span className="shrink-0 text-[11px] font-normal text-label-3">추가</span>}
                         </span>
                       )}
-                      <span
-                        onMouseDown={(e) => onResizeStart(e, col)}
-                        className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30"
-                      />
+                      <span onMouseDown={(e) => onResizeStart(e, col)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
                     </th>
                   )
                 })}
                 <th className="h-9 border-b border-[#E3E3E8] p-0 text-center">
                   {!props.fixedColumns && props.onInsertColumn && (
-                  <button
-                    onClick={() => props.onInsertColumn!(nC)}
-                    title="열 추가"
-                    className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
-                  >
-                    <Plus {...icSm} />
-                  </button>
+                    <button
+                      onClick={() => props.onInsertColumn!(nC)}
+                      title="열 추가"
+                      className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
+                    >
+                      <Plus {...icSm} />
+                    </button>
                   )}
                 </th>
               </tr>
@@ -1243,140 +1247,138 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 const rowSelected = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
                 return (
                   <Fragment key={row.id}>
-                  {renderHeaders(r)}
-                  <tr
-                    ref={(el) => {
-                      if (el) rowRefs.current.set(r, el)
-                      else rowRefs.current.delete(r)
-                    }}
-                    className={`group/row ${props.rowClassName?.(row) ?? ''} ${
-                      dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
-                    }`}
-                  >
-                    {!noNum && (
-                    <td
-                      onMouseDown={(e) => onRowHandleMouseDown(e, r)}
-                      onMouseEnter={() => onCellMouseEnter(r, 0)}
-                      onContextMenu={(e) => openMenu(e, 'row', r)}
-                      style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
-                      className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
-                        rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
+                    {renderHeaders(r)}
+                    <tr
+                      ref={(el) => {
+                        if (el) rowRefs.current.set(r, el)
+                        else rowRefs.current.delete(r)
+                      }}
+                      className={`group/row ${props.rowClassName?.(row) ?? ''} ${
+                        dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
                       }`}
-                      title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                     >
-                      <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
-                      <span className="inline-flex items-center gap-1">
-                        {props.rowNumber ? props.rowNumber(row, r) : r + 1}
-                        {props.rowMarker?.(row)}
-                      </span>
-                    </td>
-                    )}
-                    {check && (
-                      <td
-                        onMouseDown={(e) =>
-                          noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation()
-                        }
-                        onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
-                        onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
-                        style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
-                        className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
-                        title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
-                      >
-                        {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
-                        {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
-                        <input
-                          type="checkbox"
-                          checked={check.isChecked(row)}
-                          disabled={check.isDisabled?.(row)}
-                          onChange={(e) => check.onToggle([row], e.target.checked)}
-                          className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
-                        />
-                      </td>
-                    )}
-                    {columns.map((col, c) => {
-                      const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
-                      const isActive = active?.r === r && active?.c === c
-                      const custom = props.renderCell?.(row, col)
-                      const text = getText(row, col.id)
-                      return (
+                      {!noNum && (
                         <td
-                          key={col.id}
-                          ref={(el) => {
-                            const k = `${r}:${c}`
-                            if (el) cellRefs.current.set(k, el)
-                            else cellRefs.current.delete(k)
-                          }}
-                          onMouseDown={(e) => onCellMouseDown(e, r, c)}
-                          onMouseEnter={() => onCellMouseEnter(r, c)}
-                          onDoubleClick={() => startEdit()}
-                          onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                          style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
-                          className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
-                            inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
-                          } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
+                          onMouseDown={(e) => onRowHandleMouseDown(e, r)}
+                          onMouseEnter={() => onCellMouseEnter(r, 0)}
+                          onContextMenu={(e) => openMenu(e, 'row', r)}
+                          style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
+                          className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
+                            rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
+                          }`}
+                          title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                         >
-                          <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
-                            {custom !== undefined ? (
-                              custom
-                            ) : (
-                              <div
-                                className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[13px]' : ''}`}
-                                title={col.type === 'memo' && text.length > 20 ? text : undefined}
-                              >
-                                {text}
-                              </div>
-                            )}
-                            {col.type === 'date' && !col.picker && !col.readOnly && (
-                              <span
-                                onMouseDown={(e) => {
-                                  // 달력 아이콘을 누르면 바로 달력을 연다.
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  if (editing) commitEdit()
-                                  select(r, c)
-                                  setSinkValue(text)
-                                  setEditing(true)
-                                  requestAnimationFrame(() => sinkRef.current?.focus())
-                                }}
-                                className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
-                                title="달력에서 고르기"
-                              >
-                                <Calendar {...icSm} />
-                              </span>
-                            )}
-                            {col.picker && !col.readOnly && (
-                              <span
-                                onMouseDown={(e) => {
-                                  // ▾를 누르면 바로 목록을 연다.
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  if (editing) commitEdit()
-                                  openPicker(r, c)
-                                }}
-                                className="ml-auto flex shrink-0 cursor-pointer items-center rounded p-0.5 text-label-3 hover:bg-black/[0.05] hover:text-label-2"
-                                title="목록에서 고르기"
-                              >
-                                <ChevronDown {...icSm} />
-                              </span>
-                            )}
-                          </div>
+                          <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
+                          <span className="inline-flex items-center gap-1">
+                            {props.rowNumber ? props.rowNumber(row, r) : r + 1}
+                            {props.rowMarker?.(row)}
+                          </span>
                         </td>
+                      )}
+                      {check && (
+                        <td
+                          onMouseDown={(e) => (noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation())}
+                          onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
+                          onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
+                          style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
+                          className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
+                          title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
+                        >
+                          {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
+                          {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
+                          <input
+                            type="checkbox"
+                            checked={check.isChecked(row)}
+                            disabled={check.isDisabled?.(row)}
+                            onChange={(e) => check.onToggle([row], e.target.checked)}
+                            className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                          />
+                        </td>
+                      )}
+                      {columns.map((col, c) => {
+                        const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
+                        const isActive = active?.r === r && active?.c === c
+                        const custom = props.renderCell?.(row, col)
+                        const text = getText(row, col.id)
+                        return (
+                          <td
+                            key={col.id}
+                            ref={(el) => {
+                              const k = `${r}:${c}`
+                              if (el) cellRefs.current.set(k, el)
+                              else cellRefs.current.delete(k)
+                            }}
+                            onMouseDown={(e) => onCellMouseDown(e, r, c)}
+                            onMouseEnter={() => onCellMouseEnter(r, c)}
+                            onDoubleClick={() => startEdit()}
+                            onContextMenu={(e) => openMenu(e, 'cell', r, c)}
+                            style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
+                            className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
+                              inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
+                            } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
+                          >
+                            <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
+                              {custom !== undefined ? (
+                                custom
+                              ) : (
+                                <div
+                                  className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[13px]' : ''}`}
+                                  title={col.type === 'memo' && text.length > 20 ? text : undefined}
+                                >
+                                  {text}
+                                </div>
+                              )}
+                              {col.type === 'date' && !col.picker && !col.readOnly && (
+                                <span
+                                  onMouseDown={(e) => {
+                                    // 달력 아이콘을 누르면 바로 달력을 연다.
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    if (editing) commitEdit()
+                                    select(r, c)
+                                    setSinkValue(text)
+                                    setEditing(true)
+                                    requestAnimationFrame(() => sinkRef.current?.focus())
+                                  }}
+                                  className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
+                                  title="달력에서 고르기"
+                                >
+                                  <Calendar {...icSm} />
+                                </span>
+                              )}
+                              {col.picker && !col.readOnly && (
+                                <span
+                                  onMouseDown={(e) => {
+                                    // ▾를 누르면 바로 목록을 연다.
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    if (editing) commitEdit()
+                                    openPicker(r, c)
+                                  }}
+                                  className="ml-auto flex shrink-0 cursor-pointer items-center rounded p-0.5 text-label-3 hover:bg-black/[0.05] hover:text-label-2"
+                                  title="목록에서 고르기"
+                                >
+                                  <ChevronDown {...icSm} />
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        )
+                      })}
+                      <td className="border-b border-[#EBEBEF]" />
+                    </tr>
+                    {(() => {
+                      const detail = props.rowDetail?.(row)
+                      if (detail == null) return null
+                      return (
+                        <tr data-row-detail>
+                          <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
+                          <td colSpan={nC + (noNum ? 0 : 1) + (check ? 1 : 0)} className="bg-[#E7EAEE] p-0">
+                            {detail}
+                          </td>
+                        </tr>
                       )
-                    })}
-                    <td className="border-b border-[#EBEBEF]" />
-                  </tr>
-                  {(() => {
-                    const detail = props.rowDetail?.(row)
-                    if (detail == null) return null
-                    return (
-                      <tr data-row-detail>
-                        <td className="border-b border-r border-[#EBEBEF] bg-[#FAFAFC]" />
-                        <td colSpan={nC + (noNum ? 0 : 1) + (check ? 1 : 0)} className="border-b border-[#EBEBEF] bg-[#FAFAFC] px-3 py-2">
-                          {detail}
-                        </td>
-                      </tr>
-                    )
-                  })()}
+                    })()}
                   </Fragment>
                 )
               })}
@@ -1427,13 +1429,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 minHeight: sinkBox.height,
               }}
               aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
-              placeholder={
-                editing && activeCol?.picker && !plainPick
-                  ? activeCol.picker.allowNew
-                    ? '찾기 · 없으면 입력 후 Enter'
-                    : '찾기'
-                  : undefined
-              }
+              placeholder={editing && activeCol?.picker && !plainPick ? (activeCol.picker.allowNew ? '찾기 · 없으면 입력 후 Enter' : '찾기') : undefined}
             />
           )}
 
@@ -1531,23 +1527,25 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                     </button>
                   )}
                   {filteredOptions.length === 0 && !(activeCol.picker.allowNew && sinkValue.trim()) && (
-                    <p className="text-xs text-gray-400">{activeCol.picker.options.length ? '맞는 값이 없습니다' : '고를 값이 없습니다. 입력해서 추가하세요.'}</p>
+                    <p className="text-xs text-gray-400">
+                      {activeCol.picker.options.length ? '맞는 값이 없습니다' : '고를 값이 없습니다. 입력해서 추가하세요.'}
+                    </p>
                   )}
                 </div>
                 {activeCol.picker.multi && (
-                <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[13px]">
-                  {(
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        commitEdit()
-                      }}
-                      className="font-semibold text-accent"
-                    >
-                      완료
-                    </button>
-                  )}
-                </div>
+                  <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[13px]">
+                    {
+                      <button
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          commitEdit()
+                        }}
+                        className="font-semibold text-accent"
+                      >
+                        완료
+                      </button>
+                    }
+                  </div>
                 )}
               </div>,
               document.body,
@@ -1556,17 +1554,17 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       </div>
 
       {props.onInsertRows && (
-      <button
-        onClick={() => {
-          props.onInsertRows!(nR, 1)
-          select(nR, 0)
-          wantFocus.current = true
-        }}
-        className="mt-1 flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-[13px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-accent"
-      >
-        <Plus {...icSm} />
-        {props.addRowLabel ?? '행 추가'}
-      </button>
+        <button
+          onClick={() => {
+            props.onInsertRows!(nR, 1)
+            select(nR, 0)
+            wantFocus.current = true
+          }}
+          className="mt-1 flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-[13px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-accent"
+        >
+          <Plus {...icSm} />
+          {props.addRowLabel ?? '행 추가'}
+        </button>
       )}
 
       {ghost && (
@@ -1576,7 +1574,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           className="pointer-events-none fixed left-0 top-0 z-[60] flex max-w-[560px] items-center gap-2 rounded-md border border-gray-200 bg-white/90 px-3 py-1.5 text-[13px] font-semibold text-gray-800 opacity-90 shadow-[0_6px_20px_rgba(17,19,24,.18)]"
         >
           {ghost.hint != null && (
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-white"><Plus size={13} strokeWidth={2.5} /></span>
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+              <Plus size={13} strokeWidth={2.5} />
+            </span>
           )}
           <span className="min-w-[60px] max-w-[260px] truncate">{ghost.label || '(이름 없음)'}</span>
           {ghost.count > 1 && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[11px] text-gray-500">{ghost.count}건</span>}

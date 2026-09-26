@@ -1291,3 +1291,25 @@ export function clearTaskInputData() {
     // 무시
   }
 }
+
+// 연도 메뉴에서 숨긴 시트 탭(목록에서만 뺀다 · 구글시트 탭은 그대로). 시트 파일마다 따로.
+const hiddenTabsKey = () => `progress-board:hidden-tabs:${accountScope()}`
+export function readHiddenTabs(spreadsheetId: string | null | undefined): string[] {
+  if (!spreadsheetId) return []
+  try {
+    const v = JSON.parse(localStorage.getItem(hiddenTabsKey()) ?? '{}') as Record<string, string[]>
+    return Array.isArray(v[spreadsheetId]) ? v[spreadsheetId] : []
+  } catch {
+    return []
+  }
+}
+export function writeHiddenTabs(spreadsheetId: string, titles: string[]) {
+  try {
+    const v = JSON.parse(localStorage.getItem(hiddenTabsKey()) ?? '{}') as Record<string, string[]>
+    if (titles.length) v[spreadsheetId] = titles
+    else delete v[spreadsheetId]
+    localStorage.setItem(hiddenTabsKey(), JSON.stringify(v))
+  } catch {
+    // 기억 못 해도 지금 화면에는 반영
+  }
+}

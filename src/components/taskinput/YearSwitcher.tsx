@@ -3,7 +3,7 @@
 // 올해는 입력, 지난 연도는 보기 전용.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, Folder, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, Folder, Plus, Trash2, X } from 'lucide-react'
 import Spinner from '../Spinner'
 import { ic, icLg, icSm } from '../ui/icon'
 
@@ -35,6 +35,7 @@ export default function YearSwitcher({
   footer,
   onDeleteLocal,
   onOpenMenu,
+  onHide,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -50,6 +51,7 @@ export default function YearSwitcher({
   footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
   onDeleteLocal?: (id: string) => void // 이 브라우저에서 만든 연도 지우기
   onOpenMenu?: () => void // 메뉴를 열 때(시트 탭 목록 다시 읽기)
+  onHide?: (title: string) => void // 목록에서만 숨기기(구글시트 탭은 그대로)
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
@@ -175,6 +177,20 @@ export default function YearSwitcher({
                             className="rounded-full border border-accent/40 px-2 py-[1px] font-semibold text-accent hover:bg-accent hover:text-white"
                           >
                             연결하기
+                          </button>
+                        )}
+                        {onHide && !selected && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onHide(t)
+                            }}
+                            title="목록에서만 지웁니다(구글시트 탭은 그대로 · 아래 '숨긴 연도 다시 보이기'로 되돌림)"
+                            aria-label={`${yearLabel(t)} 목록에서 지우기`}
+                            className="flex h-5 w-5 items-center justify-center rounded text-label-3 opacity-0 hover:bg-danger/10 hover:text-danger group-hover/yr:opacity-100"
+                          >
+                            <X size={13} strokeWidth={2} />
                           </button>
                         )}
                       </span>

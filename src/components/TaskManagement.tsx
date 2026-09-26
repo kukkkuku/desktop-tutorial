@@ -133,7 +133,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             problems.push(`'${v}' 과제가 이미 있습니다`)
             break
           }
-          if (t.name !== v) (t.name = v), changed.add(t.id)
+          if (t.name !== v) ((t.name = v), changed.add(t.id))
           break
         }
         case 'importance': {
@@ -143,7 +143,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             problems.push(`과제등급 '${v}'은(는) 없는 값입니다`)
             break
           }
-          if (t.importance !== v) (t.importance = v as Importance), changed.add(t.id)
+          if (t.importance !== v) ((t.importance = v as Importance), changed.add(t.id))
           break
         }
         case 'performanceGrade': {
@@ -154,17 +154,17 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             break
           }
           const next = g ? (g as PerformanceGrade) : null
-          if (t.performanceGrade !== next) (t.performanceGrade = next), changed.add(t.id)
+          if (t.performanceGrade !== next) ((t.performanceGrade = next), changed.add(t.id))
           break
         }
         case 'workload': {
           if (!v || !WORKLOAD_OPTIONS.includes(v as Workload)) break
-          if (t.workload !== v) (t.workload = v as Workload), changed.add(t.id)
+          if (t.workload !== v) ((t.workload = v as Workload), changed.add(t.id))
           break
         }
         case 'objective':
         case 'achievement':
-          if (t[e.colId] !== v) (t[e.colId] = v), changed.add(t.id)
+          if (t[e.colId] !== v) ((t[e.colId] = v), changed.add(t.id))
           break
       }
     }
@@ -184,8 +184,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         if (col && !col.readOnly) edits.push({ rowId: task.id, colId: col.id, text })
       })
     })
-    if (rowIndex + matrix.length > state.tasks.length)
-      setNotice('평가과제는 과제리스트에서 내보내 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
+    if (rowIndex + matrix.length > state.tasks.length) setNotice('평가과제는 과제리스트에서 내보내 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
     applyEdits(edits)
   }
 
@@ -277,24 +276,17 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     return undefined
   }
 
-  // 펼친 L3 목록: 선 없는 표처럼 열을 맞춘다(그룹 · L3 과제 · 상태 · 담당자 · 기간).
-  const DETAIL_COLS = 'grid grid-cols-[minmax(0,180px)_minmax(0,1fr)_72px_minmax(0,160px)_190px] items-center gap-x-4'
+  // 펼친 L3 목록: 회색 줄마다 그룹 · L3 과제 · 상태 · 담당자 · 기간(머리글 없음). 과제 이름은 줄이지 않고 다 보인다.
+  const DETAIL_COLS = 'grid grid-cols-[minmax(0,257px)_minmax(160px,1fr)_65px_minmax(0,184px)_164px] items-center gap-x-[38px]'
   function renderDetail(task: Task) {
     if (!expanded.has(task.id) || !task.workItemIds?.length) return null
     return (
-      <div className="pl-7 text-[13px]">
-        <div className={`${DETAIL_COLS} pb-1 text-[11px] font-medium text-label-3`}>
-          <span>그룹</span>
-          <span>과제</span>
-          <span>상태</span>
-          <span>담당자</span>
-          <span>기간</span>
-        </div>
+      <div className="text-[13px]">
         {task.workItemIds.map((id) => {
           const it = itemById.get(id)
           if (!it)
             return (
-              <div key={id} className="py-1 text-label-3">
+              <div key={id} className="border-b border-[#DBDBDB] py-[10px] pl-4 text-[#9CA3AF]">
                 과제리스트에서 지워진 L3
               </div>
             )
@@ -302,19 +294,18 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           const people = it.assigneeIds.map((a) => memberName.get(a)).filter(Boolean) as string[]
           const start = it.fields.startDate ?? ''
           const done = it.fields.doneDate ?? ''
+          const group = groupName.get(it.groupId) ?? ''
           return (
-            <div key={id} className={`${DETAIL_COLS} py-1`}>
-              <span className="truncate text-label-3" title={groupName.get(it.groupId)}>
-                {groupName.get(it.groupId) ?? ''}
+            <div key={id} className={`${DETAIL_COLS} min-h-[39px] border-b border-[#DBDBDB] py-[10px] pl-4 pr-4`}>
+              <span className="truncate text-[#646971]" title={group}>
+                {group ? `${group} >` : ''}
               </span>
-              <span className="truncate text-label" title={it.name}>
-                {it.name}
+              <span className="whitespace-pre-line break-words font-medium leading-snug text-[#1F2937]">{it.name}</span>
+              <span>
+                {status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-[#9CA3AF]">-</span>}
               </span>
-              <span>{status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-label-3">-</span>}</span>
-              <span className="truncate text-label-2" title={people.join(', ')}>
-                {people.join(', ') || '-'}
-              </span>
-              <span className="tabular-nums text-label-3">{start || done ? `${start || '?'} ~ ${done}` : '-'}</span>
+              <span className="break-words text-[#4B5563]">{people.join(', ') || '-'}</span>
+              <span className="tabular-nums text-[#9CA3AF]">{start || done ? `${start || '?'} ~ ${done}` : '-'}</span>
             </div>
           )
         })}
@@ -342,7 +333,9 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           />
         </div>
       </div>
-      <p className="mt-1 text-[13px] text-label-2">새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 등급·목표·성과를 바로 입력하고, 여러 행을 골라 우클릭하면 묶거나 풀 수 있습니다.</p>
+      <p className="mt-1 text-[13px] text-label-2">
+        새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 등급·목표·성과를 바로 입력하고, 여러 행을 골라 우클릭하면 묶거나 풀 수 있습니다.
+      </p>
 
       {state.tasks.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
@@ -369,7 +362,12 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                   disabled: picked.length < 2 || peerLocked > 0,
                   onClick: () => mergeRows(ids),
                 },
-                { label: '묶음 풀기 (L3별 과제로)', hint: splittable ? undefined : 'L3가 2개 이상 묶인 과제만', disabled: splittable === 0, onClick: () => splitRows(ids) },
+                {
+                  label: '묶음 풀기 (L3별 과제로)',
+                  hint: splittable ? undefined : 'L3가 2개 이상 묶인 과제만',
+                  disabled: splittable === 0,
+                  onClick: () => splitRows(ids),
+                },
               ]
             }}
             columns={columns}
@@ -399,7 +397,9 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             ? `${deleting
                 .slice(0, 5)
                 .map((t) => `'${t.name}'`)
-                .join('\n')}${deleting.length > 5 ? `\n외 ${deleting.length - 5}개` : ''}\n\n평가하기에 입력한 기여도·등급도 함께 지워집니다.\n과제관리의 L3는 그대로 남고, ⌘Z로 되돌릴 수 있습니다.`
+                .join(
+                  '\n',
+                )}${deleting.length > 5 ? `\n외 ${deleting.length - 5}개` : ''}\n\n평가하기에 입력한 기여도·등급도 함께 지워집니다.\n과제관리의 L3는 그대로 남고, ⌘Z로 되돌릴 수 있습니다.`
             : ''
         }
         onConfirm={confirmDelete}

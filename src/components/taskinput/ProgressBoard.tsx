@@ -50,7 +50,6 @@ import {
   sheetUrl,
   writeSheetCells,
   createSheetTab,
-  sheetBatchUpdate,
   parseFmt,
   fmtString,
   type CellFmt,
@@ -60,6 +59,8 @@ import {
   TOOL_CELL,
   buildSheetWrites,
   isProtectedSheet,
+  readHiddenTabs,
+  writeHiddenTabs,
   TASK_INPUT_SHEET_URL,
   readLinkedSheet,
   writeLinkedSheet,
@@ -108,7 +109,7 @@ import {
 } from '../../utils/progressBoard'
 import SheetLinkChip from '../SheetLinkChip'
 import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
-import { blankProgress, materialize, sheetStyleRequests, sheetToData, worksheetRequests } from '../../utils/progressLocal'
+import { blankProgress, materialize, sheetToData, worksheetRequests } from '../../utils/progressLocal'
 import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
 import ProgressRate from './ProgressRate'
 import SheetImportPanel from '../work/SheetImportPanel'
@@ -667,31 +668,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       setMessage(`이 브라우저에 저장했습니다${m.left.length ? ` · 이름이 빈 과제 ${m.left.length}건은 이름을 넣으면 저장됩니다` : ''}.`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
-    }
-  }
-  // 연결된 시트 탭의 기본 모양 맞추기(글꼴 맑은 고딕 8 · 열 폭 · 줄 높이 · 눈금선 -- 값과 색은 그대로)
-  async function applySheetStyle() {
-    if (!data?.spreadsheetId || data.sheetGid === null || data.local) return
-    if (isProtectedSheet(data.spreadsheetId)) return setError('운영 중인 팀 시트는 바꾸지 않습니다.')
-    if (
-      !(await askConfirm({
-        title: '탭 서식을 기본 모양으로',
-        message: `「${data.tabTitle}」 탭의 글꼴 · 글자 크기 · 열 폭 · 줄 높이를 기존 추진현황 기본 모양(맑은 고딕 8pt)으로 맞춥니다.\n값 · 색 · 굵게는 그대로입니다.`,
-        confirmLabel: '맞추기',
-        tone: 'accent',
-      }))
-    )
-      return
-    setSaving(true)
-    setError('')
-    try {
-      const lastRow = Math.max((data.headerRows?.sub ?? 1) + 1, ...data.rows.map((r) => r.row + 1))
-      await sheetBatchUpdate(data.spreadsheetId, sheetStyleRequests(data, data.sheetGid, lastRow))
-      setMessage(`「${data.tabTitle}」 탭 모양을 기본(맑은 고딕 8pt · 기존 열 폭 · 줄 높이)으로 맞췄습니다.`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '시트 모양을 바꾸지 못했습니다.')
-    } finally {
-      setSaving(false)
     }
   }
   // 이 브라우저에서 만든 연도 → 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 만들어 통째로 쓴다(관리자)
@@ -1260,10 +1236,27 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       .map((x) => `local:${x.data.tabTitle}`),
     ...(curProject?.data.local ? [`local:${curProject.data.tabTitle}`] : []),
   ]
-  const sheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
-  const allYears = [...localTabs, ...sheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
+  const allSheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
+  // 연도 메뉴에서 숨긴 탭(목록에서만 뺌). 지금 연결된 탭 · 보고 있는 탭은 숨기지 않는다.
+  const sheetFileId = (data && !data.local ? data.spreadsheetId : parkedSheet?.data.spreadsheetId) ?? null
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => readHiddenTabs(sheetFileId))
+  useEffect(() => setHiddenTabs(readHiddenTabs(sheetFileId)), [sheetFileId])
+  const hideTab = (t: string) => {
+    if (!sheetFileId) return
+    const next = Array.from(new Set([...hiddenTabs, t]))
+    setHiddenTabs(next)
+    writeHiddenTabs(sheetFileId, next)
+  }
+  const showHiddenTabs = () => {
+    if (!sheetFileId) return
+    setHiddenTabs([])
+    writeHiddenTabs(sheetFileId, [])
+  }
+  const allYears = [...localTabs, ...allSheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
+  const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
+  const hiddenCount = allSheetTabs.length - sheetTabs.length
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const yearMenuFooter = (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-1.5 text-[12px] text-label-2">
@@ -1276,13 +1269,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           시트 바꾸기
         </button>
       )}
-      {canManage && data?.spreadsheetId && !data.local && !archive && isSheetsApiConfigured() && (
-        <button
-          onClick={() => void applySheetStyle()}
-          className="w-full text-left font-medium text-label-2 hover:text-accent"
-          title="이 탭의 글꼴 · 크기 · 열 폭 · 줄 높이를 기존 추진현황 모양으로(값 · 색은 그대로)"
-        >
-          이 탭 서식을 기본 모양으로 맞추기
+      {hiddenCount > 0 && (
+        <button onClick={showHiddenTabs} className="w-full text-left font-medium text-label-2 hover:text-accent" title="목록에서 숨긴 연도를 다시 보입니다">
+          숨긴 연도 {hiddenCount}개 다시 보이기
         </button>
       )}
     </div>
@@ -1307,7 +1296,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const newYearDialog = newYearOpen && (
     <NewYearDialog
       defaultYear={allYears.length ? Math.max(...allYears) + 1 : now.getFullYear()}
-      taken={[...localTabs.map((t) => t.slice(6)), ...sheetTabs]}
+      taken={[...localTabs.map((t) => t.slice(6)), ...allSheetTabs]}
       inheritFrom={curProject?.data.tabTitle ?? null}
       onCreate={createYear}
       onClose={() => setNewYearOpen(false)}
@@ -1328,6 +1317,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             footer={yearMenuFooter}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
+            onHide={hideTab}
           />
         </MenuSlot>
         {newYearDialog}
@@ -1512,6 +1502,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           footer={yearMenuFooter}
           onDeleteLocal={(id) => void deleteLocal(id)}
           onOpenMenu={() => void refreshYearTabs()}
+          onHide={hideTab}
           localTabs={localTabs}
           onCreate={() => setNewYearOpen(true)}
         />
