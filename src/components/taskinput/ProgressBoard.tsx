@@ -1571,12 +1571,7 @@ export default function ProgressBoard() {
             </button>
           </span>
         ) : (
-          <Button
-            variant={editing ? 'primary' : 'secondary'}
-            size="sm"
-            onClick={() => setEditing((v) => !v)}
-            title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
-          >
+          <Button variant="primary" size="sm" onClick={() => setEditing((v) => !v)} title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)">
             <Pencil {...icSm} />
             {editing ? '입력 끝내기' : '입력하기'}
           </Button>

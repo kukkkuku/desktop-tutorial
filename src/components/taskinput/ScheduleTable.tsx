@@ -7,6 +7,7 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  ChevronDown,
   Italic,
   Strikethrough,
   ArrowDownToLine,
@@ -201,7 +202,9 @@ function CellEditor({
   onMoveRow,
   onExtend,
   onClearRange,
+  onPick,
 }: {
+  onPick?: () => void // 고르는 칸(분류 · 상태): Enter · F2 · 더블클릭이면 글자 입력 대신 칩 목록을 연다
   value: string
   kind: 'text' | 'memo' | 'date'
   list?: string
@@ -234,7 +237,10 @@ function CellEditor({
     ref.current?.focus({ preventScroll: mode === 'select' })
   }, [mode])
   useEffect(() => {
-    if (editSignal && !disabled) startEdit()
+    if (editSignal && !disabled) {
+      if (onPick) onPick()
+      else startEdit()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editSignal])
   function startEdit() {
@@ -277,6 +283,7 @@ function CellEditor({
       } else if (e.key === 'Enter' || e.key === 'F2') {
         e.preventDefault()
         if (e.key === 'Enter' && e.shiftKey) onMove(0, -1)
+        else if (onPick && !disabled) onPick()
         else startEdit()
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && (onClearRange || !disabled)) {
         e.preventDefault()
@@ -388,7 +395,9 @@ function FieldCell({
   span,
   onFillStart,
   fillPreview,
+  choices,
 }: {
+  choices?: string[] // 칩으로 고르는 칸(분류 · 상태)의 선택지
   f: FieldDef
   value: string
   fmt?: string
@@ -416,6 +425,9 @@ function FieldCell({
   onClearRange?: () => void
 }) {
   const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
+  const tdRef = useRef<HTMLTableCellElement>(null)
+  const [pickOpen, setPickOpen] = useState(false)
+  const canPick = !!choices && !disabled
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
   let display: React.ReactNode = f.kind === 'memo' ? value.trim() : value.replace(/\s*\n\s*/g, ' · ')
   if (f.id === 'status' && value) display = <span className={`${chip} ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
@@ -423,6 +435,7 @@ function FieldCell({
   else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
   return (
     <td
+      ref={tdRef}
       data-cell={cellId}
       rowSpan={span && span.r > 1 ? span.r : undefined}
       colSpan={span && span.c > 1 ? span.c : undefined}
@@ -450,6 +463,37 @@ function FieldCell({
       } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
+      {/* 칩으로 고르는 칸: 고르면 오른쪽에 ▾ (누르면 칩 목록) */}
+      {canPick && selected && (
+        <span
+          onMouseDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setPickOpen((v) => !v)
+          }}
+          className="absolute right-1 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-label-2 hover:bg-black/[0.06]"
+          title="골라서 넣기"
+        >
+          <ChevronDown size={13} strokeWidth={2.2} />
+        </span>
+      )}
+      {pickOpen && tdRef.current && choices && (
+        <ChipPicker
+          anchor={tdRef.current}
+          fieldId={f.id}
+          value={value}
+          choices={choices}
+          onPick={(v) => {
+            setPickOpen(false)
+            if (v !== value) onCommit(v)
+            requestAnimationFrame(() => (tdRef.current?.querySelector('input') as HTMLInputElement | null)?.focus({ preventScroll: true }))
+          }}
+          onClose={() => {
+            setPickOpen(false)
+            requestAnimationFrame(() => (tdRef.current?.querySelector('input') as HTMLInputElement | null)?.focus({ preventScroll: true }))
+          }}
+        />
+      )}
       <div
         className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'} ${rowH ? 'overflow-hidden' : ''}`}
         style={{ ...fmtStyle(fmt), ...(rowH && !(span && span.r > 1) ? { maxHeight: Math.max(12, rowH - 4) } : {}) }}
@@ -471,9 +515,86 @@ function FieldCell({
           onMoveRow={onMoveRow}
           onExtend={onExtend}
           onClearRange={onClearRange}
+          onPick={canPick ? () => setPickOpen(true) : undefined}
         />
       )}
     </td>
+  )
+}
+
+// 칩 드롭다운(성과관리 과제리스트와 같은 모양): 칸 아래에 칩 목록, 눌러 고르기 · 방향키 + Enter · Esc 닫기
+function chipTone(fieldId: string, v: string) {
+  return fieldId === 'status' ? (STATUS_TONE[v] ?? 'bg-black/[0.05] text-label-2') : categoryTone(v)
+}
+function ChipPicker({
+  anchor,
+  fieldId,
+  value,
+  choices,
+  onPick,
+  onClose,
+}: {
+  anchor: HTMLElement
+  fieldId: string
+  value: string
+  choices: string[]
+  onPick: (v: string) => void
+  onClose: () => void
+}) {
+  const [hi, setHi] = useState(() => Math.max(0, choices.indexOf(value)))
+  const ref = useRef<HTMLDivElement>(null)
+  const r = anchor.getBoundingClientRect()
+  const below = window.innerHeight - r.bottom > 120
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true })
+    const down = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && onClose()
+    window.addEventListener('mousedown', down)
+    return () => window.removeEventListener('mousedown', down)
+  }, [onClose])
+  return createPortal(
+    <div
+      ref={ref}
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') setHi((i) => Math.min(choices.length - 1, i + 1))
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') setHi((i) => Math.max(0, i - 1))
+        else if (e.key === 'Enter') onPick(choices[hi])
+        else if (e.key === 'Escape') onClose()
+        else return
+        e.preventDefault()
+      }}
+      style={{
+        position: 'fixed',
+        left: Math.min(r.left, window.innerWidth - 300),
+        ...(below ? { top: r.bottom + 4 } : { bottom: window.innerHeight - r.top + 4 }),
+      }}
+      className="z-50 flex max-w-[290px] flex-wrap gap-1.5 rounded-[12px] bg-white p-2 shadow-[0_4px_16px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.06)] outline-none"
+    >
+      {choices.map((c, i) => (
+        <button
+          key={c}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onPick(c)}
+          onMouseEnter={() => setHi(i)}
+          className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-semibold ${chipTone(fieldId, c)} ${
+            c === value ? 'ring-2 ring-accent' : i === hi ? 'ring-1 ring-black/25' : 'ring-1 ring-black/[0.08]'
+          }`}
+        >
+          {c}
+        </button>
+      ))}
+      {value && (
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onPick('')}
+          className="inline-flex items-center rounded-full px-2 py-[3px] text-[12px] text-label-3 ring-1 ring-black/[0.08] hover:text-label"
+          title="비우기"
+        >
+          비우기
+        </button>
+      )}
+    </div>,
+    document.body,
   )
 }
 
@@ -752,6 +873,9 @@ export default function ScheduleTable({
     )
   }
   const cols = fields.filter((f) => f.id !== 'name')
+  // 분류 · 상태는 칩으로 고른다(시트 선택지 + 시트에 있는 값)
+  const choicesOf = (f: FieldDef): string[] | undefined =>
+    f.id === 'status' || f.id === 'category' ? Array.from(new Set([...(f.options ?? []), ...(optionsOf?.(f) ?? [])])).filter(Boolean) : undefined
   // 전체 펴기 = 주 칸, 줄여보기 = 계획·실적 요약 한 칸, 숨기기 = 일정 열 없음
   const scheduleOpen = scheduleMode === 'full'
   const showSummary = scheduleMode === 'compact'
@@ -1989,6 +2113,7 @@ export default function ScheduleTable({
                           f={f}
                           value={v.vals[f.id] ?? ''}
                           fmt={v.fmt?.[f.id]}
+                          choices={choicesOf(f)}
                           bg={v.bg[f.id] ?? ''}
                           note={v.notes[f.id] ?? ''}
                           edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
