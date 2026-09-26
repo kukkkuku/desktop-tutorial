@@ -29,7 +29,7 @@ export function sheetToData(parsed: ParsedSheet, raw: RawSheet, meta: Meta): Pro
     // 입력 열(L3 제외)끼리의 병합만(머리글 아래)
     fieldMerges: raw.merges.filter((m) => {
       if (m.r1 < parsed.header.dataStartRow) return false
-      const inside = fields.filter((f) => f.id !== 'name' && f.col >= m.c1 && f.col <= m.c2)
+      const inside = fields.filter((f) => f.col >= m.c1 && f.col <= m.c2)
       return inside.length === m.c2 - m.c1 + 1
     }),
   }
@@ -127,7 +127,7 @@ export function materialize(data: ProgressData, drafts: Drafts, l1s: string[]): 
   // 엑셀 열 순서(내보내기와 같게): 시트 열 위치 순
   type C = { src: number; id: string | null }
   const colsOrder: C[] = [
-    ...Object.values(data.levelCols ?? {}).map((src) => ({ src, id: null })),
+    ...Object.entries(data.levelCols ?? {}).map(([lv, src]) => ({ src, id: lv === 'l2' ? 'lvl:l2' : null })),
     ...eff.fields.map((f) => ({ src: f.col, id: f.id })),
     ...data.weekCols.map((w) => ({ src: w.col, id: null })),
   ].sort((a, b) => a.src - b.src)

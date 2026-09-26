@@ -108,7 +108,7 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
@@ -1147,7 +1147,7 @@ export default function ProgressBoard() {
     const vals: Record<string, string> = {}
     for (const id of fieldIds) vals[id] = effectiveField(row, e, id)
     const bg: Record<string, string> = {}
-    for (const id of fieldIds) {
+    for (const id of [...fieldIds, L2_KEY]) {
       const hex = effectiveBg(row, e, id)
       if (hex) bg[id] = hex
     }

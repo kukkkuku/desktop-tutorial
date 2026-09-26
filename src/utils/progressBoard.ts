@@ -178,6 +178,9 @@ export function effectiveFields(fields: FieldDef[], headerStyle: HeaderStyle | u
   return { fields: list, headerStyle: hs }
 }
 
+// 구분(L2) 칸의 색 · 서식을 묶음 첫 행의 bg · fmt에 두는 키(열 id 대신)
+export const LEVEL_KEY_L2 = 'lvl:l2'
+
 // 입력 열 칸 병합: 행 키(위→아래) × 열 id(왼→오른). L3(name)은 병합하지 않는다.
 export interface CellMerge {
   rows: string[]
@@ -204,7 +207,7 @@ export function baseMerges(data: ProgressData): CellMerge[] {
       if (k) rows.push(k)
     }
     const ids = data.fields
-      .filter((f) => f.id !== 'name' && f.col >= m.c1 && f.col <= m.c2)
+      .filter((f) => f.col >= m.c1 && f.col <= m.c2)
       .sort((a, b) => a.col - b.col)
       .map((f) => f.id)
     if (rows.length && ids.length && rows.length * ids.length > 1) out.push({ rows, ids, src: m })
@@ -335,6 +338,13 @@ export function toProgressRows(
     for (const [lv, col] of Object.entries(levelCols) as [Level, number][]) {
       const t = cellText(raw?.rows[r.row]?.[col])
       if (t.trim()) labels[lv] = t
+    }
+    // 구분(L2) 칸 색 · 서식: 이름이 적힌(묶음 맨 위) 칸에서 읽는다
+    if (labels.l2 && levelCols.l2 !== undefined) {
+      const hex = raw?.fills?.[r.row]?.[levelCols.l2]
+      if (hex && hex !== 'FFFFFF') bg[LEVEL_KEY_L2] = hex
+      const t = raw?.fmts?.[r.row]?.[levelCols.l2]
+      if (t) fmt[LEVEL_KEY_L2] = t
     }
     return {
       key: rowKeyOf(r.l2, r.l3, n),
@@ -803,13 +813,13 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       writes.push({ row: fr.row, col: f.col, ...fieldWrite(f, value) })
     }
     for (const [id, hex] of Object.entries(e.bg ?? {})) {
-      const f = fieldById.get(id)
-      if (!f || (fr.bg[id] ?? '') !== (b.bg[id] ?? '')) {
+      const col = fieldById.get(id)?.col ?? (id === LEVEL_KEY_L2 ? fresh.levelCols?.l2 : undefined)
+      if (col === undefined || (fr.bg[id] ?? '') !== (b.bg[id] ?? '')) {
         keep.bg = { ...(keep.bg ?? {}), [id]: hex }
         conflicts++
         continue
       }
-      writes.push({ row: fr.row, col: f.col, fill: hex || null })
+      writes.push({ row: fr.row, col, fill: hex || null })
     }
     for (const [k, note] of Object.entries(e.notes ?? {})) {
       const col = fieldById.get(k)?.col ?? weekCol.get(k)
@@ -821,13 +831,13 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
       writes.push({ row: fr.row, col, note })
     }
     for (const [id, v] of Object.entries(e.fmt ?? {})) {
-      const f = fieldById.get(id)
-      if (!f || (fr.fmt?.[id] ?? '') !== (b.fmt?.[id] ?? '')) {
+      const col = fieldById.get(id)?.col ?? (id === LEVEL_KEY_L2 ? fresh.levelCols?.l2 : undefined)
+      if (col === undefined || (fr.fmt?.[id] ?? '') !== (b.fmt?.[id] ?? '')) {
         keep.fmt = { ...(keep.fmt ?? {}), [id]: v }
         conflicts++
         continue
       }
-      writes.push({ row: fr.row, col: f.col, fmt: parseFmt(v) })
+      writes.push({ row: fr.row, col, fmt: parseFmt(v) })
     }
     if (keep.cells || keep.fields || keep.bg || keep.notes || keep.fmt) kept.edits[key] = keep
   }

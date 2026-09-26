@@ -133,6 +133,20 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
         if (!prev || chain(prev, c.level) !== chain(row, c.level)) {
           cell.value = labelOf(row, c.level)
           cell.font = { size: 10, bold: true }
+          if (c.level === 'l2') {
+            // 구분(L2) 칸 색 · 서식
+            const e2 = row.isNew ? undefined : drafts.edits[row.key]
+            const hex = effectiveBg(row, e2, 'lvl:l2')
+            if (hex) cell.fill = fill(hex)
+            const fm = parseFmt(effectiveFmt(row, e2, 'lvl:l2'))
+            cell.font = {
+              size: fm.s ?? 10,
+              bold: true,
+              ...(fm.i ? { italic: true } : {}),
+              ...(fm.x ? { strike: true } : {}),
+              ...(fm.c ? { color: { argb: `FF${fm.c}` } } : {}),
+            }
+          }
           cell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true }
           spanStart[`${i}`] = y
         }
