@@ -9,14 +9,9 @@ import { useTeamProfile } from '../../state/TeamContext'
 import { YEAR_WEIGHTS_BY_TENURE, findPromotionCriteria, resolveReviewYear, reviewKindOf, reviewWindow, trendArrow, yearScoreParts } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import { icSm } from '../ui/icon'
+import Select from '../ui/Select'
 
-const GRADE_TEXT: Record<EvaluationGrade, string> = {
-  S: 'text-accent',
-  A: 'text-success',
-  B: 'text-label',
-  C: 'text-warning',
-  D: 'text-danger',
-}
+const GRADE_TEXT: Record<EvaluationGrade, string> = { S: 'text-accent', A: 'text-success', B: 'text-label', C: 'text-warning', D: 'text-danger' }
 
 const GRADE_KEYS = [
   { key: 'firstHalfGrade', label: '업적(상)' },
@@ -42,9 +37,7 @@ type AuxKey = (typeof AUX_KEYS)[number]['key']
 export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember }) {
   const { dispatch } = useAppState()
   const { profile, upsertAppraisal, deleteAppraisal } = useTeamProfile()
-  const records = profile.hrAppraisals
-    .filter((r) => r.memberId === member.id)
-    .sort((a, b) => a.year - b.year)
+  const records = profile.hrAppraisals.filter((r) => r.memberId === member.id).sort((a, b) => a.year - b.year)
 
   const criteria = findPromotionCriteria(member.level, profile.promotionCriteria)
   const levelTenureYears = calcYearsSince(member.currentLevelSince)
@@ -75,7 +68,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   // 가중합: 최근 연도부터 체류연한별 가중치(150%·125%…)를 곱한다. 기록 없는 해는 입력된 해의
   // 평균(평년 실적)으로 채운 예상값 -- 상단 "최종 시뮬레이션 점수"와 같은 계산(calcAnchoredWeightedScore).
-  const weights = criteria ? YEAR_WEIGHTS_BY_TENURE[criteria.tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5] : []
+  const weights = criteria ? (YEAR_WEIGHTS_BY_TENURE[criteria.tenureYears] ?? YEAR_WEIGHTS_BY_TENURE[5]) : []
   let achTotal = 0
   let compTotal = 0
   const rowInfo = new Map<number, { weight: number; weighted: number; predicted: boolean }>()
@@ -150,16 +143,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   </td>
                   {GRADE_KEYS.map(({ key, label }) => (
                     <td key={key} className="px-1 py-1.5 text-center">
-                      <select
+                      <Select
                         aria-label={`${year} ${label}`}
                         value={r?.[key] ?? ''}
                         onChange={(e) => setGrade(year, key, e.target.value as EvaluationGrade | '')}
                         title={year === halfOnlyYear && key !== 'firstHalfGrade' ? '9월 특별심사에서는 이 해의 상반기 업적만 반영합니다' : undefined}
                         className={`h-8 w-full max-w-[64px] rounded-control border border-hairline !pl-2 !pr-5 text-center text-[13px] font-medium ${
                           year === halfOnlyYear && key !== 'firstHalfGrade' ? 'opacity-40' : ''
-                        } ${
-                          r?.[key] ? GRADE_TEXT[r[key] as EvaluationGrade] : 'text-label-3'
-                        }`}
+                        } ${r?.[key] ? GRADE_TEXT[r[key] as EvaluationGrade] : 'text-label-3'}`}
                       >
                         <option value="">-</option>
                         {PERFORMANCE_GRADE_OPTIONS.map((g) => (
@@ -167,7 +158,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                             {g}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </td>
                   ))}
                   <td className="px-2 py-1.5 text-right tabular-nums">
@@ -228,7 +219,6 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
           <span className="text-label-2">역량</span> {competencyTrend}
         </div>
       )}
-
     </div>
   )
 }

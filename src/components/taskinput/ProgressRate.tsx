@@ -17,6 +17,7 @@ import { effectiveCells, effectiveField, planRange, type Drafts, type ProgressDa
 import { exportRows } from '../../utils/progressExport'
 import { accountScope } from '../../utils/accountScope'
 import { icSm } from '../ui/icon'
+import Select from '../ui/Select'
 
 export type Metric = 'plan' | 'startPlan' | 'startDone' | 'doing' | 'endPlan' | 'endDone' | 'general'
 const METRIC_LABEL: Record<Metric, string> = {
@@ -240,13 +241,13 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
         <span className="text-[12px] text-label-3">추진현황 일정 칸에서 자동으로 셉니다 · 숫자는 더블클릭으로 고칠 수 있음</span>
         <label className="ml-auto flex items-center gap-1.5 text-[13px] text-label-2">
           기준 주
-          <select value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-8 rounded-control border border-hairline px-2 text-[13px] text-label">
+          <Select value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-8 rounded-control border border-hairline px-2 text-[13px] text-label">
             {weekCols.map((w) => (
               <option key={w.key} value={w.key}>
                 {w.month}월 {w.week}주{w.key === asOfDefault ? ' (이번 주)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {Object.keys(over).length > 0 && (
           <Button variant="secondary" size="sm" onClick={() => setOver({})} title="고친 숫자를 모두 자동값으로">

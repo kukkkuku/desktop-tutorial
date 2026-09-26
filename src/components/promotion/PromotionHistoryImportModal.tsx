@@ -3,14 +3,11 @@ import { Check, X } from 'lucide-react'
 import type { TeamMember } from '../../types'
 import { useAppState } from '../../state/AppContext'
 import { matchToMembers, parsePromotionHistoryWorkbook, type PromotionImportMatch } from '../../utils/promotionImport'
-import {
-  resolveMatchedMember,
-  useApplyPromotionHistory,
-  type PromotionManualPicks,
-} from '../../hooks/useApplyPromotionHistory'
+import { resolveMatchedMember, useApplyPromotionHistory, type PromotionManualPicks } from '../../hooks/useApplyPromotionHistory'
 import Spinner from '../Spinner'
 import IconButton from '../IconButton'
 import { ic } from '../ui/icon'
+import Select from '../ui/Select'
 
 // 적용 완료 후 이 시간(ms) 뒤 자동으로 onApplied를 부른다. 초록 버튼을 한 번
 // 더 눌러야 다음으로 넘어가는 구조였는데, 스크롤에 가려 그 버튼을 못 보고
@@ -113,8 +110,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
         <div>
           <h3 className="text-[15px] font-semibold text-label">인사평가 이력 엑셀로 가져오기</h3>
           <p className="mt-1 text-[13px] text-label-2">
-            승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어,
-            이름이 일치하는 현재 팀원에게 바로 적용합니다.
+            승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어, 이름이 일치하는 현재 팀원에게 바로 적용합니다.
           </p>
         </div>
         <IconButton onClick={onDismiss} aria-label="닫기" className="shrink-0">
@@ -122,132 +118,122 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
         </IconButton>
       </div>
 
-        {!matches && (
-          <label
-            onDragOver={(e) => {
-              e.preventDefault()
-              setDragActive(true)
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={(e) => {
-              e.preventDefault()
-              setDragActive(false)
-              const f = e.dataTransfer.files?.[0]
+      {!matches && (
+        <label
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragActive(true)
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragActive(false)
+            const f = e.dataTransfer.files?.[0]
+            if (f) handleFile(f)
+          }}
+          className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-4 py-8 text-center transition-colors ${
+            dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent/50'
+          }`}
+        >
+          {loading ? (
+            <Spinner className="h-6 w-6 text-accent" />
+          ) : (
+            <>
+              <span className="text-[13px] font-medium text-label">{dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}</span>
+              <span className="text-[13px] text-label-3">.xlsx</span>
+            </>
+          )}
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            disabled={loading}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
               if (f) handleFile(f)
             }}
-            className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-card border-2 border-dashed px-4 py-8 text-center transition-colors ${
-              dragActive ? 'border-accent bg-accent-soft' : 'border-separator hover:border-accent/50'
-            }`}
-          >
-            {loading ? (
-              <Spinner className="h-6 w-6 text-accent" />
-            ) : (
-              <>
-                <span className="text-[13px] font-medium text-label">
-                  {dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}
-                </span>
-                <span className="text-[13px] text-label-3">.xlsx</span>
-              </>
-            )}
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              disabled={loading}
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) handleFile(f)
+          />
+        </label>
+      )}
+
+      {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
+
+      {matches && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-2 text-[13px] text-label-2">
+            <span>{fileName}</span>
+            <button
+              onClick={() => {
+                setMatches(null)
+                setApplied(null)
               }}
-            />
-          </label>
-        )}
+              className="text-accent hover:underline"
+            >
+              다른 파일 선택
+            </button>
+          </div>
 
-        {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
-
-        {matches && (
-          <div className="mt-4">
-            <div className="flex items-center justify-between gap-2 text-[13px] text-label-2">
-              <span>{fileName}</span>
-              <button
-                onClick={() => {
-                  setMatches(null)
-                  setApplied(null)
-                }}
-                className="text-accent hover:underline"
-              >
-                다른 파일 선택
-              </button>
-            </div>
-
-            {/* 매칭은 이름 기준 자동 처리라 뺄 수 있는 항목이 없다(동명이인일
+          {/* 매칭은 이름 기준 자동 처리라 뺄 수 있는 항목이 없다(동명이인일
                 때만 고르면 됨) -- 시트명은 거의 항상 이름과 같아 별도
                 컬럼으로 반복할 필요가 없다. 표 대신 한 줄짜리 리스트로
                 압축해 자리를 덜 차지하게 했다. */}
-            <ul className="mt-3 divide-y divide-separator rounded-card border border-separator">
-              {matches.map(({ sheet, member, candidates }, index) => (
-                <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-label">
-                  <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
-                  <span className="shrink-0">
-                    {member ? (
-                      <span className="mac-badge bg-success/15 text-success">연결됨</span>
-                    ) : candidates.length > 1 ? (
-                      <select
-                        value={manualPicks[index] ?? ''}
-                        onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                        className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
-                      >
-                        <option value="">동명이인 {candidates.length}명 -- 선택</option>
-                        {candidates.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({c.role || c.level || '역할 미지정'})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-[13px] text-label-3">매칭 안 됨</span>
-                    )}
-                  </span>
-                  <span className="w-14 shrink-0 text-right text-[13px] text-label-3">{sheet.years.length}개 연도</span>
-                </li>
-              ))}
-            </ul>
+          <ul className="mt-3 divide-y divide-separator rounded-card border border-separator">
+            {matches.map(({ sheet, member, candidates }, index) => (
+              <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[13px] text-label">
+                <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
+                <span className="shrink-0">
+                  {member ? (
+                    <span className="mac-badge bg-success/15 text-success">연결됨</span>
+                  ) : candidates.length > 1 ? (
+                    <Select
+                      value={manualPicks[index] ?? ''}
+                      onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
+                      className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
+                    >
+                      <option value="">동명이인 {candidates.length}명 -- 선택</option>
+                      {candidates.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.role || c.level || '역할 미지정'})
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <span className="text-[13px] text-label-3">매칭 안 됨</span>
+                  )}
+                </span>
+                <span className="w-14 shrink-0 text-right text-[13px] text-label-3">{sheet.years.length}개 연도</span>
+              </li>
+            ))}
+          </ul>
 
-            <label className="mt-3 flex items-center gap-2 text-[13px] text-label-2">
-              <input
-                type="checkbox"
-                checked={applyHireDate}
-                onChange={(e) => setApplyHireDate(e.target.checked)}
-              />
-              입사일 · 승급일 · 보조지표도 함께 적용 (팀원 상세정보에 해당 값이 비어있는 경우만)
-            </label>
+          <label className="mt-3 flex items-center gap-2 text-[13px] text-label-2">
+            <input type="checkbox" checked={applyHireDate} onChange={(e) => setApplyHireDate(e.target.checked)} />
+            입사일 · 승급일 · 보조지표도 함께 적용 (팀원 상세정보에 해당 값이 비어있는 경우만)
+          </label>
 
-            {matchedCount === 0 ? (
-              <p className="mt-3 text-[13px] text-label-3">
-                매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={applied ? onApplied : handleApply}
-                className={`mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-control text-[13px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-colors ${
-                  applied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
-                }`}
-              >
-                {applied && (
-                  <Check {...ic} className="shrink-0" />
-                )}
-                {applied ? '적용 완료' : `${matchedCount}명에게 적용`}
-              </button>
-            )}
+          {matchedCount === 0 ? (
+            <p className="mt-3 text-[13px] text-label-3">매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.</p>
+          ) : (
+            <button
+              type="button"
+              onClick={applied ? onApplied : handleApply}
+              className={`mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-control text-[13px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-colors ${
+                applied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
+              }`}
+            >
+              {applied && <Check {...ic} className="shrink-0" />}
+              {applied ? '적용 완료' : `${matchedCount}명에게 적용`}
+            </button>
+          )}
 
-            {applied && (
-              <p className="mt-3 rounded-card bg-success/10 px-3 py-2.5 text-[13px] text-success">
-                {applied.memberCount}명, {applied.yearCount}개 연도 기록을 적용했습니다.
-                {applied.skipped > 0 && ` (매칭 안 된 ${applied.skipped}명은 건너뜀)`}
-              </p>
-            )}
-          </div>
-        )}
+          {applied && (
+            <p className="mt-3 rounded-card bg-success/10 px-3 py-2.5 text-[13px] text-success">
+              {applied.memberCount}명, {applied.yearCount}개 연도 기록을 적용했습니다.
+              {applied.skipped > 0 && ` (매칭 안 된 ${applied.skipped}명은 건너뜀)`}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

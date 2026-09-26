@@ -7,6 +7,7 @@ import Button from './Button'
 import IconButton from './IconButton'
 import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
+import Select from './ui/Select'
 
 interface EvaluationPeriodPickerProps {
   teamName: string
@@ -26,7 +27,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
   const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
   const [year, setYear] = useState<number>(mostRecent?.evaluationYear ?? new Date().getFullYear())
   const [periodCode, setPeriodCode] = useState<string>(mostRecent?.evaluationPeriodCode ?? periodOptionsForCycle(cycle)[0]?.code ?? '')
-  const [customLabel, setCustomLabel] = useState<string>(cycle === 'custom' ? mostRecent?.periodName ?? '' : '')
+  const [customLabel, setCustomLabel] = useState<string>(cycle === 'custom' ? (mostRecent?.periodName ?? '') : '')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
   // 팀원/과제 복사 여부 -- 이 팀에 이미 다른 기간이 있을 때만 의미가 있다.
@@ -46,10 +47,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
   const yearsWithData = useMemo(() => new Set(teamWorkspaces.map((w) => w.evaluationYear)), [teamWorkspaces])
 
   const fixedOptions = periodOptionsForCycle(cycle)
-  const customWorkspacesForTeam = useMemo(
-    () => teamWorkspaces.filter((w) => w.evaluationCycle === 'custom'),
-    [teamWorkspaces],
-  )
+  const customWorkspacesForTeam = useMemo(() => teamWorkspaces.filter((w) => w.evaluationCycle === 'custom'), [teamWorkspaces])
 
   function handleCycleChange(next: EvaluationCycle) {
     setCycle(next)
@@ -63,8 +61,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
   }
 
   const effectivePeriodCode = cycle === 'custom' ? customPeriodCode(customLabel) : periodCode
-  const effectiveLabel =
-    cycle === 'custom' ? customLabel.trim() : fixedOptions.find((o) => o.code === periodCode)?.label ?? ''
+  const effectiveLabel = cycle === 'custom' ? customLabel.trim() : (fixedOptions.find((o) => o.code === periodCode)?.label ?? '')
 
   const matched = effectivePeriodCode ? findWorkspace(teamWorkspaces, teamName, year, cycle, effectivePeriodCode) : null
   const canSubmit = cycle !== 'custom' ? Boolean(periodCode) : customLabel.trim().length > 0
@@ -96,7 +93,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
             className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
           />
         ) : (
-          <select
+          <Select
             value={periodCode}
             onChange={(e) => setPeriodCode(e.target.value)}
             className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
@@ -106,7 +103,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
                 {o.label}
               </option>
             ))}
-          </select>
+          </Select>
         )}
 
         <div className="relative shrink-0" ref={settingsRef}>
@@ -117,11 +114,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
             <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-44 py-1">
               <p className="px-3.5 py-1 text-[13px] font-semibold text-label-3">평가 주기</p>
               {(['half', 'quarter', 'month', 'custom'] as EvaluationCycle[]).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => handleCycleChange(c)}
-                  className="mac-menu-item"
-                >
+                <button key={c} onClick={() => handleCycleChange(c)} className="mac-menu-item">
                   <Check {...icSm} className={cycle === c ? '' : 'invisible'} />
                   {CYCLE_LABELS[c]}
                 </button>
@@ -173,21 +166,11 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
               <div className="mt-3 space-y-1.5 border-t border-separator pt-3">
                 <p className="text-[13px] font-semibold text-label-3">'{mostRecent.periodName}'에서 가져오기</p>
                 <label className="flex items-center gap-2 text-[13px] text-label">
-                  <input
-                    type="checkbox"
-                    checked={copyMembers}
-                    onChange={(e) => setCopyMembers(e.target.checked)}
-                    
-                  />
+                  <input type="checkbox" checked={copyMembers} onChange={(e) => setCopyMembers(e.target.checked)} />
                   팀원 정보 복사
                 </label>
                 <label className="flex items-center gap-2 text-[13px] text-label">
-                  <input
-                    type="checkbox"
-                    checked={copyTaskNames}
-                    onChange={(e) => setCopyTaskNames(e.target.checked)}
-                    
-                  />
+                  <input type="checkbox" checked={copyTaskNames} onChange={(e) => setCopyTaskNames(e.target.checked)} />
                   과제명 복사 (등급·목표·성과는 새로 입력)
                 </label>
               </div>

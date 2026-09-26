@@ -121,6 +121,7 @@ import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
+import Select from '../ui/Select'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
 type Period = { start: number; months: number }
@@ -2056,7 +2057,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
                     <span className="font-semibold text-label-2">보낼 곳</span>
                     {workspaces.length > 0 ? (
-                      <select
+                      <Select
                         value={target}
                         onChange={(e) => setExportTo(e.target.value)}
                         aria-label="보낼 성과관리 프로젝트"
@@ -2068,7 +2069,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                             {w.id === currentWorkspaceId ? ' (지금 열린 프로젝트)' : ''}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     ) : (
                       <span className="text-label-2">
                         성과관리에 아직 프로젝트(팀 · 평가기간)가 없습니다.{' '}

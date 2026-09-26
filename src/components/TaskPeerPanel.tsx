@@ -23,6 +23,7 @@ import Button from './Button'
 import Spinner from './Spinner'
 import { Download, Upload, X } from 'lucide-react'
 import { icSm } from './ui/icon'
+import Select from './ui/Select'
 
 export default function TaskPeerPanel() {
   const { state, dispatch } = useAppState()
@@ -283,7 +284,7 @@ export default function TaskPeerPanel() {
                                 </td>
                                 <td className="px-3 py-2">
                                   {isRank ? (
-                                    <select
+                                    <Select
                                       value={e?.value ?? ''}
                                       onChange={(ev) => patchRank(g.taskId, p.id, ev.target.value === '' ? null : Number(ev.target.value))}
                                       className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px]"
@@ -299,7 +300,7 @@ export default function TaskPeerPanel() {
                                           </option>
                                         )
                                       })}
-                                    </select>
+                                    </Select>
                                   ) : (
                                     <input
                                       type="number"

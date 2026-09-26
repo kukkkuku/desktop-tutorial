@@ -6,6 +6,7 @@ import type { Criteria, Task, TeamMember } from '../types'
 import { Check } from 'lucide-react'
 import Button from './Button'
 import { ic } from './ui/icon'
+import Select from './ui/Select'
 
 interface ImportFromPreviousPanelProps {
   teamName: string
@@ -59,10 +60,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
   const [sourceTeam, setSourceTeam] = useState(teamName)
 
   const periodCandidates = useMemo(
-    () =>
-      workspaces
-        .filter((w) => w.teamName === sourceTeam && w.id !== currentWorkspaceId)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    () => workspaces.filter((w) => w.teamName === sourceTeam && w.id !== currentWorkspaceId).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [workspaces, sourceTeam, currentWorkspaceId],
   )
   const [sourceId, setSourceId] = useState(periodCandidates[0]?.id ?? '')
@@ -75,10 +73,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceTeam, periodCandidates])
 
-  const sourceState = useMemo<SourceState>(
-    () => (sourceId ? readSourceState(sourceId) : { tasks: [], members: [], criteria: null }),
-    [sourceId],
-  )
+  const sourceState = useMemo<SourceState>(() => (sourceId ? readSourceState(sourceId) : { tasks: [], members: [], criteria: null }), [sourceId])
 
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
@@ -126,15 +121,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
 
     const tasksToAdd: Task[] = sourceState.tasks
       .filter((t) => selectedTaskIds.has(t.id))
-      .map((t) => ({
-        id: uuidv4(),
-        name: t.name,
-        importance: '일반',
-        workload: '중',
-        objective: '',
-        achievement: '',
-        performanceGrade: 'B',
-      }))
+      .map((t) => ({ id: uuidv4(), name: t.name, importance: '일반', workload: '중', objective: '', achievement: '', performanceGrade: 'B' }))
     for (const task of tasksToAdd) {
       dispatch({ type: 'ADD_TASK', payload: task })
     }
@@ -157,7 +144,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
           <label className="block text-[13px] font-medium text-label-2">팀</label>
-          <select
+          <Select
             value={sourceTeam}
             onChange={(e) => setSourceTeam(e.target.value)}
             className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-label"
@@ -167,11 +154,11 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 {t}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div>
           <label className="block text-[13px] font-medium text-label-2">평가기간</label>
-          <select
+          <Select
             value={sourceId}
             onChange={(e) => setSourceId(e.target.value)}
             disabled={periodCandidates.length === 0}
@@ -186,7 +173,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 </option>
               ))
             )}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -213,11 +200,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 ) : (
                   sourceState.tasks.map((t) => (
                     <label key={t.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.03]">
-                      <input
-                        type="checkbox"
-                        checked={selectedTaskIds.has(t.id)}
-                        onChange={() => toggleTask(t.id)}
-                      />
+                      <input type="checkbox" checked={selectedTaskIds.has(t.id)} onChange={() => toggleTask(t.id)} />
                       {t.name}
                     </label>
                   ))
@@ -243,11 +226,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 ) : (
                   sourceState.members.map((m) => (
                     <label key={m.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[13px] text-label hover:bg-black/[0.03]">
-                      <input
-                        type="checkbox"
-                        checked={selectedMemberIds.has(m.id)}
-                        onChange={() => toggleMember(m.id)}
-                      />
+                      <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => toggleMember(m.id)} />
                       {m.name}
                     </label>
                   ))
@@ -281,9 +260,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                   justApplied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
                 } ${pulsing ? 'scale-110' : 'scale-100'}`}
               >
-                {justApplied && (
-                  <Check {...ic} className="shrink-0" />
-                )}
+                {justApplied && <Check {...ic} className="shrink-0" />}
                 {justApplied ? '데이터 적용하여 빠르게 시작하기' : '선택 항목 가져오기'}
               </button>
             </div>

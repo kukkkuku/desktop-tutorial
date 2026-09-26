@@ -122,6 +122,35 @@ body {
     background-color: #f5f5f7;
     color: #aeaeb2;
   }
+  /* 앱 드롭다운(ui/Select) 단추: 기본 select와 같은 모양 · 목록은 .mac-pop 메뉴로 뜬다 */
+  .mac-select {
+    display: inline-flex;
+    align-items: center;
+    border-width: 1px;
+    border-radius: 6px;
+    border-color: var(--hairline);
+    background-color: #fff;
+    color: var(--label);
+    text-align: left;
+    white-space: nowrap;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14' fill='none' stroke='%236e6e73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5l3-3 3 3M2 9l3 3 3-3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 9px 13px;
+    padding-right: 26px !important;
+    transition: box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+  .mac-select:focus-visible,
+  .mac-select[aria-expanded='true'] {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+  }
+  .mac-select:disabled {
+    cursor: not-allowed;
+    background-color: #f5f5f7;
+    color: #aeaeb2;
+  }
   input[type='checkbox'],
   input[type='radio'] {
     accent-color: var(--accent);
@@ -144,9 +173,9 @@ body {
   .mac-pop {
     @apply rounded-pop bg-white/95 shadow-pop backdrop-blur-xl;
   }
-  /* 메뉴 한 줄: 마우스를 올리면 파랗게(macOS 메뉴) */
+  /* 메뉴 한 줄: 마우스를 올리면 옅은 회색(#EFEFEF) */
   .mac-menu-item {
-    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[5px] px-2.5 py-[5px] text-left text-[13px] text-label hover:bg-[#EAF6EC] disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
+    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[5px] px-2.5 py-[5px] text-left text-[13px] text-label hover:bg-[#EFEFEF] disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
   }
   .mac-menu-item-danger {
     @apply text-danger hover:bg-danger/10;

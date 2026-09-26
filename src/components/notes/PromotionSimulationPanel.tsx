@@ -4,6 +4,7 @@ import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { findPromotionCriteria } from '../../utils/promotion'
 import HRAppraisalHistoryPanel from './HRAppraisalHistoryPanel'
+import Select from '../ui/Select'
 
 // 성장 시뮬레이션 -- 현재→예상 점수 결과는 이 패널이 아니라 상위
 // (MemberGrowthDetail)의 요약카드에서 보여준다(가장 중요한 숫자라
@@ -32,7 +33,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
         </p>
         <label className="mt-3 flex items-center gap-2 text-[13px] text-label-2">
           직급
-          <select
+          <Select
             value={member.level}
             onChange={(e) => dispatch({ type: 'UPDATE_MEMBER', payload: { ...member, level: e.target.value as Level | '' } })}
             className="h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
@@ -43,7 +44,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
                 {l}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
     )

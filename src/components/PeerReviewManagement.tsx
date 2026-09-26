@@ -13,6 +13,7 @@ import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import { detectWorkbookKind, downloadCurrentPeerReviewsExcel, downloadPeerReviewTemplate, parsePeerReviewWorkbook, type WorkbookKind } from '../utils/excel'
 import { downloadPeerReviewsPdf } from '../utils/pdfReports'
 import Button from './Button'
+import Select from './ui/Select'
 
 interface DraftRow {
   contributionPercent: string
@@ -20,11 +21,7 @@ interface DraftRow {
   comment: string
 }
 
-const WORKBOOK_KIND_LABEL: Record<Exclude<WorkbookKind, 'peer'>, string> = {
-  task: '과제',
-  member: '팀원',
-  history: '이전 성과',
-}
+const WORKBOOK_KIND_LABEL: Record<Exclude<WorkbookKind, 'peer'>, string> = { task: '과제', member: '팀원', history: '이전 성과' }
 const WORKBOOK_KIND_UPLOAD_HINT: Record<Exclude<WorkbookKind, 'peer'>, string> = {
   task: '과제관리 탭',
   member: '팀원관리 탭',
@@ -58,9 +55,7 @@ export default function PeerReviewManagement() {
   useEffect(() => {
     const next: Record<string, DraftRow> = {}
     for (const m of activeMembers) {
-      const existing = peerReviews.find(
-        (r) => r.taskId === selectedTaskId && r.reviewerMemberId === reviewerId && r.targetMemberId === m.id,
-      )
+      const existing = peerReviews.find((r) => r.taskId === selectedTaskId && r.reviewerMemberId === reviewerId && r.targetMemberId === m.id)
       next[m.id] = existing
         ? { contributionPercent: String(existing.contributionPercent ?? ''), grade: existing.grade, comment: existing.comment ?? '' }
         : { contributionPercent: '', grade: 'B', comment: '' }
@@ -79,9 +74,7 @@ export default function PeerReviewManagement() {
     for (const m of activeMembers) {
       const draft = drafts[m.id]
       const pct = draft ? Number(draft.contributionPercent) : NaN
-      const existing = peerReviews.find(
-        (r) => r.taskId === selectedTaskId && r.reviewerMemberId === reviewerId && r.targetMemberId === m.id,
-      )
+      const existing = peerReviews.find((r) => r.taskId === selectedTaskId && r.reviewerMemberId === reviewerId && r.targetMemberId === m.id)
       // 기여도를 비워두면 "이 사람과는 같이 일 안 했다"는 뜻으로 보고
       // 건너뛴다(리뷰를 만들지 않음). 이미 있던 리뷰는 지운다.
       if (!draft || draft.contributionPercent.trim() === '' || Number.isNaN(pct) || pct <= 0) {
@@ -122,7 +115,9 @@ export default function PeerReviewManagement() {
       // 어디서 올려야 하는지 바로 알려준다.
       const kind = detectWorkbookKind(buffer)
       if (kind && kind !== 'peer') {
-        errors.push(`[${file.name}] ${WORKBOOK_KIND_LABEL[kind]} 양식입니다. 여기서는 피어리뷰 파일만 올릴 수 있어요 -- ${WORKBOOK_KIND_UPLOAD_HINT[kind]}에서 올려주세요.`)
+        errors.push(
+          `[${file.name}] ${WORKBOOK_KIND_LABEL[kind]} 양식입니다. 여기서는 피어리뷰 파일만 올릴 수 있어요 -- ${WORKBOOK_KIND_UPLOAD_HINT[kind]}에서 올려주세요.`,
+        )
         continue
       }
       const result = parsePeerReviewWorkbook(buffer, tasks, members, list)
@@ -137,10 +132,7 @@ export default function PeerReviewManagement() {
 
   // 팀원별로 "동료들이 이 사람을 어떻게 봤나"를 정리한다. 원본 리뷰 나열은
   // 카드의 "근거 보기" 팝업으로 옮겼다.
-  const peerFeedback = useMemo(
-    () => calcPeerFeedback(members, tasks, state.contributions, peerReviews),
-    [members, tasks, state.contributions, peerReviews],
-  )
+  const peerFeedback = useMemo(() => calcPeerFeedback(members, tasks, state.contributions, peerReviews), [members, tasks, state.contributions, peerReviews])
 
   const selectedTask = tasks.find((t) => t.id === selectedTaskId)
 
@@ -160,18 +152,15 @@ export default function PeerReviewManagement() {
           위에 4줄로 깔려 있으면 화면에서 시선이 제일 먼저 가는 곳이
           인사이트가 아니라 매뉴얼이 된다. */}
       <div className="mt-1">
-        <button
-          onClick={() => setHowToOpen((v) => !v)}
-          className="text-[13px] font-medium text-label-2 hover:text-accent"
-        >
+        <button onClick={() => setHowToOpen((v) => !v)} className="text-[13px] font-medium text-label-2 hover:text-accent">
           {howToOpen ? '사용법 접기' : '이 화면 사용법'}
         </button>
         {howToOpen && (
           <p className="mt-1.5 text-[13px] text-label-2">
-            팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-label">'빈양식 다운로드'</span>로 과제·팀원별
-            빈 칸이 다 채워진 엑셀을 받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워
-            돌려받으면 <span className="font-medium text-label">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가
-            기준의 피어리뷰 가중치가 0보다 클 때 평가 점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
+            팀장이 여기서 직접 채우는 화면이 아니라, <span className="font-medium text-label">'빈양식 다운로드'</span>로 과제·팀원별 빈 칸이 다 채워진 엑셀을
+            받아 팀원들에게 나눠주고, 각자 자기 이름이 '리뷰어'인 행에 기여도·등급·근거를 채워 돌려받으면{' '}
+            <span className="font-medium text-label">'엑셀데이터 업로드'</span>로 반영하는 화면입니다. 등급은 평가 기준의 피어리뷰 가중치가 0보다 클 때 평가
+            점수에, 기여도는 그 과제 기여도 배분의 기본값으로 쓰입니다.
           </p>
         )}
       </div>
@@ -205,7 +194,7 @@ export default function PeerReviewManagement() {
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-[13px] font-medium text-label">과제</label>
-              <select
+              <Select
                 value={selectedTaskId}
                 onChange={(e) => setSelectedTaskId(e.target.value)}
                 className="h-8 mt-1 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
@@ -215,11 +204,11 @@ export default function PeerReviewManagement() {
                     {t.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-[13px] font-medium text-label">리뷰어 (본인)</label>
-              <select
+              <Select
                 value={reviewerId}
                 onChange={(e) => setReviewerId(e.target.value)}
                 className="h-8 mt-1 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
@@ -229,12 +218,13 @@ export default function PeerReviewManagement() {
                     {m.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
 
           <p className="mt-3 text-xs text-label-2">
-            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)에게 매긴 기여도·등급·근거입니다. 같이 일하지 않은 사람은 기여도를 비워두면 됩니다.
+            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)에게 매긴 기여도·등급·근거입니다. 같이 일하지 않은
+            사람은 기여도를 비워두면 됩니다.
           </p>
 
           <div className="mt-3 divide-y divide-separator overflow-hidden rounded-control border border-separator">
@@ -253,7 +243,7 @@ export default function PeerReviewManagement() {
                   placeholder="기여도 %"
                   className="w-24 shrink-0 h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
                 />
-                <select
+                <Select
                   value={drafts[m.id]?.grade ?? 'B'}
                   onChange={(e) => updateDraft(m.id, { grade: e.target.value as PerformanceGrade })}
                   className="w-20 shrink-0 h-8 rounded-control border border-hairline px-2.5 text-[13px] text-label"
@@ -263,7 +253,7 @@ export default function PeerReviewManagement() {
                       {opt}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <input
                   type="text"
                   value={drafts[m.id]?.comment ?? ''}

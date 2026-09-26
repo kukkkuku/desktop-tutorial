@@ -40,11 +40,11 @@
 | 버튼 | `Button` — `variant`: `primary`(한 화면에 주요 액션 하나) / `secondary`(기본) / `ghost`(툴바) / `danger`(되돌리기 어려운 삭제). `size`: `md`(32px, 기본) / `sm`(28px) |
 | 아이콘만 있는 버튼 | `IconButton` (`tone="danger"` 삭제) |
 | 화면 안 탭·보기 전환·방식 고르기 | `ui/Segmented` 또는 `.mac-seg` + `.mac-seg-item`(+`.mac-seg-item-on`) |
-| 드롭다운 | 기본 `<select>` — 전역 스타일(위아래 화살표·포커스 링)이 자동 적용. 모양 클래스는 크기(`h-8 px-2.5 text-[13px]`)만 |
+| 드롭다운 | `ui/Select` — 쓰는 법은 `<select>`와 같음(`<option>` 자식 · `value` · `onChange(e.target.value)`). 목록은 운영체제 팝업(까만 목록) 대신 흰 `.mac-pop` 메뉴 · 고른 값 ✓ · 호버 `#EFEFEF` · ↑↓ Enter Esc. 단추 모양은 `.mac-select`(위아래 화살표 · 포커스 링), 크기만 클래스로(`h-8 px-2.5 text-[13px]`). 기본 `<select>`는 쓰지 않는다 |
 | 입력칸 | 기본 `<input>`/`<textarea>` + `h-8 rounded-control border px-2.5 text-[13px]`. 포커스 링은 전역 |
 | 날짜 | 표 안: DataGrid 날짜 칸(자동). 표 밖: `DatePicker`. 둘 다 `grid/DatePopup` 한 달력 |
 | 체크박스 | 기본 `<input type="checkbox">` (`accent-color` 전역) |
-| 팝오버·메뉴 | 컨테이너 `.mac-pop`, 항목 `.mac-menu-item`(삭제 `.mac-menu-item-danger`), 구분선 `.mac-menu-sep` |
+| 팝오버·메뉴 | 컨테이너 `.mac-pop`, 항목 `.mac-menu-item`(마우스를 올리면 `#EFEFEF` · 삭제 `.mac-menu-item-danger`는 옅은 빨강), 구분선 `.mac-menu-sep` |
 | 확인 창 | `ConfirmDialog` (macOS 알림 모양) |
 | 구역 묶음 | `.mac-card` 또는 `rounded-card border border-separator` |
 | 배지 | `.mac-badge` + 색(`bg-accent-soft text-accent`, `bg-black/[0.05] text-label-2` 등) |

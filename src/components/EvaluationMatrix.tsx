@@ -25,6 +25,7 @@ import Button from './Button'
 import { Trophy } from 'lucide-react'
 import { icSm } from './ui/icon'
 import { tasksOutOfSync } from '../utils/assigneeSync'
+import Select from './ui/Select'
 
 const MIN_COL_WIDTH = 56
 
@@ -274,7 +275,7 @@ export default function EvaluationMatrix() {
                           <span>{task.importance}</span>
                           {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
                           <span>·</span>
-                          <select
+                          <Select
                             value={task.performanceGrade ?? ''}
                             onChange={(e) =>
                               dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })
@@ -290,7 +291,7 @@ export default function EvaluationMatrix() {
                                 성과 {opt}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
                       </td>
                       <td
@@ -336,7 +337,7 @@ export default function EvaluationMatrix() {
                                   {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼
                                     'B'가 미리 선택돼 있으면 팀장이 고른 것인지
                                     앱이 채운 것인지 구분할 수 없다. */}
-                                  <select
+                                  <Select
                                     value={grade ?? ''}
                                     disabled={!gradeEnabled}
                                     title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
@@ -353,7 +354,7 @@ export default function EvaluationMatrix() {
                                         {opt}
                                       </option>
                                     ))}
-                                  </select>
+                                  </Select>
                                   {gradeEnabled && (
                                     <GradeNoteButton
                                       note={note}

@@ -22,6 +22,7 @@ import { buildMeetingInsights } from '../../utils/meetingInsights'
 import MemberPeerPanel, { memberPeerSummary } from './MemberPeerPanel'
 import { icSm } from '../ui/icon'
 import { CHIP_BASE } from '../grid/DataGrid'
+import Select from '../ui/Select'
 
 // 최근 성과 표에서 개인등급 근거를 아이콘+짧은 미리보기로 같이 보여줄지
 // 판단하는 기준폭 -- 3등분 컬럼이 스플리터로 좁아지면 아이콘만 남긴다.
@@ -598,7 +599,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     {member.level || '직급 없음'}
                     <ChevronDown size={12} strokeWidth={2} className="text-label-3" />
                   </span>
-                  <select
+                  <Select
                     aria-label="직급"
                     title="직급 바꾸기"
                     value={member.level}
@@ -611,7 +612,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                         {l}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </span>
                 {calcYearOrdinal(member.currentLevelSince) !== null && (
                   <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>

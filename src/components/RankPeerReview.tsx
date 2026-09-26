@@ -23,6 +23,7 @@ import Button from './Button'
 import Spinner from './Spinner'
 import { Download, Upload, X } from 'lucide-react'
 import { icSm } from './ui/icon'
+import Select from './ui/Select'
 
 export default function RankPeerReview() {
   const { state, dispatch } = useAppState()
@@ -299,7 +300,7 @@ function RankForm({
                       <tr key={t.id} className="border-t border-separator align-top">
                         <td className="px-3 py-2 font-medium">{t.name}</td>
                         <td className="px-3 py-2">
-                          <select
+                          <Select
                             value={e?.rank ?? ''}
                             onChange={(ev) => onChange(g.taskId, t.id, { rank: ev.target.value ? Number(ev.target.value) : null })}
                             className="h-8 w-full rounded-control border border-hairline px-2.5 text-[13px]"
@@ -313,7 +314,7 @@ function RankForm({
                                 </option>
                               )
                             })}
-                          </select>
+                          </Select>
                         </td>
                         <td className="px-3 py-2">
                           <textarea

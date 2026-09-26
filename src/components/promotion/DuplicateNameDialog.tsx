@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { PromotionImportMatch } from '../../utils/promotionImport'
 import type { PromotionManualPicks } from '../../hooks/useApplyPromotionHistory'
 import Button from '../Button'
+import Select from '../ui/Select'
 
 interface DuplicateNameDialogProps {
   // 동명이인 행만 담긴 배열. picks의 키는 이 배열의 인덱스이고, 호출부도
@@ -23,8 +24,7 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
       <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-[12px] bg-white p-5 shadow-dialog">
         <h3 className="text-[15px] font-semibold text-label">같은 이름의 팀원이 있습니다</h3>
         <p className="mt-1 text-[13px] text-label-2">
-          아래 이름은 팀에 같은 이름이 여러 명이라 인사평가 이력을 자동으로 연결하지 못했습니다.
-          어느 팀원인지 골라주세요. 고르지 않으면 해당 이름만 건너뜁니다.
+          아래 이름은 팀에 같은 이름이 여러 명이라 인사평가 이력을 자동으로 연결하지 못했습니다. 어느 팀원인지 골라주세요. 고르지 않으면 해당 이름만 건너뜁니다.
         </p>
 
         <ul className="mt-4 space-y-2">
@@ -33,7 +33,7 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
               <li key={index} className="flex items-center gap-2 rounded-card border border-separator px-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-label">{sheet.name}</span>
                 <span className="shrink-0 text-[13px] text-label-3">{sheet.years.length}개 연도</span>
-                <select
+                <Select
                   value={picks[index] ?? ''}
                   onChange={(e) => setPicks((p) => ({ ...p, [index]: e.target.value }))}
                   className="h-8 rounded-control border border-hairline px-2.5 text-[13px] shrink-0 text-label"
@@ -44,7 +44,7 @@ export default function DuplicateNameDialog({ matches, onConfirm, onSkip }: Dupl
                       {c.name} ({c.role || c.level || '역할 미지정'})
                     </option>
                   ))}
-                </select>
+                </Select>
               </li>
             )
           })}

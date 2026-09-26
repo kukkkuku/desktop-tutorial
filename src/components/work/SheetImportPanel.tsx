@@ -49,6 +49,7 @@ import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
 import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
+import Select from '../ui/Select'
 
 // 연결된 시트가 없을 때 기본으로 채워 두는 팀 과제관리 시트(바꿔 넣을 수 있음)
 
@@ -71,15 +72,27 @@ interface Props {
   verb?: 'import' | 'export'
 }
 
-
 interface TabOption {
   title: string
   hidden: boolean
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1s, progress: progressProp, verb = 'import' }: Props) {
-  const V = verb === 'export' ? { go: '내보내기', done: '내보냈습니다', doing: '내보냅니다', badge: '내보냄' } : { go: '가져오기', done: '가져왔습니다', doing: '가져옵니다', badge: '가져옴' }
+export default function SheetImportPanel({
+  onDone,
+  onCancel,
+  onLoadedChange,
+  initialUrl,
+  source = 'sheet',
+  onNaturalWidth,
+  initialL1s,
+  progress: progressProp,
+  verb = 'import',
+}: Props) {
+  const V =
+    verb === 'export'
+      ? { go: '내보내기', done: '내보냈습니다', doing: '내보냅니다', badge: '내보냄' }
+      : { go: '가져오기', done: '가져왔습니다', doing: '가져옵니다', badge: '가져옴' }
   const progress = source === 'progress' ? (progressProp ?? null) : null
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
@@ -134,7 +147,11 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       const fromGid = parsed.gid !== null ? info.tabs.find((t) => t.sheetId === parsed.gid) : undefined
       const remembered = link && link.spreadsheetId === parsed.spreadsheetId ? info.tabs.find((t) => t.title === link.tabName) : undefined
       // 과제 입력에서 내보냈으면 그 링크의 탭(gid)을 먼저 연다.
-      const pick = (initialL1s?.length ? fromGid?.title : undefined) ?? remembered?.title ?? fromGid?.title ?? pickDefaultTab(info.tabs, currentWorkspace?.evaluationYear ?? null)
+      const pick =
+        (initialL1s?.length ? fromGid?.title : undefined) ??
+        remembered?.title ??
+        fromGid?.title ??
+        pickDefaultTab(info.tabs, currentWorkspace?.evaluationYear ?? null)
       if (pick) await loadTab(pick, parsed.spreadsheetId, null)
     })
   }
@@ -154,7 +171,12 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       setBookTitle(b.title)
       setTabs(b.sheets.map((s) => ({ title: s.title, hidden: s.hidden === true })))
       const remembered = link ? b.sheets.find((s) => s.title === link.tabName) : undefined
-      const pick = remembered?.title ?? pickDefaultTab(b.sheets.map((s) => ({ title: s.title, hidden: s.hidden === true })), currentWorkspace?.evaluationYear ?? null)
+      const pick =
+        remembered?.title ??
+        pickDefaultTab(
+          b.sheets.map((s) => ({ title: s.title, hidden: s.hidden === true })),
+          currentWorkspace?.evaluationYear ?? null,
+        )
       if (pick) await loadTab(pick, null, b)
     })
   }
@@ -162,7 +184,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
   async function loadTab(title: string, sid: string | null, b: XlsxBook | null) {
     setTabName(title)
     setResult(null)
-    const sheet = sid ? await fetchSheetTab(sid, title) : b?.sheets.find((s) => s.title === title) ?? null
+    const sheet = sid ? await fetchSheetTab(sid, title) : (b?.sheets.find((s) => s.title === title) ?? null)
     setRaw(sheet)
   }
 
@@ -235,7 +257,6 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     names.forEach((n) => (on ? next.add(n) : next.delete(n)))
     setSelected(next)
   }
-
 
   // ---------- ⑤ 가져오기 ----------
 
@@ -345,7 +366,9 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
           {/* 지금 연결된(또는 방금 읽은) 시트 -- 눌러서 바로 가기 */}
           {(spreadsheetId ?? link?.spreadsheetId) && (
             <a
-              href={withGoogleAccount(sheetUrl((spreadsheetId ?? link?.spreadsheetId)!, spreadsheetId ? tabs.find((t) => t.title === tabName)?.sheetId : link?.gid))}
+              href={withGoogleAccount(
+                sheetUrl((spreadsheetId ?? link?.spreadsheetId)!, spreadsheetId ? tabs.find((t) => t.title === tabName)?.sheetId : link?.gid),
+              )}
               target="_blank"
               rel="noreferrer"
               title="구글시트로 바로 가기"
@@ -369,7 +392,11 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && loadFromLink()}
               disabled={!isSheetsApiConfigured()}
-              placeholder={isSheetsApiConfigured() ? 'https://docs.google.com/spreadsheets/d/...' : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- Excel로 시작 탭에서 xlsx 파일로 올려 주세요'}
+              placeholder={
+                isSheetsApiConfigured()
+                  ? 'https://docs.google.com/spreadsheets/d/...'
+                  : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- Excel로 시작 탭에서 xlsx 파일로 올려 주세요'
+              }
               className="h-8 rounded-control border border-hairline px-2.5 text-[13px] min-w-0 flex-1 disabled:bg-black/[0.03]"
             />
             <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()}>
@@ -381,7 +408,9 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
         <>
           <div>
             <h3 className="text-[15px] font-semibold text-label">추진현황 xlsx로 과제 가져오기</h3>
-            <p className="mt-1 text-[13px] text-label-2">구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면, 구글시트 연결과 똑같이 L1/L2를 골라 가져옵니다.</p>
+            <p className="mt-1 text-[13px] text-label-2">
+              구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면, 구글시트 연결과 똑같이 L1/L2를 골라 가져옵니다.
+            </p>
           </div>
           <div className="mt-3 flex items-center gap-2">
             <input
@@ -430,14 +459,18 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
         <div className="mt-3 space-y-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-label">
             <span title={bookTitle}>불러온 탭:</span>
-            <select value={tabName ?? ''} onChange={(e) => changeTab(e.target.value)} className="h-8 rounded-control border border-hairline px-2.5 text-[13px] font-semibold text-label">
+            <Select
+              value={tabName ?? ''}
+              onChange={(e) => changeTab(e.target.value)}
+              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] font-semibold text-label"
+            >
               {tabs.map((t) => (
                 <option key={t.title} value={t.title}>
                   {t.title}
                   {t.hidden ? ' (숨김)' : ''}
                 </option>
               ))}
-            </select>
+            </Select>
             {header && (
               <>
                 <span className="text-label-3">·</span>
@@ -462,9 +495,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
               이 탭에서 'L2'·'L3' 머리글을 찾지 못했습니다. 「YYYY 추진현황」처럼 H/L1/L2/L3 열이 있는 탭을 골라 주세요.
             </p>
           )}
-          {board.sheetLink && (
-            <p className="text-[13px] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>
-          )}
+          {board.sheetLink && <p className="text-[13px] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>}
         </div>
       )}
 
@@ -473,7 +504,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
           {SYSTEM_COLUMNS.map((c) => (
             <label key={c.id} className="flex items-center gap-2 text-[13px]">
               <span className="w-28 shrink-0 text-label-2">{c.label}</span>
-              <select
+              <Select
                 value={columnMap[c.id] ?? ''}
                 disabled={c.id === COL_NAME}
                 onChange={(e) => setColumnMap({ ...columnMap, [c.id]: e.target.value === '' ? null : Number(e.target.value) })}
@@ -487,7 +518,7 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                     </option>
                   ) : null,
                 )}
-              </select>
+              </Select>
             </label>
           ))}
         </div>
@@ -523,7 +554,9 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
                     className={`mac-seg-item flex min-w-[48px] flex-[0_1_auto] items-center gap-1 ${on ? 'mac-seg-item-on' : ''}`}
                   >
                     <span className="min-w-0 truncate break-all">{l1}</span>
-                    <span className={`shrink-0 ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
+                    <span className={`shrink-0 ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>
+                      {picked > 0 ? `${picked}/${gs.length}` : gs.length}
+                    </span>
                   </button>
                 )
               })}
@@ -614,15 +647,23 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
             {warnings.inferredRows.length > 0 && (
               <li className="flex items-start gap-1.5 text-warning">
                 <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-                <span>H/L1이 비어 있어 위 행 값으로 채운 행 {warnings.inferredRows.length}건 (시트 {warnings.inferredRows.slice(0, 5).map((r) => r.row + 1).join(', ')}
-                {warnings.inferredRows.length > 5 ? ' …' : ''}행)</span>
+                <span>
+                  H/L1이 비어 있어 위 행 값으로 채운 행 {warnings.inferredRows.length}건 (시트{' '}
+                  {warnings.inferredRows
+                    .slice(0, 5)
+                    .map((r) => r.row + 1)
+                    .join(', ')}
+                  {warnings.inferredRows.length > 5 ? ' …' : ''}행)
+                </span>
               </li>
             )}
             {warnings.oddCategory.length > 0 && (
               <li className="flex items-start gap-1.5 text-warning">
                 <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-                <span>분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')}) -- 과제등급
-                "미입력"으로 두고 원문은 보존합니다</span>
+                <span>
+                  분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')})
+                  -- 과제등급 "미입력"으로 두고 원문은 보존합니다
+                </span>
               </li>
             )}
             {warnings.emptyCategory.length > 0 && <li className="text-label-2">분류가 빈 행 {warnings.emptyCategory.length}건 -- 과제등급 "미입력"</li>}
@@ -632,10 +673,12 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
 
           {warnings.unknownAssignees.length > 0 && (
             <div className="mt-3 rounded-card bg-[#F7F7F9] p-3">
-              <p className="text-[13px] font-semibold text-label">팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요</p>
+              <p className="text-[13px] font-semibold text-label">
+                팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요
+              </p>
               <p className="mt-0.5 text-[13px] text-label-2">
-                추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리
-                팀 사람만 고르세요.
+                추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도
+                들어가니 우리 팀 사람만 고르세요.
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {warnings.unknownAssignees.map((u) => {
@@ -683,7 +726,11 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
             {result.skippedDeleted > 0 && ` · 앱에서 지운 행 ${result.skippedDeleted}건 건너뜀`}
           </p>
           <div className="mt-3 flex gap-2">
-            {onDone && <Button variant="primary" onClick={onDone}>과제관리에서 보기</Button>}
+            {onDone && (
+              <Button variant="primary" onClick={onDone}>
+                과제관리에서 보기
+              </Button>
+            )}
             <Button
               variant="secondary"
               onClick={() => {

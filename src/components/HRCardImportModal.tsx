@@ -9,6 +9,7 @@ import Button from './Button'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
 import { ic } from './ui/icon'
+import Select from './ui/Select'
 
 interface Change {
   label: string
@@ -216,20 +217,26 @@ export default function HRCardImportModal({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-semibold text-label">{r.person.name}</span>
                         {r.candidates.length > 1 ? (
-                          <select value={r.memberId ?? ''} onChange={(e) => pickMember(i, e.target.value)} className="h-7 rounded-control border border-hairline px-2 text-xs">
+                          <Select
+                            value={r.memberId ?? ''}
+                            onChange={(e) => pickMember(i, e.target.value)}
+                            className="h-7 rounded-control border border-hairline px-2 text-xs"
+                          >
                             <option value="">동명이인 {r.candidates.length}명 -- 선택</option>
                             {r.candidates.map((c) => (
                               <option key={c.id} value={c.id}>
                                 {c.name} · {c.team || c.role || c.level || '정보 없음'}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         ) : matched ? (
                           <span className="mac-badge bg-success/15 text-success">팀원 연결</span>
                         ) : (
                           <span className="mac-badge bg-black/[0.05] text-label-2">팀원 목록에 없음 · 체크하면 새로 추가</span>
                         )}
-                        {!r.person.level && r.person.levelRaw && <span className="text-xs text-warning">직위 "{r.person.levelRaw}"는 직급 목록에 없어 건너뜀</span>}
+                        {!r.person.level && r.person.levelRaw && (
+                          <span className="text-xs text-warning">직위 "{r.person.levelRaw}"는 직급 목록에 없어 건너뜀</span>
+                        )}
                       </div>
                       {r.changes.length === 0 ? (
                         <p className="mt-0.5 text-xs text-label-3">{matched ? '바뀌는 값 없음' : '가져올 값 없음'}</p>
