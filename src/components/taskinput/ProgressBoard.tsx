@@ -430,6 +430,16 @@ export default function ProgressBoard() {
     const d = dataRef.current
     return d ? { data: d, drafts: draftsRef.current } : null
   }
+  // 시트 연도를 이 브라우저 연도로(시트에서 탭이 지워졌을 때)
+  const asLocal = (d: ProgressData): ProgressData => ({
+    ...d,
+    local: true,
+    spreadsheetId: null,
+    sheetGid: null,
+    source: 'local',
+    yearTabs: undefined,
+    fileTitle: undefined,
+  })
   // 선반 키: 이 브라우저 연도 'local:탭', 시트 연도 'sheet:탭'(같은 연도가 둘 다 있을 수 있음)
   const shelfKeyOf = (d: ProgressData) => `${d.local ? 'local' : 'sheet'}:${d.tabTitle}`
   // 지금 연도가 이 브라우저에서 만든 연도면 선반에 올려 둔다(시트를 불러오기 전에)
@@ -747,7 +757,27 @@ export default function ProgressBoard() {
     setError('')
     setMessage('')
     try {
+      // 입력하던 시트 연도 탭이 시트에서 지워졌으면 그 연도(고친 내용 포함)를 이 브라우저 연도로 옮겨 둔다
+      const cur = currentProject()
+      let moved = ''
+      if (cur && !cur.data.local && cur.data.spreadsheetId === link.spreadsheetId) {
+        const { tabs } = await fetchSpreadsheetTabs(link.spreadsheetId)
+        if (!tabs.some((t) => t.sheetId === cur.data.sheetGid || t.title === cur.data.tabTitle)) {
+          setShelf({ ...shelfRef.current, [`local:${cur.data.tabTitle}`]: { data: asLocal(cur.data), drafts: cur.drafts } })
+          writeActiveTab(null)
+          dataRef.current = null
+          draftsRef.current = { edits: {}, newRows: [] }
+          setDrafts(draftsRef.current)
+          saveDrafts(draftsRef.current)
+          clearHistory()
+          moved = cur.data.tabTitle
+        }
+      }
       accept(await readFromSheet(link.spreadsheetId, now.getFullYear(), readActiveTab() ?? undefined))
+      if (moved)
+        setMessage(
+          `시트에서 「${moved}」 탭이 없어져 그 연도를 "이 브라우저" 연도로 옮겨 두었습니다. 연도 메뉴에서 고른 뒤 "구글시트로 만들기"로 다시 만들 수 있습니다.`,
+        )
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
     } finally {
@@ -1079,12 +1109,25 @@ export default function ProgressBoard() {
     setError('')
     setMessage('')
     try {
-      const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear())
+      // 연결된 탭이 시트에서 지워졌으면: 저장 대신 이 브라우저 연도로 바꿔 "구글시트로 만들기"를 다시 할 수 있게
+      const { tabs } = await fetchSpreadsheetTabs(data.spreadsheetId)
+      if (!tabs.some((t) => t.sheetId === data.sheetGid || t.title === data.tabTitle)) {
+        const next = asLocal(data)
+        setData(next)
+        dataRef.current = next
+        saveProgressData(next)
+        writeActiveTab(null)
+        setMessage(
+          `시트에서 「${data.tabTitle}」 탭이 없어졌습니다. 이 연도를 "이 브라우저" 연도로 바꿨습니다(고친 내용 그대로) · "구글시트로 만들기"로 탭을 다시 만들 수 있습니다.`,
+        )
+        return
+      }
+      const fresh = await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear(), data.tabTitle)
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
       const { kept, conflicts, ...plan } = buildSheetWrites(data, fresh, drafts)
       await writeSheetCells(data.spreadsheetId, data.sheetGid, plan)
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
-      accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear()))
+      accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear(), data.tabTitle))
       updateDrafts(kept)
       clearHistory()
       setOpenKey(null)
