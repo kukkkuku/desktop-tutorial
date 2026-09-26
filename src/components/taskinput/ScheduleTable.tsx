@@ -1219,6 +1219,14 @@ export default function ScheduleTable({
     }
     setGroupEdit(null)
   }
+  // 구분(L2) 이름 그 자리에서 고치기
+  const [l2Edit, setL2Edit] = useState<{ key: string; text: string } | null>(null)
+  function commitL2(row: ProgressRow) {
+    if (!l2Edit) return
+    const name = l2Edit.text.replace(/\s*\n\s*/g, ' ').trim()
+    setL2Edit(null)
+    if (name) onRenameGroup?.(row, name)
+  }
   const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number } | null>(null)
   useEffect(() => {
     if (!menu) return
@@ -2097,19 +2105,13 @@ export default function ScheduleTable({
                       <td
                         rowSpan={g.rows.length}
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
-                        onDoubleClick={(e) => {
-                          // 더블클릭: 구분 이름 고치기
+                        onClick={(e) => {
+                          // 누르면 그 자리에서 구분 이름 고치기(아이콘 · 입력창을 누른 건 제외)
+                          if ((e.target as HTMLElement).closest('button,input,textarea')) return
                           if (!onRenameGroup || readOnly || g.rows.every((x) => x.deleted)) return
-                          const r = g.rows[0].row
-                          setGroupEdit({
-                            row: r,
-                            mode: 'rename',
-                            text: g.tag ? `${g.l2} [${g.tag}]` : g.l2,
-                            x: Math.min(e.clientX, window.innerWidth - 310),
-                            y: e.clientY,
-                          })
+                          setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 })
                         }}
-                        title={`${g.l2} · 더블클릭: 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
+                        title={`${g.l2} · 눌러서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
                         className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
@@ -2120,8 +2122,30 @@ export default function ScheduleTable({
                           {g.rows.every((x) => x.row.isNew) && (
                             <span className="mb-1 inline-block rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white no-underline">새 구분</span>
                           )}
-                          <span className="block whitespace-pre-line break-words">{g.l2}</span>
-                          {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
+                          {l2Edit?.key === g.rows[0].row.key ? (
+                            <textarea
+                              autoFocus
+                              rows={3}
+                              value={l2Edit.text}
+                              onChange={(e) => setL2Edit({ ...l2Edit, text: e.target.value })}
+                              onFocus={(e) => e.currentTarget.select()}
+                              onKeyDown={(e) => {
+                                if (e.nativeEvent.isComposing) return
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault()
+                                  commitL2(g.rows[0].row)
+                                } else if (e.key === 'Escape') setL2Edit(null)
+                              }}
+                              onBlur={() => commitL2(g.rows[0].row)}
+                              title="Enter 반영 · Esc 취소 · [중점]처럼 쓰면 태그"
+                              className="block w-full resize-none rounded-[4px] border-2 border-accent bg-white px-1 py-0.5 text-center text-[1em] font-bold leading-snug text-label outline-none"
+                            />
+                          ) : (
+                            <>
+                              <span className="block cursor-text whitespace-pre-line break-words">{g.l2}</span>
+                              {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
+                            </>
+                          )}
                           <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
                           {/* 마우스를 올리면: 아래에 구분 추가 · 구분 삭제(취소) */}
                           <span
