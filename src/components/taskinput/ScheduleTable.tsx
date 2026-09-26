@@ -745,6 +745,7 @@ export default function ScheduleTable({
   editing,
   currentKey,
   onPaint,
+  onWeekCells,
   onField,
   onFields,
   onDeleteRows,
@@ -794,6 +795,7 @@ export default function ScheduleTable({
   editing: boolean
   currentKey: string | null
   onPaint: (row: ProgressRow, weekKey: string, click: boolean) => void // click = 누른 칸(끌기 중이면 false)
+  onWeekCells?: (list: { row: ProgressRow; key: string; cell: CellState }[]) => void // 주 칸 여러 개(붙여넣기 · 지우기 · 채우기)
   onField: (row: ProgressRow, id: string, value: string) => void
   onFields?: (list: { row: ProgressRow; id: string; value: string }[]) => void // 여러 칸 한 번에(범위 지우기 등)
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
@@ -946,7 +948,182 @@ export default function ScheduleTable({
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
+  // ---- 일정(주) 칸 선택: 입력 모드가 아닐 때 칸 · 여러 칸 고르기, ⌘C/⌘V/⌘X, Delete, 채우기 점
+  type WPos = { r: number; c: number }
+  const [weekSel, setWeekSel] = useState<{ a: WPos; b: WPos } | null>(null)
+  const weekDrag = useRef(false)
+  const weekInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const up = () => (weekDrag.current = false)
+    window.addEventListener('mouseup', up)
+    return () => window.removeEventListener('mouseup', up)
+  }, [])
+  useEffect(() => {
+    if (editing) setWeekSel(null)
+  }, [editing])
+  const wRange = weekSel
+    ? {
+        r1: Math.min(weekSel.a.r, weekSel.b.r),
+        r2: Math.max(weekSel.a.r, weekSel.b.r),
+        c1: Math.min(weekSel.a.c, weekSel.b.c),
+        c2: Math.max(weekSel.a.c, weekSel.b.c),
+      }
+    : null
+  const inWeek = (r: number, c: number) => !!wRange && r >= wRange.r1 && r <= wRange.r2 && c >= wRange.c1 && c <= wRange.c2
+  useEffect(() => {
+    if (weekSel) requestAnimationFrame(() => weekInputRef.current?.focus({ preventScroll: true }))
+  }, [weekSel])
+  function weekDown(e: React.MouseEvent, r: number, c: number) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    setSel(null)
+    setSelEnd(null)
+    setRowSel(null)
+    if (e.shiftKey && weekSel) setWeekSel({ ...weekSel, b: { r, c } })
+    else setWeekSel({ a: { r, c }, b: { r, c } })
+    weekDrag.current = true
+  }
+  function weekEnter(r: number, c: number) {
+    if (weekDrag.current && weekSel) setWeekSel({ ...weekSel, b: { r, c } })
+  }
+  const weekCellAt = (r: number, c: number): CellState => rows[r]?.cells[weekCols[c]?.key] ?? { m: '', f: null }
+  function weekApply(list: { r: number; c: number; cell: CellState }[]) {
+    if (!onWeekCells || readOnly) return
+    const out = list.filter((x) => rows[x.r] && !rows[x.r].deleted && weekCols[x.c]).map((x) => ({ row: rows[x.r].row, key: weekCols[x.c].key, cell: x.cell }))
+    if (out.length) onWeekCells(out)
+  }
+  const [weekClip, setWeekClip] = useState<{ tsv: string; cells: CellState[][] } | null>(null)
+  function weekCopy() {
+    if (!wRange) return null
+    const cells: CellState[][] = []
+    for (let r = wRange.r1; r <= wRange.r2; r++) {
+      const line: CellState[] = []
+      for (let c = wRange.c1; c <= wRange.c2; c++) line.push(weekCellAt(r, c))
+      cells.push(line)
+    }
+    const clip = { tsv: cells.map((l) => l.map((x) => x.m).join('\t')).join('\n'), cells }
+    setWeekClip(clip)
+    return clip
+  }
+  function weekClear() {
+    if (!wRange) return
+    const list: { r: number; c: number; cell: CellState }[] = []
+    for (let r = wRange.r1; r <= wRange.r2; r++) for (let c = wRange.c1; c <= wRange.c2; c++) list.push({ r, c, cell: { m: '', f: null } })
+    weekApply(list)
+  }
+  function weekPaste(text: string) {
+    if (!wRange) return
+    const t = text.replace(/\r\n?/g, '\n').replace(/\n$/, '')
+    const cells: CellState[][] =
+      weekClip && weekClip.tsv === t
+        ? weekClip.cells
+        : parseTsv(t).map((l) => l.map((v) => ({ m: (['S', 'F', '완'].includes(v.trim()) ? v.trim() : '') as CellState['m'], f: null })))
+    if (!cells.length || !cells[0].length) return
+    const one = cells.length === 1 && cells[0].length === 1
+    const H = one ? wRange.r2 - wRange.r1 + 1 : cells.length
+    const W = one ? wRange.c2 - wRange.c1 + 1 : cells[0].length
+    const list: { r: number; c: number; cell: CellState }[] = []
+    for (let i = 0; i < H; i++) for (let j = 0; j < W; j++) list.push({ r: wRange.r1 + i, c: wRange.c1 + j, cell: one ? cells[0][0] : cells[i][j] })
+    weekApply(list)
+    if (!one)
+      setWeekSel({
+        a: { r: wRange.r1, c: wRange.c1 },
+        b: { r: Math.min(rows.length - 1, wRange.r1 + H - 1), c: Math.min(weekCols.length - 1, wRange.c1 + W - 1) },
+      })
+  }
+  function weekKey(e: React.KeyboardEvent) {
+    if (!weekSel) return
+    const a = ARROWS[e.key]
+    if (a) {
+      e.preventDefault()
+      const move = (p: WPos) => ({ r: Math.max(0, Math.min(rows.length - 1, p.r + a[1])), c: Math.max(0, Math.min(weekCols.length - 1, p.c + a[0])) })
+      if (e.shiftKey) setWeekSel({ ...weekSel, b: move(weekSel.b) })
+      else {
+        const p = move(weekSel.a)
+        setWeekSel({ a: p, b: p })
+      }
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      weekClear()
+    } else if (e.key === 'Escape') setWeekSel(null)
+  }
+  const weekRef = useRef({ weekCopy, weekPaste, weekClear })
+  weekRef.current = { weekCopy, weekPaste, weekClear }
+  useEffect(() => {
+    const on = () => !!(document.activeElement as HTMLElement | null)?.dataset?.weekSelect
+    const copy = (e: ClipboardEvent) => {
+      if (!on()) return
+      const c = weekRef.current.weekCopy()
+      if (!c) return
+      e.clipboardData?.setData('text/plain', c.tsv)
+      e.preventDefault()
+    }
+    const cut = (e: ClipboardEvent) => {
+      if (!on()) return
+      copy(e)
+      weekRef.current.weekClear()
+    }
+    const paste = (e: ClipboardEvent) => {
+      if (!on()) return
+      const t = e.clipboardData?.getData('text/plain')
+      if (t === undefined) return
+      e.preventDefault()
+      weekRef.current.weekPaste(t)
+    }
+    document.addEventListener('copy', copy)
+    document.addEventListener('cut', cut)
+    document.addEventListener('paste', paste)
+    return () => {
+      document.removeEventListener('copy', copy)
+      document.removeEventListener('cut', cut)
+      document.removeEventListener('paste', paste)
+    }
+  }, [])
+  // 채우기 점: 고른 주 칸을 가로 · 세로로 끌어 늘리면 칸(글자 · 색)을 반복해서 채운다
+  const [weekFillTo, setWeekFillTo] = useState<{ r1: number; r2: number; c1: number; c2: number } | null>(null)
+  const inWeekFill = (r: number, c: number) =>
+    !!weekFillTo && !!wRange && r >= weekFillTo.r1 && r <= weekFillTo.r2 && c >= weekFillTo.c1 && c <= weekFillTo.c2 && !inWeek(r, c)
+  function weekFillStart() {
+    const src = wRange
+    if (!src) return
+    let to: typeof weekFillTo = null
+    const move = (ev: MouseEvent) => {
+      const el = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('td[data-week]') as HTMLElement | null
+      const [rs, cs] = (el?.dataset.week ?? '').split(':')
+      if (rs === undefined || cs === undefined) return
+      const r = Number(rs)
+      const c = Number(cs)
+      const dy = r > src.r2 ? r - src.r2 : r < src.r1 ? r - src.r1 : 0
+      const dx = c > src.c2 ? c - src.c2 : c < src.c1 ? c - src.c1 : 0
+      if (!dy && !dx) to = null
+      else if (Math.abs(dy) >= Math.abs(dx)) to = { r1: Math.min(src.r1, r), r2: Math.max(src.r2, r), c1: src.c1, c2: src.c2 }
+      else to = { r1: src.r1, r2: src.r2, c1: Math.min(src.c1, c), c2: Math.max(src.c2, c) }
+      setWeekFillTo(to)
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.documentElement.classList.remove('cursor-crosshair')
+      setWeekFillTo(null)
+      if (!to) return
+      const h = src.r2 - src.r1 + 1
+      const w = src.c2 - src.c1 + 1
+      const mod = (n: number, m: number) => ((n % m) + m) % m
+      const list: { r: number; c: number; cell: CellState }[] = []
+      for (let r = to.r1; r <= to.r2; r++)
+        for (let c = to.c1; c <= to.c2; c++) {
+          if (r >= src.r1 && r <= src.r2 && c >= src.c1 && c <= src.c2) continue
+          list.push({ r, c, cell: weekCellAt(src.r1 + mod(r - src.r1, h), src.c1 + mod(c - src.c1, w)) })
+        }
+      weekApply(list)
+      setWeekSel({ a: { r: to.r1, c: to.c1 }, b: { r: to.r2, c: to.c2 } })
+    }
+    document.documentElement.classList.add('cursor-crosshair')
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
   function selectCell(row: string, id: string, edit = false) {
+    setWeekSel(null)
     setRowSel(null)
     setSelEnd(null)
     setSel({ row, id })
@@ -1570,6 +1747,7 @@ export default function ScheduleTable({
     e.preventDefault()
     const head = e.currentTarget as HTMLElement
     setSel(null)
+    setWeekSel(null)
     // Shift+클릭: 고른 행부터 여기까지
     if (e.shiftKey && rowSel) {
       setRowSelEnd(v.row.key)
@@ -2068,6 +2246,7 @@ export default function ScheduleTable({
                         return (
                           <td
                             key={x.key}
+                            data-week={`${ri2}:${i}`}
                             onMouseDown={
                               editing && !v.deleted
                                 ? (e) => {
@@ -2076,10 +2255,13 @@ export default function ScheduleTable({
                                     dragRow.current = v.row.key
                                     onPaint(v.row, x.key, true)
                                   }
-                                : undefined
+                                : !editing && onWeekCells
+                                  ? (e) => weekDown(e, ri2, i)
+                                  : undefined
                             }
                             onMouseEnter={(e) => {
                               if (editing && dragRow.current === v.row.key) onPaint(v.row, x.key, false)
+                              if (!editing) weekEnter(ri2, i)
                               if (note) showNote(e, note)
                             }}
                             onMouseLeave={note ? () => showNote(null, '') : undefined}
@@ -2092,8 +2274,23 @@ export default function ScheduleTable({
                             style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
                             className={`relative border-b border-b-[#DADDE2] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
-                            } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : ''}`}
+                            } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : 'cursor-cell'} ${
+                              inWeek(ri2, i) ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.2)]' : ''
+                            } ${weekSel && weekSel.a.r === ri2 && weekSel.a.c === i ? 'outline outline-2 -outline-offset-2 outline-accent' : ''} ${
+                              inWeekFill(ri2, i) ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
+                            }`}
                           >
+                            {weekSel && weekSel.a.r === ri2 && weekSel.a.c === i && (
+                              <input
+                                ref={weekInputRef}
+                                data-week-select="1"
+                                readOnly
+                                onKeyDown={weekKey}
+                                className="pointer-events-none absolute h-0 w-0 opacity-0"
+                                aria-label="고른 주 칸"
+                              />
+                            )}
+                            {wRange && wRange.r2 === ri2 && wRange.c2 === i && !readOnly && onWeekCells && <FillDot onStart={weekFillStart} />}
                             {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
                             <span className="relative">{c?.m}</span>
                             {note && <NoteMark />}

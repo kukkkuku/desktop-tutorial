@@ -97,6 +97,7 @@ import {
   clearProgressData,
   saveShelf,
   type ShelfItem,
+  type CellState,
   type Drafts,
   type FieldDef,
   type PaintTool,
@@ -887,7 +888,7 @@ export default function ProgressBoard() {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null
       // 칸을 고른 상태(글자 입력 전)의 숨은 입력창에서는 되돌리기 단축키를 표에 쓴다
-      if (t && !t.dataset.cellSelect && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (t && !t.dataset.cellSelect && !t.dataset.weekSelect && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (!(e.metaKey || e.ctrlKey)) return
       const k = e.key.toLowerCase()
       if (k === 'z' && !e.shiftKey) {
@@ -906,6 +907,29 @@ export default function ProgressBoard() {
   // 칠하기: 누른 칸부터 끈 칸까지 한 번의 되돌리기 단계로 묶는다.
   const stroke = useRef(0)
   const isDeleted = (row: ProgressRow) => (drafts.deleted ?? []).includes(row.key)
+  // 주 칸 여러 개를 한 번에(붙여넣기 · 지우기 · 채우기)
+  function setWeekCells(list: { row: ProgressRow; key: string; cell: CellState }[]) {
+    const live = list.filter((x) => !isDeleted(x.row))
+    if (!live.length) return
+    updateDrafts((d) =>
+      live.reduce((acc, { row, key, cell }) => {
+        if (row.isNew) {
+          const id = row.key.slice(NEW_PREFIX.length)
+          return {
+            ...acc,
+            newRows: acc.newRows.map((n) => {
+              if (n.id !== id) return n
+              const cells = { ...n.cells }
+              if (cell.m || cell.f) cells[key] = cell
+              else delete cells[key]
+              return { ...n, cells }
+            }),
+          }
+        }
+        return { ...acc, edits: setCellEdit(acc.edits, row, key, cell) }
+      }, d),
+    )
+  }
   function paintCell(row: ProgressRow, key: string, click: boolean) {
     if (isDeleted(row)) return
     if (click) stroke.current += 1
@@ -1880,6 +1904,7 @@ export default function ProgressBoard() {
             editing={editing}
             currentKey={currentKey}
             onPaint={paintCell}
+            onWeekCells={readOnly ? undefined : setWeekCells}
             onField={setField}
             onFields={setFields}
             editNameKey={openKey}
