@@ -38,6 +38,8 @@ import {
   DEFAULT_SHEET_URL,
 } from '../../utils/sheetSources'
 import { COL_NAME, SYSTEM_COLUMNS as ALL_SYSTEM_COLUMNS } from '../../utils/workBoard'
+import { progressColumnMap, progressHeader, progressParsedRows, type ProgressSource } from '../../utils/progressImport'
+import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
@@ -57,11 +59,13 @@ interface Props {
   onLoadedChange?: (loaded: boolean) => void
   // 시트 칩에서 넣은 새 링크 -- 열리자마자 이 링크로 읽는다.
   initialUrl?: string
-  // 'sheet' = 구글시트 링크로 읽기(기본), 'xlsx' = 시트에서 받은 xlsx 파일로 읽기(Excel로 시작 탭)
-  source?: 'sheet' | 'xlsx'
+  // 'sheet' = 구글시트 링크로 읽기(기본), 'xlsx' = 시트에서 받은 xlsx 파일로 읽기(Excel로 시작 탭),
+  // 'progress' = 이 앱 과제 입력 › 추진현황에 불러온 데이터(저장 안 한 변경 포함)
+  source?: 'sheet' | 'xlsx' | 'progress'
+  progress?: ProgressSource | null
   // L1 탭 줄이 한 줄로 들어가는 폭(px) -- 빠른 시작 창이 이 폭에 딱 맞게 넓어진다
   onNaturalWidth?: (w: number) => void
-  // 과제 입력에서 내보낸 L1들 -- 첫 L1 탭을 열고 그 아래 L2를 모두 골라 둔다(한 번만)
+  // 추진현황에서 가져올 때 미리 고를 L1들 -- 첫 L1 탭을 열고 그 아래 L2를 모두 골라 둔다
   initialL1s?: string[]
 }
 
@@ -72,7 +76,8 @@ interface TabOption {
   sheetId?: number
 }
 
-export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1s }: Props) {
+export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, initialUrl, source = 'sheet', onNaturalWidth, initialL1s, progress: progressProp }: Props) {
+  const progress = source === 'progress' ? (progressProp ?? null) : null
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const board = state.workBoard
@@ -165,9 +170,20 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
   // ---------- ② 해석 ----------
 
   const filled = useMemo(() => (raw ? fillMerges(raw.rows, raw.merges) : null), [raw])
-  const header: ParsedHeader | null = useMemo(() => (filled ? parseHeader(filled) : null), [filled])
+  const header: ParsedHeader | null = useMemo(() => (progress ? progressHeader(progress.data) : filled ? parseHeader(filled) : null), [filled, progress])
 
   // 탭을 새로 읽으면 매칭·선택을 다시 잡는다(같은 탭이면 지난번 선택을 살린다).
+  // 추진현황에서 가져올 때는 열 짝이 이미 정해져 있다(같은 시트 · 탭이면 지난번 선택을 살린다).
+  useEffect(() => {
+    if (!progress) return
+    setColumnMap(progressColumnMap(progress.data))
+    const same = link && link.tabName === progress.data.tabTitle && (link.spreadsheetId || '') === (progress.data.spreadsheetId ?? '')
+    // 내보내기에서 연 경우: 보고 있던 그룹(L1)의 L2를 미리 골라 두고 그 L1 탭을 연다
+    const picked = initialL1s?.length ? summarizeGroups(progressParsedRows(progress)).filter((g) => initialL1s.includes(g.l1 ?? '(L1 없음)')) : []
+    setSelected(new Set([...(same ? link.selectedGroups : []), ...picked.map((g) => g.name)]))
+    if (picked.length) setActiveL1(picked[0].l1 ?? '(L1 없음)')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress])
   useEffect(() => {
     if (!header || !raw) return
     const sameTab = link && link.tabName === raw.title
@@ -176,7 +192,10 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [header, raw])
 
-  const rows = useMemo(() => (filled && header ? parseRows(filled, header, columnMap) : []), [filled, header, columnMap])
+  const rows = useMemo(
+    () => (progress ? progressParsedRows(progress) : filled && header ? parseRows(filled, header, columnMap) : []),
+    [progress, filled, header, columnMap],
+  )
   const groups = useMemo(() => summarizeGroups(rows), [rows])
   const importRows = useMemo(() => filterRows(rows, Array.from(selected), null), [rows, selected])
   const warnings = useMemo(() => collectWarnings(importRows, state.members), [importRows, state.members])
@@ -206,15 +225,6 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [l1Tabs.map(([l1]) => l1).join('|'), selected, activeL1])
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
-  const l1Applied = useRef(false)
-  useEffect(() => {
-    if (!initialL1s?.length || l1Applied.current) return
-    const hits = l1Tabs.filter(([l1]) => initialL1s.includes(l1))
-    if (hits.length === 0) return
-    l1Applied.current = true
-    setActiveL1(hits[0][0])
-    setSelected((cur) => new Set([...cur, ...hits.flatMap(([, gs]) => gs.map((g) => g.name))]))
-  }, [l1Tabs, initialL1s])
   const [confirming, setConfirming] = useState(false)
 
   function toggle(names: string[], on: boolean) {
@@ -227,7 +237,8 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
   // ---------- ⑤ 가져오기 ----------
 
   function doImport() {
-    if (!header || !raw) return
+    if (!header || (!raw && !progress)) return
+    const tabTitle = progress ? progress.data.tabTitle : raw!.title
     const newMembers: TeamMember[] = warnings.unknownAssignees
       .filter((u) => addNames.has(u.name))
       .map((u) => ({
@@ -244,16 +255,22 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
       }))
     const members = [...state.members, ...newMembers]
     const nextLink = {
-      spreadsheetId: spreadsheetId ?? link?.spreadsheetId ?? '',
-      tabName: raw.title,
-      gid: spreadsheetId ? tabs.find((t) => t.title === raw.title)?.sheetId : link?.tabName === raw.title ? link.gid : undefined,
+      spreadsheetId: progress ? (progress.data.spreadsheetId ?? '') : (spreadsheetId ?? link?.spreadsheetId ?? ''),
+      tabName: tabTitle,
+      gid: progress
+        ? (progress.data.sheetGid ?? undefined)
+        : spreadsheetId
+          ? tabs.find((t) => t.title === tabTitle)?.sheetId
+          : link?.tabName === tabTitle
+            ? link.gid
+            : undefined,
       columnMap: columnMapToNames(header, columnMap),
       selectedGroups: Array.from(selected),
       teamFilter: null,
       lastFetchedAt: new Date().toISOString(),
-      fileTitle: bookTitle || link?.fileTitle,
+      fileTitle: progress ? progress.data.fileTitle : bookTitle || link?.fileTitle,
     }
-    const res = applySheetImport(board, importRows, header, members, nextLink, yearFromTitle(raw.title) ?? currentWorkspace?.evaluationYear ?? null)
+    const res = applySheetImport(board, importRows, header, members, nextLink, yearFromTitle(tabTitle) ?? currentWorkspace?.evaluationYear ?? null)
     if (newMembers.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: members })
     dispatch({ type: 'SET_WORK_BOARD', payload: res.board })
     setResult(res)
@@ -272,7 +289,43 @@ export default function SheetImportPanel({ onDone, onCancel, onLoadedChange, ini
 
   return (
     <div className="flex min-h-full flex-col">
-      {source === 'sheet' ? (
+      {source === 'progress' ? (
+        <div>
+          <h3 className="text-[15px] font-semibold text-label">추진현황에서 과제 가져오기</h3>
+          <p className="mt-1 text-[13px] text-label-2">과제 입력 › 추진현황에 불러온 과제에서 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
+          {progress ? (
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-label">
+              <SheetsIcon className="h-4 w-3.5 shrink-0" />
+              <span className="font-semibold">
+                {progress.data.fileTitle ? (
+                  <>
+                    {progress.data.fileTitle}
+                    <span className="font-normal text-label-3"> › </span>
+                    {progress.data.tabTitle}
+                  </>
+                ) : (
+                  progress.data.source
+                )}
+              </span>
+              <span className="text-label-3">·</span>
+              <span>L2 분류 {groups.length}개</span>
+              {countDrafts(progress.drafts) > 0 && (
+                <>
+                  <span className="text-label-3">·</span>
+                  <span className="text-orange-600">저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="mt-3 rounded-card bg-black/[0.04] px-3 py-2.5 text-[13px] text-label-2">
+              아직 과제 입력 › 추진현황을 불러온 적이 없습니다. 맨 위 「과제 입력」에서 추진현황을 먼저 불러와 주세요.
+            </p>
+          )}
+          {progress && board.sheetLink && (
+            <p className="mt-1 text-[13px] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>
+          )}
+        </div>
+      ) : source === 'sheet' ? (
         <>
           <div>
             <h3 className="text-[15px] font-semibold text-label">구글시트에서 과제 가져오기</h3>

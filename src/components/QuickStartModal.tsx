@@ -1,4 +1,4 @@
-import { useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import type { Task, TeamMember } from '../types'
@@ -6,6 +6,7 @@ import { X } from 'lucide-react'
 import BulkUploadPanel from './BulkUploadPanel'
 import ImportFromPreviousPanel from './ImportFromPreviousPanel'
 import Button from './Button'
+import { readProgressSource } from '../utils/progressImport'
 import SheetImportPanel from './work/SheetImportPanel'
 import SheetsIcon from './SheetsIcon'
 import IconButton from './IconButton'
@@ -24,12 +25,11 @@ interface QuickStartModalProps {
   // 처음 열 탭(과제리스트의 "구글시트에서 가져오기"는 'sheet')
   initialTab?: Tab
   initialSheetUrl?: string | null
-  initialL1s?: string[] | null // 과제 입력에서 내보낸 L1들(그 L2를 골라 둔다)
   // 구글시트에서 가져온 뒤(과제리스트로 이동)
   onSheetImported?: () => void
 }
 
-type Tab = 'sheet' | 'direct' | 'excel' | 'import'
+type Tab = 'progress' | 'sheet' | 'direct' | 'excel' | 'import'
 
 // 하나의 칩(추가된 과제명/팀원 이름)을 보여준다 -- x를 누르면 그
 // 자리에서 뺄 수 있다.
@@ -137,11 +137,7 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 
   // 각 영역이 자기 입력값/추가 대상 배열을 따로 가지므로, 키 핸들러도
   // 영역별로 만들어서 그 값들을 클로저로 붙잡는다.
-  function makeKeyDownHandler(
-    value: string,
-    setValue: (v: string) => void,
-    setNames: React.Dispatch<React.SetStateAction<string[]>>,
-  ) {
+  function makeKeyDownHandler(value: string, setValue: (v: string) => void, setNames: React.Dispatch<React.SetStateAction<string[]>>) {
     return (e: KeyboardEvent<HTMLInputElement>) => {
       // 한글 등 조합형 입력(IME)은 마지막 글자를 조합 확정할 때도 Enter
       // keydown이 한 번 더 발생한다 -- 이걸 그대로 커밋해버리면 조합 중이던
@@ -236,8 +232,20 @@ function DirectEntryPanel({ onDone }: { onDone: () => void }) {
 // 탭 전환으로 바꿨다. 각 탭의 실제 동작은 이미 있는 화면의 로직을
 // 그대로 재사용한다 -- Excel은 데이터 관리 드로어와 같은 BulkUploadPanel,
 // 이전 평가는 ImportFromPreviousDialog와 같은 ImportFromPreviousPanel.
-export default function QuickStartModal({ teamName, currentWorkspaceId, hasOtherPeriods, onClose, onDataReady, initialTab = 'sheet', initialSheetUrl, initialL1s, onSheetImported }: QuickStartModalProps) {
-  const [tab, setTab] = useState<Tab>(initialTab)
+export default function QuickStartModal({
+  teamName,
+  currentWorkspaceId,
+  hasOtherPeriods,
+  onClose,
+  onDataReady,
+  initialTab = 'sheet',
+  initialSheetUrl,
+  onSheetImported,
+}: QuickStartModalProps) {
+  // 과제 입력 › 추진현황에 불러온 데이터(이 브라우저) -- 창을 여는 동안 한 번 읽는다
+  const progress = useMemo(() => readProgressSource(), [])
+  // 빠른 시작을 그냥 열면 추진현황이 있을 때 "추진현황에서"부터(시트 링크를 넣고 연 경우는 구글시트 연결)
+  const [tab, setTab] = useState<Tab>(initialTab === 'sheet' && !initialSheetUrl && progress ? 'progress' : initialTab)
   const [excelMode, setExcelMode] = useState<'progress' | 'bulk'>('progress')
   // 구글시트 목록을 불러오면 L2가 한 줄에 들어가도록 창을 넓힌다(크기 전환은 부드럽게).
   const [sheetLoaded, setSheetLoaded] = useState(false)
@@ -245,6 +253,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
   const [tabsWidth, setTabsWidth] = useState(0)
 
   const tabs: { key: Tab; label: string; hint: string }[] = [
+    { key: 'progress', label: '추진현황에서', hint: '과제 입력 › 추진현황에서 필요한 그룹(L2)만 골라 가져오기(저장 안 한 변경 포함)' },
     { key: 'sheet', label: '구글시트 연결', hint: '회사 과제관리 시트에서 필요한 그룹(L2)만 골라 가져오기' },
     { key: 'direct', label: '직접 입력', hint: '선택한 영역에 이름을 빠르게 등록' },
     { key: 'excel', label: 'Excel로 시작', hint: '통합 양식으로 내려받고 일괄 등록' },
@@ -257,7 +266,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
       <div
         className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
         style={
-          (tab === 'sheet' || (tab === 'excel' && excelMode === 'progress')) && sheetLoaded
+          (tab === 'progress' || tab === 'sheet' || (tab === 'excel' && excelMode === 'progress')) && sheetLoaded
             ? { width: `min(${Math.max(1180, tabsWidth + 74)}px, calc(100vw - 2rem))`, height: 'min(900px, 92vh)' }
             : { width: 'min(1180px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
         }
@@ -279,7 +288,7 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
             items={tabs.map((t) => ({
               key: t.key,
               label:
-                t.key === 'sheet' ? (
+                t.key === 'sheet' || t.key === 'progress' ? (
                   <span className="flex items-center gap-1.5">
                     <SheetsIcon className="h-3.5 w-3.5" />
                     {t.label}
@@ -294,9 +303,27 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
+          {tab === 'progress' && (
+            <div className="flex min-h-full flex-col">
+              <SheetImportPanel
+                source="progress"
+                progress={progress}
+                onCancel={onClose}
+                onDone={onSheetImported ?? onDataReady}
+                onLoadedChange={setSheetLoaded}
+                onNaturalWidth={setTabsWidth}
+              />
+            </div>
+          )}
           {tab === 'sheet' && (
             <div className="flex min-h-full flex-col">
-              <SheetImportPanel onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} initialUrl={initialSheetUrl ?? undefined} initialL1s={initialL1s ?? undefined} />
+              <SheetImportPanel
+                onCancel={onClose}
+                onDone={onSheetImported ?? onDataReady}
+                onLoadedChange={setSheetLoaded}
+                onNaturalWidth={setTabsWidth}
+                initialUrl={initialSheetUrl ?? undefined}
+              />
             </div>
           )}
           {tab === 'direct' && <DirectEntryPanel onDone={onDataReady} />}
@@ -310,13 +337,23 @@ export default function QuickStartModal({ teamName, currentWorkspaceId, hasOther
                     ['bulk', '통합 양식으로 등록'],
                   ] as const
                 ).map(([k, label]) => (
-                  <button key={k} onClick={() => setExcelMode(k)} className={`px-3 py-1.5 ${excelMode === k ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}>
+                  <button
+                    key={k}
+                    onClick={() => setExcelMode(k)}
+                    className={`px-3 py-1.5 ${excelMode === k ? 'bg-label text-white' : 'bg-white text-label-2 hover:bg-black/[0.04]'}`}
+                  >
                     {label}
                   </button>
                 ))}
               </div>
               {excelMode === 'progress' ? (
-                <SheetImportPanel source="xlsx" onCancel={onClose} onDone={onSheetImported ?? onDataReady} onLoadedChange={setSheetLoaded} onNaturalWidth={setTabsWidth} />
+                <SheetImportPanel
+                  source="xlsx"
+                  onCancel={onClose}
+                  onDone={onSheetImported ?? onDataReady}
+                  onLoadedChange={setSheetLoaded}
+                  onNaturalWidth={setTabsWidth}
+                />
               ) : (
                 <BulkUploadPanel onDone={onDataReady} wide />
               )}

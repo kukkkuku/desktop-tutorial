@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { takePerfImportRequest } from './utils/perfImportRequest'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
@@ -33,17 +32,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [quickStartTab, setQuickStartTab] = useState<'sheet' | 'direct'>('sheet')
   // 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
   const [quickStartUrl, setQuickStartUrl] = useState<string | null>(null)
-  // 과제 입력에서 "성과관리로 내보내기"로 왔으면 그 시트 · 그 L1로 구글시트 연결 화면을 연다(한 번만).
-  const [quickStartL1s, setQuickStartL1s] = useState<string[] | null>(null)
-  useEffect(() => {
-    const req = takePerfImportRequest()
-    if (!req) return
-    setQuickStartUrl(req.url)
-    setQuickStartL1s(req.l1s)
-    setQuickStartTab('sheet')
-    setQuickStartOpen(true)
-    setStage('work')
-  }, [])
   const [panelSize, setPanelSize] = useState<PanelSize>('icon')
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
@@ -191,7 +179,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               onClose={() => setQuickStartOpen(false)}
               initialTab={quickStartTab}
               initialSheetUrl={quickStartUrl}
-              initialL1s={quickStartL1s}
               onSheetImported={() => {
                 setQuickStartOpen(false)
                 handleStageChange('work')
