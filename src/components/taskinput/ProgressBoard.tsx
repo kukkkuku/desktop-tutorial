@@ -81,6 +81,7 @@ import SheetLinkChip from '../SheetLinkChip'
 import { downloadProgressExcel } from '../../utils/progressExport'
 import { requestPerfImport } from '../../utils/perfImportRequest'
 import { useAppMode } from '../../state/AppMode'
+import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 
@@ -191,6 +192,11 @@ export default function ProgressBoard() {
   }, [data, drafts.newRows])
   const [exportSel, setExportSel] = useState<string[] | null>(null) // 내보낼 그룹(L1) · null = 창 닫힘
   const { setMode } = useAppMode()
+  // 보낼 곳: 성과관리 프로젝트(팀 · 평가기간). 기본은 지금 성과관리에서 열려 있는 것, 없으면 최근에 고친 것
+  const { workspaces, currentWorkspaceId, selectWorkspace } = useWorkspaces()
+  const [exportTo, setExportTo] = useState<string>('')
+  const defaultTarget = currentWorkspaceId ?? [...workspaces].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? ''
+  const target = workspaces.some((w) => w.id === exportTo) ? exportTo : defaultTarget
   const [tabAdd, setTabAdd] = useState<{ l1: string; l2: string; x: number; y: number } | null>(null)
   const [activeL1, setActiveL1] = useState<string | null>(null)
   // 보기: 숨긴 그룹(L1) 탭 -- 시트는 그대로, 이 브라우저에서만 안 보이게
@@ -1134,19 +1140,42 @@ export default function ProgressBoard() {
       <ConfirmDialog
         open={exportSel !== null}
         title="성과관리 과제리스트로 내보내기"
-        message="보낼 그룹(L1)을 고르세요. 성과관리의 「구글시트 연결」 화면이 이 시트와 고른 그룹의 L2가 모두 체크된 채로 열리고, 거기서 확인한 뒤 가져오면 과제리스트에 들어갑니다."
+        message="보낼 곳과 그룹(L1)을 고르세요. 그 프로젝트의 「구글시트 연결」 화면이 이 시트와 고른 그룹의 L2가 모두 체크된 채로 열리고, 거기서 확인한 뒤 가져오면 과제리스트에 들어갑니다."
         confirmLabel={`${exportSel?.length ?? 0}개 그룹 보내기`}
         tone="accent"
         onConfirm={() => {
           const sel = l1s.filter((x) => exportSel?.includes(x))
           if (!data.spreadsheetId || sel.length === 0) return
           setExportSel(null)
+          if (target) selectWorkspace(target)
           requestPerfImport({ url: sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined), l1s: sel })
           setMode('perf')
         }}
         onCancel={() => setExportSel(null)}
       >
-        <div className="mt-3 max-h-[45vh] overflow-y-auto rounded-card border border-separator py-1 text-[13px]">
+        <label className="mt-3 block text-[12px] font-semibold text-label-2">
+          보낼 곳 (성과관리 프로젝트)
+          {workspaces.length > 0 ? (
+            <select
+              value={target}
+              onChange={(e) => setExportTo(e.target.value)}
+              className="mt-1 h-9 w-full rounded-control border border-hairline bg-white px-2 text-[13px] font-medium text-label"
+            >
+              {workspaces.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.teamName} {w.evaluationYear} {w.periodName}
+                  {w.id === currentWorkspaceId ? ' (지금 열린 프로젝트)' : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="mt-1 rounded-control bg-black/[0.04] px-2.5 py-2 text-[12px] font-normal text-label-2">
+              성과관리에 아직 프로젝트(팀 · 평가기간)가 없습니다. 보내면 팀을 먼저 만든 뒤 가져오기 화면이 열립니다.
+            </p>
+          )}
+        </label>
+        <p className="mt-3 text-[12px] font-semibold text-label-2">보낼 그룹</p>
+        <div className="mt-1 max-h-[40vh] overflow-y-auto rounded-card border border-separator py-1 text-[13px]">
           <label className="flex cursor-pointer items-center gap-2 border-b border-separator px-3 py-1.5 font-semibold hover:bg-black/[0.04]">
             <input type="checkbox" checked={!!exportSel && exportSel.length === l1s.length} onChange={(e) => setExportSel(e.target.checked ? [...l1s] : [])} />
             전체
