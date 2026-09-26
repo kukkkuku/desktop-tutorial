@@ -90,7 +90,8 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import ScheduleTable, { CellSwatch, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, HEAD_DEFAULT, cellLabel, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ColorPalette from './ColorPalette'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
 type Period = { start: number; months: number }
@@ -305,7 +306,11 @@ export default function ProgressBoard() {
     }
   }
   // 일정 머리글 우클릭 메뉴(보기 단계 · 기간)
-  const [schMenu, setSchMenu] = useState<{ x: number; y: number } | null>(null)
+  const [schMenu, setSchMenuState] = useState<{ x: number; y: number } | null>(null)
+  const setSchMenu = (v: { x: number; y: number } | null) => {
+    setSchMenuState(v)
+    setSchPalette(false)
+  }
   // 표 글자 크기(가▲/가▼) -- 이 브라우저에 기억
   const [fontSize, setFontSizeState] = useState<number>(() => {
     try {
@@ -324,6 +329,30 @@ export default function ProgressBoard() {
       // 기억 못 해도 지금 화면에는 반영
     }
   }
+
+  // 머리글 색(우클릭으로 바꿈) -- 이 브라우저에 기억
+  const [headColors, setHeadColors] = useState<Record<string, string>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:head-colors') ?? '{}')
+      return v && typeof v === 'object' ? v : {}
+    } catch {
+      return {}
+    }
+  })
+  function setHeadColor(key: string, hex: string) {
+    setHeadColors((cur) => {
+      const next = { ...cur }
+      if (hex) next[key] = hex
+      else delete next[key]
+      try {
+        localStorage.setItem('progress-board:head-colors', JSON.stringify(next))
+      } catch {
+        // 기억 못 해도 지금 화면엔 반영
+      }
+      return next
+    })
+  }
+  const [schPalette, setSchPalette] = useState(false)
 
   // 행간(칸 위아래 여백 0~8px) -- 이 브라우저에 기억
   const [rowPad, setRowPadState] = useState<number>(() => {
@@ -1235,7 +1264,7 @@ export default function ProgressBoard() {
         </span>
       </div>
 
-      <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto rounded-[4px] border border-[#D3D3D3]">
+      <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto">
         {
           <ScheduleTable
             weekCols={weekCols}
@@ -1278,6 +1307,8 @@ export default function ProgressBoard() {
             onNote={setNote}
             zebra={zebra}
             sheetColors={sheetColors}
+            headColors={headColors}
+            onHeadColor={setHeadColor}
             filterOptions={filterOptions}
             hiddenOf={(id) => filters[id] ?? []}
             onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
@@ -1396,59 +1427,92 @@ export default function ProgressBoard() {
             setSchMenu(null)
           }}
         >
-          <div className="mac-pop absolute w-[220px] py-1 text-[13px]" style={{ left: schMenu.x, top: schMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
-            {(
-              [
-                ['full', '전체 펴기'],
-                ['compact', '줄여보기'],
-                ['hidden', '숨기기'],
-              ] as const
-            ).map(([m, label]) => (
-              <button
-                key={m}
-                onClick={() => {
-                  setScheduleMode(m)
-                  setSchMenu(null)
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
-              >
-                <span className="w-3 text-accent">{scheduleMode === m ? '✓' : ''}</span>
-                {label}
-              </button>
-            ))}
-            <div className="mac-menu-sep" />
-            <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
-            {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
-            {(
-              [
-                [PERIOD_BUTTONS, 'grid-cols-3'],
-                [QUARTERS, 'grid-cols-4'],
-                [MONTHS, 'grid-cols-3'],
-              ] as const
-            ).map(([list, cols], gi) => (
-              <div key={gi}>
-                {gi > 0 && <div className="mac-menu-sep" />}
-                <div className={`grid ${cols} gap-1 px-2 py-1`}>
-                  {list.map(({ label, p }) => {
-                    const on = period.start === p.start && period.months === p.months
-                    return (
-                      <button
-                        key={label}
-                        onClick={() => {
-                          setPeriod(p)
-                          if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
-                          setSchMenu(null)
-                        }}
-                        className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
-                      >
-                        {label}
-                      </button>
-                    )
-                  })}
-                </div>
+          <div
+            className={`mac-pop absolute py-1 text-[13px] ${schPalette ? 'w-[268px]' : 'w-[220px]'}`}
+            style={{ left: Math.min(schMenu.x, window.innerWidth - 276), top: schMenu.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {schPalette ? (
+              <div className="px-3 py-1.5">
+                <button onClick={() => setSchPalette(false)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
+                  ‹ 일정 머리글 색
+                </button>
+                <ColorPalette
+                  current={headColors.schedule ?? ''}
+                  sheetColors={sheetColors}
+                  onPick={(hex) => {
+                    setHeadColor('schedule', hex)
+                    setSchMenu(null)
+                  }}
+                />
               </div>
-            ))}
+            ) : (
+              <>
+                <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
+                {(
+                  [
+                    ['full', '전체 펴기'],
+                    ['compact', '줄여보기'],
+                    ['hidden', '숨기기'],
+                  ] as const
+                ).map(([m, label]) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setScheduleMode(m)
+                      setSchMenu(null)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                  >
+                    <span className="w-3 text-accent">{scheduleMode === m ? '✓' : ''}</span>
+                    {label}
+                  </button>
+                ))}
+                <div className="mac-menu-sep" />
+                <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
+                {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
+                {(
+                  [
+                    [PERIOD_BUTTONS, 'grid-cols-3'],
+                    [QUARTERS, 'grid-cols-4'],
+                    [MONTHS, 'grid-cols-3'],
+                  ] as const
+                ).map(([list, cols], gi) => (
+                  <div key={gi}>
+                    {gi > 0 && <div className="mac-menu-sep" />}
+                    <div className={`grid ${cols} gap-1 px-2 py-1`}>
+                      {list.map(({ label, p }) => {
+                        const on = period.start === p.start && period.months === p.months
+                        return (
+                          <button
+                            key={label}
+                            onClick={() => {
+                              setPeriod(p)
+                              if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
+                              setSchMenu(null)
+                            }}
+                            className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <div className="mac-menu-sep" />
+                <button onClick={() => setSchPalette(true)} className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]">
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="h-3.5 w-3.5 rounded-[3px] ring-1 ring-inset ring-black/15"
+                      style={{ background: `#${headColors.schedule || HEAD_DEFAULT.schedule}` }}
+                    />
+                    일정 머리글 색
+                  </span>
+                  <span className="text-label-3">▸</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

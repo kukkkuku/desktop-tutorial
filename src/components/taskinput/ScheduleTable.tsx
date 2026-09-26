@@ -23,6 +23,15 @@ export interface ScheduleRowView {
   deleted?: boolean // 지우기로 함(저장하면 시트에서 줄을 지움)
 }
 
+// 머리글 기본색: 구분·과제 #666666, 일정 #999999
+export const HEAD_DEFAULT = { l2: '666666', l3: '666666', schedule: '999999' } as const
+function isLightHex(hex: string) {
+  const r = parseInt(hex.slice(0, 2), 16)
+  const g = parseInt(hex.slice(2, 4), 16)
+  const b = parseInt(hex.slice(4, 6), 16)
+  return r * 0.299 + g * 0.587 + b * 0.114 > 170
+}
+
 // 과제관리 표와 같은 칩 색
 export const STATUS_TONE: Record<string, string> = {
   대기: 'bg-black/[0.05] text-label-2',
@@ -42,7 +51,7 @@ export const ROW_COLORS = ['', 'FFFF00', 'FFF2CC', 'FCE5CD', 'F4CCCC', 'EAD1DC',
 const FIELD_WIDTH: Record<FieldDef['kind'], number> = { memo: 200, date: 96, select: 78, person: 110, link: 130, text: 100 }
 export const DEFAULT_WIDTHS = { l2: 150, l3: 260, week: 12 }
 export type ScheduleMode = 'full' | 'compact' | 'hidden'
-const HEADER_FONT = 13 // 머리글 글자는 고정, 본문만 가▲/가▼로 바뀐다
+const HEADER_FONT = 12 // 머리글 글자는 고정, 본문만 가▲/가▼로 바뀐다
 
 export function fieldDefaultWidth(f: FieldDef) {
   return FIELD_WIDTH[f.kind]
@@ -526,6 +535,8 @@ export default function ScheduleTable({
   hiddenOf,
   onFilter,
   sheetColors = [],
+  headColors = {},
+  onHeadColor,
 }: {
   weekCols: WeekColumn[]
   rows: ScheduleRowView[]
@@ -562,6 +573,8 @@ export default function ScheduleTable({
   hiddenOf?: (id: string) => string[]
   onFilter?: (id: string, hidden: string[]) => void
   sheetColors?: string[] // 이 시트에서 쓰는 칸 색(색 팔레트 맞춤 줄)
+  headColors?: Record<string, string> // 머리글 색(열 id · 'l2' · 'l3' · 'schedule' · 'group:이름' → RRGGBB)
+  onHeadColor?: (key: string, hex: string) => void // '' = 기본색으로
 }) {
   const [filterOpen, setFilterOpen] = useState<{ f: FieldDef; x: number; y: number } | null>(null)
   // 머리글 이름 + 필터 버튼
@@ -614,12 +627,20 @@ export default function ScheduleTable({
   const curIdx = currentKey ? weekCols.findIndex((x) => x.key === currentKey) : -1
   const monthStart = new Set(months.map((m) => weekCols.find((x) => x.month === m)!.key))
   // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
-  const thStyle = (hex: string | null | undefined): React.CSSProperties =>
-    hs ? { background: hex ? `#${hex}` : '#FFFFFF', color: '#14161A' } : { background: '#14161A', color: '#FFFFFF' }
+  // 머리글 색은 우클릭으로 바꿀 수 있다(이 브라우저에 기억). 글자는 바탕 밝기에 맞춰 검정/흰색
+  const headOn = (hex: string): React.CSSProperties => ({ background: `#${hex}`, color: isLightHex(hex) ? '#14161A' : '#FFFFFF' })
+  const thStyle = (hex: string | null | undefined, key?: string): React.CSSProperties =>
+    key && headColors[key] ? headOn(headColors[key]) : hs ? headOn(hex || 'FFFFFF') : headOn('14161A')
   const thBorder = 'border border-[#D3D3D3]'
-  // 구분·과제 머리글은 검정, 일정(월·주) 머리글은 회색
-  const blackTh: React.CSSProperties = { background: '#14161A', color: '#FFFFFF' }
-  const grayTh: React.CSSProperties = { background: '#E4E6EA', color: '#14161A' }
+  // 구분·과제 머리글은 짙은 회색(#666666), 일정(월·주) 머리글은 회색(#999999)
+  const blackTh = (key: 'l2' | 'l3'): React.CSSProperties => headOn(headColors[key] || HEAD_DEFAULT[key])
+  const grayTh: React.CSSProperties = headOn(headColors.schedule || HEAD_DEFAULT.schedule)
+  const headMenuOn = (key: string) => (e: React.MouseEvent) => {
+    if (!onHeadColor) return
+    e.preventDefault()
+    setHeadMenu({ key, x: Math.min(e.clientX, window.innerWidth - 276), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 380)) })
+  }
+  const [headMenu, setHeadMenu] = useState<{ key: string; x: number; y: number } | null>(null)
   const groupOf = new Map((hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => [id, g] as const)))
   const allIds = ['name', ...cols.map((f) => f.id)]
 
@@ -857,11 +878,16 @@ export default function ScheduleTable({
           <tr>
             {/* 행 머리(구글시트의 행 번호): 누르면 행 전체 선택, 끌어서 옮기기, 아래 경계로 높이 조절 */}
             <th rowSpan={2} style={{ left: 0, background: '#F1F3F4' }} className={`sticky z-20 ${thBorder}`} aria-label="행" />
-            <th rowSpan={2} style={{ left: WH, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
+            <th rowSpan={2} style={{ left: WH, ...blackTh('l2') }} onContextMenu={headMenuOn('l2')} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
               구분(L2)
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} />}
             </th>
-            <th rowSpan={2} style={{ left: WH + wL2, ...blackTh }} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
+            <th
+              rowSpan={2}
+              style={{ left: WH + wL2, ...blackTh('l3') }}
+              onContextMenu={headMenuOn('l3')}
+              className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}
+            >
               과제(L3)
               {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} />}
             </th>
@@ -918,7 +944,8 @@ export default function ScheduleTable({
                   <th
                     key={`g-${f.id}`}
                     colSpan={g.fieldIds.filter((id) => cols.some((c) => c.id === id)).length}
-                    style={thStyle(g.bg ?? hs?.fields[f.id])}
+                    style={thStyle(g.bg ?? hs?.fields[f.id], `group:${g.label}`)}
+                    onContextMenu={headMenuOn(`group:${g.label}`)}
                     className={`px-1.5 pb-0.5 pt-2 font-bold ${thBorder}`}
                   >
                     {g.label}
@@ -926,7 +953,14 @@ export default function ScheduleTable({
                 )
               }
               return (
-                <th key={f.id} rowSpan={2} style={thStyle(hs?.fields[f.id])} className={`relative px-1 py-2 font-bold ${thBorder}`} title={f.label}>
+                <th
+                  key={f.id}
+                  rowSpan={2}
+                  style={thStyle(hs?.fields[f.id], f.id)}
+                  onContextMenu={headMenuOn(f.id)}
+                  className={`relative px-1 py-2 font-bold ${thBorder}`}
+                  title={`${f.label} · 우클릭: 머리글 색`}
+                >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
                 </th>
@@ -949,7 +983,13 @@ export default function ScheduleTable({
             {cols
               .filter((f) => groupOf.has(f.id))
               .map((f) => (
-                <th key={f.id} style={thStyle(hs?.fields[f.id])} className={`relative px-1 pb-1.5 font-bold ${thBorder}`} title={f.label}>
+                <th
+                  key={f.id}
+                  style={thStyle(hs?.fields[f.id], f.id)}
+                  onContextMenu={headMenuOn(f.id)}
+                  className={`relative px-1 pb-1.5 font-bold ${thBorder}`}
+                  title={`${f.label} · 우클릭: 머리글 색`}
+                >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
                 </th>
@@ -973,7 +1013,7 @@ export default function ScheduleTable({
                       ...(drag?.over?.key === v.row.key ? { boxShadow: drag.over.where === 'above' ? 'inset 0 2px 0 #007AFF' : 'inset 0 -2px 0 #007AFF' } : {}),
                     }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
-                      rowSel === v.row.key ? '[&>td:not(:first-child)]:shadow-[inset_0_0_0_9999px_rgba(0,122,255,0.09)]' : ''
+                      rowSel === v.row.key ? 'pb-row-sel' : ''
                     }`}
                   >
                     {/* 행 머리: 시트 행 번호(새 과제는 +). 누르면 행 전체 선택 · 끌면 같은 구분 안에서 옮기기 · 아래 경계로 높이 조절 */}
@@ -1010,7 +1050,7 @@ export default function ScheduleTable({
                         onContextMenu={(e) => openMenu(e, g.rows[0].row, 'l2', 'group')}
                         title={`${g.l2} · 우클릭: 구분(L2) 추가·삭제`}
                         style={{ left: WH }}
-                        className={`group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
+                        className={`pb-l2 group/l2 sticky z-[5] border-b border-r border-[#C9CDD3] bg-white px-2 py-2 text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         }`}
                       >
@@ -1432,6 +1472,22 @@ export default function ScheduleTable({
               )}
             </>
           )}
+        </div>
+      )}
+
+      {headMenu && onHeadColor && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setHeadMenu(null)} onContextMenu={(e) => (e.preventDefault(), setHeadMenu(null))}>
+          <div className="mac-pop absolute w-[268px] px-3 py-2" style={{ left: headMenu.x, top: headMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <p className="mb-1 text-[12px] font-semibold text-label-2">머리글 색</p>
+            <ColorPalette
+              current={headColors[headMenu.key] ?? ''}
+              sheetColors={sheetColors}
+              onPick={(hex) => {
+                onHeadColor(headMenu.key, hex)
+                setHeadMenu(null)
+              }}
+            />
+          </div>
         </div>
       )}
 

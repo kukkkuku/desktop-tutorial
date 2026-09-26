@@ -154,6 +154,13 @@ body {
   .mac-menu-sep {
     @apply mx-2.5 my-1 h-px bg-separator;
   }
+  /* 추진현황 표: 행 전체 선택(행 머리를 눌렀을 때) -- 위아래 파란 선 + 옅은 파랑. 행 머리 · 병합된 구분 칸은 빼고 */
+  .pb-row-sel > td:not(:first-child):not(.pb-l2) {
+    box-shadow: inset 0 2px 0 #1a73e8, inset 0 -2px 0 #1a73e8, inset 0 0 0 9999px rgba(26, 115, 232, 0.13) !important;
+  }
+  .pb-row-sel > td:last-child {
+    box-shadow: inset -2px 0 0 #1a73e8, inset 0 2px 0 #1a73e8, inset 0 -2px 0 #1a73e8, inset 0 0 0 9999px rgba(26, 115, 232, 0.13) !important;
+  }
   /* 세그먼트 컨트롤(탭·방식 고르기) */
   .mac-seg {
     @apply inline-flex items-center gap-0.5 rounded-lg bg-black/[0.055] p-[3px];
