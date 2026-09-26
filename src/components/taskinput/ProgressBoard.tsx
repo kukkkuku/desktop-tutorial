@@ -4,6 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTabFit } from '../../hooks/useTabFit'
+import { fillHex, setFillHex } from '../../utils/fillColors'
+import type { WeekFill } from '../../utils/sheetImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import {
@@ -25,6 +27,7 @@ import {
   Undo2,
   Upload,
   X,
+  PaintBucket,
 } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
@@ -353,6 +356,13 @@ export default function ProgressBoard() {
     })
   }
   const [schPalette, setSchPalette] = useState(false)
+  // 칠하기 색(계획 · 실적) 바꾸기 팝업
+  const [fillMenu, setFillMenu] = useState<{ which: WeekFill; x: number; y: number } | null>(null)
+  const [, setFillTick] = useState(0)
+  function openFillMenu(el: HTMLElement, which: WeekFill) {
+    const r = el.getBoundingClientRect()
+    setFillMenu({ which, x: Math.min(r.left, window.innerWidth - 290), y: r.bottom + 6 })
+  }
 
   // 행간(칸 위아래 여백 0~8px) -- 이 브라우저에 기억
   const [rowPad, setRowPadState] = useState<number>(() => {
@@ -1179,10 +1189,15 @@ export default function ProgressBoard() {
                 <button
                   key={c}
                   onClick={() => setTool(c)}
+                  onContextMenu={(e) => {
+                    if (c === 'erase') return
+                    e.preventDefault()
+                    openFillMenu(e.currentTarget, c)
+                  }}
                   title={
                     c === 'erase'
                       ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
-                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움`
+                      : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
                   }
                   aria-label={label}
                   className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
@@ -1190,6 +1205,14 @@ export default function ProgressBoard() {
                   {c === 'erase' ? <Eraser size={17} strokeWidth={1.75} className="text-label-2" /> : <CellSwatch cell={{ m: '', f: c }} size={18} />}
                 </button>
               ))}
+              {/* 칠하기 색 바꾸기(계획 · 실적) */}
+              <IconButton
+                onClick={(e) => openFillMenu(e.currentTarget, tool === 'actual' ? 'actual' : 'plan')}
+                title="칠하기 색 바꾸기(계획 · 실적)"
+                aria-label="칠하기 색 바꾸기"
+              >
+                <PaintBucket {...icSm} />
+              </IconButton>
             </>
           ) : (
             <>
@@ -1429,6 +1452,41 @@ export default function ProgressBoard() {
               </Button>
             </div>
           </form>
+        </div>
+      )}
+      {fillMenu && (
+        <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
+          <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center gap-1 rounded-control bg-black/[0.05] p-0.5 text-[12px]">
+              {(
+                [
+                  ['plan', '계획 색'],
+                  ['actual', '실적 색'],
+                ] as const
+              ).map(([f, label]) => (
+                <button
+                  key={f}
+                  onClick={() => setFillMenu({ ...fillMenu, which: f })}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-[6px] py-1 font-semibold ${fillMenu.which === f ? 'bg-white text-label shadow-sm' : 'text-label-2'}`}
+                >
+                  <CellSwatch cell={{ m: '', f }} size={14} />
+                  {label}
+                </button>
+              ))}
+            </div>
+            <ColorPalette
+              current={fillHex(fillMenu.which)}
+              sheetColors={sheetColors}
+              onPick={(hex) => {
+                setFillHex(fillMenu.which, hex)
+                setFillTick((n) => n + 1)
+              }}
+            />
+            <p className="mt-2 text-[11px] leading-snug text-label-3">
+              이 브라우저에 기억합니다. 새로 칠하거나 고친 칸은 구글시트에 이 색으로 저장되고, 시트를 다시 읽을 때 이 색을 계획/실적으로 알아봅니다. 재설정하면
+              기본색(회색 · 분홍)입니다.
+            </p>
+          </div>
         </div>
       )}
       {schMenu && (

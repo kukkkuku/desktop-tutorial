@@ -42,7 +42,8 @@ export interface CellState {
   f: WeekFill | null
 }
 
-export const FILL_HEX: Record<WeekFill, string> = { plan: 'D9D9D9', actual: 'F4CCCC' }
+export { FILL_HEX } from './fillColors'
+import { FILL_HEX } from './fillColors'
 
 // 시트의 입력 열 하나(L3 오른쪽, 주차 칸이 아닌 열)
 export type FieldKind = 'text' | 'memo' | 'date' | 'select' | 'person' | 'link'

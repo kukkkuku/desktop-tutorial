@@ -3,6 +3,7 @@
 // 이 파일의 순수 함수만 거친다. 시트의 함정(병합 셀, 연도마다 다른 열 위치,
 // 4·5주가 섞인 달, 한 칸에 여러 담당자)은 docs/PLAN-TASK-MANAGEMENT.md 1.3.
 
+import { FILL_HEX } from './fillColors'
 import { v4 as uuidv4 } from 'uuid'
 import type { SheetLink, TaskCategory, TaskGroup, TeamMember, WeekColumn, WeekMark, WorkBoard, WorkItem } from '../types'
 import {
@@ -89,6 +90,10 @@ export type WeekFill = 'plan' | 'actual'
 // 회색 계열 → 계획, 붉은 계열(분홍) → 실적. 그 밖의 색은 무시.
 export function classifyFill(hex: string | null | undefined): WeekFill | null {
   if (!hex) return null
+  // 칠하기 색을 바꿔 쓰는 경우 그 색이면 바로 알아본다
+  const up = hex.toUpperCase()
+  if (up === FILL_HEX.plan) return 'plan'
+  if (up === FILL_HEX.actual) return 'actual'
   const r = parseInt(hex.slice(0, 2), 16)
   const g = parseInt(hex.slice(2, 4), 16)
   const b = parseInt(hex.slice(4, 6), 16)
