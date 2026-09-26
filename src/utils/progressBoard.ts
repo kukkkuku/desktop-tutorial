@@ -1285,8 +1285,8 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
 // 빈 칸이나 다른 색 칸을 누르거나 끌면 그 색으로 칠하고, 이어진 묶음의 첫 칸에 S,
 // 회색이면 끝 칸에 F를 자동으로 붙인다(묶음을 늘리면 따라 옮겨진다).
-// 분홍 끝 칸에도 "완"을 자동으로 붙인다(회색 F처럼 · 아직 진행 중이면 그 칸을 눌러 지우거나 바꾼다).
-// 이미 그 색인 칸을 다시 누르면(끌기 아님) S → 끝 글자(회색 F / 분홍 완) → 지움 순서로 바뀐다.
+// 분홍은 첫 칸 S만 자동이고, 끝 칸 "완"은 그 칸을 한 번 더 눌러 붙인다(진행 중인 실적에 완이 먼저 찍히지 않게).
+// 이미 그 색인 칸을 다시 누르면(끌기 아님) 회색은 S → F → 지움, 분홍은 끝 칸 한 번에 완 · 다시 누르면 진행(글자 없음).
 // 지우개('erase')는 누르거나 끈 칸을 비우고, 남은 묶음의 S/F를 다시 맞춘다.
 export type PaintBrush = WeekFill | 'erase'
 export function paintCells(cells: Record<string, CellState>, weekKeys: string[], key: string, color: PaintBrush, click: boolean): Record<string, CellState> {
@@ -1300,6 +1300,16 @@ export function paintCells(cells: Record<string, CellState>, weekKeys: string[],
   if (cur?.f === color) {
     if (!click) return out
     const end: WeekMark = color === 'plan' ? 'F' : '완'
+    if (color === 'actual') {
+      // 분홍: 묶음 중간 · 끝 칸을 누르면 완, 완을 다시 누르면 진행(글자 없음). 첫 칸은 S → 완
+      const i = weekKeys.indexOf(key)
+      const first = i <= 0 || out[weekKeys[i - 1]]?.f !== color
+      if (cur.m === '') out[key] = { m: first ? 'S' : '완', f: color }
+      else if (cur.m === 'S') out[key] = { m: '완', f: color }
+      else if (cur.m === '완') out[key] = { m: '', f: color }
+      else delete out[key]
+      return out
+    }
     if (cur.m === '') out[key] = { m: 'S', f: color }
     else if (cur.m === 'S') out[key] = { m: end, f: color }
     else delete out[key]
@@ -1311,8 +1321,9 @@ export function paintCells(cells: Record<string, CellState>, weekKeys: string[],
 
 function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], color: WeekFill): Record<string, CellState> {
   const out = { ...cells }
-  // 묶음의 첫 칸 S, 끝 칸은 회색이면 F · 분홍이면 완
+  // 묶음의 첫 칸 S, 끝 칸은 회색이면 F 자동 · 분홍 완은 직접 눌러서(자동으로 붙이지 않음)
   const end: WeekMark = color === 'plan' ? 'F' : '완'
+  const autoEnd = color === 'plan'
   let run: string[] = []
   const flush = () => {
     if (run.length === 0) return
@@ -1323,7 +1334,8 @@ function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], co
       if (first) {
         if (c.m === '' || (c.m === end && run.length > 1)) out[k] = { ...c, m: 'S' }
       } else if (last) {
-        if (c.m === '' || c.m === 'S') out[k] = { ...c, m: end }
+        if (autoEnd && (c.m === '' || c.m === 'S')) out[k] = { ...c, m: end }
+        else if (!autoEnd && c.m === 'S') out[k] = { ...c, m: '' }
       } else if (c.m === 'S' || c.m === end) {
         out[k] = { ...c, m: '' }
       }

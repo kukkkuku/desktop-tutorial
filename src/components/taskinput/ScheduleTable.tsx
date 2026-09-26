@@ -1187,6 +1187,19 @@ export default function ScheduleTable({
   }
   // 표를 담은 칸의 폭(가로 꽉 채우기)
   const tableRef = useRef<HTMLTableElement>(null)
+  // 표 높이(열 추가 세로선을 표 끝까지만 -- 화면 높이로 그리면 짧은 표에도 세로 스크롤이 생긴다)
+  const [tableH, setTableH] = useState(0)
+  const [headTopH, setHeadTopH] = useState(0) // 머리글 첫 줄 높이(아래 줄 머리글의 세로선은 그만큼 짧게)
+  useEffect(() => {
+    const el = tableRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setTableH(el.offsetHeight)
+      setHeadTopH(el.tHead?.rows[0]?.offsetHeight ?? 0)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
   const [availWidth, setAvailWidth] = useState(0)
   useEffect(() => {
     const box = tableRef.current?.parentElement
@@ -1524,7 +1537,7 @@ export default function ScheduleTable({
     return null
   }
   // 머리글 오른쪽 경계 위쪽: 마우스를 올리면 "+ 열"과 빨간 세로선, 누르면 이 열 오른쪽에 새 열
-  const addColZone = (f: FieldDef) =>
+  const addColZone = (f: FieldDef, sub = false) =>
     onAddColumns && !readOnly ? (
       <span
         className="group/addc absolute -right-[7px] top-0 z-30 h-[45%] w-[14px] cursor-pointer"
@@ -1539,7 +1552,10 @@ export default function ScheduleTable({
         <span className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#1D1D1F] px-2 py-[1px] text-[11px] font-bold text-white opacity-0 shadow group-hover/addc:opacity-100">
           + 열
         </span>
-        <span className="pointer-events-none absolute left-1/2 top-0 h-[100vh] w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100" />
+        <span
+          className="pointer-events-none absolute left-1/2 top-0 w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100"
+          style={{ height: Math.max(0, tableH - (sub ? headTopH : 0)) }}
+        />
       </span>
     ) : null
   // ---- 채우기 점: 고른 범위를 아래·위·오른쪽·왼쪽으로 끌어 늘리면 원래 칸 값(서식 · 색 포함)을 반복해 채운다
@@ -2063,7 +2079,7 @@ export default function ScheduleTable({
                 >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
-                  {addColZone(f)}
+                  {addColZone(f, true)}
                 </th>
               ))}
           </tr>
@@ -2121,7 +2137,10 @@ export default function ScheduleTable({
                               className="group/bd absolute -bottom-[2px] left-0 z-40 h-[9px] w-[45%] cursor-pointer"
                               onMouseDown={(e) => e.stopPropagation()}
                             >
-                              <span className="pointer-events-none absolute left-0 top-1/2 h-[2px] w-[10000px] -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/bd:opacity-100" />
+                              <span
+                                className="pointer-events-none absolute left-0 top-1/2 h-[2px] -translate-y-1/2 bg-[#E8342A] opacity-0 group-hover/bd:opacity-100"
+                                style={{ width: tableWidth }}
+                              />
                               <span className="pointer-events-none absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 pl-1 opacity-0 group-hover/bd:pointer-events-auto group-hover/bd:opacity-100">
                                 {onAddRow && (
                                   <button

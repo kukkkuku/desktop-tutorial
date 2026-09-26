@@ -1958,7 +1958,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </span>
         </div>
 
-        <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto">
+        {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
+        <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto pb-4">
           {
             <ScheduleTable
               weekCols={weekCols}
