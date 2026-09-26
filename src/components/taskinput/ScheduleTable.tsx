@@ -424,7 +424,8 @@ function FieldCell({
   onExtend?: (dx: number, dy: number) => void
   onClearRange?: () => void
 }) {
-  const chip = 'inline-flex items-center rounded-full px-2 text-[0.85em] font-semibold'
+  // 분류 · 상태 뱃지: 표 글자가 작아도 읽히게 최소 12px(표 글자를 키우면 같이 커진다)
+  const chip = 'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-[2px] text-[max(12px,1em)] font-semibold leading-tight'
   const tdRef = useRef<HTMLTableCellElement>(null)
   const [pickOpen, setPickOpen] = useState(false)
   const canPick = !!choices && !disabled
