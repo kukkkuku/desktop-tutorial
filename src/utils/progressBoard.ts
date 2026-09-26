@@ -1221,7 +1221,7 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
 // ---------- 칠하기(회색 = 계획, 분홍 = 실적) ----------
 // 빈 칸이나 다른 색 칸을 누르거나 끌면 그 색으로 칠하고, 이어진 묶음의 첫 칸에 S,
 // 회색이면 끝 칸에 F를 자동으로 붙인다(묶음을 늘리면 따라 옮겨진다).
-// 분홍 끝의 "완"은 끝났을 때만 직접 넣는다(진행 중인 과제에 자동으로 붙이지 않음).
+// 분홍 끝 칸에도 "완"을 자동으로 붙인다(회색 F처럼 · 아직 진행 중이면 그 칸을 눌러 지우거나 바꾼다).
 // 이미 그 색인 칸을 다시 누르면(끌기 아님) S → 끝 글자(회색 F / 분홍 완) → 지움 순서로 바뀐다.
 // 지우개('erase')는 누르거나 끈 칸을 비우고, 남은 묶음의 S/F를 다시 맞춘다.
 export type PaintBrush = WeekFill | 'erase'
@@ -1247,6 +1247,8 @@ export function paintCells(cells: Record<string, CellState>, weekKeys: string[],
 
 function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], color: WeekFill): Record<string, CellState> {
   const out = { ...cells }
+  // 묶음의 첫 칸 S, 끝 칸은 회색이면 F · 분홍이면 완
+  const end: WeekMark = color === 'plan' ? 'F' : '완'
   let run: string[] = []
   const flush = () => {
     if (run.length === 0) return
@@ -1255,10 +1257,10 @@ function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], co
       const first = i === 0
       const last = i === run.length - 1 && run.length > 1
       if (first) {
-        if (c.m === '' || (c.m === 'F' && run.length > 1)) out[k] = { ...c, m: 'S' }
-      } else if (last && color === 'plan') {
-        if (c.m === '' || c.m === 'S') out[k] = { ...c, m: 'F' }
-      } else if (c.m === 'S' || (color === 'plan' && c.m === 'F')) {
+        if (c.m === '' || (c.m === end && run.length > 1)) out[k] = { ...c, m: 'S' }
+      } else if (last) {
+        if (c.m === '' || c.m === 'S') out[k] = { ...c, m: end }
+      } else if (c.m === 'S' || c.m === end) {
         out[k] = { ...c, m: '' }
       }
     })

@@ -1813,7 +1813,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     title={
                       c === 'erase'
                         ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
-                        : `${label} · 누르거나 끌어서 칠함(첫 칸 S${c === 'plan' ? ', 끝 칸 F' : ''} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
+                        : `${label} · 누르거나 끌어서 칠함(첫 칸 S, 끝 칸 ${c === 'plan' ? 'F' : '완'} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
                     }
                     aria-label={label}
                     className={`flex h-8 w-8 items-center justify-center rounded-control border ${tool === c ? 'border-accent bg-accent-soft ring-1 ring-accent' : 'border-hairline hover:bg-black/[0.05]'}`}
