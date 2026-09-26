@@ -2,7 +2,7 @@
 // 고른 칸(여러 칸이면 범위 전체)에 한 번에 적용한다. 값은 저장할 때 시트 칸 서식으로 쓴다.
 // 칸 색 · 서식 지우기는 우클릭 메뉴에 있다.
 import { useEffect, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, Bold, Check } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Bold, Check, TableCellsMerge, TableCellsSplit } from 'lucide-react'
 import type { CellAlign, CellFmt } from '../../utils/sheetSources'
 import ColorPalette from './ColorPalette'
 
@@ -15,6 +15,10 @@ export default function FormatBar({
   sheetColors,
   onFmt,
   onDone,
+  canMerge,
+  canSplit,
+  onMerge,
+  onSplit,
 }: {
   fmt: CellFmt // 기준 칸(처음 고른 칸)의 서식
   disabled?: boolean
@@ -22,6 +26,10 @@ export default function FormatBar({
   sheetColors?: string[]
   onFmt: (patch: CellFmt) => void // 준 항목만 바꾼다(undefined 값 = 기본으로)
   onDone: () => void // ✓: 칸 선택 끝내기
+  canMerge?: boolean // 두 칸 이상 골랐을 때
+  canSplit?: boolean // 고른 칸에 병합이 있을 때
+  onMerge?: () => void
+  onSplit?: () => void
 }) {
   const [pop, setPop] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -106,6 +114,29 @@ export default function FormatBar({
           </button>
         ))}
       </span>
+      {/* 병합 · 나누기 */}
+      {(onMerge || onSplit) && (
+        <span className="flex overflow-hidden rounded-[7px] border border-hairline">
+          <button
+            disabled={off || !canMerge}
+            onClick={onMerge}
+            className="flex h-7 w-8 items-center justify-center text-label-2 hover:bg-black/[0.06] disabled:opacity-35 disabled:hover:bg-transparent"
+            title="병합(두 칸 이상 고르기 · 왼쪽 위 값만 남음)"
+            aria-label="병합"
+          >
+            <TableCellsMerge size={16} strokeWidth={2} />
+          </button>
+          <button
+            disabled={off || !canSplit}
+            onClick={onSplit}
+            className="flex h-7 w-8 items-center justify-center border-l border-hairline text-label-2 hover:bg-black/[0.06] disabled:opacity-35 disabled:hover:bg-transparent"
+            title="나누기(병합한 칸을 골라 병합 해제)"
+            aria-label="나누기"
+          >
+            <TableCellsSplit size={16} strokeWidth={2} />
+          </button>
+        </span>
+      )}
       <span className="mx-0.5 h-5 border-l border-separator" />
       {/* 완료: 칸 선택 끝내기 */}
       <button

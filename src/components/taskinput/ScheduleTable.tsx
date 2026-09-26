@@ -1162,6 +1162,53 @@ export default function ScheduleTable({
         <span className="pointer-events-none absolute left-1/2 top-0 h-[100vh] w-[2px] -translate-x-1/2 bg-[#E8342A] opacity-0 group-hover/addc:opacity-100" />
       </span>
     ) : null
+  // ---- 열 전체 선택: 머리글을 누르면 그 열의 보이는 칸 전체(Shift = 여러 열)
+  const colSelected = (id: string) => {
+    if (!range || range.r1 !== 0 || range.r2 !== rows.length - 1) return false
+    const c = editIds.indexOf(id)
+    return c >= range.c1 && c <= range.c2
+  }
+  const selectedCols = range && range.r1 === 0 && range.r2 === rows.length - 1 ? editIds.slice(range.c1, range.c2 + 1).filter((id) => id !== 'name') : []
+  function headDown(e: React.MouseEvent, id: string) {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return
+    e.preventDefault()
+    if (rows.length < 2) return
+    setRowSel(null)
+    const first = rows[0].row.key
+    const last = rows[rows.length - 1].row.key
+    if (e.shiftKey && sel && selectedCols.length) {
+      setSel({ row: first, id: sel.id })
+      setSelEnd({ row: last, id })
+    } else {
+      setSel({ row: first, id })
+      setSelEnd({ row: last, id })
+    }
+  }
+  // ---- 병합 · 나누기 대상(고른 범위): 서식 막대와 우클릭에서 같이 쓴다
+  const mergePlan = (() => {
+    const rect = selRect
+    if (!rect) return { rows: [] as ScheduleRowView[], ids: [] as string[], canMerge: false, hit: [] as CellMerge[] }
+    const mRows = rows.slice(rect.r1, rect.r2 + 1)
+    const mIds = editIds.slice(rect.c1, rect.c2 + 1).filter((id) => id !== 'name')
+    const canMerge = mRows.length * mIds.length > 1 && mRows.every((v) => !v.deleted)
+    const hit = merges.filter((m) => m.rows.some((k) => mRows.some((v) => v.row.key === k)) && m.ids.some((id) => mIds.includes(id)))
+    return { rows: mRows, ids: mIds, canMerge, hit }
+  })()
+  function doMerge() {
+    if (!onMerge || !mergePlan.canMerge) return
+    onMerge(
+      mergePlan.rows.map((v) => v.row),
+      mergePlan.ids,
+      true,
+    )
+  }
+  function doSplit() {
+    if (!onMerge) return
+    for (const m of mergePlan.hit) {
+      const list = m.rows.map((k) => rows.find((v) => v.row.key === k)?.row).filter((r): r is ProgressRow => !!r)
+      if (list.length) onMerge(list, m.ids, false)
+    }
+  }
   // ---- 열 추가 이름 입력(우클릭 · 머리글 + 열)
   const [colAdd, setColAdd] = useState<{ anchor: string; side: 'left' | 'right'; count: number; x: number; y: number; text: string; rename?: string } | null>(
     null,
@@ -1525,9 +1572,10 @@ export default function ScheduleTable({
                   key={f.id}
                   rowSpan={2}
                   style={thStyle(hs?.fields[f.id], f.id)}
+                  onMouseDown={(e) => headDown(e, f.id)}
                   onContextMenu={headMenuOn(f.id)}
-                  className={`relative px-1 py-2 font-bold ${thBorder}`}
-                  title={`${f.label} · 우클릭: 머리글 색`}
+                  className={`relative cursor-pointer px-1 py-2 font-bold ${thBorder} ${colSelected(f.id) ? 'shadow-[inset_0_-3px_0_#1A73E8]' : ''}`}
+                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
@@ -1555,9 +1603,10 @@ export default function ScheduleTable({
                 <th
                   key={f.id}
                   style={thStyle(hs?.fields[f.id], f.id)}
+                  onMouseDown={(e) => headDown(e, f.id)}
                   onContextMenu={headMenuOn(f.id)}
-                  className={`relative px-1 pb-1.5 font-bold ${thBorder}`}
-                  title={`${f.label} · 우클릭: 머리글 색`}
+                  className={`relative cursor-pointer px-1 pb-1.5 font-bold ${thBorder} ${colSelected(f.id) ? 'shadow-[inset_0_-3px_0_#1A73E8]' : ''}`}
+                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
                   {onResize && <ResizeHandle width={colW(f)} onResize={(v) => resizeTo(f.id, v)} />}
@@ -1908,6 +1957,10 @@ export default function ScheduleTable({
             count={fmtTargets.length}
             sheetColors={sheetColors}
             onFmt={(patch) => applyFmt(patch)}
+            canMerge={!!onMerge && mergePlan.canMerge}
+            canSplit={!!onMerge && mergePlan.hit.length > 0}
+            onMerge={doMerge}
+            onSplit={doSplit}
             onDone={() => {
               setSel(null)
               setSelEnd(null)
@@ -2052,31 +2105,35 @@ export default function ScheduleTable({
               const sep = <div className="mac-menu-sep" />
               return (
                 <>
-                  <button
-                    onClick={() => {
-                      setNoteEdit({ ...menu, key: noteKey, text: menuView.notes[noteKey] ?? '' })
-                      close()
-                    }}
-                    className={item}
-                  >
-                    <StickyNote {...ic} />
-                    {menuView.notes[noteKey] ? '메모 수정' : '메모 추가'}
-                  </button>
-                  {menuView.notes[noteKey] && (
-                    <button
-                      onClick={() => {
-                        onNote(menu.row, noteKey, '')
-                        close()
-                      }}
-                      className={`${item} text-danger`}
-                    >
-                      <Trash2 {...ic} className="shrink-0 text-danger" />
-                      메모 삭제
-                    </button>
+                  {/* 번호칸(행 선택) 메뉴에는 메모 없음 */}
+                  {menu.kind !== 'row' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setNoteEdit({ ...menu, key: noteKey, text: menuView.notes[noteKey] ?? '' })
+                          close()
+                        }}
+                        className={item}
+                      >
+                        <StickyNote {...ic} />
+                        {menuView.notes[noteKey] ? '메모 수정' : '메모 추가'}
+                      </button>
+                      {menuView.notes[noteKey] && (
+                        <button
+                          onClick={() => {
+                            onNote(menu.row, noteKey, '')
+                            close()
+                          }}
+                          className={`${item} text-danger`}
+                        >
+                          <Trash2 {...ic} className="shrink-0 text-danger" />
+                          메모 삭제
+                        </button>
+                      )}
+                    </>
                   )}
                   {menu.kind === 'row' && onCells && (
                     <>
-                      {sep}
                       <button
                         onClick={() => {
                           const c = copySel(rowRect(menu.row.key))
@@ -2423,11 +2480,12 @@ export default function ScheduleTable({
                     onClick={() => {
                       const k = headMenu.key
                       setHeadMenu(null)
-                      onDeleteColumns([k])
+                      onDeleteColumns(selectedCols.includes(k) ? selectedCols : [k])
                     }}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-danger hover:bg-black/[0.05]"
                   >
-                    <Trash2 size={14} strokeWidth={1.9} />열 삭제
+                    <Trash2 size={14} strokeWidth={1.9} />
+                    {selectedCols.includes(headMenu.key) && selectedCols.length > 1 ? `열 ${selectedCols.length}개 삭제` : '열 삭제'}
                   </button>
                 )}
               </div>
