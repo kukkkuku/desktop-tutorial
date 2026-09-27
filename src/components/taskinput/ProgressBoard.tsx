@@ -1921,8 +1921,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     }
                     className={`mac-seg-item flex h-7 items-center gap-1.5 ${tool === c ? 'mac-seg-item-on' : ''}`}
                   >
+                    {/* 지우개는 아이콘만(이름은 말풍선 · 스크린리더) */}
                     {c === 'erase' ? <Eraser size={15} strokeWidth={1.8} /> : <CellSwatch cell={{ m: '', f: c }} size={14} />}
-                    {name}
+                    {c !== 'erase' && name}
                   </button>
                 ))}
               </span>
