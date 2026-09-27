@@ -185,7 +185,12 @@ export function setEvalGroup(board: WorkBoard, ids: string[], name: string, memb
 }
 
 export function renameEvalGroup(board: WorkBoard, from: string, to: string, members: TeamMember[]): WorkBoard {
-  return setEvalGroup(board, board.items.filter((i) => evalGroupOf(i) === from).map((i) => i.id), to.trim(), members)
+  const next = setEvalGroup(board, board.items.filter((i) => evalGroupOf(i) === from).map((i) => i.id), to.trim(), members)
+  // 묶음 분류도 새 이름으로 옮긴다
+  const g = board.evalGroupGrades
+  if (!g || !(from in g)) return next
+  const { [from]: v, ...rest } = g
+  return { ...next, evalGroupGrades: { ...rest, [to.trim()]: v } }
 }
 
 // 완료일을 넣으면 상태를 완료로 맞춘다(사람이 넣은 값이므로 editedAt도 찍힘).
@@ -593,5 +598,10 @@ export function migrateWorkBoard(raw: unknown): WorkBoard {
     ? (r.excludedSheetKeys as unknown[]).filter((x): x is string => typeof x === 'string')
     : []
   const filledItems = fillDerivedDates(items, weekAxis, sheetLink ? yearFromTitle(sheetLink.tabName) : null)
-  return { groups, items: filledItems, columns, weekAxis, sheetLink, excludedSheetKeys }
+  // 묶음 분류(묶음 이름 → 분류). 문자열 값만 남긴다
+  const evalGroupGrades =
+    r.evalGroupGrades && typeof r.evalGroupGrades === 'object'
+      ? Object.fromEntries(Object.entries(r.evalGroupGrades as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === 'string'))
+      : undefined
+  return { groups, items: filledItems, columns, weekAxis, sheetLink, excludedSheetKeys, ...(evalGroupGrades ? { evalGroupGrades } : {}) }
 }

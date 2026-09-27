@@ -279,8 +279,13 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // 입력한 내용이 있는 평가과제를 평가 대상에서 뺄 때 확인
   const [untarget, setUntarget] = useState<{ taskIds: string[]; names: string[] } | null>(null)
 
+  // 단위의 과제등급: 묶음은 묶음 분류(없으면 하위가 모두 같을 때), 낱개는 그 L3 분류
+  function gradeOfUnit(u: { key: string; name: string; items: WorkItem[] }): Importance | null {
+    const stored = u.key.startsWith('g:') ? board.evalGroupGrades?.[u.name] : undefined
+    return stored && (IMPORTANCE_OPTIONS as readonly string[]).includes(stored) ? (stored as Importance) : unitGrade(u.items)
+  }
   function unitsOfRows(rows: WorkItem[]) {
-    const all = evalUnits(board.items)
+    const all = evalUnits(board.items, board.evalGroupGrades)
     const keys = Array.from(new Set(rows.map(unitKeyOf)))
     return keys.map((k) => all.get(k)).filter((u): u is NonNullable<typeof u> => !!u)
   }
@@ -289,13 +294,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     // 등급을 고른 단위는 분류 칸에도 넣어 둔다(과제등급은 분류를 따른다)
     if (pick) {
       const updates = new Map<string, WorkItem>()
-      for (const u of list) if (!unitGrade(u.items)) for (const i of u.items) updates.set(i.id, setCellText(i, COL_CATEGORY, pick, members))
-      if (updates.size) apply(updateItems(board, updates))
+      for (const u of list) if (!gradeOfUnit(u)) for (const i of u.items) updates.set(i.id, setCellText(i, COL_CATEGORY, pick, members))
+      const grades = { ...(board.evalGroupGrades ?? {}) }
+      for (const u of list) if (u.key.startsWith('g:') && !gradeOfUnit(u)) grades[u.name] = pick
+      if (updates.size) apply({ ...updateItems(board, updates), evalGroupGrades: grades })
     }
     const tasks = list.map((u) => ({
       id: uuidv4(),
       name: u.name,
-      importance: (unitGrade(u.items) ?? pick)!,
+      importance: (gradeOfUnit(u) ?? pick)!,
       performanceGrade: null,
       workload: '중' as const,
       objective: '',
@@ -321,7 +328,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     if (on) {
       const fresh = units.filter((u) => !u.items.some((i) => targetIds.has(i.id)))
       if (!fresh.length) return
-      if (fresh.some((u) => !unitGrade(u.items))) setAskGrade({ units: fresh, grade: '' })
+      if (fresh.some((u) => !gradeOfUnit(u))) setAskGrade({ units: fresh, grade: '' })
       else createTargets(fresh)
       return
     }
@@ -373,10 +380,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   // 묶음 머리 행에서 분류를 고르면 하위 과제 전부의 분류를 바꾼다. 평가 대상이면 과제등급도 따라 바뀐다.
+  // 묶음 분류를 정하고, 하위는 기본으로 따라가게 모두 같은 값으로(하위는 그 뒤 따로 바꿀 수 있음)
   function setGroupCategory(g: string, value: string) {
     if (!value) return
     const ids = new Set(board.items.filter((i) => evalGroupOf(i) === g).map((i) => i.id))
-    apply({ ...board, items: board.items.map((i) => (ids.has(i.id) ? setCellText(i, COL_CATEGORY, value, members) : i)) })
+    apply({
+      ...board,
+      items: board.items.map((i) => (ids.has(i.id) ? setCellText(i, COL_CATEGORY, value, members) : i)),
+      evalGroupGrades: { ...(board.evalGroupGrades ?? {}), [g]: value },
+    })
   }
   const [colMenuOpen, setColMenuOpen] = useState(false)
   const [deletingCols, setDeletingCols] = useState<ColumnDef[] | null>(null)
@@ -519,7 +531,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const here = sourceItems.filter((i) => evalGroupOf(i) === g)
     const isTarget = all.some((i) => targetIds.has(i.id))
     const isOpen = !collapsed.has(g)
-    const fixedGrade = new Set(all.map((i) => i.category)).size === 1 ? all[0]?.category ?? null : null
+    // 묶음 분류: 정해 둔 값 → (평가 대상이면) 평가과제 과제등급 → 하위가 모두 같을 때 그 값. 하위 하나를 바꿔도 비지 않는다
+    const linkedTask = all.map((i) => taskOfItem.get(i.id)).find(Boolean)
+    const fixedGrade =
+      board.evalGroupGrades?.[g] ?? linkedTask?.importance ?? (new Set(all.map((i) => i.category)).size === 1 ? (all[0]?.category ?? null) : null)
     const key = `g:${g}`
     const taskNames = Array.from(new Set(all.flatMap((i) => linkedTasks.get(i.id) ?? [])))
     const doneCount = all.filter((i) => i.fields.status === '완료').length

@@ -256,6 +256,9 @@ export interface WorkBoard {
   sheetLink: SheetLink | null
   // 앱에서 지운 시트 행의 sheetKey -- 다시 가져와도 되살리지 않는다.
   excludedSheetKeys: string[]
+  // 묶음(평가과제 묶음) 이름 → 묶음 자체의 분류. 하위 L3는 기본으로 따라가지만 따로 바꿀 수 있고,
+  // 하위를 바꿔도 묶음 분류(= 평가과제 과제등급)는 그대로다.
+  evalGroupGrades?: Record<string, string>
 }
 
 // ---------- 순위 피어리뷰 ----------

@@ -32,8 +32,14 @@ export function unitGrade(items: WorkItem[]): Importance | null {
   return only && (IMPORTANCE_OPTIONS as string[]).includes(only) ? (only as Importance) : null
 }
 
-// 보드 순서대로 단위 목록
-export function evalUnits(items: WorkItem[]): Map<string, EvalUnit> {
+// 묶음에 정해 둔 분류가 과제등급 값이면 그것
+function storedGrade(grades: Record<string, string> | undefined, name: string): Importance | null {
+  const v = grades?.[name]
+  return v && (IMPORTANCE_OPTIONS as string[]).includes(v) ? (v as Importance) : null
+}
+
+// 보드 순서대로 단위 목록. 묶음은 묶음 분류(evalGroupGrades)가 있으면 그것, 없으면 하위가 모두 같을 때 그 값.
+export function evalUnits(items: WorkItem[], groupGrades?: Record<string, string>): Map<string, EvalUnit> {
   const units = new Map<string, EvalUnit>()
   for (const item of items) {
     const key = unitKeyOf(item)
@@ -41,7 +47,7 @@ export function evalUnits(items: WorkItem[]): Map<string, EvalUnit> {
     if (u) u.items.push(item)
     else units.set(key, { key, name: evalGroupOf(item) || item.name || '(이름 없는 L3)', items: [item], grade: null })
   }
-  for (const u of units.values()) u.grade = unitGrade(u.items)
+  for (const u of units.values()) u.grade = (u.key.startsWith('g:') ? storedGrade(groupGrades, u.name) : null) ?? unitGrade(u.items)
   return units
 }
 
@@ -52,7 +58,7 @@ const sameList = (a: string[], b: string[]) => a.length === b.length && a.every(
 export function reconcileEvalTasks(state: AppState, reduce: Reduce): AppState {
   const items = state.workBoard.items
   if (!state.tasks.some((t) => t.workItemIds?.length)) return state
-  const units = evalUnits(items)
+  const units = evalUnits(items, state.workBoard.evalGroupGrades)
   const keyOf = new Map(items.map((i) => [i.id, unitKeyOf(i)]))
 
   // 평가과제마다 첫 L3의 단위(= 그 과제가 남을 단위)와 걸친 단위들
