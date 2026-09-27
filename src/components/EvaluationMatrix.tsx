@@ -62,6 +62,32 @@ function ResizeHandle({
   )
 }
 
+// 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 알림 -- 과제별 · 팀원별 보기 둘 다 위에 띄운다
+export function OutOfSyncBanner() {
+  const { state, dispatch } = useAppState()
+  const outOfSync = useMemo(() => tasksOutOfSync(state), [state])
+  if (outOfSync.length === 0) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[13px] text-orange-800">
+      <span>
+        과제리스트의 담당자와 기여도(참여자)가 다른 평가과제가 <b>{outOfSync.length}개</b> 있습니다
+        <span className="text-orange-700/80">
+          {' '}
+          ·{' '}
+          {outOfSync
+            .slice(0, 3)
+            .map((t) => t.name)
+            .join(', ')}
+          {outOfSync.length > 3 ? ` 외 ${outOfSync.length - 3}개` : ''}
+        </span>
+      </span>
+      <Button type="button" size="sm" variant="secondary" className="ml-auto" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' })}>
+        담당자대로 맞추기
+      </Button>
+    </div>
+  )
+}
+
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
   const { tasks, members, contributions, criteria } = state
@@ -70,8 +96,6 @@ export default function EvaluationMatrix() {
   const periodName = currentWorkspace?.periodName ?? ''
   const peerInputs = peerInputsOf(state)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
-  // 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 -- 담당자를 바꾼 뒤 예전에 내보낸 과제
-  const outOfSync = useMemo(() => tasksOutOfSync(state), [state])
   // 과제별 피어리뷰(순위)의 평균 -- 기여도 칸 아래 참고로 보여 준다. 본인 평가 제외.
   const peerRankOf = useMemo(() => {
     const acc = new Map<string, { sum: number; count: number }>()
@@ -150,7 +174,7 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[17px] font-semibold text-label">평가 매트릭스</h3>
+        <h3 className="text-[17px] font-semibold text-label">팀원별 평가</h3>
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
             <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>
@@ -167,27 +191,10 @@ export default function EvaluationMatrix() {
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-[13px] text-label-2">
-        기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 필요하면 고쳐서 과제마다 합계 100%로 맞추세요. 성과등급은 평가과제에서 입력합니다.
+        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 성과등급은 과제별 보기에서
+        입력합니다.
       </p>
-      {outOfSync.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[13px] text-orange-800">
-          <span>
-            과제리스트의 담당자와 기여도(참여자)가 다른 평가과제가 <b>{outOfSync.length}개</b> 있습니다
-            <span className="text-orange-700/80">
-              {' '}
-              ·{' '}
-              {outOfSync
-                .slice(0, 3)
-                .map((t) => t.name)
-                .join(', ')}
-              {outOfSync.length > 3 ? ` 외 ${outOfSync.length - 3}개` : ''}
-            </span>
-          </span>
-          <Button type="button" size="sm" variant="secondary" className="ml-auto" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' })}>
-            담당자대로 맞추기
-          </Button>
-        </div>
-      )}
+      <OutOfSyncBanner />
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
         <p className="mt-4 rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">
@@ -276,7 +283,7 @@ export default function EvaluationMatrix() {
                           {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
                           <span>·</span>
                           <span
-                            title={`성과등급은 평가과제에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
+                            title={`성과등급은 과제별 보기에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
                             className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${
                               task.performanceGrade ? 'bg-black/[0.05] text-label' : 'bg-warning/10 text-warning'
                             }`}

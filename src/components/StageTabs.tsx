@@ -24,15 +24,15 @@ export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'not
 // 화면(평가용 과제 목록)은 "평가과제"로 이름을 바꿔 평가하기 앞에 둔다 --
 // L3를 하나씩 또는 묶어서 평가과제로 만드는 흐름은 다음 단계에서 붙인다
 // (docs/PLAN-TASK-MANAGEMENT.md 6.1).
-// 과제리스트(L2/L3 보드)와 평가과제는 한 메뉴 "과제관리" 안의 두 화면이다(화면 위 세그먼트로 전환).
+// 과제관리 = 과제리스트(L2/L3 보드). 평가하기 = 과제별(평가과제 · 펼쳐서 기여도) / 팀원별(매트릭스) 두 보기.
 // 메뉴는 세 묶음: 준비(과제관리·팀원관리) | 평가(평가하기·평가결과) | 면담. 묶음 사이에 세로 구분선.
 // 화면마다 여는 성과관리 매뉴얼 장(public/manual/perf.html)
 const STAGE_MANUAL: Record<Stage, string> = { work: 'perf', tasks: 'eval', members: 'peer', evaluate: 'evaluate', results: 'evaluate', notes: 'meeting' }
 
 const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[]; group: number }[] = [
-  { key: 'work', label: '과제관리', Icon: LayoutList, also: ['tasks'], group: 0 },
+  { key: 'work', label: '과제관리', Icon: LayoutList, group: 0 },
   { key: 'members', label: '팀원관리', Icon: Users, group: 0 },
-  { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal, group: 1 },
+  { key: 'tasks', label: '평가하기', Icon: SlidersHorizontal, also: ['evaluate'], group: 1 },
   { key: 'results', label: '평가결과', Icon: BarChart3, group: 1 },
   { key: 'notes', label: '면담', Icon: MessageCircle, group: 2 },
 ]

@@ -136,12 +136,12 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             <div className="flex min-h-0 flex-1">
               {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
               <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                {(stage === 'work' || stage === 'tasks') && (
+                {(stage === 'tasks' || stage === 'evaluate') && (
                   <UnderlineTabs
                     className="mb-5"
                     items={[
-                      { key: 'work', label: '과제리스트', title: '구글시트와 연결된 L2/L3 과제' },
-                      { key: 'tasks', label: '평가과제', title: '과제리스트에서 내보낸 평가용 과제' },
+                      { key: 'tasks', label: '과제별', title: '평가과제마다 성과등급 · 목표 · 성과, 펼쳐서 기여도 · 개인수행등급' },
+                      { key: 'evaluate', label: '팀원별', title: '팀원마다 합계 · 순위를 보며 기여도 · 개인수행등급' },
                     ]}
                     value={stage}
                     onChange={(k) => handleStageChange(k)}

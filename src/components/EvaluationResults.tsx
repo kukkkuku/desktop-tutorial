@@ -302,7 +302,7 @@ export default function EvaluationResults() {
           <p className="mt-1 text-[13px] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
           {tasks.some((t) => t.performanceGrade === null) && (
             <p className="mt-1 text-[13px] font-medium text-warning">
-              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 평가과제에서 매겨 주세요.
+              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 평가하기 › 과제별에서 매겨 주세요.
             </p>
           )}
         </div>

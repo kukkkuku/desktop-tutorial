@@ -276,7 +276,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
     showToast(
       tasks.length === 1
-        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다. 평가과제에서 성과등급을 매기세요.`
+        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다. 평가하기에서 성과등급을 매기세요.`
         : `평가과제 ${tasks.length}개를 평가 대상으로 넣었습니다.`,
     )
   }
