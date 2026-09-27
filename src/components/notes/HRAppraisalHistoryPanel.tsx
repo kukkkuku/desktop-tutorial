@@ -189,21 +189,28 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
         </table>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-        <p className="shrink-0 text-[13px] font-semibold text-label">보조지표</p>
-        {AUX_KEYS.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-1.5 text-[13px] text-label-2">
-            {label}
-            <input
-              type="number"
-              value={member.auxScores?.[key] ?? ''}
-              onChange={(e) => setAux(key, e.target.value)}
-              placeholder="0"
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-16 text-label"
-            />
-          </label>
-        ))}
-        <span className="ml-auto shrink-0 text-[13px] text-label-2">합계 {auxSum}점</span>
+      {/* 보조지표: 제목 · 합계 한 줄, 그 아래 칸 네 개(판이 넓으면 1×4, 좁으면 2×2) */}
+      <div className="aux-box mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-label">보조지표</p>
+          <span className="text-[13px] text-label-2">
+            합계 <b className="tabular-nums text-label">{auxSum}</b>점
+          </span>
+        </div>
+        <div className="aux-grid">
+          {AUX_KEYS.map(({ key, label }) => (
+            <label key={key} className="flex min-w-0 items-center justify-between gap-2 rounded-control bg-white px-2.5 py-1.5 text-[13px] text-label-2 ring-1 ring-separator">
+              <span className="shrink-0">{label}</span>
+              <input
+                type="number"
+                value={member.auxScores?.[key] ?? ''}
+                onChange={(e) => setAux(key, e.target.value)}
+                placeholder="0"
+                className="h-7 w-16 min-w-0 rounded-control border border-hairline px-2 text-right text-[13px] tabular-nums text-label"
+              />
+            </label>
+          ))}
+        </div>
       </div>
 
       {extraYears.length > 0 && (

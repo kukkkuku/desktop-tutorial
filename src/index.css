@@ -245,3 +245,18 @@ body {
 .grid-grabbing * {
   cursor: grabbing !important;
 }
+
+/* 보조지표 칸: 판 폭에 따라 2×2 ↔ 1×4(화면 전체가 아니라 그 판의 폭 기준) */
+.aux-box {
+  container-type: inline-size;
+}
+.aux-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@container (min-width: 520px) {
+  .aux-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
