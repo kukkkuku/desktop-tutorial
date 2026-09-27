@@ -1889,79 +1889,100 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               {editing ? '입력 끝내기' : '입력하기'}
             </Button>
           )}
-          {/* 칠하기 범례 겸 도구: ■ 계획  S 착수  F 완료   ■ 실적  S 착수  완 완료 (입력 중이면 계획 · 실적 · 지우개를 눌러 고름, 고른 것은 파란 밑줄) */}
-          <span className="ml-1 flex items-center gap-6">
-            {(
-              [
-                [
-                  'plan',
-                  '계획',
-                  '계획(회색) 칠하기',
+          {/* 칠하기: 보기 모드는 범례(■ 계획  S 착수  F 완료   ■ 실적  S 착수  완 완료),
+              입력 모드는 도구 버튼(세그먼트: 계획 · 실적 · 지우개) + 고른 도구의 표시 안내 */}
+          {editing ? (
+            <span className="ml-1 flex items-center gap-3">
+              <span className="mac-seg" role="radiogroup" aria-label="칠하기 도구">
+                {(
                   [
-                    ['S', '착수'],
-                    ['F', '완료'],
-                  ],
-                ],
-                [
-                  'actual',
-                  '실적',
-                  '실적(분홍) 칠하기',
-                  [
-                    ['S', '착수'],
-                    ['완', '완료'],
-                  ],
-                ],
-              ] as const
-            ).map(([c, name, label, marks]) => (
-              <span key={c} className="flex items-center gap-4">
-                {editing ? (
+                    ['plan', '계획', '계획(회색) 칠하기'],
+                    ['actual', '실적', '실적(분홍) 칠하기'],
+                    ['erase', '지우개', '지우개'],
+                  ] as const
+                ).map(([c, name, label]) => (
                   <button
+                    key={c}
+                    role="radio"
+                    aria-checked={tool === c}
+                    aria-label={label}
                     onClick={() => setTool(c)}
                     onContextMenu={(e) => {
                       // 우클릭: 바로 아래에 색 팔레트
+                      if (c === 'erase') return
                       e.preventDefault()
                       setTool(c)
                       openFillMenu(e.currentTarget, c)
                     }}
-                    title={`${label} · 누르거나 끌어서 칠함(첫 칸 S, 끝 칸 ${c === 'plan' ? 'F' : '완'} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`}
-                    aria-label={label}
-                    aria-pressed={tool === c}
-                    className={`-mb-[2px] flex h-8 items-center gap-1.5 border-b-2 text-[14px] transition-colors ${
-                      tool === c ? 'border-accent font-semibold text-label' : 'border-transparent text-label-2 hover:text-label'
-                    }`}
+                    title={
+                      c === 'erase'
+                        ? '지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)'
+                        : `${label} · 누르거나 끌어서 칠함(첫 칸 S, 끝 칸 ${c === 'plan' ? 'F' : '완'} 자동) · 같은 칸을 다시 누르면 S → ${c === 'plan' ? 'F' : '완'} → 지움 · 우클릭: 색 바꾸기`
+                    }
+                    className={`mac-seg-item flex h-7 items-center gap-1.5 ${tool === c ? 'mac-seg-item-on' : ''}`}
                   >
-                    <CellSwatch cell={{ m: '', f: c }} size={16} />
+                    {c === 'erase' ? <Eraser size={15} strokeWidth={1.8} /> : <CellSwatch cell={{ m: '', f: c }} size={14} />}
                     {name}
                   </button>
-                ) : (
+                ))}
+              </span>
+              <span className="flex items-center gap-3 text-[13px] text-label-3">
+                {tool === 'erase'
+                  ? '누르거나 끌어서 비우기'
+                  : (tool === 'actual'
+                      ? ([
+                          ['S', '착수'],
+                          ['완', '완료'],
+                        ] as const)
+                      : ([
+                          ['S', '착수'],
+                          ['F', '완료'],
+                        ] as const)
+                    ).map(([m, t]) => (
+                      <span key={m + t} className="flex items-center gap-1">
+                        <b className="font-bold text-label-2">{m}</b>
+                        {t}
+                      </span>
+                    ))}
+              </span>
+            </span>
+          ) : (
+            <span className="ml-1 flex items-center gap-6">
+              {(
+                [
+                  [
+                    'plan',
+                    '계획',
+                    [
+                      ['S', '착수'],
+                      ['F', '완료'],
+                    ],
+                  ],
+                  [
+                    'actual',
+                    '실적',
+                    [
+                      ['S', '착수'],
+                      ['완', '완료'],
+                    ],
+                  ],
+                ] as const
+              ).map(([c, name, marks]) => (
+                <span key={c} className="flex items-center gap-4">
                   <span className="flex items-center gap-1.5 text-[14px] text-label-2">
                     <CellSwatch cell={{ m: '', f: c }} size={16} />
                     {name}
                   </span>
-                )}
-                {marks.map(([m, t]) => (
-                  <span key={m + t} className="flex items-center gap-1 text-[13px] text-label-3">
-                    <b className="font-bold text-label-2">{m}</b>
-                    {t}
-                  </span>
-                ))}
-              </span>
-            ))}
-            {editing && (
-              <button
-                onClick={() => setTool('erase')}
-                title="지우개 · 누르거나 끌어서 칸을 비움(남은 묶음의 S/F는 다시 맞춤)"
-                aria-label="지우개"
-                aria-pressed={tool === 'erase'}
-                className={`-mb-[2px] flex h-8 items-center gap-1.5 border-b-2 text-[14px] transition-colors ${
-                  tool === 'erase' ? 'border-accent font-semibold text-label' : 'border-transparent text-label-2 hover:text-label'
-                }`}
-              >
-                <Eraser size={16} strokeWidth={1.75} />
-                지우개
-              </button>
-            )}
-          </span>
+                  {marks.map(([m, t]) => (
+                    <span key={m + t} className="flex items-center gap-1 text-[13px] text-label-3">
+                      <b className="font-bold text-label-2">{m}</b>
+                      {t}
+                    </span>
+                  ))}
+                </span>
+              ))}
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
             {scheduleMode === 'hidden' && (
