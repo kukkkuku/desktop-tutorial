@@ -1,6 +1,6 @@
 // 과제 입력 › 새 연도 만들기: 구글시트 없이 이 화면에서 한 해의 추진현황 표를 시작한다.
 //   빈 표로 시작하거나, 지금 보는 연도의 그룹 · 구분 · 열 구성을 이어받는다(과제는 고른 만큼 이월).
-//   만든 표는 이 브라우저에 저장되고, 관리자가 나중에 "구글시트로 만들기"로 연결된 파일에 탭을 만든다.
+//   저장 위치: 이 브라우저, 또는(관리자 · 시트 연결됨) 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 바로 만든다.
 import { useState } from 'react'
 import { FilePlus2, X } from 'lucide-react'
 import Button from '../Button'
@@ -13,6 +13,7 @@ export interface NewYearOptions {
   mode: 'blank' | 'inherit'
   carry: Carry
   l1: string
+  target: 'sheet' | 'local'
 }
 
 export default function NewYearDialog({
@@ -21,17 +22,23 @@ export default function NewYearDialog({
   inheritFrom,
   onCreate,
   onClose,
+  sheetName,
 }: {
   defaultYear: number
   taken: string[] // 이미 있는 탭 이름(「YYYY 추진현황」)
   inheritFrom: string | null // 이어받을 수 있는 연도(지금 보는 표) 이름
   onCreate: (o: NewYearOptions) => void
   onClose: () => void
+  sheetName?: string // 있으면(관리자 · 시트 연결됨) 저장 위치로 구글시트를 고를 수 있다
 }) {
   const [year, setYear] = useState(defaultYear)
   const [mode, setMode] = useState<'blank' | 'inherit'>(inheritFrom ? 'inherit' : 'blank')
   const [carry, setCarry] = useState<Carry>('open')
   const [l1, setL1] = useState('')
+  const [target, setTarget] = useState<'sheet' | 'local'>(sheetName ? 'sheet' : 'local')
+  // 시트는 이름(L3)이 있는 줄만 과제로 읽으니, 과제 없이 시작(빈 표 · 구분만)은 이 브라우저에 먼저 만든다
+  const sheetBlocked = mode === 'blank' || carry === 'structure'
+  const to = sheetName && !sheetBlocked ? target : 'local'
   const title = `${year} 추진현황`
   const clash = taken.some((t) => t.replace(/\s/g, '') === title.replace(/\s/g, ''))
   const opt = (on: boolean) =>
@@ -45,7 +52,7 @@ export default function NewYearDialog({
         onSubmit={(e) => {
           e.preventDefault()
           if (clash) return
-          onCreate({ year, mode, carry, l1: l1.trim() || '새 그룹' })
+          onCreate({ year, mode, carry, l1: l1.trim() || '새 그룹', target: to })
         }}
       >
         <div className="flex items-start justify-between">
@@ -54,7 +61,10 @@ export default function NewYearDialog({
               <FilePlus2 size={19} strokeWidth={1.9} className="text-accent" />새 연도 만들기
             </h2>
             <p className="mt-1 text-[12.5px] leading-relaxed text-label-2">
-              구글시트 없이 여기서 표를 시작합니다. 이 브라우저에 저장되고, 관리자가 나중에 연결된 구글시트에 「{title}」 탭으로 만들 수 있습니다.
+              한 해의 추진현황 표를 시작합니다.{' '}
+              {sheetName
+                ? '연결된 구글시트에 탭으로 바로 만들거나, 이 브라우저에 먼저 만들 수 있습니다.'
+                : '이 브라우저에 저장되고, 관리자가 나중에 구글시트에 탭으로 만들 수 있습니다.'}
             </p>
           </div>
           <button type="button" onClick={onClose} className="-mr-2 -mt-1 rounded-full p-1.5 text-label-3 hover:bg-black/[0.06]" aria-label="닫기">
@@ -120,12 +130,39 @@ export default function NewYearDialog({
           </button>
         </div>
 
+        {sheetName && (
+          <>
+            <p className="mb-2 mt-5 text-[13px] font-semibold text-label">저장 위치</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" disabled={sheetBlocked} onClick={() => setTarget('sheet')} className={`${opt(to === 'sheet')} disabled:opacity-50`}>
+                <span className={radio(to === 'sheet')} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-semibold text-label">구글시트</span>
+                  <span className="block text-[12px] leading-snug text-label-2" title={sheetName}>
+                    연결된 시트에 「{title}」 탭
+                  </span>
+                </span>
+              </button>
+              <button type="button" onClick={() => setTarget('local')} className={opt(to === 'local')}>
+                <span className={radio(to === 'local')} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-semibold text-label">이 브라우저</span>
+                  <span className="block text-[12px] leading-snug text-label-2">나중에 ⋯ › 구글시트로 만들기</span>
+                </span>
+              </button>
+            </div>
+            {sheetBlocked && (
+              <p className="mt-1.5 text-[12px] text-label-3">과제 없이 시작하면 이 브라우저에 먼저 만듭니다. 과제 이름을 넣은 뒤 ⋯ › 구글시트로 만들기.</p>
+            )}
+          </>
+        )}
+
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             취소
           </Button>
           <Button type="submit" variant="primary" disabled={clash}>
-            만들기
+            {to === 'sheet' ? '구글시트에 만들기' : '만들기'}
           </Button>
         </div>
       </form>
