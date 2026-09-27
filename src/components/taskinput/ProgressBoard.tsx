@@ -10,6 +10,7 @@ import type { WeekFill } from '../../utils/sheetImport'
 import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import FileMenu from '../ui/PopMenu'
+import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
 import {
   CalendarRange,
   CloudUpload,
@@ -451,6 +452,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
 
   function accept(next: ProgressData) {
+    // 시트 이름을 기억해 두면 다음에 "「파일 › 탭」 시트로 연결할까요?"로 바로 보여 준다
+    if (!next.local && next.spreadsheetId && next.fileTitle) writeSheetMeta(next.spreadsheetId, next.fileTitle, next.tabTitle)
     parkLocal()
     leaveArchive()
     setData(next)
@@ -821,8 +824,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const { canPerf } = useGoogleAccount() // 팀원은 성과관리로 내보내기 없음
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
   const [linkOpen, setLinkOpen] = useState(false)
-  const [linkInput, setLinkInput] = useState('')
-  const [startLink, setStartLink] = useState('') // 빈 화면: 공유받은 시트 링크
 
   // 다른 시트를 연결하면 그 시트에서 다시 불러온다. 고친 칸은 이전 시트 기준이라 비운다.
   async function connectSheet(url: string) {
@@ -1411,7 +1412,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     </>
   )
   function openSheetSettings() {
-    setLinkInput(sheetLink)
     setLinkOpen(true)
   }
   // 시트 연결 설정: 어디에 연결하나(팀원은 팀장이 공유한 시트 링크를 넣는다 -- 이 브라우저에 기억)
@@ -1434,12 +1434,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </a>
           {protectedLink && <span className="mac-badge bg-black/[0.06] text-label-2">읽기 전용 · 저장 안 함</span>}
         </div>
-        <SheetLinkForm
-          value={linkInput}
-          onChange={setLinkInput}
-          onSubmit={() => connectSheet(linkInput)}
-          onReset={sheetLink !== TASK_INPUT_SHEET_URL ? () => connectSheet(TASK_INPUT_SHEET_URL) : undefined}
-        />
+        <div className="mt-4 rounded-card border border-separator p-3">
+          <SharedSheetPrompt
+            url={TASK_INPUT_SHEET_URL}
+            label="관리자가 공유한 시트"
+            tab={sheetLink === TASK_INPUT_SHEET_URL ? readActiveTab() : null}
+            year={now.getFullYear()}
+            busy={loading}
+            onConnect={(u) => void connectSheet(u)}
+          />
+        </div>
       </div>
     </div>
   )
@@ -1501,35 +1505,27 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
-              // 공유받은 링크를 넣으면 그 시트로(이 브라우저에 기억), 비우면 지금 연결된 시트로
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  if (startLink.trim()) void connectSheet(startLink.trim())
-                  else void loadFromSheet()
-                }}
-                className="flex w-[340px] flex-col rounded-card border border-accent/40 bg-white p-4"
-              >
+              // 먼저 관리자가 공유한(지금 연결된) 시트를 이름으로 보여 주고 연결할지 묻는다. 아니면 공유받은 링크 붙여넣기
+              <div className="w-[380px] rounded-card border border-accent/40 bg-white p-4">
                 <span className="flex items-center gap-2">
                   <span className="flex h-8 w-8 items-center justify-center rounded-control bg-subtle text-accent">
-                    {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw size={17} strokeWidth={1.8} />}
+                    <RefreshCw size={17} strokeWidth={1.8} />
                   </span>
+                  <span className="text-[14px] font-semibold text-label">구글시트에서 불러오기</span>
                   {canManage && <span className="mac-badge ml-auto bg-accent-soft text-accent">추천</span>}
                 </span>
-                <span className="mt-3 text-[14px] font-semibold text-label">구글시트에서 불러오기</span>
-                <span className="mt-1 text-[12.5px] leading-relaxed text-label-2">
-                  시트의 「추진현황」 탭(올해 · 없으면 가장 최근 연도)을 읽습니다. 팀장에게 받은 시트가 있으면 링크를 넣으세요.
-                </span>
-                <input
-                  value={startLink}
-                  onChange={(e) => setStartLink(e.target.value)}
-                  placeholder="공유받은 시트 링크(비우면 지금 연결된 시트)"
-                  className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[12.5px] outline-none focus:border-accent"
-                />
-                <Button variant="primary" size="sm" type="submit" disabled={loading} className="mt-2 self-end">
-                  불러오기
-                </Button>
-              </form>
+                <div className="mt-3">
+                  <SharedSheetPrompt
+                    url={sheetLink}
+                    label={sheetLink === TASK_INPUT_SHEET_URL ? '관리자가 공유한 시트' : '지금 연결된 시트'}
+                    tab={readActiveTab()}
+                    year={now.getFullYear()}
+                    busy={loading}
+                    readOnlyNote={isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '운영 팀 시트라 읽기만 합니다(저장 안 함).' : undefined}
+                    onConnect={(u) => (u === sheetLink ? void loadFromSheet() : void connectSheet(u))}
+                  />
+                </div>
+              </div>
             )}
             {canManage && (
               <StartCard
@@ -1555,16 +1551,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <p className="mt-4 text-[13px] text-label-2">구글 연동이 켜져 있지 않습니다. 관리자에게 공유된 추진현황 시트를 요청해 주세요.</p>
           )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
-          <p className="mt-4 text-[12px] text-label-3">
-            {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
-              ? '지금 연결: 운영 팀 시트(읽기 전용 · 저장 안 함)'
-              : sheetLink === TASK_INPUT_SHEET_URL
-                ? '지금 연결: 테스트 시트(운영 시트의 사본)'
-                : `지금 연결: ${sheetLink}`}{' '}
-            <button onClick={openSheetSettings} className="font-medium text-accent hover:underline">
-              시트 바꾸기
-            </button>
-          </p>
           {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
         </div>
       </>
@@ -2510,57 +2496,6 @@ function StartCard({
       <span className="mt-3 text-[14px] font-semibold text-label">{title}</span>
       <span className="mt-1 text-[12.5px] leading-relaxed text-label-2">{desc}</span>
     </button>
-  )
-}
-
-function SheetLinkForm({
-  value,
-  onChange,
-  onSubmit,
-  onReset,
-  onCancel,
-}: {
-  value: string
-  onChange: (v: string) => void
-  onSubmit: () => void
-  onReset?: () => void
-  onCancel?: () => void
-}) {
-  return (
-    <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] p-3 text-left text-[13px]">
-      <p className="font-semibold text-label">불러오고 저장할 구글시트</p>
-      <p className="mt-0.5 text-label-2">
-        팀장에게 공유받은 시트 링크를 붙여 넣으세요(이 브라우저에 기억). 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 기본은 운영 시트의
-        사본(테스트 시트)이고, 운영 팀 시트는 연결해도 읽기만 합니다.
-      </p>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSubmit()
-        }}
-        className="mt-2 flex flex-wrap gap-2"
-      >
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="https://docs.google.com/spreadsheets/d/..."
-          className="h-8 min-w-[320px] flex-1 rounded-control border border-hairline bg-white px-2.5"
-        />
-        <Button variant="primary" size="sm" type="submit" disabled={!value.trim()}>
-          연결
-        </Button>
-        {onReset && (
-          <Button variant="secondary" size="sm" type="button" onClick={onReset}>
-            기본 테스트 시트로 되돌리기
-          </Button>
-        )}
-        {onCancel && (
-          <Button variant="ghost" size="sm" type="button" onClick={onCancel}>
-            닫기
-          </Button>
-        )}
-      </form>
-    </div>
   )
 }
 
