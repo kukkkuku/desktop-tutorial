@@ -100,9 +100,10 @@ export default function TeamManagement() {
       id: 'active',
       label: '상태',
       type: 'select',
-      width: 80,
+      width: 96,
       system: true,
-      picker: { options: ['활성', '비활성'], tone: (v) => (v === '활성' ? 'bg-success/10 text-success' : 'bg-black/[0.05] text-label-2') },
+      // 칸 안 토글로 켜고 끈다(목록에서 고르지 않음)
+      readOnly: true,
     },
     { id: 'work', label: '담당 L3', type: 'text', width: 75, system: true, readOnly: true },
     { id: 'tasks', label: '평가과제', type: 'text', width: 80, system: true, readOnly: true },
@@ -330,10 +331,20 @@ export default function TeamManagement() {
     if (col.id === 'team') return m.team ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.team}</span> : null
     if (col.id === 'active')
       return (
-        <span className={`${CHIP_BASE} gap-1.5 ${m.active ? 'bg-success/10 text-success' : 'bg-black/[0.05] text-label-2'}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${m.active ? 'bg-success' : 'bg-label-3'}`} />
-          {m.active ? '활성' : '비활성'}
-        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={m.active}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => save(state.members.map((x) => (x.id === m.id ? { ...x, active: !x.active } : x)), [])}
+          title={m.active ? '누르면 비활성(평가 · 기여도 배분에서 빠짐)' : '누르면 활성'}
+          className="flex items-center gap-2 py-1"
+        >
+          <span className={`relative h-[18px] w-8 shrink-0 rounded-full transition-colors ${m.active ? 'bg-success' : 'bg-black/[0.15]'}`}>
+            <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-all ${m.active ? 'left-[16px]' : 'left-[2px]'}`} />
+          </span>
+          <span className={`text-[12.5px] ${m.active ? 'text-label' : 'text-label-3'}`}>{m.active ? '활성' : '비활성'}</span>
+        </button>
       )
     if (col.id === 'service' || col.id === 'levelTenure' || col.id === 'work' || col.id === 'tasks')
       return <span className="tabular-nums text-label-2">{textOf(m, col.id)}</span>
