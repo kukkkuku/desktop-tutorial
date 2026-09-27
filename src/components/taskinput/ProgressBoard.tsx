@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import { useTabFit } from '../../hooks/useTabFit'
 import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
-import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
+import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import FileMenu from '../ui/PopMenu'
 import {
@@ -822,6 +822,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkInput, setLinkInput] = useState('')
+  const [startLink, setStartLink] = useState('') // 빈 화면: 공유받은 시트 링크
 
   // 다른 시트를 연결하면 그 시트에서 다시 불러온다. 고친 칸은 이전 시트 기준이라 비운다.
   async function connectSheet(url: string) {
@@ -1402,22 +1403,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </button>
       )}
       <div className="mac-menu-sep" />
-      {canManage ? (
-        <button onClick={openSheetSettings} className="mac-menu-item">
-          <Settings2 {...icSm} className="shrink-0" />
-          시트 연결 설정…
-        </button>
-      ) : (
-        <p className="px-3.5 py-1.5 text-[12px] text-label-3">{SHEET_ADMIN_ONLY}</p>
-      )}
+      {/* 팀원도 팀장이 공유한 시트 링크로 연다(이 브라우저에 기억 · 운영 팀 시트는 읽기만) */}
+      <button onClick={openSheetSettings} className="mac-menu-item">
+        <Settings2 {...icSm} className="shrink-0" />
+        {canManage ? '시트 연결 설정…' : '공유받은 시트 링크로 열기…'}
+      </button>
     </>
   )
   function openSheetSettings() {
     setLinkInput(sheetLink)
     setLinkOpen(true)
   }
-  // 시트 연결 설정(관리자): 어디에 연결하나
-  const sheetSettings = canManage && linkOpen && (
+  // 시트 연결 설정: 어디에 연결하나(팀원은 팀장이 공유한 시트 링크를 넣는다 -- 이 브라우저에 기억)
+  const sheetSettings = linkOpen && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => setLinkOpen(false)}>
       <div className="w-[min(560px,calc(100vw-2rem))] rounded-[14px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between">
@@ -1503,15 +1501,35 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
-              <StartCard
-                Icon={RefreshCw}
-                title="구글시트에서 불러오기"
-                desc={`「${now.getFullYear()} 추진현황」 탭을 읽습니다. 고친 내용은 시트에 저장됩니다.`}
-                badge={canManage ? '추천' : undefined}
-                busy={loading}
-                disabled={loading}
-                onClick={() => loadFromSheet()}
-              />
+              // 공유받은 링크를 넣으면 그 시트로(이 브라우저에 기억), 비우면 지금 연결된 시트로
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (startLink.trim()) void connectSheet(startLink.trim())
+                  else void loadFromSheet()
+                }}
+                className="flex w-[340px] flex-col rounded-card border border-accent/40 bg-white p-4"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-control bg-subtle text-accent">
+                    {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw size={17} strokeWidth={1.8} />}
+                  </span>
+                  {canManage && <span className="mac-badge ml-auto bg-accent-soft text-accent">추천</span>}
+                </span>
+                <span className="mt-3 text-[14px] font-semibold text-label">구글시트에서 불러오기</span>
+                <span className="mt-1 text-[12.5px] leading-relaxed text-label-2">
+                  시트의 「추진현황」 탭(올해 · 없으면 가장 최근 연도)을 읽습니다. 팀장에게 받은 시트가 있으면 링크를 넣으세요.
+                </span>
+                <input
+                  value={startLink}
+                  onChange={(e) => setStartLink(e.target.value)}
+                  placeholder="공유받은 시트 링크(비우면 지금 연결된 시트)"
+                  className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[12.5px] outline-none focus:border-accent"
+                />
+                <Button variant="primary" size="sm" type="submit" disabled={loading} className="mt-2 self-end">
+                  불러오기
+                </Button>
+              </form>
             )}
             {canManage && (
               <StartCard
@@ -1543,13 +1561,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               : sheetLink === TASK_INPUT_SHEET_URL
                 ? '지금 연결: 테스트 시트(운영 시트의 사본)'
                 : `지금 연결: ${sheetLink}`}{' '}
-            {canManage ? (
-              <button onClick={openSheetSettings} className="font-medium text-accent hover:underline">
-                시트 연결 설정
-              </button>
-            ) : (
-              <span>· 시트 연결은 관리자가 정합니다</span>
-            )}
+            <button onClick={openSheetSettings} className="font-medium text-accent hover:underline">
+              시트 바꾸기
+            </button>
           </p>
           {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
         </div>
@@ -2516,8 +2530,8 @@ function SheetLinkForm({
     <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] p-3 text-left text-[13px]">
       <p className="font-semibold text-label">불러오고 저장할 구글시트</p>
       <p className="mt-0.5 text-label-2">
-        기본은 운영 시트의 사본(테스트 시트)입니다. 다른 시트를 쓰려면 링크를 붙여 넣으세요. 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 운영
-        팀 시트는 연결해도 읽기만 합니다.
+        팀장에게 공유받은 시트 링크를 붙여 넣으세요(이 브라우저에 기억). 「YYYY 추진현황」 탭을 찾아 읽고, 저장도 그 시트에만 합니다. 기본은 운영 시트의
+        사본(테스트 시트)이고, 운영 팀 시트는 연결해도 읽기만 합니다.
       </p>
       <form
         onSubmit={(e) => {
