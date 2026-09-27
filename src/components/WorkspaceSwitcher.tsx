@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, Folder } from 'lucide-react'
+import { Check, ChevronDown, Folder, FolderOpen, Plus } from 'lucide-react'
 import type { WorkspaceMeta } from '../types'
 import { ic, icSm } from './ui/icon'
 
@@ -18,13 +18,7 @@ interface WorkspaceSwitcherProps {
 // 관리"(랜딩 화면으로 이동, 예전 홈 아이콘 역할을 대신함) 항목이 뜬다.
 // 워크스페이스 안에서 새 평가 기간을 만드는 흐름은 없앴다 -- 랜딩 화면의
 // "새 평가 만들기"로 이미 충분해서 중복이었다.
-export default function WorkspaceSwitcher({
-  teamName,
-  currentWorkspaceId,
-  periods,
-  onSelectPeriod,
-  onOpenProjectManagement,
-}: WorkspaceSwitcherProps) {
+export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, periods, onSelectPeriod, onOpenProjectManagement }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -63,20 +57,19 @@ export default function WorkspaceSwitcher({
 
   return (
     <>
-      {/* 사이드바 안: 흰 카드 한 줄(팀 · 평가기간) */}
+      {/* 페이지 머리 위치 줄: 과제 입력의 연도 고르기와 같은 모양(📁 팀 · 평가기간 ▾) */}
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title="평가기간 바꾸기 · 프로젝트 관리"
-        className={`flex w-full items-center gap-2.5 rounded-[10px] bg-white px-2.5 py-2 text-left shadow-pill transition-colors hover:bg-[#FCFCFC] ${open ? 'ring-2 ring-accent/20' : ''}`}
+        title="평가기간 바꾸기 · 프로젝트 목록"
+        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[13px] font-medium text-label-2 transition-colors hover:bg-black/[0.05] hover:text-label ${
+          open ? 'bg-black/[0.05]' : ''
+        }`}
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-accent-soft text-accent">
-          <Folder {...icSm} />
-        </span>
-        <span className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate text-[13px] font-semibold text-label">{displayTeamName}</span>
-          <span className="block truncate text-[12px] text-label-3">{current ? `${current.evaluationYear} ${current.periodName}` : ''}</span>
+        <Folder size={14} strokeWidth={1.8} className="shrink-0 text-accent" />
+        <span className="whitespace-nowrap">
+          {displayTeamName} · {current ? `${current.evaluationYear} ${current.periodName}` : ''}
         </span>
         <ChevronDown {...ic} className={`shrink-0 text-label-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -84,45 +77,57 @@ export default function WorkspaceSwitcher({
       {open &&
         pos &&
         createPortal(
-          <div
-            ref={menuRef}
-            style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            className="mac-pop z-50 w-60 overflow-hidden py-1"
-          >
-            <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">{displayTeamName}</p>
-            <div>
-              {periods.map((p) => {
-                const selected = p.id === currentWorkspaceId
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectPeriod(p.id)
-                      setOpen(false)
-                    }}
-                    className={`mac-menu-item ${selected ? 'font-semibold' : ''}`}
-                  >
-                    <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
-                    {p.evaluationYear} {p.periodName}
-                  </button>
-                )
-              })}
-            </div>
+          <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-[300px] overflow-hidden py-1">
+            <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">{displayTeamName} 평가기간</p>
+            {periods.map((p) => {
+              const selected = p.id === currentWorkspaceId
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    if (!selected) onSelectPeriod(p.id)
+                    setOpen(false)
+                  }}
+                  className={`mac-menu-item ${selected ? 'font-semibold' : ''}`}
+                >
+                  <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
+                  {p.evaluationYear} {p.periodName}
+                  {selected ? (
+                    <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-success">
+                      <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                      지금 평가
+                    </span>
+                  ) : (
+                    <span className="ml-auto text-[11px] font-normal text-label-3">{p.updatedAt.slice(5, 10).replace('-', '.')} 수정</span>
+                  )}
+                </button>
+              )
+            })}
             <div className="mac-menu-sep" />
-            <div>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false)
-                  onOpenProjectManagement()
-                }}
-                className="mac-menu-item"
-              >
-                <Folder {...icSm} className="shrink-0" />
-                프로젝트 관리
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onOpenProjectManagement()
+              }}
+              className="mac-menu-item text-accent"
+              title="프로젝트 목록에서 이 팀의 새 평가기간을 만듭니다"
+            >
+              <Plus {...icSm} className="shrink-0" />새 평가기간 만들기
+            </button>
+            <div className="mac-menu-sep" />
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onOpenProjectManagement()
+              }}
+              className="mac-menu-item"
+            >
+              <FolderOpen {...icSm} className="shrink-0" />
+              프로젝트 목록
+            </button>
           </div>,
           document.body,
         )}

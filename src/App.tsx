@@ -94,15 +94,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <AppShell
             perf={{
-              project: (
-                <WorkspaceSwitcher
-                  teamName={teamName}
-                  currentWorkspaceId={workspaceId}
-                  periods={periods}
-                  onSelectPeriod={selectWorkspace}
-                  onOpenProjectManagement={exitToLanding}
-                />
-              ),
               onQuickStart: () => {
                 setQuickStartUrl(null)
                 setQuickStartTab('auto')
@@ -117,9 +108,14 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                   <>
                     <span>성과관리</span>
                     <CrumbSep />
-                    <span className="text-label-2">
-                      {teamName} · {currentWorkspace?.evaluationYear} {currentWorkspace?.periodName}
-                    </span>
+                    {/* 평가기간 고르기(과제 입력의 연도 고르기와 같은 모양) */}
+                    <WorkspaceSwitcher
+                      teamName={teamName}
+                      currentWorkspaceId={workspaceId}
+                      periods={periods}
+                      onSelectPeriod={selectWorkspace}
+                      onOpenProjectManagement={exitToLanding}
+                    />
                   </>
                 }
                 title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}

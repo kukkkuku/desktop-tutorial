@@ -46,8 +46,6 @@ export const PERF_ITEMS: { key: PerfStage; label: string; Icon: LucideIcon; also
 const PERF_MANUAL: Record<PerfStage, string> = { work: 'perf', tasks: 'eval', members: 'peer', evaluate: 'evaluate', results: 'evaluate', notes: 'meeting' }
 
 export interface SidebarPerfExtras {
-  // 지금 프로젝트(팀 · 평가기간) 고르기 -- WorkspaceSwitcher
-  project?: ReactNode
   onQuickStart?: () => void
   onOpenDataManager?: () => void
   // 저장 상태 점(저장 중 · 저장됨 · 실패)
@@ -115,23 +113,25 @@ export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
       className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-3 transition-[width] duration-200 ${collapsed ? 'w-[60px]' : 'w-[236px]'}`}
       aria-label="메뉴"
     >
-      {/* 로고 · 접기 */}
-      <div className={`flex items-center gap-2 ${collapsed ? 'flex-col' : 'px-1'}`}>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-ink text-[12px] font-bold tracking-tight text-white">DL</span>
-        {!collapsed && (
-          <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[14px] font-semibold text-label">디자인연구소</span>
-            <span className="block truncate text-[12px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
-          </span>
-        )}
+      {/* 접기 버튼은 펼쳐도 접어도 같은 자리(맨 위 왼쪽, 애플 사이드바처럼), 펼치면 그 오른쪽에 로고 · 이름 */}
+      <div className="flex h-9 items-center gap-2 pl-[6px]">
         <button
           onClick={() => setCollapsed(!collapsed)}
           title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
           aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-3 hover:bg-black/[0.05] hover:text-label"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
         >
-          <PanelLeft size={16} strokeWidth={1.8} />
+          <PanelLeft size={17} strokeWidth={1.8} />
         </button>
+        {!collapsed && (
+          <>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-[11px] font-bold tracking-tight text-white">DL</span>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[13.5px] font-semibold text-label">디자인연구소</span>
+              <span className="block truncate text-[11.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
+            </span>
+          </>
+        )}
       </div>
 
       <nav className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
@@ -159,23 +159,21 @@ export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
             </div>
             {currentWorkspaceId && (
               <div className="mt-1.5">
-                {!collapsed &&
-                  (inPerf && perf?.project ? (
-                    <div className="mb-1">{perf.project}</div>
-                  ) : (
-                    <button
-                      onClick={() => setMode('perf')}
-                      title="이 프로젝트로 가기"
-                      className="mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left hover:bg-black/[0.04]"
-                    >
-                      <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-label">
-                        {currentWorkspace
-                          ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}`
-                          : '열어 둔 프로젝트'}
-                      </span>
-                    </button>
-                  ))}
+                {/* 프로젝트 이름(제목 줄) -- 평가기간 바꾸기는 페이지 머리에서. 다른 영역에 있으면 눌러서 이 프로젝트로 */}
+                {!collapsed && (
+                  <button
+                    onClick={() => !inPerf && setMode('perf')}
+                    title={inPerf ? undefined : '이 프로젝트로 가기'}
+                    className={`mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left ${inPerf ? 'cursor-default' : 'hover:bg-black/[0.04]'}`}
+                  >
+                    <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-label">
+                      {currentWorkspace
+                        ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}`
+                        : '열어 둔 프로젝트'}
+                    </span>
+                  </button>
+                )}
                 <div className={collapsed ? 'space-y-0.5' : 'ml-[18px] space-y-0.5 border-l border-separator pl-2'}>
                   {PERF_ITEMS.map(({ key, label: l, Icon, also }) =>
                     item(key, l, Icon, inPerf && (perfStage === key || !!also?.includes(perfStage)), () => {
