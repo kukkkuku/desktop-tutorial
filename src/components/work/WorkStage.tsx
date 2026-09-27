@@ -77,6 +77,7 @@ function timeAgo(iso: string | undefined): string {
 const V_GRADE = '__grade'
 const V_PERIOD = '__period'
 const V_GOAL = '__goal'
+const V_L2 = '__l2' // 평가 대상만 보기에서 그 줄의 그룹(L2)
 const isVirtual = (id: string) => id.startsWith('__')
 
 export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
@@ -260,6 +261,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     return m
   }, [state.tasks])
   const gradeUsed = state.criteria.performanceGradeWeight > 0
+  const targetTaskCount = state.tasks.filter((t) => t.workItemIds?.length).length
   function updateTask(t: Task) {
     dispatch({ type: 'UPDATE_TASK', payload: t })
   }
@@ -430,15 +432,44 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     },
   }
 
+  // 평가 대상만 보기: 모든 그룹(L2) 탭의 평가 대상(묶음은 통째로)을 한 표에 모은다 -- 성과등급 · 목표/성과를 한꺼번에 매길 때.
+  // 켜 있는 동안 행 추가 · 옮기기는 끈다(그룹 탭 안에서만 하는 일).
+  const [evalOnly, setEvalOnlyState] = useState(() => {
+    try {
+      return localStorage.getItem('work.evalOnly') === '1'
+    } catch {
+      return false
+    }
+  })
+  function setEvalOnly(v: boolean) {
+    setEvalOnlyState(v)
+    try {
+      localStorage.setItem('work.evalOnly', v ? '1' : '0')
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+  const sourceItems = useMemo(() => {
+    if (!evalOnly) return groupItems
+    const order = new Map(board.groups.map((g, k) => [g.id, k]))
+    const targetBundles = new Set(board.items.filter((i) => targetIds.has(i.id)).map(evalGroupOf).filter(Boolean))
+    return board.items
+      .map((i, k) => ({ i, k }))
+      .filter(({ i }) => targetIds.has(i.id) || (evalGroupOf(i) && targetBundles.has(evalGroupOf(i))))
+      .sort((a, b) => (order.get(a.i.groupId) ?? 0) - (order.get(b.i.groupId) ?? 0) || a.k - b.k)
+      .map(({ i }) => i)
+  }, [evalOnly, groupItems, board.items, board.groups, targetIds])
+  const groupNameOf = (id: string) => board.groups.find((g) => g.id === id)?.name ?? ''
+
   // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const { viewRows, headerAt, numbers, ranges } = useMemo(() => {
     const gathered: WorkItem[] = []
     const done = new Set<string>()
-    for (const i of groupItems) {
+    for (const i of sourceItems) {
       if (done.has(i.id)) continue
       const g = evalGroupOf(i)
-      const block = g ? groupItems.filter((x) => evalGroupOf(x) === g) : [i]
+      const block = g ? sourceItems.filter((x) => evalGroupOf(x) === g) : [i]
       for (const x of block) {
         gathered.push(x)
         done.add(x.id)
@@ -480,12 +511,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       ranges.set(g, cur ? [cur[0], idx] : [idx, idx])
     })
     return { viewRows: rows, headerAt: heads, numbers, ranges }
-  }, [groupItems, search, board.columns, members, collapsed])
-  const filtered = search.trim() !== ''
+  }, [sourceItems, search, board.columns, members, collapsed])
+  const filtered = search.trim() !== '' || evalOnly
 
   function groupHeader(g: string): GroupHeaderRow {
     const all = board.items.filter((i) => evalGroupOf(i) === g)
-    const here = groupItems.filter((i) => evalGroupOf(i) === g)
+    const here = sourceItems.filter((i) => evalGroupOf(i) === g)
     const isTarget = all.some((i) => targetIds.has(i.id))
     const isOpen = !collapsed.has(g)
     const fixedGrade = new Set(all.map((i) => i.category)).size === 1 ? all[0]?.category ?? null : null
@@ -583,6 +614,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           )
         if (colId === V_GRADE) return gradeCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
         if (colId === V_GOAL) return goalCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
+        if (colId === V_L2) return <span className="text-[12.5px] text-label-2">{groupNameOf(all[0]?.groupId ?? '')}</span>
         if (colId === V_PERIOD) return <PeriodCell start={starts[0] ?? ''} done={ends.length === all.length ? ends[ends.length - 1] : ''} />
         if (colId === 'startDate') return <span className="text-label-2">{starts[0] ?? ''}</span>
         if (colId === 'doneDate') return <span className="text-label-2">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
@@ -593,6 +625,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // 하위 과제(묶음 안 L3)의 과제명: ㄴ 표시 + 묶음에서 빼기 아이콘
   function renderCell(row: WorkItem, col: GridColumn) {
+    if (col.id === V_L2) return evalGroupOf(row) ? <span /> : <span className="text-[12.5px] text-label-2">{groupNameOf(row.groupId)}</span>
     if (col.id === V_GRADE || col.id === V_GOAL) {
       if (evalGroupOf(row)) return <span /> // 묶음 안 L3는 머리 행에서
       const t = taskOfItem.get(row.id)
@@ -717,6 +750,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       if (g.id === COL_CATEGORY) out.push(grade)
     }
     if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)
+    if (evalOnly) out.unshift({ id: V_L2, label: '그룹(L2)', type: 'text', width: vWidths[V_L2] ?? 150, system: true, readOnly: true })
     out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 300, system: true, readOnly: true })
     return out
   })()
@@ -778,6 +812,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const created: WorkItem[] = []
     matrix.forEach((line, i) => {
       const existing = viewRows[rowIndex + i]
+      if (!existing && evalOnly) return // 평가 대상만 보기에서는 새 줄을 만들지 않는다
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const gcol = gridColumns[colIndex + j]
@@ -933,7 +968,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
       <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
         {board.groups.map((g, idx) => {
-          const on = g.id === activeGroup?.id
+          const on = !evalOnly && g.id === activeGroup?.id
           const count = itemsOfGroup(board, g.id).length
           return (
             <div
@@ -955,7 +990,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               }}
               onDragEnd={() => setDragTab(null)}
               data-l2-tab={g.id}
-              onClick={() => setActiveGroupId(g.id)}
+              onClick={() => {
+                setActiveGroupId(g.id)
+                if (evalOnly) setEvalOnly(false) // 그룹 탭을 누르면 그 탭 보기로
+              }}
               onDoubleClick={() => setRenamingGroup(g.id)}
               onContextMenu={(e) => {
                 e.preventDefault()
@@ -1064,7 +1102,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <>
           {/* 정보 줄 한 줄: H › L1 › L2(제목은 굵고 크게) */}
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1">
-            <span className="shrink-0 text-xs text-label-2">
+            <span className={`shrink-0 text-xs text-label-2 ${evalOnly ? 'hidden' : ''}`}>
               {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
               {activeGroup.hierarchyInferred && (
                 <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
@@ -1072,8 +1110,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </span>
               )}
             </span>
-            <span className="text-xs text-label-3">›</span>
-            <h2 className="min-w-0 truncate text-[17px] font-semibold text-label">{activeGroup.name}</h2>
+            {!evalOnly && <span className="text-xs text-label-3">›</span>}
+            <h2 className="min-w-0 truncate text-[17px] font-semibold text-label">{evalOnly ? '평가 대상 · 모든 그룹' : activeGroup.name}</h2>
             {missingCount > 0 && (
               <span
                 className="ml-1.5 self-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700"
@@ -1089,10 +1127,18 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="이 L2에서 찾기"
+              placeholder={evalOnly ? '평가 대상에서 찾기' : '이 L2에서 찾기'}
               className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[13px]"
             />
-            {filtered && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
+            <label
+              className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[13px] ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : 'border-hairline text-label-2 hover:text-label'}`}
+              title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
+            >
+              <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
+              평가 대상만 보기{evalOnly ? ` · ${targetTaskCount}개` : ''}
+            </label>
+            {filtered && !evalOnly && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
+            {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
                 onClick={undo}
@@ -1195,11 +1241,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             )}
             onCommit={commit}
             onPaste={paste}
-            onInsertRows={insertRows}
+            onInsertRows={evalOnly ? undefined : insertRows}
             onDeleteRows={removeRows}
             onMoveRows={filtered ? undefined : moveRows}
             onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
-            onRowDragOutside={rowDragOutside}
+            onRowDragOutside={evalOnly ? undefined : rowDragOutside}
             onInsertColumn={(gi) => insertColumn(visIndexOfGrid(gi))}
             onDeleteColumns={(ids) => requestDeleteColumns(realColIds(ids))}
             onHideColumns={(ids) => {
@@ -1218,7 +1264,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onRedo={redo}
             storageKey="work"
             addRowLabel="과제 추가"
-            emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
+            emptyText={evalOnly && !search.trim() ? '평가 대상이 없습니다. "평가 대상만 보기"를 끄고 그룹 탭에서 왼쪽 체크로 넣으세요.' : filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-label-3">
             왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김 · 그 줄에서 성과등급 · 목표/성과 입력) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
