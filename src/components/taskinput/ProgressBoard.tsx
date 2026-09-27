@@ -2,6 +2,7 @@
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFitHeight } from '../../hooks/useFitHeight'
 import { createPortal } from 'react-dom'
 import { useTabFit } from '../../hooks/useTabFit'
 import { fillHex, setFillHex } from '../../utils/fillColors'
@@ -201,6 +202,8 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
 }
 
 export default function ProgressBoard({ view = 'progress' }: { view?: 'progress' | 'rate' }) {
+  // 표 틀 높이 = 창 높이에 맞춤(아래 여백 = 본문 아래 32px + 판 바깥 8px + 4px). 가로 스크롤 막대가 늘 화면 안에 보이게
+  const [tableBoxRef, tableBoxH] = useFitHeight(44)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
   const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
@@ -2025,7 +2028,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </div>
 
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
-        <div className="mt-2 max-h-[calc(100vh-11.5rem)] overflow-auto pb-4">
+        <div ref={tableBoxRef} className="mt-2 overflow-auto pb-4" style={{ maxHeight: tableBoxH }}>
           {
             <ScheduleTable
               weekCols={weekCols}
