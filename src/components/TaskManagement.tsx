@@ -13,7 +13,8 @@ import Button from './Button'
 import IconButton from './IconButton'
 import DataGrid, { CHIP_BASE, type CellEdit, type DetailLine, type GridColumn } from './grid/DataGrid'
 import { useStateHistory } from '../hooks/useStateHistory'
-import { ChevronRight, Redo2, Undo2 } from 'lucide-react'
+import { ChevronRight, Plus, Redo2, Undo2 } from 'lucide-react'
+import { v4 as uuidv4 } from 'uuid'
 import { ic } from './ui/icon'
 
 const MUTED = 'bg-black/[0.05] text-label-3'
@@ -24,7 +25,8 @@ const STATUS_TONE: Record<string, string> = {
   중단: 'bg-red-100 text-red-700',
 }
 
-// 평가과제는 과제관리에서 내보내 만든다(여기서 직접 추가하지 않음 -- 출처를 하나로).
+// 평가과제는 과제리스트에서 "평가 대상"을 체크하면 생긴다(이름 · 과제등급 · 묶음은 과제리스트를 따름).
+// 과제리스트와 상관없는 과제는 여기서 "과제 추가"로 만든다.
 // 표는 과제관리와 같은 DataGrid: 칸을 눌러 바로 입력, 붙여넣기, 행 삭제·이동, ⌘Z.
 export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void }) {
   const { state, dispatch, recentlyAddedIds } = useAppState()
@@ -124,6 +126,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       const v = e.text.trim()
       switch (e.colId) {
         case 'name': {
+          if (linked(t)) {
+            if (t.name !== v) problems.push('과제리스트에서 온 과제의 이름은 과제리스트 묶음 이름(또는 L3 이름)을 따릅니다')
+            break
+          }
           if (!v) {
             problems.push('과제명은 비울 수 없습니다')
             break
@@ -187,7 +193,8 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         if (col && !col.readOnly) edits.push({ rowId: task.id, colId: col.id, text })
       })
     })
-    if (rowIndex + matrix.length > state.tasks.length) setNotice('평가과제는 과제리스트에서 내보내 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
+    if (rowIndex + matrix.length > state.tasks.length)
+      setNotice('새 평가과제는 과제리스트의 평가 대상 체크나 과제 추가로 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
     applyEdits(edits)
   }
 
@@ -202,6 +209,17 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
 
   // 과제리스트와 이어진 평가과제는 과제등급·묶기를 과제리스트(묶음 행 분류)에서만 고친다. 여기서는 보여 주기만.
   const linked = (t: Task) => (t.workItemIds?.length ?? 0) > 0
+
+  // 과제리스트와 상관없는 평가과제(예: 다른 팀 지원 업무). 과제등급은 일반으로 두고 표에서 바꾼다.
+  function addTask() {
+    const names = new Set(state.tasks.map((t) => t.name))
+    let name = '새 평가과제'
+    for (let k = 2; names.has(name); k++) name = `새 평가과제 (${k})`
+    history.record()
+    const task: Task = { id: uuidv4(), name, importance: '일반', performanceGrade: null, workload: '중', objective: '', achievement: '' }
+    dispatch({ type: 'ADD_TASK', payload: task })
+    setNotice('')
+  }
 
   function confirmDelete() {
     if (!deleting) return
@@ -320,6 +338,10 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           </IconButton>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={addTask} title="과제리스트와 상관없는 평가과제를 만듭니다">
+            <Plus {...ic} />
+            과제 추가
+          </Button>
           <CurrentDataDownloadControls
             disabled={state.tasks.length === 0}
             onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
@@ -328,13 +350,16 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         </div>
       </div>
       <p className="mt-1 text-[13px] text-label-2">
-        새 평가과제는 과제리스트에서 L3를 체크해 내보냅니다. 여기서는 성과등급·목표·성과를 입력합니다. 과제등급과 묶기·풀기는 과제리스트에서 바꿉니다.
+        과제리스트에서 "평가 대상"을 체크한 L3 · 묶음이 여기 평가과제가 됩니다. 여기서는 성과등급·목표·성과를 입력하고, 과제명 · 과제등급 · 묶기는
+        과제리스트에서 바꿉니다.
       </p>
 
       {state.tasks.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
           <p className="text-[13px] font-medium text-label">아직 평가과제가 없습니다</p>
-          <p className="mt-1 text-xs text-label-2">과제리스트에서 L3를 체크하고 "평가과제로 내보내기"를 누르면 여기에 생깁니다.</p>
+          <p className="mt-1 text-xs text-label-2">
+            과제리스트에서 L3의 "평가 대상"을 체크하면 여기에 바로 생깁니다. 과제리스트와 상관없는 과제는 위 "과제 추가"로 만듭니다.
+          </p>
           {onGoToWork && (
             <Button variant="primary" onClick={onGoToWork} className="mt-4">
               과제리스트로 이동
@@ -349,7 +374,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             rows={state.tasks}
             fixedColumns
             getText={textOf}
-            isReadOnly={(t, colId) => colId === 'importance' && linked(t)}
+            isReadOnly={(t, colId) => (colId === 'importance' || colId === 'name') && linked(t)}
             renderCell={renderCell}
             rowDetail={renderDetail}
             rowDetailSplit="objective"

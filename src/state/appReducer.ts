@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import { createEmptyBoard, detachMember, rematchAssignees } from '../utils/workBoard'
 import { syncContributionsToAssignees } from '../utils/assigneeSync'
+import { reconcileEvalTasks } from '../utils/evalReconcile'
 
 export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
@@ -204,14 +205,28 @@ export function syncAutoDistribution(
   return result
 }
 
+// 과제리스트가 바뀐 뒤 평가과제를 L3 · 묶음에 맞춘다(utils/evalReconcile.ts).
+function withEvalSync(s: AppState): AppState {
+  if (!s.workBoard?.items) return s
+  const r = reconcileEvalTasks(s, appReducer)
+  if (r === s || r.tasks === s.tasks) return r
+  return { ...r, contributions: syncAutoDistribution(r.tasks, r.members, r.contributions, r.peerReviews) }
+}
+
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'LOAD_STATE':
-      return action.payload
+      // 예전에 내보낸 평가과제도 여기서 한 번 L3 · 묶음에 맞춘다(같은 묶음을 따로 내보낸 과제는 합쳐짐)
+      return withEvalSync(action.payload)
 
     case 'SET_WORK_BOARD':
-      // 과제리스트에서 담당자를 바꾸면 그 L3가 묶인 평가과제의 기여도(참여자)도 맞춘다
-      return { ...state, workBoard: action.payload, contributions: syncContributionsToAssignees(state, action.payload.items, state.workBoard.items) }
+      // 과제리스트에서 담당자를 바꾸면 그 L3가 묶인 평가과제의 기여도(참여자)도 맞추고,
+      // 묶기 · 풀기 · 이름 · 분류를 바꾸면 평가과제도 맞춘다
+      return withEvalSync({
+        ...state,
+        workBoard: action.payload,
+        contributions: syncContributionsToAssignees(state, action.payload.items, state.workBoard.items),
+      })
 
     case 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES':
       return { ...state, contributions: syncContributionsToAssignees(state, state.workBoard.items) }
@@ -259,7 +274,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           })),
         ]
       }
-      return { ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) }
+      return withEvalSync({ ...state, tasks, contributions: syncAutoDistribution(tasks, state.members, contributions, state.peerReviews) })
     }
 
     case 'ADD_TASK': {

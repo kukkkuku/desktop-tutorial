@@ -91,6 +91,8 @@ interface DataGridProps<R extends { id: string }> {
     isDisabled?: (row: R) => boolean
     title?: (row: R) => string | undefined
     onToggle: (rows: R[], on: boolean) => void
+    // 있으면 머리글에 전체 선택 대신 이 이름을 쓴다(체크가 곧 동작이라 한꺼번에 켜면 안 될 때)
+    headerTitle?: string
   }
   // 행을 끌어 표 밖(예: L2 탭)에 놓기. move는 끄는 동안 계속 불리고 표 밖 대상 위면 true를
   // 돌려준다(그동안 표 안 삽입선은 숨김). drop이 true면 표 안 이동은 하지 않는다.
@@ -1172,17 +1174,23 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 )}
                 {check && (
                   <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
-                    <input
-                      type="checkbox"
-                      aria-label="보이는 행 모두 선택"
-                      checked={allChecked}
-                      ref={(el) => {
-                        if (el) el.indeterminate = someChecked && !allChecked
-                      }}
-                      disabled={checkable.length === 0}
-                      onChange={() => check.onToggle(checkable, !allChecked)}
-                      className="h-4 w-4 cursor-pointer accent-accent align-middle"
-                    />
+                    {check.headerTitle ? (
+                      <span className="text-[11px] font-semibold text-label-2" title={check.headerTitle}>
+                        {check.headerTitle.slice(0, 2)}
+                      </span>
+                    ) : (
+                      <input
+                        type="checkbox"
+                        aria-label="보이는 행 모두 선택"
+                        checked={allChecked}
+                        ref={(el) => {
+                          if (el) el.indeterminate = someChecked && !allChecked
+                        }}
+                        disabled={checkable.length === 0}
+                        onChange={() => check.onToggle(checkable, !allChecked)}
+                        className="h-4 w-4 cursor-pointer accent-accent align-middle"
+                      />
+                    )}
                   </th>
                 )}
                 {columns.map((col, c) => {
