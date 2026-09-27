@@ -1,14 +1,13 @@
 // 앱 바탕(디자인 시스템 v2): 회색 캔버스 위 왼쪽 사이드바 + 위 한 줄 머리 + 아래 흰 콘텐츠 판.
 // 화면은 <AppShell header={<PageHeader .../>}>{내용}</AppShell> 모양으로 쓴다. 하위 탭은 판 안 맨 위에 <PageTabs>로.
-// 메뉴 모양 3단계(머리 맨 앞 버튼으로 차례로): 펼침 → 아이콘만(좁은 사이드바) → 위 메뉴(사이드바 없이 머리 한 줄에).
+// 메뉴 모양 3단계(머리 맨 앞 버튼): 펼침 ⇄ 아이콘만(좁은 사이드바) ⇄ 위 메뉴(사이드바 없이 머리 한 줄에).
 // 고른 모양은 이 브라우저에 기억한다.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, PanelTop, type LucideIcon } from 'lucide-react'
 import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
 
 export type ShellLayout = 'open' | 'rail' | 'top'
 const LAYOUT_KEY = 'sidebar-layout'
-const NEXT: Record<ShellLayout, ShellLayout> = { open: 'rail', rail: 'top', top: 'open' }
 function readLayout(): ShellLayout {
   try {
     const v = localStorage.getItem(LAYOUT_KEY)
@@ -20,13 +19,12 @@ function readLayout(): ShellLayout {
 }
 // 모양을 바꾼 뒤(새 머리가 그려진 뒤) 알린다 -- 머리 빈 칸에 그리는 화면(추진현황 연도 고르기 · ⋯)이 다시 찾도록
 export const SHELL_LAYOUT_EVENT = 'shell-layout'
-const ShellCtx = createContext<{ layout: ShellLayout; cycle: () => void; perf?: SidebarPerfExtras } | null>(null)
+const ShellCtx = createContext<{ layout: ShellLayout; setLayout: (v: ShellLayout) => void; perf?: SidebarPerfExtras } | null>(null)
 
 export default function AppShell({ perf, header, children }: { perf?: SidebarPerfExtras; header?: ReactNode; children: ReactNode }) {
-  const [layout, setLayout] = useState(readLayout)
-  function cycle() {
-    const v = NEXT[layout]
-    setLayout(v)
+  const [layout, setLayoutState] = useState(readLayout)
+  function setLayout(v: ShellLayout) {
+    setLayoutState(v)
     try {
       localStorage.setItem(LAYOUT_KEY, v)
     } catch {
@@ -38,7 +36,7 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   }, [layout])
   const top = layout === 'top'
   return (
-    <ShellCtx.Provider value={{ layout, cycle, perf }}>
+    <ShellCtx.Provider value={{ layout, setLayout, perf }}>
       <div className="flex min-h-screen bg-canvas">
         {!top && <Sidebar perf={perf} collapsed={layout === 'rail'} />}
         <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-2 pr-2 ${top ? 'pl-2' : ''}`}>
@@ -50,23 +48,34 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   )
 }
 
-// 메뉴 모양 버튼(머리 맨 앞, 언제나 같은 자리): 누를 때마다 펼침 → 아이콘만 → 위 메뉴 → 펼침
+// 메뉴 모양 버튼(머리 맨 앞, 언제나 같은 자리)
+//   펼침: [접기] → 아이콘만
+//   아이콘만: [펼치기] [위로 올리기] -- 다시 펼칠 수도, 위 메뉴로 갈 수도
+//   위 메뉴: [펼치기] → 펼침
 function LayoutToggle() {
   const ctx = useContext(ShellCtx)
   if (!ctx) return null
-  const { layout } = ctx
-  const t = layout === 'open' ? '메뉴 접기(아이콘만)' : layout === 'rail' ? '메뉴를 위로 올리기' : '메뉴 펼치기'
-  const Icon = layout === 'open' ? PanelLeftClose : layout === 'rail' ? PanelTop : PanelLeftOpen
-  return (
+  const { layout, setLayout } = ctx
+  const btn = (to: ShellLayout, t: string, Icon: LucideIcon) => (
     <button
-      onClick={ctx.cycle}
+      key={to}
+      onClick={() => setLayout(to)}
       title={t}
       aria-label={t}
-      className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
     >
       <Icon size={17} strokeWidth={1.8} />
     </button>
   )
+  if (layout === 'open') return <span className="-ml-0.5 flex">{btn('rail', '메뉴 접기(아이콘만)', PanelLeftClose)}</span>
+  if (layout === 'rail')
+    return (
+      <span className="-ml-0.5 flex gap-0.5">
+        {btn('open', '메뉴 펼치기', PanelLeftOpen)}
+        {btn('top', '메뉴를 위로 올리기', PanelTop)}
+      </span>
+    )
+  return <span className="-ml-0.5 flex">{btn('open', '메뉴 펼치기(왼쪽)', PanelLeftOpen)}</span>
 }
 
 // 화면 머리(회색 바탕 위 한 줄): 메뉴 모양 버튼 · 영역 / 고르기(연도 · 평가기간) / 제목(굵게) · 오른쪽 동작
