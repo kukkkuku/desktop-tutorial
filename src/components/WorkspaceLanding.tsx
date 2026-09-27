@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
-import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
+import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
 import { Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import Button from './Button'
@@ -261,6 +261,33 @@ export default function WorkspaceLanding() {
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
   const [renamePeriodName, setRenamePeriodName] = useState('')
+  // 팀 이름 바꾸기(그 팀의 모든 평가 · 팀원 담당팀까지)
+  const [teamRename, setTeamRename] = useState<{ from: string; to: string } | null>(null)
+  function saveTeamRename() {
+    if (!teamRename) return
+    const to = teamRename.to.trim()
+    const { from } = teamRename
+    if (!to || to === from) return setTeamRename(null)
+    for (const ws of workspaces.filter((w) => w.teamName === from)) {
+      renameWorkspace(ws.id, to, ws.periodName)
+      // 팀원 담당팀이 예전 팀 이름이면 새 이름으로(안 그러면 모두 "다른 팀"으로 보인다)
+      try {
+        const key = workspaceStateKey(ws.id)
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const st = JSON.parse(raw)
+          if (Array.isArray(st.members) && st.members.some((m: { team?: string }) => m.team === from)) {
+            st.members = st.members.map((m: { team?: string }) => (m.team === from ? { ...m, team: to } : m))
+            localStorage.setItem(key, JSON.stringify(st))
+          }
+        }
+      } catch {
+        // 팀원 담당팀을 못 고쳐도 팀 이름은 바뀐다
+      }
+    }
+    setTeamName(to)
+    setTeamRename(null)
+  }
 
   // teamName은 useState 초기값이라 마운트 시점 이후로는 저절로 안 바뀐다.
   // 선택돼 있던 팀을 지워서 지금 선택된 teamName이 더 이상 존재하지
@@ -319,18 +346,26 @@ export default function WorkspaceLanding() {
                 const memberCount = mostRecentWs ? readWorkspaceCounts(mostRecentWs.id).memberCount : 0
                 const active = name === teamName
                 return (
-                  <button
-                    key={name}
-                    onClick={() => setTeamName(name)}
-                    className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] transition-colors ${
-                      active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
-                    }`}
-                  >
-                    <span className="font-semibold">{name}</span>
-                    <span className="opacity-70">
-                      {memberCount}명 · {teamWs.length}개
-                    </span>
-                  </button>
+                  <span key={name} className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => setTeamName(name)}
+                      onDoubleClick={() => setTeamRename({ from: name, to: name })}
+                      title="두 번 누르면 팀 이름 바꾸기"
+                      className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] transition-colors ${
+                        active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
+                      }`}
+                    >
+                      <span className="font-semibold">{name}</span>
+                      <span className="opacity-70">
+                        {memberCount}명 · {teamWs.length}개
+                      </span>
+                    </button>
+                    {active && (
+                      <IconButton onClick={() => setTeamRename({ from: name, to: name })} title="팀 이름 바꾸기" aria-label={`${name} 이름 바꾸기`}>
+                        <Pencil {...icSm} />
+                      </IconButton>
+                    )}
+                  </span>
                 )
               })}
             </div>
@@ -397,6 +432,42 @@ export default function WorkspaceLanding() {
           </div>
         )}
       </main>
+
+      {teamRename && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamRename(null)}>
+          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-[15px] font-semibold text-label">팀 이름 바꾸기</h3>
+            <p className="mt-1 text-[13px] text-label-2">
+              「{teamRename.from}」의 평가 {workspaces.filter((w) => w.teamName === teamRename.from).length}개와, 담당팀이 이 이름인 팀원까지 함께 바뀝니다.
+            </p>
+            <input
+              type="text"
+              autoFocus
+              value={teamRename.to}
+              onChange={(e) => setTeamRename({ ...teamRename, to: e.target.value })}
+              onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveTeamRename()
+                if (e.key === 'Escape') setTeamRename(null)
+              }}
+              className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[13px] text-label"
+            />
+            {existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== teamRename.from && (
+              <p className="mt-1 text-[12px] text-danger">이미 있는 팀 이름입니다.</p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button onClick={() => setTeamRename(null)}>취소</Button>
+              <Button
+                variant="primary"
+                onClick={saveTeamRename}
+                disabled={!teamRename.to.trim() || (existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== teamRename.from)}
+              >
+                바꾸기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {teamNameModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamNameModalOpen(false)}>

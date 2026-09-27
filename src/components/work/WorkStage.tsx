@@ -50,10 +50,11 @@ import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import { CalendarRange, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
+import { CalendarRange, ChevronDown, ChevronsDownUp, ChevronsUpDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
+import IconButton from '../IconButton'
 import ConfirmDialog from '../ConfirmDialog'
 
 const HISTORY_LIMIT = 60
@@ -446,21 +447,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // 평가 대상만 보기: 모든 그룹(L2) 탭의 평가 대상(묶음은 통째로)을 한 표에 모은다 -- 성과등급 · 목표/성과를 한꺼번에 매길 때.
   // 켜 있는 동안 행 추가 · 옮기기는 끈다(그룹 탭 안에서만 하는 일).
-  const [evalOnly, setEvalOnlyState] = useState(() => {
-    try {
-      return localStorage.getItem('work.evalOnly') === '1'
-    } catch {
-      return false
-    }
-  })
-  function setEvalOnly(v: boolean) {
-    setEvalOnlyState(v)
-    try {
-      localStorage.setItem('work.evalOnly', v ? '1' : '0')
-    } catch {
-      // 기억 못 해도 지금 화면에는 반영
-    }
-  }
+  // 처음에는 꺼져 있다(과제관리는 그룹 탭 보기부터)
+  const [evalOnly, setEvalOnly] = useState(false)
   const sourceItems = useMemo(() => {
     if (!evalOnly) return groupItems
     const order = new Map(board.groups.map((g, k) => [g.id, k]))
@@ -471,6 +459,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       .sort((a, b) => (order.get(a.i.groupId) ?? 0) - (order.get(b.i.groupId) ?? 0) || a.k - b.k)
       .map(({ i }) => i)
   }, [evalOnly, groupItems, board.items, board.groups, targetIds])
+  // 지금 보기(그룹 탭 또는 평가 대상만)에 있는 묶음 이름들 -- 일괄 접기 · 펴기
+  const bundleNames = useMemo(() => Array.from(new Set(sourceItems.map(evalGroupOf).filter(Boolean))), [sourceItems])
   const groupNameOf = (id: string) => board.groups.find((g) => g.id === id)?.name ?? ''
 
   // 평가과제 묶음은 첫 행 자리에 모아 보여 주고, 묶음마다 머리 행을 붙인다(접을 수 있음).
@@ -544,6 +534,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     // 묶음 담당자: 팀원(실선)과 팀원 목록에 없는 이름(점선)을 나눠 보여 준다
     const people = Array.from(new Set(all.flatMap((i) => i.assigneeIds.map((id) => byId.get(id) ?? '')).filter(Boolean)))
     const strangers = Array.from(new Set(all.flatMap((i) => i.unmatchedAssignees).filter((n) => n && !people.includes(n))))
+    const memberByName = new Map(members.map((m) => [m.name, m]))
     const toggle = () =>
       setCollapsed((cur) => {
         const next = new Set(cur)
@@ -615,11 +606,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         if (colId === COL_ASSIGNEES)
           return (
             <div className="flex flex-wrap gap-1 py-1">
-              {people.map((n) => (
-                <Chip key={n} tone={PERSON_TONE}>
-                  {n}
-                </Chip>
-              ))}
+              {people.map((n) => {
+                const c = personChip(memberByName.get(n), currentWorkspace?.teamName ?? '')
+                return (
+                  <Chip key={n} tone={c.tone} title={c.title}>
+                    {n}
+                  </Chip>
+                )
+              })}
               {strangers.map((n) => (
                 <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.">
                   {n}
@@ -688,7 +682,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         </div>
       )
     }
-    return renderWorkCell(row, col, members)
+    return renderWorkCell(row, col, members, currentWorkspace?.teamName ?? '')
   }
 
 
@@ -728,7 +722,12 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         : c.id === COL_CATEGORY
           ? { options: [...TASK_CATEGORY_OPTIONS], tone: toneFor(COL_CATEGORY) }
           : c.type === 'person'
-            ? { options: memberNames, multi: true, allowNew: true, tone: toneFor(COL_ASSIGNEES) }
+            ? {
+                options: memberNames,
+                multi: true,
+                allowNew: true,
+                tone: (v: string) => personChip(members.find((m) => m.name === v), currentWorkspace?.teamName ?? '').tone,
+              }
             : c.type === 'select'
               ? { options: optionsForColumn(board, c), allowNew: true, tone: toneFor(c.id) }
               : undefined,
@@ -1152,6 +1151,17 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
               평가 대상만 보기{evalOnly ? ` · ${targetTaskCount}개` : ''}
             </label>
+            {/* 묶음 일괄 접기 · 펴기(지금 보이는 묶음 전부) */}
+            {bundleNames.length > 0 && (
+              <span className="flex items-center">
+                <IconButton onClick={() => setCollapsed(new Set(bundleNames))} title="묶음 모두 접기" aria-label="묶음 모두 접기">
+                  <ChevronsDownUp {...ic} />
+                </IconButton>
+                <IconButton onClick={() => setCollapsed(new Set())} title="묶음 모두 펴기" aria-label="묶음 모두 펴기">
+                  <ChevronsUpDown {...ic} />
+                </IconButton>
+              </span>
+            )}
             {filtered && !evalOnly && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
             {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
             <div className="ml-auto flex items-center gap-1">
@@ -1505,6 +1515,13 @@ const TONES: Record<string, Record<string, string>> = {
 }
 const PERSON_TONE = 'bg-sky-50 text-sky-800'
 const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'
+// 담당자 칩: 비활성 팀원 · 다른 팀(담당팀이 이 평가의 팀 이름과 다름)은 점선으로
+function personChip(m: TeamMember | undefined, teamName: string): { tone: string; title?: string } {
+  if (!m) return { tone: UNKNOWN_TONE, title: '팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.' }
+  if (!m.active) return { tone: UNKNOWN_TONE, title: '비활성 팀원(팀원관리에서 끔)' }
+  if (m.team && teamName && m.team !== teamName) return { tone: UNKNOWN_TONE, title: `다른 팀: ${m.team}` }
+  return { tone: PERSON_TONE }
+}
 const DEFAULT_TONE = 'bg-black/[0.05] text-label'
 
 // 평가과제 묶음 색: 이름으로 고정(같은 묶음은 어디서나 같은 색).
@@ -1559,7 +1576,7 @@ function GroupCategoryPicker({ value, needs, onPick }: { value: string; needs: b
         title="고르면 하위 과제 전체의 분류가 바뀝니다"
         className={`flex w-full items-center justify-between gap-1 rounded-control py-0.5 ${needs ? 'ring-2 ring-orange-300' : ''}`}
       >
-        {value ? <Chip tone={tone(value, true)}>{value}</Chip> : <span className="text-[13px] text-label-3">분류 선택</span>}
+        {value ? <Chip tone={tone(value, true)}>{value}</Chip> : <span className="whitespace-nowrap text-[13px] text-label-3">분류 선택</span>}
         <ChevronDown {...icSm} className="shrink-0 text-label-3" />
       </button>
       {pos &&
@@ -1596,18 +1613,21 @@ function Chip({ tone, title, children }: { tone: string; title?: string; childre
   )
 }
 
-function renderWorkCell(row: WorkItem, col: GridColumn, members: { id: string; name: string }[]) {
+function renderWorkCell(row: WorkItem, col: GridColumn, members: TeamMember[], teamName = '') {
   if (col.id === COL_ASSIGNEES) {
-    const byId = new Map(members.map((m) => [m.id, m.name]))
-    const names = row.assigneeIds.map((id) => byId.get(id)).filter(Boolean) as string[]
-    if (names.length === 0 && row.unmatchedAssignees.length === 0) return null
+    const byId = new Map(members.map((m) => [m.id, m]))
+    const people = row.assigneeIds.map((id) => byId.get(id)).filter(Boolean) as TeamMember[]
+    if (people.length === 0 && row.unmatchedAssignees.length === 0) return null
     return (
       <div className="flex flex-wrap gap-1 py-1">
-        {names.map((n) => (
-          <Chip key={n} tone={PERSON_TONE}>
-            {n}
-          </Chip>
-        ))}
+        {people.map((m) => {
+          const c = personChip(m, teamName)
+          return (
+            <Chip key={m.id} tone={c.tone} title={c.title}>
+              {m.name}
+            </Chip>
+          )
+        })}
         {row.unmatchedAssignees.map((n) => (
           <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.">
             {n}
