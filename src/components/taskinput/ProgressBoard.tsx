@@ -1327,23 +1327,56 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
   const hiddenCount = allSheetTabs.length - sheetTabs.length
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
+  // 연도 메뉴 아래: 데이터(구글시트 다시 불러오기 · 엑셀 올리기 · 엑셀로 받기) → 연결된 시트
   const yearMenuFooter = (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-1.5 text-[12px] text-label-2">
-      <span className="text-label-3">구글시트</span>
-      <a href={sheetLink} target="_blank" rel="noreferrer" className="max-w-[170px] truncate font-medium text-accent hover:underline" title={sheetLink}>
-        {sheetFileTitle ?? (isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '운영 팀 시트' : '연결된 시트')} ↗
-      </a>
+    <>
+      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">데이터</p>
+      {isSheetsApiConfigured() && (
+        <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
+          <RefreshCw {...icSm} className="shrink-0" />
+          구글시트에서 {data && !data.local ? '다시 ' : ''}불러오기
+        </button>
+      )}
       {canManage && (
-        <button onClick={() => setLinkOpen(true)} className="ml-auto font-medium text-label-2 hover:text-accent">
-          시트 바꾸기
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={loading || saving}
+          className="mac-menu-item disabled:opacity-40"
+          title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+        >
+          <Upload {...icSm} className="shrink-0" />
+          엑셀 파일 올리기
+          <span className="ml-auto text-[11px] font-normal text-label-3">보기 전용</span>
         </button>
       )}
-      {hiddenCount > 0 && (
-        <button onClick={showHiddenTabs} className="w-full text-left font-medium text-label-2 hover:text-accent" title="목록에서 숨긴 연도를 다시 보입니다">
-          숨긴 연도 {hiddenCount}개 다시 보이기
+      {data && (
+        <button
+          onClick={() => void downloadProgressExcel(data, drafts, l1s)}
+          className="mac-menu-item"
+          title={`시트 모양 그대로(칸 색·메모 포함)${countDrafts(drafts) ? ', 저장 안 한 변경도 반영' : ''}`}
+        >
+          <FileDown {...icSm} className="shrink-0" />
+          엑셀로 받기
         </button>
       )}
-    </div>
+      <div className="mac-menu-sep" />
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-1.5 text-[12px] text-label-2">
+        <span className="text-label-3">구글시트</span>
+        <a href={sheetLink} target="_blank" rel="noreferrer" className="max-w-[170px] truncate font-medium text-accent hover:underline" title={sheetLink}>
+          {sheetFileTitle ?? (isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '운영 팀 시트' : '연결된 시트')} ↗
+        </a>
+        {canManage && (
+          <button onClick={() => setLinkOpen(true)} className="ml-auto font-medium text-label-2 hover:text-accent">
+            시트 바꾸기
+          </button>
+        )}
+        {hiddenCount > 0 && (
+          <button onClick={showHiddenTabs} className="w-full text-left font-medium text-label-2 hover:text-accent" title="목록에서 숨긴 연도를 다시 보입니다">
+            숨긴 연도 {hiddenCount}개 다시 보이기
+          </button>
+        )}
+      </div>
+    </>
   )
   const confirmDialog = ask && (
     <ConfirmDialog
@@ -1391,34 +1424,37 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </MenuSlot>
         {newYearDialog}
         {confirmDialog}
-        <div className="mx-auto mt-10 max-w-xl rounded-[14px] border border-separator bg-white p-8 text-center">
-          <h2 className="text-[17px] font-bold text-label">추진현황을 불러오세요</h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-label-2">
-            구글시트의 「{now.getFullYear()} 추진현황」 탭을 읽어 L1마다 일정표를 만듭니다.
-            <br />
-            시트를 볼 수 있는 구글 계정으로 한 번 권한을 허용하면 됩니다.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Button variant="primary" onClick={() => setNewYearOpen(true)} disabled={loading} title="구글시트 없이 여기서 빈 표로 시작(이 브라우저에 저장)">
-              <FilePlus2 {...icSm} />새 연도 만들기
-            </Button>
+        <div className="mx-auto mt-10 max-w-3xl text-center">
+          <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
+          <p className="mt-1.5 text-[13px] text-label-2">L1마다 일정표를 만듭니다. 시작한 뒤에도 위 연도 메뉴에서 다시 불러오거나 엑셀로 받을 수 있습니다.</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
-              <Button variant="secondary" onClick={() => loadFromSheet()} disabled={loading}>
-                {loading ? <Spinner className="h-4 w-4" /> : <RefreshCw {...icSm} />}
-                구글시트에서 불러오기
-              </Button>
+              <StartCard
+                Icon={RefreshCw}
+                title="구글시트에서 불러오기"
+                desc={`「${now.getFullYear()} 추진현황」 탭을 읽습니다. 고친 내용은 시트에 저장됩니다.`}
+                badge="추천"
+                busy={loading}
+                disabled={loading}
+                onClick={() => loadFromSheet()}
+              />
             )}
             {canManage && (
-              <Button
-                variant="secondary"
-                onClick={() => fileRef.current?.click()}
+              <StartCard
+                Icon={Upload}
+                title="엑셀 파일 올리기"
+                desc="시트에서 파일 › 다운로드 › xlsx로 받은 파일을 봅니다(보기 전용)."
                 disabled={loading}
-                title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-              >
-                <Upload {...icSm} />
-                xlsx 올리기
-              </Button>
+                onClick={() => fileRef.current?.click()}
+              />
             )}
+            <StartCard
+              Icon={FilePlus2}
+              title="새 연도 만들기"
+              desc="구글시트 없이 빈 표로 시작합니다. 이 브라우저에 저장됩니다."
+              disabled={loading}
+              onClick={() => setNewYearOpen(true)}
+            />
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           <p className="mt-4 text-[12px] text-label-3">
@@ -1763,19 +1799,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
               reloadDisabled={saving}
               reloading={loading}
-              extra={
-                canManage && (
-                  <button
-                    onClick={() => fileRef.current?.click()}
-                    disabled={loading || saving}
-                    className="flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-accent disabled:opacity-40"
-                    title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
-                  >
-                    <Upload {...icSm} />
-                    xlsx 파일로 보기
-                  </button>
-                )
-              }
             />
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           </div>
@@ -2411,6 +2434,42 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </ConfirmDialog>
       </div>
     </div>
+  )
+}
+
+// 빈 화면의 시작 카드(구글시트 · 엑셀 · 새 연도)
+function StartCard({
+  Icon,
+  title,
+  desc,
+  badge,
+  busy,
+  disabled,
+  onClick,
+}: {
+  Icon: typeof Upload
+  title: string
+  desc: string
+  badge?: string
+  busy?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="group flex w-[236px] flex-col rounded-card border border-separator bg-white p-4 text-left transition-colors hover:border-accent/50 hover:bg-accent-soft/40 disabled:opacity-50"
+    >
+      <span className="flex items-center gap-2">
+        <span className="flex h-8 w-8 items-center justify-center rounded-control bg-subtle text-label-2 group-hover:text-accent">
+          {busy ? <Spinner className="h-4 w-4" /> : <Icon size={17} strokeWidth={1.8} />}
+        </span>
+        {badge && <span className="mac-badge ml-auto bg-accent-soft text-accent">{badge}</span>}
+      </span>
+      <span className="mt-3 text-[14px] font-semibold text-label">{title}</span>
+      <span className="mt-1 text-[12.5px] leading-relaxed text-label-2">{desc}</span>
+    </button>
   )
 }
 
