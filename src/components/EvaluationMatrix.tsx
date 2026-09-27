@@ -191,8 +191,7 @@ export default function EvaluationMatrix() {
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-[13px] text-label-2">
-        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 성과등급은 과제별 보기에서
-        입력합니다.
+        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 성과등급 · 목표 · 성과는 과제관리 표에서 입력합니다.
       </p>
       <OutOfSyncBanner />
 
@@ -283,7 +282,7 @@ export default function EvaluationMatrix() {
                           {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
                           <span>·</span>
                           <span
-                            title={`성과등급은 과제별 보기에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
+                            title={`성과등급은 과제관리 표에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
                             className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${
                               task.performanceGrade ? 'bg-black/[0.05] text-label' : 'bg-warning/10 text-warning'
                             }`}

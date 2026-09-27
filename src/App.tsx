@@ -8,12 +8,11 @@ import { MemberDetailProvider } from './state/MemberDetailContext'
 import { SaveBadge, type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import { CriteriaSheet } from './components/CriteriaPanel'
-import AppShell, { CrumbSep, PageHeader, PageTabs } from './components/shell/AppShell'
+import AppShell, { CrumbSep, PageHeader } from './components/shell/AppShell'
 import { PERF_ITEMS } from './components/shell/Sidebar'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 import Button from './components/Button'
 import { SlidersHorizontal } from 'lucide-react'
-import TasksStage from './components/TasksStage'
 import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
 import EvaluationResults from './components/EvaluationResults'
@@ -23,7 +22,6 @@ import DataManagerDrawer, { type DataManagerTab } from './components/DataManager
 import WorkStage from './components/work/WorkStage'
 import TaskImportDialog, { type TaskImportSource } from './components/work/TaskImportDialog'
 import PerfStartDialog, { takeNewWorkspace } from './components/work/PerfStartDialog'
-import UnderlineTabs from './components/ui/UnderlineTabs'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 import { AppModeProvider, useAppMode } from './state/AppMode'
@@ -133,23 +131,11 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               />
             }
           >
-            {(stage === 'tasks' || stage === 'evaluate') && (
-              <PageTabs>
-                <UnderlineTabs
-                  items={[
-                    { key: 'tasks', label: '과제별', title: '평가과제마다 성과등급 · 목표 · 성과, 펼쳐서 기여도 · 개인수행등급' },
-                    { key: 'evaluate', label: '팀원별', title: '팀원마다 합계 · 순위를 보며 기여도 · 개인수행등급' },
-                  ]}
-                  value={stage}
-                  onChange={(k) => handleStageChange(k)}
-                />
-              </PageTabs>
-            )}
             <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
               {stage === 'work' && <WorkStage onOpenSheetImport={(url, source) => setTaskImport({ source: source ?? 'sheet', url })} />}
-              {stage === 'tasks' && <TasksStage onGoToWork={() => handleStageChange('work')} />}
               {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
-              {stage === 'evaluate' && <EvaluationMatrix />}
+              {/* 평가하기(예전 과제별 'tasks'도 여기로) -- 성과등급 · 목표 · 성과는 과제관리 표에서 */}
+              {(stage === 'evaluate' || stage === 'tasks') && <EvaluationMatrix />}
               {stage === 'results' && <EvaluationResults />}
               {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={goToTeamManagement} />}
             </main>

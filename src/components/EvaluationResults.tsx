@@ -10,7 +10,8 @@ import {
   getContributionPercent,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
-import { downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { downloadCurrentTasksExcel, downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
+import { downloadTasksPdf } from '../utils/pdfReports'
 import {
   downloadIndividualResultsPdf,
   downloadResultsPdf,
@@ -302,7 +303,7 @@ export default function EvaluationResults() {
           <p className="mt-1 text-[13px] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
           {tasks.some((t) => t.performanceGrade === null) && (
             <p className="mt-1 text-[13px] font-medium text-warning">
-              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 평가하기 › 과제별에서 매겨 주세요.
+              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 과제관리 표의 성과등급 칸에서 매겨 주세요.
             </p>
           )}
         </div>
@@ -323,6 +324,13 @@ export default function EvaluationResults() {
           >
             모두 확정으로 표시
           </Button>
+          {/* 과제 리포트(예전 평가하기 · 과제별에 있던 것): 평가과제 · 성과등급 · 목표 · 성과 */}
+          <CurrentDataDownloadControls
+            label="과제 리포트"
+            disabled={tasks.length === 0}
+            onExcelDownload={() => downloadCurrentTasksExcel(tasks, criteria)}
+            onPdfDownload={() => downloadTasksPdf(teamName, periodName, tasks, criteria)}
+          />
           <CurrentDataDownloadControls
             label="통합 결과 리포트"
             onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerInputs, periodsForTeam)}

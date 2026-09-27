@@ -35,7 +35,8 @@ const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
 export const PERF_ITEMS: { key: PerfStage; label: string; Icon: LucideIcon; also?: PerfStage[] }[] = [
   { key: 'work', label: '과제관리', Icon: LayoutList },
   { key: 'members', label: '팀원관리', Icon: Users },
-  { key: 'tasks', label: '평가하기', Icon: SlidersHorizontal, also: ['evaluate'] },
+  // 평가하기 = 팀원마다 기여도 · 개인수행등급(성과등급 · 목표 · 성과는 과제관리 표에서). 예전 'tasks'(과제별)도 여기로
+  { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal, also: ['tasks'] },
   { key: 'results', label: '평가결과', Icon: BarChart3 },
   { key: 'notes', label: '면담', Icon: MessageCircle },
 ]
