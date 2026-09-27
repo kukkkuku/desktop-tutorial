@@ -29,10 +29,10 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // 만든 일정)를 읽어와 앱과 맞추기 위한 것이다. 전용 캘린더를 새로 만들고
 // 목록을 조회하려면 이벤트만 다루는 calendar.events보다 넓은 calendar
 // 스코프가 필요하다.
-// 구글시트 읽기(spreadsheets.readonly)도 로그인 때 함께 받는다 -- 권한 관리 시트 · 추진현황 시트를
-// 앱을 열자마자 따로 권한 창 없이 읽기 위해서(sheetSources가 이 토큰을 먼저 쓴다).
-export const SHEETS_READ_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
-const DRIVE_SCOPE = `https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar ${SHEETS_READ_SCOPE}`
+// 구글시트 읽기 · 쓰기(spreadsheets)도 로그인 때 함께 받는다 -- 권한 관리 시트 · 추진현황을 로그인하자마자 최신으로 읽고,
+// 팀원이 입력한 것을 따로 권한 창 없이 시트에 저장하기 위해서(sheetSources가 이 토큰을 먼저 쓴다).
+export const SHEETS_LOGIN_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
+const DRIVE_SCOPE = `https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar ${SHEETS_LOGIN_SCOPE}`
 // 미리보기 빌드는 운영 저장본을 목록에 보이거나 덮어쓰지 않도록 태그와 폴더를 따로 쓴다.
 const APP_TAG = PREVIEW_NAMESPACE ? `team-performance-evaluation-${PREVIEW_NAMESPACE}` : 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = PREVIEW_NAMESPACE ? '성장관리(미리보기)' : '성장관리'

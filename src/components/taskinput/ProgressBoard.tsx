@@ -48,6 +48,7 @@ import {
   fetchSheetFormats,
   fetchSheetTab,
   fetchSpreadsheetTabs,
+  hasLoginSheetsToken,
   isSheetsApiConfigured,
   parseSheetUrl,
   pickDefaultTab,
@@ -121,7 +122,7 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import { getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
+import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
@@ -162,6 +163,8 @@ function fmt(iso: string) {
 }
 
 const ROW_PAD_KEY = 'progress-board:row-pad-v2'
+// 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
+const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 4
 const ROW_PAD_MAX = 12
 
@@ -857,6 +860,55 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     await loadFromSheet(false, clean)
   }
 
+  // 로그인할 때마다 시트의 최신 내용(다른 팀원이 저장한 것)을 받는다. 이 탭에서 한 번 받았으면 표시해 둔다.
+  // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신 내용 받기" 한 번 누르게 한다.
+  const [stale, setStale] = useState(false)
+  function markSynced() {
+    try {
+      sessionStorage.setItem(SYNC_KEY, '1')
+    } catch {
+      // 표시 못 해도 받은 내용은 그대로
+    }
+    setStale(false)
+  }
+  useEffect(() => {
+    const d = dataRef.current
+    if (!d || d.local || !d.spreadsheetId || !isSheetsApiConfigured()) return
+    let synced = false
+    try {
+      synced = sessionStorage.getItem(SYNC_KEY) === '1'
+    } catch {
+      // 모르면 받는다
+    }
+    if (synced) return
+    if (hasLoginSheetsToken()) void loadFromSheet()
+    else setStale(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.spreadsheetId])
+  useEffect(() => {
+    const on = () => {
+      const d = dataRef.current
+      if (d && !d.local && d.spreadsheetId) void loadFromSheet()
+    }
+    window.addEventListener(LOGIN_EVENT, on)
+    return () => window.removeEventListener(LOGIN_EVENT, on)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 구글시트에 저장 안 한 변경이 있으면 창을 닫기 전에 한 번 묻는다(고친 내용은 이 브라우저에 남지만 팀원은 못 본다)
+  useEffect(() => {
+    const on = (e: BeforeUnloadEvent) => {
+      const d = dataRef.current
+      if (d && !d.local && countDrafts(draftsRef.current) > 0) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', on)
+    return () => window.removeEventListener('beforeunload', on)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function loadFromSheet(pickAccount = false, url = sheetLink) {
     const link = parseSheetUrl(url)
     if (!link) return
@@ -882,6 +934,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         }
       }
       accept(await readFromSheet(link.spreadsheetId, now.getFullYear(), readActiveTab() ?? undefined))
+      markSynced()
       if (moved)
         setMessage(
           `시트에서 「${moved}」 탭이 없어져 그 연도를 "이 브라우저" 연도로 옮겨 두었습니다. 연도 메뉴에서 고른 뒤 "구글시트로 만들기"로 다시 만들 수 있습니다.`,
@@ -1712,6 +1765,32 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {confirmDialog}
       {sheetSettings}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
+      {/* 최신 내용을 아직 안 받았을 때(새로고침 · 로그인 유지로 들어와 권한 창을 자동으로 못 띄움) */}
+      {stale && !data.local && !loading && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-card bg-accent-soft px-3 py-2 text-[13px] text-label">
+          <RefreshCw {...icSm} className="shrink-0 text-accent" />
+          <span className="flex-1">구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다.</span>
+          <Button variant="primary" size="sm" onClick={() => void loadFromSheet()}>
+            최신 내용 받기
+          </Button>
+        </div>
+      )}
+      {/* 저장 안 한 변경: 구글시트에 저장해야 다른 팀원이 받는다 */}
+      {editCount > 0 && !data.local && !readOnly && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-card bg-orange-50 px-3 py-2 text-[13px] text-orange-900 ring-1 ring-orange-200">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" />
+          <span className="flex-1">
+            저장 안 한 변경 <b>{editCount}건</b> -- 구글시트에 저장해야 다른 팀원도 받아 볼 수 있습니다.
+            {!canSave && (protectedSheet ? ' (운영 팀 시트는 저장하지 않습니다)' : ' (xlsx로 연 표는 시트에 저장할 수 없습니다)')}
+          </span>
+          {canSave && (
+            <Button variant="primary" size="sm" onClick={() => setConfirmSave(true)} disabled={saving}>
+              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+              구글시트에 저장
+            </Button>
+          )}
+        </div>
+      )}
       {message && (
         <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">
           <span className="flex-1">{message}</span>
@@ -1965,7 +2044,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </button>
             </span>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setEditing((v) => !v)} title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                // 입력을 끝낼 때 저장 안 한 변경이 있으면 바로 구글시트 저장을 권한다(저장해야 다른 팀원이 본다)
+                if (editing && editCount > 0 && !data.local && canSave) setConfirmSave(true)
+                setEditing((v) => !v)
+              }}
+              title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
+            >
               <Pencil {...icSm} />
               {editing ? '입력 끝내기' : '입력하기'}
             </Button>
@@ -2453,7 +2541,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <ConfirmDialog
           open={confirmSave}
           title="구글시트에 저장"
-          message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.`}
+          message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 저장해야 다른 팀원도 받아 볼 수 있습니다.${hasLoginSheetsToken() ? '' : ' 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.'}`}
           confirmLabel="저장"
           tone="accent"
           onConfirm={saveToSheet}

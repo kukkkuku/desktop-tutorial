@@ -45,21 +45,26 @@ export function chooseSheetsAccountNext() {
   sheetsToken = null
 }
 
+// 로그인 토큰으로 시트를 바로 읽고 쓸 수 있나(권한 창 없이)
+export function hasLoginSheetsToken(): boolean {
+  return !!peekLoginToken(SHEETS_WRITE_SCOPE)
+}
+
 export function isSheetsApiConfigured(): boolean {
   return Boolean(CLIENT_ID)
 }
 
 let sheetsInflight: Promise<string> | null = null
 async function getSheetsToken(write = false): Promise<string> {
+  // 로그인 때 시트 읽기 · 쓰기 권한도 받았으면 권한 창 없이 그 토큰으로
+  const login = peekLoginToken(SHEETS_WRITE_SCOPE)
+  if (login) return login
   if (write) {
     if (sheetsWriteToken && sheetsWriteToken.expiresAt - 60_000 > Date.now()) return sheetsWriteToken.token
     return withAuthLock(() => openSheetsPopup(true))
   }
   // 쓰기 권한을 이미 받았으면 읽기에도 그대로 쓴다.
   if (sheetsWriteToken && sheetsWriteToken.expiresAt - 60_000 > Date.now()) return sheetsWriteToken.token
-  // 로그인 때 시트 읽기 권한도 받았으면 권한 창 없이 그 토큰으로
-  const login = peekLoginToken(SHEETS_SCOPE)
-  if (login) return login
   if (sheetsToken && sheetsToken.expiresAt - 60_000 > Date.now()) return sheetsToken.token
   if (sheetsInflight) return sheetsInflight
   const p = withAuthLock(() => {
