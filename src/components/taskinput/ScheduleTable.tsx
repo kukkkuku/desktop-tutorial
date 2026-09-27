@@ -496,7 +496,7 @@ function FieldCell({
         />
       )}
       <div
-        className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-normal'} ${rowH ? 'overflow-hidden' : ''}`}
+        className={`break-words ${f.kind === 'memo' ? 'line-clamp-2 whitespace-pre-line' : 'whitespace-pre-line'} ${rowH ? 'overflow-hidden' : ''}`}
         style={{ ...fmtStyle(fmt), ...(rowH && !(span && span.r > 1) ? { maxHeight: Math.max(12, rowH - 4) } : {}) }}
       >
         {display}
@@ -2418,7 +2418,7 @@ export default function ScheduleTable({
                           {v.row.isNew && <span className="mt-[2px] shrink-0 rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white">새 과제</span>}
                           {v.deleted && <span className="mt-[2px] shrink-0 rounded-[3px] bg-danger px-1 text-[0.77em] font-bold text-white">삭제</span>}
                           <span
-                            className={`min-w-0 ${parseFmt(v.fmt?.name).a ? 'flex-1' : ''} whitespace-normal break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'} ${v.deleted ? 'line-through' : ''}`}
+                            className={`min-w-0 ${parseFmt(v.fmt?.name).a ? 'flex-1' : ''} whitespace-pre-line break-words font-semibold ${v.vals.name ? 'text-label' : 'text-label-3'} ${v.deleted ? 'line-through' : ''}`}
                             style={v.vals.name ? fmtStyle(v.fmt?.name) : undefined}
                           >
                             {v.vals.name || '(이름을 입력하세요)'}
@@ -3032,13 +3032,13 @@ export default function ScheduleTable({
                                 setMenu(null)
                               }}
                               className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-black/[0.05]"
-                              title={lost ? '병합하면 맨 위 왼쪽 칸 값만 남고 나머지 칸 값은 지워집니다' : undefined}
+                              title={lost ? '칸마다 적힌 글을 줄을 바꿔 이어서 한 칸에 넣습니다(같은 글은 한 번만)' : undefined}
                             >
                               <span className="flex items-center gap-2">
                                 <TableCellsMerge size={14} strokeWidth={1.9} className="text-label-2" />
                                 병합
                               </span>
-                              <span className="text-[11px] text-label-3">{lost ? '왼쪽 위 값만 남음' : `${mRows.length}×${mIds.length}`}</span>
+                              <span className="text-[11px] text-label-3">{lost ? '글 이어 붙임' : `${mRows.length}×${mIds.length}`}</span>
                             </button>
                           )}
                           {hit.length > 0 && (
@@ -3104,7 +3104,7 @@ export default function ScheduleTable({
                                 close()
                               }}
                               className={item}
-                              title="고른 행의 L3(과제명) 칸을 하나로 합칩니다(맨 위 이름만 남음)"
+                              title="고른 행의 L3(과제명) 칸을 하나로 합칩니다(이름은 줄을 바꿔 이어 붙임)"
                             >
                               <TableCellsMerge {...ic} />셀 병합 (L3 {rs.length}칸)
                             </button>

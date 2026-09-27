@@ -998,10 +998,24 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (!live.length) return
     updateDrafts((d) => withFields(d, live))
   }
-  // 칸 병합 · 병합 해제(구글시트처럼 맨 위 왼쪽 칸 값만 남기고 나머지 칸은 비운다)
+  // 칸 병합 · 병합 해제. 병합하면 칸마다 적힌 글을 (같은 글은 한 번만) 줄을 바꿔 이어 맨 위 왼쪽 칸에 넣고 나머지 칸은 비운다.
+  // 구글시트는 맨 위 왼쪽 값만 남기지만, 여기서는 글이 사라지지 않게 한다.
   function mergeCells(list: ProgressRow[], ids: string[], merge: boolean) {
-    const clear = list.flatMap((row, i) => ids.filter((_, j) => i || j).map((id) => ({ row, id, value: '' })))
-    updateDrafts((d) => withFields({ ...d, merges: [...(d.merges ?? []), { rows: list.map((r) => r.key), ids, merge }] }, clear))
+    updateDrafts((d) => {
+      const next = { ...d, merges: [...(d.merges ?? []), { rows: list.map((r) => r.key), ids, merge }] }
+      if (!merge) return next
+      const valueOf = (row: ProgressRow, id: string) => effectiveField(row, row.isNew ? undefined : d.edits?.[row.key], id).trim()
+      const texts: string[] = []
+      for (const row of list)
+        for (const id of ids) {
+          const v = valueOf(row, id)
+          if (v && !texts.includes(v)) texts.push(v)
+        }
+      const joined = texts.join('\n')
+      const set = list.flatMap((row, i) => ids.filter((_, j) => i || j).map((id) => ({ row, id, value: '' })))
+      if (joined !== valueOf(list[0], ids[0])) set.unshift({ row: list[0], id: ids[0], value: joined })
+      return withFields(next, set)
+    })
   }
   function setBg(row: ProgressRow, ids: string[], hex: string) {
     updateDrafts((d) => {

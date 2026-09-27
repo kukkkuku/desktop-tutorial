@@ -132,7 +132,7 @@ export default function FormatBar({
             disabled={off || !canMerge}
             onClick={onMerge}
             className="flex h-7 w-8 items-center justify-center text-label-2 hover:bg-black/[0.06] disabled:opacity-35 disabled:hover:bg-transparent"
-            title="병합(두 칸 이상 고르기 · 왼쪽 위 값만 남음)"
+            title="병합(두 칸 이상 고르기 · 글은 줄을 바꿔 이어 붙임)"
             aria-label="병합"
           >
             <TableCellsMerge size={16} strokeWidth={2} />
