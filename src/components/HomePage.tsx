@@ -2,9 +2,9 @@
 //   과제 입력(연구소 공용): 지금 연도 · 연결된 시트 · 저장 안 한 고침
 //   성과관리(팀장만): 최근 프로젝트로 바로 들어가기 · 프로젝트 목록
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
-import ManualLink from './ManualLink'
-import { useMemo } from 'react'
-import { ArrowRight, ChartColumn, ChevronDown, ClipboardList } from 'lucide-react'
+import ManualLink, { ManualPanel, type ManualArea } from './ManualLink'
+import { useMemo, useState } from 'react'
+import { ArrowRight, BookOpen, ChartColumn, ChevronDown, ClipboardList } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
@@ -49,6 +49,21 @@ export default function HomePage() {
   const { workspaces, selectWorkspace, exitToLanding } = useWorkspaces()
   const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
   const t = useMemo(taskSummary, [])
+  const [manual, setManual] = useState<ManualArea | null>(null)
+  // 카드 오른쪽 위: 그 영역 매뉴얼(준비할 데이터부터)
+  const manualBtn = (area: ManualArea) => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        setManual(area)
+      }}
+      title={area === 'tasks' ? '과제 입력 매뉴얼 -- 구글시트 연결부터' : '성과관리 매뉴얼 -- 준비할 데이터부터'}
+      className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full border border-separator bg-white px-2.5 py-1 text-[12px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-label"
+    >
+      <BookOpen size={13} strokeWidth={1.9} />
+      매뉴얼
+    </button>
+  )
   const recent = useMemo(() => [...workspaces].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4), [workspaces])
 
   const card =
@@ -81,53 +96,56 @@ export default function HomePage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
         <h1 className="text-[26px] font-bold tracking-tight text-label">무엇을 할까요?</h1>
         <p className="mt-1 text-[14px] text-label-2">
-          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 위쪽 홈 버튼으로 언제든 이 화면으로, 책 아이콘으로 사용
-          매뉴얼을 엽니다.
+          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 처음이면 카드의 매뉴얼에서 준비할 데이터부터 보세요.
         </p>
 
         <div className={`mt-8 grid gap-5 ${canPerf ? 'sm:grid-cols-2' : 'max-w-[460px]'}`}>
           {/* 과제 입력 */}
-          <button onClick={() => setMode('tasks')} className={card}>
-            <span className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-accent-soft text-accent">
-                <ClipboardList size={21} strokeWidth={1.9} />
+          <div className="relative flex">
+            {manualBtn('tasks')}
+            <button onClick={() => setMode('tasks')} className={`${card} w-full`}>
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-accent-soft text-accent">
+                  <ClipboardList size={21} strokeWidth={1.9} />
+                </span>
+                <span>
+                  <span className="block text-[17px] font-bold text-label">과제 입력</span>
+                  <span className="block text-[12.5px] text-label-2">추진현황 · 진척률 · 연구소 공용</span>
+                </span>
               </span>
-              <span>
-                <span className="block text-[17px] font-bold text-label">과제 입력</span>
-                <span className="block text-[12.5px] text-label-2">추진현황 · 진척률 · 연구소 공용</span>
+              <dl className="mt-5 space-y-1.5 text-[13px]">
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-label-3">지금 연도</dt>
+                  <dd className="text-label">{t.year ? `${t.year} · ${t.where} · 과제 ${t.tasks}건` : '아직 불러오지 않음'}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="w-16 shrink-0 text-label-3">시트</dt>
+                  <dd className="text-label">{t.sheet}</dd>
+                </div>
+                {t.pending > 0 && (
+                  <div className="flex gap-2">
+                    <dt className="w-16 shrink-0 text-label-3">고친 내용</dt>
+                    <dd className="font-medium text-orange-600">저장 안 한 고침 {t.pending}건</dd>
+                  </div>
+                )}
+                {t.localYears > 0 && (
+                  <div className="flex gap-2">
+                    <dt className="w-16 shrink-0 text-label-3">이 브라우저</dt>
+                    <dd className="text-label">여기서 만든 연도 {t.localYears}개</dd>
+                  </div>
+                )}
+              </dl>
+              <span className="mt-auto flex items-center gap-1 pt-5 text-[13px] font-semibold text-accent">
+                {t.year ? '이어서 입력하기' : '시작하기'}
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
               </span>
-            </span>
-            <dl className="mt-5 space-y-1.5 text-[13px]">
-              <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-label-3">지금 연도</dt>
-                <dd className="text-label">{t.year ? `${t.year} · ${t.where} · 과제 ${t.tasks}건` : '아직 불러오지 않음'}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-label-3">시트</dt>
-                <dd className="text-label">{t.sheet}</dd>
-              </div>
-              {t.pending > 0 && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-label-3">고친 내용</dt>
-                  <dd className="font-medium text-orange-600">저장 안 한 고침 {t.pending}건</dd>
-                </div>
-              )}
-              {t.localYears > 0 && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-label-3">이 브라우저</dt>
-                  <dd className="text-label">여기서 만든 연도 {t.localYears}개</dd>
-                </div>
-              )}
-            </dl>
-            <span className="mt-auto flex items-center gap-1 pt-5 text-[13px] font-semibold text-accent">
-              {t.year ? '이어서 입력하기' : '시작하기'}
-              <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
-            </span>
-          </button>
+            </button>
+          </div>
 
           {/* 성과관리(팀장) */}
           {canPerf && (
-            <div className={card}>
+            <div className={`${card} relative`}>
+              {manualBtn('perf')}
               <button
                 onClick={() => {
                   exitToLanding()
@@ -175,6 +193,7 @@ export default function HomePage() {
           )}
         </div>
       </main>
+      {manual && <ManualPanel area={manual} chapter={manual === 'tasks' ? 'sheet' : 'prep'} onClose={() => setManual(null)} />}
     </div>
   )
 }

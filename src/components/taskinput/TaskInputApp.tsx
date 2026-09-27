@@ -55,10 +55,15 @@ export default function TaskInputApp() {
                 <span className={`mac-badge ${role === 'member' ? 'bg-black/[0.05] text-label-2' : 'bg-accent-soft text-accent'}`}>{ROLE_LABEL[role]}</span>
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
-              <ManualLink />
+              <ManualLink area="tasks" chapter={menu === 'rate' ? 'rate' : 'progress'} />
               <button onClick={handleLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
                 로그아웃
               </button>
+            </div>
+          )}
+          {!accountEmail && (
+            <div className="ml-auto">
+              <ManualLink area="tasks" chapter={menu === 'rate' ? 'rate' : 'progress'} />
             </div>
           )}
         </div>

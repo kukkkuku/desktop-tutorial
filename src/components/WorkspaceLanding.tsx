@@ -338,7 +338,7 @@ export default function WorkspaceLanding() {
                 {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
                 <ChevronDown {...icSm} className="text-label-3" />
               </GoogleAccountMenu>
-              <ManualLink />
+              <ManualLink area="perf" chapter="start" />
               <Button variant="ghost" size="sm" onClick={handleLogout}>
                 로그아웃
               </Button>
