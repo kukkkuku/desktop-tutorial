@@ -65,9 +65,9 @@ export default function HomePage() {
   const card =
     'group flex flex-col rounded-[14px] bg-white p-6 text-left shadow-card transition-shadow hover:shadow-[0_0_0_1px_rgba(24,24,27,0.08),0_8px_24px_-8px_rgba(24,24,27,0.16)]'
   return (
-    <AppShell>
-      <PageHeader crumbs={<span>홈</span>} title="무엇을 할까요?" />
-      <main className="w-full max-w-5xl flex-1 px-6 pb-10 lg:px-8">
+    <AppShell header={<PageHeader title="홈" />}>
+      <main className="w-full max-w-5xl flex-1 px-6 pb-10 pt-6 lg:px-8">
+        <h2 className="text-[24px] font-semibold tracking-[-0.02em] text-label">무엇을 할까요?</h2>
         <p className="mt-1 text-[14px] text-label-2">
           {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 처음이면 카드의 매뉴얼에서 준비할 데이터부터 보세요.
         </p>

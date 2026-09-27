@@ -40,3 +40,20 @@ export const FILL_HEX = {
     return current.actual
   },
 } as Record<WeekFill, string>
+
+// 화면에 보이는 색(디자인 시스템 v2): 기본 회색 · 분홍이면 화면에서만 청회색 · 옅은 분홍 막대로 보인다.
+// 시트 저장 · 엑셀 받기 · 시트 다시 읽기는 FILL_HEX(시트 색) 그대로. 칠하기 색을 직접 바꿨으면 그 색을 그대로 보인다.
+const VIEW_DEFAULT: Record<WeekFill, string> = { plan: 'C8CFDC', actual: 'E8D0D5' }
+export function viewFillHex(f: WeekFill): string {
+  return current[f] === DEFAULT_FILL_HEX[f] ? VIEW_DEFAULT[f] : current[f]
+}
+
+// 시트 칸 색(진한 노랑 등)을 화면에서만 옅게: 흰색에 22%만 섞는다(시트에는 원래 색으로 저장)
+export function softHex(hex: string): string {
+  const n = (i: number) => parseInt(hex.slice(i, i + 2), 16)
+  const mix = (c: number) => Math.round(255 - (255 - c) * 0.22)
+  return [n(0), n(2), n(4)]
+    .map((c) => mix(c).toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase()
+}
