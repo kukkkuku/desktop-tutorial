@@ -107,7 +107,6 @@ import {
   type ProgressData,
   type ProgressRow,
 } from '../../utils/progressBoard'
-import SheetLinkChip from '../SheetLinkChip'
 import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
 import { blankProgress, materialize, sheetToData, worksheetRequests } from '../../utils/progressLocal'
 import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
@@ -1335,6 +1334,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
           <RefreshCw {...icSm} className="shrink-0" />
           구글시트에서 {data && !data.local ? '다시 ' : ''}불러오기
+          {data && !data.local && data.spreadsheetId && (
+            <span className="ml-auto text-[11px] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
+              {timeAgo(data.fetchedAt)} 불러옴
+            </span>
+          )}
         </button>
       )}
       {canManage && (
@@ -1362,13 +1366,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <div className="mac-menu-sep" />
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3.5 py-1.5 text-[12px] text-label-2">
         <span className="text-label-3">구글시트</span>
-        <a href={sheetLink} target="_blank" rel="noreferrer" className="max-w-[170px] truncate font-medium text-accent hover:underline" title={sheetLink}>
+        <a
+          href={withGoogleAccount(data?.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : sheetLink)}
+          target="_blank"
+          rel="noreferrer"
+          className="max-w-[170px] truncate font-medium text-accent hover:underline"
+          title={`구글시트로 바로 가기 · ${sheetLink}`}
+        >
           {sheetFileTitle ?? (isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '운영 팀 시트' : '연결된 시트')} ↗
         </a>
-        {canManage && (
+        {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId) && (
+          <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
+            읽기 전용
+          </span>
+        )}
+        {canManage ? (
           <button onClick={() => setLinkOpen(true)} className="ml-auto font-medium text-label-2 hover:text-accent">
             시트 바꾸기
           </button>
+        ) : (
+          <span className="ml-auto text-label-3" title={SHEET_ADMIN_ONLY}>
+            관리자가 연결
+          </span>
         )}
         {hiddenCount > 0 && (
           <button onClick={showHiddenTabs} className="w-full text-left font-medium text-label-2 hover:text-accent" title="목록에서 숨긴 연도를 다시 보입니다">
@@ -1772,34 +1791,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </div>
             )}
           </div>
-          <div className="shrink-0 pb-1.5">
-            <SheetLinkChip
-              label={data.fileTitle || data.source}
-              sub={data.fileTitle ? data.tabTitle : undefined}
-              meta={
-                <span className="flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2" title={`${fmt(data.fetchedAt)} 불러옴`}>
-                    {timeAgo(data.fetchedAt)}
-                  </span>
-                  {protectedSheet && (
-                    <span className="mac-badge bg-black/[0.06] text-label-2" title="운영 중인 팀 시트라 읽기만 하고 저장하지 않습니다">
-                      읽기 전용
-                    </span>
-                  )}
-                </span>
-              }
-              currentUrl={data.spreadsheetId ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : null}
-              openUrl={data.spreadsheetId ? withGoogleAccount(sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined)) : null}
-              note={
-                canManage
-                  ? '다른 시트 링크를 넣고 연결하면 그 시트의 「YYYY 추진현황」 탭을 읽고, 저장도 그 시트에 합니다. 운영 팀 시트는 읽기만 합니다.'
-                  : SHEET_ADMIN_ONLY
-              }
-              onConnect={canManage ? (url) => connectSheet(url) : undefined}
-              onReload={isSheetsApiConfigured() && data.spreadsheetId ? () => loadFromSheet() : undefined}
-              reloadDisabled={saving}
-              reloading={loading}
-            />
+          <div className="hidden">
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           </div>
         </div>
