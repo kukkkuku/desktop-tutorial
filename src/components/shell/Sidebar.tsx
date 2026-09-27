@@ -125,7 +125,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         </button>
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[13.5px] font-semibold text-label">디자인연구소</span>
+            <span className="block truncate text-[13.5px] font-semibold text-label">페이스</span>
             <span className="block truncate text-[11.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
           </span>
         )}

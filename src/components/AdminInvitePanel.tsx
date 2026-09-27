@@ -23,9 +23,9 @@ import { appInviteUrl } from '../utils/accessSheet'
 // OAuth 테스트 사용자 등록 화면(프로젝트 493396486126, 이 앱의 Gmail API와
 // 같은 GCP 프로젝트) 바로가기 -- 매번 콘솔에서 찾아 들어가는 수고를 던다.
 const TEST_USERS_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials/consent?project=493396486126'
-const DEFAULT_SUBJECT = '성과·성장관리 앱 초대'
+const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
 // 앱 주소는 지금 보고 있는 앱(운영/미리보기) + 권한 관리 시트(?access=) -- 이 링크로 열면 팀원 앱이 그 시트를 읽는다
-const defaultBody = () => `안녕하세요, 팀 성과·성장관리 앱에 초대합니다.
+const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
 
 아래 링크에서 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.
 ${appInviteUrl()}
