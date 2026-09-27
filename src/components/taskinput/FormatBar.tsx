@@ -54,6 +54,7 @@ export default function FormatBar({
   return (
     <div
       ref={ref}
+      data-keep-sel
       className={`relative flex items-center gap-1.5 rounded-[12px] bg-white px-2 py-1 shadow-[0_1px_4px_rgba(0,0,0,0.12),0_0_0_1px_rgba(0,0,0,0.06)] ${off ? 'opacity-45' : ''}`}
       title={off ? '칸을 고르면 서식을 바꿀 수 있습니다(끌거나 Shift로 여러 칸)' : undefined}
       onMouseDown={keep}

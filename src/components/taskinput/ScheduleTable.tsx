@@ -10,6 +10,8 @@ import {
   ChevronDown,
   Italic,
   Strikethrough,
+  AlignVerticalSpaceAround,
+  GripVertical,
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
@@ -782,7 +784,8 @@ export default function ScheduleTable({
   onNote,
   onFmt,
   merges = [],
-  heightReset = 0,
+  rowHeights = {},
+  onRowHeights,
   onMerge,
   onCells,
   onAddRows,
@@ -849,7 +852,8 @@ export default function ScheduleTable({
   onRenameColumn?: (id: string, label: string) => void // 새 열 이름 고치기
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
-  heightReset?: number // 바뀌면 끌어서 정한 행 높이를 모두 지운다
+  rowHeights?: Record<string, number> // 끌어서 정한 행 높이(행 키 → px)
+  onRowHeights?: (changes: Record<string, number | null>, kind?: string) => void // null = 자동 높이로
   readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
   fields?: FieldDef[] // L3 오른쪽 시트 열(속성·분류·상태…) -- 표에 그대로 펼친다
   optionsOf?: (f: FieldDef) => string[]
@@ -1155,37 +1159,9 @@ export default function ScheduleTable({
   useEffect(() => {
     if (editNameKey) selectCell(editNameKey, 'name', true)
   }, [editNameKey])
-  // 행 높이(과제 칸 아래 경계를 끌어 조절 · 더블클릭하면 자동) -- 이 브라우저에 기억
-  const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem('progress-board:row-heights') ?? '{}')
-      return v && typeof v === 'object' ? v : {}
-    } catch {
-      return {}
-    }
-  })
-  // 모두 기본 높이로(도구 줄 버튼)
-  useEffect(() => {
-    if (!heightReset) return
-    setRowHeights({})
-    try {
-      localStorage.removeItem('progress-board:row-heights')
-    } catch {
-      // 기억 못 해도 지금 화면엔 반영
-    }
-  }, [heightReset])
+  // 행 높이(과제 칸 아래 경계를 끌어 조절 · 더블클릭하면 자동) -- 부모가 기억하고 되돌리기에 넣는다
   function setRowHeight(key: string, h: number | null) {
-    setRowHeights((cur) => {
-      const next = { ...cur }
-      if (h === null) delete next[key]
-      else next[key] = h
-      try {
-        localStorage.setItem('progress-board:row-heights', JSON.stringify(next))
-      } catch {
-        // 기억 못 해도 지금 화면엔 반영
-      }
-      return next
-    })
+    onRowHeights?.({ [key]: h }, `h:${key}`)
   }
   function startRowResize(e: React.MouseEvent, key: string, tr: HTMLElement | null) {
     e.preventDefault()
@@ -1808,7 +1784,7 @@ export default function ScheduleTable({
   }
   // 줄 옮기기: 과제 칸 왼쪽 손잡이를 끌어 같은 구분(L2) 안의 다른 줄 위/아래에 놓는다 · Alt+↑/↓로 한 칸씩
   const groupOfRow = (r: ProgressRow) => `${r.l1}␟${r.l2}␟${r.l2Tag ?? ''}`
-  const [drag, setDrag] = useState<{ key: string; over: { key: string; where: 'above' | 'below' } | null } | null>(null)
+  const [drag, setDrag] = useState<{ key: string; over: { key: string; where: 'above' | 'below' } | null; x: number; y: number } | null>(null)
   // 행 머리를 누르면 행 전체 선택, 누른 채 끌면(4px 넘게) 같은 구분 안의 다른 줄 위/아래로 옮기기
   function rowHeadDown(e: React.MouseEvent, v: ScheduleRowView) {
     if (e.button !== 0) return
@@ -1824,18 +1800,27 @@ export default function ScheduleTable({
     }
     setRowSel(v.row.key)
     head.focus({ preventScroll: true })
+    startRowDrag(e, v, head, 4)
+  }
+  // 줄 끌어 옮기기: 끄는 동안 고스트(과제 이름)가 마우스를 따라오고, 놓일 자리에 주황 선
+  function startRowDrag(e: React.MouseEvent, v: ScheduleRowView, head: HTMLElement | null, threshold: number) {
     if (!onMoveRow || v.deleted || readOnly) return
     const g = groupOfRow(v.row)
     const y0 = e.clientY
     let dragging = false
     let over: { key: string; where: 'above' | 'below' } | null = null
     const move = (ev: MouseEvent) => {
-      if (!dragging && Math.abs(ev.clientY - y0) < 4) return
+      if (!dragging && Math.abs(ev.clientY - y0) < threshold) return
       if (!dragging) {
         dragging = true
         document.documentElement.classList.add('cursor-grabbing')
       }
-      const tr = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest('tr[data-row]') as HTMLElement | null
+      // 세로 위치로 줄을 찾는다(구분 칸처럼 여러 줄에 걸친 칸 위에서도 맞는 줄)
+      const tr =
+        (Array.from(tableRef.current?.querySelectorAll('tbody tr[data-row]') ?? []) as HTMLElement[]).find((el) => {
+          const r = el.getBoundingClientRect()
+          return ev.clientY >= r.top && ev.clientY < r.bottom
+        }) ?? null
       const key = tr?.dataset.row
       const target = key ? rows.find((x) => x.row.key === key) : undefined
       if (!tr || !target || groupOfRow(target.row) !== g || target.row.key === v.row.key) over = null
@@ -1843,7 +1828,7 @@ export default function ScheduleTable({
         const r = tr.getBoundingClientRect()
         over = { key: target.row.key, where: ev.clientY < r.top + r.height / 2 ? 'above' : 'below' }
       }
-      setDrag({ key: v.row.key, over })
+      setDrag({ key: v.row.key, over, x: ev.clientX, y: ev.clientY })
     }
     const up = () => {
       window.removeEventListener('mousemove', move)
@@ -1852,7 +1837,7 @@ export default function ScheduleTable({
       const target = over && rows.find((x) => x.row.key === over!.key)
       if (dragging && target && over) onMoveRow(v.row, target.row, over.where)
       setDrag(null)
-      head.focus({ preventScroll: true })
+      head?.focus({ preventScroll: true })
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
@@ -1938,6 +1923,58 @@ export default function ScheduleTable({
   const lastColId = cols[cols.length - 1]?.id
   let rowIndex = 0
 
+  // 표 밖 빈 곳을 누르면 칸 · 행 선택을 푼다(버튼 · 입력칸 · 메뉴 · 서식 막대를 누를 때는 그대로)
+  useEffect(() => {
+    const down = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || tableRef.current?.contains(t)) return
+      // 스크롤 막대를 누른 경우는 빼기
+      const scrolls = t.scrollHeight > t.clientHeight || t.scrollWidth > t.clientWidth
+      if (scrolls && (e.offsetX > t.clientWidth || e.offsetY > t.clientHeight)) return
+      if (t.closest('button,a,input,textarea,select,label,[role="menu"],[role="listbox"],[role="dialog"],.mac-pop,[data-keep-sel]')) return
+      setSel(null)
+      setSelEnd(null)
+      setRowSel(null)
+      setWeekSel(null)
+    }
+    window.addEventListener('mousedown', down)
+    return () => window.removeEventListener('mousedown', down)
+  }, [])
+  // 끌기 손잡이 자리(고른 행 한 줄의 세로 가운데, 표 왼쪽 밖). 스크롤 · 창 크기가 바뀌면 다시 잰다
+  const [, setGripTick] = useState(0)
+  const singleRow = rowSel && (!rowSelEnd || rowSelEnd === rowSel) && onMoveRow && !readOnly ? rowSel : null
+  useEffect(() => {
+    if (!singleRow) return
+    const bump = () => setGripTick((n) => n + 1)
+    window.addEventListener('scroll', bump, true)
+    window.addEventListener('resize', bump)
+    return () => {
+      window.removeEventListener('scroll', bump, true)
+      window.removeEventListener('resize', bump)
+    }
+  }, [singleRow])
+  const gripAt = (() => {
+    if (!singleRow) return null
+    const tr = document.querySelector(`tr[data-row="${CSS.escape(singleRow)}"]`) as HTMLElement | null
+    const box = tableRef.current?.parentElement?.getBoundingClientRect()
+    const t = tableRef.current?.getBoundingClientRect()
+    if (!tr || !box || !t) return null
+    const r = tr.getBoundingClientRect()
+    const y = r.top + r.height / 2
+    if (y < box.top + 20 || y > box.bottom) return null
+    return { x: Math.max(2, Math.max(t.left, box.left) - 24), y }
+  })()
+  const dropLine = (() => {
+    if (!drag?.over) return null
+    const tr = document.querySelector(`tr[data-row="${CSS.escape(drag.over.key)}"]`) as HTMLElement | null
+    const box = tableRef.current?.parentElement?.getBoundingClientRect()
+    const t = tableRef.current?.getBoundingClientRect()
+    if (!tr || !box || !t) return null
+    const r = tr.getBoundingClientRect()
+    const left = Math.max(t.left, box.left)
+    return { left, width: Math.min(t.right, box.right) - left, top: (drag.over.where === 'above' ? r.top : r.bottom) - 1 }
+  })()
+
   // ---- 본문 칸 경계에서도 행 높이 · 열 폭 조절: 칸 가장자리(4px)에 마우스가 가면 파란 선, 끌면 조절
   const [edge, setEdge] = useState<{ kind: 'row' | 'col'; key: string; pos: number; from: number; len: number } | null>(null)
   const colKeyOf = (td: HTMLElement): string | null => {
@@ -1967,7 +2004,10 @@ export default function ScheduleTable({
     if (!box || !t) return null
     const left = Math.max(t.left, box.left)
     const top = Math.max(t.top, box.top)
-    if (onResize && td.colSpan === 1 && r.right - e.clientX <= (r.width < 24 ? 2 : 4) && r.right - e.clientX >= -1) {
+    // 주 칸은 12월 마지막 주 바깥 선에서만(가운데 주 · 월 경계에서는 칠하기가 먼저)
+    const weekIdx = td.hasAttribute('data-week') ? Number(td.getAttribute('data-week')!.split(':')[1]) : -1
+    const lastWeek = weekIdx < 0 || weekIdx === weekCols.length - 1
+    if (onResize && lastWeek && td.colSpan === 1 && r.right - e.clientX <= 4 && r.right - e.clientX >= -1) {
       const key = colKeyOf(td)
       if (key) return { kind: 'col' as const, key, pos: r.right, from: top, len: Math.min(t.bottom, box.bottom) - top }
     }
@@ -1996,7 +2036,9 @@ export default function ScheduleTable({
     e.stopPropagation()
     const x0 = e.clientX
     const w0 = widthOf(hit.key)
-    const move = (ev: MouseEvent) => resizeTo(hit.key, Math.max(hit.key === 'week' ? 8 : 36, Math.round(w0 + ev.clientX - x0)))
+    // 주 칸: 늘린 만큼을 모든 주에 나눠 준다(선은 마우스를 따라감)
+    const n = hit.key === 'week' ? weekCols.length : 1
+    const move = (ev: MouseEvent) => resizeTo(hit.key, Math.max(hit.key === 'week' ? 8 : 36, w0 + (ev.clientX - x0) / n))
     const up = () => {
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
@@ -2152,7 +2194,10 @@ export default function ScheduleTable({
                   className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
                 >
                   {i === curIdx ? '▼' : x.week}
-                  {onResize && i === 0 && <ResizeHandle width={wWeek} onResize={(v) => resizeTo('week', Math.max(8, v))} lineH={subLineH} />}
+                  {/* 일정 폭은 12월 마지막 주 바깥 선에서만: 끌면 모든 주가 같이 늘고 준다 */}
+                  {onResize && i === weekCols.length - 1 && (
+                    <ResizeHandle width={wWeek * weekCols.length} onResize={(v) => resizeTo('week', Math.max(8, v / weekCols.length))} lineH={subLineH} />
+                  )}
                 </th>
               ))}
             {cols
@@ -2194,10 +2239,7 @@ export default function ScheduleTable({
                   <tr
                     key={v.row.key}
                     data-row={v.row.key}
-                    style={{
-                      ...(rowH ? { height: rowH } : {}),
-                      ...(drag?.over?.key === v.row.key ? { boxShadow: drag.over.where === 'above' ? 'inset 0 2px 0 #007AFF' : 'inset 0 -2px 0 #007AFF' } : {}),
-                    }}
+                    style={{ ...(rowH ? { height: rowH } : {}) }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
                       isRowSel(v.row.key) ? 'pb-row-sel' : ''
                     }`}
@@ -2574,6 +2616,40 @@ export default function ScheduleTable({
                 : { left: edge.pos - 1, top: edge.from, width: 2, height: edge.len }
             }
           />,
+          document.body,
+        )}
+
+      {/* 행 하나를 고르면 표 왼쪽 밖에 끌기 손잡이 */}
+      {gripAt &&
+        !drag &&
+        createPortal(
+          <button
+            data-keep-sel
+            onMouseDown={(e) => {
+              if (e.button !== 0) return
+              e.preventDefault()
+              const v = rows.find((x) => x.row.key === rowSel)
+              if (v) startRowDrag(e, v, document.querySelector(`[data-rowhead="${CSS.escape(v.row.key)}"]`) as HTMLElement | null, 0)
+            }}
+            title="끌어서 옮기기(같은 구분 안) · Alt+↑/↓"
+            className="fixed z-[45] flex h-7 w-5 -translate-y-1/2 cursor-grab items-center justify-center rounded-[5px] text-accent hover:bg-accent/10"
+            style={{ left: gripAt.x, top: gripAt.y }}
+          >
+            <GripVertical size={18} strokeWidth={2.4} />
+          </button>,
+          document.body,
+        )}
+      {drag &&
+        createPortal(
+          <>
+            {dropLine && <div className="pointer-events-none fixed z-[46] h-[2px] bg-orange-500" style={dropLine} />}
+            <div
+              className="pointer-events-none fixed z-[47] max-w-[360px] truncate rounded-[6px] bg-white/95 px-3 py-1.5 text-[13px] font-semibold text-label opacity-90 shadow-[0_4px_16px_rgba(0,0,0,0.18)] ring-1 ring-black/10"
+              style={{ left: drag.x + 14, top: drag.y + 10 }}
+            >
+              {rows.find((x) => x.row.key === drag.key)?.vals.name || '(이름 없음)'}
+            </div>
+          </>,
           document.body,
         )}
 
@@ -3138,6 +3214,21 @@ export default function ScheduleTable({
                         행 색 (L3 · 입력 열 전체)
                         <span className="ml-auto text-label-3">▸</span>
                       </button>
+                      {onRowHeights && (
+                        <button
+                          onClick={() => {
+                            const tr = document.querySelector(`tr[data-row="${CSS.escape(menu.row.key)}"]`) as HTMLElement | null
+                            const h = Math.round(tr?.getBoundingClientRect().height ?? 0)
+                            if (h) onRowHeights(Object.fromEntries(rows.map((x) => [x.row.key, h])), 'all')
+                            close()
+                          }}
+                          className={item}
+                          title="표의 모든 행을 이 행과 같은 높이로 맞춥니다(⌘Z로 되돌리기)"
+                        >
+                          <AlignVerticalSpaceAround {...ic} />
+                          모든 행을 이 행 높이로
+                        </button>
+                      )}
                     </>
                   )}
                   {!menu.row.isNew && onRevertRow && (menuView.editedFields.size > 0 || menuView.editedCells.size > 0) && (

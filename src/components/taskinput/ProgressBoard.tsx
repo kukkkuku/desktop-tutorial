@@ -296,16 +296,55 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       return {}
     }
   })
-  function resizeCol(key: string, w: number) {
-    setWidths((cur) => {
-      const next = { ...cur, [key]: w }
+  // 행 높이(끌어서 정한 값) -- 이 브라우저에 기억
+  const [rowHeights, setRowHeightsState] = useState<Record<string, number>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:row-heights') ?? '{}')
+      return v && typeof v === 'object' ? v : {}
+    } catch {
+      return {}
+    }
+  })
+  const widthsRef = useRef(widths)
+  const heightsRef = useRef(rowHeights)
+  // 열 폭 · 행 높이 바꾸기(되돌리기에 들어감)
+  function setView(w: Record<string, number>, h: Record<string, number>) {
+    if (w !== widthsRef.current) {
+      widthsRef.current = w
+      setWidths(w)
       try {
-        localStorage.setItem('progress-board:widths', JSON.stringify(next))
+        localStorage.setItem('progress-board:widths', JSON.stringify(w))
+      } catch {
+        // 기억 못 해도 지금 화면엔 반영
+      }
+    }
+    if (h !== heightsRef.current) {
+      heightsRef.current = h
+      setRowHeightsState(h)
+      try {
+        localStorage.setItem('progress-board:row-heights', JSON.stringify(h))
       } catch {
         // 위와 같음
       }
-      return next
-    })
+    }
+  }
+  function resizeCol(key: string, w: number) {
+    if (widthsRef.current[key] === w) return
+    pushHistory(`w:${key}`)
+    setView({ ...widthsRef.current, [key]: w }, heightsRef.current)
+  }
+  function changeRowHeights(changes: Record<string, number | null>, kind = 'h') {
+    const next = { ...heightsRef.current }
+    let changed = false
+    for (const [k, v] of Object.entries(changes)) {
+      if (v === null ? !(k in next) : next[k] === v) continue
+      changed = true
+      if (v === null) delete next[k]
+      else next[k] = v
+    }
+    if (!changed) return
+    pushHistory(kind)
+    setView(widthsRef.current, next)
   }
   // 일정(주차 칸) 접기 -- 접으면 계획·실적 기간 요약 한 칸만 보인다
   // 일정 보기 단계: 전체 펴기 / 줄여보기 / 숨기기 -- 이 브라우저에 기억
@@ -400,7 +439,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   })
   // 모두 기본 높이로: 행간을 기본으로, 끌어서 정한 행 높이는 모두 지운다
-  const [heightReset, setHeightReset] = useState(0)
   function setRowPad(v: number) {
     const n = Math.max(0, Math.min(ROW_PAD_MAX, v))
     setRowPadState(n)
@@ -861,9 +899,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
 
   // 되돌리기/다시 하기: 고칠 때마다 직전 상태를 쌓는다. 끌어 칠하기처럼 잇따른 같은 동작은 한 번으로 묶는다.
+  // 기록 한 칸 = 고친 내용 + 열 폭 + 행 높이(크기 조절도 되돌린다)
+  type Snap = { d: Drafts; w: Record<string, number>; h: Record<string, number> }
   const draftsRef = useRef(drafts)
-  const past = useRef<Drafts[]>([])
-  const future = useRef<Drafts[]>([])
+  const past = useRef<Snap[]>([])
+  const future = useRef<Snap[]>([])
+  const snap = (): Snap => ({ d: draftsRef.current, w: widthsRef.current, h: heightsRef.current })
+  function pushHistory(kind: string) {
+    const now = Date.now()
+    if (!(kind && kind === lastStep.current.kind && now - lastStep.current.at < 800)) {
+      past.current.push(snap())
+      if (past.current.length > 200) past.current.shift()
+    }
+    lastStep.current = { kind, at: now }
+    future.current = []
+    setHistoryTick((n) => n + 1)
+  }
+  function restore(v: Snap) {
+    lastStep.current = { kind: '', at: 0 }
+    if (v.d !== draftsRef.current) applyDrafts(v.d)
+    else setHistoryTick((n) => n + 1)
+    setView(v.w, v.h)
+  }
   const lastStep = useRef({ kind: '', at: 0 })
   const [, setHistoryTick] = useState(0)
   function applyDrafts(v: Drafts) {
@@ -877,13 +934,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     const cur = draftsRef.current
     const v = typeof next === 'function' ? next(cur) : next
     if (v === cur) return
-    const now = Date.now()
-    if (!(kind && kind === lastStep.current.kind && now - lastStep.current.at < 800)) {
-      past.current.push(cur)
-      if (past.current.length > 200) past.current.shift()
-    }
-    lastStep.current = { kind, at: now }
-    future.current = []
+    pushHistory(kind)
     applyDrafts(v)
   }
   function clearHistory() {
@@ -896,17 +947,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (archiveRef.current) return
     const prev = past.current.pop()
     if (!prev) return
-    future.current.push(draftsRef.current)
-    lastStep.current = { kind: '', at: 0 }
-    applyDrafts(prev)
+    future.current.push(snap())
+    restore(prev)
   }
   function redo() {
     if (archiveRef.current) return
     const next = future.current.pop()
     if (!next) return
-    past.current.push(draftsRef.current)
-    lastStep.current = { kind: '', at: 0 }
-    applyDrafts(next)
+    past.current.push(snap())
+    restore(next)
   }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1811,7 +1860,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <button
               onClick={() => {
                 setRowPad(ROW_PAD_DEFAULT)
-                setHeightReset((n) => n + 1)
+                if (Object.keys(heightsRef.current).length) {
+                  pushHistory('')
+                  setView(widthsRef.current, {})
+                }
               }}
               className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04]"
               aria-label="모두 기본 높이로"
@@ -2027,7 +2079,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onMoveRow={readOnly ? undefined : moveRow}
               fontSize={fontSize}
               rowPad={rowPad}
-              heightReset={heightReset}
+              rowHeights={rowHeights}
+              onRowHeights={changeRowHeights}
               readOnly={readOnly}
               fields={eff.fields}
               optionsOf={optionsOf}
