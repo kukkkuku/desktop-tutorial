@@ -6,8 +6,9 @@
 // 어느 시트인지는: 주소의 ?access=ID(초대 링크) > 이 브라우저에 기억한 것 > 아래 기본값.
 import { createSpreadsheet, fetchValues, parseSheetUrl, sheetUrl } from './sheetSources'
 
-// 운영에 쓸 권한 관리 시트가 정해지면 여기에 id를 넣으면 초대 링크 없이도 모두가 읽는다.
-export const DEFAULT_ACCESS_SHEET_ID = ''
+// 운영에 쓰는 권한 관리 시트(관리자가 앱에서 만든 「성과관리 앱 권한 관리」). 초대 링크에 ?access= 없이도 모두가 읽는다.
+// id만으로는 아무도 못 읽는다 -- 구글시트 공유(뷰어)를 받은 사람만 읽힌다.
+export const DEFAULT_ACCESS_SHEET_ID = '14dxpm3aO7c3vbxh1SzZFftlZRbKUJdeX3GO7DpgkOz4'
 
 export type AccessRole = 'admin' | 'leader' | 'member'
 export interface AccessUser {
@@ -77,7 +78,8 @@ export function accessSheetUrl(id = getAccessSheetId()): string | null {
 // 팀원에게 보낼 앱 주소(열면 이 권한 시트를 기억)
 export function appInviteUrl(id = getAccessSheetId()): string {
   const base = `${window.location.origin}${window.location.pathname}`
-  return id ? `${base}?access=${id}` : base
+  // 기본 권한 시트면 주소만(짧게). 다른 시트를 쓸 때만 ?access=를 붙인다.
+  return id && id !== DEFAULT_ACCESS_SHEET_ID ? `${base}?access=${id}` : base
 }
 
 export function readAccessCache(): AccessData | null {

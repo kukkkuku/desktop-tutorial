@@ -243,6 +243,7 @@ export default function AdminInvitePanel() {
             rows={10}
             className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] w-full"
           />
+          <p className="text-[12px] text-label-3">앱 주소만 있는 줄은 받은 메일에서 「앱 바로 열기」 버튼으로 보입니다(누르면 바로 접속).</p>
           <Button variant="primary" onClick={() => void handleSend()} disabled={sending || list.length === 0} className="w-full">
             {sending && <Spinner className="h-3.5 w-3.5 text-white" />}
             {sending ? '발송 중...' : `초대 메일 발송 (${list.length}명)`}

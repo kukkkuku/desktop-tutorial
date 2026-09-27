@@ -36,9 +36,7 @@ export function getAdminEmail(): string | null {
 }
 
 async function fetchEmail(accessToken: string): Promise<string | null> {
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } })
   if (!res.ok) return null
   const data = (await res.json()) as { email?: string }
   return data.email ?? null
@@ -138,7 +136,9 @@ export function parseEmailWorkbook(buffer: ArrayBuffer): { emails: string[] } {
   const emails = new Set<string>()
   for (const row of rows) {
     for (const cell of row) {
-      const s = String(cell ?? '').trim().toLowerCase()
+      const s = String(cell ?? '')
+        .trim()
+        .toLowerCase()
       if (EMAIL_RE.test(s)) emails.add(s)
     }
   }
@@ -188,15 +188,34 @@ function toBase64Url(input: string): string {
   return toBase64(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+// 메일 본문 HTML: 주소만 있는 줄은 "앱 바로 열기" 버튼으로(주소를 복사할 필요 없이 누르면 접속), 글 속 주소는 링크로.
+function bodyHtml(text: string): string {
+  const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const lines = text.split(/\r?\n/).map((line) => {
+    const t = line.trim()
+    if (/^https?:\/\/\S+$/.test(t))
+      return `<a href="${esc(t)}" style="display:inline-block;margin:6px 0;padding:10px 18px;border-radius:8px;background:#18181B;color:#ffffff;text-decoration:none;font-weight:600">앱 바로 열기</a>`
+    return esc(line).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`)
+  })
+  return `<div style="font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:1.7;color:#18181B">${lines.join('<br>')}</div>`
+}
+
+// 글(text/plain)과 HTML을 함께 보낸다 -- 메일 앱은 HTML(버튼)을, 글만 보는 곳은 주소를 보여 준다.
 function buildRawMessage(from: string, to: string, subject: string, bodyText: string): string {
+  const boundary = `inv_${Date.now().toString(36)}`
   const headers = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: =?UTF-8?B?${toBase64(subject)}?=`,
     'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset=UTF-8',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
   ].join('\r\n')
-  return toBase64Url(`${headers}\r\n\r\n${bodyText}`)
+  const parts = [
+    `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${toBase64(bodyText)}`,
+    `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${toBase64(bodyHtml(bodyText))}`,
+    `--${boundary}--`,
+  ].join('\r\n')
+  return toBase64Url(`${headers}\r\n\r\n${parts}`)
 }
 
 export interface SendInviteResult {
@@ -217,10 +236,7 @@ export async function sendInviteEmails(emails: string[], subject: string, bodyTe
       const raw = buildRawMessage(adminEmail, email, subject, bodyText)
       const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${adminToken.token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${adminToken.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ raw }),
       })
       if (!res.ok) {
