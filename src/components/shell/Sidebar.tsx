@@ -1,7 +1,7 @@
 // 왼쪽 사이드바(디자인 시스템 v2): 앱의 모든 이동이 여기 한 곳에 있다.
 //   위: 로고 · 접기  →  홈  →  과제 입력(추진현황 · 진척률)  →  성과관리(프로젝트 · 메뉴, 팀장만)
 //   아래: 매뉴얼 · 데이터 백업(성과관리) · 계정(메뉴 안에 로그아웃)
-// 접으면 아이콘만(마우스를 올리면 이름). 접은 상태는 이 브라우저에 기억한다.
+// 접으면 아이콘만(마우스를 올리면 이름). 접기 버튼과 접은 상태는 AppShell(화면 머리 맨 앞)에.
 import { useState, type ReactNode } from 'react'
 import {
   BarChart3,
@@ -14,7 +14,6 @@ import {
   LayoutList,
   LogOut,
   MessageCircle,
-  PanelLeft,
   SlidersHorizontal,
   Users,
   Zap,
@@ -28,8 +27,6 @@ import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
 import { IS_PREVIEW } from '../../utils/previewMode'
 import { getConnectedEmail } from '../../utils/googleDrive'
-
-const COLLAPSE_KEY = 'sidebar-collapsed'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
   { key: 'progress', label: '추진현황', Icon: CalendarRange },
@@ -52,28 +49,11 @@ export interface SidebarPerfExtras {
   saveBadge?: ReactNode
 }
 
-function readCollapsed() {
-  try {
-    return localStorage.getItem(COLLAPSE_KEY) === '1'
-  } catch {
-    return false
-  }
-}
-
-export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
+export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage } = useAppMode()
   const { currentWorkspaceId, currentWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
   const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
-  const [collapsed, setCollapsedState] = useState(readCollapsed)
   const [manual, setManual] = useState<{ area?: ManualArea; chapter?: string } | null>(null)
-  const setCollapsed = (v: boolean) => {
-    setCollapsedState(v)
-    try {
-      localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0')
-    } catch {
-      // 기억 못 해도 지금은 접힌다
-    }
-  }
 
   // 다른 구글 계정으로 바꾸면 그 계정의 프로젝트 목록을 다시 읽고 목록 화면으로
   function onAccountChange() {
@@ -110,27 +90,17 @@ export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
 
   return (
     <aside
-      className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-3 transition-[width] duration-200 ${collapsed ? 'w-[60px]' : 'w-[236px]'}`}
+      className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 transition-[width] duration-200 ${collapsed ? 'w-[60px]' : 'w-[236px]'}`}
       aria-label="메뉴"
     >
-      {/* 접기 버튼은 펼쳐도 접어도 같은 자리(맨 위 왼쪽, 애플 사이드바처럼), 펼치면 그 오른쪽에 로고 · 이름 */}
-      <div className="flex h-9 items-center gap-2 pl-[6px]">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-          aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
-        >
-          <PanelLeft size={17} strokeWidth={1.8} />
-        </button>
+      {/* 로고 · 이름(접으면 로고만). 접기 버튼은 화면 머리 맨 앞에 */}
+      <div className={`flex h-9 items-center gap-2.5 ${collapsed ? 'justify-center' : 'pl-1.5'}`}>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-[11px] font-bold tracking-tight text-white">DL</span>
         {!collapsed && (
-          <>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-[11px] font-bold tracking-tight text-white">DL</span>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[13.5px] font-semibold text-label">디자인연구소</span>
-              <span className="block truncate text-[11.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
-            </span>
-          </>
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="block truncate text-[13.5px] font-semibold text-label">디자인연구소</span>
+            <span className="block truncate text-[11.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
+          </span>
         )}
       </div>
 
