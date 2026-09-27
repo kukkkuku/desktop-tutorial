@@ -9,15 +9,21 @@
 //   현재 진행중 = 착수했고 아직 완료 안 함
 //   일반업무 실적(합산) = 같은 실에서 [중점]이 아닌 구분의 완료 실적 -- 그 중점과제의 주 담당팀 과제만(자동, 고칠 수 있음)
 // 숫자 칸은 더블클릭으로 고칠 수 있다(팀장이 맞춤 · 이 브라우저에 기억). 우클릭: 과제 목록 · 자동값으로.
-// PPT로 내보내기: 탭마다 한 장(미리보기에서 고르기).
+// 구글시트에 저장: 같은 파일의 「YYYY 진척률」 탭에 모든 표를 위아래로(없으면 탭을 만들고, 있으면 내용을 바꾼다 · rateExport).
+// 다운로드: PPT(탭마다 한 장 · 미리보기에서 고르기) · 엑셀(표마다 시트 한 장).
 import { useEffect, useMemo, useState } from 'react'
-import { Download, List, Presentation, RotateCcw, X } from 'lucide-react'
+import { CloudUpload, Download, ExternalLink, FileSpreadsheet, List, Presentation, RotateCcw, X } from 'lucide-react'
 import Button from '../Button'
 import { effectiveCells, effectiveField, planRange, type Drafts, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
 import { exportRows } from '../../utils/progressExport'
 import { accountScope } from '../../utils/accountScope'
 import { icSm } from '../ui/icon'
 import Select from '../ui/Select'
+import FileMenu from '../ui/PopMenu'
+import ConfirmDialog from '../ConfirmDialog'
+import { isProtectedSheet } from '../../utils/progressBoard'
+import { hasLoginSheetsToken, isSheetsApiConfigured, sheetUrl } from '../../utils/sheetSources'
+import { downloadRateExcel, saveRateToSheet } from './rateExport'
 
 export type Metric = 'plan' | 'startPlan' | 'startDone' | 'doing' | 'endPlan' | 'endDone' | 'general'
 const METRIC_LABEL: Record<Metric, string> = {
@@ -84,6 +90,18 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
   const [edit, setEdit] = useState<{ k: string; text: string } | null>(null)
   const [menu, setMenu] = useState<{ k: string; x: number; y: number; title: string; rows: ProgressRow[]; auto: number } | null>(null)
   const [pptOpen, setPptOpen] = useState(false)
+  const [confirmSave, setConfirmSave] = useState(false)
+  const [busy, setBusy] = useState<'' | 'sheet' | 'excel'>('')
+  const [note, setNote] = useState<{ ok: boolean; text: string; url?: string } | null>(null)
+  // 저장할 탭: 「2026 추진현황」 → 「2026 진척률」(추진현황 탭을 덮어쓰지 않게 이름이 다를 때만)
+  const rateTitle = data.tabTitle.includes('추진현황') ? data.tabTitle.replace(/추진현황/, '진척률') : `${data.tabTitle} 진척률`
+  const sheetBlock = !data.spreadsheetId
+    ? '구글시트에 연결된 연도에서만 저장할 수 있습니다(엑셀 · 이 브라우저 연도는 다운로드로).'
+    : !isSheetsApiConfigured()
+      ? '구글 로그인이 설정되지 않아 저장할 수 없습니다.'
+      : isProtectedSheet(data.spreadsheetId)
+        ? '운영 중인 팀 시트에는 저장하지 않습니다. 테스트 시트를 연결해 주세요.'
+        : ''
   const idx = useMemo(() => new Map(weekCols.map((w, i) => [w.key, i])), [weekCols])
   const asOfIdx = idx.get(asOf) ?? weekCols.length - 1
 
@@ -175,6 +193,33 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
     return w ? `${w.month}월 ${w.week}주` : ''
   })()
 
+  async function saveSheet() {
+    setConfirmSave(false)
+    if (!data.spreadsheetId || sheetBlock) return
+    setBusy('sheet')
+    setNote(null)
+    try {
+      const { sheetId, created } = await saveRateToSheet(data.spreadsheetId, rateTitle, asOfLabel, tables, valueOf)
+      setNote({
+        ok: true,
+        text: `「${rateTitle}」 탭${created ? '을 만들어' : '에'} 저장했습니다 · ${asOfLabel} 기준 · 표 ${tables.length}개`,
+        url: sheetUrl(data.spreadsheetId, sheetId),
+      })
+    } catch (e) {
+      setNote({ ok: false, text: e instanceof Error ? e.message : '구글시트에 저장하지 못했습니다.' })
+    } finally {
+      setBusy('')
+    }
+  }
+  async function saveExcel() {
+    setBusy('excel')
+    try {
+      await downloadRateExcel(rateTitle, asOfLabel, tables, valueOf)
+    } finally {
+      setBusy('')
+    }
+  }
+
   const th = 'border border-[#9AA0A6] bg-[#C9DAF8] px-2 py-1.5 text-center text-[12px] font-bold text-[#14161A]'
   const td = 'relative border border-[#C9CDD3] px-2 py-1.5 text-center text-[12.5px] tabular-nums'
   const actualBg = 'bg-[#EAD6D4]' // 실적 칸(시트처럼 연한 분홍)
@@ -255,11 +300,58 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
             고친 숫자 {Object.keys(over).length}개 되돌리기
           </Button>
         )}
-        <Button variant="primary" size="sm" onClick={() => setPptOpen(true)}>
-          <Presentation {...icSm} />
-          PPT로 내보내기
+        <FileMenu label={busy === 'excel' ? '만드는 중…' : '다운로드'} title="PPT · 엑셀로 받기" disabled={!!busy}>
+          <button onClick={() => setPptOpen(true)} className="mac-menu-item">
+            <Presentation size={14} strokeWidth={1.8} />
+            PPT
+            <span className="ml-auto text-[11.5px] text-label-3">탭마다 한 장 · 미리보기</span>
+          </button>
+          <button onClick={() => void saveExcel()} className="mac-menu-item">
+            <FileSpreadsheet size={14} strokeWidth={1.8} />
+            엑셀
+            <span className="ml-auto text-[11.5px] text-label-3">표마다 시트 한 장</span>
+          </button>
+        </FileMenu>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setConfirmSave(true)}
+          disabled={!!sheetBlock || !!busy}
+          title={sheetBlock || `같은 구글시트 파일의 「${rateTitle}」 탭에 저장 -- 팀원도 시트에서 볼 수 있습니다`}
+        >
+          <CloudUpload {...icSm} />
+          {busy === 'sheet' ? '저장 중…' : '구글시트에 저장'}
         </Button>
       </div>
+      {note && (
+        <p className={`mt-2 flex flex-wrap items-center gap-2 text-[12.5px] ${note.ok ? 'text-success' : 'text-danger'}`}>
+          {note.text}
+          {note.url && (
+            <a href={note.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
+              시트에서 열기 <ExternalLink size={12} />
+            </a>
+          )}
+          <button onClick={() => setNote(null)} className="text-label-3 hover:text-label" aria-label="닫기">
+            <X size={13} />
+          </button>
+        </p>
+      )}
+      <ConfirmDialog
+        open={confirmSave}
+        title="진척률을 구글시트에 저장"
+        message={`${asOfLabel} 기준 진척률 표 ${tables.length}개(합산 · 실별)를 아래 탭에 씁니다. 탭이 이미 있으면 그 탭의 내용을 지금 표로 바꿉니다.${hasLoginSheetsToken() ? '' : ' 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.'}`}
+        confirmLabel="저장"
+        tone="accent"
+        onConfirm={() => void saveSheet()}
+        onCancel={() => setConfirmSave(false)}
+      >
+        <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
+          <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
+          <p className="mt-0.5 break-all text-[14px] font-bold text-label">
+            {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {rateTitle}
+          </p>
+        </div>
+      </ConfirmDialog>
 
       {/* 탭: 합산 · 실별 */}
       <div className="mt-4 flex items-end gap-1 shadow-[inset_0_-1px_0_#E3E3E8]">

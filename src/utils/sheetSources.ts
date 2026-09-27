@@ -570,6 +570,39 @@ export async function createSheetTab(
   return sheetId
 }
 
+// 탭 하나를 통째로 새 내용으로(진척률 저장 등): 없으면 새로 만들고, 있으면 값 · 서식 · 병합을 지운 뒤 build 요청을 한 번에 보낸다.
+// 한 번의 batchUpdate라 중간에 실패하면 아무것도 바뀌지 않는다.
+export async function replaceSheetTab(
+  spreadsheetId: string,
+  title: string,
+  size: { rows: number; cols: number },
+  build: (sheetId: number) => object[],
+): Promise<{ sheetId: number; created: boolean }> {
+  const meta = await sheetsFetch<{
+    sheets: { properties: { sheetId: number; title: string; gridProperties?: { rowCount?: number; columnCount?: number } } }[]
+  }>(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(sheetId,title,gridProperties)`)
+  const hit = meta.sheets.find((x) => x.properties.title === title)
+  if (!hit) {
+    const sheetId = await createSheetTab(spreadsheetId, title, { rows: Math.max(size.rows, 20), cols: size.cols, frozenRows: 0, frozenCols: 0 }, build)
+    return { sheetId, created: true }
+  }
+  const sheetId = hit.properties.sheetId
+  const g = hit.properties.gridProperties ?? {}
+  const requests: object[] = [
+    {
+      updateSheetProperties: {
+        properties: { sheetId, gridProperties: { rowCount: Math.max(g.rowCount ?? 0, size.rows), columnCount: Math.max(g.columnCount ?? 0, size.cols) } },
+        fields: 'gridProperties.rowCount,gridProperties.columnCount',
+      },
+    },
+    { unmergeCells: { range: { sheetId } } },
+    { updateCells: { range: { sheetId }, fields: 'userEnteredValue,userEnteredFormat' } },
+    ...build(sheetId),
+  ]
+  await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
+  return { sheetId, created: false }
+}
+
 // 요청 묶음을 그대로 보낸다(쓰기 권한)
 export async function sheetBatchUpdate(spreadsheetId: string, requests: object[]): Promise<void> {
   if (!requests.length) return
