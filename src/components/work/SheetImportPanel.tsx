@@ -64,7 +64,7 @@ interface Props {
   // 'progress' = 이 앱 과제 입력 › 추진현황에 불러온 데이터(저장 안 한 변경 포함)
   source?: 'sheet' | 'xlsx' | 'progress'
   progress?: ProgressSource | null
-  // L1 탭 줄이 한 줄로 들어가는 폭(px) -- 빠른 시작 창이 이 폭에 딱 맞게 넓어진다
+  // L1 탭 줄이 한 줄로 들어가는 폭(px) -- 가져오기 창이 이 폭에 딱 맞게 넓어진다
   onNaturalWidth?: (w: number) => void
   // 추진현황에서 가져올 때 미리 고를 L1들 -- 첫 L1 탭을 열고 그 아래 L2를 모두 골라 둔다
   initialL1s?: string[]

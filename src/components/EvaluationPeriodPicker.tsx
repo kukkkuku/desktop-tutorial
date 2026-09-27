@@ -13,7 +13,7 @@ interface EvaluationPeriodPickerProps {
   teamName: string
   // 열기/생성 둘 다 이 콜백 하나로 끝난다 -- 호출 시점엔 이미 해당 평가가
   // 선택(selectWorkspace)된 뒤이므로, 모달을 닫거나 화면을 전환하면 된다.
-  onDone: (workspaceId: string) => void
+  onDone: (workspaceId: string, created: boolean) => void // created: 새로 만들었는지(이미 있던 기간을 연 게 아니라)
 }
 
 export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationPeriodPickerProps) {
@@ -76,7 +76,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
       copyMembers,
       copyTaskNames,
     })
-    onDone(id)
+    onDone(id, !matched)
   }
 
   return (

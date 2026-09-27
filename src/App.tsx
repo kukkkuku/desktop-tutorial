@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
@@ -19,7 +19,8 @@ import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './com
 import GoogleSignInGate from './components/GoogleSignInGate'
 import DataManagerDrawer, { type DataManagerTab } from './components/DataManagerDrawer'
 import WorkStage from './components/work/WorkStage'
-import QuickStartModal from './components/QuickStartModal'
+import TaskImportDialog, { type TaskImportSource } from './components/work/TaskImportDialog'
+import PerfStartDialog, { takeNewWorkspace } from './components/work/PerfStartDialog'
 import UnderlineTabs from './components/ui/UnderlineTabs'
 import { useGoogleAccount } from './hooks/useGoogleAccount'
 import { getConnectedEmail, readLastSave } from './utils/googleDrive'
@@ -31,13 +32,17 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const { perfStage: stage, setPerfStage: setStage } = useAppMode()
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
   const [dataManagerTab] = useState<{ tab: DataManagerTab; token: number } | null>(null)
-  // 빠른 시작은 헤더 버튼으로만 연다. 예전에는 과제가 없으면 자동으로 떴는데,
-  // 이제 첫 화면인 과제관리의 빈 상태가 시작 안내(구글시트에서 가져오기 / L2
-  // 직접 만들기)를 맡는다.
-  const [quickStartOpen, setQuickStartOpen] = useState(false)
-  const [quickStartTab, setQuickStartTab] = useState<'auto' | 'sheet' | 'progress' | 'direct'>('auto')
-  // 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
-  const [quickStartUrl, setQuickStartUrl] = useState<string | null>(null)
+  // 과제 가져오기(과제관리 「가져오기 ▾」 · 빈 화면 · 새 평가 시작 안내에서 연다).
+  // url: 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
+  const [taskImport, setTaskImport] = useState<{ source: TaskImportSource; url?: string | null } | null>(null)
+  // 새 평가를 만든 직후 한 번: 어떻게 시작할지(추진현황에서 · 이전 평가에서 · 빈 상태로)
+  const [startOpen, setStartOpen] = useState(false)
+  useEffect(() => {
+    if (!takeNewWorkspace(workspaceId)) return
+    setStage('work')
+    setStartOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId])
   const [criteriaOpen, setCriteriaOpen] = useState(false)
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
@@ -94,11 +99,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
           <AppShell
             perf={{
-              onQuickStart: () => {
-                setQuickStartUrl(null)
-                setQuickStartTab('auto')
-                setQuickStartOpen(true)
-              },
               onOpenDataManager: () => setDataManagerOpen(true),
               saveBadge: <SaveBadge saveStatus={saveStatus} hasSavedCurrentPeriod={hasSavedCurrentPeriod} />,
             }}
@@ -143,15 +143,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               </PageTabs>
             )}
             <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
-              {stage === 'work' && (
-                <WorkStage
-                  onOpenSheetImport={(url, tab) => {
-                    setQuickStartUrl(url ?? null)
-                    setQuickStartTab(tab ?? 'sheet')
-                    setQuickStartOpen(true)
-                  }}
-                />
-              )}
+              {stage === 'work' && <WorkStage onOpenSheetImport={(url, source) => setTaskImport({ source: source ?? 'sheet', url })} />}
               {stage === 'tasks' && <TasksStage onGoToWork={() => handleStageChange('work')} />}
               {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
               {stage === 'evaluate' && <EvaluationMatrix />}
@@ -168,22 +160,32 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             tabRequest={dataManagerTab}
             onGoToWork={() => handleStageChange('work')}
           />
-          {quickStartOpen && (
-            <QuickStartModal
-              teamName={teamName}
-              currentWorkspaceId={workspaceId}
-              hasOtherPeriods={hasOtherPeriods}
-              onClose={() => setQuickStartOpen(false)}
-              initialTab={quickStartTab}
-              initialSheetUrl={quickStartUrl}
-              onSheetImported={() => {
-                setQuickStartOpen(false)
+          {taskImport && (
+            <TaskImportDialog
+              source={taskImport.source}
+              initialUrl={taskImport.url}
+              onClose={() => setTaskImport(null)}
+              onDone={() => {
+                setTaskImport(null)
                 handleStageChange('work')
               }}
-              onDataReady={() => {
-                setQuickStartOpen(false)
-                handleStageChange('tasks')
+            />
+          )}
+          {startOpen && (
+            <PerfStartDialog
+              teamName={teamName}
+              periodLabel={currentWorkspace ? `${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : ''}
+              currentWorkspaceId={workspaceId}
+              hasOtherPeriods={hasOtherPeriods}
+              onFromProgress={() => {
+                setStartOpen(false)
+                setTaskImport({ source: 'progress' })
               }}
+              onApplied={() => {
+                setStartOpen(false)
+                handleStageChange('work')
+              }}
+              onClose={() => setStartOpen(false)}
             />
           )}
         </MemberDetailProvider>

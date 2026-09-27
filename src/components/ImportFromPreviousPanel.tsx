@@ -11,11 +11,11 @@ import Select from './ui/Select'
 interface ImportFromPreviousPanelProps {
   teamName: string
   currentWorkspaceId: string
-  // 취소 버튼은 독립 다이얼로그에서만 필요하다 -- 빠른 시작 팝업의 탭으로
+  // 취소 버튼은 독립 다이얼로그에서만 필요하다 -- 새 평가 시작 안내 안에서
   // 쓸 때는 탭을 바꾸거나 팝업을 닫으면 되므로 별도 취소 버튼이 없다.
   onCancel?: () => void
   // 데이터를 적용한 뒤 "데이터 적용하여 빠르게 시작하기" 버튼을 누르면
-  // 호출된다 -- 빠른 시작 팝업을 닫고 과제관리로 이동시키는 데 쓴다.
+  // 호출된다 -- 시작 안내를 닫고 과제관리로 이동시키는 데 쓴다.
   onApplied?: () => void
 }
 
@@ -261,7 +261,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 } ${pulsing ? 'scale-110' : 'scale-100'}`}
               >
                 {justApplied && <Check {...ic} className="shrink-0" />}
-                {justApplied ? '데이터 적용하여 빠르게 시작하기' : '선택 항목 가져오기'}
+                {justApplied ? '가져왔습니다 · 과제관리로 가기' : '선택 항목 가져오기'}
               </button>
             </div>
           </div>

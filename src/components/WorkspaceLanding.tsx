@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
+import { markNewWorkspace } from './work/PerfStartDialog'
 import IconButton from './IconButton'
 import AppShell, { PageHeader } from './shell/AppShell'
 import YearPicker from './YearPicker'
@@ -438,8 +439,9 @@ export default function WorkspaceLanding() {
               <EvaluationPeriodPicker
                 key={periodModalTeam}
                 teamName={periodModalTeam}
-                onDone={(id) => {
+                onDone={(id, created) => {
                   setPeriodModalTeam(null)
+                  if (created) markNewWorkspace(id) // 새로 만들었으면 들어가서 "어떻게 시작할까요?" 안내를 한 번 띄운다
                   selectWorkspace(id)
                 }}
               />

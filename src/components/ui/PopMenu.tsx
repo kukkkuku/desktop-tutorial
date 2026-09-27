@@ -1,12 +1,23 @@
-// 추진현황 파일 메뉴(머리 오른쪽 ⋯) -- 지금 연도로 할 일: 다시 불러오기 · 시트 열기 · 엑셀 받기/열기 · 구글시트로 만들기 · 시트 연결 설정.
+// 머리 · 도구 줄의 드롭다운 메뉴. 기본은 ⋯(추진현황 파일 메뉴: 다시 불러오기 · 시트 열기 · 엑셀 받기/열기 · 구글시트로 만들기 · 시트 연결 설정).
 // 연도 고르기(무엇을 보나)와 나눠, 연도 메뉴는 고르기만 한다. 메뉴 안 항목을 누르면 메뉴가 닫힌다.
+// label을 주면 글자 버튼(예: 과제관리 「가져오기 ▾」)으로 쓴다.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Ellipsis } from 'lucide-react'
+import { ChevronDown, Ellipsis } from 'lucide-react'
 
 const W = 290
 
-export default function FileMenu({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
+export default function FileMenu({
+  children,
+  disabled,
+  label,
+  title = '파일 -- 다시 불러오기 · 엑셀 · 시트 연결',
+}: {
+  children: ReactNode
+  disabled?: boolean
+  label?: ReactNode
+  title?: string
+}) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -15,7 +26,7 @@ export default function FileMenu({ children, disabled }: { children: ReactNode; 
   useEffect(() => {
     if (!open) return
     const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, r.right - W) })
+    if (r) setPos({ top: r.bottom + 6, left: label ? Math.min(r.left, window.innerWidth - W - 8) : Math.max(8, r.right - W) })
     function down(e: PointerEvent) {
       const t = e.target as Node
       if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
@@ -30,7 +41,7 @@ export default function FileMenu({ children, disabled }: { children: ReactNode; 
       document.removeEventListener('pointerdown', down)
       document.removeEventListener('keydown', key)
     }
-  }, [open])
+  }, [open, label])
 
   return (
     <>
@@ -39,12 +50,19 @@ export default function FileMenu({ children, disabled }: { children: ReactNode; 
         type="button"
         disabled={disabled}
         onClick={() => setOpen(!open)}
-        title="파일 -- 다시 불러오기 · 엑셀 · 시트 연결"
-        aria-label="파일 메뉴"
+        title={title}
+        aria-label={label ? undefined : '파일 메뉴'}
         aria-expanded={open}
-        className={`flex h-7 w-7 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-40 ${open ? 'bg-black/[0.05] text-label' : ''}`}
+        className={`flex h-7 items-center justify-center gap-1 rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-40 ${label ? 'px-2 text-[13px] font-medium' : 'w-7'} ${open ? 'bg-black/[0.05] text-label' : ''}`}
       >
-        <Ellipsis size={17} strokeWidth={1.8} />
+        {label ? (
+          <>
+            {label}
+            <ChevronDown size={14} strokeWidth={1.8} className={`text-label-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </>
+        ) : (
+          <Ellipsis size={17} strokeWidth={1.8} />
+        )}
       </button>
       {open &&
         pos &&

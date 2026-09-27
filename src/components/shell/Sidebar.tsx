@@ -16,7 +16,6 @@ import {
   MessageCircle,
   SlidersHorizontal,
   Users,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { useAppMode, type PerfStage, type TaskMenu } from '../../state/AppMode'
@@ -43,7 +42,6 @@ export const PERF_ITEMS: { key: PerfStage; label: string; Icon: LucideIcon; also
 const PERF_MANUAL: Record<PerfStage, string> = { work: 'perf', tasks: 'eval', members: 'peer', evaluate: 'evaluate', results: 'evaluate', notes: 'meeting' }
 
 export interface SidebarPerfExtras {
-  onQuickStart?: () => void
   onOpenDataManager?: () => void
   // 저장 상태 점(저장 중 · 저장됨 · 실패)
   saveBadge?: ReactNode
@@ -151,7 +149,6 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
                       if (mode !== 'perf') setMode('perf')
                     }),
                   )}
-                  {inPerf && perf?.onQuickStart && item('quick', '빠른 시작', Zap, false, perf.onQuickStart)}
                 </div>
               </div>
             )}

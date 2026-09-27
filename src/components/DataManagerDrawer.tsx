@@ -12,13 +12,14 @@ import {
   pickSaveDirectory,
   restoreSaveDirectory,
 } from '../utils/localSave'
-import { HardDrive, Monitor, X } from 'lucide-react'
+import { FileSpreadsheet, HardDrive, Monitor, X } from 'lucide-react'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
 import SheetImportPanel from './work/SheetImportPanel'
+import BulkUploadPanel from './BulkUploadPanel'
 import Segmented from './ui/Segmented'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
@@ -39,7 +40,7 @@ interface DataManagerDrawerProps {
   onGoToWork?: () => void
 }
 
-export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'admin' | 'reset'
+export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'bulk' | 'admin' | 'reset'
 type Tab = DataManagerTab
 
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
@@ -149,7 +150,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
       <div className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       <div
-        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
+        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : tab === 'bulk' ? 'h-[720px] max-w-5xl' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
@@ -180,6 +181,15 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   <span className="flex items-center gap-1.5">
                     <HardDrive {...icSm} />
                     Google Drive
+                  </span>
+                ),
+              },
+              {
+                key: 'bulk',
+                label: (
+                  <span className="flex items-center gap-1.5">
+                    <FileSpreadsheet {...icSm} />
+                    엑셀 양식으로 등록
                   </span>
                 ),
               },
@@ -244,9 +254,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               )}
 
               {/* "로컬 파일" 탭은 이름대로 이 기기에 지금 데이터를 백업하는
-                  용도다 -- 새 데이터를 올리는 "전체 일괄 업로드"는 온보딩
-                  성격이라 빠른 시작(Excel로 시작 탭)에만 두고 여기서는
-                  뺐다. */}
+                  용도다 -- 새 데이터를 올리는 통합 양식 일괄 등록은 옆 "엑셀 양식으로 등록" 탭에. */}
               <div className="rounded-card border border-separator p-4">
                 <p className="text-[13px] font-semibold text-label">지금 데이터 백업</p>
                 <p className="mt-0.5 text-[13px] text-label-2">현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.</p>
@@ -272,6 +280,13 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[13px] text-label-2">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
+            </div>
+          )}
+
+          {tab === 'bulk' && (
+            <div>
+              <BulkUploadPanel wide />
+              <p className="mt-4 text-[12px] text-label-3">과제만 넣을 때는 과제관리 「가져오기」, 팀원은 팀원관리 「인사기록 불러오기」도 쓸 수 있습니다.</p>
             </div>
           )}
 

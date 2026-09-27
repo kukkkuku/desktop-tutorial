@@ -42,12 +42,14 @@ import { v4 as uuidv4 } from 'uuid'
 import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheetSources'
 import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
 import SheetLinkChip from '../SheetLinkChip'
+import SheetsIcon from '../SheetsIcon'
+import PopMenu from '../ui/PopMenu'
 import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import { ChevronDown, ChevronRight, CornerDownRight, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
+import { CalendarRange, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
 import { ic, icSm } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -56,7 +58,7 @@ import ConfirmDialog from '../ConfirmDialog'
 const HISTORY_LIMIT = 60
 
 interface WorkStageProps {
-  onOpenSheetImport: (url?: string, tab?: 'sheet' | 'progress') => void
+  onOpenSheetImport: (url?: string, source?: 'sheet' | 'progress' | 'xlsx') => void
 }
 
 function timeAgo(iso: string | undefined): string {
@@ -815,6 +817,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               구글시트에서 가져오기
             </Button>
           )}
+          {canManageSheets && (
+            <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'xlsx')}>
+              엑셀 파일에서 가져오기
+            </Button>
+          )}
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>
@@ -918,6 +925,27 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         >
           <span className="flex items-center gap-1"><Plus {...icSm} />그룹 추가</span>
         </button>
+      </div>
+      {/* 가져오기(예전 빠른 시작의 가져오기 탭들): 추진현황에서 · 구글시트 · 엑셀(관리자) */}
+      <div className="shrink-0 pb-1.5 pl-2">
+        <PopMenu label={<span className="flex items-center gap-1"><Download {...icSm} />가져오기</span>} title="과제 가져오기 -- 추진현황 · 구글시트 · 엑셀에서 그룹(L2)을 골라">
+          <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">과제 가져오기</p>
+          <button onClick={() => onOpenSheetImport(undefined, 'progress')} className="mac-menu-item">
+            <CalendarRange {...icSm} className="shrink-0" />추진현황에서
+            <span className="ml-auto text-[11px] font-normal text-label-3">과제 입력</span>
+          </button>
+          {canManageSheets && (
+            <button onClick={() => onOpenSheetImport(undefined, 'sheet')} className="mac-menu-item">
+              <SheetsIcon className="h-3.5 w-3.5 shrink-0" />구글시트에서
+            </button>
+          )}
+          {canManageSheets && (
+            <button onClick={() => onOpenSheetImport(undefined, 'xlsx')} className="mac-menu-item">
+              <Upload {...icSm} className="shrink-0" />엑셀 파일에서
+              <span className="ml-auto text-[11px] font-normal text-label-3">xlsx</span>
+            </button>
+          )}
+        </PopMenu>
       </div>
       {board.sheetLink && (
         <div className="pb-1.5 pl-3">

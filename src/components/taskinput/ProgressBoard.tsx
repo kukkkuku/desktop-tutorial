@@ -9,7 +9,7 @@ import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
-import FileMenu from './FileMenu'
+import FileMenu from '../ui/PopMenu'
 import {
   CalendarRange,
   CloudUpload,
