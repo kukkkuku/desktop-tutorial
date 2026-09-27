@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GATE_KEY } from '../components/GoogleSignInGate'
 import { canUsePerf, isAdminEmail, roleOf } from '../utils/roles'
-import { disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/googleDrive'
+import { LOGIN_EVENT, disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/googleDrive'
+import { ACCESS_EVENT } from '../utils/accessSheet'
 
 // 헤더의 계정 정보(이메일/관리자 여부)와 로그아웃 -- 워크스페이스 화면
 // (StageTabs)과 랜딩 화면(WorkspaceLanding) 양쪽에서 똑같이 필요해서
@@ -9,6 +10,20 @@ import { disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/google
 export function useGoogleAccount() {
   const [accountEmail, setAccountEmail] = useState<string | null>(() => getConnectedEmail())
   const refreshAccount = () => setAccountEmail(getConnectedEmail())
+  // 권한 관리 시트를 다시 읽었거나 새로 로그인하면 역할을 다시 계산한다
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const on = () => {
+      setAccountEmail(getConnectedEmail())
+      setTick((n) => n + 1)
+    }
+    window.addEventListener(ACCESS_EVENT, on)
+    window.addEventListener(LOGIN_EVENT, on)
+    return () => {
+      window.removeEventListener(ACCESS_EVENT, on)
+      window.removeEventListener(LOGIN_EVENT, on)
+    }
+  }, [])
   const isAdminUser = isAdminEmail(accountEmail)
   const role = roleOf(accountEmail)
   const canPerf = canUsePerf(accountEmail)

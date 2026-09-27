@@ -11,6 +11,7 @@ import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import FileMenu from '../ui/PopMenu'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
+import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
 import {
   CalendarRange,
   CloudUpload,
@@ -120,7 +121,7 @@ import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
-import { withGoogleAccount } from '../../utils/googleDrive'
+import { getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
@@ -822,7 +823,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 시트 연결을 바꾸는 것(링크 · xlsx)은 관리자만
   const canManage = useCanManageSheets()
   const { canPerf } = useGoogleAccount() // 팀원은 성과관리로 내보내기 없음
-  const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? TASK_INPUT_SHEET_URL)
+  // 관리자가 공유한 시트: 권한 관리 시트의 「연결 시트」(내 팀 → 없으면 "전체"), 그것도 없으면 앱 기본(테스트 시트)
+  const [sharedLink, setSharedLink] = useState(() => sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL)
+  const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? sharedLink)
+  useEffect(() => {
+    const on = () => {
+      const next = sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL
+      setSharedLink(next)
+      // 직접 고른 시트가 없으면 공유 시트를 따라간다
+      if (!readLinkedSheet()) setSheetLink(next)
+    }
+    window.addEventListener(ACCESS_EVENT, on)
+    return () => window.removeEventListener(ACCESS_EVENT, on)
+  }, [])
   const [linkOpen, setLinkOpen] = useState(false)
 
   // 다른 시트를 연결하면 그 시트에서 다시 불러온다. 고친 칸은 이전 시트 기준이라 비운다.
@@ -836,7 +849,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     writeActiveTab(null) // 다른 파일이면 올해 탭부터
     const clean = sheetUrl(link.spreadsheetId)
     setSheetLink(clean)
-    writeLinkedSheet(clean === TASK_INPUT_SHEET_URL ? null : clean)
+    writeLinkedSheet(parseSheetUrl(sharedLink)?.spreadsheetId === link.spreadsheetId ? null : clean)
     setLinkOpen(false)
     setOpenKey(null)
     updateDrafts({ edits: {}, newRows: [] })
@@ -1436,9 +1449,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </div>
         <div className="mt-4 rounded-card border border-separator p-3">
           <SharedSheetPrompt
-            url={TASK_INPUT_SHEET_URL}
+            url={sharedLink}
             label="관리자가 공유한 시트"
-            tab={sheetLink === TASK_INPUT_SHEET_URL ? readActiveTab() : null}
+            tab={sheetLink === sharedLink ? readActiveTab() : null}
             year={now.getFullYear()}
             busy={loading}
             onConnect={(u) => void connectSheet(u)}
@@ -1498,7 +1511,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {newYearDialog}
         {confirmDialog}
         {sheetSettings}
-        <div className="mx-auto mt-10 max-w-3xl text-center">
+        <div className="mx-auto mt-10 max-w-[940px] text-center">
           <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
           <p className="mt-1.5 text-[13px] text-label-2">
             그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 ⋯ 파일 메뉴에서 다시 불러오거나 엑셀로 받습니다.
@@ -1517,7 +1530,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 <div className="mt-3">
                   <SharedSheetPrompt
                     url={sheetLink}
-                    label={sheetLink === TASK_INPUT_SHEET_URL ? '관리자가 공유한 시트' : '지금 연결된 시트'}
+                    label={sheetLink === sharedLink ? '관리자가 공유한 시트' : '지금 연결된 시트'}
                     tab={readActiveTab()}
                     year={now.getFullYear()}
                     busy={loading}

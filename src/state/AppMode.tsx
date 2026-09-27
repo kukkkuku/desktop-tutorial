@@ -2,7 +2,7 @@
 // 새로고침해도 같은 곳에 머물도록 이 탭(sessionStorage)에 기억하고, 새 창(새로 로그인)은 홈부터 연다.
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type AppMode = 'home' | 'perf' | 'tasks'
+export type AppMode = 'home' | 'perf' | 'tasks' | 'admin' // admin = 관리(권한 시트 · 팀원 초대, 관리자만)
 // 과제 입력 메뉴
 export type TaskMenu = 'progress' | 'rate'
 // 성과관리 메뉴(평가하기는 과제별 'tasks' / 팀원별 'evaluate' 두 보기)
@@ -40,7 +40,7 @@ interface Ctx {
 const ModeCtx = createContext<Ctx>({ mode: 'home', setMode: () => {}, taskMenu: 'progress', setTaskMenu: () => {}, perfStage: 'work', setPerfStage: () => {} })
 
 export function AppModeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<AppMode>(() => read(KEY, ['home', 'perf', 'tasks'], 'home'))
+  const [mode, setModeState] = useState<AppMode>(() => read(KEY, ['home', 'perf', 'tasks', 'admin'], 'home'))
   const [taskMenu, setTaskMenuState] = useState<TaskMenu>(() => read(MENU_KEY, ['progress', 'rate'], 'progress'))
   const [perfStage, setPerfStageState] = useState<PerfStage>(() => read(STAGE_KEY, ['work', 'tasks', 'members', 'evaluate', 'results', 'notes'], 'work'))
   function setMode(m: AppMode) {

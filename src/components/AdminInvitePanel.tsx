@@ -18,16 +18,17 @@ import Button from './Button'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
 import { icSm } from './ui/icon'
+import { appInviteUrl } from '../utils/accessSheet'
 
-const APP_URL = 'https://kukkkuku.github.io/desktop-tutorial/preview-v2/'
 // OAuth 테스트 사용자 등록 화면(프로젝트 493396486126, 이 앱의 Gmail API와
 // 같은 GCP 프로젝트) 바로가기 -- 매번 콘솔에서 찾아 들어가는 수고를 던다.
 const TEST_USERS_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials/consent?project=493396486126'
 const DEFAULT_SUBJECT = '성과·성장관리 앱 초대'
-const DEFAULT_BODY = `안녕하세요, 팀 성과·성장관리 앱에 초대합니다.
+// 앱 주소는 지금 보고 있는 앱(운영/미리보기) + 권한 관리 시트(?access=) -- 이 링크로 열면 팀원 앱이 그 시트를 읽는다
+const defaultBody = () => `안녕하세요, 팀 성과·성장관리 앱에 초대합니다.
 
 아래 링크에서 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.
-${APP_URL}
+${appInviteUrl()}
 
 ※ 로그인이 안 되면 관리자에게 문의해주세요(테스트 사용자 등록이 필요할 수 있습니다).`
 
@@ -48,7 +49,7 @@ export default function AdminInvitePanel() {
   const [parseError, setParseError] = useState<string | null>(null)
 
   const [subject, setSubject] = useState(DEFAULT_SUBJECT)
-  const [body, setBody] = useState(DEFAULT_BODY)
+  const [body, setBody] = useState(defaultBody)
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<{ sent: number; failed: { email: string; error: string }[] } | null>(null)
   const [copyDone, setCopyDone] = useState(false)
@@ -121,7 +122,11 @@ export default function AdminInvitePanel() {
     setSending(true)
     setSendResult(null)
     try {
-      const result = await sendInviteEmails(list.map((r) => r.email), subject, body)
+      const result = await sendInviteEmails(
+        list.map((r) => r.email),
+        subject,
+        body,
+      )
       setList(loadInviteList())
       setSendResult({ sent: result.sent.length, failed: result.failed })
     } catch (err) {
@@ -136,12 +141,7 @@ export default function AdminInvitePanel() {
       <div className="space-y-3">
         <p className="text-[13px] text-label-2">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
         <p className="text-[13px] text-label-3">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
-        <Button
-          variant="primary"
-          onClick={() => void handleConnect()}
-          disabled={connecting}
-          className="w-full"
-        >
+        <Button variant="primary" onClick={() => void handleConnect()} disabled={connecting} className="w-full">
           {connecting && <Spinner className="h-3.5 w-3.5 text-white" />}
           {connecting ? '연결하는 중...' : '관리자로 Google 연결'}
         </Button>
@@ -214,8 +214,8 @@ export default function AdminInvitePanel() {
             )}
             <div className="mt-2 rounded-card bg-accent-soft px-3 py-2.5 text-[13px] text-label-2">
               <p>
-                메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야
-                합니다. 위 "목록 복사"로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
+                메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야 합니다. 위 "목록 복사"로
+                복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
               </p>
               <a
                 href={TEST_USERS_CONSOLE_URL}
@@ -243,17 +243,14 @@ export default function AdminInvitePanel() {
             rows={10}
             className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] w-full"
           />
-          <Button
-            variant="primary"
-            onClick={() => void handleSend()}
-            disabled={sending || list.length === 0}
-            className="w-full"
-          >
+          <Button variant="primary" onClick={() => void handleSend()} disabled={sending || list.length === 0} className="w-full">
             {sending && <Spinner className="h-3.5 w-3.5 text-white" />}
             {sending ? '발송 중...' : `초대 메일 발송 (${list.length}명)`}
           </Button>
           {sendResult && (
-            <div className={`rounded-card px-3 py-2 text-[13px] ${sendResult.failed.length > 0 ? 'bg-danger/[0.06] text-danger' : 'bg-success/[0.08] text-success'}`}>
+            <div
+              className={`rounded-card px-3 py-2 text-[13px] ${sendResult.failed.length > 0 ? 'bg-danger/[0.06] text-danger' : 'bg-success/[0.08] text-success'}`}
+            >
               <p>
                 {sendResult.sent}건 발송 성공{sendResult.failed.length > 0 ? `, ${sendResult.failed.length}건 실패` : ''}
               </p>

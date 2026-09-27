@@ -1,9 +1,11 @@
 // 역할(로그인한 구글 계정 기준). 서버 없는 앱이라 화면에서 나누는 수준이다(진짜 권한은 구글시트 공유 설정).
+// 권한 관리 시트(utils/accessSheet)의 「사용자」 탭이 있으면 그 역할을 쓰고, 아래 목록은 처음 관리자(시트를 만들 사람) · 시트가 없을 때의 기본값.
 //   관리자: 시트 연결 · 탭 만들기 · 팀원 초대 (ADMIN_EMAILS)
 //   팀장: 성과관리(팀 · 평가 · 피어리뷰) (LEADER_EMAILS)
 //   팀원: 과제 입력만 -- 추진현황 입력 · 진척률 보기 (피어리뷰는 팀장이 엑셀로 나눠 주고 받는다)
 // 구글 로그인 없이 쓰는 경우("연동 없이 시작")는 혼자 쓰는 것이라 막지 않는다.
 import { ADMIN_EMAILS } from './adminInvite'
+import { accessRoleOf } from './accessSheet'
 
 export const LEADER_EMAILS = ['jjy.osstem@gmail.com']
 
@@ -12,10 +14,12 @@ export type Role = 'admin' | 'leader' | 'member' | 'guest'
 const norm = (e: string | null | undefined) => (e ?? '').trim().toLowerCase()
 
 export function isAdminEmail(email: string | null | undefined): boolean {
-  return ADMIN_EMAILS.some((a) => norm(a) === norm(email))
+  return ADMIN_EMAILS.some((a) => norm(a) === norm(email)) || accessRoleOf(email) === 'admin'
 }
 export function isLeaderEmail(email: string | null | undefined): boolean {
-  return isAdminEmail(email) || LEADER_EMAILS.some((a) => norm(a) === norm(email))
+  if (isAdminEmail(email)) return true
+  const r = accessRoleOf(email)
+  return r ? r === 'leader' : LEADER_EMAILS.some((a) => norm(a) === norm(email))
 }
 export function roleOf(email: string | null | undefined): Role {
   if (!norm(email)) return 'guest'

@@ -5,7 +5,7 @@
 
 import * as XLSX from 'xlsx'
 import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
-import { getConnectedEmail, loadGis, withAuthLock } from './googleDrive'
+import { getConnectedEmail, loadGis, peekLoginToken, withAuthLock } from './googleDrive'
 
 // ---------- 링크 ----------
 
@@ -57,6 +57,9 @@ async function getSheetsToken(write = false): Promise<string> {
   }
   // 쓰기 권한을 이미 받았으면 읽기에도 그대로 쓴다.
   if (sheetsWriteToken && sheetsWriteToken.expiresAt - 60_000 > Date.now()) return sheetsWriteToken.token
+  // 로그인 때 시트 읽기 권한도 받았으면 권한 창 없이 그 토큰으로
+  const login = peekLoginToken(SHEETS_SCOPE)
+  if (login) return login
   if (sheetsToken && sheetsToken.expiresAt - 60_000 > Date.now()) return sheetsToken.token
   if (sheetsInflight) return sheetsInflight
   const p = withAuthLock(() => {
@@ -176,6 +179,42 @@ export interface SheetTabInfo {
 interface ApiSheet {
   properties: { sheetId: number; title: string; hidden?: boolean }
   merges?: { startRowIndex?: number; endRowIndex?: number; startColumnIndex?: number; endColumnIndex?: number }[]
+}
+
+// 여러 범위 값 읽기(권한 관리 시트 등). 빈 칸은 ''로.
+export async function fetchValues(spreadsheetId: string, ranges: string[]): Promise<{ title: string; values: string[][][] }> {
+  const q = ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join('&')
+  const [meta, data] = await Promise.all([
+    sheetsFetch<{ properties: { title: string } }>(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=properties.title`),
+    sheetsFetch<{ valueRanges?: { values?: string[][] }[] }>(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${q}`),
+  ])
+  return { title: meta.properties.title, values: (data.valueRanges ?? []).map((v) => (v.values ?? []).map((row) => row.map((c) => String(c ?? '')))) }
+}
+
+// 새 스프레드시트(탭 · 머리글 · 처음 값까지). 쓰기 권한 창이 뜬다. 만든 파일 id를 돌려준다.
+export async function createSpreadsheet(title: string, tabs: { title: string; rows: string[][]; widths?: number[] }[]): Promise<string> {
+  const body = {
+    properties: { title, locale: 'ko_KR' },
+    sheets: tabs.map((t, i) => ({
+      properties: { sheetId: i, title: t.title, gridProperties: { frozenRowCount: 1 } },
+      data: [
+        {
+          startRow: 0,
+          startColumn: 0,
+          rowData: t.rows.map((r, ri) => ({
+            values: r.map((v) => ({ userEnteredValue: { stringValue: v }, ...(ri === 0 ? { userEnteredFormat: { textFormat: { bold: true } } } : {}) })),
+          })),
+          columnMetadata: (t.widths ?? []).map((w) => ({ pixelSize: w })),
+        },
+      ],
+    })),
+  }
+  const res = await sheetsFetch<{ spreadsheetId: string }>(
+    'https://sheets.googleapis.com/v4/spreadsheets',
+    { method: 'POST', body: JSON.stringify(body) },
+    true,
+  )
+  return res.spreadsheetId
 }
 
 export async function fetchSpreadsheetTabs(spreadsheetId: string): Promise<{ title: string; tabs: SheetTabInfo[] }> {

@@ -14,6 +14,7 @@ import {
   LayoutList,
   LogOut,
   MessageCircle,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
   type LucideIcon,
@@ -50,7 +51,7 @@ export interface SidebarPerfExtras {
 export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage } = useAppMode()
   const { currentWorkspaceId, currentWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
-  const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
+  const { accountEmail, role, canPerf, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
   const [manual, setManual] = useState<{ area?: ManualArea; chapter?: string } | null>(null)
 
   // 다른 구글 계정으로 바꾸면 그 계정의 프로젝트 목록을 다시 읽고 목록 화면으로
@@ -159,6 +160,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       {/* 아래: 매뉴얼 · 백업 · 계정 */}
       <div className="space-y-0.5 pt-2">
         {item('manual', '사용 매뉴얼', BookOpen, false, openManual)}
+        {/* 관리(관리자만): 권한 관리 시트 · 팀원 초대 */}
+        {isAdminUser && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
         {inPerf && perf?.onOpenDataManager && item('backup', '데이터 백업', Database, false, perf.onOpenDataManager, perf.saveBadge)}
       </div>
       {accountEmail && (

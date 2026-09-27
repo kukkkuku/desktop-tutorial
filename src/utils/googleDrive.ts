@@ -29,8 +29,10 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // 만든 일정)를 읽어와 앱과 맞추기 위한 것이다. 전용 캘린더를 새로 만들고
 // 목록을 조회하려면 이벤트만 다루는 calendar.events보다 넓은 calendar
 // 스코프가 필요하다.
-const DRIVE_SCOPE =
-  'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar'
+// 구글시트 읽기(spreadsheets.readonly)도 로그인 때 함께 받는다 -- 권한 관리 시트 · 추진현황 시트를
+// 앱을 열자마자 따로 권한 창 없이 읽기 위해서(sheetSources가 이 토큰을 먼저 쓴다).
+export const SHEETS_READ_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
+const DRIVE_SCOPE = `https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar ${SHEETS_READ_SCOPE}`
 // 미리보기 빌드는 운영 저장본을 목록에 보이거나 덮어쓰지 않도록 태그와 폴더를 따로 쓴다.
 const APP_TAG = PREVIEW_NAMESPACE ? `team-performance-evaluation-${PREVIEW_NAMESPACE}` : 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = PREVIEW_NAMESPACE ? '성장관리(미리보기)' : '성장관리'
@@ -93,6 +95,16 @@ export function loadGis(): Promise<void> {
 // 같은 브라우저 세션에서는 매번 로그인 팝업을 띄우지 않도록 토큰을
 // 만료 1분 전까지 재사용한다.
 let cachedToken: { token: string; expiresAt: number } | null = null
+// 로그인 토큰이 실제로 받은 권한(사용자가 일부를 빼고 허용할 수 있다)
+let cachedScope = ''
+
+// 로그인 토큰이 이 권한을 받았고 아직 유효하면 그 토큰(권한 창을 띄우지 않는다)
+export function peekLoginToken(scope: string): string | null {
+  if (!isConnected() || !cachedScope.split(' ').includes(scope)) return null
+  return cachedToken!.token
+}
+// 로그인(토큰 새로 받음)을 알린다 -- 권한 관리 시트를 다시 읽는 데 쓴다
+export const LOGIN_EVENT = 'google-login'
 // 지금 연결된 계정 이메일 -- "내 Google 드라이브에 연결됨"처럼 애매하게
 // 두지 않고 실제 어느 계정인지 화면에 보여주기 위해 캐시해둔다.
 let cachedEmail: string | null = null
@@ -198,9 +210,7 @@ export function disconnectDrive(): void {
 
 async function fetchConnectedEmail(accessToken: string): Promise<void> {
   try {
-    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } })
     if (!res.ok) return
     const data = (await res.json()) as { email?: string }
     cachedEmail = data.email ?? null
@@ -265,7 +275,11 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
         if (resp.error || !resp.access_token) reject(new Error(resp.error || '로그인이 취소되었습니다.'))
         else {
           cachedToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
-          void fetchConnectedEmail(resp.access_token).finally(() => resolve(resp.access_token!))
+          cachedScope = (resp as { scope?: string }).scope ?? ''
+          void fetchConnectedEmail(resp.access_token).finally(() => {
+            resolve(resp.access_token!)
+            window.dispatchEvent(new Event(LOGIN_EVENT))
+          })
         }
       },
     })
@@ -305,10 +319,7 @@ export async function getAccessToken(): Promise<string> {
 }
 
 async function driveFetch(url: string, accessToken: string, init?: RequestInit): Promise<Response> {
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` },
-  })
+  const res = await fetch(url, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` } })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Google Drive 요청에 실패했습니다 (${res.status}). ${text}`)
@@ -324,10 +335,7 @@ async function driveFetch(url: string, accessToken: string, init?: RequestInit):
 async function findFolderByName(accessToken: string, name: string, parentId?: string): Promise<string | null> {
   const parentClause = parentId ? ` and '${parentId}' in parents` : ''
   const q = `name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parentClause}`
-  const res = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`,
-    accessToken,
-  )
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&spaces=drive`, accessToken)
   const data = (await res.json()) as { files?: { id: string }[] }
   return data.files && data.files.length > 0 ? data.files[0].id : null
 }
@@ -336,12 +344,7 @@ async function createFolder(accessToken: string, name: string, parentId?: string
   const res = await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id', accessToken, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: parentId ? [parentId] : undefined,
-      appProperties,
-    }),
+    body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: parentId ? [parentId] : undefined, appProperties }),
   })
   const data = (await res.json()) as { id: string }
   return data.id
@@ -370,9 +373,7 @@ function sanitizeKeyPart(v: string | number): string {
 // 저장분을 못 찾고 매번 새 파일을 만들게 된다. 그래서 팀명·연도·주기·기간
 // 코드처럼 내용으로 정해지는 값들을 합쳐 기기와 무관한 키로 쓴다.
 export function periodKey(workspace: WorkspaceMeta): string {
-  return [workspace.teamName, workspace.evaluationYear, workspace.evaluationCycle, workspace.evaluationPeriodCode]
-    .map(sanitizeKeyPart)
-    .join('__')
+  return [workspace.teamName, workspace.evaluationYear, workspace.evaluationCycle, workspace.evaluationPeriodCode].map(sanitizeKeyPart).join('__')
 }
 
 function teamKey(teamName: string): string {
@@ -385,10 +386,7 @@ function teamKey(teamName: string): string {
 async function ensureTeamFolder(accessToken: string, rootId: string, teamName: string): Promise<string> {
   const key = teamKey(teamName)
   const q = `appProperties has { key='teamKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const res = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
-    accessToken,
-  )
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`, accessToken)
   const data = (await res.json()) as { files?: { id: string }[] }
   if (data.files && data.files.length > 0) return data.files[0].id
 
@@ -401,10 +399,7 @@ async function ensureTeamFolder(accessToken: string, rootId: string, teamName: s
 async function ensurePeriodFolder(accessToken: string, workspace: WorkspaceMeta): Promise<string> {
   const key = periodKey(workspace)
   const q = `appProperties has { key='periodKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const res = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
-    accessToken,
-  )
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`, accessToken)
   const data = (await res.json()) as { files?: { id: string }[] }
   if (data.files && data.files.length > 0) return data.files[0].id
 
@@ -459,16 +454,27 @@ interface UploadArtifactParams {
   extraAppProperties?: Record<string, string>
 }
 
-async function uploadArtifact({ accessToken, folderId, periodKeyValue, kind, name, content, contentType, convertToGoogleSheet, mode, extraAppProperties }: UploadArtifactParams): Promise<{ id: string; webViewLink: string }> {
+async function uploadArtifact({
+  accessToken,
+  folderId,
+  periodKeyValue,
+  kind,
+  name,
+  content,
+  contentType,
+  convertToGoogleSheet,
+  mode,
+  extraAppProperties,
+}: UploadArtifactParams): Promise<{ id: string; webViewLink: string }> {
   const existing = mode === 'update' ? await findArtifact(accessToken, periodKeyValue, kind) : null
 
   if (existing) {
     const { body, boundary } = buildMultipartBody({ name }, content, contentType)
-    const res = await driveFetch(
-      `https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart&fields=id,webViewLink`,
-      accessToken,
-      { method: 'PATCH', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
-    )
+    const res = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${existing.id}?uploadType=multipart&fields=id,webViewLink`, accessToken, {
+      method: 'PATCH',
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body,
+    })
     const data = (await res.json()) as { id: string; webViewLink: string }
     return data
   }
@@ -481,11 +487,11 @@ async function uploadArtifact({ accessToken, folderId, periodKeyValue, kind, nam
   }
   if (convertToGoogleSheet) metadata.mimeType = 'application/vnd.google-apps.spreadsheet'
   const { body, boundary } = buildMultipartBody(metadata, content, contentType)
-  const res = await driveFetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink',
-    accessToken,
-    { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body },
-  )
+  const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', accessToken, {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  })
   const data = (await res.json()) as { id: string; webViewLink: string }
   return data
 }
@@ -606,9 +612,7 @@ export async function listSavedPeriods(): Promise<SavedPeriodSummary[]> {
     `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,appProperties,createdTime,modifiedTime)&orderBy=modifiedTime desc&spaces=drive&pageSize=100`,
     accessToken,
   )
-  const data = (await res.json()) as {
-    files?: { id: string; appProperties?: Record<string, string>; createdTime: string; modifiedTime: string }[]
-  }
+  const data = (await res.json()) as { files?: { id: string; appProperties?: Record<string, string>; createdTime: string; modifiedTime: string }[] }
   return (data.files ?? []).map((f) => ({
     fileId: f.id,
     periodKey: f.appProperties?.periodKey ?? '',
@@ -660,10 +664,7 @@ export async function getPeriodFolderLink(workspace: WorkspaceMeta): Promise<str
   const accessToken = await getAccessToken()
   const key = periodKey(workspace)
   const q = `appProperties has { key='periodKey' and value='${key}' } and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  const res = await driveFetch(
-    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`,
-    accessToken,
-  )
+  const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`, accessToken)
   const data = (await res.json()) as { files?: { id: string }[] }
   const folderId = data.files && data.files.length > 0 ? data.files[0].id : null
   if (!folderId) return null

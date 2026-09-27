@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { getAccessSheetId, refreshAccess } from './utils/accessSheet'
+import { LOGIN_EVENT } from './utils/googleDrive'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
@@ -27,6 +29,7 @@ import { getConnectedEmail, readLastSave } from './utils/googleDrive'
 import { AppModeProvider, useAppMode } from './state/AppMode'
 import TaskInputApp from './components/taskinput/TaskInputApp'
 import HomePage from './components/HomePage'
+import AdminApp from './components/admin/AdminApp'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const { perfStage: stage, setPerfStage: setStage } = useAppMode()
@@ -203,13 +206,27 @@ function WorkspaceGate() {
 // 홈(대문)에서 고른 곳으로: 성과관리(기존 평가 앱, 팀장) / 과제 입력(추진현황·진척률)
 function ModeGate() {
   const { mode } = useAppMode()
-  const { canPerf } = useGoogleAccount()
+  const { canPerf, isAdminUser } = useGoogleAccount()
   if (mode === 'home') return <HomePage />
+  if (mode === 'admin' && isAdminUser) return <AdminApp />
   if (mode === 'tasks' || !canPerf) return <TaskInputApp />
   return <WorkspaceGate />
 }
 
+// 로그인할 때마다 권한 관리 시트를 다시 읽는다(로그인 토큰에 시트 읽기 권한이 있어 창이 뜨지 않음).
+// 못 읽으면(공유 안 됨 등) 기억해 둔 값으로 계속 쓴다 -- 관리 › 권한 시트에서 이유를 볼 수 있다.
+function useAccessSync() {
+  useEffect(() => {
+    const on = () => {
+      if (getAccessSheetId()) refreshAccess().catch(() => {})
+    }
+    window.addEventListener(LOGIN_EVENT, on)
+    return () => window.removeEventListener(LOGIN_EVENT, on)
+  }, [])
+}
+
 export default function App() {
+  useAccessSync()
   return (
     <WorkspaceProvider>
       <GoogleSignInGate>
