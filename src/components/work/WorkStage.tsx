@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../../state/AppContext'
-import type { ColumnDef, Importance, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
+import type { ColumnDef, Importance, Task, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
 import { IMPORTANCE_OPTIONS, TASK_CATEGORY_OPTIONS } from '../../types'
 import {
   COL_ASSIGNEES,
@@ -44,6 +44,7 @@ import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHead
 import SheetLinkChip from '../SheetLinkChip'
 import SheetsIcon from '../SheetsIcon'
 import PopMenu from '../ui/PopMenu'
+import { GoalCell, GradeCell, PeriodCell } from './EvalCells'
 import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
@@ -71,6 +72,12 @@ function timeAgo(iso: string | undefined): string {
   if (h < 24) return `${h}시간 전`
   return `${Math.round(h / 24)}일 전`
 }
+
+// 과제관리 표에만 있는 가상 열(보드 열이 아님): 성과등급 · 시작일/완료일(두 줄) · 목표/성과(두 줄)
+const V_GRADE = '__grade'
+const V_PERIOD = '__period'
+const V_GOAL = '__goal'
+const isVirtual = (id: string) => id.startsWith('__')
 
 export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const { state, dispatch, workspaceId } = useAppState()
@@ -246,6 +253,25 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }, [state.tasks])
   // 평가 대상 = 평가과제가 가리키는 L3(묶음은 통째로). 체크하면 바로 평가과제가 생기고, 끄면 지워진다.
   const targetIds = useMemo(() => new Set(linkedTasks.keys()), [linkedTasks])
+  // L3 id -> 그 L3의 평가과제(성과등급 · 목표 · 성과를 이 표에서 넣는다 -- 예전 평가하기 · 과제별)
+  const taskOfItem = useMemo(() => {
+    const m = new Map<string, Task>()
+    for (const t of state.tasks) for (const id of t.workItemIds ?? []) if (!m.has(id)) m.set(id, t)
+    return m
+  }, [state.tasks])
+  const gradeUsed = state.criteria.performanceGradeWeight > 0
+  function updateTask(t: Task) {
+    dispatch({ type: 'UPDATE_TASK', payload: t })
+  }
+  // 평가 칸: 평가 대상인 줄(묶음은 머리 행)만. 대상이 아니면 "—"
+  function gradeCell(t: Task | undefined) {
+    if (!t) return <span className="text-label-3">—</span>
+    return <GradeCell value={t.performanceGrade} muted={!gradeUsed} onPick={(v) => updateTask({ ...t, performanceGrade: v })} />
+  }
+  function goalCell(t: Task | undefined) {
+    if (!t) return <span className="text-label-3">—</span>
+    return <GoalCell objective={t.objective} achievement={t.achievement} onSave={(objective, achievement) => updateTask({ ...t, objective, achievement })} />
+  }
   // 과제등급(분류)이 안 정해진 단위를 평가 대상으로 켤 때 등급을 묻는다
   const [askGrade, setAskGrade] = useState<{ units: { key: string; name: string; items: WorkItem[] }[]; grade: Importance | '' } | null>(null)
   // 입력한 내용이 있는 평가과제를 평가 대상에서 뺄 때 확인
@@ -278,7 +304,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
     showToast(
       tasks.length === 1
-        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다. 평가하기에서 성과등급을 매기세요.`
+        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다. 이 줄에서 성과등급 · 목표 · 성과를 넣으세요.`
         : `평가과제 ${tasks.length}개를 평가 대상으로 넣었습니다.`,
     )
   }
@@ -555,6 +581,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               ))}
             </div>
           )
+        if (colId === V_GRADE) return gradeCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
+        if (colId === V_GOAL) return goalCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
+        if (colId === V_PERIOD) return <PeriodCell start={starts[0] ?? ''} done={ends.length === all.length ? ends[ends.length - 1] : ''} />
         if (colId === 'startDate') return <span className="text-label-2">{starts[0] ?? ''}</span>
         if (colId === 'doneDate') return <span className="text-label-2">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
         return null
@@ -564,6 +593,24 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // 하위 과제(묶음 안 L3)의 과제명: ㄴ 표시 + 묶음에서 빼기 아이콘
   function renderCell(row: WorkItem, col: GridColumn) {
+    if (col.id === V_GRADE || col.id === V_GOAL) {
+      if (evalGroupOf(row)) return <span /> // 묶음 안 L3는 머리 행에서
+      const t = taskOfItem.get(row.id)
+      return col.id === V_GRADE ? gradeCell(t) : goalCell(t)
+    }
+    if (col.id === V_PERIOD)
+      return (
+        <PeriodCell
+          start={row.fields.startDate ?? ''}
+          done={row.fields.doneDate ?? ''}
+          onSave={(start, done) =>
+            commit([
+              { rowId: row.id, colId: 'startDate', text: start },
+              { rowId: row.id, colId: 'doneDate', text: done },
+            ])
+          }
+        />
+      )
     const dot = viewingMoved && moved!.ids.has(row.id) ? (
       <span className="ml-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-orange-500 align-middle" title="방금 옮겨 온 과제" />
     ) : null
@@ -619,7 +666,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
   const memberNames = useMemo(() => members.filter((m) => m.active).map((m) => m.name), [members])
 
-  const gridColumns: GridColumn[] = visibleCols.map((c) => ({
+  const baseColumns: GridColumn[] = visibleCols.map((c) => ({
     id: c.id,
     label: c.label,
     type: c.type,
@@ -638,6 +685,53 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               ? { options: optionsForColumn(board, c), allowNew: true, tone: toneFor(c.id) }
               : undefined,
   }))
+  // 보이는 열 + 평가 칸(앱이 그리는 가상 열): 분류 뒤 성과등급, 시작일 · 완료일은 한 칸 두 줄, 맨 끝 목표/성과 두 줄.
+  // 가상 열은 보드 열(board.columns)에 없으니 붙여넣기 · 열 추가/이동은 visIndexOfGrid로 실제 열 자리로 바꾼다.
+  const [vWidths, setVWidths] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('work.vwidths') ?? '{}')
+    } catch {
+      return {}
+    }
+  })
+  function resizeVirtual(id: string, width: number) {
+    const next = { ...vWidths, [id]: width }
+    setVWidths(next)
+    try {
+      localStorage.setItem('work.vwidths', JSON.stringify(next))
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+  const mergedDates = visibleCols.some((c) => c.id === 'startDate') && visibleCols.some((c) => c.id === 'doneDate')
+  const gridColumns: GridColumn[] = (() => {
+    const out: GridColumn[] = []
+    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 100, system: true, readOnly: true }
+    for (const g of baseColumns) {
+      if (mergedDates && g.id === 'doneDate') continue
+      if (mergedDates && g.id === 'startDate') {
+        out.push({ id: V_PERIOD, label: '시작일', sub: '완료일', type: 'text', width: vWidths[V_PERIOD] ?? 112, system: true, readOnly: true })
+        continue
+      }
+      out.push(g)
+      if (g.id === COL_CATEGORY) out.push(grade)
+    }
+    if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)
+    out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 300, system: true, readOnly: true })
+    return out
+  })()
+  // 표의 열 자리(가상 열 포함) → 보이는 보드 열 자리. 시작일/완료일 칸은 실제 열 두 개.
+  function visIndexOfGrid(gi: number): number {
+    let n = 0
+    for (let k = 0; k < gi && k < gridColumns.length; k++) {
+      const id = gridColumns[k].id
+      if (id === V_PERIOD) n += 2
+      else if (!isVirtual(id)) n += 1
+    }
+    return n
+  }
+  // 가상 열 id → 실제 보드 열 id(시작일/완료일 칸 = 두 열, 평가 칸은 없음)
+  const realColIds = (ids: string[]) => ids.flatMap((id) => (id === V_PERIOD ? ['startDate', 'doneDate'] : isVirtual(id) ? [] : [id]))
 
   // 드롭다운 칸(상태·분류)에 목록에 없는 값이 들어오면(붙여넣기 등) 그 칸은 건너뛴다.
   function allowed(colId: string, text: string): boolean {
@@ -648,6 +742,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }
 
   function commit(edits: CellEdit[]) {
+    edits = edits.filter((e) => !isVirtual(e.colId))
     const skipped = edits.filter((e) => !allowed(e.colId, e.text))
     if (skipped.length) {
       showToast(`상태는 ${STATUS_OPTIONS.join('/')}, 분류는 ${TASK_CATEGORY_OPTIONS.join('/')} 중에서만 넣을 수 있어 ${skipped.length}칸을 건너뛰었습니다.`)
@@ -685,7 +780,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       const existing = viewRows[rowIndex + i]
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
-        const col = visibleCols[colIndex + j]
+        const gcol = gridColumns[colIndex + j]
+        const col = gcol && !isVirtual(gcol.id) ? visibleCols.find((c) => c.id === gcol.id) : undefined
         if (col && allowed(col.id, text.trim())) item = applyDoneRule(setCellText(item, col.id, col.id === 'status' || col.id === COL_CATEGORY ? text.trim() : text, members), col.id, members)
       })
       if (existing) updates.set(existing.id, item)
@@ -1104,17 +1200,20 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onMoveRows={filtered ? undefined : moveRows}
             onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
             onRowDragOutside={rowDragOutside}
-            onInsertColumn={insertColumn}
-            onDeleteColumns={requestDeleteColumns}
+            onInsertColumn={(gi) => insertColumn(visIndexOfGrid(gi))}
+            onDeleteColumns={(ids) => requestDeleteColumns(realColIds(ids))}
             onHideColumns={(ids) => {
               let next = board
-              for (const id of ids) if (id !== 'name') next = updateColumn(next, id, { hidden: true })
+              for (const id of realColIds(ids)) if (id !== 'name') next = updateColumn(next, id, { hidden: true })
               apply(next)
               showToast('열을 숨겼습니다. "열 표시"에서 다시 켤 수 있습니다.')
             }}
-            onRenameColumn={(id, label) => apply(updateColumn(board, id, { label }))}
-            onResizeColumn={(id, width) => apply(updateColumn(board, id, { width }))}
-            onMoveColumns={(ids, visTo) => apply(moveColumns(board, ids, boardColIndexOfVisible(visTo)))}
+            onRenameColumn={(id, label) => !isVirtual(id) && apply(updateColumn(board, id, { label }))}
+            onResizeColumn={(id, width) => (isVirtual(id) ? resizeVirtual(id, width) : apply(updateColumn(board, id, { width })))}
+            onMoveColumns={(ids, gridTo) => {
+              const real = realColIds(ids)
+              if (real.length) apply(moveColumns(board, real, boardColIndexOfVisible(visIndexOfGrid(gridTo))))
+            }}
             onUndo={undo}
             onRedo={redo}
             storageKey="work"
@@ -1122,7 +1221,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             emptyText={filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-label-3">
-            왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
+            왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김 · 그 줄에서 성과등급 · 목표/성과 입력) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
           </p>
         </>
       )}

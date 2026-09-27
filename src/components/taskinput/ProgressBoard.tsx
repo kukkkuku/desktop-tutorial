@@ -1483,7 +1483,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             editableTitle={`${now.getFullYear()} 추진현황`}
             localTabs={localTabs}
             onPick={pickYear}
-            onCreate={() => setNewYearOpen(true)}
+            onCreate={canManage ? () => setNewYearOpen(true) : undefined}
             footer={yearMenuFooter}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
@@ -1507,7 +1507,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 Icon={RefreshCw}
                 title="구글시트에서 불러오기"
                 desc={`「${now.getFullYear()} 추진현황」 탭을 읽습니다. 고친 내용은 시트에 저장됩니다.`}
-                badge="추천"
+                badge={canManage ? '추천' : undefined}
                 busy={loading}
                 disabled={loading}
                 onClick={() => loadFromSheet()}
@@ -1522,14 +1522,20 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 onClick={() => fileRef.current?.click()}
               />
             )}
-            <StartCard
-              Icon={FilePlus2}
-              title="새 연도 만들기"
-              desc="이전 연도 구성을 이어받거나 빈 표로 시작합니다."
-              disabled={loading}
-              onClick={() => setNewYearOpen(true)}
-            />
+            {/* 팀원은 공유된 구글시트로 시작만 한다 -- 새 연도는 관리자 */}
+            {canManage && (
+              <StartCard
+                Icon={FilePlus2}
+                title="새 연도 만들기"
+                desc="이전 연도 구성을 이어받거나 빈 표로 시작합니다."
+                disabled={loading}
+                onClick={() => setNewYearOpen(true)}
+              />
+            )}
           </div>
+          {!canManage && !isSheetsApiConfigured() && (
+            <p className="mt-4 text-[13px] text-label-2">구글 연동이 켜져 있지 않습니다. 관리자에게 공유된 추진현황 시트를 요청해 주세요.</p>
+          )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           <p className="mt-4 text-[12px] text-label-3">
             {isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
@@ -1683,7 +1689,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onOpenMenu={() => void refreshYearTabs()}
           onHide={hideTab}
           localTabs={localTabs}
-          onCreate={() => setNewYearOpen(true)}
+          onCreate={canManage ? () => setNewYearOpen(true) : undefined}
         />
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>

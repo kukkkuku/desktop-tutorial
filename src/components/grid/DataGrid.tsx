@@ -26,6 +26,8 @@ export interface GridColumn {
   system: boolean
   // 읽기 전용 칸(점수처럼 계산된 값). 선택·복사는 되지만 편집은 안 된다.
   readOnly?: boolean
+  // 머리글 둘째 줄(작게) -- 한 칸에 두 값을 두 줄로 보여 주는 열(예: 시작일/완료일)
+  sub?: string
   // 목록에서 고르는 칸(상태·분류·담당자 등). 칸을 누르면 표 바깥에 칩 목록이 뜬다.
   // 모든 선택 칸이 같은 방식이다 -- 차이는 여러 개를 고르는지, 목록에 없는 값을
   // 입력할 수 있는지, 칩 색뿐.
@@ -1240,7 +1242,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         />
                       ) : (
                         <span className="flex items-center gap-1 truncate">
-                          <span className="truncate">{col.label}</span>
+                          {col.sub ? (
+                            <span className="flex min-w-0 flex-col leading-tight">
+                              <span className="truncate">{col.label}</span>
+                              <span className="truncate text-[11px] font-normal text-label-3">{col.sub}</span>
+                            </span>
+                          ) : (
+                            <span className="truncate">{col.label}</span>
+                          )}
                           {!col.system && <span className="shrink-0 text-[11px] font-normal text-label-3">추가</span>}
                         </span>
                       )}
