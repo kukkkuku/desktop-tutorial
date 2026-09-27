@@ -863,6 +863,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 로그인할 때마다 시트의 최신 내용(다른 팀원이 저장한 것)을 받는다. 이 탭에서 한 번 받았으면 표시해 둔다.
   // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신 내용 받기" 한 번 누르게 한다.
   const [stale, setStale] = useState(false)
+  // 저장 안 한 변경 알림을 닫은 때의 변경 수(수가 바뀌면 다시 보인다)
+  const [hideUnsavedAt, setHideUnsavedAt] = useState<number | null>(null)
   function markSynced() {
     try {
       sessionStorage.setItem(SYNC_KEY, '1')
@@ -1759,38 +1761,46 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         />
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-        <FileMenu disabled={yearLoading}>{fileMenuItems}</FileMenu>
+        {/* 머리 오른쪽(⋯ 앞) 작은 알림: 최신 내용 받기 · 저장 안 한 변경. ✕로 닫으면 상황이 바뀔 때 다시 뜬다 */}
+        <span className="flex items-center gap-2">
+          {stale && !data.local && !loading && (
+            <HeadPill tone="accent" onClose={() => setStale(false)} title="구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다">
+              <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
+              최신 내용 안 받음
+              <button onClick={() => void loadFromSheet()} className="ml-1 rounded-[6px] bg-accent px-2 py-0.5 font-semibold text-white hover:bg-accent-hover">
+                받기
+              </button>
+            </HeadPill>
+          )}
+          {editCount > 0 && !data.local && !readOnly && hideUnsavedAt !== editCount && (
+            <HeadPill
+              tone="warn"
+              onClose={() => setHideUnsavedAt(editCount)}
+              title={`구글시트에 저장해야 다른 팀원도 받아 볼 수 있습니다${!canSave ? (protectedSheet ? ' · 운영 팀 시트는 저장하지 않습니다' : ' · xlsx로 연 표는 시트에 저장할 수 없습니다') : ''}`}
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
+              저장 안 한 변경 <b>{editCount}</b>
+              {canSave ? (
+                <button
+                  onClick={() => setConfirmSave(true)}
+                  disabled={saving}
+                  className="ml-1 flex items-center gap-1 rounded-[6px] bg-ink px-2 py-0.5 font-semibold text-white hover:bg-black disabled:opacity-50"
+                >
+                  {saving ? <Spinner className="h-3 w-3" /> : <CloudUpload size={12} strokeWidth={2} />}
+                  구글시트에 저장
+                </button>
+              ) : (
+                <span className="text-orange-700/80">{protectedSheet ? '(운영 시트 · 저장 안 함)' : '(xlsx · 저장 불가)'}</span>
+              )}
+            </HeadPill>
+          )}
+          <FileMenu disabled={yearLoading}>{fileMenuItems}</FileMenu>
+        </span>
       </MenuSlot>
       {newYearDialog}
       {confirmDialog}
       {sheetSettings}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
-      {/* 최신 내용을 아직 안 받았을 때(새로고침 · 로그인 유지로 들어와 권한 창을 자동으로 못 띄움) */}
-      {stale && !data.local && !loading && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-card bg-accent-soft px-3 py-2 text-[13px] text-label">
-          <RefreshCw {...icSm} className="shrink-0 text-accent" />
-          <span className="flex-1">구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다.</span>
-          <Button variant="primary" size="sm" onClick={() => void loadFromSheet()}>
-            최신 내용 받기
-          </Button>
-        </div>
-      )}
-      {/* 저장 안 한 변경: 구글시트에 저장해야 다른 팀원이 받는다 */}
-      {editCount > 0 && !data.local && !readOnly && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-card bg-orange-50 px-3 py-2 text-[13px] text-orange-900 ring-1 ring-orange-200">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" />
-          <span className="flex-1">
-            저장 안 한 변경 <b>{editCount}건</b> -- 구글시트에 저장해야 다른 팀원도 받아 볼 수 있습니다.
-            {!canSave && (protectedSheet ? ' (운영 팀 시트는 저장하지 않습니다)' : ' (xlsx로 연 표는 시트에 저장할 수 없습니다)')}
-          </span>
-          {canSave && (
-            <Button variant="primary" size="sm" onClick={() => setConfirmSave(true)} disabled={saving}>
-              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-              구글시트에 저장
-            </Button>
-          )}
-        </div>
-      )}
       {message && (
         <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">
           <span className="flex-1">{message}</span>
@@ -2561,6 +2571,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </ConfirmDialog>
       </div>
     </div>
+  )
+}
+
+// 머리 오른쪽 작은 알림(닫기 ✕ 포함)
+function HeadPill({ tone, title, onClose, children }: { tone: 'warn' | 'accent'; title?: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <span
+      title={title}
+      className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full pl-2.5 pr-1 text-[12px] ${
+        tone === 'warn' ? 'bg-orange-50 text-orange-900 ring-1 ring-orange-200' : 'bg-accent-soft text-label ring-1 ring-accent/20'
+      }`}
+    >
+      {children}
+      <button
+        onClick={onClose}
+        aria-label="알림 닫기"
+        title="닫기"
+        className="flex h-5 w-5 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.07] hover:text-label"
+      >
+        <X size={12} strokeWidth={2.2} />
+      </button>
+    </span>
   )
 }
 
