@@ -3,7 +3,6 @@
 // 메뉴 모양 3단계(머리 맨 앞 버튼): 펼침 ⇄ 아이콘만(좁은 사이드바) ⇄ 위 메뉴(사이드바 없이 머리 한 줄에).
 // 고른 모양은 이 브라우저에 기억한다.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { PanelLeftClose, PanelLeftOpen, PanelTop, type LucideIcon } from 'lucide-react'
 import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
 
 export type ShellLayout = 'open' | 'rail' | 'top'
@@ -48,34 +47,45 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   )
 }
 
-// 메뉴 모양 버튼(머리 맨 앞, 언제나 같은 자리)
-//   펼침: [접기] → 아이콘만
-//   아이콘만: [펼치기] [위로 올리기] -- 다시 펼칠 수도, 위 메뉴로 갈 수도
-//   위 메뉴: [펼치기] → 펼침
+// 메뉴 모양 고르기(머리 맨 앞, 언제나 같은 자리): 세 칸 중 하나를 누르면 바로 그 모양
+//   펼침(넓은 왼쪽 판) · 아이콘만(좁은 왼쪽 판) · 위 메뉴(위쪽 판)
+const LAYOUT_OPTIONS: { v: ShellLayout; t: string; panel: ReactNode }[] = [
+  { v: 'open', t: '메뉴 펼치기', panel: <rect x="3" y="3" width="7" height="14" rx="1.5" /> },
+  { v: 'rail', t: '메뉴 아이콘만', panel: <rect x="3" y="3" width="3.5" height="14" rx="1.2" /> },
+  { v: 'top', t: '메뉴를 위로', panel: <rect x="3" y="3" width="14" height="4" rx="1.2" /> },
+]
+function LayoutIcon({ panel }: { panel: ReactNode }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="2" y="2" width="16" height="16" rx="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <g fill="currentColor">{panel}</g>
+    </svg>
+  )
+}
 function LayoutToggle() {
   const ctx = useContext(ShellCtx)
   if (!ctx) return null
   const { layout, setLayout } = ctx
-  const btn = (to: ShellLayout, t: string, Icon: LucideIcon) => (
-    <button
-      key={to}
-      onClick={() => setLayout(to)}
-      title={t}
-      aria-label={t}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
-    >
-      <Icon size={17} strokeWidth={1.8} />
-    </button>
+  return (
+    <span role="radiogroup" aria-label="메뉴 모양" className="-ml-0.5 flex shrink-0 items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5">
+      {LAYOUT_OPTIONS.map(({ v, t, panel }) => {
+        const on = layout === v
+        return (
+          <button
+            key={v}
+            role="radio"
+            aria-checked={on}
+            onClick={() => !on && setLayout(v)}
+            title={t}
+            aria-label={t}
+            className={`flex h-6 w-7 items-center justify-center rounded-[7px] ${on ? 'bg-white text-label shadow-pill' : 'text-label-3 hover:text-label'}`}
+          >
+            <LayoutIcon panel={panel} />
+          </button>
+        )
+      })}
+    </span>
   )
-  if (layout === 'open') return <span className="-ml-0.5 flex">{btn('rail', '메뉴 접기(아이콘만)', PanelLeftClose)}</span>
-  if (layout === 'rail')
-    return (
-      <span className="-ml-0.5 flex gap-0.5">
-        {btn('open', '메뉴 펼치기', PanelLeftOpen)}
-        {btn('top', '메뉴를 위로 올리기', PanelTop)}
-      </span>
-    )
-  return <span className="-ml-0.5 flex">{btn('open', '메뉴 펼치기(왼쪽)', PanelLeftOpen)}</span>
 }
 
 // 화면 머리(회색 바탕 위 한 줄): 메뉴 모양 버튼 · 영역 / 고르기(연도 · 평가기간) / 제목(굵게) · 오른쪽 동작
