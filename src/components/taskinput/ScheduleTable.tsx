@@ -619,7 +619,7 @@ function FillDot({ onStart }: { onStart: (e: React.MouseEvent) => void }) {
 // 머리글 오른쪽 끝을 끌어 열 폭 바꾸기
 // 경계 위 버튼(열 추가 · 행 추가 · 구분 나누기): 흰 바탕 · 파란 글자(연결하기 버튼과 같은 모양)
 const LINE_BTN =
-  'pointer-events-auto whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
+  'pointer-events-none group-hover/rs:pointer-events-auto group-hover/bd:pointer-events-auto whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
 
 // 열 경계: 마우스를 올리면 표 끝까지 파란 선(끌어서 폭 조절) · 선 위에 추가 버튼(extra)
 function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResize?: (w: number) => void; lineH?: number; extra?: React.ReactNode }) {
@@ -650,7 +650,7 @@ function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResi
         style={{ height: lineH ?? '100%' }}
       />
       {extra && (
-        <span title="" className="pointer-events-none absolute left-1/2 top-[3px] z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100">
+        <span title="" className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100">
           {extra}
         </span>
       )}
@@ -913,8 +913,9 @@ export default function ScheduleTable({
     : undefined
   // 열 폭은 글자 13px 기준으로 기억하고, 글자 크기에 맞춰 같이 늘고 준다(줄이면 안 보이던 열이 들어온다).
   const scale = fontSize / 13
-  const w = (key: string, def: number) => Math.round((widths[key] ?? def) * scale)
-  const resizeTo = (key: string, px: number) => onResize?.(key, Math.round(px / scale))
+  // 주 칸 폭은 소수까지 둔다: 52칸이 함께 늘고 줄어서, 칸마다 1px씩 반올림하면 끝선이 52px씩 튄다(끌 때 버벅임)
+  const w = (key: string, def: number) => (key === 'week' ? (widths[key] ?? def) * scale : Math.round((widths[key] ?? def) * scale))
+  const resizeTo = (key: string, px: number) => onResize?.(key, key === 'week' ? Math.round((px / scale) * 100) / 100 : Math.round(px / scale))
   const WH = 36 // 맨 왼쪽 행 머리(시트 행 번호) 폭
   const wL2 = w('l2', DEFAULT_WIDTHS.l2)
   const wL3 = w('l3', DEFAULT_WIDTHS.l3)
@@ -1531,7 +1532,7 @@ export default function ScheduleTable({
   }
   // 머리글 오른쪽 경계 위쪽: 마우스를 올리면 "+ 열"과 빨간 세로선, 누르면 이 열 오른쪽에 새 열
   // 열 경계 위 "+ 열" 버튼(열 폭 조절 선 위에 뜬다)
-  const addColButton = (f: FieldDef) =>
+  const addColButton = (f: FieldDef, side: 'left' | 'right' = 'right') =>
     onAddColumns && !readOnly ? (
       <button
         className={LINE_BTN}
@@ -1539,7 +1540,7 @@ export default function ScheduleTable({
         onClick={(e) => {
           e.stopPropagation()
           const r = e.currentTarget.getBoundingClientRect()
-          setColAdd({ anchor: f.id, side: 'right', count: 1, x: Math.min(r.left - 120, window.innerWidth - 300), y: r.bottom + 30, text: '' })
+          setColAdd({ anchor: f.id, side, count: 1, x: Math.min(r.left - 120, window.innerWidth - 300), y: r.bottom + 30, text: '' })
         }}
       >
         + 열
@@ -2126,6 +2127,15 @@ export default function ScheduleTable({
                       <ChevronsLeft size={14} strokeWidth={2} />
                     </button>
                   )}
+                  {/* 일정 폭은 12월(마지막 달) 바깥 선에서만: 끌면 모든 주가 같이 늘고 준다 · + 열 = 첫 입력 열 왼쪽에 */}
+                  {onResize && i === months.length - 1 && (
+                    <ResizeHandle
+                      width={wWeek * weekCols.length}
+                      onResize={(v) => resizeTo('week', Math.max(8, v / weekCols.length))}
+                      lineH={tableH}
+                      extra={cols[0] ? addColButton(cols[0], 'left') : undefined}
+                    />
+                  )}
                 </th>
               ))
             ) : showSummary ? (
@@ -2194,10 +2204,6 @@ export default function ScheduleTable({
                   className={`relative pb-1.5 text-[10px] font-medium ${thBorder} ${i === curIdx ? '!text-[#E8342A]' : ''}`}
                 >
                   {i === curIdx ? '▼' : x.week}
-                  {/* 일정 폭은 12월 마지막 주 바깥 선에서만: 끌면 모든 주가 같이 늘고 준다 */}
-                  {onResize && i === weekCols.length - 1 && (
-                    <ResizeHandle width={wWeek * weekCols.length} onResize={(v) => resizeTo('week', Math.max(8, v / weekCols.length))} lineH={subLineH} />
-                  )}
                 </th>
               ))}
             {cols
