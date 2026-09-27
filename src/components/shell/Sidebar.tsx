@@ -41,7 +41,7 @@ export const PERF_ITEMS: { key: PerfStage; label: string; Icon: LucideIcon; also
   { key: 'notes', label: '면담', Icon: MessageCircle },
 ]
 // 화면마다 여는 매뉴얼 장(public/manual/*.html의 section id)
-const PERF_MANUAL: Record<PerfStage, string> = { work: 'perf', tasks: 'eval', members: 'peer', evaluate: 'evaluate', results: 'evaluate', notes: 'meeting' }
+const PERF_MANUAL: Record<PerfStage, string> = { work: 'work', tasks: 'evaluate', members: 'peer', evaluate: 'evaluate', results: 'results', notes: 'meeting' }
 
 export interface SidebarPerfExtras {
   onOpenDataManager?: () => void
@@ -83,7 +83,9 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
   const label = (t: string) => (collapsed ? <div className="mx-3 my-3 h-px bg-separator" /> : <p className="ds-nav-label">{t}</p>)
 
   function openManual() {
-    if (mode === 'tasks' || !canPerf) setManual({ area: 'tasks', chapter: taskMenu })
+    // 관리 화면은 과제 입력 매뉴얼 1장(권한 시트)
+    if (mode === 'admin') setManual({ area: 'tasks', chapter: 'sheet' })
+    else if (mode === 'tasks' || !canPerf) setManual({ area: 'tasks', chapter: taskMenu })
     else if (mode === 'perf') setManual({ area: 'perf', chapter: inPerf ? PERF_MANUAL[perfStage] : 'start' })
     else setManual({})
   }
