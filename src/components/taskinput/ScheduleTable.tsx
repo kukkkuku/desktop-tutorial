@@ -29,8 +29,7 @@ import {
 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
-import { planRange } from '../../utils/progressBoard'
-import { softHex, viewFillHex } from '../../utils/fillColors'
+import { FILL_HEX, planRange } from '../../utils/progressBoard'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import ColorPalette from './ColorPalette'
 import FormatBar from './FormatBar'
@@ -96,8 +95,7 @@ export interface ScheduleRowView {
 }
 
 // 머리글 기본색: 구분·과제 #666666, 일정 #999999
-// 머리글 기본 = 옅은 회색(디자인 시스템 v2 표). 우클릭으로 정한 머리글 색은 그대로 쓴다
-export const HEAD_DEFAULT = { l2: 'E5E7EA', l3: 'E5E7EA', schedule: 'E5E7EA' } as const
+export const HEAD_DEFAULT = { l2: '666666', l3: '666666', schedule: '999999' } as const
 function isLightHex(hex: string) {
   const r = parseInt(hex.slice(0, 2), 16)
   const g = parseInt(hex.slice(2, 4), 16)
@@ -142,7 +140,7 @@ export function CellSwatch({ cell, size = 18 }: { cell: CellState; size?: number
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-[3px] border border-black/10 text-[10px] font-bold text-[#14161A]"
-      style={{ width: size, height: size, background: cell.f ? `#${viewFillHex(cell.f)}` : '#FFFFFF' }}
+      style={{ width: size, height: size, background: cell.f ? `#${FILL_HEX[cell.f]}` : '#FFFFFF' }}
     >
       {cell.m}
     </span>
@@ -428,36 +426,15 @@ function FieldCell({
   onExtend?: (dx: number, dy: number) => void
   onClearRange?: () => void
 }) {
+  // 분류 · 상태 뱃지: 글자 크기는 다른 칸과 같게(표 글자 크기를 따름) · 여백만 넉넉히
+  const chip = 'inline-flex items-center whitespace-nowrap rounded-full px-[0.7em] py-[0.15em] text-[1em] font-semibold leading-tight'
   const tdRef = useRef<HTMLTableCellElement>(null)
   const [pickOpen, setPickOpen] = useState(false)
   const canPick = !!choices && !disabled
   // 메모 칸은 시트에서 넣은 줄바꿈 그대로(두 줄까지), 다른 칸은 한 칸 안에서 이어 보여 준다
   let display: React.ReactNode = f.kind === 'memo' ? value.trim() : value.replace(/\s*\n\s*/g, ' · ')
-  // 표 보기(디자인 시스템 v2): 상태는 글자색만(진행중 파랑 · 보류/중단 빨강), 분류는 '과제'만 보라 칩, 담당자는 굵게
-  if (f.id === 'status' && value)
-    display = (
-      <span
-        className={
-          value === '진행중'
-            ? 'font-semibold text-accent'
-            : value === '보류' || value === '중단'
-              ? 'font-semibold text-[#F15C5C]'
-              : value === '대기'
-                ? 'text-label-3'
-                : ''
-        }
-      >
-        {value}
-      </span>
-    )
-  else if (f.id === 'category' && value)
-    display =
-      value === '과제' ? (
-        <span className="inline-flex items-center rounded-[4px] bg-[#834DC0] px-[0.5em] py-[0.1em] font-semibold text-white">{value}</span>
-      ) : (
-        value
-      )
-  else if (f.kind === 'person' && value) display = <span className="font-semibold">{value.replace(/\s*\n\s*/g, ' / ')}</span>
+  if (f.id === 'status' && value) display = <span className={`${chip} ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
+  else if (f.id === 'category' && value) display = <span className={`${chip} ${categoryTone(value)}`}>{value}</span>
   else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
   return (
     <td
@@ -483,8 +460,8 @@ function FieldCell({
       }}
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 더블클릭 · Enter · 타이핑으로 입력 · 우클릭: 메모·색`}
-      style={bg && f.id !== 'status' && f.id !== 'category' ? { background: `#${softHex(bg)}` } : undefined}
-      className={`relative cursor-cell border-b border-l border-b-[#E5E7EB] border-l-[#E5E7EB] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
+      style={bg ? { background: `#${bg}` } : undefined}
+      className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
         selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
       } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
     >
@@ -972,12 +949,11 @@ export default function ScheduleTable({
   const monthStart = new Set(months.map((m) => weekCols.find((x) => x.month === m)!.key))
   // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
   // 머리글 색은 우클릭으로 바꿀 수 있다(이 브라우저에 기억). 글자는 바탕 밝기에 맞춰 검정/흰색
-  const headOn = (hex: string): React.CSSProperties => ({ background: `#${hex}`, color: isLightHex(hex) ? '#4B5563' : '#FFFFFF' })
-  // 시트 머리글 색(첫 인자)은 화면에서 쓰지 않는다(시트에는 그대로)
-  const thStyle = (_sheetHex: string | null | undefined, key?: string): React.CSSProperties =>
-    key && headColors[key] ? headOn(headColors[key]) : headOn('E5E7EA')
-  const thBorder = 'border border-[#E5E7EB]'
-  // 구분 · 과제 · 일정 머리글도 기본은 같은 옅은 회색(HEAD_DEFAULT), 우클릭으로 바꾼 색이 있으면 그 색
+  const headOn = (hex: string): React.CSSProperties => ({ background: `#${hex}`, color: isLightHex(hex) ? '#14161A' : '#FFFFFF' })
+  const thStyle = (hex: string | null | undefined, key?: string): React.CSSProperties =>
+    key && headColors[key] ? headOn(headColors[key]) : hs ? headOn(hex || 'FFFFFF') : headOn('14161A')
+  const thBorder = 'border border-[#D3D3D3]'
+  // 구분·과제 머리글은 짙은 회색(#666666), 일정(월·주) 머리글은 회색(#999999)
   const blackTh = (key: 'l2' | 'l3'): React.CSSProperties => headOn(headColors[key] || HEAD_DEFAULT[key])
   const grayTh: React.CSSProperties = headOn(headColors.schedule || HEAD_DEFAULT.schedule)
   const headMenuOn = (key: string) => (e: React.MouseEvent) => {
@@ -2313,8 +2289,8 @@ export default function ScheduleTable({
                       }}
                       title={`${v.row.row >= 0 ? `시트 ${v.row.row + 1}행` : '새 과제'} · 눌러서 행 선택 · 끌어서 옮기기(같은 구분 안에서) · Alt+↑/↓`}
                       style={{ left: 0 }}
-                      className={`group/rh sticky z-[6] cursor-grab hover:z-[8] select-none border-b border-r border-b-[#E5E7EB] border-r-[#E5E7EB] p-0 text-center text-[0.72em] tabular-nums outline-none ${
-                        isRowSel(v.row.key) ? 'bg-accent font-semibold text-white' : 'bg-[#F7FAFC] text-label-3 hover:bg-[#EEF0F2]'
+                      className={`group/rh sticky z-[6] cursor-grab hover:z-[8] select-none border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] p-0 text-center text-[0.72em] tabular-nums outline-none ${
+                        isRowSel(v.row.key) ? 'bg-accent font-semibold text-white' : 'bg-[#F8F9FA] text-label-3 hover:bg-[#EEF0F2]'
                       }`}
                     >
                       {v.row.row >= 0 ? v.row.row + 1 : '+'}
@@ -2400,7 +2376,7 @@ export default function ScheduleTable({
                         }}
                         title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
-                        className={`pb-l2 group/l2 sticky z-[5] border-r border-[#E5E7EB] bg-[#F9FAFC] px-2 py-2 shadow-[inset_0_-0.5px_0_#E5E7EB,0_0.5px_0_#E5E7EB] text-center align-top font-semibold text-accent ${
+                        className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-0.5px_0_#C9CDD3,0_0.5px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
@@ -2488,12 +2464,8 @@ export default function ScheduleTable({
                           if (l3Note) showNote(e, l3Note)
                         }}
                         onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
-                        style={{
-                          left: WH + wL2,
-                          ...(l3Bg ? { background: `#${softHex(l3Bg)}` } : {}),
-                          ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }),
-                        }}
-                        className={`sticky z-[5] cursor-cell border-b border-r border-b-[#E5E7EB] border-r-[#E5E7EB] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
+                        style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}), ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }) }}
+                        className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                           isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
                         } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${
                           inFill(ri2, 'name') ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
@@ -2573,8 +2545,9 @@ export default function ScheduleTable({
                                 ? undefined
                                 : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`
                             }
-                            className={`relative border-b border-b-[#E5E7EB] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
-                              monthStart.has(x.key) ? 'border-l border-l-[#E5E7EB]' : 'border-l border-l-transparent'
+                            style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
+                            className={`relative border-b border-b-[#DADDE2] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
+                              monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                             } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : 'cursor-cell'} ${
                               inWeek(ri2, i) ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.2)]' : ''
                             } ${weekSel && weekSel.a.r === ri2 && weekSel.a.c === i ? 'outline outline-2 -outline-offset-2 outline-accent' : ''} ${
@@ -2592,13 +2565,6 @@ export default function ScheduleTable({
                               />
                             )}
                             {wRange && wRange.r2 === ri2 && wRange.c2 === i && !readOnly && onWeekCells && <FillDot onStart={weekFillStart} />}
-                            {/* 칠한 칸 = 주마다 틈이 있는 둥근 막대(보이는 색만 v2, 시트 색은 그대로) · S/F/완 칸은 조금 진하게 */}
-                            {c?.f && (
-                              <span
-                                className="pointer-events-none absolute inset-x-[2px] inset-y-[5px] rounded-[3px]"
-                                style={{ background: `#${viewFillHex(c.f)}`, filter: c.m ? 'brightness(0.9)' : undefined }}
-                              />
-                            )}
                             {i === curIdx && <span className="pointer-events-none absolute inset-y-0 left-1/2 border-l border-dashed border-[#E8342A]/70" />}
                             <span className="relative">{c?.m}</span>
                             {note && <NoteMark />}
@@ -2607,7 +2573,7 @@ export default function ScheduleTable({
                         )
                       })
                     ) : showSummary ? (
-                      <td className="border-b border-l border-b-[#E5E7EB] border-l-[#E5E7EB] px-1.5 py-[var(--row-pad)] text-[0.85em] leading-tight text-label-2">
+                      <td className="border-b border-l border-b-[#DADDE2] border-l-[#A6A6A6] px-1.5 py-[var(--row-pad)] text-[0.85em] leading-tight text-label-2">
                         {(() => {
                           const pr = planRange(v.cells, allWeekCols)
                           const wk = (k: string | null) => {

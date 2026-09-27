@@ -64,7 +64,7 @@ function readCollapsed() {
 
 export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage } = useAppMode()
-  const { currentWorkspaceId, exitToLanding, reloadForAccount } = useWorkspaces()
+  const { currentWorkspaceId, currentWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
   const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
   const [collapsed, setCollapsedState] = useState(readCollapsed)
   const [manual, setManual] = useState<{ area?: ManualArea; chapter?: string } | null>(null)
@@ -150,20 +150,43 @@ export default function Sidebar({ perf }: { perf?: SidebarPerfExtras }) {
         {canPerf && (
           <>
             {label('성과관리')}
-            {!collapsed && inPerf && perf?.project && <div className="mb-1.5">{perf.project}</div>}
+            {/* 위계: 프로젝트 목록 → 프로젝트를 고르면 그 아래에 프로젝트 메뉴(과제관리 · 팀원관리 · 평가하기 …)가 열린다 */}
             <div className="space-y-0.5">
               {item('projects', '프로젝트 목록', FolderOpen, mode === 'perf' && !currentWorkspaceId, () => {
                 exitToLanding()
                 if (mode !== 'perf') setMode('perf')
               })}
-              {PERF_ITEMS.map(({ key, label: l, Icon, also }) =>
-                item(key, l, Icon, inPerf && (perfStage === key || !!also?.includes(perfStage)), () => {
-                  setPerfStage(key)
-                  if (mode !== 'perf') setMode('perf')
-                }),
-              )}
-              {inPerf && perf?.onQuickStart && item('quick', '빠른 시작', Zap, false, perf.onQuickStart)}
             </div>
+            {currentWorkspaceId && (
+              <div className="mt-1.5">
+                {!collapsed &&
+                  (inPerf && perf?.project ? (
+                    <div className="mb-1">{perf.project}</div>
+                  ) : (
+                    <button
+                      onClick={() => setMode('perf')}
+                      title="이 프로젝트로 가기"
+                      className="mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left hover:bg-black/[0.04]"
+                    >
+                      <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-label">
+                        {currentWorkspace
+                          ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}`
+                          : '열어 둔 프로젝트'}
+                      </span>
+                    </button>
+                  ))}
+                <div className={collapsed ? 'space-y-0.5' : 'ml-[18px] space-y-0.5 border-l border-separator pl-2'}>
+                  {PERF_ITEMS.map(({ key, label: l, Icon, also }) =>
+                    item(key, l, Icon, inPerf && (perfStage === key || !!also?.includes(perfStage)), () => {
+                      setPerfStage(key)
+                      if (mode !== 'perf') setMode('perf')
+                    }),
+                  )}
+                  {inPerf && perf?.onQuickStart && item('quick', '빠른 시작', Zap, false, perf.onQuickStart)}
+                </div>
+              </div>
+            )}
           </>
         )}
       </nav>
