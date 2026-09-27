@@ -1,7 +1,8 @@
 name: Deploy to GitHub Pages
 
 # 배포는 main 하나만 한다. 예외: 개발 중인 feature/next-2026-09-24 브랜치를
-# /preview-next/에 함께 올린다(같은 github.io 주소라 구글 로그인이 그대로 된다).
+# /preview-next/에, 새 디자인 feature/redesign-2026-09-27 브랜치를 /preview-design/에 함께 올린다
+# (같은 github.io 주소라 구글 로그인이 그대로 된다. 두 미리보기는 같은 미리보기 저장소를 써서 나란히 비교).
 # 미리보기 빌드는 저장 키·드라이브 폴더를 따로 써서 운영 데이터를 건드리지 않고,
 # 실패해도 운영 배포는 막지 않는다. 브랜치를 합치거나 버리면 preview 두 단계를 지운다.
 on:
@@ -55,6 +56,26 @@ jobs:
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           VITE_BASE_PATH: /desktop-tutorial/preview-next/
+          VITE_PREVIEW_NAMESPACE: preview-next
+
+      - name: Checkout design preview branch
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: feature/redesign-2026-09-27
+          path: design-src
+
+      - name: Build design preview into dist/preview-design
+        continue-on-error: true
+        working-directory: design-src
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/preview-design
+          cp -r dist/. ../dist/preview-design/
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          VITE_BASE_PATH: /desktop-tutorial/preview-design/
           VITE_PREVIEW_NAMESPACE: preview-next
 
       - uses: actions/configure-pages@v5
