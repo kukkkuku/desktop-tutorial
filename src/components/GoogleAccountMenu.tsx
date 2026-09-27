@@ -20,19 +20,24 @@ interface GoogleAccountMenuProps {
   onAccountChange?: () => void
   // 호출부가 덧붙이는 바로가기(예: 연결된 구글시트). 목록 맨 위에 놓는다.
   extraLinks?: { label: string; href: string; icon: ReactNode }[]
+  // 'up' = 단추 위로 연다(사이드바 맨 아래 계정 칸)
+  placement?: 'down' | 'up'
+  // 메뉴 맨 아래에 덧붙이는 항목(예: 로그아웃)
+  footer?: ReactNode
+  title?: string
 }
 
 // 연결된 계정 칩을 누르면 지금 계정 정보 + 다른 계정으로 전환하는 액션,
 // 그리고 캘린더/Gmail/Drive로 바로 넘어갈 수 있는 짧은 메뉴를 띄운다.
 // 헤더(StageTabs)와 데이터 관리 드로어의 Google Drive 탭(GoogleDrivePanel)
 // 양쪽에서 같은 동작을 쓴다.
-export default function GoogleAccountMenu({ children, className, onAccountChange, extraLinks = [] }: GoogleAccountMenuProps) {
+export default function GoogleAccountMenu({ children, className, onAccountChange, extraLinks = [], placement = 'down', footer, title }: GoogleAccountMenuProps) {
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState<string | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null)
 
   async function handleConnectDifferentAccount() {
     setSwitchError(null)
@@ -51,8 +56,8 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
   useEffect(() => {
     if (!open) return
     const rect = btnRef.current?.getBoundingClientRect()
-    if (rect) setPos({ top: rect.bottom + 6, left: rect.left })
-  }, [open])
+    if (rect) setPos(placement === 'up' ? { bottom: window.innerHeight - rect.top + 6, left: rect.left } : { top: rect.bottom + 6, left: rect.left })
+  }, [open, placement])
 
   useEffect(() => {
     if (!open) return
@@ -75,7 +80,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
 
   return (
     <>
-      <button ref={btnRef} type="button" onClick={() => setOpen((v) => !v)} className={className}>
+      <button ref={btnRef} type="button" onClick={() => setOpen((v) => !v)} className={className} title={title}>
         {children}
       </button>
 
@@ -84,7 +89,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
         createPortal(
           <div
             ref={menuRef}
-            style={{ position: 'fixed', top: pos.top, left: pos.left }}
+            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
             className="mac-pop z-50 w-60 overflow-hidden py-1"
           >
             <div className="px-3.5 py-1.5">
@@ -128,6 +133,12 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
                 {label}
               </a>
             ))}
+            {footer && (
+              <>
+                <div className="mac-menu-sep" />
+                <div onClick={() => setOpen(false)}>{footer}</div>
+              </>
+            )}
           </div>,
           document.body,
         )}

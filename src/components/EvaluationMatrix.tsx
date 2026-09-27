@@ -174,7 +174,7 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[17px] font-semibold text-label">팀원별 평가</h3>
+        <span />
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
             <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>

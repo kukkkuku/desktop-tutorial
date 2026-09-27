@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAppState } from '../state/AppContext'
 import { DEFAULT_GRADE_DISTRIBUTION, type Criteria, type GradeDistribution } from '../types'
 
@@ -7,7 +8,7 @@ const DIST_GRADES = ['S', 'A', 'B', 'C', 'D'] as const
 const START_DISTRIBUTION: GradeDistribution = DEFAULT_GRADE_DISTRIBUTION
 import { blendByWeight } from '../utils/calculations'
 import IconButton from './IconButton'
-import { ChartNoAxesColumnIncreasing, ChevronLeft, File, Percent, SlidersHorizontal, Star, User, Users, type LucideIcon } from 'lucide-react'
+import { ChartNoAxesColumnIncreasing, ChevronLeft, File, Percent, SlidersHorizontal, Star, User, Users, X, type LucideIcon } from 'lucide-react'
 import { ic, icLg } from './ui/icon'
 
 function fmt(n: number): string {
@@ -54,6 +55,8 @@ interface CriteriaPanelProps {
   // whatever it renders as, instead of drifting and leaving a permanent
   // few-pixel page overflow.
   headerHeight: number
+  // 옆 패널(디자인 시스템 v2): 페이지 머리의 "기준 설정"으로 오른쪽에 띄운다. 크기 조절 · 아이콘 줄 없이 상세만
+  sheet?: boolean
 }
 
 // Always docked to the left as a normal in-flow sidebar column that reserves
@@ -62,7 +65,7 @@ interface CriteriaPanelProps {
 // buttons (title attribute doubles as a tooltip, click toggles on/off) and
 // the full detailed settings. Resizing via the splitter sweeps continuously
 // between the two and snaps to the nearest preset on release.
-export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPanelProps) {
+export default function CriteriaPanel({ size, onSize, headerHeight, sheet = false }: CriteriaPanelProps) {
   const { state, dispatch } = useAppState()
   const { criteria } = state
   const resizeRef = useRef<{ startX: number; startWidth: number } | null>(null)
@@ -136,8 +139,8 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
   // plain collapse arrow closes it back down to the icon-only rail.
   function CollapseButton() {
     return (
-      <IconButton onClick={() => onSize('icon')} title="접기" aria-label="기준 설정 접기" className="shrink-0">
-        <ChevronLeft {...ic} />
+      <IconButton onClick={() => onSize('icon')} title={sheet ? '닫기 (Esc)' : '접기'} aria-label="기준 설정 닫기" className="shrink-0">
+        {sheet ? <X {...ic} /> : <ChevronLeft {...ic} />}
       </IconButton>
     )
   }
@@ -289,6 +292,36 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
     { key: 'peerReviewWeight', label: '피어리뷰', desc: peerReviewDescription },
   ]
 
+  if (sheet)
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-white">
+        <div className="flex shrink-0 items-center gap-2 border-b border-separator px-4 py-3">
+          <span className="flex-1 text-[15px] font-semibold text-label">기준 설정</span>
+          <CollapseButton />
+        </div>
+        <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
+          <p className="text-[13px] leading-relaxed text-label-2">켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.</p>
+          <div className="ds-group">
+            <p className="ds-group-head">과제 평가 기준</p>
+            <div className="space-y-1.5">
+              {TASK_ITEMS.map(({ key, label, desc }) => (
+                <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
+              ))}
+            </div>
+          </div>
+          <div className="ds-group">
+            <p className="ds-group-head">팀원 평가 기준</p>
+            <div className="space-y-1.5">
+              {MEMBER_ITEMS.map(({ key, label, desc }) => (
+                <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
+              ))}
+            </div>
+          </div>
+          <GradeDistributionSection />
+        </div>
+      </div>
+    )
+
   return (
     <div
       className={`sticky relative shrink-0 self-start overflow-y-auto border-r border-separator bg-white ${
@@ -357,5 +390,20 @@ export default function CriteriaPanel({ size, onSize, headerHeight }: CriteriaPa
         </div>
       )}
     </div>
+  )
+}
+
+// 페이지 머리의 "기준 설정"으로 여는 오른쪽 떠 있는 패널(디자인 시스템 v2)
+export function CriteriaSheet({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', key)
+    return () => window.removeEventListener('keydown', key)
+  }, [onClose])
+  return createPortal(
+    <div data-keep-sel className="fixed bottom-3 right-3 top-3 z-50 w-[400px] max-w-[calc(100vw-24px)] overflow-hidden rounded-panel bg-white shadow-pop">
+      <CriteriaPanel size="full" onSize={(s) => s === 'icon' && onClose()} headerHeight={0} sheet />
+    </div>,
+    document.body,
   )
 }

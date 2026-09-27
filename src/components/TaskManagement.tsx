@@ -486,7 +486,6 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1">
-          <h3 className="mr-2 text-[17px] font-semibold text-label">과제별 평가</h3>
           <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
             <Undo2 {...ic} />
           </IconButton>

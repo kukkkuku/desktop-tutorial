@@ -1,18 +1,13 @@
-import { ROLE_LABEL } from '../utils/roles'
-import ManualLink from './ManualLink'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { useGoogleAccount } from '../hooks/useGoogleAccount'
-import { getConnectedEmail } from '../utils/googleDrive'
-import { ChevronDown, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
+import { Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
-import GoogleAccountMenu from './GoogleAccountMenu'
 import IconButton from './IconButton'
-import AreaSwitch from './AreaSwitch'
+import AppShell, { PageHeader } from './shell/AppShell'
 import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
 
@@ -248,18 +243,8 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
 }
 
 export default function WorkspaceLanding() {
-  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, duplicateWorkspace, reloadForAccount } = useWorkspaces()
+  const { workspaces, selectWorkspace, deleteWorkspace, renameWorkspace, duplicateWorkspace } = useWorkspaces()
   const [dupError, setDupError] = useState('')
-  const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
-
-  // "계정이 바뀌었을 수 있다"는 신호가 실제 전환이 아닐 수도 있으므로,
-  // 이메일이 실제로 달라졌을 때만 워크스페이스 목록을 다시 읽는다(이미
-  // 이 랜딩 화면에 있으므로 별도로 exitToLanding을 부를 필요는 없다).
-  function handleAccountChange() {
-    const previousEmail = accountEmail
-    refreshAccount()
-    if (getConnectedEmail() !== previousEmail) reloadForAccount()
-  }
   const existingTeamNames = useMemo(() => Array.from(new Set(workspaces.map((w) => w.teamName))), [workspaces])
   const sortedByRecency = useMemo(() => [...workspaces].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt)), [workspaces])
   const mostRecentTeam = sortedByRecency[sortedByRecency.length - 1]?.teamName ?? ''
@@ -319,34 +304,9 @@ export default function WorkspaceLanding() {
   }
 
   return (
-    <div className="min-h-screen bg-window">
-      {/* 다른 화면과 같은 머리글(영역 전환 자리가 화면마다 같게) */}
-      <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <AreaSwitch className="-ml-1" />
-            <span className="h-5 w-px bg-separator" />
-            <p className="whitespace-nowrap text-[15px] font-bold text-label">프로젝트 목록</p>
-          </div>
-          {accountEmail && (
-            <div className="flex shrink-0 items-center gap-3">
-              <GoogleAccountMenu
-                className="flex h-7 items-center gap-1.5 rounded-control px-2 text-[13px] text-label hover:bg-black/[0.05]"
-                onAccountChange={handleAccountChange}
-              >
-                {accountEmail}
-                {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
-                <ChevronDown {...icSm} className="text-label-3" />
-              </GoogleAccountMenu>
-              <ManualLink area="perf" chapter="start" />
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                로그아웃
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-7xl px-6 py-8 sm:px-10">
+    <AppShell>
+      <PageHeader crumbs={<span>성과관리</span>} title="프로젝트 목록" />
+      <main className="w-full max-w-7xl flex-1 px-6 pb-10 pt-2 lg:px-8">
         <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요. 프로젝트를 우클릭하면 복제하거나 지울 수 있습니다.</p>
         {dupError && <p className="mt-2 text-[13px] text-danger">{dupError}</p>}
 
@@ -363,7 +323,7 @@ export default function WorkspaceLanding() {
                     key={name}
                     onClick={() => setTeamName(name)}
                     className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] transition-colors ${
-                      active ? 'bg-accent text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
+                      active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
                     }`}
                   >
                     <span className="font-semibold">{name}</span>
@@ -531,6 +491,6 @@ export default function WorkspaceLanding() {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeletingWorkspace(null)}
       />
-    </div>
+    </AppShell>
   )
 }

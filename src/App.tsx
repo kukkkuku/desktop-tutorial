@@ -1,11 +1,16 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
 import { MemberDetailProvider } from './state/MemberDetailContext'
-import StageTabs, { type Stage } from './components/StageTabs'
+import { SaveBadge, type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
-import CriteriaPanel, { type PanelSize } from './components/CriteriaPanel'
+import { CriteriaSheet } from './components/CriteriaPanel'
+import AppShell, { CrumbSep, PageHeader } from './components/shell/AppShell'
+import { PERF_ITEMS } from './components/shell/Sidebar'
+import WorkspaceSwitcher from './components/WorkspaceSwitcher'
+import Button from './components/Button'
+import { SlidersHorizontal } from 'lucide-react'
 import TasksStage from './components/TasksStage'
 import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
@@ -23,7 +28,7 @@ import TaskInputApp from './components/taskinput/TaskInputApp'
 import HomePage from './components/HomePage'
 
 function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
-  const [stage, setStage] = useState<Stage>('work')
+  const { perfStage: stage, setPerfStage: setStage } = useAppMode()
   const [dataManagerOpen, setDataManagerOpen] = useState(false)
   const [dataManagerTab] = useState<{ tab: DataManagerTab; token: number } | null>(null)
   // 빠른 시작은 헤더 버튼으로만 연다. 예전에는 과제가 없으면 자동으로 떴는데,
@@ -33,12 +38,12 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   const [quickStartTab, setQuickStartTab] = useState<'auto' | 'sheet' | 'progress' | 'direct'>('auto')
   // 시트 칩에서 새 링크를 넣고 연결하면 가져오기 화면이 그 링크로 바로 읽는다.
   const [quickStartUrl, setQuickStartUrl] = useState<string | null>(null)
-  const [panelSize, setPanelSize] = useState<PanelSize>('icon')
+  const [criteriaOpen, setCriteriaOpen] = useState(false)
   const [notesRequest, setNotesRequest] = useState<NotesNavigationRequest | null>(null)
   const [teamSubTabRequest, setTeamSubTabRequest] = useState<TeamSubTabRequest | null>(null)
   const { workspaces, currentWorkspace, selectWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
 
-  const { accountEmail, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
+  const { accountEmail, refreshAccount } = useGoogleAccount()
   const hasSavedCurrentPeriod = readLastSave(workspaceId) !== null
 
   // "계정이 바뀌었을 수 있다"는 신호는 실제 전환(다른 Google 계정 연결)
@@ -60,27 +65,8 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   // 보여준다.
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-  // CriteriaPanel pins itself right below the header and fills the rest of
-  // the viewport, so it needs the header's real rendered height -- a
-  // hardcoded guess (the old `3.25rem`) drifted from the header's actual
-  // height and left a permanent few-pixel page overflow (a scrollbar that
-  // never goes away) on every stage that shows the panel.
-  const headerRef = useRef<HTMLDivElement>(null)
-  const [headerHeight, setHeaderHeight] = useState(0)
-
-  useLayoutEffect(() => {
-    const el = headerRef.current
-    if (!el) return
-    const update = () => setHeaderHeight(el.getBoundingClientRect().height)
-    update()
-    const resizeObserver = new ResizeObserver(update)
-    resizeObserver.observe(el)
-    return () => resizeObserver.disconnect()
-  }, [])
-
   function handleStageChange(next: Stage) {
     setStage(next)
-    window.scrollTo(0, 0)
   }
 
   const teamName = currentWorkspace?.teamName ?? ''
@@ -92,7 +78,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   function goToNotes(memberId: string, subTab: NotesSubTab) {
     setStage('notes')
     setNotesRequest({ memberId, subTab, token: Date.now() })
-    window.scrollTo(0, 0)
   }
 
   // 면담 화면 좌측 팀원 카드 하단의 "팀원 관리" 버튼 → 팀원관리 탭으로
@@ -101,44 +86,54 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
   function goToTeamManagement() {
     setTeamSubTabRequest({ subTab: 'members', token: Date.now() })
     setStage('members')
-    window.scrollTo(0, 0)
   }
 
   return (
     <AppProvider workspaceId={workspaceId}>
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
-          <div className="flex min-h-screen flex-col bg-white">
-            <div ref={headerRef}>
-              <StageTabs
-                stage={stage}
-                onStageChange={handleStageChange}
-                teamName={teamName}
-                currentWorkspaceId={workspaceId}
-                periods={periods}
-                onSelectPeriod={selectWorkspace}
-                onExit={exitToLanding}
-                onOpenDataManager={() => setDataManagerOpen(true)}
-                onOpenQuickStart={() => {
-                  setQuickStartUrl(null)
-                  setQuickStartTab('auto')
-                  setQuickStartOpen(true)
-                }}
-                quickStartOpen={quickStartOpen}
-                accountEmail={accountEmail}
-                isAdminUser={isAdminUser}
-                hasSavedCurrentPeriod={hasSavedCurrentPeriod}
-                onLogout={handleLogout}
-                onAccountChange={handleAccountChange}
-                saveStatus={saveStatus}
-              />
-            </div>
-            <div className="flex min-h-0 flex-1">
-              {stage !== 'notes' && <CriteriaPanel size={panelSize} onSize={setPanelSize} headerHeight={headerHeight} />}
-              <main className="w-full min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
-                {(stage === 'tasks' || stage === 'evaluate') && (
+          <AppShell
+            perf={{
+              project: (
+                <WorkspaceSwitcher
+                  teamName={teamName}
+                  currentWorkspaceId={workspaceId}
+                  periods={periods}
+                  onSelectPeriod={selectWorkspace}
+                  onOpenProjectManagement={exitToLanding}
+                />
+              ),
+              onQuickStart: () => {
+                setQuickStartUrl(null)
+                setQuickStartTab('auto')
+                setQuickStartOpen(true)
+              },
+              onOpenDataManager: () => setDataManagerOpen(true),
+              saveBadge: <SaveBadge saveStatus={saveStatus} hasSavedCurrentPeriod={hasSavedCurrentPeriod} />,
+            }}
+          >
+            <PageHeader
+              crumbs={
+                <>
+                  <span>성과관리</span>
+                  <CrumbSep />
+                  <span className="text-label-2">
+                    {teamName} · {currentWorkspace?.evaluationYear} {currentWorkspace?.periodName}
+                  </span>
+                </>
+              }
+              title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}
+              actions={
+                stage !== 'notes' && (
+                  <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
+                    <SlidersHorizontal size={15} strokeWidth={1.8} />
+                    기준 설정
+                  </Button>
+                )
+              }
+              tabs={
+                (stage === 'tasks' || stage === 'evaluate') && (
                   <UnderlineTabs
-                    className="mb-5"
                     items={[
                       { key: 'tasks', label: '과제별', title: '평가과제마다 성과등급 · 목표 · 성과, 펼쳐서 기여도 · 개인수행등급' },
                       { key: 'evaluate', label: '팀원별', title: '팀원마다 합계 · 순위를 보며 기여도 · 개인수행등급' },
@@ -146,24 +141,27 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                     value={stage}
                     onChange={(k) => handleStageChange(k)}
                   />
-                )}
-                {stage === 'work' && (
-                  <WorkStage
-                    onOpenSheetImport={(url, tab) => {
-                      setQuickStartUrl(url ?? null)
-                      setQuickStartTab(tab ?? 'sheet')
-                      setQuickStartOpen(true)
-                    }}
-                  />
-                )}
-                {stage === 'tasks' && <TasksStage onGoToWork={() => handleStageChange('work')} />}
-                {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
-                {stage === 'evaluate' && <EvaluationMatrix />}
-                {stage === 'results' && <EvaluationResults />}
-                {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={goToTeamManagement} />}
-              </main>
-            </div>
-          </div>
+                )
+              }
+            />
+            <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
+              {stage === 'work' && (
+                <WorkStage
+                  onOpenSheetImport={(url, tab) => {
+                    setQuickStartUrl(url ?? null)
+                    setQuickStartTab(tab ?? 'sheet')
+                    setQuickStartOpen(true)
+                  }}
+                />
+              )}
+              {stage === 'tasks' && <TasksStage onGoToWork={() => handleStageChange('work')} />}
+              {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
+              {stage === 'evaluate' && <EvaluationMatrix />}
+              {stage === 'results' && <EvaluationResults />}
+              {stage === 'notes' && <NotesStage notesRequest={notesRequest} onManageTeam={goToTeamManagement} />}
+            </main>
+          </AppShell>
+          {criteriaOpen && <CriteriaSheet onClose={() => setCriteriaOpen(false)} />}
           <DataManagerDrawer
             open={dataManagerOpen}
             onClose={() => setDataManagerOpen(false)}

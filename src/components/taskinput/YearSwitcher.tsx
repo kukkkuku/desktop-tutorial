@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Folder, Plus, Trash2, X } from 'lucide-react'
 import Spinner from '../Spinner'
-import { ic, icLg, icSm } from '../ui/icon'
+import { ic, icSm } from '../ui/icon'
 
 // 「2026 추진현황」 → 「2026 실적관리」(연도를 못 찾으면 탭 이름 그대로)
 // 「2026 추진현황_9월」처럼 뒤에 붙은 말은 괄호로(같은 연도의 복사본 탭 구분)
@@ -96,13 +96,13 @@ export default function YearSwitcher({
           setOpen(!open)
         }}
         title={canPick ? `연도 고르기 · 지난 연도는 보기 전용 (시트 탭: ${title})` : `시트 탭: ${title}`}
-        className={`flex h-8 shrink-0 items-center gap-2 rounded-control px-2 text-[17px] font-semibold text-label transition-colors ${
+        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[13px] font-medium text-label-2 transition-colors hover:text-label ${
           canPick ? 'hover:bg-black/[0.05]' : 'cursor-default'
         } ${open ? 'bg-black/[0.05]' : ''}`}
       >
-        <Folder {...icLg} className={`shrink-0 ${readOnly ? 'text-orange-500' : 'text-accent'}`} />
+        <Folder size={14} strokeWidth={1.8} className={`shrink-0 ${readOnly ? 'text-warning' : 'text-accent'}`} />
         <span className="whitespace-nowrap">{yearLabel(title)}</span>
-        {readOnly && <span className="mac-badge bg-orange-100 text-[11px] text-orange-700">보기 전용</span>}
+        {readOnly && <span className="mac-badge bg-warning-soft text-warning">보기 전용</span>}
         {isLocal && (
           <span
             className="mac-badge bg-accent-soft text-[11px] text-accent"

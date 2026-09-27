@@ -2,17 +2,13 @@
 //   과제 입력(연구소 공용): 지금 연도 · 연결된 시트 · 저장 안 한 고침
 //   성과관리(팀장만): 최근 프로젝트로 바로 들어가기 · 프로젝트 목록
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
-import ManualLink, { ManualPanel, type ManualArea } from './ManualLink'
+import { ManualPanel, type ManualArea } from './ManualLink'
 import { useMemo, useState } from 'react'
-import { ArrowRight, BookOpen, ChartColumn, ChevronDown, ClipboardList } from 'lucide-react'
+import { ArrowRight, BookOpen, ChartColumn, ClipboardList } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
-import GoogleAccountMenu from './GoogleAccountMenu'
-import AreaSwitch from './AreaSwitch'
-import Button from './Button'
-import { icSm } from './ui/icon'
-import { IS_PREVIEW } from '../utils/previewMode'
+import AppShell, { PageHeader } from './shell/AppShell'
 import { ROLE_LABEL } from '../utils/roles'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet, loadProgress, loadShelf, readLinkedSheet } from '../utils/progressBoard'
 import { parseSheetUrl } from '../utils/sheetSources'
@@ -47,7 +43,7 @@ function taskSummary() {
 export default function HomePage() {
   const { setMode } = useAppMode()
   const { workspaces, selectWorkspace, exitToLanding } = useWorkspaces()
-  const { accountEmail, role, canPerf, refreshAccount, handleLogout } = useGoogleAccount()
+  const { accountEmail, role, canPerf } = useGoogleAccount()
   const t = useMemo(taskSummary, [])
   const [manual, setManual] = useState<ManualArea | null>(null)
   // 카드 오른쪽 위: 그 영역 매뉴얼(준비할 데이터부터)
@@ -58,7 +54,7 @@ export default function HomePage() {
         setManual(area)
       }}
       title={area === 'tasks' ? '과제 입력 매뉴얼 -- 구글시트 연결부터' : '성과관리 매뉴얼 -- 준비할 데이터부터'}
-      className="absolute right-4 top-4 z-10 flex items-center gap-1 rounded-full border border-separator bg-white px-2.5 py-1 text-[12px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-label"
+      className="absolute right-4 top-4 z-10 flex h-7 items-center gap-1 rounded-[8px] bg-white px-2.5 text-[12px] font-medium text-label-2 shadow-control hover:text-label"
     >
       <BookOpen size={13} strokeWidth={1.9} />
       매뉴얼
@@ -67,34 +63,11 @@ export default function HomePage() {
   const recent = useMemo(() => [...workspaces].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4), [workspaces])
 
   const card =
-    'group flex flex-col rounded-[16px] border border-separator bg-white p-6 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)]'
+    'group flex flex-col rounded-[14px] bg-white p-6 text-left shadow-card transition-shadow hover:shadow-[0_0_0_1px_rgba(24,24,27,0.08),0_8px_24px_-8px_rgba(24,24,27,0.16)]'
   return (
-    <div className="flex min-h-screen flex-col bg-window">
-      <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
-        <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-          <AreaSwitch className="-ml-1" />
-          {IS_PREVIEW && <span className="mac-badge bg-orange-100 text-orange-700">미리보기</span>}
-          {accountEmail && (
-            <div className="ml-auto flex shrink-0 items-center gap-3">
-              <GoogleAccountMenu
-                className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
-                onAccountChange={refreshAccount}
-              >
-                {accountEmail}
-                <span className={`mac-badge ${role === 'member' ? 'bg-black/[0.05] text-label-2' : 'bg-accent-soft text-accent'}`}>{ROLE_LABEL[role]}</span>
-                <ChevronDown {...icSm} className="text-label-3" />
-              </GoogleAccountMenu>
-              <ManualLink />
-              <Button variant="ghost" size="sm" onClick={handleLogout}>
-                로그아웃
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-12">
-        <h1 className="text-[26px] font-bold tracking-tight text-label">무엇을 할까요?</h1>
+    <AppShell>
+      <PageHeader crumbs={<span>홈</span>} title="무엇을 할까요?" />
+      <main className="w-full max-w-5xl flex-1 px-6 pb-10 lg:px-8">
         <p className="mt-1 text-[14px] text-label-2">
           {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 처음이면 카드의 매뉴얼에서 준비할 데이터부터 보세요.
         </p>
@@ -194,6 +167,6 @@ export default function HomePage() {
         </div>
       </main>
       {manual && <ManualPanel area={manual} chapter={manual === 'tasks' ? 'sheet' : 'prep'} onClose={() => setManual(null)} />}
-    </div>
+    </AppShell>
   )
 }

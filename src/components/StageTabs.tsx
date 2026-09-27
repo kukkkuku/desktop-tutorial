@@ -1,220 +1,38 @@
-import { ROLE_LABEL } from '../utils/roles'
-import type { WorkspaceMeta } from '../types'
-import AreaSwitch from './AreaSwitch'
-import GoogleAccountMenu from './GoogleAccountMenu'
-import Spinner from './Spinner'
-import WorkspaceSwitcher from './WorkspaceSwitcher'
-import { IS_PREVIEW } from '../utils/previewMode'
-import { sheetUrl } from '../utils/sheetSources'
+// 성과관리 메뉴 이동은 왼쪽 사이드바(shell/Sidebar)로 옮겼다. 여기에는 메뉴 종류와 저장 상태 표시만 남긴다.
 import { useAppState } from '../state/AppContext'
-import SheetsIcon from './SheetsIcon'
-import ManualLink from './ManualLink'
-import { withGoogleAccount } from '../utils/googleDrive'
-import { BarChart3, ChevronDown, Database, LayoutList, MessageCircle, SlidersHorizontal, Users, Zap, type LucideIcon } from 'lucide-react'
-import { icSm } from './ui/icon'
+import type { PerfStage } from '../state/AppMode'
+import Spinner from './Spinner'
 
-export type Stage = 'work' | 'tasks' | 'members' | 'evaluate' | 'results' | 'notes'
+export type Stage = PerfStage
 
-// 상단 메뉴는 데이터 관리(드로어) - 과제관리 - 팀원관리 - 평가하기 - 평가결과 -
-// 팀원 면담 순서로 한 줄에 평평하게 나열한다. 예전에는 "데이터"라는 상위
-// 탭 아래 과제/팀원/피어리뷰가 서브탭으로 숨어 있었는데, 자주 쓰는 과제관리·
-// 팀원관리를 한 클릭에 바로 갈 수 있도록 최상위로 끌어올렸다.
-//
-// 과제관리는 구글시트와 연동되는 L2/L3 보드(WorkStage)다. 예전 과제관리
-// 화면(평가용 과제 목록)은 "평가과제"로 이름을 바꿔 평가하기 앞에 둔다 --
-// L3를 하나씩 또는 묶어서 평가과제로 만드는 흐름은 다음 단계에서 붙인다
-// (docs/PLAN-TASK-MANAGEMENT.md 6.1).
-// 과제관리 = 과제리스트(L2/L3 보드). 평가하기 = 과제별(평가과제 · 펼쳐서 기여도) / 팀원별(매트릭스) 두 보기.
-// 메뉴는 세 묶음: 준비(과제관리·팀원관리) | 평가(평가하기·평가결과) | 면담. 묶음 사이에 세로 구분선.
-// 화면마다 여는 성과관리 매뉴얼 장(public/manual/perf.html)
-const STAGE_MANUAL: Record<Stage, string> = { work: 'perf', tasks: 'eval', members: 'peer', evaluate: 'evaluate', results: 'evaluate', notes: 'meeting' }
-
-const STAGE_TABS: { key: Stage; label: string; Icon: LucideIcon; also?: Stage[]; group: number }[] = [
-  { key: 'work', label: '과제관리', Icon: LayoutList, group: 0 },
-  { key: 'members', label: '팀원관리', Icon: Users, group: 0 },
-  { key: 'tasks', label: '평가하기', Icon: SlidersHorizontal, also: ['evaluate'], group: 1 },
-  { key: 'results', label: '평가결과', Icon: BarChart3, group: 1 },
-  { key: 'notes', label: '면담', Icon: MessageCircle, group: 2 },
-]
-
-interface StageTabsProps {
-  stage: Stage
-  onStageChange: (stage: Stage) => void
-  teamName: string
-  currentWorkspaceId: string
-  periods: WorkspaceMeta[]
-  onSelectPeriod: (id: string) => void
-  onExit: () => void
-  onOpenDataManager: () => void
-  onOpenQuickStart: () => void
-  quickStartOpen: boolean
-  // Google 계정 연결 상태 -- 연결 안 됐으면(또는 연동 자체가 설정 안 됐으면)
-  // accountEmail이 null이라 이 영역 전체를 그리지 않는다.
-  accountEmail: string | null
-  isAdminUser: boolean
-  hasSavedCurrentPeriod: boolean
-  onLogout: () => void
-  // "다른 Google 계정 연결"로 계정을 바꾸면 호출한다 -- App이 accountEmail을
-  // 다시 읽어오도록.
-  onAccountChange?: () => void
-  // Drive 전체 저장 진행 상태 -- 계정 정보 옆에 "저장 중"/"저장 실패" 배지로
-  // 보여준다. 지정 안 하면(또는 'idle'이면) hasSavedCurrentPeriod에 따른
-  // 기존 "저장됨" 배지만 보여준다.
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
-}
-
-export default function StageTabs({
-  stage,
-  onStageChange,
-  teamName,
-  currentWorkspaceId,
-  periods,
-  onSelectPeriod,
-  onExit,
-  onOpenDataManager,
-  onOpenQuickStart,
-  quickStartOpen,
-  accountEmail,
-  isAdminUser,
-  hasSavedCurrentPeriod,
-  onLogout,
-  onAccountChange,
+// 사이드바 "데이터 백업" 옆 저장 상태: 드라이브 저장이 진행 중 · 실패면 그것을, 아니면 이 브라우저 저장
+export function SaveBadge({
   saveStatus = 'idle',
-}: StageTabsProps) {
-  const { state: appState, localSave } = useAppState()
-  const sheetLink = appState.workBoard.sheetLink
-  return (
-    <header className="sticky top-0 z-40 border-b border-separator bg-[#FBFBFD]/85 backdrop-blur-xl">
-      <div className="flex w-full flex-wrap items-center gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-        <AreaSwitch className="-ml-1" />
-        <span className="hidden h-5 w-px bg-separator sm:inline-block" />
-        <WorkspaceSwitcher
-          teamName={teamName}
-          currentWorkspaceId={currentWorkspaceId}
-          periods={periods}
-          onSelectPeriod={onSelectPeriod}
-          onOpenProjectManagement={onExit}
-        />
-
-        {IS_PREVIEW && (
-          <span
-            className="mac-badge bg-orange-100 text-orange-700"
-            title="개발 중인 버전입니다. 운영 버전과 데이터가 분리돼 있어 여기서 바꾼 내용은 운영에 반영되지 않습니다."
-          >
-            미리보기
-          </span>
-        )}
-        <span className="hidden h-5 w-px bg-separator sm:inline-block" />
-        <button
-          onClick={onOpenQuickStart}
-          aria-pressed={quickStartOpen}
-          className={`flex items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
-            quickStartOpen ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
-          }`}
-          title="구글시트 연결 · 직접 입력 · Excel · 이전 평가 가져오기"
-        >
-          <Zap {...icSm} />
-          빠른 시작
-        </button>
-        <nav className="flex items-center gap-1" role="tablist">
-          {STAGE_TABS.map(({ key, label, Icon, also, group }, i) => {
-            const on = stage === key || !!also?.includes(stage)
-            const divider = i > 0 && STAGE_TABS[i - 1].group !== group
-            return (
-              <span key={key} className="flex items-center gap-1">
-                {divider && <span className="mx-2 h-5 w-px bg-separator" />}
-                <button
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => !on && onStageChange(key)}
-                  className={`flex items-center gap-1.5 rounded-control px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                    on ? 'bg-label text-white' : 'text-label hover:bg-black/[0.05]'
-                  }`}
-                >
-                  <Icon {...icSm} />
-                  {label}
-                </button>
-              </span>
-            )
-          })}
-        </nav>
-
-        {!accountEmail && (
-          <button
-            onClick={onOpenDataManager}
-            className="ml-auto flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
-          >
-            <Database {...icSm} />
-            데이터 백업
-          </button>
-        )}
-        {accountEmail && (
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            <GoogleAccountMenu
-              className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
-              onAccountChange={onAccountChange}
-              extraLinks={
-                sheetLink?.spreadsheetId
-                  ? [
-                      {
-                        label: '구글시트 과제로 이동',
-                        href: withGoogleAccount(sheetUrl(sheetLink.spreadsheetId, sheetLink.gid)),
-                        icon: <SheetsIcon className="h-4 w-4 shrink-0" />,
-                      },
-                    ]
-                  : []
-              }
-            >
-              {accountEmail}
-              {isAdminUser && <span className="mac-badge bg-accent-soft text-accent">{ROLE_LABEL.admin}</span>}
-              <ChevronDown {...icSm} className="text-label-3" />
-            </GoogleAccountMenu>
-            <button
-              onClick={onOpenDataManager}
-              className="flex items-center gap-1.5 rounded-control px-2 py-1 text-[13px] text-label hover:bg-black/[0.05]"
-              title="로컬 파일 · Google Drive 백업과 복원, 데이터 초기화"
-            >
-              <Database {...icSm} />
-              데이터 백업
-            </button>
-            {/* 저장 상태: 드라이브 저장이 진행 중 · 실패면 그것을, 아니면 이 브라우저 저장 */}
-            {saveStatus === 'saving' || localSave === 'saving' ? (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-600">
-                <Spinner className="h-3 w-3" />
-                저장 중
-              </span>
-            ) : saveStatus === 'error' ? (
-              <button
-                onClick={onOpenDataManager}
-                title="데이터 관리에서 다시 저장"
-                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger hover:bg-red-100"
-              >
-                저장 실패 · 재시도
-              </button>
-            ) : localSave === 'error' ? (
-              <span
-                className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-medium text-danger"
-                title="브라우저 저장 공간에 쓰지 못했습니다. 데이터 백업으로 파일을 받아 두세요."
-              >
-                저장 실패
-              </span>
-            ) : (
-              (localSave === 'saved' || saveStatus === 'saved' || hasSavedCurrentPeriod) && (
-                <span
-                  className="shrink-0 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700"
-                  title="이 브라우저에 저장됨"
-                >
-                  저장됨
-                </span>
-              )
-            )}
-            <ManualLink area="perf" chapter={STAGE_MANUAL[stage]} />
-            <button onClick={onLogout} className="rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
-              로그아웃
-            </button>
-          </div>
-        )}
-      </div>
-    </header>
-  )
+  hasSavedCurrentPeriod,
+}: {
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  hasSavedCurrentPeriod: boolean
+}) {
+  const { localSave } = useAppState()
+  if (saveStatus === 'saving' || localSave === 'saving')
+    return (
+      <span className="flex shrink-0 items-center gap-1 text-[11.5px] font-medium text-accent" title="저장 중">
+        <Spinner className="h-3 w-3" />
+        저장 중
+      </span>
+    )
+  if (saveStatus === 'error' || localSave === 'error')
+    return (
+      <span className="mac-badge shrink-0 bg-danger-soft text-danger" title="저장하지 못했습니다. 데이터 백업에서 다시 저장하세요.">
+        저장 실패
+      </span>
+    )
+  if (localSave === 'saved' || saveStatus === 'saved' || hasSavedCurrentPeriod)
+    return (
+      <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-label-3" title="이 브라우저에 저장됨">
+        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+        저장됨
+      </span>
+    )
+  return null
 }

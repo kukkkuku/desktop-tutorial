@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Folder } from 'lucide-react'
 import type { WorkspaceMeta } from '../types'
-import { ic, icLg, icSm } from './ui/icon'
+import { ic, icSm } from './ui/icon'
 
 interface WorkspaceSwitcherProps {
   teamName: string
@@ -63,17 +63,20 @@ export default function WorkspaceSwitcher({
 
   return (
     <>
+      {/* 사이드바 안: 흰 카드 한 줄(팀 · 평가기간) */}
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-8 shrink-0 items-center gap-2 rounded-control px-2 text-[17px] font-semibold text-label transition-colors hover:bg-black/[0.05] ${
-          open ? 'bg-black/[0.05]' : ''
-        }`}
+        title="평가기간 바꾸기 · 프로젝트 관리"
+        className={`flex w-full items-center gap-2.5 rounded-[10px] bg-white px-2.5 py-2 text-left shadow-pill transition-colors hover:bg-[#FCFCFC] ${open ? 'ring-2 ring-accent/20' : ''}`}
       >
-        <Folder {...icLg} className="shrink-0 text-accent" />
-        <span className="whitespace-nowrap">
-          {displayTeamName} {current ? `${current.evaluationYear} ${current.periodName}` : ''}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-accent-soft text-accent">
+          <Folder {...icSm} />
+        </span>
+        <span className="min-w-0 flex-1 leading-tight">
+          <span className="block truncate text-[13px] font-semibold text-label">{displayTeamName}</span>
+          <span className="block truncate text-[12px] text-label-3">{current ? `${current.evaluationYear} ${current.periodName}` : ''}</span>
         </span>
         <ChevronDown {...ic} className={`shrink-0 text-label-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
