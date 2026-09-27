@@ -56,7 +56,9 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
   useEffect(() => {
     if (!open) return
     const rect = btnRef.current?.getBoundingClientRect()
-    if (rect) setPos(placement === 'up' ? { bottom: window.innerHeight - rect.top + 6, left: rect.left } : { top: rect.bottom + 6, left: rect.left })
+    // 화면 오른쪽 끝(위 메뉴의 계정 칸)에서 열어도 메뉴가 화면 밖으로 나가지 않게
+    const left = rect ? Math.max(8, Math.min(rect.left, window.innerWidth - 300)) : 0
+    if (rect) setPos(placement === 'up' ? { bottom: window.innerHeight - rect.top + 6, left } : { top: rect.bottom + 6, left })
   }, [open, placement])
 
   useEffect(() => {

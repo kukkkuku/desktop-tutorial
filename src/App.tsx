@@ -8,7 +8,7 @@ import { MemberDetailProvider } from './state/MemberDetailContext'
 import { SaveBadge, type Stage } from './components/StageTabs'
 import WorkspaceLanding from './components/WorkspaceLanding'
 import { CriteriaSheet } from './components/CriteriaPanel'
-import AppShell, { CrumbSep, PageHeader } from './components/shell/AppShell'
+import AppShell, { PageHeader } from './components/shell/AppShell'
 import { PERF_ITEMS } from './components/shell/Sidebar'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 import Button from './components/Button'
@@ -105,19 +105,16 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             }}
             header={
               <PageHeader
-                crumbs={
-                  <>
-                    <span>성과관리</span>
-                    <CrumbSep />
-                    {/* 평가기간 고르기(과제 입력의 연도 고르기와 같은 모양) */}
-                    <WorkspaceSwitcher
-                      teamName={teamName}
-                      currentWorkspaceId={workspaceId}
-                      periods={periods}
-                      onSelectPeriod={selectWorkspace}
-                      onOpenProjectManagement={exitToLanding}
-                    />
-                  </>
+                area="성과관리"
+                // 평가기간 고르기(과제 입력의 연도 고르기와 같은 모양)
+                chooser={
+                  <WorkspaceSwitcher
+                    teamName={teamName}
+                    currentWorkspaceId={workspaceId}
+                    periods={periods}
+                    onSelectPeriod={selectWorkspace}
+                    onOpenProjectManagement={exitToLanding}
+                  />
                 }
                 title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}
                 actions={

@@ -1,7 +1,8 @@
 // 왼쪽 사이드바(디자인 시스템 v2): 앱의 모든 이동이 여기 한 곳에 있다.
 //   위: 로고 · 접기  →  홈  →  과제 입력(추진현황 · 진척률)  →  성과관리(프로젝트 · 메뉴, 팀장만)
 //   아래: 매뉴얼 · 데이터 백업(성과관리) · 계정(메뉴 안에 로그아웃)
-// 접으면 아이콘만(마우스를 올리면 이름). 접기 버튼과 접은 상태는 AppShell(화면 머리 맨 앞)에.
+// 접으면 아이콘만(마우스를 올리면 이름). 한 번 더 접으면 사이드바 없이 머리 줄에 메뉴(TopNav).
+// 메뉴 모양 버튼과 고른 모양은 AppShell(화면 머리 맨 앞)에.
 import { useState, type ReactNode } from 'react'
 import {
   BarChart3,
@@ -23,6 +24,7 @@ import { useAppMode, type PerfStage, type TaskMenu } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import GoogleAccountMenu from '../GoogleAccountMenu'
+import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
 import { IS_PREVIEW } from '../../utils/previewMode'
@@ -49,22 +51,51 @@ export interface SidebarPerfExtras {
   saveBadge?: ReactNode
 }
 
-export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
-  const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage } = useAppMode()
-  const { currentWorkspaceId, currentWorkspace, exitToLanding, reloadForAccount } = useWorkspaces()
-  const { accountEmail, role, canPerf, isAdminUser, refreshAccount, handleLogout } = useGoogleAccount()
+// 사이드바와 위 메뉴가 같이 쓰는 것: 지금 위치 · 계정 바꾸기 · 매뉴얼 열기
+function useShellNav() {
+  const app = useAppMode()
+  const ws = useWorkspaces()
+  const account = useGoogleAccount()
   const [manual, setManual] = useState<{ area?: ManualArea; chapter?: string } | null>(null)
+  const { mode, taskMenu, perfStage } = app
+  const { accountEmail, canPerf, refreshAccount } = account
+  const inPerf = mode === 'perf' && !!ws.currentWorkspaceId
 
   // 다른 구글 계정으로 바꾸면 그 계정의 프로젝트 목록을 다시 읽고 목록 화면으로
   function onAccountChange() {
     const prev = accountEmail
     refreshAccount()
     if (getConnectedEmail() !== prev) {
-      reloadForAccount()
-      exitToLanding()
+      ws.reloadForAccount()
+      ws.exitToLanding()
     }
   }
-  const inPerf = mode === 'perf' && !!currentWorkspaceId
+  function openManual() {
+    // 관리 화면은 과제 입력 매뉴얼 1장(권한 시트)
+    if (mode === 'admin') setManual({ area: 'tasks', chapter: 'sheet' })
+    else if (mode === 'tasks' || !canPerf) setManual({ area: 'tasks', chapter: taskMenu })
+    else if (mode === 'perf') setManual({ area: 'perf', chapter: inPerf ? PERF_MANUAL[perfStage] : 'start' })
+    else setManual({})
+  }
+  const manualPanel = manual && <ManualPanel area={manual.area} chapter={manual.chapter} onClose={() => setManual(null)} />
+  // 과제 입력 메뉴가 칠해지는 때(팀원은 홈 밖이면 늘 과제 입력)
+  const inTasks = mode === 'tasks' || (!canPerf && mode !== 'home' && mode !== 'admin')
+  return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel }
+}
+
+function LogoutItem({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="mac-menu-item">
+      <LogOut size={14} strokeWidth={1.8} />
+      로그아웃
+    </button>
+  )
+}
+
+export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
+  const nav = useShellNav()
+  const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, currentWorkspace, exitToLanding } = nav
+  const { accountEmail, role, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
   function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode) {
     return (
       <button
@@ -82,22 +113,16 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
   }
   const label = (t: string) => (collapsed ? <div className="mx-3 my-3 h-px bg-separator" /> : <p className="ds-nav-label">{t}</p>)
 
-  function openManual() {
-    // 관리 화면은 과제 입력 매뉴얼 1장(권한 시트)
-    if (mode === 'admin') setManual({ area: 'tasks', chapter: 'sheet' })
-    else if (mode === 'tasks' || !canPerf) setManual({ area: 'tasks', chapter: taskMenu })
-    else if (mode === 'perf') setManual({ area: 'perf', chapter: inPerf ? PERF_MANUAL[perfStage] : 'start' })
-    else setManual({})
-  }
-
   return (
     <aside
       className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 transition-[width] duration-200 ${collapsed ? 'w-[60px]' : 'w-[236px]'}`}
       aria-label="메뉴"
     >
-      {/* 로고 · 이름(접으면 로고만). 접기 버튼은 화면 머리 맨 앞에 */}
+      {/* 로고 · 이름(접으면 로고만, 누르면 홈). 접기 버튼은 화면 머리 맨 앞에 */}
       <div className={`flex h-9 items-center gap-2.5 ${collapsed ? 'justify-center' : 'pl-1.5'}`}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-ink text-[11px] font-bold tracking-tight text-white">DL</span>
+        <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="shrink-0 rounded-[8px]">
+          <AppLogo size={28} />
+        </button>
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
             <span className="block truncate text-[13.5px] font-semibold text-label">디자인연구소</span>
@@ -112,7 +137,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         {label('과제 입력')}
         <div className="space-y-0.5">
           {TASK_ITEMS.map(({ key, label: l, Icon }) =>
-            item(key, l, Icon, (mode === 'tasks' || (!canPerf && mode !== 'home')) && taskMenu === key, () => {
+            item(key, l, Icon, inTasks && taskMenu === key, () => {
               setTaskMenu(key)
               if (mode !== 'tasks') setMode('tasks')
             }),
@@ -173,12 +198,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           onAccountChange={onAccountChange}
           title={accountEmail}
           className={`mt-2 flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
-          footer={
-            <button onClick={handleLogout} className="mac-menu-item">
-              <LogOut size={14} strokeWidth={1.8} />
-              로그아웃
-            </button>
-          }
+          footer={<LogoutItem onClick={handleLogout} />}
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[13px] font-semibold text-label shadow-pill">
             {accountEmail.slice(0, 1).toUpperCase()}
@@ -191,7 +211,115 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           )}
         </GoogleAccountMenu>
       )}
-      {manual && <ManualPanel area={manual.area} chapter={manual.chapter} onClose={() => setManual(null)} />}
+      {nav.manualPanel}
     </aside>
+  )
+}
+
+// 위 메뉴(사이드바를 끝까지 접었을 때 머리 한 줄): 로고(홈) · 과제 입력|성과관리 · 고르기 · 메뉴 알약 · 오른쪽 동작 · 아이콘 · 계정
+// 메뉴가 없는 화면(홈 · 프로젝트 목록 · 관리)은 메뉴 자리에 제목을 굵게.
+export function TopNav({ chooser, title, actions, perf }: { chooser?: ReactNode; title: ReactNode; actions?: ReactNode; perf?: SidebarPerfExtras }) {
+  const nav = useShellNav()
+  const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
+  const { accountEmail, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
+  const seg = (on: boolean, label: string, onClick: () => void) => (
+    <button
+      onClick={onClick}
+      aria-current={on ? 'page' : undefined}
+      className={`rounded-[7px] px-2.5 py-1 font-medium ${on ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+    >
+      {label}
+    </button>
+  )
+  const pill = (key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void) => (
+    <button
+      key={key}
+      onClick={onClick}
+      aria-current={on ? 'page' : undefined}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium ${on ? 'bg-ink text-white' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+    >
+      <Icon size={15} strokeWidth={1.8} />
+      {label}
+    </button>
+  )
+  const iconBtn = (label: string, Icon: LucideIcon, onClick: () => void, on = false) => (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-current={on ? 'page' : undefined}
+      className={`flex h-8 w-8 items-center justify-center rounded-full ${on ? 'bg-white text-accent shadow-pill' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+    >
+      <Icon size={17} strokeWidth={1.8} />
+    </button>
+  )
+  const Sep = () => <span className="mx-1 h-4 w-px bg-separator" />
+
+  let menu: ReactNode
+  if (inTasks)
+    menu = TASK_ITEMS.map(({ key, label, Icon }) =>
+      pill(key, label, Icon, taskMenu === key, () => {
+        setTaskMenu(key)
+        if (mode !== 'tasks') setMode('tasks')
+      }),
+    )
+  else if (inPerf)
+    menu = PERF_ITEMS.map(({ key, label, Icon, also }) => pill(key, label, Icon, perfStage === key || !!also?.includes(perfStage), () => setPerfStage(key)))
+  else menu = <h1 className="px-1 text-[16px] font-semibold tracking-[-0.01em] text-label">{title}</h1>
+
+  return (
+    <>
+      <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="ml-0.5 shrink-0 rounded-[8px]">
+        <AppLogo size={26} />
+      </button>
+      <span className="ml-1 flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5">
+        {seg(inTasks, '과제 입력', () => {
+          if (mode !== 'tasks') setMode('tasks')
+        })}
+        {canPerf &&
+          seg(mode === 'perf', '성과관리', () => {
+            // 이미 성과관리면 프로젝트 목록으로
+            if (mode === 'perf') {
+              if (currentWorkspaceId) exitToLanding()
+            } else setMode('perf')
+          })}
+      </span>
+      {chooser && (
+        <>
+          <Sep />
+          <span className="flex items-center font-medium text-label-2">{chooser}</span>
+        </>
+      )}
+      <Sep />
+      <nav className="flex flex-wrap items-center gap-0.5" aria-label="메뉴">
+        {menu}
+      </nav>
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {actions}
+        {inPerf && perf?.onOpenDataManager && (
+          // 저장 상태(저장됨 · 저장 중 · 실패)는 백업 버튼 바로 앞에
+          <span className="flex items-center gap-1 pl-1">
+            {perf.saveBadge}
+            {iconBtn('데이터 백업', Database, perf.onOpenDataManager)}
+          </span>
+        )}
+        {iconBtn('사용 매뉴얼', BookOpen, openManual)}
+        {isAdminUser && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
+        {accountEmail && (
+          <GoogleAccountMenu
+            placement="down"
+            onAccountChange={onAccountChange}
+            title={accountEmail}
+            className="ml-0.5 rounded-full"
+            footer={<LogoutItem onClick={handleLogout} />}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[13px] font-semibold text-label shadow-pill">
+              {accountEmail.slice(0, 1).toUpperCase()}
+            </span>
+          </GoogleAccountMenu>
+        )}
+      </div>
+      {nav.manualPanel}
+    </>
   )
 }

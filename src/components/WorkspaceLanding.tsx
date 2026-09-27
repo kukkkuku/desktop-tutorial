@@ -332,7 +332,7 @@ export default function WorkspaceLanding() {
   }
 
   return (
-    <AppShell header={<PageHeader crumbs={<span>성과관리</span>} title="프로젝트 목록" />}>
+    <AppShell header={<PageHeader area="성과관리" title="프로젝트 목록" />}>
       <main className="w-full max-w-7xl flex-1 px-6 pb-10 pt-5 lg:px-8">
         <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요. 프로젝트를 우클릭하면 복제하거나 지울 수 있습니다.</p>
         {dupError && <p className="mt-2 text-[13px] text-danger">{dupError}</p>}

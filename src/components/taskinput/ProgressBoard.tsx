@@ -126,6 +126,7 @@ import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/g
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
+import { SHELL_LAYOUT_EVENT } from '../shell/AppShell'
 
 // 보기 기간: 전체 · 상반기 · 하반기 · 분기 · 월
 type Period = { start: number; months: number }
@@ -2658,6 +2659,12 @@ export const PROGRESS_MENU_SLOT = 'progress-menu-slot'
 export const PROGRESS_ACTIONS_SLOT = 'progress-actions-slot'
 function MenuSlot({ id = PROGRESS_MENU_SLOT, children }: { id?: string; children: React.ReactNode }) {
   const [node, setNode] = useState<HTMLElement | null>(null)
-  useEffect(() => setNode(document.getElementById(id)), [id])
+  useEffect(() => {
+    const find = () => setNode(document.getElementById(id))
+    find()
+    // 메뉴 모양(펼침 · 아이콘만 · 위 메뉴)을 바꾸면 머리가 새로 그려져 빈 칸도 새것 -- 다시 찾는다
+    window.addEventListener(SHELL_LAYOUT_EVENT, find)
+    return () => window.removeEventListener(SHELL_LAYOUT_EVENT, find)
+  }, [id])
   return node ? createPortal(children, node) : null
 }

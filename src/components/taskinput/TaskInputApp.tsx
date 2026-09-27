@@ -1,6 +1,6 @@
-// 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 두 메뉴는 왼쪽 사이드바에 있다.
+// 과제 입력 -- 팀원도 쓰는 화면. 추진현황(일정표) / 진척률 두 메뉴는 왼쪽 사이드바(위 메뉴 모양이면 머리 줄)에 있다.
 import { useAppMode } from '../../state/AppMode'
-import AppShell, { CrumbSep, PageHeader } from '../shell/AppShell'
+import AppShell, { PageHeader } from '../shell/AppShell'
 import ProgressBoard, { PROGRESS_ACTIONS_SLOT, PROGRESS_MENU_SLOT } from './ProgressBoard'
 
 export default function TaskInputApp() {
@@ -9,14 +9,9 @@ export default function TaskInputApp() {
     <AppShell
       header={
         <PageHeader
-          crumbs={
-            <>
-              <span>과제 입력</span>
-              <CrumbSep />
-              {/* 추진현황 연도 고르기 -- 추진현황 화면이 채운다 */}
-              <span id={PROGRESS_MENU_SLOT} className="flex" />
-            </>
-          }
+          area="과제 입력"
+          // 추진현황 연도 고르기 -- 추진현황 화면이 채운다
+          chooser={<span id={PROGRESS_MENU_SLOT} className="flex" />}
           title={taskMenu === 'rate' ? '진척률' : '추진현황'}
           // 파일 메뉴(⋯) -- 추진현황 화면이 채운다
           actions={<span id={PROGRESS_ACTIONS_SLOT} className="flex" />}

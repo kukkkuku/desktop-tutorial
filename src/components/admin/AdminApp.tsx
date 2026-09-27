@@ -34,7 +34,7 @@ type Tab = 'access' | 'invite'
 export default function AdminApp() {
   const [tab, setTab] = useState<Tab>('access')
   return (
-    <AppShell header={<PageHeader crumbs={<span>관리</span>} title={tab === 'access' ? '권한 시트' : '팀원 초대'} />}>
+    <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 시트' : '팀원 초대'} />}>
       <PageTabs>
         <UnderlineTabs
           items={[
