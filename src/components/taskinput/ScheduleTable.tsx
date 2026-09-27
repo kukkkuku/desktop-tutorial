@@ -611,8 +611,12 @@ function FillDot({ onStart }: { onStart: (e: React.MouseEvent) => void }) {
         onStart(e)
       }}
       title="끌어서 반복 채우기"
-      className="absolute -bottom-[5px] -right-[5px] z-20 h-[9px] w-[9px] cursor-crosshair rounded-full bg-accent ring-2 ring-white"
-    />
+      data-fill-dot
+      className="absolute -bottom-[9px] -right-[9px] z-20 flex h-[17px] w-[17px] cursor-crosshair items-center justify-center"
+    >
+      {/* 보이는 점은 9px, 잡는 자리는 17px(경계 크기 조절보다 먼저 잡히게) */}
+      <span className="h-[9px] w-[9px] rounded-full bg-accent ring-2 ring-white" />
+    </span>
   )
 }
 
@@ -622,7 +626,20 @@ const LINE_BTN =
   'pointer-events-none group-hover/rs:pointer-events-auto group-hover/bd:pointer-events-auto whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
 
 // 열 경계: 마우스를 올리면 표 끝까지 파란 선(끌어서 폭 조절) · 선 위에 추가 버튼(extra)
-function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResize?: (w: number) => void; lineH?: number; extra?: React.ReactNode }) {
+// extraTop: + 열 버튼을 칸 위에서 몇 px 아래에 둘지(없으면 이 칸 바로 아래). 모든 + 열이 머리글 맨 아래 한 줄에 오게 맞춘다
+function ResizeHandle({
+  width,
+  onResize,
+  lineH,
+  extra,
+  extraTop,
+}: {
+  width: number
+  onResize?: (w: number) => void
+  lineH?: number
+  extra?: React.ReactNode
+  extraTop?: number
+}) {
   return (
     <span
       onMouseDown={(e) => {
@@ -642,7 +659,7 @@ function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResi
         window.addEventListener('mouseup', up)
       }}
       onClick={(e) => e.stopPropagation()}
-      title={onResize ? '끌어서 열 폭 조절' : ''}
+      title={onResize && !extra ? '끌어서 열 폭 조절' : ''}
       className={`group/rs absolute -right-[4px] top-0 z-30 h-full w-[8px] ${onResize ? 'cursor-col-resize' : ''}`}
     >
       <span
@@ -650,7 +667,11 @@ function ResizeHandle({ width, onResize, lineH, extra }: { width: number; onResi
         style={{ height: lineH ?? '100%' }}
       />
       {extra && (
-        <span title="" className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100">
+        <span
+          title=""
+          className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100"
+          style={extraTop !== undefined ? { top: extraTop } : undefined}
+        >
           {extra}
         </span>
       )}
@@ -1184,12 +1205,14 @@ export default function ScheduleTable({
   // 표 높이(열 추가 세로선을 표 끝까지만 -- 화면 높이로 그리면 짧은 표에도 세로 스크롤이 생긴다)
   const [tableH, setTableH] = useState(0)
   const [headTopH, setHeadTopH] = useState(0) // 머리글 첫 줄 높이(아래 줄 머리글의 세로선은 그만큼 짧게)
+  const [headH, setHeadH] = useState(0) // 머리글 전체 높이(+ 열 버튼을 머리글 바로 아래 한 줄에)
   useEffect(() => {
     const el = tableRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
       setTableH(el.offsetHeight)
       setHeadTopH(el.tHead?.rows[0]?.offsetHeight ?? 0)
+      setHeadH(el.tHead?.offsetHeight ?? 0)
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -1999,6 +2022,9 @@ export default function ScheduleTable({
   function findEdge(e: React.MouseEvent) {
     const td = (e.target as HTMLElement).closest('td') as HTMLTableCellElement | null
     if (!td || td.hasAttribute('data-rowhead') || (e.target as HTMLElement).closest('button,input,textarea,[role="listbox"]')) return null
+    // 채우기 점(고른 칸 오른쪽 아래) 가까이는 칸 경계여도 크기 조절 대신 채우기를 잡게 한다
+    const dot = (tableRef.current?.querySelector('[data-fill-dot]') as HTMLElement | null)?.getBoundingClientRect()
+    if (dot && Math.hypot(e.clientX - (dot.left + dot.width / 2), e.clientY - (dot.top + dot.height / 2)) <= 9) return null
     const r = td.getBoundingClientRect()
     const box = tableRef.current?.parentElement?.getBoundingClientRect()
     const t = tableRef.current?.getBoundingClientRect()
@@ -2134,6 +2160,7 @@ export default function ScheduleTable({
                       onResize={(v) => resizeTo('week', Math.max(8, v / weekCols.length))}
                       lineH={tableH}
                       extra={cols[0] ? addColButton(cols[0], 'left') : undefined}
+                      extraTop={headH - 1}
                     />
                   )}
                 </th>
