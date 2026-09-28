@@ -218,7 +218,19 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
 
 // 위 메뉴(사이드바를 끝까지 접었을 때 머리 한 줄): 로고(홈) · 과제 입력|성과관리 · 고르기 · 메뉴 알약 · 오른쪽 동작 · 아이콘 · 계정
 // 메뉴가 없는 화면(홈 · 프로젝트 목록 · 관리)은 메뉴 자리에 제목을 굵게.
-export function TopNav({ chooser, title, actions, perf }: { chooser?: ReactNode; title: ReactNode; actions?: ReactNode; perf?: SidebarPerfExtras }) {
+export function TopNav({
+  toggle,
+  chooser,
+  title,
+  actions,
+  perf,
+}: {
+  toggle?: ReactNode
+  chooser?: ReactNode
+  title: ReactNode
+  actions?: ReactNode
+  perf?: SidebarPerfExtras
+}) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
   const { accountEmail, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
@@ -269,9 +281,10 @@ export function TopNav({ chooser, title, actions, perf }: { chooser?: ReactNode;
 
   return (
     <>
-      <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="ml-0.5 shrink-0 rounded-[8px]">
-        <AppLogo size={26} />
+      <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="ml-1 shrink-0 rounded-[8px]">
+        <AppLogo size={28} />
       </button>
+      {toggle}
       <span className="ml-1 flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5">
         {seg(inTasks, '과제 입력', () => {
           if (mode !== 'tasks') setMode('tasks')
