@@ -824,7 +824,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
 
-  // 시트 연결을 바꾸는 것(링크 · xlsx)은 관리자만
+  // 시트 연결을 바꾸는 것(링크 · xlsx)은 팀장 · 관리자만
   const canManage = useCanManageSheets()
   const { canPerf } = useGoogleAccount() // 팀원은 성과관리로 내보내기 없음
   // 관리자가 공유한 시트: 권한 관리 시트의 「연결 시트」(내 팀 → 없으면 "전체"), 그것도 없으면 앱 기본(테스트 시트)

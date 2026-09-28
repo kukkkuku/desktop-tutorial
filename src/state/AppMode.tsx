@@ -2,7 +2,7 @@
 // 새로고침해도 같은 곳에 머물도록 이 탭(sessionStorage)에 기억하고, 새 창(새로 로그인)은 홈부터 연다.
 import { createContext, useContext, useState, type ReactNode } from 'react'
 
-export type AppMode = 'home' | 'perf' | 'tasks' | 'admin' // admin = 관리(권한 시트 · 팀원 초대, 관리자만)
+export type AppMode = 'home' | 'perf' | 'tasks' | 'admin' // admin = 관리(권한 시트 · 팀원 초대, 팀장 · 관리자)
 // 과제 입력 메뉴
 export type TaskMenu = 'progress' | 'rate'
 // 성과관리 메뉴(평가하기는 과제별 'tasks' / 팀원별 'evaluate' 두 보기)

@@ -1,4 +1,4 @@
-// 관리(관리자만): 권한 관리 시트 · 팀원 초대.
+// 관리(팀장 · 관리자): 권한 관리 시트 · 팀원 초대. 권한 표(사람 · 역할 · 연결 시트)를 고치는 것은 관리자만(팀장은 보기).
 //   권한 시트: 누가 어떤 역할인지(「사용자」)와 팀별 추진현황 시트(「연결 시트」)를 구글시트 한 곳에 두고,
 //   모두의 앱이 로그인할 때 읽는다. 여기서 바로 고쳐 "구글시트에 저장"(AccessEditor)하거나, 시트에서 고친 뒤 "다시 읽기".
 import { useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import AdminInvitePanel from '../AdminInvitePanel'
 import AccessEditor from './AccessEditor'
+import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { icSm } from '../ui/icon'
 import {
   ACCESS_EVENT,
@@ -29,7 +30,9 @@ import { isSheetsApiConfigured, parseSheetUrl } from '../../utils/sheetSources'
 type Tab = 'access' | 'invite'
 
 export default function AdminApp() {
-  const [tab, setTab] = useState<Tab>('access')
+  const { isAdminUser } = useGoogleAccount()
+  // 팀장은 주로 팀원 초대를 하러 온다
+  const [tab, setTab] = useState<Tab>(isAdminUser ? 'access' : 'invite')
   return (
     <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 시트' : '팀원 초대'} />}>
       <PageTabs>
@@ -42,7 +45,9 @@ export default function AdminApp() {
           onChange={(k) => setTab(k as Tab)}
         />
       </PageTabs>
-      <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">{tab === 'access' ? <AccessSheetPanel /> : <AdminInvitePanel />}</main>
+      <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
+        {tab === 'access' ? <AccessSheetPanel canEdit={isAdminUser} /> : <AdminInvitePanel />}
+      </main>
     </AppShell>
   )
 }
@@ -61,7 +66,7 @@ function useAccess() {
   return { data, id, sync: () => (setData(readAccessCache()), setId(getAccessSheetId())) }
 }
 
-function AccessSheetPanel() {
+function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   const { data, id, sync } = useAccess()
   const [busy, setBusy] = useState<'' | 'create' | 'read' | 'link'>('')
   const [error, setError] = useState('')
@@ -118,7 +123,9 @@ function AccessSheetPanel() {
         추진현황의 "관리자가 공유한 시트"를 정합니다. 아래 표에서 바로 고쳐 <b>구글시트에 저장</b>하세요(시트의 「변경 기록」 탭에 남습니다).
       </p>
 
-      {!id ? (
+      {!id && !canEdit ? (
+        <p className="text-[13px] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
+      ) : !id ? (
         <section className="rounded-card border border-separator p-5">
           <h3 className="flex items-center gap-2 text-[15px] font-semibold text-label">
             <ShieldCheck size={17} strokeWidth={1.8} className="text-accent" />
@@ -155,15 +162,17 @@ function AccessSheetPanel() {
                   {busy === 'read' ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
                   다시 읽기
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => (forgetAccess(), sync())}
-                  disabled={!!busy}
-                  title="이 브라우저에서 권한 시트 연결을 끊습니다(시트는 그대로)"
-                >
-                  연결 끊기
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => (forgetAccess(), sync())}
+                    disabled={!!busy}
+                    title="이 브라우저에서 권한 시트 연결을 끊습니다(시트는 그대로)"
+                  >
+                    연결 끊기
+                  </Button>
+                )}
               </span>
             </div>
             {me && (
@@ -195,11 +204,13 @@ function AccessSheetPanel() {
             </ol>
           </section>
 
-          {data && <AccessEditor data={data} me={me} onSaved={sync} />}
-          <details className="text-[13px] text-label-2">
-            <summary className="cursor-pointer select-none">다른 권한 시트로 바꾸기</summary>
-            <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
-          </details>
+          {data && <AccessEditor data={data} me={me} onSaved={sync} readOnly={!canEdit} />}
+          {canEdit && (
+            <details className="text-[13px] text-label-2">
+              <summary className="cursor-pointer select-none">다른 권한 시트로 바꾸기</summary>
+              <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
+            </details>
+          )}
         </>
       )}
       {error && <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">{error}</p>}

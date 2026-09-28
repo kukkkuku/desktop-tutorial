@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAccessSheetId, refreshAccess } from './utils/accessSheet'
 import { LOGIN_EVENT } from './utils/googleDrive'
+import { hasLoginSheetsToken } from './utils/sheetSources'
 import { AppProvider } from './state/AppContext'
 import { WorkspaceProvider, useWorkspaces } from './state/WorkspaceContext'
 import { TeamProvider } from './state/TeamContext'
@@ -189,9 +190,9 @@ function WorkspaceGate() {
 // 홈(대문)에서 고른 곳으로: 성과관리(기존 평가 앱, 팀장) / 과제 입력(추진현황·진척률)
 function ModeGate() {
   const { mode } = useAppMode()
-  const { canPerf, isAdminUser } = useGoogleAccount()
+  const { canPerf, canManage } = useGoogleAccount()
   if (mode === 'home') return <HomePage />
-  if (mode === 'admin' && isAdminUser) return <AdminApp />
+  if (mode === 'admin' && canManage) return <AdminApp />
   if (mode === 'tasks' || !canPerf) return <TaskInputApp />
   return <WorkspaceGate />
 }
@@ -204,6 +205,8 @@ function useAccessSync() {
       if (getAccessSheetId()) refreshAccess().catch(() => {})
     }
     window.addEventListener(LOGIN_EVENT, on)
+    // 이미 로그인된 채로 열었을 때도 한 번(시트 읽기 권한이 있는 로그인 토큰이 있을 때만 -- 권한 창이 뜨지 않게)
+    if (getConnectedEmail() && hasLoginSheetsToken()) on()
     return () => window.removeEventListener(LOGIN_EVENT, on)
   }, [])
 }

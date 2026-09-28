@@ -1,4 +1,4 @@
-// 관리자 전용: 관리자 계정으로 Google 로그인한 뒤 그 사람 명의로 팀원들에게
+// 팀장 · 관리자: 그 계정으로 Google 로그인한 뒤 그 사람 명의로 팀원들에게
 // 초대 메일을 직접 보낸다(Gmail API, gmail.send 스코프). 백엔드 서버 없이
 // 브라우저에서 바로 돌아가는 이 앱 구조상, "관리자"는 서버가 검증하는
 // 역할이 아니라 로그인한 Google 계정 이메일이 아래 화이트리스트에 있는지만
@@ -8,11 +8,13 @@
 // 사용자 목록이 담당한다).
 import * as XLSX from 'xlsx'
 import { loadGis } from './googleDrive'
+import { canManageEmail } from './roles'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 const ADMIN_SCOPE = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
 
-export const ADMIN_EMAILS = ['jjy.osstem@gmail.com']
+// 보낼 수 있는 사람: 팀장 · 관리자(권한 시트 역할 · 앱에 정해 둔 첫 관리자)
+const canSend = (email: string | null) => canManageEmail(email)
 
 export function isAdminConfigured(): boolean {
   return Boolean(CLIENT_ID)
@@ -28,7 +30,7 @@ let adminToken: { token: string; expiresAt: number } | null = null
 let adminEmail: string | null = null
 
 export function isAdminConnected(): boolean {
-  return adminToken !== null && adminToken.expiresAt - 60_000 > Date.now() && adminEmail !== null && ADMIN_EMAILS.includes(adminEmail)
+  return adminToken !== null && adminToken.expiresAt - 60_000 > Date.now() && canSend(adminEmail)
 }
 
 export function getAdminEmail(): string | null {
@@ -43,7 +45,7 @@ async function fetchEmail(accessToken: string): Promise<string | null> {
 }
 
 // "관리자로 Google 연결" 버튼에서 호출한다. 로그인 자체는 성공해도, 그
-// 계정이 ADMIN_EMAILS에 없으면 토큰을 버리고 에러를 던진다.
+// 계정이 팀장 · 관리자가 아니면 토큰을 버리고 에러를 던진다.
 export async function connectAdmin(): Promise<void> {
   await loadGis()
   if (!CLIENT_ID) throw new Error('Google Client ID가 설정되지 않았습니다.')
@@ -62,10 +64,10 @@ export async function connectAdmin(): Promise<void> {
   })
 
   const email = await fetchEmail(accessToken)
-  if (!email || !ADMIN_EMAILS.includes(email)) {
+  if (!email || !canSend(email)) {
     adminToken = null
     adminEmail = null
-    throw new Error(`관리자 계정이 아닙니다${email ? ` (${email})` : ''}. 관리자로 등록된 계정으로 로그인해주세요.`)
+    throw new Error(`팀장 · 관리자 계정이 아닙니다${email ? ` (${email})` : ''}. 권한 시트에 팀장 · 관리자로 등록된 계정으로 로그인해주세요.`)
   }
 
   adminToken = { token: accessToken, expiresAt: Date.now() + 3300 * 1000 }
@@ -226,7 +228,7 @@ export interface SendInviteResult {
 // 순차 발송한다 -- Gmail API에는 여러 수신자에게 한 번에 보내는 배치
 // 엔드포인트가 없고, 병렬로 쏘면 사용자별 발송 쿼터에 걸리기 쉽다.
 export async function sendInviteEmails(emails: string[], subject: string, bodyText: string): Promise<SendInviteResult> {
-  if (!isAdminConnected() || !adminToken || !adminEmail) throw new Error('관리자로 먼저 연결해주세요.')
+  if (!isAdminConnected() || !adminToken || !adminEmail) throw new Error('Google 계정으로 먼저 연결해주세요.')
 
   const sent: string[] = []
   const failed: { email: string; error: string }[] = []

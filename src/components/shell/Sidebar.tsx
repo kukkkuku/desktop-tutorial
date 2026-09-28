@@ -95,7 +95,7 @@ function LogoutItem({ onClick }: { onClick: () => void }) {
 export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, currentWorkspace, exitToLanding } = nav
-  const { accountEmail, role, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
+  const { accountEmail, role, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
   function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode) {
     return (
       <button
@@ -188,8 +188,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       {/* 아래: 매뉴얼 · 백업 · 계정 */}
       <div className="space-y-0.5 pt-2">
         {item('manual', '사용 매뉴얼', BookOpen, false, openManual)}
-        {/* 관리(관리자만): 권한 관리 시트 · 팀원 초대 */}
-        {isAdminUser && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
+        {/* 관리(팀장 · 관리자): 권한 관리 시트(고치기는 관리자만) · 팀원 초대 */}
+        {canManage && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
         {inPerf && perf?.onOpenDataManager && item('backup', '데이터 백업', Database, false, perf.onOpenDataManager, perf.saveBadge)}
       </div>
       {accountEmail && (
@@ -221,7 +221,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
 export function TopNav({ chooser, title, actions, perf }: { chooser?: ReactNode; title: ReactNode; actions?: ReactNode; perf?: SidebarPerfExtras }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
-  const { accountEmail, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
+  const { accountEmail, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
   const seg = (on: boolean, label: string, onClick: () => void) => (
     <button
       onClick={onClick}
@@ -304,7 +304,7 @@ export function TopNav({ chooser, title, actions, perf }: { chooser?: ReactNode;
           </span>
         )}
         {iconBtn('사용 매뉴얼', BookOpen, openManual)}
-        {isAdminUser && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
+        {canManage && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
         {accountEmail && (
           <GoogleAccountMenu
             placement="down"

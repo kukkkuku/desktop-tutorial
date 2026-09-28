@@ -1,7 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { ArrowRight, Trash2 } from 'lucide-react'
 import {
-  ADMIN_EMAILS,
   addEmailsToList,
   connectAdmin,
   getAdminEmail,
@@ -30,13 +29,13 @@ const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「�
 아래 링크에서 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.
 ${appInviteUrl()}
 
-※ 로그인이 안 되면 관리자에게 문의해주세요(테스트 사용자 등록이 필요할 수 있습니다).`
+※ 로그인이 안 되면 이 메일을 보낸 사람에게 알려 주세요(구글 테스트 사용자 등록이 필요할 수 있습니다).`
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-// "데이터 관리" 드로어의 관리자 탭 내용. 관리자 계정으로 Google 연결한
+// 관리 › 팀원 초대(팀장 · 관리자). 내 계정으로 Google 연결한
 // 뒤에만 초대 대상자 추가/삭제와 메일 발송 폼이 보인다.
 export default function AdminInvitePanel() {
   const configured = isAdminConfigured()
@@ -139,11 +138,11 @@ export default function AdminInvitePanel() {
   if (!connected) {
     return (
       <div className="space-y-3">
-        <p className="text-[13px] text-label-2">관리자 계정으로 Google 연결하면 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
-        <p className="text-[13px] text-label-3">허용된 관리자: {ADMIN_EMAILS.join(', ')}</p>
+        <p className="text-[13px] text-label-2">내 Google 계정(Gmail)으로 연결하면 그 계정 이름으로 팀원들에게 초대 메일을 보낼 수 있습니다.</p>
+        <p className="text-[13px] text-label-3">팀장 · 관리자만 보낼 수 있습니다(권한 시트 역할).</p>
         <Button variant="primary" onClick={() => void handleConnect()} disabled={connecting} className="w-full">
           {connecting && <Spinner className="h-3.5 w-3.5 text-white" />}
-          {connecting ? '연결하는 중...' : '관리자로 Google 연결'}
+          {connecting ? '연결하는 중...' : '내 Google 계정으로 연결'}
         </Button>
         {connectError && <p className="text-[13px] text-danger">{connectError}</p>}
       </div>
@@ -155,7 +154,7 @@ export default function AdminInvitePanel() {
       <div className="flex items-center justify-between rounded-card bg-[#F7F7F9] px-3 py-2">
         <span className="flex items-center gap-2 text-[13px] text-label">
           {getAdminEmail()}
-          <span className="mac-badge bg-success/15 text-success">관리자 연결됨</span>
+          <span className="mac-badge bg-success/15 text-success">연결됨</span>
         </span>
       </div>
 

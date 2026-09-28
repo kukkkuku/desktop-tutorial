@@ -221,7 +221,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       dispatch({ type: 'SET_WORK_BOARD', payload: { ...board, sheetLink: { ...board.sheetLink, fileTitle: linkFileTitle } } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkFileTitle])
-  const canManageSheets = useCanManageSheets() // 시트 연결을 바꾸는 것은 관리자만(팀원은 새로고침만)
+  const canManageSheets = useCanManageSheets() // 시트 연결을 바꾸는 것은 팀장 · 관리자만(팀원은 새로고침만)
   const tabStripRef = useRef<HTMLDivElement>(null)
   const tabsCompact = useTabFit(tabStripRef, board.groups.length + 1, 130)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)

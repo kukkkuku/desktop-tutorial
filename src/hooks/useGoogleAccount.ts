@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { GATE_KEY } from '../components/GoogleSignInGate'
-import { canUsePerf, isAdminEmail, roleOf } from '../utils/roles'
+import { canManageEmail, canUsePerf, isAdminEmail, roleOf } from '../utils/roles'
 import { LOGIN_EVENT, disconnectDrive, forgetLogin, getConnectedEmail } from '../utils/googleDrive'
 import { ACCESS_EVENT } from '../utils/accessSheet'
 
@@ -27,6 +27,8 @@ export function useGoogleAccount() {
   const isAdminUser = isAdminEmail(accountEmail)
   const role = roleOf(accountEmail)
   const canPerf = canUsePerf(accountEmail)
+  // 관리 메뉴 · 시트 연결 바꾸기 · 팀원 초대(팀장 이상). 권한 표 고치기는 isAdminUser만
+  const canManage = canManageEmail(accountEmail)
 
   function handleLogout() {
     disconnectDrive()
@@ -41,5 +43,5 @@ export function useGoogleAccount() {
     window.location.reload()
   }
 
-  return { accountEmail, isAdminUser, role, canPerf, refreshAccount, handleLogout }
+  return { accountEmail, isAdminUser, canManage, role, canPerf, refreshAccount, handleLogout }
 }

@@ -34,14 +34,14 @@ const fullEmail = (x: string) => (x.includes('@') ? x.trim() : /^[a-z0-9.]{3,}$/
 const input =
   'h-8 w-full min-w-0 rounded-control border border-transparent bg-transparent px-2 text-[12.5px] outline-none hover:border-hairline focus:border-accent focus:bg-white'
 
-export default function AccessEditor({ data, me, onSaved }: { data: AccessData; me: string | null; onSaved: () => void }) {
+export default function AccessEditor({ data, me, onSaved, readOnly }: { data: AccessData; me: string | null; onSaved: () => void; readOnly?: boolean }) {
   const [users, setUsers] = useState<AccessUser[]>(data.users)
   const [links, setLinks] = useState<AccessLink[]>(data.links)
   const [paste, setPaste] = useState<{ text: string; role: AccessRole } | null>(null)
   const [confirm, setConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
-  const dirty = !sameAccess(data, { users, links })
+  const dirty = !readOnly && !sameAccess(data, { users, links })
 
   // 시트를 다시 읽으면(다시 읽기 · 저장 · 저장 충돌) 화면을 시트 내용으로
   useEffect(() => {
@@ -109,7 +109,13 @@ export default function AccessEditor({ data, me, onSaved }: { data: AccessData; 
   }
 
   return (
-    <div className="space-y-5">
+    // 팀장은 보기만(칸 · 버튼이 모두 잠김)
+    <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-5 border-0 p-0">
+      {readOnly && (
+        <p className="rounded-card bg-subtle px-3 py-2 text-[12.5px] text-label-2">
+          사람 · 역할 · 연결 시트를 고치는 것은 관리자만 합니다. 바꿀 것이 있으면 관리자에게 알려 주세요.
+        </p>
+      )}
       {/* 저장 줄: 고친 것이 있을 때만 */}
       {dirty && (
         <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-card border border-accent/30 bg-accent-soft px-4 py-2.5">
@@ -151,7 +157,7 @@ export default function AccessEditor({ data, me, onSaved }: { data: AccessData; 
             {USERS_TAB} <span className="font-normal text-label-3">{users.length}명</span>
           </h3>
           <span className="text-[12px] text-label-3">칸을 눌러 바로 고칩니다</span>
-          <span className="ml-auto flex gap-1.5">
+          <span className={`ml-auto flex gap-1.5 ${readOnly ? 'hidden' : ''}`}>
             <Button variant="secondary" size="sm" onClick={() => setPaste(paste ? null : { text: '', role: 'member' })}>
               <ClipboardPaste {...icSm} />
               여러 명 붙여넣기
@@ -261,12 +267,15 @@ export default function AccessEditor({ data, me, onSaved }: { data: AccessData; 
           </datalist>
         </div>
         {!users.length && <p className="mt-2 text-[12.5px] text-label-3">비어 있습니다. 한 명 추가 · 여러 명 붙여넣기로 넣으세요.</p>}
-        {/* 역할별로 되는 것(roles.ts · useSheetManager와 같은 기준) */}
+        {/* 역할별로 되는 것(roles.ts · useSheetManager · AdminApp과 같은 기준) */}
         <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[12px] text-label-2 sm:grid-cols-[auto_1fr]">
           <dt className="font-semibold text-label">관리자</dt>
-          <dd>팀장이 하는 것 전부 + 관리 메뉴(이 권한 표 고치기 · 팀원 초대 메일) + 추진현황 · 과제관리의 시트 연결 바꾸기(링크 · 새 연도 · 엑셀로 시작)</dd>
+          <dd>팀장이 하는 것 전부 + 이 권한 표(사람 · 역할 · 연결 시트) 고치기</dd>
           <dt className="font-semibold text-label">팀장</dt>
-          <dd>과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담). 시트 연결은 바꾸지 못하고 연결된 시트를 불러오기만</dd>
+          <dd>
+            과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담) + 관리 메뉴의 팀원 초대 메일 + 추진현황 · 과제관리의 시트 연결 바꾸기(링크 · 새 연도 · 엑셀로
+            시작). 권한 표는 보기만
+          </dd>
           <dt className="font-semibold text-label">팀원</dt>
           <dd>과제 입력만(추진현황 입력 · 저장, 진척률 보기)</dd>
         </dl>
@@ -278,7 +287,12 @@ export default function AccessEditor({ data, me, onSaved }: { data: AccessData; 
             {LINKS_TAB} <span className="font-normal text-label-3">{links.length}개</span>
           </h3>
           <span className="text-[12px] text-label-3">팀별 추진현황 시트 · 「{ALL_TEAMS}」 = 팀 줄이 없는 모두</span>
-          <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setLinks([...links, { team: '', url: '', note: '' }])}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`ml-auto ${readOnly ? 'hidden' : ''}`}
+            onClick={() => setLinks([...links, { team: '', url: '', note: '' }])}
+          >
             <Plus {...icSm} />팀 시트 추가
           </Button>
         </div>
@@ -348,6 +362,6 @@ export default function AccessEditor({ data, me, onSaved }: { data: AccessData; 
           ))}
         </ul>
       </ConfirmDialog>
-    </div>
+    </fieldset>
   )
 }
