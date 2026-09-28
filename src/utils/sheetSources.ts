@@ -603,6 +603,29 @@ export async function replaceSheetTab(
   return { sheetId, created: false }
 }
 
+// 값만 쓰기(RAW -- 수식 · 날짜로 바꾸지 않음). 여러 범위를 한 번에.
+export async function writeValues(spreadsheetId: string, data: { range: string; values: string[][] }[]): Promise<void> {
+  if (!data.length) return
+  await sheetsFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`,
+    { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) },
+    true,
+  )
+}
+// 탭 맨 아래에 줄 더하기(변경 기록 등). 탭이 없으면 머리글과 함께 만든다.
+export async function appendRows(spreadsheetId: string, tab: string, header: string[], rows: string[][]): Promise<void> {
+  const { tabs } = await fetchSpreadsheetTabs(spreadsheetId)
+  if (!tabs.some((t) => t.title === tab)) {
+    await sheetBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: tab, gridProperties: { frozenRowCount: 1 } } } }])
+    await writeValues(spreadsheetId, [{ range: `${quoteTab(tab)}!A1`, values: [header] }])
+  }
+  await sheetsFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(`${quoteTab(tab)}!A1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
+    { method: 'POST', body: JSON.stringify({ values: rows }) },
+    true,
+  )
+}
+
 // 요청 묶음을 그대로 보낸다(쓰기 권한)
 export async function sheetBatchUpdate(spreadsheetId: string, requests: object[]): Promise<void> {
   if (!requests.length) return

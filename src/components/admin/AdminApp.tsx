@@ -1,20 +1,17 @@
 // 관리(관리자만): 권한 관리 시트 · 팀원 초대.
 //   권한 시트: 누가 어떤 역할인지(「사용자」)와 팀별 추진현황 시트(「연결 시트」)를 구글시트 한 곳에 두고,
-//   모두의 앱이 로그인할 때 읽는다. 수정은 구글시트에서 하고 여기서 "다시 읽기".
+//   모두의 앱이 로그인할 때 읽는다. 여기서 바로 고쳐 "구글시트에 저장"(AccessEditor)하거나, 시트에서 고친 뒤 "다시 읽기".
 import { useEffect, useState } from 'react'
-import { Check, Copy, ExternalLink, FileSpreadsheet, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Check, Copy, FileSpreadsheet, RefreshCw, ShieldCheck } from 'lucide-react'
 import AppShell, { PageHeader, PageTabs } from '../shell/AppShell'
 import UnderlineTabs from '../ui/UnderlineTabs'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import AdminInvitePanel from '../AdminInvitePanel'
+import AccessEditor from './AccessEditor'
 import { icSm } from '../ui/icon'
 import {
   ACCESS_EVENT,
-  ALL_TEAMS,
-  LINKS_TAB,
-  ROLE_WORD,
-  USERS_TAB,
   accessSheetUrl,
   appInviteUrl,
   createAccessSheet,
@@ -71,6 +68,11 @@ function AccessSheetPanel() {
   const [linkInput, setLinkInput] = useState('')
   const [copied, setCopied] = useState(false)
   const me = getConnectedEmail()
+  // 화면을 열 때 한 번 시트를 다시 읽는다(고치기 전에 최신 내용으로 -- 저장 때 덮어쓰기 충돌을 줄임)
+  useEffect(() => {
+    if (id && isSheetsApiConfigured()) void refreshAccess(id).then(sync, () => undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function run(kind: typeof busy, fn: () => Promise<unknown>) {
     setBusy(kind)
@@ -113,7 +115,7 @@ function AccessSheetPanel() {
     <div className="max-w-4xl space-y-5">
       <p className="text-[13px] leading-relaxed text-label-2">
         누가 <b>관리자 · 팀장 · 팀원</b>인지와 팀별 <b>추진현황 시트</b>를 구글시트 한 곳에 적어 둡니다. 모두의 앱이 로그인할 때 이 시트를 읽어, 메뉴(역할)와
-        추진현황의 "관리자가 공유한 시트"를 정합니다. 수정은 구글시트에서 하고 여기서 "다시 읽기"를 누르세요.
+        추진현황의 "관리자가 공유한 시트"를 정합니다. 아래 표에서 바로 고쳐 <b>구글시트에 저장</b>하세요(시트의 「변경 기록」 탭에 남습니다).
       </p>
 
       {!id ? (
@@ -193,64 +195,7 @@ function AccessSheetPanel() {
             </ol>
           </section>
 
-          {data && (
-            <div className="grid gap-5 lg:grid-cols-2">
-              <section className="rounded-card border border-separator p-5">
-                <h3 className="text-[14px] font-semibold text-label">
-                  {USERS_TAB} <span className="font-normal text-label-3">{data.users.length}명</span>
-                </h3>
-                <table className="mt-2 w-full text-[12.5px]">
-                  <thead>
-                    <tr className="text-left text-label-3">
-                      <th className="py-1 font-medium">이메일</th>
-                      <th className="py-1 font-medium">이름</th>
-                      <th className="py-1 font-medium">역할</th>
-                      <th className="py-1 font-medium">팀</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.users.map((u) => (
-                      <tr key={u.email} className="border-t border-separator">
-                        <td className="max-w-[180px] truncate py-1.5 pr-2">{u.email}</td>
-                        <td className="py-1.5 pr-2">{u.name}</td>
-                        <td className="py-1.5 pr-2">{ROLE_WORD[u.role]}</td>
-                        <td className="py-1.5">{u.team}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!data.users.length && <p className="mt-2 text-[12.5px] text-label-3">비어 있습니다. 시트에 적고 다시 읽으세요.</p>}
-              </section>
-              <section className="rounded-card border border-separator p-5">
-                <h3 className="text-[14px] font-semibold text-label">
-                  {LINKS_TAB} <span className="font-normal text-label-3">{data.links.length}개</span>
-                </h3>
-                <table className="mt-2 w-full text-[12.5px]">
-                  <thead>
-                    <tr className="text-left text-label-3">
-                      <th className="py-1 font-medium">팀</th>
-                      <th className="py-1 font-medium">추진현황 시트</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.links.map((l) => (
-                      <tr key={l.team + l.url} className="border-t border-separator">
-                        <td className="py-1.5 pr-2">{l.team === ALL_TEAMS ? <b>{ALL_TEAMS}</b> : l.team}</td>
-                        <td className="max-w-[260px] truncate py-1.5">
-                          <a href={withGoogleAccount(l.url)} target="_blank" rel="noreferrer" className="text-accent hover:underline" title={l.url}>
-                            {l.note || l.url} <ExternalLink size={11} className="inline" />
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!data.links.some((l) => l.team === ALL_TEAMS) && (
-                  <p className="mt-2 text-[12px] text-orange-600">"전체" 행이 없습니다 -- 팀이 안 적힌 사람은 앱 기본 시트(테스트 시트)를 씁니다.</p>
-                )}
-              </section>
-            </div>
-          )}
+          {data && <AccessEditor data={data} me={me} onSaved={sync} />}
           <details className="text-[13px] text-label-2">
             <summary className="cursor-pointer select-none">다른 권한 시트로 바꾸기</summary>
             <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
