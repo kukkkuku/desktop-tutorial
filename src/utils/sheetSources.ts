@@ -622,18 +622,79 @@ export interface XlsxBook {
   sheets: RawSheet[]
 }
 
+// 한컴오피스(HCell)로 저장한 xlsx는 엑셀 읽기(SheetJS)가 못 읽는 모양이 있어, 읽기 전에 그 부분만 표준 모양으로 고친다.
+//   · 목록 파일의 속성에 빈칸(PartName = "…") → 시트를 하나도 못 찾음
+//   · 글자 서식을 mc:AlternateContent(한컴 전용 hs: 태그 + 표준 Fallback)로 감쌈 → 공용 글자 목록을 못 읽어 모든 칸이 깨짐
+//   · 메모 위치가 "D159:D159" → 없는 칸이 생기고 표 범위가 터무니없이 커짐
+// 한컴 파일이 아니면 그대로 돌려준다.
+export async function readXlsxBookAsync(buffer: ArrayBuffer, fileName: string): Promise<XlsxBook> {
+  return readXlsxBook(await fixHancomXlsx(buffer), fileName)
+}
+async function fixHancomXlsx(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+  const { default: JSZip } = await import('jszip')
+  let zip: InstanceType<typeof JSZip>
+  try {
+    zip = await JSZip.loadAsync(buffer)
+  } catch {
+    return buffer // xls 등 zip이 아니면 그대로
+  }
+  const types = await zip.file('[Content_Types].xml')?.async('string')
+  const book = await zip.file('xl/workbook.xml')?.async('string')
+  if (!types || !(/\s=\s*"/.test(types) || book?.includes('appName="HCell"'))) return buffer
+  let changed = false
+  for (const name of Object.keys(zip.files)) {
+    if (!/(\.rels|\[Content_Types\]\.xml|sharedStrings\.xml|styles\.xml|comments\d*\.xml)$/.test(name)) continue
+    const t = await zip.file(name)!.async('string')
+    const f = t
+      .replace(/(\s[\w:]+)\s+=\s*(["'])/g, '$1=$2')
+      .replace(/<mc:AlternateContent\b[^>]*>[\s\S]*?<mc:Fallback>([\s\S]*?)<\/mc:Fallback>\s*<\/mc:AlternateContent>/g, '$1')
+      .replace(/<hs:[^>]*\/>/g, '')
+      .replace(/(<(?:\w+:)?comment\b[^>]*\sref=")([A-Z]+\d+):\2"/g, '$1$2"')
+    if (f !== t) {
+      zip.file(name, f)
+      changed = true
+    }
+  }
+  return changed ? zip.generateAsync({ type: 'arraybuffer' }) : buffer
+}
+
+// 칸 배경색(흰색 · 없음은 null)
+function cellFill(cell: XLSX.CellObject | undefined): string | null {
+  const rgb = (cell?.s as { fgColor?: { rgb?: string } } | undefined)?.fgColor?.rgb
+  return rgb && /^[0-9A-F]{6,8}$/i.test(rgb) && !/^(FF)?FFFFFF$/i.test(rgb) ? rgb.slice(-6).toUpperCase() : null
+}
+// 표 범위: !ref 대신 값 · 메모 · 배경색이 있는 칸에서 센다.
+// (한컴 파일은 서식만 있는 칸이 XFD 열까지 있어, !ref대로 읽으면 칸이 천만 개가 넘는다)
+function usedRange(ws: XLSX.WorkSheet): { rows: number; cols: number } {
+  let rows = 0
+  let cols = 0
+  for (const k of Object.keys(ws)) {
+    if (k[0] === '!' || !/^[A-Z]+\d+$/.test(k)) continue
+    const cell = ws[k] as XLSX.CellObject & { c?: unknown[] }
+    if ((cell.v === undefined || cell.v === null || cell.v === '') && !cell.c?.length && !cellFill(cell)) continue
+    const a = XLSX.utils.decode_cell(k)
+    if (a.r + 1 > rows) rows = a.r + 1
+    if (a.c + 1 > cols) cols = a.c + 1
+  }
+  for (const m of ws['!merges'] ?? []) {
+    rows = Math.max(rows, m.e.r + 1)
+    cols = Math.max(cols, m.e.c + 1)
+  }
+  return { rows, cols }
+}
+
 export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
   // cellNF: 칸 서식을 같이 읽어 날짜 서식 칸을 알아본다.
   const wb = XLSX.read(buffer, { type: 'array', cellDates: false, cellNF: true, cellStyles: true })
   const sheets: RawSheet[] = wb.SheetNames.map((name, idx) => {
-    const ws = wb.Sheets[name]
+    const ws = wb.Sheets[name] ?? {} // 못 읽은 시트는 빈 탭으로
     const hidden = Boolean(wb.Workbook?.Sheets?.[idx]?.Hidden)
-    const ref = ws['!ref']
     const rows: unknown[][] = []
     const fills: (string | null)[][] = []
     const notes: (string | null)[][] = []
-    if (ref) {
-      const range = XLSX.utils.decode_range(ref)
+    const used = usedRange(ws)
+    if (used.rows) {
+      const range = { e: { r: used.rows - 1, c: used.cols - 1 } }
       for (let r = 0; r <= range.e.r; r++) {
         const row: unknown[] = []
         fills[r] = []
@@ -647,8 +708,7 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
                 .join('\n')
                 .trim() || null
             : null
-          const rgb = (cell?.s as { fgColor?: { rgb?: string } } | undefined)?.fgColor?.rgb
-          fills[r][c] = rgb && /^[0-9A-F]{6,8}$/i.test(rgb) && !/^(FF)?FFFFFF$/i.test(rgb) ? rgb.slice(-6).toUpperCase() : null
+          fills[r][c] = cellFill(cell)
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
             row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
           } else row.push(cell ? cell.v : null)

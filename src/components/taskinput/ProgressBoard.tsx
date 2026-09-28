@@ -52,7 +52,7 @@ import {
   isSheetsApiConfigured,
   parseSheetUrl,
   pickDefaultTab,
-  readXlsxBook,
+  readXlsxBookAsync,
   type XlsxBook,
   sheetUrl,
   writeSheetCells,
@@ -954,7 +954,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setError('')
     setMessage('')
     try {
-      const book = readXlsxBook(await file.arrayBuffer(), file.name)
+      const book = await readXlsxBookAsync(await file.arrayBuffer(), file.name)
       bookRef.current = book
       const title = pickDefaultTab(
         book.sheets.map((s) => ({ title: s.title, hidden: !!s.hidden })),

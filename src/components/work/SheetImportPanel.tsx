@@ -30,7 +30,7 @@ import {
   isSheetsApiConfigured,
   parseSheetUrl,
   pickDefaultTab,
-  readXlsxBook,
+  readXlsxBookAsync,
   sheetUrl,
   type XlsxBook,
   SheetsAuthError,
@@ -165,7 +165,7 @@ export default function SheetImportPanel({
   function loadFromFile(file: File) {
     void run('파일을 읽는 중', async () => {
       const buf = await file.arrayBuffer()
-      const b = readXlsxBook(buf, file.name)
+      const b = await readXlsxBookAsync(buf, file.name)
       setBook(b)
       setSpreadsheetId(null)
       setBookTitle(b.title)
