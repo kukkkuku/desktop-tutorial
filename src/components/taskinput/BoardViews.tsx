@@ -2,7 +2,7 @@
 //   보드: 상태(대기 · 진행중 · 완료 · 보류 · 중단)별 칸반. 카드를 다른 칸으로 끌면 상태가 바뀐다(표에서 고친 것과 같음 -- 저장해야 시트에 반영).
 //   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScheduleRowView } from './ScheduleTable'
 import { STATUS_TONE } from './ScheduleTable'
 import { planRange, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
@@ -167,6 +167,9 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
   const asOf = nowIdx >= 0 ? nowIdx : weekCols.length - 1
   const nowMonth = weekCols[asOf]?.month
   const [filter, setFilter] = useState<Filter>('all')
+  // 그룹(L1) 탭을 바꾸면 요약 카드 거르기는 전체로(다른 탭에서 눌러 둔 거르기가 남아 빈 화면이 되지 않게)
+  const l1Key = views[0]?.row.l1 ?? ''
+  useEffect(() => setFilter('all'), [l1Key])
   // 화면 너비 · 과제명 칸 너비
   const boxRef = useRef<HTMLDivElement>(null)
   const [cw, setCw] = useState(0)
@@ -252,7 +255,8 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
           <button
             key={c.k}
             onClick={() => setFilter(filter === c.k && c.k !== 'all' ? 'all' : c.k)}
-            className={`rounded-[14px] border bg-white px-4 py-3 text-left transition-shadow hover:shadow-sm ${filter === c.k ? 'border-accent ring-2 ring-accent/20' : 'border-[#ECECF0]'}`}
+            disabled={c.k !== 'all' && c.n === 0 && filter !== c.k}
+            className={`rounded-[14px] border bg-white px-4 py-3 text-left transition-shadow enabled:hover:shadow-sm disabled:cursor-default disabled:opacity-60 ${filter === c.k ? 'border-accent ring-2 ring-accent/20' : 'border-[#ECECF0]'}`}
           >
             <p className="text-[12px] font-medium text-label-2">{c.label}</p>
             <p className={`mt-0.5 text-[24px] font-bold tabular-nums leading-tight ${c.tone}`}>{c.n}</p>
@@ -283,7 +287,9 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
           {/* 오늘 세로선 */}
           {nowIdx >= 0 && (
             <div className="pointer-events-none absolute bottom-0 top-[30px] z-20 w-[2px] bg-label" style={{ left: leftW + nowIdx * WEEK + WEEK / 2 - 1 }}>
-              <span className="absolute -top-[18px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-label px-1.5 py-[1px] text-[10px] font-semibold text-white">오늘</span>
+              <span className="absolute -top-[18px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-label px-1.5 py-[1px] text-[10px] font-semibold text-white">
+                오늘
+              </span>
             </div>
           )}
           {/* 머리글: 범례 · 달 · 주 */}
@@ -421,7 +427,16 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                 </div>
               )
             })}
-            {groups.every((g) => !g.items.some(pass)) && <p className="py-10 text-center text-[13px] text-label-3">보여 줄 과제가 없습니다.</p>}
+            {groups.every((g) => !g.items.some(pass)) && (
+              <p className="py-10 text-center text-[13px] text-label-3">
+                {filter === 'all' ? '보여 줄 과제가 없습니다.' : `${cards.find((c) => c.k === filter)?.label} 과제가 없습니다. `}
+                {filter !== 'all' && (
+                  <button onClick={() => setFilter('all')} className="font-semibold text-accent hover:underline">
+                    전체 보기
+                  </button>
+                )}
+              </p>
+            )}
           </div>
         </div>
       </div>
