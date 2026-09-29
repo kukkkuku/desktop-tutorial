@@ -73,8 +73,16 @@ function useShellNav() {
   function openManual() {
     // 관리 화면은 과제 입력 매뉴얼 1장(권한 시트)
     if (mode === 'admin') setManual({ area: 'tasks', chapter: 'sheet' })
-    else if (mode === 'tasks' || !canPerf) setManual({ area: 'tasks', chapter: taskMenu })
-    else if (mode === 'perf') setManual({ area: 'perf', chapter: inPerf ? PERF_MANUAL[perfStage] : 'start' })
+    else if (mode === 'tasks' || !canPerf) {
+      // 추진현황을 보드 · 타임라인으로 보고 있으면 그 장(보기 모양은 ProgressBoard가 이 브라우저에 기억)
+      let board = false
+      try {
+        board = taskMenu === 'progress' && ['board', 'timeline'].includes(localStorage.getItem('progress-board-view') ?? '')
+      } catch {
+        // 모르면 추진현황 장
+      }
+      setManual({ area: 'tasks', chapter: board ? 'views' : taskMenu })
+    } else if (mode === 'perf') setManual({ area: 'perf', chapter: inPerf ? PERF_MANUAL[perfStage] : 'start' })
     else setManual({})
   }
   const manualPanel = manual && <ManualPanel area={manual.area} chapter={manual.chapter} onClose={() => setManual(null)} />
