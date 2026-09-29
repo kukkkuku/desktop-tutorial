@@ -305,6 +305,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 머리글 필터: 열 id → 숨길 값들(구글시트 필터처럼 체크 해제한 값)
   const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
+  const [searchFocus, setSearchFocus] = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const searchOpen = searchFocus || query.trim() !== ''
   const [editing, setEditing] = useState(false)
   // 칠하기 도구: 회색(계획) / 분홍(실적)
   const [tool, setTool] = useState<PaintBrush>('plan')
@@ -2054,13 +2057,24 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
-          <label className="relative">
-            <Search {...icSm} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-label-3" />
+          {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
+          <label className="relative" title="L2 · L3 · 담당자 찾기">
+            <Search {...icSm} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${searchOpen ? 'left-2 text-label-3' : 'left-1/2 -translate-x-1/2 text-label-2'}`} />
             <input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="L2 · L3 · 담당자 찾기"
-              className="h-8 w-48 rounded-control border border-hairline pl-7 pr-2"
+              onFocus={() => setSearchFocus(true)}
+              onBlur={() => setSearchFocus(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setQuery('')
+                  e.currentTarget.blur()
+                }
+              }}
+              placeholder={searchOpen ? 'L2 · L3 · 담당자 찾기' : ''}
+              aria-label="L2 · L3 · 담당자 찾기"
+              className={`h-8 rounded-control border border-hairline transition-[width] duration-150 ${searchOpen ? 'w-48 pl-7 pr-2' : 'w-8 cursor-pointer px-0 text-transparent hover:bg-black/[0.04]'}`}
             />
           </label>
           {activeFilters > 0 && (
