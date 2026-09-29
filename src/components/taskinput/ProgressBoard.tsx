@@ -1893,6 +1893,21 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               )}
             </HeadPill>
           )}
+          {/* 팀장: 지금 그룹(L1)을 성과관리 과제리스트로 내보내기가 주된 일 -- 머리 줄 프라이머리 버튼(성과관리의 구글시트 연결과 같은 화면) */}
+          {canPerf && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setExportOpen(true)}
+              disabled={!l1 || readOnly}
+              title={
+                data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
+              }
+            >
+              <Send {...icSm} />
+              과제 내보내기
+            </Button>
+          )}
           <FileMenu disabled={yearLoading}>{fileMenuItems}</FileMenu>
         </span>
       </MenuSlot>
@@ -1978,19 +1993,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 그룹 추가
               </button>
             )}
-          </div>
-          {/* 지금 그룹(L1)을 성과관리 과제리스트로 내보내기(성과관리의 구글시트 연결과 같은 화면이 열린다) -- 팀장만 */}
-          <div className={`shrink-0 pb-1.5 ${canPerf ? '' : 'hidden'}`}>
-            <IconButton
-              onClick={() => setExportOpen(true)}
-              disabled={!l1 || readOnly}
-              title={
-                data.spreadsheetId ? '그룹(L1)을 골라 성과관리 과제리스트로 내보내기' : '구글시트로 불러왔을 때만 내보낼 수 있습니다(xlsx로 불러온 경우 제외)'
-              }
-              aria-label="성과관리 과제리스트로 내보내기"
-            >
-              <Send {...icSm} />
-            </IconButton>
           </div>
           {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
           <div className="relative shrink-0 pb-1.5">
@@ -2154,7 +2156,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             </span>
           ) : (
             <Button
-              variant="primary"
+              // 팀장은 과제 내보내기가 프라이머리(머리 줄), 입력하기는 세컨더리
+              variant={canPerf ? 'secondary' : 'primary'}
               size="sm"
               onClick={() => {
                 // 입력을 끝낼 때 저장 안 한 변경이 있으면 바로 구글시트 저장을 권한다(저장해야 다른 팀원이 본다)
