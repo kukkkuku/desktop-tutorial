@@ -7,9 +7,12 @@ import { BookOpen, ExternalLink, X } from 'lucide-react'
 
 export type ManualArea = 'tasks' | 'perf'
 
+// 매뉴얼 html은 파일 이름이 안 바뀌어 브라우저가 옛 판을 쥐고 있을 수 있다 -- 앱을 열 때마다 새로 받게
+const LOADED = Date.now().toString(36)
+
 export function manualUrl(area?: ManualArea, chapter?: string) {
   const file = area === 'tasks' ? 'tasks.html' : area === 'perf' ? 'perf.html' : 'index.html'
-  return `${import.meta.env.BASE_URL}manual/${file}${chapter ? `#${chapter}` : ''}`
+  return `${import.meta.env.BASE_URL}manual/${file}?v=${LOADED}${chapter ? `#${chapter}` : ''}`
 }
 
 export function ManualPanel({ area, chapter, onClose }: { area?: ManualArea; chapter?: string; onClose: () => void }) {

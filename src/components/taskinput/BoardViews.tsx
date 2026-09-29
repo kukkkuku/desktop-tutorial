@@ -1,5 +1,6 @@
 // 추진현황을 표 대신 보는 두 화면(같은 행 · 같은 거르기 · 저장 안 한 변경 포함).
-//   보드: 상태(대기 · 진행중 · 완료 · 보류 · 중단)별 칸반. 카드를 다른 칸으로 끌면 상태가 바뀐다(표에서 고친 것과 같음 -- 저장해야 시트에 반영).
+//   보드: 단계(대기 · 진행중 · 완료 · 보류 · 중단)별 칸반. 카드를 다른 칸으로 끌면 상태 칸이 바뀐다(표에서 고친 것과 같음 -- 저장해야 시트에 반영).
+//   단계는 stageOf 한 규칙으로 보드 · 타임라인이 같이 쓴다.
 //   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -8,8 +9,6 @@ import { STATUS_TONE } from './ScheduleTable'
 import { planRange, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
 
 type WeekCols = ProgressData['weekCols']
-const BASE_STATUSES = ['대기', '진행중', '완료', '보류', '중단']
-const NO_STATUS = '(상태 없음)'
 // 타임라인 구분별 색(막대 진한 색 · 연한 색)
 const GROUP_HUES = [
   ['#3BA9D3', '#BFE5F3'],
@@ -34,10 +33,20 @@ function scheduleOf(v: ScheduleRowView, weekCols: WeekCols, idx: Map<string, num
   const hasPlan = pr.planStart !== null || pr.planEnd !== null
   const plan = hasPlan ? [at(pr.planStart) ?? at(pr.planEnd)!, at(pr.planEnd) ?? at(pr.planStart)!] : null
   const act = actual.length ? [actual[0], actual[actual.length - 1]] : null
-  const done = at(pr.done) !== null && at(pr.done)! <= nowIdx
-  const started = at(pr.started) !== null && at(pr.started)! <= nowIdx
-  const late = !done && !!plan && plan[1] < nowIdx
-  return { plan, act, done, started, late }
+  const stage = stageOf(v.vals.status, at(pr.done) !== null && at(pr.done)! <= nowIdx, (at(pr.started) !== null && at(pr.started)! <= nowIdx) || !!act)
+  const done = stage === '완료'
+  const started = stage === '진행중'
+  const late = (stage === '대기' || stage === '진행중') && !!plan && plan[1] < nowIdx
+  return { plan, act, done, started, late, stage }
+}
+
+// 보드 칸과 타임라인 상태를 같은 규칙으로: 상태 칸에 단계(대기 · 진행중 · 완료 · 보류 · 중단)가 적혀 있으면 그것,
+// 비었거나 다른 값(-, 일상 같은 구분 값)이면 일정 칸으로 판단 -- 완료 표시 = 완료, 착수 표시나 실적 = 진행중, 나머지(계획만 있거나 아무것도 없음) = 대기.
+const STAGES = ['대기', '진행중', '완료', '보류', '중단']
+function stageOf(status: string | undefined, done: boolean, started: boolean) {
+  const st = (status ?? '').replace(/\s/g, '')
+  if (STAGES.includes(st)) return st
+  return done ? '완료' : started ? '진행중' : '대기'
 }
 const weekLabel = (w: WeekCols[number] | undefined) => (w ? `${w.month}/${w.week}주` : '')
 
@@ -58,32 +67,30 @@ export function KanbanBoard({
   const idx = useMemo(() => new Map(weekCols.map((w, i) => [w.key, i])), [weekCols])
   const nowIdx = currentKey ? (idx.get(currentKey) ?? weekCols.length - 1) : weekCols.length - 1
   const list = views.filter((v) => !v.deleted && v.vals.name?.trim())
-  const present = Array.from(new Set(list.map((v) => v.vals.status?.trim() || NO_STATUS)))
-  const cols = [...new Set([...(statusOptions?.length ? statusOptions : BASE_STATUSES), ...present])].filter(
-    (s) => s !== NO_STATUS || present.includes(NO_STATUS),
-  )
-  if (present.includes(NO_STATUS) && !cols.includes(NO_STATUS)) cols.unshift(NO_STATUS)
+  const staged = list.map((v) => ({ v, s: scheduleOf(v, weekCols, idx, nowIdx) }))
+  // 칸은 단계만: 대기 · 진행중 · 완료는 늘, 보류 · 중단은 시트 선택지에 있거나 쓰인 카드가 있을 때
+  const cols = STAGES.filter((c) => ['대기', '진행중', '완료'].includes(c) || statusOptions?.includes(c) || staged.some((x) => x.s.stage === c))
   const [dragKey, setDragKey] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
 
   return (
     <div className="flex min-h-[420px] gap-3 overflow-x-auto pb-2">
       {cols.map((col) => {
-        const cards = list.filter((v) => (v.vals.status?.trim() || NO_STATUS) === col)
+        const cards = staged.filter((x) => x.s.stage === col)
         const tone = STATUS_TONE[col] ?? 'bg-black/[0.05] text-label-2'
         return (
           <section
             key={col}
             onDragOver={(e) => {
-              if (!onStatus || !dragKey || col === NO_STATUS) return
+              if (!onStatus || !dragKey) return
               e.preventDefault()
               setOverCol(col)
             }}
             onDragLeave={() => setOverCol((c) => (c === col ? null : c))}
             onDrop={(e) => {
               e.preventDefault()
-              const v = list.find((x) => x.row.key === dragKey)
-              if (v && onStatus && col !== NO_STATUS && (v.vals.status ?? '') !== col) onStatus(v.row, col)
+              const x = staged.find((x) => x.v.row.key === dragKey)
+              if (x && onStatus && x.s.stage !== col) onStatus(x.v.row, col)
               setDragKey(null)
               setOverCol(null)
             }}
@@ -94,8 +101,7 @@ export function KanbanBoard({
               <span className="text-[12px] tabular-nums text-label-3">{cards.length}</span>
             </header>
             <div className="flex flex-col gap-2">
-              {cards.map((v) => {
-                const s = scheduleOf(v, weekCols, idx, nowIdx)
+              {cards.map(({ v, s }) => {
                 const people = splitPeople(v.vals.assignees)
                 return (
                   <article
@@ -140,9 +146,7 @@ export function KanbanBoard({
                   </article>
                 )
               })}
-              {cards.length === 0 && (
-                <p className="px-2 py-6 text-center text-[12px] text-label-3">{onStatus && col !== NO_STATUS ? '여기로 끌어 놓기' : '없음'}</p>
-              )}
+              {cards.length === 0 && <p className="px-2 py-6 text-center text-[12px] text-label-3">{onStatus ? '여기로 끌어 놓기' : '없음'}</p>}
             </div>
           </section>
         )
@@ -153,7 +157,7 @@ export function KanbanBoard({
 
 // ---------------- 타임라인 ----------------
 // 막대 하나 = 과제 기간(계획 ∪ 실적). 안쪽 반투명 채움 = 실적(분홍 칸)이 기록된 만큼(완료면 끝까지).
-// 실적이 계획 끝을 넘겼거나 계획이 끝났는데 완료가 없으면 계획 끝에 점선 + 지연.
+// 실적이 계획 끝을 넘겼거나 계획이 끝났는데 완료가 없으면 계획 끝 이후 구간을 빨간 빗금 + 지연.
 // 주 칸 너비는 화면 너비에 맞춰 꽉 채운다(최소 MIN_WEEK). 과제명 칸 너비는 끌어서 조절(이 브라우저에 기억).
 const MIN_WEEK = 14
 const LEFT_KEY = 'timeline-left-w'
@@ -228,11 +232,11 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
   const all = groups.flatMap((g) => g.items)
   const isDoing = (x: Item) => x.s.started && !x.s.done
   const isLate = (x: Item) => x.s.late
-  const isMonth = (x: Item) => !x.s.done && !!x.s.plan && weekCols[x.s.plan[1]]?.month === nowMonth
+  const isMonth = (x: Item) => (x.s.stage === '대기' || x.s.stage === '진행중') && !!x.s.plan && weekCols[x.s.plan[1]]?.month === nowMonth
   const pass = (x: Item) => filter === 'all' || (filter === 'doing' ? isDoing(x) : filter === 'late' ? isLate(x) : isMonth(x))
   const cards: { k: Filter; label: string; n: number; sub: string; tone: string }[] = [
     { k: 'all', label: '전체 과제', n: all.length, sub: `완료 ${all.filter((x) => x.s.done).length}`, tone: 'text-label' },
-    { k: 'doing', label: '진행 중', n: all.filter(isDoing).length, sub: '착수했고 완료 전', tone: 'text-accent' },
+    { k: 'doing', label: '진행 중', n: all.filter(isDoing).length, sub: '보드의 진행중 칸', tone: 'text-accent' },
     { k: 'month', label: '이번 달 마감', n: all.filter(isMonth).length, sub: `${nowMonth ?? ''}월에 계획이 끝남`, tone: 'text-[#B7791F]' },
     { k: 'late', label: '지연', n: all.filter(isLate).length, sub: '계획이 끝났는데 완료 없음', tone: 'text-red-600' },
   ]
@@ -304,6 +308,13 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                   <i className="inline-block h-3 w-6 rounded-full bg-[#3BA9D3]/40" />
                   실적
                 </span>
+                <span className="flex items-center gap-1.5">
+                  <i
+                    className="inline-block h-3 w-6 rounded-full"
+                    style={{ background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.22) 0 3px, transparent 3px 6px)' }}
+                  />
+                  계획 넘김
+                </span>
               </span>
             </div>
             <div className="relative" style={{ width: W, height: 52 }}>
@@ -371,14 +382,14 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                     const fillTo = s.done ? b : (s.act?.[1] ?? -1)
                     const fillW = has && fillTo >= a ? Math.min(1, (fillTo - a + 1) / (b - a + 1)) : 0
                     const planEnd = s.plan?.[1]
-                    // 계획 끝 점선은 아직 안 끝난 늦은 과제만(끝난 과제까지 그리면 어지럽다)
+                    // 계획 넘긴 구간 빗금은 아직 안 끝난 늦은 과제만(끝난 과제까지 그리면 어지럽다)
                     const over = !s.done && !!s.plan && planEnd !== undefined && (s.late || (!!s.act && s.act[1] > planEnd))
-                    const state = s.done ? '완료' : s.late ? '지연' : s.started ? '진행' : s.plan ? '예정' : '일정 없음'
+                    const state = s.late ? '지연' : s.stage
                     return (
                       <div key={v.row.key} className="relative flex items-center" style={{ height: ROW_H }}>
                         <div className="flex shrink-0 items-center gap-2 px-4" style={{ width: leftW }}>
                           <span
-                            className={`w-8 shrink-0 text-[11px] font-semibold ${s.done ? 'text-emerald-700' : s.late ? 'text-red-600' : s.started ? 'text-accent' : 'text-label-3'}`}
+                            className={`w-10 shrink-0 whitespace-nowrap text-[11px] font-semibold ${s.done ? 'text-emerald-700' : s.late ? 'text-red-600' : s.started ? 'text-accent' : 'text-label-3'}`}
                           >
                             {state}
                           </span>
@@ -399,18 +410,21 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                               .join(' · ')}
                           >
                             <div className="absolute inset-y-0 left-0" style={{ width: `${fillW * 100}%`, background: `${hue}55` }} />
+                            {/* 계획 끝을 넘긴 구간(늦어진 과제만): 빨간 빗금, 글자는 그 위에 */}
+                            {over && planEnd !== undefined && planEnd < b && (
+                              <div
+                                className="absolute inset-y-0 right-0"
+                                style={{
+                                  left: x0(planEnd) + span(planEnd, planEnd) - x0(a),
+                                  background: 'repeating-linear-gradient(135deg, rgba(239,68,68,0.16) 0 4px, transparent 4px 8px)',
+                                }}
+                                title={`계획 끝 ${weekLabel(weekCols[planEnd])} 이후`}
+                              />
+                            )}
                             <span className="relative block truncate px-2.5 text-[11.5px] font-semibold leading-[24px]" style={{ color: hue }}>
                               {v.vals.name}
                             </span>
                           </div>
-                        )}
-                        {/* 계획 끝(늦어진 과제만): 점선 */}
-                        {has && over && planEnd !== undefined && planEnd < b && (
-                          <div
-                            className="absolute border-l-2 border-dashed border-red-400"
-                            style={{ left: x0(planEnd) + span(planEnd, planEnd) + 1, top: (ROW_H - BAR_H) / 2 - 2, height: BAR_H + 4 }}
-                            title={`계획 끝 ${weekLabel(weekCols[planEnd])}`}
-                          />
                         )}
                         {has && (
                           <span
