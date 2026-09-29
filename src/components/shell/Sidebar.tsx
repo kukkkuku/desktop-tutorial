@@ -216,7 +216,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
   )
 }
 
-// 위 메뉴(사이드바를 끝까지 접었을 때 머리 한 줄): 로고(홈) · 과제 입력|성과관리 · 고르기 · 메뉴 알약 · 오른쪽 동작 · 아이콘 · 계정
+// 위 메뉴(사이드바를 끝까지 접었을 때 머리 한 줄): 로고(홈) · 모양 버튼 · 홈|과제 입력|성과관리 · 고르기 · 메뉴 알약 · 오른쪽 동작 · 아이콘 · 계정
 // 메뉴가 없는 화면(홈 · 프로젝트 목록 · 관리)은 메뉴 자리에 제목을 굵게.
 export function TopNav({
   toggle,
@@ -277,7 +277,7 @@ export function TopNav({
     )
   else if (inPerf)
     menu = PERF_ITEMS.map(({ key, label, Icon, also }) => pill(key, label, Icon, perfStage === key || !!also?.includes(perfStage), () => setPerfStage(key)))
-  else menu = <h1 className="px-1 text-[16px] font-semibold tracking-[-0.01em] text-label">{title}</h1>
+  else if (mode !== 'home') menu = <h1 className="px-1 text-[16px] font-semibold tracking-[-0.01em] text-label">{title}</h1>
 
   return (
     <>
@@ -285,7 +285,9 @@ export function TopNav({
         <AppLogo size={28} />
       </button>
       {toggle}
+      {/* 영역 전환: 사이드바와 같은 순서(홈 · 과제 입력 · 성과관리) */}
       <span className="ml-1 flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5">
+        {seg(mode === 'home', '홈', () => mode !== 'home' && setMode('home'))}
         {seg(inTasks, '과제 입력', () => {
           if (mode !== 'tasks') setMode('tasks')
         })}
@@ -303,10 +305,15 @@ export function TopNav({
           <span className="flex items-center font-medium text-label-2">{chooser}</span>
         </>
       )}
-      <Sep />
-      <nav className="flex flex-wrap items-center gap-0.5" aria-label="메뉴">
-        {menu}
-      </nav>
+      {/* 홈은 전환 칸에 이미 칠해져 있어 제목을 따로 쓰지 않는다 */}
+      {menu && (
+        <>
+          <Sep />
+          <nav className="flex flex-wrap items-center gap-0.5" aria-label="메뉴">
+            {menu}
+          </nav>
+        </>
+      )}
       <div className="ml-auto flex flex-wrap items-center gap-1.5">
         {actions}
         {inPerf && perf?.onOpenDataManager && (
