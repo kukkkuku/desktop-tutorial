@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>페이스 개인정보처리방침</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root{--ink:#18181B;--muted:#5F6368;--line:#E5E5EA;--accent:#2553D6}
+*{box-sizing:border-box}
+body{margin:0;background:#fff;color:var(--ink);font:15px/1.75 Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{max-width:760px;margin:0 auto;padding:48px 20px 80px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+header img{width:40px;height:40px}
+h1{margin:0;font-size:26px;letter-spacing:-.02em}
+.date{color:var(--muted);font-size:13px}
+h2{margin:36px 0 8px;font-size:18px}
+p,li{color:var(--ink)}
+ul{padding-left:20px}
+li{margin:4px 0}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+code{font-size:12.5px;color:var(--muted)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <img src="favicon.svg" alt="">
+  <div>
+    <h1>페이스 개인정보처리방침</h1>
+    <div class="date">시행일 2026년 9월 29일</div>
+  </div>
+</header>
+
+<p>페이스(과제 · 성과관리, 이하 "앱")는 디자인연구소 구성원이 추진현황을 입력하고 팀장이 성과를 관리하기 위해 쓰는 내부용 웹 앱입니다. 이 문서는 앱이 어떤 정보를 어떻게 다루는지 설명합니다.</p>
+
+<h2>1. 앱의 구조</h2>
+<p>앱에는 별도의 서버가 없습니다. 앱은 사용자의 브라우저에서만 동작하며, 사용자가 로그인한 Google 계정으로 Google API에 직접 요청합니다. 앱 개발자나 운영자가 사용자의 데이터를 따로 받아 저장하는 곳은 없습니다.</p>
+
+<h2>2. 요청하는 Google 권한과 쓰는 곳</h2>
+<table>
+  <tr><th>권한</th><th>쓰는 곳</th></tr>
+  <tr><td>이메일 주소<br><code>userinfo.email</code></td><td>로그인한 계정을 알아보고, 권한 관리 시트에서 그 계정의 역할(관리자, 팀장, 팀원)을 찾는 데 씁니다.</td></tr>
+  <tr><td>Google 스프레드시트<br><code>spreadsheets</code></td><td>사용자가 열 수 있도록 공유받은 추진현황 시트와 권한 관리 시트를 읽고, 사용자가 입력한 내용과 진척률 표를 그 시트에 저장합니다. 사용자가 연결하지 않은 시트는 열지 않습니다.</td></tr>
+  <tr><td>Google 드라이브(앱이 만든 파일만)<br><code>drive.file</code></td><td>성과관리 데이터 백업 파일을 사용자의 드라이브에 저장하고 불러옵니다. 앱이 만들거나 사용자가 앱에서 고른 파일 외의 드라이브 파일은 볼 수 없습니다.</td></tr>
+  <tr><td>Google 캘린더<br><code>calendar</code></td><td>팀장이 면담 일정을 등록할 때, 앱 전용 캘린더를 만들고 그 캘린더의 일정을 만들거나 고치거나 지웁니다.</td></tr>
+  <tr><td>Gmail 보내기<br><code>gmail.send</code></td><td>팀장, 관리자가 팀원 초대 메일을 보낼 때만 요청합니다. 초대 메일을 보내는 데만 쓰며, 받은편지함이나 다른 메일은 읽지 않습니다.</td></tr>
+</table>
+
+<h2>3. 저장되는 곳</h2>
+<ul>
+  <li><b>사용자의 브라우저</b>: 로그인 상태, 화면 설정, 입력 중인 내용, 성과관리 데이터가 이 브라우저의 저장공간에 남습니다.</li>
+  <li><b>사용자의 Google 계정</b>: 사용자가 저장을 누른 내용은 공유받은 Google 스프레드시트에, 백업은 사용자의 Google 드라이브에, 면담 일정은 사용자의 Google 캘린더에 저장됩니다.</li>
+  <li>앱 개발자, 운영자, 그 밖의 제3자에게 데이터를 보내거나 판매하지 않으며, 광고에 쓰지 않습니다.</li>
+</ul>
+
+<h2>4. 누가 볼 수 있나</h2>
+<p>시트의 내용은 그 시트를 공유받은 사람만 볼 수 있습니다. 앱 안의 역할 구분(관리자, 팀장, 팀원)은 메뉴를 나누는 용도이며, 실제 열람 권한은 Google 스프레드시트의 공유 설정이 정합니다.</p>
+
+<h2>5. Google API 데이터 사용</h2>
+<p>앱이 Google API로 받은 정보를 사용하고 다른 앱으로 옮기는 방식은 <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Google API 서비스 사용자 데이터 정책</a>(제한적 사용 요건 포함)을 따릅니다.</p>
+
+<h2>6. 데이터 지우기와 권한 해제</h2>
+<ul>
+  <li>브라우저에 남은 데이터: 앱의 데이터 백업 메뉴에서 초기화하거나, 브라우저에서 이 사이트의 데이터를 지웁니다.</li>
+  <li>Google 계정에 저장된 내용: 해당 스프레드시트, 드라이브 파일, 캘린더에서 직접 지웁니다.</li>
+  <li>앱에 준 권한: <a href="https://myaccount.google.com/connections" target="_blank" rel="noreferrer">Google 계정 › 타사 앱 및 서비스</a>에서 언제든 해제할 수 있습니다.</li>
+</ul>
+
+<h2>7. 문의</h2>
+<p>이 방침이나 앱의 데이터 처리에 대한 문의는 앱 관리자(jjy.osstem@gmail.com)에게 보내 주세요. 방침이 바뀌면 이 페이지의 시행일을 고쳐 알립니다.</p>
+</main>
+</body>
+</html>
