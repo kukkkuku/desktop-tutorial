@@ -15,6 +15,7 @@ import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
 import {
   CalendarRange,
   CloudUpload,
+  ChartGantt,
   Eraser,
   Pencil,
   Plus,
@@ -27,6 +28,8 @@ import {
   AlignVerticalSpaceAround,
   Search,
   Send,
+  SquareKanban,
+  Table2,
   Settings2,
   Eye,
   ExternalLink,
@@ -124,6 +127,7 @@ import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
+import { KanbanBoard, TimelineView } from './BoardViews'
 import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
@@ -305,6 +309,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 머리글 필터: 열 id → 숨길 값들(구글시트 필터처럼 체크 해제한 값)
   const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
+  // 추진현황 보기 모양(이 브라우저에 기억)
+  const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline'>(() => {
+    try {
+      const v = localStorage.getItem('progress-board-view')
+      return v === 'board' || v === 'timeline' ? v : 'table'
+    } catch {
+      return 'table'
+    }
+  })
+  function changeBoardView(v: 'table' | 'board' | 'timeline') {
+    setBoardView(v)
+    try {
+      localStorage.setItem('progress-board-view', v)
+    } catch {
+      // 기억 못 해도 지금은 바뀐다
+    }
+  }
   const [searchFocus, setSearchFocus] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const searchOpen = searchFocus || query.trim() !== ''
@@ -2077,6 +2098,27 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               className={`h-8 rounded-control border border-hairline transition-[width] duration-150 ${searchOpen ? 'w-48 pl-7 pr-2' : 'w-8 cursor-pointer px-0 text-transparent hover:bg-black/[0.04]'}`}
             />
           </label>
+          {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
+          <span className="flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
+            {(
+              [
+                ['table', '표', Table2],
+                ['board', '보드', SquareKanban],
+                ['timeline', '타임라인', ChartGantt],
+              ] as const
+            ).map(([k, label, Icon]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={boardView === k}
+                onClick={() => changeBoardView(k)}
+                className={`flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12.5px] font-medium ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+              >
+                <Icon size={14} strokeWidth={1.8} />
+                {label}
+              </button>
+            ))}
+          </span>
           {activeFilters > 0 && (
             <button
               onClick={() => setFilters({})}
@@ -2095,6 +2137,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               기간 {periodLabel(period)} ✕
             </button>
           )}
+          {/* 표 전용 도구(글자 · 행간 · 입력하기 · 칠하기)는 보드 · 타임라인에서 숨긴다 */}
+          {boardView === 'table' && (
+            <>
           <span className="h-5 w-px shrink-0 bg-separator" />
           <button
             onClick={() => setZebra(!zebra)}
@@ -2279,6 +2324,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               ))}
             </span>
           )}
+            </>
+          )}
           <span className="flex items-center gap-1">
             <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
             {scheduleMode === 'hidden' && (
@@ -2344,7 +2391,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div ref={tableBoxRef} className="mt-2 overflow-auto pb-4" style={{ maxHeight: tableBoxH }}>
-          {
+          {boardView === 'board' ? (
+            <KanbanBoard
+              views={views}
+              weekCols={weekCols}
+              currentKey={currentKey}
+              statusOptions={data.fields.find((f) => f.id === 'status')?.options}
+              onStatus={readOnly || !data.fields.some((f) => f.id === 'status') ? undefined : (row, value) => setField(row, 'status', value)}
+            />
+          ) : boardView === 'timeline' ? (
+            <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} />
+          ) : (
             <ScheduleTable
               weekCols={weekCols}
               rows={views}
@@ -2431,7 +2488,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               widths={widths}
               onResize={resizeCol}
             />
-          }
+          )}
         </div>
         {exportOpen && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
