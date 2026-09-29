@@ -1,6 +1,6 @@
 // 추진현황을 표 대신 보는 두 화면(같은 행 · 같은 거르기 · 저장 안 한 변경 포함).
 //   보드: 상태(대기 · 진행중 · 완료 · 보류 · 중단)별 칸반. 카드를 다른 칸으로 끌면 상태가 바뀐다(표에서 고친 것과 같음 -- 저장해야 시트에 반영).
-//   타임라인: 구분(L2)별 간트. 연한 굵은 막대 = 계획(회색 칸), 그 안의 진한 얇은 막대 = 실적(분홍 칸), 파란 세로 띠 = 이번 주.
+//   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
 import { useMemo, useState } from 'react'
 import type { ScheduleRowView } from './ScheduleTable'
@@ -196,7 +196,24 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
         {/* 머리글: 달 · 주 */}
         <div className="sticky top-0 z-10 flex border-b border-[#E5E5EA] bg-white/95">
           <div className="flex shrink-0 items-end px-3 pb-1.5 text-[12px] font-semibold text-label-2" style={{ width: LEFT_W }}>
-            완료 비율 · 과제
+            <span className="flex flex-col gap-1">
+              {/* 범례 */}
+              <span className="flex items-center gap-3 text-[11.5px] font-normal text-label-2">
+                <span className="flex items-center gap-1">
+                  <i className="inline-block h-[6px] w-5 rounded-full bg-[#C9C9CF]" />
+                  계획
+                </span>
+                <span className="flex items-center gap-1">
+                  <i className="inline-block h-[6px] w-5 rounded-full bg-[#3BA9D3]" />
+                  실적
+                </span>
+                <span className="flex items-center gap-1">
+                  <i className="inline-block h-3 w-2 bg-[#E6F1FB]" />
+                  이번 주
+                </span>
+              </span>
+              완료 비율 · 과제
+            </span>
           </div>
           <div className="relative" style={{ width: W, height: 44 }}>
             {months.map((m) => (
@@ -227,7 +244,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
             ))}
           </div>
           {groups.map((g, gi) => {
-            const [dark, light] = GROUP_HUES[gi % GROUP_HUES.length]
+            const [dark] = GROUP_HUES[gi % GROUP_HUES.length]
             const withPlan = g.items.filter((x) => x.s.plan || x.s.act)
             const done = g.items.filter((x) => x.s.done).length
             const pct = g.items.length ? Math.round((done / g.items.length) * 100) : 0
@@ -269,25 +286,18 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                           {v.vals.name}
                         </span>
                       </div>
-                      {/* 계획(연한) 위에 실적(진한) */}
+                      {/* 두 줄: 위 회색 = 계획, 아래 색 = 실적(시작 · 끝을 위아래로 바로 비교) */}
                       {s.plan && (
                         <div
-                          className="absolute h-[14px] rounded-[4px] border"
-                          style={{
-                            ...bar(s.plan[0], s.plan[1]),
-                            left: LEFT_W + bar(s.plan[0], s.plan[1]).left,
-                            top: ROW_H / 2 - 7,
-                            background: light,
-                            borderColor: dark,
-                          }}
+                          className="absolute h-[7px] rounded-full bg-[#C9C9CF]"
+                          style={{ ...bar(s.plan[0], s.plan[1]), left: LEFT_W + bar(s.plan[0], s.plan[1]).left, top: ROW_H / 2 - 8 }}
                           title={`계획 ${weekLabel(weekCols[s.plan[0]])} → ${weekLabel(weekCols[s.plan[1]])}`}
                         />
                       )}
-                      {/* 실적은 계획 막대 안쪽에 얇게(둘 다 보이게) */}
                       {s.act && (
                         <div
-                          className="absolute h-[8px] rounded-[3px]"
-                          style={{ ...bar(s.act[0], s.act[1]), left: LEFT_W + bar(s.act[0], s.act[1]).left, top: ROW_H / 2 - 4, background: dark }}
+                          className="absolute h-[7px] rounded-full"
+                          style={{ ...bar(s.act[0], s.act[1]), left: LEFT_W + bar(s.act[0], s.act[1]).left, top: ROW_H / 2 + 1, background: dark }}
                           title={`실적 ${weekLabel(weekCols[s.act[0]])} → ${weekLabel(weekCols[s.act[1]])}${s.done ? ' · 완료' : ''}`}
                         />
                       )}
