@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import { ArrowRight, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import {
   LOGIN_TOKEN,
   addEntriesToList,
@@ -23,9 +23,6 @@ import Spinner from './Spinner'
 import { icSm } from './ui/icon'
 import { appInviteUrl } from '../utils/accessSheet'
 
-// OAuth 테스트 사용자 등록 화면(프로젝트 493396486126, 이 앱의 Gmail API와
-// 같은 GCP 프로젝트) 바로가기 -- 매번 콘솔에서 찾아 들어가는 수고를 던다.
-const TEST_USERS_CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials/consent?project=493396486126'
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
 // 앱 주소는 지금 보고 있는 앱(운영/미리보기) + 권한 관리 시트(?access=) -- 이 링크로 열면 팀원 앱이 그 시트를 읽는다
 const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
@@ -36,7 +33,8 @@ ${appInviteUrl()}
 로그인할 Google 계정: ${LOGIN_TOKEN}
 (이 계정으로 권한이 정해져 있습니다. 다른 계정으로 로그인하면 메뉴가 다르게 보일 수 있습니다.)
 
-※ 로그인이 안 되면 이 메일을 보낸 사람에게 알려 주세요(구글 테스트 사용자 등록이 필요할 수 있습니다).`
+※ 처음 로그인할 때 "Google에서 확인하지 않은 앱" 화면이 나오면 고급 → 페이스(으)로 이동을 누르세요. 이 메일의 링크(페이스 앱 주소)에서만 그렇게 하시면 됩니다.
+※ 로그인이 안 되거나 내용이 비어 보이면 이 메일을 보낸 사람에게 알려 주세요.`
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -227,19 +225,10 @@ export default function AdminInvitePanel() {
                 ))}
               </ul>
             )}
+            {/* 앱이 프로덕션으로 게시돼 구글 테스트 사용자 등록은 필요 없다. 볼 수 있는 내용은 시트 공유가 정한다 */}
             <div className="mt-2 rounded-card bg-accent-soft px-3 py-2.5 text-[13px] text-label-2">
-              <p>
-                메일 발송과 별개로, <b>로그인할 Gmail</b>이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야 합니다. 위 "목록
-                복사"(로그인 Gmail만 복사)로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
-              </p>
-              <a
-                href={TEST_USERS_CONSOLE_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 font-medium text-accent hover:underline"
-              >
-                테스트 사용자 등록 페이지 열기 <ArrowRight {...icSm} />
-              </a>
+              초대받은 사람은 메일의 링크로 <b>로그인할 Gmail</b>에 바로 로그인합니다. 다만 추진현황을 보고 저장하려면 그 Gmail에 <b>추진현황 시트 공유</b>
+              (편집자)가 필요합니다. 역할과 팀은 관리 › 권한 시트에서 정합니다.
             </div>
           </div>
         </div>

@@ -75,13 +75,12 @@ export async function connectAdmin(): Promise<void> {
 }
 
 // ---------- 초대 대상자 명단(로컬 저장) ----------
-// 관리자 브라우저에만 저장되는 목록이다 -- "누구를 초대했는지" 기록용이고,
-// 실제 로그인 허용 여부는 Google Cloud Console의 테스트 사용자 목록이
-// 별도로 관리한다(이 목록에 있다고 자동으로 로그인이 허용되지 않는다).
+// 보낸 사람 브라우저에만 저장되는 목록이다 -- "누구를 초대했는지" 기록용.
+// 앱은 프로덕션으로 게시돼 구글 테스트 사용자 등록 없이 로그인된다. 볼 수 있는 내용은 시트 공유 · 권한 시트가 정한다.
 
 const LIST_KEY = 'admin-invite-recipients'
 
-// email = 로그인할 Gmail(권한 · 구글 테스트 사용자 · 앱 로그인용, 목록의 열쇠)
+// email = 로그인할 Gmail(권한 시트 · 시트 공유 · 앱 로그인용, 목록의 열쇠)
 // sendTo = 초대 메일을 받을 주소(회사 메일 등). 비우면 email로 보낸다.
 export interface InviteRecipient {
   email: string
