@@ -31,15 +31,15 @@ type Tab = 'access' | 'invite'
 
 export default function AdminApp() {
   const { isAdminUser } = useGoogleAccount()
-  // 팀장은 주로 팀원 초대를 하러 온다
-  const [tab, setTab] = useState<Tab>(isAdminUser ? 'access' : 'invite')
+  // 팀원 초대가 먼저(관리를 열면 초대부터)
+  const [tab, setTab] = useState<Tab>('invite')
   return (
     <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 시트' : '팀원 초대'} />}>
       <PageTabs>
         <UnderlineTabs
           items={[
+            { key: 'invite', label: '팀원 초대', title: '앱 링크를 메일로 보내기' },
             { key: 'access', label: '권한 시트', title: '역할 · 팀별 추진현황 시트를 정하는 구글시트' },
-            { key: 'invite', label: '팀원 초대', title: '앱 링크(권한 시트 포함)를 메일로 보내기' },
           ]}
           value={tab}
           onChange={(k) => setTab(k as Tab)}

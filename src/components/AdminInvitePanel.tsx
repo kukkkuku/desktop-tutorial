@@ -1,16 +1,20 @@
 import { useRef, useState, type ChangeEvent } from 'react'
 import { ArrowRight, Trash2 } from 'lucide-react'
 import {
-  addEmailsToList,
+  LOGIN_TOKEN,
+  addEntriesToList,
   connectAdmin,
   getAdminEmail,
   isAdminConfigured,
   isAdminConnected,
+  isEmail,
   loadInviteList,
-  parseEmailText,
-  parseEmailWorkbook,
+  mailOf,
+  parseInviteText,
+  parseInviteWorkbook,
   removeEmailFromList,
   sendInviteEmails,
+  setSendTo,
   type InviteRecipient,
 } from '../utils/adminInvite'
 import Button from './Button'
@@ -28,6 +32,9 @@ const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「�
 
 아래 링크에서 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.
 ${appInviteUrl()}
+
+로그인할 Google 계정: ${LOGIN_TOKEN}
+(이 계정으로 권한이 정해져 있습니다. 다른 계정으로 로그인하면 메뉴가 다르게 보일 수 있습니다.)
 
 ※ 로그인이 안 되면 이 메일을 보낸 사람에게 알려 주세요(구글 테스트 사용자 등록이 필요할 수 있습니다).`
 
@@ -74,12 +81,12 @@ export default function AdminInvitePanel() {
 
   function handleAddPaste() {
     setParseError(null)
-    const { emails, invalid } = parseEmailText(pasteText)
-    if (emails.length === 0) {
+    const { entries, invalid } = parseInviteText(pasteText)
+    if (entries.length === 0) {
       setParseError('추가할 수 있는 이메일이 없습니다.')
       return
     }
-    setList(addEmailsToList(emails))
+    setList(addEntriesToList(entries))
     setPasteText('')
     if (invalid.length > 0) setParseError(`형식이 올바르지 않아 건너뛴 항목: ${invalid.join(', ')}`)
   }
@@ -91,12 +98,12 @@ export default function AdminInvitePanel() {
     setParseError(null)
     try {
       const buffer = await file.arrayBuffer()
-      const { emails } = parseEmailWorkbook(buffer)
-      if (emails.length === 0) {
+      const { entries } = parseInviteWorkbook(buffer)
+      if (entries.length === 0) {
         setParseError('파일에서 이메일 형식의 값을 찾지 못했습니다.')
         return
       }
-      setList(addEmailsToList(emails))
+      setList(addEntriesToList(entries))
     } catch {
       setParseError('엑셀 파일을 읽지 못했습니다.')
     }
@@ -121,11 +128,9 @@ export default function AdminInvitePanel() {
     setSending(true)
     setSendResult(null)
     try {
-      const result = await sendInviteEmails(
-        list.map((r) => r.email),
-        subject,
-        body,
-      )
+      const bad = list.filter((r) => r.sendTo && !isEmail(r.sendTo))
+      if (bad.length) throw new Error(`받는 메일 모양이 틀렸습니다: ${bad.map((r) => r.sendTo).join(', ')}`)
+      const result = await sendInviteEmails(list, subject, body)
       setList(loadInviteList())
       setSendResult({ sent: result.sent.length, failed: result.failed })
     } catch (err) {
@@ -164,12 +169,13 @@ export default function AdminInvitePanel() {
           <div>
             <p className="text-[13px] font-semibold text-label">받는 사람 추가</p>
             <p className="mt-0.5 text-[13px] text-label-2">
-              모두 Gmail이면 아이디만 적어도 됩니다(@gmail.com 자동 추가). 줄바꿈/쉼표로 구분해 붙여넣거나, 엑셀 파일을 업로드하세요.
+              한 줄에 한 명: <b>로그인할 Gmail</b>(권한 · 로그인용, 아이디만 적어도 됨), <b>받는 메일</b>(회사 메일 등, 없으면 Gmail로), <b>이름</b>. 쉼표나
+              탭으로 나눕니다. 엑셀은 한 행에 한 명(열 순서 상관없음).
             </p>
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder={'hong.gildong\nkim.cheolsu'}
+              placeholder={'hong.gildong, hong@company.com, 홍길동\nkim.cheolsu'}
               rows={3}
               className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] mt-2 w-full"
             />
@@ -200,9 +206,19 @@ export default function AdminInvitePanel() {
               <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
                 {list.map((r) => (
                   <li key={r.email} className="flex items-center justify-between gap-2 rounded-control border border-separator px-2.5 py-1.5 text-[13px]">
-                    <div className="min-w-0">
-                      <p className="truncate text-label">{r.email}</p>
-                      <p className="text-[13px] text-label-3">{r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}` : '미발송'}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-label" title="로그인할 Gmail(권한 · 로그인용)">
+                        {r.name && <b className="mr-1.5">{r.name}</b>}
+                        {r.email}
+                      </p>
+                      {/* 받는 메일: 비우면 로그인 Gmail로 보낸다 */}
+                      <label className="mt-1 flex items-center gap-1.5 text-[12px] text-label-3">
+                        받는 메일
+                        <SendToInput r={r} onSave={(v) => setList(setSendTo(r.email, v))} />
+                      </label>
+                      <p className="mt-0.5 text-[12px] text-label-3">
+                        {r.lastInvitedAt ? `발송됨 · ${fmt(r.lastInvitedAt)}${r.lastSentTo && r.lastSentTo !== r.email ? ` → ${r.lastSentTo}` : ''}` : '미발송'}
+                      </p>
                     </div>
                     <IconButton tone="danger" onClick={() => handleRemove(r.email)} title="삭제" aria-label="삭제" className="shrink-0">
                       <Trash2 {...icSm} />
@@ -213,8 +229,8 @@ export default function AdminInvitePanel() {
             )}
             <div className="mt-2 rounded-card bg-accent-soft px-3 py-2.5 text-[13px] text-label-2">
               <p>
-                메일 발송과 별개로, 이 이메일들이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야 합니다. 위 "목록 복사"로
-                복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
+                메일 발송과 별개로, <b>로그인할 Gmail</b>이 실제로 로그인까지 하려면 Google Cloud Console의 테스트 사용자 목록에도 등록해야 합니다. 위 "목록
+                복사"(로그인 Gmail만 복사)로 복사한 뒤, 아래 링크에서 "+ ADD USERS"로 붙여넣으면 됩니다.
               </p>
               <a
                 href={TEST_USERS_CONSOLE_URL}
@@ -242,7 +258,10 @@ export default function AdminInvitePanel() {
             rows={10}
             className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] w-full"
           />
-          <p className="text-[12px] text-label-3">앱 주소만 있는 줄은 받은 메일에서 「앱 바로 열기」 버튼으로 보입니다(누르면 바로 접속).</p>
+          <p className="text-[12px] text-label-3">
+            앱 주소만 있는 줄은 받은 메일에서 「앱 바로 열기」 버튼으로 보입니다(누르면 바로 접속). <code>{LOGIN_TOKEN}</code>은 사람마다 그 사람의 로그인
+            Gmail로 바뀝니다.
+          </p>
           <Button variant="primary" onClick={() => void handleSend()} disabled={sending || list.length === 0} className="w-full">
             {sending && <Spinner className="h-3.5 w-3.5 text-white" />}
             {sending ? '발송 중...' : `초대 메일 발송 (${list.length}명)`}
@@ -268,5 +287,22 @@ export default function AdminInvitePanel() {
         </div>
       </div>
     </div>
+  )
+}
+
+// 받는 메일 칸: 칸을 떠날 때(Enter) 저장. 비우면 로그인 Gmail로 보낸다.
+function SendToInput({ r, onSave }: { r: InviteRecipient; onSave: (v: string) => void }) {
+  const [v, setV] = useState(r.sendTo ?? '')
+  const bad = !!v.trim() && !isEmail(v)
+  return (
+    <input
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => !bad && onSave(v)}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      placeholder={`${r.email} (같으면 비워 둠)`}
+      title={`보낼 곳: ${mailOf({ ...r, sendTo: v })}`}
+      className={`h-6 min-w-0 flex-1 rounded border px-1.5 text-[12px] text-label outline-none focus:border-accent ${bad ? 'border-danger/60' : 'border-hairline'}`}
+    />
   )
 }

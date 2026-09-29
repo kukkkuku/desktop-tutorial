@@ -622,8 +622,13 @@ function FillDot({ onStart }: { onStart: (e: React.MouseEvent) => void }) {
 
 // 머리글 오른쪽 끝을 끌어 열 폭 바꾸기
 // 경계 위 버튼(열 추가 · 행 추가 · 구분 나누기): 흰 바탕 · 파란 글자(연결하기 버튼과 같은 모양)
+// 경계선에서 마우스를 떼도 0.4초 동안 남아 있어(LINE_REVEAL) 버튼까지 옮겨 갈 수 있다. 버튼 위에 오면 다시 계속 보인다.
+const LINE_REVEAL = (g: 'rs' | 'bd') =>
+  g === 'rs'
+    ? 'invisible opacity-0 transition-[opacity,visibility] duration-100 delay-[400ms] group-hover/rs:visible group-hover/rs:opacity-100 group-hover/rs:delay-0'
+    : 'invisible opacity-0 transition-[opacity,visibility] duration-100 delay-[400ms] group-hover/bd:visible group-hover/bd:opacity-100 group-hover/bd:delay-0'
 const LINE_BTN =
-  'pointer-events-none group-hover/rs:pointer-events-auto group-hover/bd:pointer-events-auto whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
+  'whitespace-nowrap rounded-full border border-accent/40 bg-white px-2 py-[1px] text-[11px] font-semibold text-accent shadow-sm hover:bg-accent hover:text-white'
 
 // 열 경계: 마우스를 올리면 표 끝까지 파란 선(끌어서 폭 조절) · 선 위에 추가 버튼(extra)
 // extraTop: + 열 버튼을 칸 위에서 몇 px 아래에 둘지(없으면 이 칸 바로 아래). 모든 + 열이 머리글 맨 아래 한 줄에 오게 맞춘다
@@ -669,7 +674,7 @@ function ResizeHandle({
       {extra && (
         <span
           title=""
-          className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 opacity-0 group-hover/rs:opacity-100"
+          className={`absolute left-1/2 top-full z-10 -mt-1 -translate-x-1/2 px-2 py-1 ${LINE_REVEAL('rs')}`}
           style={extraTop !== undefined ? { top: extraTop } : undefined}
         >
           {extra}
@@ -2321,7 +2326,7 @@ export default function ScheduleTable({
                             {(canAdd || canSplit) && (
                               <span
                                 title=""
-                                className="pointer-events-none absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 pl-1 opacity-0 group-hover/bd:opacity-100"
+                                className={`absolute left-full top-1/2 flex -translate-y-1/2 items-center gap-1 py-2 pl-1 pr-2 ${LINE_REVEAL('bd')}`}
                               >
                                 {canAdd && (
                                   <button
