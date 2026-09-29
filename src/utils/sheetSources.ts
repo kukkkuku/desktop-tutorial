@@ -50,6 +50,12 @@ export function hasLoginSheetsToken(): boolean {
   return !!peekLoginToken(SHEETS_WRITE_SCOPE)
 }
 
+// 지금 권한 창 없이 시트를 읽을 수 있나(로그인 토큰 또는 이미 받은 시트 토큰) -- 뒤에서 조용히 확인할 때만 쓴다
+export function hasSheetsTokenNow(): boolean {
+  const ok = (t: { expiresAt: number } | null) => !!t && t.expiresAt - 60_000 > Date.now()
+  return hasLoginSheetsToken() || ok(sheetsWriteToken) || ok(sheetsToken)
+}
+
 export function isSheetsApiConfigured(): boolean {
   return Boolean(CLIENT_ID)
 }

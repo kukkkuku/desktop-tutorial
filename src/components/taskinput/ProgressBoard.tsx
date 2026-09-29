@@ -49,6 +49,7 @@ import {
   fetchSheetTab,
   fetchSpreadsheetTabs,
   hasLoginSheetsToken,
+  hasSheetsTokenNow,
   isSheetsApiConfigured,
   parseSheetUrl,
   pickDefaultTab,
@@ -172,6 +173,33 @@ const ROW_PAD_MAX = 12
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
   return sheetToData(parsed, raw, meta)
 }
+
+// 다른 팀원이 저장했는지 알아보려는 비교용 지문(값 · 주차 칸 · 색 · 메모 · 서식 · 열 구성)
+function sheetSig(d: ProgressData): string {
+  return JSON.stringify([
+    d.fields.map((f) => [f.id, f.label]),
+    d.weekCols.map((w) => w.key),
+    d.rows.map((r) => [r.key, r.h, r.l1, r.l2Tag, r.values, r.weeks, r.fills, r.bg, r.notes, r.fmt ?? null]),
+  ])
+}
+// 저장 안 한 내 변경 중, 그사이 다른 팀원이 시트에서도 바꾼 칸 수(새 내용을 받으면 저장 때 내 값으로 덮어쓰게 되는 칸)
+function overlapCount(cur: ProgressData, fresh: ProgressData, drafts: Drafts): number {
+  const a = new Map(cur.rows.map((r) => [r.key, r]))
+  const b = new Map(fresh.rows.map((r) => [r.key, r]))
+  let n = 0
+  for (const [key, e] of Object.entries(drafts.edits)) {
+    const x = a.get(key)
+    const y = b.get(key)
+    if (!x || !y) continue
+    for (const id of Object.keys(e.fields ?? {})) if ((id === 'name' ? x.l3 !== y.l3 : x.values[id] !== y.values[id])) n++
+    for (const k of Object.keys(e.cells ?? {})) if (JSON.stringify([x.weeks[k], x.fills[k]]) !== JSON.stringify([y.weeks[k], y.fills[k]])) n++
+    for (const id of Object.keys(e.bg ?? {})) if (x.bg[id] !== y.bg[id]) n++
+    for (const id of Object.keys(e.notes ?? {})) if (x.notes[id] !== y.notes[id]) n++
+  }
+  return n
+}
+// 열어 둔 동안 시트를 다시 확인하는 간격
+const POLL_MS = 5 * 60 * 1000
 
 // 시트에서 추진현황 탭을 값 + 주차 칸 배경색까지 읽는다.
 // pick을 주면 그 탭(지난 연도 보기), 없으면 올해 탭을 읽는다.
@@ -461,6 +489,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (!next.local && next.spreadsheetId && next.fileTitle) writeSheetMeta(next.spreadsheetId, next.fileTitle, next.tabTitle)
     parkLocal()
     leaveArchive()
+    setRemote(null)
     setData(next)
     dataRef.current = next
     saveProgressData(next)
@@ -864,6 +893,46 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 로그인할 때마다 시트의 최신 내용(다른 팀원이 저장한 것)을 받는다. 이 탭에서 한 번 받았으면 표시해 둔다.
   // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신 내용 받기" 한 번 누르게 한다.
   const [stale, setStale] = useState(false)
+  // 열어 둔 동안 다른 팀원이 새로 저장한 시트 내용(저장 안 한 내 변경이 있어 바로 받지 않고 기다리는 것)
+  const [remote, setRemote] = useState<ProgressData | null>(null)
+  const busyRef = useRef(false)
+  busyRef.current = loading || saving
+  const lastCheckRef = useRef(Date.now())
+  // 5분마다(이 화면을 보고 있을 때만, 이미 받은 토큰이 있을 때만 -- 권한 창이 뜨지 않게) 시트를 조용히 다시 읽는다.
+  // 달라졌으면: 저장 안 한 변경이 없고 칸을 입력하는 중이 아니면 바로 받고, 아니면 "새 내용 · 받기"만 띄운다.
+  useEffect(() => {
+    async function check() {
+      const d = dataRef.current
+      if (!d || d.local || !d.spreadsheetId || archiveRef.current || busyRef.current) return
+      if (document.visibilityState !== 'visible' || !hasSheetsTokenNow()) return
+      if (Date.now() - lastCheckRef.current < POLL_MS - 5000) return
+      lastCheckRef.current = Date.now()
+      try {
+        const fresh = await readFromSheet(d.spreadsheetId, d.year ?? new Date().getFullYear(), d.tabTitle)
+        const cur = dataRef.current
+        if (!cur || cur !== d || busyRef.current || fresh.tabTitle !== cur.tabTitle) return
+        if (sheetSig(fresh) === sheetSig(cur)) return
+        const typing = document.activeElement?.matches('input, textarea, [contenteditable="true"]')
+        if (countDrafts(draftsRef.current) === 0 && !typing) {
+          accept(fresh)
+          markSynced()
+          setMessage(`다른 팀원이 저장한 새 내용을 받았습니다 (${new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`)
+        } else setRemote(fresh)
+      } catch {
+        // 확인 못 하면 다음 차례에 다시
+      }
+    }
+    const t = window.setInterval(() => void check(), 60 * 1000)
+    const onBack = () => void check() // 다른 창에 있다 돌아오면 바로(5분이 지났으면)
+    document.addEventListener('visibilitychange', onBack)
+    window.addEventListener('focus', onBack)
+    return () => {
+      window.clearInterval(t)
+      document.removeEventListener('visibilitychange', onBack)
+      window.removeEventListener('focus', onBack)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // 저장 안 한 변경 알림을 닫은 때의 변경 수(수가 바뀌면 다시 보인다)
   const [hideUnsavedAt, setHideUnsavedAt] = useState<number | null>(null)
   function markSynced() {
@@ -1764,7 +1833,36 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
         {/* 머리 오른쪽(⋯ 앞) 작은 알림: 최신 내용 받기 · 저장 안 한 변경. ✕로 닫으면 상황이 바뀔 때 다시 뜬다 */}
         <span className="flex items-center gap-2">
-          {stale && !data.local && !loading && (
+          {remote && !data.local && !loading && (
+            <HeadPill
+              tone="accent"
+              onClose={() => setRemote(null)}
+              title="받아도 저장 안 한 내 변경(주황 점)은 그대로 남습니다."
+            >
+              <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
+              다른 팀원이 새로 저장함
+              <button
+                onClick={async () => {
+                  const n = overlapCount(data, remote, draftsRef.current)
+                  if (
+                    n > 0 &&
+                    !(await askConfirm({
+                      title: '같은 칸을 다른 팀원도 고쳤습니다',
+                      message: `저장 안 한 내 변경 중 ${n}칸을 다른 팀원도 시트에서 바꿨습니다. 받으면 그 칸은 저장할 때 내 값으로 덮어씁니다. 먼저 내 변경을 저장하면 겹치는 칸은 저장하지 않고 알려 줍니다.`,
+                      confirmLabel: '받기',
+                    }))
+                  )
+                    return
+                  accept(remote)
+                  markSynced()
+                }}
+                className="ml-1 rounded-[6px] bg-accent px-2 py-0.5 font-semibold text-white hover:bg-accent-hover"
+              >
+                받기
+              </button>
+            </HeadPill>
+          )}
+          {stale && !remote && !data.local && !loading && (
             <HeadPill tone="accent" onClose={() => setStale(false)} title="구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다">
               <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
               최신 내용 안 받음
