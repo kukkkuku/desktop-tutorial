@@ -298,11 +298,11 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
               <span className="flex items-center gap-3 text-[11.5px] text-label-2">
                 <span className="flex items-center gap-1.5">
                   <i className="inline-block h-3 w-6 rounded-full border border-[#3BA9D3]/50 bg-[#3BA9D3]/10" />
-                  기간
+                  계획
                 </span>
                 <span className="flex items-center gap-1.5">
                   <i className="inline-block h-3 w-6 rounded-full bg-[#3BA9D3]/40" />
-                  실적만큼 채움
+                  실적
                 </span>
               </span>
             </div>
