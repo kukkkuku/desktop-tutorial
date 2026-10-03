@@ -958,12 +958,18 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setOpenKey(null)
     updateDrafts({ edits: {}, newRows: [] })
     clearHistory()
-    await loadFromSheet(false, clean)
+    setLoadingNote('새로 연결한 시트')
+    const ok = await loadFromSheet(false, clean)
+    const d = dataRef.current
+    if (ok && d && d.spreadsheetId === link.spreadsheetId)
+      setMessage(`「${d.fileTitle ?? '구글시트'} › ${d.tabTitle}」에 연결했습니다. 그룹 ${new Set(d.rows.map((r) => r.l1)).size}개 · 과제 ${d.rows.length}건을 불러왔습니다.`)
   }
 
   // 로그인할 때마다 시트의 최신 내용(다른 팀원이 저장한 것)을 받는다. 이 탭에서 한 번 받았으면 표시해 둔다.
   // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신 내용 받기" 한 번 누르게 한다.
   const [stale, setStale] = useState(false)
+  // 불러오는 동안 탭 위에 보일 대상(시트 연결을 바꿨을 때 등) -- 멈춘 것처럼 보이지 않게
+  const [loadingNote, setLoadingNote] = useState('')
   // 열어 둔 동안 다른 팀원이 새로 저장한 시트 내용(저장 안 한 내 변경이 있어 바로 받지 않고 기다리는 것)
   const [remote, setRemote] = useState<ProgressData | null>(null)
   // 시트와 같은지 마지막으로 확인한 때(받은 때 fetchedAt과 견줘 늦은 쪽을 「n분 전 확인」으로 보인다)
@@ -1066,9 +1072,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function loadFromSheet(pickAccount = false, url = sheetLink) {
+  async function loadFromSheet(pickAccount = false, url = sheetLink): Promise<boolean> {
     const link = parseSheetUrl(url)
-    if (!link) return
+    if (!link) return false
     if (pickAccount) chooseSheetsAccountNext()
     setLoading(true)
     setError('')
@@ -1096,10 +1102,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         setMessage(
           `시트에서 「${moved}」 탭이 없어져 그 연도를 "이 브라우저" 연도로 옮겨 두었습니다. 연도 메뉴에서 고른 뒤 "구글시트로 만들기"로 다시 만들 수 있습니다.`,
         )
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
+      return false
     } finally {
       setLoading(false)
+      setLoadingNote('')
     }
   }
 
@@ -1924,6 +1933,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       엑셀로 받기
     </Button>
   )
+  const loadingBar = loading && view !== 'rate' && (
+    <NoticeBar
+      tone="info"
+      icon={<Spinner className="h-4 w-4" />}
+      title={`${loadingNote || '구글시트'}를 불러오는 중입니다…`}
+      sub="연도 탭 · 과제 · 칸 색을 읽고 있습니다. 시트 크기에 따라 몇 초에서 십여 초 걸립니다."
+    />
+  )
   const statusBar = view === 'rate' ? null : fromXlsx ? (
     <NoticeBar
       tone="warn"
@@ -2099,6 +2116,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
       {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}
       <div className={view === 'rate' ? 'hidden' : ''}>
+        {loadingBar}
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
@@ -2608,7 +2626,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`mt-2 overflow-auto pb-4 ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''}`}
+          className={`mt-2 overflow-auto pb-4 transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+            loading ? 'pointer-events-none opacity-40' : ''
+          }`}
           style={{ maxHeight: tableBoxH }}
         >
           {boardView === 'board' ? (
