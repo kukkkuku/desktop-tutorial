@@ -97,7 +97,6 @@ import {
   loadProgress,
   makeNewRow,
   makeNewGroup,
-  newRowAsRow,
   orderWithNewRows,
   progressYearTabs,
   type PaintBrush,
@@ -2010,7 +2009,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
       {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}
       <div className={view === 'rate' ? 'hidden' : ''}>
-        {/* 연도 ▾ + L1 탭(과제관리와 같은 모양: 마우스를 올리면 ×로 삭제, 끝의 +로 추가) + 오른쪽에 연결된 시트 */}
+        {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
           {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
           <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
@@ -2036,27 +2035,25 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       ? 'border-[#E3E3E8] border-b-white bg-white text-label'
                       : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
                   }`}
-                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : name}
+                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name} · 우클릭하면 숨기기`}
                 >
                   {newOf.length > 0 && rowsOf.length === 0 && (
                     <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
                   )}
                   <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
                   {!tabsCompact && <span className="shrink-0 text-[11px] font-medium text-label-3">{alive}</span>}
-                  {!readOnly && (
+                  {/* 탭 ✕ 삭제는 없앴다(우리 팀이 아닌 그룹은 우클릭 › 숨기기). 줄을 모두 지워 빈 그룹이 되면 되살리기만 */}
+                  {!readOnly && gone && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (gone) restoreRows(rowsOf)
-                        else deleteRows([...rowsOf, ...newOf.map(newRowAsRow)])
+                        restoreRows(rowsOf)
                       }}
-                      title={gone ? '그룹(L1) 삭제 취소' : `그룹(L1) 삭제 · 과제 ${alive}건(저장하면 시트에서 줄을 지움)`}
-                      aria-label={gone ? '그룹 삭제 취소' : '그룹 삭제'}
-                      className={`-mr-1.5 h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label ${
-                        on || gone ? 'flex' : 'hidden group-hover:flex'
-                      }`}
+                      title="그룹(L1) 삭제 취소"
+                      aria-label="그룹 삭제 취소"
+                      className="-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
                     >
-                      {gone ? <Undo2 size={12} strokeWidth={2} /> : <X size={12} strokeWidth={2} />}
+                      <Undo2 size={12} strokeWidth={2} />
                     </button>
                   )}
                 </div>
