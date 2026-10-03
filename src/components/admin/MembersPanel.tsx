@@ -9,7 +9,9 @@ import ConfirmDialog from '../ConfirmDialog'
 import { icSm } from '../ui/icon'
 import {
   LOGIN_TOKEN,
+  NAME_TOKEN,
   connectAdmin,
+  inviteHtml,
   getAdminEmail,
   isAdminConfigured,
   isAdminConnected,
@@ -23,16 +25,9 @@ import { ROLE_WORD, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type
 import { withGoogleAccount } from '../../utils/googleDrive'
 
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
+// 인사말만 고친다. 앱 버튼 · 로그인할 계정 · 처음 로그인 안내는 메일 틀(inviteHtml)이 자동으로 넣는다
 const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
-
-아래 링크에서 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.
-${appInviteUrl()}
-
-로그인할 Google 계정: ${LOGIN_TOKEN}
-(이 계정으로 권한이 정해져 있습니다. 다른 계정으로 로그인하면 메뉴가 다르게 보일 수 있습니다.)
-
-※ 처음 로그인할 때 "Google에서 확인하지 않은 앱" 화면이 나오면 고급 → 페이스(으)로 이동을 누르세요. 이 메일의 링크(페이스 앱 주소)에서만 그렇게 하시면 됩니다.
-※ 로그인이 안 되거나 내용이 비어 보이면 이 메일을 보낸 사람에게 알려 주세요.`
+아래 버튼을 눌러 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.`
 
 const stamp = () => {
   const d = new Date()
@@ -132,6 +127,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         targets.map((u) => ({ email: u.email, sendTo: u.sendTo || undefined, name: u.name || undefined, addedAt: '', lastInvitedAt: null })),
         subject,
         body,
+        appInviteUrl(),
       )
       if (res.sent.length) {
         const at = stamp()
@@ -358,7 +354,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       {/* 초대 메일 창 */}
       {sendOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25 p-4" onMouseDown={() => !sending && setSendOpen(false)}>
-          <div className="w-full max-w-2xl rounded-panel bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-panel bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <Mail size={18} strokeWidth={1.8} className="text-accent" />
               <h3 className={`text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label`}>초대 메일 보내기 · {targets.length}명</h3>
@@ -367,18 +363,37 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
               </button>
             </div>
             <p className={`mt-1 truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>받는 사람: {targets.map((u) => u.name || u.email).join(', ')}</p>
-            <label className={`mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>제목</label>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} className={`mt-1 h-10 w-full rounded-control border border-hairline px-3 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent`} />
-            <label className={`mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>본문</label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={12}
-              className={`mt-1 w-full rounded-control border border-hairline px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent`}
-            />
-            <p className={`mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>
-              <code>{LOGIN_TOKEN}</code>은 사람마다 그 사람의 로그인 Gmail로 바뀝니다. 보내는 계정: {connected ? getAdminEmail() : '보낼 때 Google 계정 연결'}
-            </p>
+            <div className="mt-3 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div>
+                <label className={`block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>제목</label>
+                <input value={subject} onChange={(e) => setSubject(e.target.value)} className={`mt-1 h-10 w-full rounded-control border border-hairline px-3 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent`} />
+                <label className={`mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>인사말</label>
+                <textarea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={7}
+                  className={`mt-1 w-full rounded-control border border-hairline px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent`}
+                />
+                <p className={`mt-1 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-3`}>
+                  인사말만 쓰면 됩니다. <b className="text-label-2">페이스 시작하기 버튼</b>, 그 사람의 <b className="text-label-2">로그인할 계정</b>, 처음 로그인 안내는 메일에 자동으로 들어갑니다(앱 주소는 버튼 뒤에 숨김).
+                  {` `}
+                  <code>{LOGIN_TOKEN}</code> · <code>{NAME_TOKEN}</code>을 쓰면 사람마다 바뀝니다.
+                </p>
+                <p className={`mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>보내는 계정: {connected ? getAdminEmail() : '보낼 때 Google 계정 연결'}</p>
+              </div>
+              <div>
+                <p className={`text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>미리보기 · {targets[0]?.name || targets[0]?.email}</p>
+                <iframe
+                  title="초대 메일 미리보기"
+                  className="mt-1 h-[520px] w-full rounded-card border border-separator bg-[#F3F4F6]"
+                  srcDoc={
+                    targets[0]
+                      ? inviteHtml(body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''), targets[0], getAdminEmail() ?? '보내는 사람', appInviteUrl())
+                      : ''
+                  }
+                />
+              </div>
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setSendOpen(false)} disabled={sending}>
                 취소

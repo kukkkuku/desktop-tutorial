@@ -217,20 +217,57 @@ function toBase64Url(input: string): string {
   return toBase64(input).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-// 메일 본문 HTML: 주소만 있는 줄은 "앱 바로 열기" 버튼으로(주소를 복사할 필요 없이 누르면 접속), 글 속 주소는 링크로.
-function bodyHtml(text: string): string {
-  const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-  const lines = text.split(/\r?\n/).map((line) => {
-    const t = line.trim()
-    if (/^https?:\/\/\S+$/.test(t))
-      return `<a href="${esc(t)}" style="display:inline-block;margin:6px 0;padding:10px 18px;border-radius:8px;background:#18181B;color:#ffffff;text-decoration:none;font-weight:600">앱 바로 열기</a>`
-    return esc(line).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}">${u}</a>`)
-  })
-  return `<div style="font-family:-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:1.7;color:#18181B">${lines.join('<br>')}</div>`
+// 초대 메일 HTML(메일 앱용 · 표와 인라인 스타일만): 로고 · 제목 · 보내는 사람이 쓴 인사말 · 「페이스 시작하기」 버튼 ·
+// 로그인할 계정 상자 · 처음 로그인 안내. 앱 주소는 버튼 뒤에만 두고 글로 드러내지 않는다.
+const escHtml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+export function inviteHtml(message: string, r: { email: string; name?: string }, from: string, appUrl: string): string {
+  const msg = message
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*https?:\/\/\S+\s*$/.test(line)) // 주소만 있는 줄은 버튼이 대신한다
+    .map((line) => escHtml(line))
+    .join('<br>')
+    .replace(/(<br>){3,}/g, '<br><br>')
+  const font = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif"
+  const who = r.name ? `${escHtml(r.name)}님, ` : ''
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#F3F4F6">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:32px 12px;font-family:${font}">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border-radius:16px;overflow:hidden">
+<tr><td style="padding:28px 32px 0">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="width:34px;height:34px;border-radius:17px;background:#2563EB;text-align:center;vertical-align:middle"><div style="width:14px;height:14px;margin:0 auto;border-radius:7px;border:3px solid #FFFFFF"></div></td>
+    <td style="padding-left:10px;font-size:17px;font-weight:700;color:#18181B">페이스<div style="font-size:12px;font-weight:400;color:#8A8F98">과제 · 성과관리</div></td>
+  </tr></table>
+</td></tr>
+<tr><td style="padding:24px 32px 0;font-size:22px;line-height:1.4;font-weight:700;color:#18181B">${who}페이스에 초대합니다</td></tr>
+<tr><td style="padding:12px 32px 0;font-size:15px;line-height:1.75;color:#3F434A">${msg}</td></tr>
+<tr><td style="padding:24px 32px 0">
+  <a href="${escHtml(appUrl)}" style="display:block;padding:14px 0;border-radius:10px;background:#2563EB;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+</td></tr>
+<tr><td style="padding:16px 32px 0">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F7FB;border-radius:10px"><tr><td style="padding:14px 16px">
+    <div style="font-size:12px;color:#8A8F98">로그인할 Google 계정</div>
+    <div style="margin-top:2px;font-size:16px;font-weight:700;color:#18181B">${escHtml(r.email)}</div>
+    <div style="margin-top:4px;font-size:12.5px;line-height:1.6;color:#6B7079">이 계정으로 권한이 정해져 있습니다. 다른 계정으로 로그인하면 메뉴가 다르게 보일 수 있습니다.</div>
+  </td></tr></table>
+</td></tr>
+<tr><td style="padding:16px 32px 0;font-size:13px;line-height:1.7;color:#6B7079">
+  <b style="color:#3F434A">처음 로그인할 때</b><br>
+  「Google에서 확인하지 않은 앱」 화면이 나오면 <b style="color:#3F434A">고급 → 페이스(으)로 이동</b>을 누르세요. 위 버튼으로 연 페이스에서만 그렇게 하시면 됩니다.
+</td></tr>
+<tr><td style="padding:24px 32px 28px">
+  <div style="border-top:1px solid #ECEDEF;padding-top:16px;font-size:12px;line-height:1.6;color:#9AA0A6">${escHtml(from)} 님이 보낸 초대입니다. 로그인이 안 되거나 내용이 비어 보이면 이 메일에 회신해 주세요.</div>
+</td></tr>
+</table>
+</td></tr></table></body></html>`
+}
+// 글만 보는 메일 앱용: 인사말 + 주소 + 로그인 계정
+function inviteText(message: string, r: { email: string }, appUrl: string): string {
+  return `${message.trim()}\n\n페이스 시작하기: ${appUrl}\n로그인할 Google 계정: ${r.email}\n\n처음 로그인할 때 「Google에서 확인하지 않은 앱」 화면이 나오면 고급 → 페이스(으)로 이동을 누르세요.`
 }
 
 // 글(text/plain)과 HTML을 함께 보낸다 -- 메일 앱은 HTML(버튼)을, 글만 보는 곳은 주소를 보여 준다.
-function buildRawMessage(from: string, to: string, subject: string, bodyText: string): string {
+function buildRawMessage(from: string, to: string, subject: string, bodyText: string, bodyHtmlText: string): string {
   const boundary = `inv_${Date.now().toString(36)}`
   const headers = [
     `From: ${from}`,
@@ -241,7 +278,7 @@ function buildRawMessage(from: string, to: string, subject: string, bodyText: st
   ].join('\r\n')
   const parts = [
     `--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${toBase64(bodyText)}`,
-    `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${toBase64(bodyHtml(bodyText))}`,
+    `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${toBase64(bodyHtmlText)}`,
     `--${boundary}--`,
   ].join('\r\n')
   return toBase64Url(`${headers}\r\n\r\n${parts}`)
@@ -264,7 +301,7 @@ const fill = (text: string, r: InviteRecipient) =>
 // 순차 발송한다 -- Gmail API에는 여러 수신자에게 한 번에 보내는 배치
 // 엔드포인트가 없고, 병렬로 쏘면 사용자별 발송 쿼터에 걸리기 쉽다.
 // 보내는 곳은 받는 메일(없으면 로그인 Gmail). 결과의 email은 로그인 Gmail(목록 열쇠).
-export async function sendInviteEmails(recipients: InviteRecipient[], subject: string, bodyText: string): Promise<SendInviteResult> {
+export async function sendInviteEmails(recipients: InviteRecipient[], subject: string, bodyText: string, appUrl: string): Promise<SendInviteResult> {
   if (!isAdminConnected() || !adminToken || !adminEmail) throw new Error('Google 계정으로 먼저 연결해주세요.')
 
   const sent: string[] = []
@@ -275,7 +312,8 @@ export async function sendInviteEmails(recipients: InviteRecipient[], subject: s
     const email = r.email
     const to = mailOf(r)
     try {
-      const raw = buildRawMessage(adminEmail, to, fill(subject, r), fill(bodyText, r))
+      const msg = fill(bodyText, r)
+      const raw = buildRawMessage(adminEmail, to, fill(subject, r), inviteText(msg, r, appUrl), inviteHtml(msg, r, adminEmail, appUrl))
       const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken.token}`, 'Content-Type': 'application/json' },
