@@ -2,7 +2,7 @@
 //   팀장은 자기가 추가한 사람만 보고 관리하고, 관리자는 모두(누가 추가했는지 함께) 본다.
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Copy, FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
+import { FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -147,7 +147,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         targets.map((u) => ({ email: u.email, sendTo: u.sendTo || undefined, name: u.name || undefined, addedAt: '', lastInvitedAt: null })),
         subject,
         body,
-        appInviteUrl(),
+        appInviteUrl(undefined, taskUrl),
         (r) => {
           const u = data.users.find((x) => x.email === r.email)
           return u ? contactFor(data, u, me) : null
@@ -164,7 +164,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       setNote(
         res.failed.length
           ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => `${f.email}(${f.error.slice(0, 60)})`).join(', ')}` }
-          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다. 시트 공유도 잊지 마세요.` },
+          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다. 「구글 시트」 탭에서 과제 시트 공유도 해 주세요.` },
       )
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : '보내지 못했습니다.' })
@@ -173,17 +173,6 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     }
   }
 
-  // ---- 시트 공유 안내
-  const [copied, setCopied] = useState(false)
-  async function copyGmails() {
-    try {
-      await navigator.clipboard.writeText((targets.length ? targets : shown).map((u) => u.email).join(', '))
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // 복사가 막히면 표에서 직접 고른다
-    }
-  }
   const taskUrl = taskSheetOf(data)?.url ?? null
   const allOn = shown.length > 0 && shown.every((u) => sel.has(u.email))
 
@@ -249,7 +238,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''),
         targets[0],
         getAdminEmail() ?? me,
-        appInviteUrl(),
+        appInviteUrl(undefined, taskUrl),
         contactFor(data, targets[0], me),
       )
     : ''
@@ -453,7 +442,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   return (
     <div className={`space-y-4 ${compose ? 'max-w-none' : 'max-w-6xl'}`}>
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일과 시트 공유로 마무리합니다.
+        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「구글 시트」 탭에서 시트를 공유하면 끝납니다.
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
@@ -645,46 +634,6 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         </dl>
       )}
 
-      {/* 시트 공유: 초대받은 Gmail이 권한 시트(역할)를 읽고 과제 시트에 저장하려면 두 시트를 그 Gmail에 공유해야 한다 */}
-      <section className="rounded-card border border-separator p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className={`text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label`}>시트 공유</h3>
-          <span className={`text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3`}>초대한 사람의 Gmail에 두 시트를 공유해야 앱이 동작합니다.</span>
-          <Button variant="secondary" size="sm" className="ml-auto" onClick={() => void copyGmails()} disabled={!shown.length}>
-            <Copy {...icSm} />
-            {copied ? '복사함' : `Gmail ${targets.length || shown.length}개 복사`}
-          </Button>
-        </div>
-        <ul className="mt-3 grid gap-2 md:grid-cols-2">
-          {[
-            { url: accessSheetUrl(), name: '권한 시트', role: '뷰어', why: '로그인할 때 역할을 읽는 데 필요' },
-            { url: taskUrl, name: '과제(추진현황) 시트', role: '편집자', why: '추진현황을 보고 저장하는 데 필요' },
-          ].map((x) => (
-            <li key={x.name} className="flex items-center gap-3 rounded-card bg-subtle px-4 py-3">
-              <FileSpreadsheet size={18} strokeWidth={1.8} className="shrink-0 text-emerald-700" />
-              <div className="min-w-0 flex-1">
-                <p className={`text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label`}>
-                  {x.name} → <span className="text-accent">{x.role}</span>
-                </p>
-                <p className={`text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>{x.why}</p>
-              </div>
-              {x.url ? (
-                <a
-                  href={withGoogleAccount(x.url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`shrink-0 rounded-control border border-hairline bg-white px-3 py-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label hover:bg-black/[0.03]`}
-                >
-                  열어서 공유 ↗
-                </a>
-              ) : (
-                <span className={`shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>관리자가 아직 안 정함</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-
       {/* 미리보기 팝업: 닫기 · 보내기 */}
       {previewOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onMouseDown={() => setPreviewOpen(false)}>
@@ -717,7 +666,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       <ConfirmDialog
         open={!!removeAsk}
         title="목록에서 빼기"
-        message={`${removeAsk?.map((u) => u.name || u.email).join(', ')}\n앱 권한 목록에서 뺍니다. 이 사람은 로그인해도 팀원 메뉴가 보이지 않습니다. 시트 공유는 시트에서 따로 해제하세요.`}
+        message={`${removeAsk?.map((u) => u.name || u.email).join(', ')}\n앱 권한 목록에서 뺍니다. 시트 공유는 「구글 시트」 탭에서 시트를 열어 해제하세요.`}
         confirmLabel="빼기"
         onCancel={() => setRemoveAsk(null)}
         onConfirm={() => {

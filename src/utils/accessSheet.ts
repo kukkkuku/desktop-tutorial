@@ -49,21 +49,38 @@ const ROLE_WORDS: Record<string, AccessRole> = { 관리자: 'admin', admin: 'adm
 export const ROLE_WORD: Record<AccessRole, string> = { admin: '관리자', leader: '팀장', member: '팀원' }
 const norm = (e: string | null | undefined) => (e ?? '').trim().toLowerCase()
 
-// 초대 링크(?access=ID)로 들어오면 기억하고 주소에서는 지운다
-function takeUrlParam(): string | null {
+// 초대 링크(?access=ID · ?task=ID)로 들어오면 기억하고 주소에서는 지운다
+function takeUrlParam(key: string): string | null {
   try {
     const u = new URL(window.location.href)
-    const v = u.searchParams.get('access')
+    const v = u.searchParams.get(key)
     if (!v) return null
-    u.searchParams.delete('access')
+    u.searchParams.delete(key)
     window.history.replaceState(null, '', u.toString())
     return parseSheetUrl(v)?.spreadsheetId ?? null
   } catch {
     return null
   }
 }
-const fromUrl = typeof window !== 'undefined' ? takeUrlParam() : null
+const fromUrl = typeof window !== 'undefined' ? takeUrlParam('access') : null
 if (fromUrl) setAccessSheetId(fromUrl)
+// 팀원은 권한 시트(명단)를 공유받지 않는다 -- 과제 시트는 초대 링크로 알려 준 것을 기억해 쓴다
+const TASK_HINT_KEY = 'task-sheet-hint'
+const taskFromUrl = typeof window !== 'undefined' ? takeUrlParam('task') : null
+if (taskFromUrl)
+  try {
+    localStorage.setItem(TASK_HINT_KEY, taskFromUrl)
+  } catch {
+    // 기억 못 하면 앱 기본 시트
+  }
+function taskHint(): string | null {
+  try {
+    const id = localStorage.getItem(TASK_HINT_KEY)
+    return id ? sheetUrl(id) : null
+  } catch {
+    return null
+  }
+}
 
 export function getAccessSheetId(): string | null {
   try {
@@ -83,11 +100,16 @@ export function setAccessSheetId(id: string | null) {
 export function accessSheetUrl(id = getAccessSheetId()): string | null {
   return id ? sheetUrl(id) : null
 }
-// 팀원에게 보낼 앱 주소(열면 이 권한 시트를 기억)
-export function appInviteUrl(id = getAccessSheetId()): string {
+// 팀원에게 보낼 앱 주소(열면 이 권한 시트 · 과제 시트를 기억)
+// 기본 권한 시트면 ?access= 없이(짧게). 과제 시트는 팀원이 권한 시트를 못 읽으므로 링크로 알려 준다.
+export function appInviteUrl(id = getAccessSheetId(), taskUrl?: string | null): string {
   const base = `${window.location.origin}${window.location.pathname}`
-  // 기본 권한 시트면 주소만(짧게). 다른 시트를 쓸 때만 ?access=를 붙인다.
-  return id && id !== DEFAULT_ACCESS_SHEET_ID ? `${base}?access=${id}` : base
+  const q = new URLSearchParams()
+  if (id && id !== DEFAULT_ACCESS_SHEET_ID) q.set('access', id)
+  const task = parseSheetUrl(taskUrl ?? '')?.spreadsheetId
+  if (task) q.set('task', task)
+  const qs = q.toString()
+  return qs ? `${base}?${qs}` : base
 }
 
 export function readAccessCache(): AccessData | null {
@@ -274,7 +296,8 @@ export function accessRoleOf(email: string | null | undefined): AccessRole | nul
 // 이 사람의 팀에 정한 추진현황 시트(없으면 "전체" 행)
 export function sharedSheetFor(email: string | null | undefined): { url: string; team: string } | null {
   const d = readAccessCache()
-  if (!d) return null
+  const hint = taskHint()
+  if (!d) return hint ? { url: hint, team: ALL_TEAMS } : null
   const team = accessUserOf(email)?.team
   const hit = (team && d.links.find((x) => x.team === team)) || d.links.find((x) => x.team === ALL_TEAMS)
   return hit ? { url: hit.url, team: hit.team } : null

@@ -1,7 +1,6 @@
 // 관리: 기능별 탭 셋.
-//   팀원(팀장 · 관리자): 팀원 추가 · 초대 메일 · 시트 공유 · 빼기. 팀장은 자기가 추가한 사람만, 관리자는 모두.
-//   과제 시트(관리자): 연구소가 함께 쓰는 과제(추진현황) 시트 하나를 연결.
-//   권한(관리자): 누가 관리자 · 팀장 · 팀원인지.
+//   팀원 · 권한: 팀원 추가 · 역할 · 초대 메일 · 빼기. 팀장은 자기가 추가한 사람만, 관리자는 모두.
+//   구글 시트: 과제 시트 연결(관리자) · 시트 공유 안내(팀장은 내가 추가한 팀원만).
 // 모두 앱 설정을 담은 구글시트(권한 시트) 한 개에 저장된다 -- 화면에서는 그 시트를 직접 다룰 일이 없게 한다.
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
@@ -18,13 +17,16 @@ import { getConnectedEmail } from '../../utils/googleDrive'
 import { isSheetsApiConfigured } from '../../utils/sheetSources'
 
 type Tab = 'members' | 'task'
-const TITLES: Record<Tab, string> = { members: '팀원 · 권한', task: '과제 시트' }
+const TITLES: Record<Tab, string> = {
+  members: '팀원 · 권한',
+  task: '구글 시트',
+}
 
 export default function AdminApp() {
   const { isAdminUser } = useGoogleAccount()
   const me = (getConnectedEmail() ?? '').toLowerCase()
   const [tab, setTab] = useState<Tab>('members')
-  const cur: Tab = isAdminUser ? tab : 'members'
+  const cur: Tab = tab
   const { data, sync } = useAccess()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -48,25 +50,31 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <AppShell header={<PageHeader area="관리" title={isAdminUser ? TITLES[cur] : '팀원'} />}>
-      {/* 팀장: 팀원 화면만. 관리자: 팀원 · 권한(역할 · 팀을 표에서 바로) · 과제 시트 */}
-      {isAdminUser && (
-        <PageTabs>
-          <UnderlineTabs
-            items={[
-              { key: 'members', label: '팀원 · 권한', title: '사람 추가 · 역할 · 초대 메일 · 시트 공유' },
-              { key: 'task', label: '과제 시트', title: '연구소가 함께 쓰는 과제(추진현황) 시트 연결' },
-            ]}
-            value={cur}
-            onChange={(k) => setTab(k as Tab)}
-          />
-        </PageTabs>
-      )}
+    <AppShell header={<PageHeader area="관리" title={isAdminUser ? TITLES[cur] : cur === 'members' ? '팀원' : TITLES[cur]} />}>
+      {/* 관리자: 팀원 · 권한 · 구글 시트. 팀장: 팀원 · 구글 시트(공유 안내만) */}
+      <PageTabs>
+        <UnderlineTabs
+          items={[
+            {
+              key: 'members',
+              label: isAdminUser ? '팀원 · 권한' : '팀원',
+              title: '사람 추가 · 역할 · 초대 메일',
+            },
+            {
+              key: 'task',
+              label: '구글 시트',
+              title: '과제 시트 연결 · 시트 공유',
+            },
+          ]}
+          value={cur}
+          onChange={(k) => setTab(k as Tab)}
+        />
+      </PageTabs>
       <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
         {!data ? (
           <section className="max-w-3xl rounded-card border border-dashed border-separator p-5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             <p className="font-semibold text-label">{busy ? '불러오는 중…' : '팀원 · 권한 정보를 불러오지 못했습니다'}</p>
-            {!busy && <p className="mt-1">이 계정이 권한 시트를 볼 수 있는지 확인하세요(관리자에게 뷰어 공유 요청). {error}</p>}
+            {!busy && <p className="mt-1">이 계정이 권한 시트를 볼 수 있는지 확인하세요(관리자에게 편집자 공유 요청). {error}</p>}
             <div className="mt-3 flex items-center gap-2">
               <Button variant="primary" size="sm" onClick={() => void reload()} disabled={busy}>
                 {busy ? <Spinner className="h-3.5 w-3.5 text-white" /> : <RefreshCw {...icSm} />}
@@ -77,7 +85,7 @@ export default function AdminApp() {
         ) : cur === 'members' ? (
           <MembersPanel data={data} me={me} isAdmin={isAdminUser} onChanged={sync} />
         ) : (
-          <TaskSheetPanel data={data} me={me} onChanged={sync} />
+          <TaskSheetPanel data={data} me={me} isAdmin={isAdminUser} onChanged={sync} />
         )}
         {data && error && <p className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{error}</p>}
       </main>
