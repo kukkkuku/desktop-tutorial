@@ -18,6 +18,7 @@ import {
   ChartGantt,
   Eraser,
   Pencil,
+  Check,
   Plus,
   Redo2,
   RefreshCw,
@@ -810,7 +811,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     const d = proj?.data ?? data
     const dr = proj?.drafts ?? drafts
     const order = proj ? Array.from(new Set([...proj.data.rows.map((r) => r.l1), ...proj.drafts.newRows.map((n) => n.l1)])) : l1s
-    if (!d?.local) return
+    // 이 브라우저 연도(local) · 엑셀 파일로 연 표(시트 없음)를 연결된 구글시트에 새 탭으로 올린다
+    const fromXlsx = !!d && !d.local && !d.spreadsheetId
+    if (!d || !(d.local || fromXlsx)) return
     const link = parseSheetUrl(sheetLink)
     if (!link) return setError('연결된 구글시트가 없습니다. ⋯ 파일 메뉴 › "시트 연결 설정"에서 먼저 연결해 주세요.')
     if (isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
@@ -832,19 +835,32 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     try {
       const m = materialize(d, dr, order)
       const { tabs } = await fetchSpreadsheetTabs(link.spreadsheetId)
-      if (tabs.some((t) => t.title.replace(/\s/g, '') === d.tabTitle.replace(/\s/g, '')))
+      const taken = (t: string) => tabs.some((x) => x.title.replace(/\s/g, '') === t.replace(/\s/g, ''))
+      // 엑셀에서 올릴 때 같은 이름 탭이 이미 있으면 덮어쓰지 않고 「… (엑셀 10.03)」 탭으로 따로 만든다
+      let tabTitle = d.tabTitle
+      if (fromXlsx && taken(tabTitle)) {
+        const t = new Date()
+        const base = `${d.tabTitle} (엑셀 ${t.getMonth() + 1}.${String(t.getDate()).padStart(2, '0')})`
+        tabTitle = base
+        for (let i = 2; taken(tabTitle); i++) tabTitle = `${base} ${i}`
+      }
+      if (taken(tabTitle))
         throw new Error(`연결된 시트에 이미 「${d.tabTitle}」 탭이 있습니다. 시트에서 탭 이름을 바꾸거나 지운 뒤 다시 해 주세요.`)
       const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order)
       const ws = wb.worksheets[0]
       const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
-      await createSheetTab(link.spreadsheetId, d.tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
+      await createSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
         worksheetRequests(ws, id),
       )
-      const fresh = await readFromSheet(link.spreadsheetId, d.year ?? now.getFullYear(), d.tabTitle)
+      const fresh = await readFromSheet(link.spreadsheetId, d.year ?? now.getFullYear(), tabTitle)
       // 시트 연도가 됐으니 이 브라우저 연도와 예전에 내려 둔 시트 연도는 정리한다
       const rest = Object.fromEntries(Object.entries(shelfRef.current).filter(([, x]) => x.data.local))
       activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
-      setMessage(`구글시트에 「${d.tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`)
+      setMessage(
+        fromXlsx && tabTitle !== d.tabTitle
+          ? `시트에 이미 「${d.tabTitle}」 탭이 있어 엑셀 내용을 「${tabTitle}」 탭으로 올렸습니다. 이제 이 탭과 연결됩니다(원래 탭은 그대로).`
+          : `구글시트에 「${tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`,
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : '구글시트에 탭을 만들지 못했습니다.')
     } finally {
@@ -1000,8 +1016,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  // 저장 안 한 변경 알림을 닫은 때의 변경 수(수가 바뀌면 다시 보인다)
-  const [hideUnsavedAt, setHideUnsavedAt] = useState<number | null>(null)
   function markSynced() {
     try {
       sessionStorage.setItem(SYNC_KEY, '1')
@@ -1595,7 +1609,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           엑셀로 받기
         </button>
       )}
-      {data?.local && canManage && (
+      {((data?.local && canManage) || (data && !data.local && !data.spreadsheetId)) && (
         <button
           onClick={() => void createInSheet()}
           disabled={saving}
@@ -1603,8 +1617,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
         >
           <CloudUpload {...icSm} className="shrink-0" />
-          구글시트로 만들기
-          <span className="ml-auto text-[11px] font-normal text-label-3">이 브라우저 → 시트</span>
+          {data?.local ? '구글시트로 만들기' : '구글시트로 올리기'}
+          <span className="ml-auto text-[11px] font-normal text-label-3">{data?.local ? '이 브라우저 → 시트' : '엑셀 → 시트'}</span>
         </button>
       )}
       <div className="mac-menu-sep" />
@@ -1882,6 +1896,146 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const seenAt = Math.max(new Date(data.fetchedAt).getTime(), confirmedAt)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
 
+  // ---- 탭 위 알림 줄: 지금 보는 표가 어디서 언제 왔나 · 저장 안 한 변경 · 새 내용 받기 (머리 구석에 작게 두지 않고 크게)
+  const fromXlsx = !data.local && !data.spreadsheetId
+  // 입력을 끝낼 때 저장 안 한 변경이 있으면 바로 구글시트 저장을 권한다(저장해야 다른 팀원이 본다)
+  function finishEditing() {
+    if (editCount > 0 && !data!.local && canSave) setConfirmSave(true)
+    setEditing(false)
+  }
+  async function acceptRemote() {
+    if (!remote) return
+    const n = overlapCount(data!, remote, draftsRef.current)
+    if (
+      n > 0 &&
+      !(await askConfirm({
+        title: '같은 칸을 다른 팀원도 고쳤습니다',
+        message: `저장 안 한 내 변경 중 ${n}칸을 다른 팀원도 시트에서 바꿨습니다. 받으면 그 칸은 저장할 때 내 값으로 덮어씁니다. 먼저 내 변경을 저장하면 겹치는 칸은 저장하지 않고 알려 줍니다.`,
+        confirmLabel: '받기',
+      }))
+    )
+      return
+    accept(remote)
+    markSynced()
+  }
+  const excelButton = (
+    <Button variant="secondary" size="sm" onClick={() => void downloadProgressExcel(data, drafts, l1s)} title="고친 내용까지 넣어 시트 모양 그대로 엑셀로 받습니다">
+      <FileDown {...icSm} />
+      엑셀로 받기
+    </Button>
+  )
+  const statusBar = view === 'rate' ? null : fromXlsx ? (
+    <NoticeBar
+      tone="warn"
+      icon={<FileSpreadsheet size={18} strokeWidth={1.9} />}
+      title="엑셀 파일을 보고 있습니다. 구글시트로 올려야 팀원과 동기화됩니다."
+      sub={`「${data.source}」 · ${fmt(data.fetchedAt)}에 열음 · ${
+        editCount ? `고친 내용 ${editCount}건은 아직 이 브라우저에만 있습니다` : '여기서 고친 내용은 이 브라우저에만 남습니다'
+      }`}
+    >
+      {excelButton}
+      {isSheetsApiConfigured() && (
+        <Button variant="secondary" size="sm" onClick={() => void loadFromSheet()} disabled={loading || saving} title="엑셀 대신 연결된 구글시트의 최신 내용을 엽니다">
+          <RefreshCw {...icSm} />
+          구글시트에서 불러오기
+        </Button>
+      )}
+      {isSheetsApiConfigured() && (
+        <button
+          onClick={() => void createInSheet()}
+          disabled={saving || !parseSheetUrl(sheetLink)}
+          title={`연결된 시트(${sheetName})에 이 표를 새 탭으로 올립니다(고친 내용 포함). 같은 이름 탭이 있으면 「… (엑셀 날짜)」 탭으로 따로 만듭니다.`}
+          className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[13px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
+        >
+          {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+          구글시트로 올리기
+        </button>
+      )}
+    </NoticeBar>
+  ) : !data.local && data.spreadsheetId ? (
+    <>
+      {editCount > 0 && !readOnly && (
+        <NoticeBar
+          tone="warn"
+          icon={<span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
+          title={`저장 안 한 변경 ${editCount}건이 있습니다. 구글시트에 저장해야 다른 팀원도 볼 수 있습니다.`}
+          sub={
+            canSave
+              ? `저장할 곳: ${sheetName} › ${data.tabTitle} · 주황 점이 고친 칸입니다`
+              : protectedSheet
+                ? '운영 팀 시트라 여기서는 저장하지 않습니다. 고친 내용은 엑셀로 받아 두세요.'
+                : '이 시트에는 저장할 수 없습니다. 고친 내용은 엑셀로 받아 두세요.'
+          }
+        >
+          {canSave ? (
+            <button
+              onClick={() => setConfirmSave(true)}
+              disabled={saving}
+              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[13px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
+            >
+              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+              구글시트에 저장
+            </button>
+          ) : (
+            excelButton
+          )}
+        </NoticeBar>
+      )}
+      {remote && !loading && (
+        <NoticeBar
+          tone="info"
+          icon={<RefreshCw size={16} strokeWidth={2} />}
+          title="다른 팀원이 구글시트에 새로 저장했습니다."
+          sub="받아도 저장 안 한 내 변경(주황 점)은 그대로 남습니다."
+          onClose={() => setRemote(null)}
+        >
+          <Button variant="primary" size="sm" onClick={() => void acceptRemote()}>
+            새 내용 받기
+          </Button>
+        </NoticeBar>
+      )}
+      {stale && !remote && !loading && (
+        <NoticeBar
+          tone="info"
+          icon={<RefreshCw size={16} strokeWidth={2} />}
+          title="구글시트의 최신 내용을 아직 받지 않았습니다."
+          sub={`지금 보는 내용: ${fmt(data.fetchedAt)}에 불러온 것 · 그 뒤 다른 팀원이 저장한 내용은 받기를 눌러야 보입니다`}
+          onClose={() => setStale(false)}
+        >
+          <Button variant="primary" size="sm" onClick={() => void loadFromSheet()}>
+            최신 내용 받기
+          </Button>
+        </NoticeBar>
+      )}
+      {/* 늘 보이는 출처 한 줄: 연결된 시트 이름 › 탭 · 불러온 시각 · 최신 확인 */}
+      <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-label-2">
+        <FileSpreadsheet size={14} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
+        <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="font-medium text-label hover:underline" title="구글시트에서 열기">
+          {sheetName} › {data.tabTitle}
+        </a>
+        <span className="text-label-3">·</span>
+        <span title={`${fmt(data.fetchedAt)}에 불러옴`}>{fmt(data.fetchedAt)} 불러옴</span>
+        {!remote && !stale && (
+          <>
+            <span className="text-label-3">·</span>
+            <span className="flex items-center gap-1" title="열어 둔 동안 5분마다, 다시 열면 바로 시트와 견줘 봅니다">
+              <CircleCheck size={13} strokeWidth={2} className="text-emerald-600" />
+              최신 · {timeAgo(new Date(seenAt).toISOString())} 확인
+            </span>
+          </>
+        )}
+        <button
+          onClick={() => void loadFromSheet()}
+          disabled={loading || saving}
+          className="flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-accent hover:bg-accent-soft disabled:opacity-50"
+        >
+          {loading ? <Spinner className="h-3 w-3" /> : <RefreshCw size={12} strokeWidth={2} />}
+          {loading ? '불러오는 중' : '다시 불러오기'}
+        </button>
+      </p>
+    </>
+  ) : null
+
   return (
     <div>
       <MenuSlot>
@@ -1904,89 +2058,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         />
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-        {/* 머리 오른쪽(⋯ 앞) 작은 알림: 최신 내용 받기 · 저장 안 한 변경. ✕로 닫으면 상황이 바뀔 때 다시 뜬다 */}
+        {/* 머리 오른쪽: 과제 내보내기(팀장) · 파일 메뉴. 시트 상태 · 저장 안 한 변경은 탭 위 알림 줄에 크게 */}
         <span className="flex items-center gap-2">
-          {remote && !data.local && !loading && (
-            <HeadPill
-              tone="accent"
-              onClose={() => setRemote(null)}
-              title="받아도 저장 안 한 내 변경(주황 점)은 그대로 남습니다."
-            >
-              <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
-              다른 팀원이 새로 저장함
-              <button
-                onClick={async () => {
-                  const n = overlapCount(data, remote, draftsRef.current)
-                  if (
-                    n > 0 &&
-                    !(await askConfirm({
-                      title: '같은 칸을 다른 팀원도 고쳤습니다',
-                      message: `저장 안 한 내 변경 중 ${n}칸을 다른 팀원도 시트에서 바꿨습니다. 받으면 그 칸은 저장할 때 내 값으로 덮어씁니다. 먼저 내 변경을 저장하면 겹치는 칸은 저장하지 않고 알려 줍니다.`,
-                      confirmLabel: '받기',
-                    }))
-                  )
-                    return
-                  accept(remote)
-                  markSynced()
-                }}
-                className="ml-1 rounded-[6px] bg-accent px-2 py-0.5 font-semibold text-white hover:bg-accent-hover"
-              >
-                받기
-              </button>
-            </HeadPill>
-          )}
-          {/* 지금 보는 내용이 어디서 언제 온 것인지 늘 보인다. 시트면 눌러서 다시 불러오기 */}
-          {!remote && !stale && !data.local && data.spreadsheetId && (
-            <button
-              onClick={() => void loadFromSheet()}
-              disabled={loading || saving}
-              title={`${sheetName} · ${fmt(new Date(seenAt).toISOString())}에 시트와 같은지 확인 · 5분마다 다시 확인합니다. 누르면 지금 다시 불러옵니다.`}
-              className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-60"
-            >
-              {loading ? <Spinner className="h-3 w-3" /> : <CircleCheck size={14} strokeWidth={2} className="text-emerald-600" />}
-              {loading ? '불러오는 중' : `최신 · ${timeAgo(new Date(seenAt).toISOString())} 확인`}
-            </button>
-          )}
-          {!data.local && !data.spreadsheetId && (
-            <span
-              className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] text-label-2"
-              title={`${data.source} · ${fmt(data.fetchedAt)}에 연 엑셀 파일입니다. 구글시트와 이어져 있지 않아 저장 · 최신 확인을 하지 않습니다.`}
-            >
-              <FileSpreadsheet size={14} strokeWidth={2} className="text-label-3" />
-              엑셀 파일 · 보기 전용
-            </span>
-          )}
-          {stale && !remote && !data.local && !loading && (
-            <HeadPill tone="accent" onClose={() => setStale(false)} title="구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다">
-              <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
-              최신 내용 안 받음
-              <button onClick={() => void loadFromSheet()} className="ml-1 rounded-[6px] bg-accent px-2 py-0.5 font-semibold text-white hover:bg-accent-hover">
-                받기
-              </button>
-            </HeadPill>
-          )}
-          {editCount > 0 && !data.local && !readOnly && hideUnsavedAt !== editCount && (
-            <HeadPill
-              tone="warn"
-              onClose={() => setHideUnsavedAt(editCount)}
-              title={`구글시트에 저장해야 다른 팀원도 받아 볼 수 있습니다${!canSave ? (protectedSheet ? ' · 운영 팀 시트는 저장하지 않습니다' : ' · xlsx로 연 표는 시트에 저장할 수 없습니다') : ''}`}
-            >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
-              저장 안 한 변경 <b>{editCount}</b>
-              {canSave ? (
-                <button
-                  onClick={() => setConfirmSave(true)}
-                  disabled={saving}
-                  className="ml-1 flex items-center gap-1 rounded-[6px] bg-ink px-2 py-0.5 font-semibold text-white hover:bg-black disabled:opacity-50"
-                >
-                  {saving ? <Spinner className="h-3 w-3" /> : <CloudUpload size={12} strokeWidth={2} />}
-                  구글시트에 저장
-                </button>
-              ) : (
-                <span className="text-orange-700/80">{protectedSheet ? '(운영 시트 · 저장 안 함)' : '(xlsx · 저장 불가)'}</span>
-              )}
-            </HeadPill>
-          )}
           {/* 팀장: 지금 그룹(L1)을 성과관리 과제리스트로 내보내기가 주된 일 -- 머리 줄 프라이머리 버튼(성과관리의 구글시트 연결과 같은 화면) */}
           {canPerf && (
             <Button
@@ -2026,6 +2099,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
       {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}
       <div className={view === 'rate' ? 'hidden' : ''}>
+        {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
           {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
@@ -2185,6 +2259,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </div>
         </div>
 
+        {/* 입력 모드 알림: 켜져 있는 동안 표 위에 파란 줄 + 표 테두리 */}
+        {editing && boardView === 'table' && !readOnly && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-accent px-4 py-2 text-white">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+            </span>
+            <p className="min-w-0 flex-1 text-[13px]">
+              <b className="font-semibold">입력 모드</b>
+              <span className="text-white/85"> · 주 칸을 누르거나 끌어 계획 · 실적을 칠합니다. 아래 도구에서 계획 · 실적 · 지우개를 고르세요.</span>
+            </p>
+            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] bg-white px-2.5 text-[12.5px] font-semibold text-accent hover:bg-white/90">
+              <Check size={14} strokeWidth={2.2} />
+              입력 끝내기
+            </button>
+          </div>
+        )}
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
@@ -2335,20 +2426,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </button>
             </span>
           ) : (
-            <Button
-              // 팀장은 과제 내보내기가 프라이머리(머리 줄), 입력하기는 세컨더리
-              variant={canPerf ? 'secondary' : 'primary'}
-              size="sm"
-              onClick={() => {
-                // 입력을 끝낼 때 저장 안 한 변경이 있으면 바로 구글시트 저장을 권한다(저장해야 다른 팀원이 본다)
-                if (editing && editCount > 0 && !data.local && canSave) setConfirmSave(true)
-                setEditing((v) => !v)
-              }}
-              title="주차 칸 칠하기 켜기/끄기(칸 입력은 언제든 칸을 눌러서)"
-            >
-              <Pencil {...icSm} />
-              {editing ? '입력 끝내기' : '입력하기'}
-            </Button>
+            editing ? (
+              // 입력 중: 파란 버튼으로 바뀌어 지금 입력 모드인 걸 알 수 있게
+              <button
+                onClick={finishEditing}
+                title="입력 모드 끝내기(저장 안 한 변경이 있으면 구글시트 저장을 권합니다)"
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-accent px-3 text-[13px] font-semibold text-white shadow-sm hover:bg-accent-hover"
+              >
+                <Check {...icSm} />
+                입력 끝내기
+              </button>
+            ) : (
+              <Button
+                // 팀장은 과제 내보내기가 프라이머리(머리 줄), 입력하기는 세컨더리
+                variant={canPerf ? 'secondary' : 'primary'}
+                size="sm"
+                onClick={() => setEditing(true)}
+                title="입력 모드 켜기: 주 칸에 계획 · 실적을 칠합니다(칸 글자는 언제든 칸을 눌러 고침)"
+              >
+                <Pencil {...icSm} />
+                입력하기
+              </Button>
+            )
           )}
           {/* 칠하기: 보기 모드는 범례(■ 계획  S 착수  F 완료   ■ 실적  S 착수  완 완료),
               입력 모드는 도구 버튼(세그먼트: 계획 · 실적 · 지우개) + 고른 도구의 표시 안내 */}
@@ -2511,7 +2610,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </div>
 
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
-        <div ref={tableBoxRef} className="mt-2 overflow-auto pb-4" style={{ maxHeight: tableBoxH }}>
+        <div
+          ref={tableBoxRef}
+          className={`mt-2 overflow-auto pb-4 ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-2 ring-accent ring-offset-2' : ''}`}
+          style={{ maxHeight: tableBoxH }}
+        >
           {boardView === 'board' ? (
             <KanbanBoard
               views={views}
@@ -2872,28 +2975,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 }
 
 // 머리 오른쪽 작은 알림(닫기 ✕ 포함)
-function HeadPill({ tone, title, onClose, children }: { tone: 'warn' | 'accent'; title?: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <span
-      title={title}
-      className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full pl-2.5 pr-1 text-[12px] ${
-        tone === 'warn' ? 'bg-orange-50 text-orange-900 ring-1 ring-orange-200' : 'bg-accent-soft text-label ring-1 ring-accent/20'
-      }`}
-    >
-      {children}
-      <button
-        onClick={onClose}
-        aria-label="알림 닫기"
-        title="닫기"
-        className="flex h-5 w-5 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.07] hover:text-label"
-      >
-        <X size={12} strokeWidth={2.2} />
-      </button>
-    </span>
-  )
-}
-
-// 빈 화면의 시작 카드(구글시트 · 엑셀 · 새 연도)
 function StartCard({
   Icon,
   title,
@@ -2963,4 +3044,44 @@ function MenuSlot({ id = PROGRESS_MENU_SLOT, children }: { id?: string; children
     return () => window.removeEventListener(SHELL_LAYOUT_EVENT, find)
   }, [id])
   return node ? createPortal(children, node) : null
+}
+
+// 탭 위 알림 줄(크게 · 버튼은 오른쪽). warn = 저장 필요(주황) · info = 받을 내용(파랑)
+function NoticeBar({
+  tone,
+  icon,
+  title,
+  sub,
+  onClose,
+  children,
+}: {
+  tone: 'warn' | 'info'
+  icon: React.ReactNode
+  title: string
+  sub?: string
+  onClose?: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <div
+      role="status"
+      className={`mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] border px-4 py-2.5 ${
+        tone === 'warn' ? 'border-[#F5B48A] bg-[#FFF3EA] text-[#7C2D12]' : 'border-accent/30 bg-accent-soft text-label'
+      }`}
+    >
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${tone === 'warn' ? 'text-[#C2410C]' : 'text-accent'}`}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] font-semibold">{title}</p>
+        {sub && <p className={`mt-0.5 text-[12px] ${tone === 'warn' ? 'text-[#9A3412]/80' : 'text-label-2'}`}>{sub}</p>}
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
+        {children}
+        {onClose && (
+          <button onClick={onClose} aria-label="닫기" className="flex h-8 w-8 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.06]">
+            <X size={15} strokeWidth={2} />
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
