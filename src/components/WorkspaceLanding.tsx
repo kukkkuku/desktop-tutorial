@@ -11,6 +11,9 @@ import IconButton from './IconButton'
 import AppShell, { PageHeader } from './shell/AppShell'
 import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
+import { readAccessCache, updateUsers } from '../utils/accessSheet'
+import { getConnectedEmail } from '../utils/googleDrive'
+import { isAdminEmail } from '../utils/roles'
 
 const MAX_VISIBLE_AVATARS = 6
 
@@ -287,6 +290,35 @@ export default function WorkspaceLanding() {
     }
     setTeamName(to)
     setTeamRename(null)
+    // 관리(권한 시트)의 팀 이름은 바로 바꾸지 않고, 바뀌는 사람을 보여 주고 고르게 한다
+    const access = readAccessCache()
+    const me = (getConnectedEmail() ?? '').toLowerCase()
+    if (access && me) {
+      const admin = isAdminEmail(me)
+      const hit = access.users.filter((u) => u.team === from && (admin || u.email === me || u.addedBy === me))
+      if (hit.length) setAccessRename({ from, to, people: hit.map((u) => u.name || u.email) })
+    }
+  }
+  const [accessRename, setAccessRename] = useState<{ from: string; to: string; people: string[] } | null>(null)
+  const [accessRenameNote, setAccessRenameNote] = useState('')
+  async function applyAccessRename() {
+    const r = accessRename
+    const access = readAccessCache()
+    const me = (getConnectedEmail() ?? '').toLowerCase()
+    setAccessRename(null)
+    if (!r || !access) return
+    const admin = isAdminEmail(me)
+    try {
+      await updateUsers(
+        access.id,
+        (users) => users.map((u) => (u.team === r.from && (admin || u.email === me || u.addedBy === me) ? { ...u, team: r.to } : u)),
+        me,
+        [`팀 이름(성과관리에서 바꿈): ${r.from} → ${r.to}`],
+      )
+      setAccessRenameNote(`관리의 팀 이름도 「${r.to}」로 바꿨습니다(${r.people.length}명).`)
+    } catch (e) {
+      setAccessRenameNote(`관리의 팀 이름을 바꾸지 못했습니다: ${e instanceof Error ? e.message : ''} 관리 › 팀원 · 권한에서 「평가 목록 이름으로 맞추기」를 눌러 주세요.`)
+    }
   }
 
   // teamName은 useState 초기값이라 마운트 시점 이후로는 저절로 안 바뀐다.
@@ -335,6 +367,14 @@ export default function WorkspaceLanding() {
     <AppShell header={<PageHeader area="성과관리" title="평가 목록" />}>
       <main className="w-full max-w-7xl flex-1 px-6 pb-10 pt-5 lg:px-8">
         <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">진행할 팀과 평가기간을 선택하세요. 평가를 우클릭하면 복제하거나 지울 수 있습니다.</p>
+        {accessRenameNote && (
+          <p className="mt-2 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+            <span className="flex-1">{accessRenameNote}</span>
+            <button onClick={() => setAccessRenameNote('')} className="text-label-3 hover:text-label" aria-label="닫기">
+              <X {...icSm} />
+            </button>
+          </p>
+        )}
         {dupError && <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{dupError}</p>}
 
         {existingTeamNames.length > 0 ? (
@@ -556,6 +596,19 @@ export default function WorkspaceLanding() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={!!accessRename}
+        title="관리의 팀 이름도 바꿀까요?"
+        message={
+          accessRename
+            ? `성과관리의 팀 이름을 「${accessRename.from}」에서 「${accessRename.to}」로 바꿨습니다.\n관리 › 팀원 · 권한에도 「${accessRename.from}」로 적힌 사람이 ${accessRename.people.length}명 있습니다:\n${accessRename.people.slice(0, 12).join(', ')}${accessRename.people.length > 12 ? ' …' : ''}\n\n관리에도 「${accessRename.to}」로 바꿀까요? 안 바꾸면 나중에 관리 화면에서 맞출 수 있습니다.`
+            : ''
+        }
+        confirmLabel="관리에도 적용"
+        tone="accent"
+        onConfirm={() => void applyAccessRename()}
+        onCancel={() => setAccessRename(null)}
+      />
       <ConfirmDialog
         open={deletingWorkspace !== null}
         title="평가 삭제"

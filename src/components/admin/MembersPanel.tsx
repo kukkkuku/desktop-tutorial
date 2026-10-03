@@ -197,7 +197,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       return {}
     }
   })
-  const DEF_W: Record<ColKey, number> = { name: 120, email: 220, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120 }
+  const DEF_W: Record<ColKey, number> = { name: 120, email: 250, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
   const colW = (k: ColKey) => widths[k] ?? (compose ? ({ name: 110, email: 210, sendTo: 260 } as Partial<Record<ColKey, number>>)[k] ?? DEF_W[k] : DEF_W[k])
   function resizeStart(e: React.MouseEvent, k: ColKey) {
@@ -317,7 +317,17 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                 </th>
                 {cols.map((k) => (
                   <th key={k} className="relative truncate px-3 py-2 font-medium">
-                    {COL_LABEL[k]}
+                    {k === 'email' && !compose ? (
+                      <span className="flex items-center gap-2 pr-2">
+                        <span className="truncate">{COL_LABEL[k]}</span>
+                        <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1 font-normal text-label-3 hover:text-label-2" title="초대 메일을 Gmail 대신 회사 메일 등으로 받을 때">
+                          <input type="checkbox" checked={mailCol} onChange={(e) => setMailCol(e.target.checked)} />
+                          받는 메일 열
+                        </label>
+                      </span>
+                    ) : (
+                      COL_LABEL[k]
+                    )}
                     {k === 'sendTo' && <span className="font-normal text-label-3"> (받는 메일)</span>}
                     <span
                       onMouseDown={(e) => resizeStart(e, k)}
@@ -497,12 +507,6 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         </Button>
         {busy && <Spinner className="h-4 w-4" />}
         <span className="ml-auto flex items-center gap-2">
-          {!compose && (
-            <label className="flex cursor-pointer items-center gap-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2" title="초대 메일을 Gmail 대신 회사 메일 등으로 받을 때">
-              <input type="checkbox" checked={mailCol} onChange={(e) => setMailCol(e.target.checked)} />
-              받는 메일 열
-            </label>
-          )}
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
