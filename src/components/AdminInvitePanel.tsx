@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import { FileSpreadsheet, Mail, Send, Trash2 } from 'lucide-react'
+import { Copy, FileSpreadsheet, Mail, Send, Trash2 } from 'lucide-react'
 import {
   LOGIN_TOKEN,
   addEntriesToList,
@@ -21,7 +21,8 @@ import Button from './Button'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
 import { icSm } from './ui/icon'
-import { appInviteUrl } from '../utils/accessSheet'
+import { accessSheetUrl, appInviteUrl, sharedSheetFor } from '../utils/accessSheet'
+import { getConnectedEmail, withGoogleAccount } from '../utils/googleDrive'
 
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
 // 앱 주소는 지금 보고 있는 앱(운영/미리보기) + 권한 관리 시트(?access=) -- 이 링크로 열면 팀원 앱이 그 시트를 읽는다
@@ -57,6 +58,17 @@ export default function AdminInvitePanel() {
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<{ sent: number; failed: { email: string; error: string }[] } | null>(null)
   const [copyDone, setCopyDone] = useState(false)
+  const [loginsCopied, setLoginsCopied] = useState(false)
+  // 시트 공유 칸에 붙여넣을 로그인 Gmail 목록(쉼표로)
+  async function copyLogins() {
+    try {
+      await navigator.clipboard.writeText(list.map((r) => r.email).join(', '))
+      setLoginsCopied(true)
+      window.setTimeout(() => setLoginsCopied(false), 1500)
+    } catch {
+      // 복사가 막히면 표에서 직접 고른다
+    }
+  }
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -263,11 +275,55 @@ export default function AdminInvitePanel() {
         )}
       </section>
 
-      {/* 2. 메일 내용 + 발송 */}
+      {/* 2. 시트 공유(메일 보내기 전에): 앱은 초대받은 Gmail로 권한 시트(역할)를 읽고 과제 시트에 저장한다 -- 두 시트를 그 Gmail에 공유해야 한다 */}
       <section className="rounded-card border border-separator p-5">
         <h3 className="flex items-center gap-2 text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[length:calc(13px*var(--ui-fs,1))] font-bold text-white">2</span>
-          메일 내용
+          시트 공유
+          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-normal text-label-3">받는 사람 Gmail에 두 시트를 공유합니다</span>
+        </h3>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => void copyLogins()} disabled={list.length === 0}>
+            <Copy {...icSm} />
+            {loginsCopied ? '복사함' : `받는 사람 Gmail ${list.length}개 복사`}
+          </Button>
+          <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">복사한 뒤 아래 시트를 열어 오른쪽 위 공유 칸에 붙여넣습니다.</span>
+        </div>
+        <ul className="mt-3 grid gap-2 md:grid-cols-2">
+          {[
+            { url: accessSheetUrl(), name: '권한 시트', role: '뷰어', why: '로그인할 때 역할(팀원 · 팀장)을 읽는 데 필요' },
+            { url: sharedSheetFor(getConnectedEmail())?.url ?? null, name: '우리 팀 과제(추진현황) 시트', role: '편집자', why: '추진현황을 보고 저장하는 데 필요' },
+          ].map((x) => (
+            <li key={x.name} className="flex items-center gap-3 rounded-card bg-subtle px-4 py-3">
+              <FileSpreadsheet size={18} strokeWidth={1.8} className="shrink-0 text-emerald-700" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+                  {x.name} → <span className="text-accent">{x.role}</span>
+                </p>
+                <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{x.why}</p>
+              </div>
+              {x.url ? (
+                <a
+                  href={withGoogleAccount(x.url)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 rounded-control border border-hairline bg-white px-3 py-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label hover:bg-black/[0.03]"
+                >
+                  열어서 공유 ↗
+                </a>
+              ) : (
+                <span className="shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">관리자가 아직 안 정함</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* 3. 메일 내용 + 발송 */}
+      <section className="rounded-card border border-separator p-5">
+        <h3 className="flex items-center gap-2 text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-[length:calc(13px*var(--ui-fs,1))] font-bold text-white">3</span>
+          메일 내용 · 보내기
         </h3>
         <label className="mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">제목</label>
         <input

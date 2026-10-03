@@ -2,7 +2,7 @@
 //   권한 시트: 누가 어떤 역할인지(「사용자」)와 팀별 추진현황 시트(「연결 시트」)를 구글시트 한 곳에 두고,
 //   모두의 앱이 로그인할 때 읽는다. 여기서 바로 고쳐 "구글시트에 저장"(AccessEditor)하거나, 시트에서 고친 뒤 "다시 읽기".
 import { useEffect, useState } from 'react'
-import { Check, Copy, FileSpreadsheet, RefreshCw, ShieldCheck } from 'lucide-react'
+import { FileSpreadsheet, RefreshCw, ShieldCheck } from 'lucide-react'
 import AppShell, { PageHeader, PageTabs } from '../shell/AppShell'
 import UnderlineTabs from '../ui/UnderlineTabs'
 import Button from '../Button'
@@ -14,9 +14,7 @@ import { icSm } from '../ui/icon'
 import {
   ACCESS_EVENT,
   accessSheetUrl,
-  appInviteUrl,
   createAccessSheet,
-  forgetAccess,
   getAccessSheetId,
   readAccessCache,
   refreshAccess,
@@ -34,19 +32,22 @@ export default function AdminApp() {
   // 팀원 초대가 먼저(관리를 열면 초대부터)
   const [tab, setTab] = useState<Tab>('invite')
   return (
-    <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 · 시트 설정' : '팀원 초대'} />}>
-      <PageTabs>
-        <UnderlineTabs
-          items={[
-            { key: 'invite', label: '팀원 초대', title: '앱 링크를 메일로 보내기' },
-            { key: 'access', label: '권한 · 시트 설정', title: '누가 어떤 역할인지 · 팀별 과제(추진현황) 시트를 정합니다' },
-          ]}
-          value={tab}
-          onChange={(k) => setTab(k as Tab)}
-        />
-      </PageTabs>
+    <AppShell header={<PageHeader area="관리" title={tab === 'access' && isAdminUser ? '권한 · 시트 설정' : '팀원 초대'} />}>
+      {/* 팀장: 팀원 초대만. 관리자: 초대 + 권한 · 시트 설정(역할 · 팀별 과제 시트 고치기) */}
+      {isAdminUser && (
+        <PageTabs>
+          <UnderlineTabs
+            items={[
+              { key: 'invite', label: '팀원 초대', title: '앱 링크를 메일로 보내고 시트를 공유합니다' },
+              { key: 'access', label: '권한 · 시트 설정', title: '관리자만 · 누가 어떤 역할인지 · 팀별 과제(추진현황) 시트' },
+            ]}
+            value={tab}
+            onChange={(k) => setTab(k as Tab)}
+          />
+        </PageTabs>
+      )}
       <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
-        {tab === 'access' ? <AccessSheetPanel canEdit={isAdminUser} /> : <AdminInvitePanel />}
+        {tab === 'access' && isAdminUser ? <AccessSheetPanel canEdit /> : <AdminInvitePanel />}
       </main>
     </AppShell>
   )
@@ -71,7 +72,6 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   const [busy, setBusy] = useState<'' | 'create' | 'read' | 'link'>('')
   const [error, setError] = useState('')
   const [linkInput, setLinkInput] = useState('')
-  const [copied, setCopied] = useState(false)
   const me = getConnectedEmail()
   // 화면을 열 때 한 번 시트를 다시 읽는다(고치기 전에 최신 내용으로 -- 저장 때 덮어쓰기 충돌을 줄임)
   useEffect(() => {
@@ -106,12 +106,6 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
       await refreshAccess(parsed.spreadsheetId)
       setLinkInput('')
     })
-  function copyInvite() {
-    void navigator.clipboard?.writeText(appInviteUrl()).then(() => {
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    })
-  }
 
   if (!isSheetsApiConfigured())
     return <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">구글 연동이 켜져 있지 않은 빌드입니다. 권한 관리 시트는 구글 로그인이 필요합니다.</p>
@@ -132,7 +126,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
             <b className="text-label">② 팀별 과제(추진현황) 시트</b> · 팀마다 과제를 입력하는 구글시트 링크. 팀원이 추진현황을 열면 이 시트가 뜹니다.
           </li>
         </ul>
-        <p className="mt-2">모두의 앱이 로그인할 때 이 시트를 읽습니다. 아래 표에서 고치고 <b className="text-label">구글시트에 저장</b>하면 됩니다(시트의 「변경 기록」 탭에 남음).</p>
+        <p className="mt-2">구글시트를 직접 열 필요 없이 <b className="text-label">아래 표에서 고치고 구글시트에 저장</b>하면 모두의 앱에 반영됩니다(시트의 「변경 기록」 탭에 남음). 이 화면은 관리자만 봅니다.</p>
       </div>
 
       {!id && !canEdit ? (
@@ -174,17 +168,6 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
                   {busy === 'read' ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
                   다시 읽기
                 </Button>
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => (forgetAccess(), sync())}
-                    disabled={!!busy}
-                    title="이 브라우저에서 권한 시트 연결을 끊습니다(시트는 그대로)"
-                  >
-                    연결 끊기
-                  </Button>
-                )}
               </span>
             </div>
             {me && (
@@ -208,36 +191,6 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
                 권한 시트 읽기
               </Button>
             </section>
-          )}
-          <section className="rounded-card border border-separator p-5">
-            <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">팀원에게 공유하기</h3>
-            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              <li>
-                <a href={withGoogleAccount(url!)} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
-                  권한 관리 시트 열기 ↗
-                </a>{' '}
-                → 오른쪽 위 <b>공유</b>에서 팀원에게 <b>뷰어</b> 권한을 줍니다. 추진현황 시트도 따로 공유해야 합니다.
-              </li>
-              <li>
-                팀원에게 아래 앱 링크를 보냅니다(관리 › 팀원 초대 메일에도 들어갑니다). 이 링크로 열면 팀원 앱이 이 권한 시트를 기억합니다.
-                <div className="mt-1.5 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-control border border-hairline bg-subtle px-2 py-1 text-[length:calc(13px*var(--ui-fs,1))]">{appInviteUrl(id)}</code>
-                  <Button variant="secondary" size="sm" onClick={copyInvite}>
-                    {copied ? <Check {...icSm} /> : <Copy {...icSm} />}
-                    {copied ? '복사함' : '복사'}
-                  </Button>
-                </div>
-              </li>
-            </ol>
-          </section>
-          {canEdit && (
-            <details className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              <summary className="cursor-pointer select-none">고급 · 권한 시트 파일 자체를 다른 파일로 바꾸기</summary>
-              <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-                보통은 쓸 일이 없습니다. 권한 시트를 새로 만들어 옮겼을 때만 그 파일 링크를 넣습니다. 과제 시트를 바꾸려면 위 ② 표의 링크를 고치세요.
-              </p>
-              <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
-            </details>
           )}
         </>
       )}

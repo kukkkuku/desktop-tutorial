@@ -106,9 +106,21 @@ function writeCache(d: AccessData | null) {
 // 시트를 읽어 기억한다. 머리글(1행)은 건너뛰고 이메일 · 팀이 빈 줄은 뺀다.
 export async function refreshAccess(id = getAccessSheetId()): Promise<AccessData | null> {
   if (!id) return null
-  const data = await readSheet(id)
-  writeCache(data)
-  return data
+  try {
+    const data = await readSheet(id)
+    writeCache(data)
+    return data
+  } catch (e) {
+    // 기억한 시트에 「사용자」 탭이 없으면(과제 시트 등 다른 파일을 잘못 넣음) 기본 권한 시트로 돌아가 다시 읽는다
+    const msg = e instanceof Error ? e.message : ''
+    if (id !== DEFAULT_ACCESS_SHEET_ID && DEFAULT_ACCESS_SHEET_ID && /parse range|Unable to parse|찾지 못/i.test(msg)) {
+      setAccessSheetId(null)
+      const data = await readSheet(DEFAULT_ACCESS_SHEET_ID)
+      writeCache(data)
+      return data
+    }
+    throw e
+  }
 }
 async function readSheet(id: string): Promise<AccessData & { userRows: number; linkRows: number }> {
   const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:E`, `'${LINKS_TAB}'!A2:C`])
