@@ -39,6 +39,9 @@ import {
   Undo2,
   Upload,
   X,
+  FolderOpen,
+  CircleCheck,
+  FileSpreadsheet,
 } from 'lucide-react'
 import IconButton from '../IconButton'
 import Button from '../Button'
@@ -204,6 +207,14 @@ function overlapCount(cur: ProgressData, fresh: ProgressData, drafts: Drafts): n
 }
 // 열어 둔 동안 시트를 다시 확인하는 간격
 const POLL_MS = 5 * 60 * 1000
+// 이보다 오래전에 받은 내용이면 다시 열 때 최신인지 먼저 확인한다(권한이 없으면 「최신 내용 안 받음」)
+const STALE_MS = 60 * 60 * 1000
+const FILE_LABEL = (
+  <>
+    <FolderOpen size={15} strokeWidth={1.8} />
+    파일
+  </>
+)
 
 // 시트에서 추진현황 탭을 값 + 주차 칸 배경색까지 읽는다.
 // pick을 주면 그 탭(지난 연도 보기), 없으면 올해 탭을 읽는다.
@@ -919,9 +930,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [stale, setStale] = useState(false)
   // 열어 둔 동안 다른 팀원이 새로 저장한 시트 내용(저장 안 한 내 변경이 있어 바로 받지 않고 기다리는 것)
   const [remote, setRemote] = useState<ProgressData | null>(null)
+  // 시트와 같은지 마지막으로 확인한 때(받은 때 fetchedAt과 견줘 늦은 쪽을 「n분 전 확인」으로 보인다)
+  const [confirmedAt, setConfirmedAt] = useState(0)
+  // 「n분 전」 글자가 멈춰 있지 않게 1분마다 다시 그린다
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 60 * 1000)
+    return () => window.clearInterval(t)
+  }, [])
   const busyRef = useRef(false)
   busyRef.current = loading || saving
-  const lastCheckRef = useRef(Date.now())
+  const lastCheckRef = useRef(0)
   // 5분마다(이 화면을 보고 있을 때만, 이미 받은 토큰이 있을 때만 -- 권한 창이 뜨지 않게) 시트를 조용히 다시 읽는다.
   // 달라졌으면: 저장 안 한 변경이 없고 칸을 입력하는 중이 아니면 바로 받고, 아니면 "새 내용 · 받기"만 띄운다.
   useEffect(() => {
@@ -930,12 +949,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (!d || d.local || !d.spreadsheetId || archiveRef.current || busyRef.current) return
       if (document.visibilityState !== 'visible' || !hasSheetsTokenNow()) return
       if (Date.now() - lastCheckRef.current < POLL_MS - 5000) return
+      if (Date.now() - new Date(d.fetchedAt).getTime() < POLL_MS - 5000) return // 방금 받은 내용
       lastCheckRef.current = Date.now()
       try {
         const fresh = await readFromSheet(d.spreadsheetId, d.year ?? new Date().getFullYear(), d.tabTitle)
         const cur = dataRef.current
         if (!cur || cur !== d || busyRef.current || fresh.tabTitle !== cur.tabTitle) return
-        if (sheetSig(fresh) === sheetSig(cur)) return
+        if (sheetSig(fresh) === sheetSig(cur)) return setConfirmedAt(Date.now())
         const typing = document.activeElement?.matches('input, textarea, [contenteditable="true"]')
         if (countDrafts(draftsRef.current) === 0 && !typing) {
           accept(fresh)
@@ -947,11 +967,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       }
     }
     const t = window.setInterval(() => void check(), 60 * 1000)
+    // 화면을 열면 바로 한 번(받은 지 오래된 내용이면 -- 오랜만에 들어와도 최신인지 알 수 있게)
+    const first = window.setTimeout(() => void check(), 1500)
     const onBack = () => void check() // 다른 창에 있다 돌아오면 바로(5분이 지났으면)
     document.addEventListener('visibilitychange', onBack)
     window.addEventListener('focus', onBack)
     return () => {
       window.clearInterval(t)
+      window.clearTimeout(first)
       document.removeEventListener('visibilitychange', onBack)
       window.removeEventListener('focus', onBack)
     }
@@ -976,7 +999,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     } catch {
       // 모르면 받는다
     }
-    if (synced) return
+    // 이 탭에서 받았어도 오래전이고 조용히 확인할 권한이 없으면 「최신 내용 안 받음」(권한이 있으면 위 확인이 맡는다)
+    if (synced) {
+      if (Date.now() - new Date(d.fetchedAt).getTime() > STALE_MS && !hasSheetsTokenNow()) setStale(true)
+      return
+    }
     if (hasLoginSheetsToken()) void loadFromSheet()
     else setStale(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1509,48 +1536,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         숨긴 연도 {hiddenCount}개 다시 보이기
       </button>
     ) : undefined
-  // 파일 메뉴(머리 오른쪽 ⋯) = 지금 연도로 무엇을 하나 · 어디에 연결하나(관리자)
+  // 파일 메뉴(머리 오른쪽 「파일」) = 불러오기 · 내보내기 · 시트 연결. 오랜만에 와서 불러오기를 찾을 때 맨 위에 보이게.
   const fileMenuItems = (
     <>
-      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">구글시트</p>
+      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">불러오기</p>
       {isSheetsApiConfigured() && (
         <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
           <RefreshCw {...icSm} className="shrink-0" />
-          {data && !data.local && data.spreadsheetId ? '다시 불러오기' : '구글시트에서 불러오기'}
+          {data && !data.local && data.spreadsheetId ? '구글시트에서 다시 불러오기' : '구글시트에서 불러오기'}
           {data && !data.local && data.spreadsheetId && (
             <span className="ml-auto text-[11px] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
               {timeAgo(data.fetchedAt)}
             </span>
           )}
-        </button>
-      )}
-      <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="mac-menu-item" title={sheetLink}>
-        <ExternalLink {...icSm} className="shrink-0" />
-        <span className="min-w-0 truncate">{sheetName} 열기</span>
-        {protectedLink && <span className="mac-badge ml-auto shrink-0 bg-black/[0.06] text-label-2">읽기 전용</span>}
-      </a>
-      {data?.local && canManage && (
-        <button
-          onClick={() => void createInSheet()}
-          disabled={saving}
-          className="mac-menu-item disabled:opacity-40"
-          title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
-        >
-          <CloudUpload {...icSm} className="shrink-0" />
-          구글시트로 만들기
-          <span className="ml-auto text-[11px] font-normal text-label-3">이 브라우저 → 시트</span>
-        </button>
-      )}
-      <div className="mac-menu-sep" />
-      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">엑셀</p>
-      {data && (
-        <button
-          onClick={() => void downloadProgressExcel(data, drafts, l1s)}
-          className="mac-menu-item"
-          title={`시트 모양 그대로(칸 색·메모 포함)${countDrafts(drafts) ? ', 저장 안 한 변경도 반영' : ''}`}
-        >
-          <FileDown {...icSm} className="shrink-0" />
-          엑셀로 받기
         </button>
       )}
       {canManage && (
@@ -1566,6 +1564,36 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </button>
       )}
       <div className="mac-menu-sep" />
+      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">내보내기</p>
+      {data && (
+        <button
+          onClick={() => void downloadProgressExcel(data, drafts, l1s)}
+          className="mac-menu-item"
+          title={`시트 모양 그대로(칸 색·메모 포함)${countDrafts(drafts) ? ', 저장 안 한 변경도 반영' : ''}`}
+        >
+          <FileDown {...icSm} className="shrink-0" />
+          엑셀로 받기
+        </button>
+      )}
+      {data?.local && canManage && (
+        <button
+          onClick={() => void createInSheet()}
+          disabled={saving}
+          className="mac-menu-item disabled:opacity-40"
+          title="연결된 구글시트 파일에 이 연도 탭을 새로 만들어 표를 통째로 씁니다(고친 내용 포함). 그 뒤로는 시트와 연결됩니다."
+        >
+          <CloudUpload {...icSm} className="shrink-0" />
+          구글시트로 만들기
+          <span className="ml-auto text-[11px] font-normal text-label-3">이 브라우저 → 시트</span>
+        </button>
+      )}
+      <div className="mac-menu-sep" />
+      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">구글시트</p>
+      <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="mac-menu-item" title={sheetLink}>
+        <ExternalLink {...icSm} className="shrink-0" />
+        <span className="min-w-0 truncate">{sheetName} 열기</span>
+        {protectedLink && <span className="mac-badge ml-auto shrink-0 bg-black/[0.06] text-label-2">읽기 전용</span>}
+      </a>
       {/* 팀원도 팀장이 공유한 시트 링크로 연다(이 브라우저에 기억 · 운영 팀 시트는 읽기만) */}
       <button onClick={openSheetSettings} className="mac-menu-item">
         <Settings2 {...icSm} className="shrink-0" />
@@ -1655,7 +1683,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           />
         </MenuSlot>
         <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-          <FileMenu>{fileMenuItems}</FileMenu>
+          <FileMenu label={FILE_LABEL} title="불러오기 · 내보내기 · 시트 연결">{fileMenuItems}</FileMenu>
         </MenuSlot>
         {newYearDialog}
         {confirmDialog}
@@ -1663,7 +1691,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <div className="mx-auto mt-10 max-w-[940px] text-center">
           <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
           <p className="mt-1.5 text-[13px] text-label-2">
-            그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 ⋯ 파일 메뉴에서 다시 불러오거나 엑셀로 받습니다.
+            그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 「파일」 메뉴에서 다시 불러오거나 엑셀로 받습니다.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
@@ -1831,6 +1859,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const editCount = countDrafts(drafts)
   const merges = effectiveMerges(data, drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
+  const seenAt = Math.max(new Date(data.fetchedAt).getTime(), confirmedAt)
   const canSave = !!data.spreadsheetId && data.sheetGid !== null && isSheetsApiConfigured() && !protectedSheet
 
   return (
@@ -1886,6 +1915,27 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </button>
             </HeadPill>
           )}
+          {/* 지금 보는 내용이 어디서 언제 온 것인지 늘 보인다. 시트면 눌러서 다시 불러오기 */}
+          {!remote && !stale && !data.local && data.spreadsheetId && (
+            <button
+              onClick={() => void loadFromSheet()}
+              disabled={loading || saving}
+              title={`${sheetName} · ${fmt(new Date(seenAt).toISOString())}에 시트와 같은지 확인 · 5분마다 다시 확인합니다. 누르면 지금 다시 불러옵니다.`}
+              className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-60"
+            >
+              {loading ? <Spinner className="h-3 w-3" /> : <CircleCheck size={14} strokeWidth={2} className="text-emerald-600" />}
+              {loading ? '불러오는 중' : `최신 · ${timeAgo(new Date(seenAt).toISOString())} 확인`}
+            </button>
+          )}
+          {!data.local && !data.spreadsheetId && (
+            <span
+              className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] text-label-2"
+              title={`${data.source} · ${fmt(data.fetchedAt)}에 연 엑셀 파일입니다. 구글시트와 이어져 있지 않아 저장 · 최신 확인을 하지 않습니다.`}
+            >
+              <FileSpreadsheet size={14} strokeWidth={2} className="text-label-3" />
+              엑셀 파일 · 보기 전용
+            </span>
+          )}
           {stale && !remote && !data.local && !loading && (
             <HeadPill tone="accent" onClose={() => setStale(false)} title="구글시트의 최신 내용(다른 팀원이 저장한 것)을 아직 받지 않았습니다">
               <RefreshCw size={13} strokeWidth={2} className="shrink-0" />
@@ -1932,7 +1982,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               과제 내보내기
             </Button>
           )}
-          <FileMenu disabled={yearLoading}>{fileMenuItems}</FileMenu>
+          <FileMenu disabled={yearLoading} label={FILE_LABEL} title="불러오기 · 내보내기 · 시트 연결">{fileMenuItems}</FileMenu>
         </span>
       </MenuSlot>
       {newYearDialog}
@@ -2503,21 +2553,21 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       <Select
                         value={target}
                         onChange={(e) => setExportTo(e.target.value)}
-                        aria-label="보낼 성과관리 프로젝트"
+                        aria-label="보낼 성과관리 평가"
                         className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px] font-semibold text-label"
                       >
                         {workspaces.map((w) => (
                           <option key={w.id} value={w.id}>
                             {w.teamName} {w.evaluationYear} {w.periodName}
-                            {w.id === currentWorkspaceId ? ' (지금 열린 프로젝트)' : ''}
+                            {w.id === currentWorkspaceId ? ' (지금 열린 평가)' : ''}
                           </option>
                         ))}
                       </Select>
                     ) : (
                       <span className="text-label-2">
-                        성과관리에 아직 프로젝트(팀 · 평가기간)가 없습니다.{' '}
+                        성과관리에 아직 평가(팀 · 평가기간)가 없습니다.{' '}
                         <button onClick={() => setMode('perf')} className="font-semibold text-accent hover:underline">
-                          성과관리에서 프로젝트 만들기
+                          성과관리에서 평가 만들기
                         </button>
                       </span>
                     )}

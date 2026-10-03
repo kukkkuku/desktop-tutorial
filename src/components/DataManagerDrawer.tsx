@@ -257,7 +257,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   용도다 -- 새 데이터를 올리는 통합 양식 일괄 등록은 옆 "엑셀 양식으로 등록" 탭에. */}
               <div className="rounded-card border border-separator p-4">
                 <p className="text-[13px] font-semibold text-label">지금 데이터 백업</p>
-                <p className="mt-0.5 text-[13px] text-label-2">현재 계정에 저장된 모든 팀·프로젝트 데이터를 이 기기에 파일로 내려받습니다.</p>
+                <p className="mt-0.5 text-[13px] text-label-2">현재 계정에 저장된 모든 팀·평가 데이터를 이 기기에 파일로 내려받습니다.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     로컬 파일로 백업 (JSON)
@@ -313,15 +313,15 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               <div className="rounded-card border border-danger/25 bg-danger/[0.04] p-5">
                 <p className="text-[15px] font-semibold text-danger">전체 데이터 초기화</p>
                 <p className="mt-2 text-[13px] leading-relaxed text-label">
-                  초기화 범위를 선택하세요. 두 기능 모두 지금 열려 있는 프로젝트 하나가 아니라 <span className="font-semibold">모든 팀·프로젝트 데이터</span>를
-                  대상으로 합니다.
+                  초기화 범위를 선택하세요. 두 기능 모두 지금 열려 있는 평가 하나가 아니라 <span className="font-semibold">모든 팀·평가 데이터</span>를 대상으로
+                  합니다.
                 </p>
                 <p className="text-[13px] text-danger">아래에서 먼저 백업하세요.</p>
 
                 <div className="my-4 h-px w-full bg-danger/15" />
 
                 <p className="text-[13px] font-semibold text-label">삭제 전 브라우저 전체 데이터 백업</p>
-                <p className="mt-0.5 text-xs text-label-2">모든 팀, 평가 프로젝트, 과제, 팀원, 평가, 성장 및 면담 데이터가 포함됩니다.</p>
+                <p className="mt-0.5 text-xs text-label-2">모든 팀, 평가, 과제, 팀원, 평가, 성장 및 면담 데이터가 포함됩니다.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-1.5 text-[13px] font-medium text-label">
                     <input type="checkbox" checked={backupJson} onChange={(e) => setBackupJson(e.target.checked)} />
@@ -386,8 +386,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         title={resetMode === 'drive' ? 'Google Drive 포함 전체 초기화' : '이 브라우저 데이터만 초기화'}
         message={
           (resetMode === 'drive'
-            ? `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개 데이터를 지우고,\n${getConnectedEmail() ?? ''} 드라이브의 성장관리 폴더를 휴지통으로 옮깁니다.\n휴지통은 드라이브에서 30일 안에 되살릴 수 있습니다. 계속하시겠습니까?`
-            : `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 프로젝트 ${workspaces.length}개 데이터를 지우고 처음 화면으로 돌아갑니다.\nGoogle Drive에 저장한 데이터는 남아 있어 다시 연결하면 복원할 수 있습니다. 계속하시겠습니까?`) +
+            ? `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 평가 ${workspaces.length}개 데이터를 지우고,\n${getConnectedEmail() ?? ''} 드라이브의 성장관리 폴더를 휴지통으로 옮깁니다.\n휴지통은 드라이브에서 30일 안에 되살릴 수 있습니다. 계속하시겠습니까?`
+            : `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 평가 ${workspaces.length}개 데이터를 지우고 처음 화면으로 돌아갑니다.\nGoogle Drive에 저장한 데이터는 남아 있어 다시 연결하면 복원할 수 있습니다. 계속하시겠습니까?`) +
           (clearTasks ? '\n\n과제 입력 데이터(이 브라우저에 저장된 추진현황 · 고친 내용 · 만든 연도)도 함께 지웁니다.' : '')
         }
         onConfirm={handleResetConfirm}

@@ -203,7 +203,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
               }}
             >
               <Copy {...icSm} />
-              복제해서 새 프로젝트 만들기
+              복제해서 새 평가 만들기
             </button>
             <button
               className={item}
@@ -332,9 +332,9 @@ export default function WorkspaceLanding() {
   }
 
   return (
-    <AppShell header={<PageHeader area="성과관리" title="프로젝트 목록" />}>
+    <AppShell header={<PageHeader area="성과관리" title="평가 목록" />}>
       <main className="w-full max-w-7xl flex-1 px-6 pb-10 pt-5 lg:px-8">
-        <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요. 프로젝트를 우클릭하면 복제하거나 지울 수 있습니다.</p>
+        <p className="text-[13px] text-label-2">진행할 팀과 평가기간을 선택하세요. 평가를 우클릭하면 복제하거나 지울 수 있습니다.</p>
         {dupError && <p className="mt-2 text-[13px] text-danger">{dupError}</p>}
 
         {existingTeamNames.length > 0 ? (
@@ -400,7 +400,7 @@ export default function WorkspaceLanding() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex items-end gap-3">
                 <h2 className="text-[17px] font-semibold text-label">{teamName}</h2>
-                <span className="text-[13px] text-label-2">평가 프로젝트 {teamWorkspaces.length}개</span>
+                <span className="text-[13px] text-label-2">평가 {teamWorkspaces.length}개</span>
               </div>
               <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
                 <Plus {...icSm} /> 새 평가 만들기
@@ -422,7 +422,7 @@ export default function WorkspaceLanding() {
                     onRename={(ws, periodName, year) => renameWorkspace(ws.id, ws.teamName, periodName, year)}
                     onEdit={openRename}
                     onDuplicate={(ws) => {
-                      if (!duplicateWorkspace(ws.id)) setDupError('저장 공간이 모자라 복제하지 못했습니다. 데이터 백업 후 필요 없는 프로젝트를 지워 주세요.')
+                      if (!duplicateWorkspace(ws.id)) setDupError('저장 공간이 모자라 복제하지 못했습니다. 데이터 백업 후 필요 없는 평가를 지워 주세요.')
                     }}
                     onDelete={setDeletingWorkspace}
                   />
@@ -501,7 +501,7 @@ export default function WorkspaceLanding() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setPeriodModalTeam(null)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-label">새 평가 프로젝트</h3>
+              <h3 className="text-[15px] font-semibold text-label">새 평가</h3>
               <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
                 <X {...ic} />
               </IconButton>

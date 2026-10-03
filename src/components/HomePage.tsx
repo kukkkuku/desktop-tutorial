@@ -135,7 +135,7 @@ export default function HomePage() {
                 </span>
               </button>
               <div className="mt-5 space-y-1">
-                {recent.length === 0 && <p className="text-[13px] text-label-3">아직 프로젝트가 없습니다.</p>}
+                {recent.length === 0 && <p className="text-[13px] text-label-3">아직 평가가 없습니다.</p>}
                 {recent.map((w) => (
                   <button
                     key={w.id}
@@ -159,7 +159,7 @@ export default function HomePage() {
                 }}
                 className="mt-auto flex items-center gap-1 pt-5 text-[13px] font-semibold text-accent"
               >
-                {recent.length ? '프로젝트 목록' : '팀 만들기'}
+                {recent.length ? '평가 목록' : '팀 만들기'}
                 <ArrowRight size={14} />
               </button>
             </div>

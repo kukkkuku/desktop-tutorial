@@ -157,7 +157,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
             {label('성과관리')}
             {/* 위계: 프로젝트 목록 → 프로젝트를 고르면 그 아래에 프로젝트 메뉴(과제관리 · 팀원관리 · 평가하기 …)가 열린다 */}
             <div className="space-y-0.5">
-              {item('projects', '프로젝트 목록', FolderOpen, mode === 'perf' && !currentWorkspaceId, () => {
+              {item('projects', '평가 목록', FolderOpen, mode === 'perf' && !currentWorkspaceId, () => {
                 exitToLanding()
                 if (mode !== 'perf') setMode('perf')
               })}
@@ -168,14 +168,12 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
                 {!collapsed && (
                   <button
                     onClick={() => !inPerf && setMode('perf')}
-                    title={inPerf ? undefined : '이 프로젝트로 가기'}
+                    title={inPerf ? undefined : '이 평가로 가기'}
                     className={`mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left ${inPerf ? 'cursor-default' : 'hover:bg-black/[0.04]'}`}
                   >
                     <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
                     <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-label">
-                      {currentWorkspace
-                        ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}`
-                        : '열어 둔 프로젝트'}
+                      {currentWorkspace ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : '열어 둔 평가'}
                     </span>
                   </button>
                 )}

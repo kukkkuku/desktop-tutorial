@@ -62,7 +62,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
         ref={btnRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        title="평가기간 바꾸기 · 프로젝트 목록"
+        title="평가기간 바꾸기 · 평가 목록"
         className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[13px] font-medium text-label-2 transition-colors hover:bg-black/[0.05] hover:text-label ${
           open ? 'bg-black/[0.05]' : ''
         }`}
@@ -112,7 +112,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
                 onOpenProjectManagement()
               }}
               className="mac-menu-item text-accent"
-              title="프로젝트 목록에서 이 팀의 새 평가기간을 만듭니다"
+              title="평가 목록에서 이 팀의 새 평가기간을 만듭니다"
             >
               <Plus {...icSm} className="shrink-0" />새 평가기간 만들기
             </button>
@@ -126,7 +126,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
               className="mac-menu-item"
             >
               <FolderOpen {...icSm} className="shrink-0" />
-              프로젝트 목록
+              평가 목록
             </button>
           </div>,
           document.body,
