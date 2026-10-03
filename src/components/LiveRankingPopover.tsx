@@ -62,7 +62,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
         className="flex cursor-grab items-center gap-1.5 border-b border-separator px-2.5 py-1.5 active:cursor-grabbing"
       >
         <GripVertical {...icSm} className="shrink-0 text-label-3" />
-        <span className="flex-1 text-[13px] font-semibold text-label">실시간 순위</span>
+        <span className="flex-1 text-[14px] font-semibold text-label">실시간 순위</span>
         <IconButton
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
@@ -79,7 +79,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
         <p className="px-3 py-4 text-center text-xs text-label-3">활성 팀원이 없습니다.</p>
       ) : (
         <div className="max-h-80 overflow-y-auto">
-          <div className="grid grid-cols-[1fr_40px_44px] gap-1 px-2.5 pt-2 text-[11px] font-semibold text-label-3">
+          <div className="grid grid-cols-[1fr_40px_44px] gap-1 px-2.5 pt-2 text-[12px] font-semibold text-label-3">
             <span>팀원</span>
             <span className="text-center">순위</span>
             <span className="text-center">등급</span>
@@ -87,10 +87,10 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
           <div className="divide-y divide-separator px-2.5 pb-2">
             {results.map((r, i) => (
               <div key={r.member.id} className="grid grid-cols-[1fr_40px_44px] items-center gap-1 py-1.5">
-                <span className="truncate text-[13px] font-medium text-label">{r.member.name}</span>
-                <span className="text-center text-[13px] tabular-nums text-label-2">{i + 1}위</span>
+                <span className="truncate text-[14px] font-medium text-label">{r.member.name}</span>
+                <span className="text-center text-[14px] tabular-nums text-label-2">{i + 1}위</span>
                 <span className="flex justify-center">
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
                 </span>
               </div>
             ))}

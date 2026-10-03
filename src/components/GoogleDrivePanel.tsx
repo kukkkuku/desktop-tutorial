@@ -75,7 +75,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
 
   if (!configured) {
     return (
-      <p className="px-1 py-6 text-center text-[13px] text-label-3">
+      <p className="px-1 py-6 text-center text-[14px] text-label-3">
         Google Drive 연동이 설정되지 않았습니다. 관리자에게 설정을 요청해주세요.
       </p>
     )
@@ -153,35 +153,35 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
 
   return (
     <div>
-      <p className="text-[13px] text-label-2">
+      <p className="text-[14px] text-label-2">
         {workspace.teamName} · {workspace.periodName}
       </p>
 
       {/* 연결 -- 어느 계정에 연결됐는지 이메일로 명확히 보여준다. */}
       <div className="mt-3 flex items-center justify-between rounded-card bg-[#F7F7F9] px-3 py-2">
         {isConnected() && getConnectedEmail() ? (
-          <GoogleAccountMenu className="flex items-center gap-2 text-[13px] text-label" onAccountChange={onConnected}>
+          <GoogleAccountMenu className="flex items-center gap-2 text-[14px] text-label" onAccountChange={onConnected}>
             {getConnectedEmail()}
             <span className="mac-badge bg-success/15 text-success">연결됨</span>
           </GoogleAccountMenu>
         ) : (
-          <span className="text-[13px] text-label">{isConnected() ? '내 Google 드라이브에 연결됨' : '아직 연결되지 않음'}</span>
+          <span className="text-[14px] text-label">{isConnected() ? '내 Google 드라이브에 연결됨' : '아직 연결되지 않음'}</span>
         )}
         <Button variant="secondary" onClick={handleConnect} size="sm" disabled={busy !== null}>
           {busy === 'connect' ? <Spinner className="h-3.5 w-3.5" /> : isConnected() ? '다시 연결' : 'Drive 연결'}
         </Button>
       </div>
 
-      {error && <p className="mt-3 text-[13px] text-danger">{error}</p>}
+      {error && <p className="mt-3 text-[14px] text-danger">{error}</p>}
 
       {/* 전체 데이터 저장 */}
       <div className="mt-4 border-t border-separator pt-3">
-        <p className="text-[13px] font-semibold text-label">전체 데이터 저장</p>
-        <p className="mt-0.5 text-[13px] text-label-2">Excel 결과, 원본 데이터(JSON), 보기용 Google 시트를 함께 저장합니다.</p>
+        <p className="text-[14px] font-semibold text-label">전체 데이터 저장</p>
+        <p className="mt-0.5 text-[14px] text-label-2">Excel 결과, 원본 데이터(JSON), 보기용 Google 시트를 함께 저장합니다.</p>
 
         {saveChoice ? (
           <div className="mt-2 space-y-1.5 rounded-card border border-separator p-2.5">
-            <p className="text-[13px] text-label-2">
+            <p className="text-[14px] text-label-2">
               이미 저장된 데이터가 있습니다{saveChoice.modifiedAt ? ` (마지막 수정: ${fmtTime(saveChoice.modifiedAt)})` : ''}. 어떻게 저장할까요?
             </p>
             <div className="flex gap-1.5">
@@ -192,7 +192,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
                 새 버전으로 저장
               </Button>
             </div>
-            <button onClick={() => setSaveChoice(null)} className="text-[13px] text-label-2 hover:text-label">
+            <button onClick={() => setSaveChoice(null)} className="text-[14px] text-label-2 hover:text-label">
               취소
             </button>
           </div>
@@ -209,7 +209,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
         )}
 
         {lastSave && !saveChoice && (
-          <div className="mt-2 flex items-start gap-1.5 rounded-card bg-success/[0.08] px-2.5 py-2 text-[13px] text-success">
+          <div className="mt-2 flex items-start gap-1.5 rounded-card bg-success/[0.08] px-2.5 py-2 text-[14px] text-success">
             <CheckCircle2 {...icSm} className="mt-0.5 shrink-0" />
             <div className="space-y-0.5">
               <p>{fmtTime(lastSave.at)}에 저장 완료</p>
@@ -231,8 +231,8 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
 
       {/* Drive에서 불러오기 */}
       <div className="mt-4 border-t border-separator pt-3">
-        <p className="text-[13px] font-semibold text-label">Drive에서 불러오기</p>
-        <p className="mt-0.5 text-[13px] text-label-2">다른 기기에서 저장해둔 평가 데이터를 이 화면으로 불러옵니다.</p>
+        <p className="text-[14px] font-semibold text-label">Drive에서 불러오기</p>
+        <p className="mt-0.5 text-[14px] text-label-2">다른 기기에서 저장해둔 평가 데이터를 이 화면으로 불러옵니다.</p>
 
         {!restoreList && (
           <Button variant="secondary" onClick={handleListRestores} disabled={busy !== null} className="mt-2 w-full">
@@ -240,7 +240,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
           </Button>
         )}
 
-        {restoreList && restoreList.length === 0 && <p className="mt-2 text-[13px] text-label-3">Drive에 저장된 평가가 아직 없습니다.</p>}
+        {restoreList && restoreList.length === 0 && <p className="mt-2 text-[14px] text-label-3">Drive에 저장된 평가가 아직 없습니다.</p>}
 
         {restoreList && restoreList.length > 0 && (
           <ul className="mt-2 max-h-48 space-y-1.5 overflow-y-auto">
@@ -248,10 +248,10 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
               <li key={item.fileId} className="rounded-card border border-separator px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-label">
+                    <p className="truncate text-[14px] font-semibold text-label">
                       {item.teamName || '(팀명 없음)'} · {item.periodName || '(기간 없음)'}
                     </p>
-                    <p className="text-[13px] text-label-3">
+                    <p className="text-[14px] text-label-3">
                       저장일 {fmtTime(item.createdAt)} · 수정일 {fmtTime(item.modifiedAt)}
                       {item.periodKey === periodKey(workspace) ? ' · 현재 평가' : ''}
                     </p>
@@ -262,7 +262,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
                 </div>
 
                 {restoreTarget?.fileId === item.fileId && (
-                  <div className="mt-2 space-y-1.5 rounded-card bg-accent-soft p-2.5 text-[13px] text-label">
+                  <div className="mt-2 space-y-1.5 rounded-card bg-accent-soft p-2.5 text-[14px] text-label">
                     <p>현재 화면의 데이터가 이 평가 데이터로 바뀝니다. 계속할까요?</p>
                     <div className="flex flex-wrap gap-1.5">
                       <Button variant="primary" onClick={() => void doRestore(item, true)} size="sm" disabled={busy !== null}>
@@ -285,15 +285,15 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
 
       {/* 저장된 파일 보기 */}
       <div className="mt-4 border-t border-separator pt-3">
-        <p className="text-[13px] font-semibold text-label">저장된 파일 보기</p>
+        <p className="text-[14px] font-semibold text-label">저장된 파일 보기</p>
         {folderLink === undefined && (
           <Button variant="secondary" onClick={handleShowFolder} disabled={busy !== null} className="mt-2 w-full">
             이 평가의 Drive 폴더 확인
           </Button>
         )}
-        {folderLink === null && <p className="mt-2 text-[13px] text-label-3">아직 이 평가를 Drive에 저장한 적이 없습니다.</p>}
+        {folderLink === null && <p className="mt-2 text-[14px] text-label-3">아직 이 평가를 Drive에 저장한 적이 없습니다.</p>}
         {folderLink && (
-          <a href={withGoogleAccount(folderLink)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
+          <a href={withGoogleAccount(folderLink)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[14px] font-medium text-accent hover:underline">
             Drive에서 폴더 열기 <ArrowRight {...icSm} />
           </a>
         )}

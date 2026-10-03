@@ -130,27 +130,27 @@ function TaskRow({
               className="flex min-w-0 items-center gap-1 text-left hover:text-accent"
               title={open ? 'L3 접기' : 'L3 펼치기'}
             >
-              <span className="truncate text-[13px] font-semibold text-label">{name}</span>
-              <span className="shrink-0 text-[12px] text-label-3">{subItems!.length}</span>
+              <span className="truncate text-[14px] font-semibold text-label">{name}</span>
+              <span className="shrink-0 text-[13px] text-label-3">{subItems!.length}</span>
               <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${open ? '' : '-rotate-90'}`} />
             </button>
           ) : (
-            <span className="truncate text-[13px] font-semibold text-label">{name}</span>
+            <span className="truncate text-[14px] font-semibold text-label">{name}</span>
           )}
         </span>
-        <span className="w-10 shrink-0 text-center text-[13px] text-label-2">{percent}%</span>
+        <span className="w-10 shrink-0 text-center text-[14px] text-label-2">{percent}%</span>
         <span className="w-14 shrink-0 text-right text-[14px] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
         <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
       </div>
       {open && hasSub && (
         <ul className="mt-1.5 space-y-1 rounded-control bg-[#F7F7F9] px-3 py-2">
           {subItems!.map((w) => (
-            <li key={w.id} className="flex items-center gap-2 text-[13px]">
+            <li key={w.id} className="flex items-center gap-2 text-[14px]">
               <span className="min-w-0 flex-1 truncate text-label" title={w.name}>
                 {w.name}
               </span>
               {w.status && <span className={`${CHIP_BASE} !px-2 !py-0 ${WORK_STATUS_TONE[w.status] ?? 'bg-black/[0.05] text-label-2'}`}>{w.status}</span>}
-              <span className="w-[150px] shrink-0 text-right text-[12px] tabular-nums text-label-3">
+              <span className="w-[150px] shrink-0 text-right text-[13px] tabular-nums text-label-3">
                 {w.start || w.done ? `${w.start || '?'} ~ ${w.done}` : ''}
               </span>
             </li>
@@ -443,7 +443,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }, [colorPickerFor])
 
   if (!member) {
-    return <p className="rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[13px] text-label-2">팀원을 찾을 수 없습니다.</p>
+    return <p className="rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[14px] text-label-2">팀원을 찾을 수 없습니다.</p>
   }
 
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
@@ -615,11 +615,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   </Select>
                 </span>
                 {calcYearOrdinal(member.currentLevelSince) !== null && (
-                  <span className="text-[13px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>
+                  <span className="text-[14px] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>
                 )}
               </p>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
                 <span className="text-label-2">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
               </div>
@@ -692,12 +692,12 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     if (!noteInput.trim()) setNoteAddOpen(false)
                   }}
                   placeholder="예: 대학원 재학 중, 육아휴직 복귀 예정"
-                  className="h-7 w-60 rounded-full border border-hairline px-3 text-[13px] text-label"
+                  className="h-7 w-60 rounded-full border border-hairline px-3 text-[14px] text-label"
                 />
                 <button
                   type="submit"
                   disabled={!noteInput.trim()}
-                  className="h-7 shrink-0 rounded-full bg-accent px-3 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                  className="h-7 shrink-0 rounded-full bg-accent px-3 text-[14px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
                 >
                   추가
                 </button>
@@ -705,7 +705,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             ) : (
               <button
                 onClick={() => setNoteAddOpen(true)}
-                className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-black/20 px-2.5 text-[13px] font-medium text-label-2 hover:border-accent hover:text-accent"
+                className="flex h-7 shrink-0 items-center gap-1 rounded-full border border-dashed border-black/20 px-2.5 text-[14px] font-medium text-label-2 hover:border-accent hover:text-accent"
               >
                 <Plus {...icSm} /> 메모
               </button>
@@ -718,7 +718,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   return (
                     <span
                       key={note.id}
-                      className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-0.5 pl-1 pr-1.5 text-[13px]`}
+                      className={`group relative flex items-center gap-1 rounded-full ${style.bg} ${style.text} py-0.5 pl-1 pr-1.5 text-[14px]`}
                     >
                       <button
                         onClick={() => setColorPickerFor((v) => (v === note.id ? null : note.id))}
@@ -785,7 +785,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   <button
                     onClick={() => setCriteriaManagerOpen(true)}
                     title="승진 기준 보기"
-                    className="flex items-center gap-1 [writing-mode:vertical-rl] text-[13px] font-semibold text-label-3 hover:text-accent"
+                    className="flex items-center gap-1 [writing-mode:vertical-rl] text-[14px] font-semibold text-label-3 hover:text-accent"
                   >
                     <Info {...icSm} /> 기준 보기
                   </button>
@@ -798,7 +798,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   promotionCriteria && (
                     <button
                       onClick={() => setCriteriaManagerOpen(true)}
-                      className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent"
+                      className="flex shrink-0 items-center gap-1 text-[14px] font-medium text-label-2 hover:text-accent"
                     >
                       <Info {...icSm} /> 기준 보기
                     </button>
@@ -828,11 +828,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="space-y-3">
                 <div className="flex flex-wrap gap-4 px-1">
                   <div>
-                    <p className="text-[13px] font-medium text-label-2">상하반기 성과 고과 추이</p>
+                    <p className="text-[14px] font-medium text-label-2">상하반기 성과 고과 추이</p>
                     <TrendSparkline points={halfYearGradePoints} maxPoints={8} width={140} className="mt-0.5" />
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium text-label-2">년도별 역량고과 추이</p>
+                    <p className="text-[14px] font-medium text-label-2">년도별 역량고과 추이</p>
                     <TrendSparkline points={competencyGradePoints} maxPoints={4} width={90} className="mt-0.5" />
                   </div>
                 </div>
@@ -846,7 +846,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     onToggle={() => togglePeriod(currentWorkspace.id)}
                   >
                     {currentTasks.length === 0 ? (
-                      <p className="text-[13px] text-label-3">이번 기간 참여한 과제가 없습니다.</p>
+                      <p className="text-[14px] text-label-3">이번 기간 참여한 과제가 없습니다.</p>
                     ) : (
                       <div className="divide-y divide-dashed divide-separator">
                         {currentTasks.map(({ task, contributionPercent, personalGrade, personalGradeNote, personalScore }) => (
@@ -861,7 +861,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                               <>
                                 {/* 아직 안 매긴 등급은 빈칸이 아니라 '—'로
                                     보여준다 -- 빈칸이면 화면이 깨진 것처럼 보인다. */}
-                                <span className={`text-[13px] font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>{personalGrade ?? '—'}</span>
+                                <span className={`text-[14px] font-semibold ${personalGrade ? 'text-label' : 'text-label-3'}`}>{personalGrade ?? '—'}</span>
                                 <GradeNoteButton
                                   note={personalGradeNote}
                                   label={task.name}
@@ -887,7 +887,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     onToggle={() => togglePeriod(workspace.id)}
                   >
                     {tasks.length === 0 ? (
-                      <p className="text-[13px] text-label-3">참여한 과제가 없습니다.</p>
+                      <p className="text-[14px] text-label-3">참여한 과제가 없습니다.</p>
                     ) : (
                       <div className="divide-y divide-dashed divide-separator">
                         {tasks.map((t) => (
@@ -898,7 +898,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                             percent={t.contributionPercent}
                             score={t.personalScore}
                             gradeSlot={
-                              <span className={`text-[13px] font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>{t.personalGrade ?? '—'}</span>
+                              <span className={`text-[14px] font-semibold ${t.personalGrade ? 'text-label' : 'text-label-3'}`}>{t.personalGrade ?? '—'}</span>
                             }
                           />
                         ))}

@@ -16,7 +16,7 @@ export function SaveBadge({
   const { localSave } = useAppState()
   if (saveStatus === 'saving' || localSave === 'saving')
     return (
-      <span className="flex shrink-0 items-center gap-1 text-[11.5px] font-medium text-accent" title="저장 중">
+      <span className="flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-accent" title="저장 중">
         <Spinner className="h-3 w-3" />
         저장 중
       </span>
@@ -29,7 +29,7 @@ export function SaveBadge({
     )
   if (localSave === 'saved' || saveStatus === 'saved' || hasSavedCurrentPeriod)
     return (
-      <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] text-label-3" title="이 브라우저에 저장됨">
+      <span className="flex shrink-0 items-center gap-1.5 text-[12.5px] text-label-3" title="이 브라우저에 저장됨">
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
         저장됨
       </span>

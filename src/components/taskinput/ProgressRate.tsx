@@ -220,8 +220,8 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
     }
   }
 
-  const th = 'border border-[#9AA0A6] bg-[#C9DAF8] px-2 py-1.5 text-center text-[12px] font-bold text-[#14161A]'
-  const td = 'relative border border-[#C9CDD3] px-2 py-1.5 text-center text-[12.5px] tabular-nums'
+  const th = 'border border-[#9AA0A6] bg-[#C9DAF8] px-2 py-1.5 text-center text-[13px] font-bold text-[#14161A]'
+  const td = 'relative border border-[#C9CDD3] px-2 py-1.5 text-center text-[13.5px] tabular-nums'
   const actualBg = 'bg-[#EAD6D4]' // 실적 칸(시트처럼 연한 분홍)
   const numCell = (t: RateTable, r: RateRow, m: Metric) => {
     const k = keyOf(t, r, m)
@@ -256,7 +256,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
               if (e.key === 'Enter') commitEdit()
               if (e.key === 'Escape') setEdit(null)
             }}
-            className="h-6 w-14 rounded border border-accent px-1 text-center text-[12.5px] outline-none"
+            className="h-6 w-14 rounded border border-accent px-1 text-center text-[13.5px] outline-none"
           />
         ) : (
           v
@@ -283,10 +283,10 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
     <div className="mx-auto max-w-[1200px]">
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[17px] font-bold text-label">{data.tabTitle.replace(/추진현황/, '진척률')}</h2>
-        <span className="text-[12px] text-label-3">추진현황 일정 칸에서 자동으로 셉니다 · 숫자는 더블클릭으로 고칠 수 있음</span>
-        <label className="ml-auto flex items-center gap-1.5 text-[13px] text-label-2">
+        <span className="text-[13px] text-label-3">추진현황 일정 칸에서 자동으로 셉니다 · 숫자는 더블클릭으로 고칠 수 있음</span>
+        <label className="ml-auto flex items-center gap-1.5 text-[14px] text-label-2">
           기준 주
-          <Select value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-8 rounded-control border border-hairline px-2 text-[13px] text-label">
+          <Select value={asOf} onChange={(e) => setAsOf(e.target.value)} className="h-8 rounded-control border border-hairline px-2 text-[14px] text-label">
             {weekCols.map((w) => (
               <option key={w.key} value={w.key}>
                 {w.month}월 {w.week}주{w.key === asOfDefault ? ' (이번 주)' : ''}
@@ -304,12 +304,12 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
           <button onClick={() => setPptOpen(true)} className="mac-menu-item">
             <Presentation size={14} strokeWidth={1.8} />
             PPT
-            <span className="ml-auto text-[11.5px] text-label-3">탭마다 한 장 · 미리보기</span>
+            <span className="ml-auto text-[12.5px] text-label-3">탭마다 한 장 · 미리보기</span>
           </button>
           <button onClick={() => void saveExcel()} className="mac-menu-item">
             <FileSpreadsheet size={14} strokeWidth={1.8} />
             엑셀
-            <span className="ml-auto text-[11.5px] text-label-3">표마다 시트 한 장</span>
+            <span className="ml-auto text-[12.5px] text-label-3">표마다 시트 한 장</span>
           </button>
         </FileMenu>
         <Button
@@ -324,7 +324,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
         </Button>
       </div>
       {note && (
-        <p className={`mt-2 flex flex-wrap items-center gap-2 text-[12.5px] ${note.ok ? 'text-success' : 'text-danger'}`}>
+        <p className={`mt-2 flex flex-wrap items-center gap-2 text-[13.5px] ${note.ok ? 'text-success' : 'text-danger'}`}>
           {note.text}
           {note.url && (
             <a href={note.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
@@ -346,7 +346,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
         onCancel={() => setConfirmSave(false)}
       >
         <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-          <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
+          <p className="text-[12px] font-medium text-label-3">저장할 곳</p>
           <p className="mt-0.5 break-all text-[14px] font-bold text-label">
             {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {rateTitle}
           </p>
@@ -359,7 +359,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`rounded-t-[10px] border px-4 py-2 text-[13px] font-semibold ${
+            className={`rounded-t-[10px] border px-4 py-2 text-[14px] font-semibold ${
               cur.key === t.key ? 'border-separator border-b-white bg-white text-label' : 'border-transparent text-label-2 hover:bg-black/[0.04]'
             }`}
           >
@@ -378,12 +378,12 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
         caption={`${asOfLabel} 기준 · 착수 계획 = 회색 S(또는 회색 시작) · 착수 실적 = 분홍 S(또는 분홍 시작) · 완료 계획 = F(또는 회색 끝) · 완료 실적 = 분홍 완 · 회색 계획이 없는 과제는 분홍 실적 시점을 계획으로 봄`}
       />
       {cur.rows.length <= 1 && (
-        <p className="mt-6 text-center text-[13px] text-label-3">{cur.key === 'sum' ? '[중점] 구분이 없습니다.' : '셀 과제가 없습니다.'}</p>
+        <p className="mt-6 text-center text-[14px] text-label-3">{cur.key === 'sum' ? '[중점] 구분이 없습니다.' : '셀 과제가 없습니다.'}</p>
       )}
 
       {menu && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setMenu(null)} onContextMenu={(e) => (e.preventDefault(), setMenu(null))}>
-          <div className="mac-pop absolute w-[210px] py-1 text-[13px]" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="mac-pop absolute w-[210px] py-1 text-[14px]" style={{ left: menu.x, top: menu.y }} onMouseDown={(e) => e.stopPropagation()}>
             <button
               onClick={() => {
                 setList({ title: menu.title, rows: menu.rows })
@@ -436,11 +436,11 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
                 <X size={16} />
               </button>
             </div>
-            <ul className="mt-3 divide-y divide-separator text-[13px]">
+            <ul className="mt-3 divide-y divide-separator text-[14px]">
               {list.rows.map((r) => (
                 <li key={r.key} className="py-1.5">
                   <span className="text-label">{r.l3}</span>
-                  <span className="ml-2 text-[11.5px] text-label-3">
+                  <span className="ml-2 text-[12.5px] text-label-3">
                     {r.l1} › {r.l2}
                   </span>
                 </li>
@@ -495,7 +495,7 @@ function RateTableView({
   const cell = numCell ?? ((_t: RateTable, r: RateRow, m: Metric) => plain(r, m))
   return (
     <table className={`w-full border-collapse ${compact ? '' : 'mt-3'}`}>
-      {caption && <caption className="caption-bottom pt-2 text-left text-[11.5px] text-label-3">{caption}</caption>}
+      {caption && <caption className="caption-bottom pt-2 text-left text-[12.5px] text-label-3">{caption}</caption>}
       <thead>
         <tr>
           {t.groupHead && (
@@ -610,7 +610,7 @@ function PptPreview({
         <div className="flex items-center gap-3 border-b border-separator bg-white px-5 py-3">
           <Presentation size={18} className="text-accent" />
           <h3 className="text-[15px] font-bold text-label">PPT로 내보내기 · 미리보기</h3>
-          <span className="text-[12px] text-label-3">
+          <span className="text-[13px] text-label-3">
             {pick.length}장 · 탭마다 한 장(16:9) · {asOf} 기준
           </span>
           <span className="ml-auto flex items-center gap-2">
@@ -628,7 +628,7 @@ function PptPreview({
             const on = pick.includes(t.key)
             return (
               <div key={t.key} className="mx-auto max-w-[880px]">
-                <label className="mb-1.5 flex items-center gap-2 text-[12.5px] font-semibold text-label-2">
+                <label className="mb-1.5 flex items-center gap-2 text-[13.5px] font-semibold text-label-2">
                   <input type="checkbox" checked={on} onChange={() => setPick(on ? pick.filter((k) => k !== t.key) : [...pick, t.key])} />
                   {i + 1}. {t.title}
                   {t.rows.length <= 1 && <span className="font-normal text-label-3">(빈 표)</span>}

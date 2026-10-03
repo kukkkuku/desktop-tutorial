@@ -21,7 +21,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
   return (
     <div className="mac-card p-4">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h4 className="text-[13px] font-semibold text-label">피어리뷰가 평가에 미친 영향</h4>
+        <h4 className="text-[14px] font-semibold text-label">피어리뷰가 평가에 미친 영향</h4>
         <span className="text-xs text-label-3">
           리뷰 {impact.reviewCount}건 · 반영 비율 {impact.weightPercent}%
         </span>
@@ -47,7 +47,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
               return (
                 <li
                   key={r.member.id}
-                  className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[13px]"
+                  className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[14px]"
                 >
                   <span className="font-medium text-label">{r.member.name}</span>
                   <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWithout]}`}>
@@ -80,7 +80,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
       )}
 
       {noReviews.length > 0 && (
-        <p className="mt-2 rounded-control bg-warning/10 px-3 py-2 text-[13px] text-warning">
+        <p className="mt-2 rounded-control bg-warning/10 px-3 py-2 text-[14px] text-warning">
           받은 리뷰가 없어 동료 의견이 반영되지 않은 팀원 {noReviews.length}명 ·{' '}
           <span className="font-medium">{noReviews.map((m) => m.name).join(', ')}</span>
         </p>

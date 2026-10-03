@@ -623,7 +623,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           )
         if (colId === V_GRADE) return gradeCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
         if (colId === V_GOAL) return goalCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
-        if (colId === V_L2) return <span className="text-[12.5px] text-label-2">{groupNameOf(all[0]?.groupId ?? '')}</span>
+        if (colId === V_L2) return <span className="text-[13.5px] text-label-2">{groupNameOf(all[0]?.groupId ?? '')}</span>
         if (colId === V_PERIOD) return <PeriodCell start={starts[0] ?? ''} done={ends.length === all.length ? ends[ends.length - 1] : ''} />
         if (colId === 'startDate') return <span className="text-label-2">{starts[0] ?? ''}</span>
         if (colId === 'doneDate') return <span className="text-label-2">{ends.length === all.length ? ends[ends.length - 1] : ''}</span>
@@ -634,7 +634,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // 하위 과제(묶음 안 L3)의 과제명: ㄴ 표시 + 묶음에서 빼기 아이콘
   function renderCell(row: WorkItem, col: GridColumn) {
-    if (col.id === V_L2) return evalGroupOf(row) ? <span /> : <span className="text-[12.5px] text-label-2">{groupNameOf(row.groupId)}</span>
+    if (col.id === V_L2) return evalGroupOf(row) ? <span /> : <span className="text-[13.5px] text-label-2">{groupNameOf(row.groupId)}</span>
     if (col.id === V_GRADE || col.id === V_GOAL) {
       if (evalGroupOf(row)) return <span /> // 묶음 안 L3는 머리 행에서
       const t = taskOfItem.get(row.id)
@@ -1043,7 +1043,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 />
               ) : (
                 <>
-                  {g.tag && !tabsCompact && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[11px] font-semibold leading-5 text-white">{g.tag}</span>}
+                  {g.tag && !tabsCompact && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[12px] font-semibold leading-5 text-white">{g.tag}</span>}
                   <span className="min-w-0 truncate break-all">{g.name}</span>
                   {!tabsCompact && <span className="shrink-0 text-xs tabular-nums text-label-3">{count}</span>}
                   {!on && moved?.groupId === g.id && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="옮겨 온 과제가 있습니다" />}
@@ -1077,10 +1077,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       {/* 가져오기(예전 빠른 시작의 가져오기 탭들): 추진현황에서 · 구글시트 · 엑셀(관리자) */}
       <div className="shrink-0 pb-1.5 pl-2">
         <PopMenu label={<span className="flex items-center gap-1"><Download {...icSm} />가져오기</span>} title="과제 가져오기 -- 추진현황 · 구글시트 · 엑셀에서 그룹(L2)을 골라">
-          <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">과제 가져오기</p>
+          <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">과제 가져오기</p>
           <button onClick={() => onOpenSheetImport(undefined, 'progress')} className="mac-menu-item">
             <CalendarRange {...icSm} className="shrink-0" />추진현황에서
-            <span className="ml-auto text-[11px] font-normal text-label-3">과제 입력</span>
+            <span className="ml-auto text-[12px] font-normal text-label-3">과제 입력</span>
           </button>
           {canManageSheets && (
             <button onClick={() => onOpenSheetImport(undefined, 'sheet')} className="mac-menu-item">
@@ -1090,7 +1090,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           {canManageSheets && (
             <button onClick={() => onOpenSheetImport(undefined, 'xlsx')} className="mac-menu-item">
               <Upload {...icSm} className="shrink-0" />엑셀 파일에서
-              <span className="ml-auto text-[11px] font-normal text-label-3">xlsx</span>
+              <span className="ml-auto text-[12px] font-normal text-label-3">xlsx</span>
             </button>
           )}
         </PopMenu>
@@ -1100,7 +1100,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           <SheetLinkChip
             label={linkFileTitle || board.sheetLink.tabName}
             sub={linkFileTitle ? board.sheetLink.tabName : undefined}
-            meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[11px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
+            meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[12px] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
             currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
             openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}
             note={!canManageSheets ? SHEET_ADMIN_ONLY : board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
@@ -1128,7 +1128,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             <h2 className="min-w-0 truncate text-[17px] font-semibold text-label">{evalOnly ? '평가 대상 · 모든 그룹' : activeGroup.name}</h2>
             {missingCount > 0 && (
               <span
-                className="ml-1.5 self-center rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700"
+                className="ml-1.5 self-center rounded-full bg-orange-100 px-2 py-0.5 text-[12px] font-bold text-orange-700"
                 title="지난 가져오기 때 시트에서 찾지 못한 행입니다. 지우지 않고 표시만 합니다."
               >
                 시트에 없음 {missingCount}
@@ -1142,10 +1142,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={evalOnly ? '평가 대상에서 찾기' : '이 L2에서 찾기'}
-              className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[13px]"
+              className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[14px]"
             />
             <label
-              className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[13px] ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : 'border-hairline text-label-2 hover:text-label'}`}
+              className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[14px] ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : 'border-hairline text-label-2 hover:text-label'}`}
               title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
             >
               <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
@@ -1191,7 +1191,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   <Settings2 {...ic} />
                 </button>
                 {colMenuOpen && (
-                  <div className="mac-pop absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto py-1 text-[13px]">
+                  <div className="mac-pop absolute right-0 top-9 z-30 max-h-96 w-60 overflow-y-auto py-1 text-[14px]">
                     <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-black/[0.04]">
                       <input type="checkbox" checked={!hideNumbers} onChange={toggleNumbers} />
                       <span className="truncate">번호</span>
@@ -1206,7 +1206,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                           onChange={() => apply(updateColumn(board, c.id, { hidden: !c.hidden }))}
                         />
                         <span className="truncate">{c.label}</span>
-                        {!c.system && <span className="ml-auto text-[11px] text-label-3">추가</span>}
+                        {!c.system && <span className="ml-auto text-[12px] text-label-3">추가</span>}
                       </label>
                     ))}
                   </div>
@@ -1333,7 +1333,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-label/90 px-4 py-2 text-[13px] text-white shadow-pop backdrop-blur-xl">
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-label/90 px-4 py-2 text-[14px] text-white shadow-pop backdrop-blur-xl">
           {toast.text}
           {toast.undo && (
             <button
@@ -1376,7 +1376,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             <button
               key={g}
               onClick={() => setAskGrade((cur) => (cur ? { ...cur, grade: g } : cur))}
-              className={`rounded-full border px-3 py-1 text-[13px] font-semibold ${askGrade?.grade === g ? 'border-accent bg-accent text-white' : 'border-hairline text-label hover:bg-black/[0.04]'}`}
+              className={`rounded-full border px-3 py-1 text-[14px] font-semibold ${askGrade?.grade === g ? 'border-accent bg-accent text-white' : 'border-hairline text-label hover:bg-black/[0.04]'}`}
             >
               {g}
             </button>
@@ -1434,7 +1434,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         onCancel={() => setDeletingGroup(null)}
       >
         {deleteUsage.length > 0 && (
-          <div className="mt-4 rounded-card bg-black/[0.03] p-3 text-[13px]">
+          <div className="mt-4 rounded-card bg-black/[0.03] p-3 text-[14px]">
             <p className="font-semibold text-label">팀원도 함께 삭제 <span className="font-normal text-label-2">(선택)</span></p>
             {deleteCandidates.length > 0 ? (
               <>
@@ -1576,7 +1576,7 @@ function GroupCategoryPicker({ value, needs, onPick }: { value: string; needs: b
         title="고르면 하위 과제 전체의 분류가 바뀝니다"
         className={`flex w-full items-center justify-between gap-1 rounded-control py-0.5 ${needs ? 'ring-2 ring-orange-300' : ''}`}
       >
-        {value ? <Chip tone={tone(value, true)}>{value}</Chip> : <span className="whitespace-nowrap text-[13px] text-label-3">분류 선택</span>}
+        {value ? <Chip tone={tone(value, true)}>{value}</Chip> : <span className="whitespace-nowrap text-[14px] text-label-3">분류 선택</span>}
         <ChevronDown {...icSm} className="shrink-0 text-label-3" />
       </button>
       {pos &&

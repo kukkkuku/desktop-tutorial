@@ -74,7 +74,7 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
         }`}
       >
         {hasNote ? <StickyNote {...ic} className="shrink-0" /> : <Pencil {...ic} className="shrink-0" />}
-        {preview && <span className="text-[11px] font-normal normal-case text-warning">{preview}</span>}
+        {preview && <span className="text-[12px] font-normal normal-case text-warning">{preview}</span>}
       </button>
 
       {open &&
@@ -94,7 +94,7 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
                   onChange={(e) => setDraft(e.target.value)}
                   rows={3}
                   placeholder="이 등급을 준 근거를 입력하세요"
-                  className="mt-1.5 w-full rounded-control border border-hairline px-2.5 py-1.5 text-[13px] text-label"
+                  className="mt-1.5 w-full rounded-control border border-hairline px-2.5 py-1.5 text-[14px] text-label"
                 />
                 <div className="mt-2 flex justify-end gap-1.5">
                   <Button size="sm" variant="secondary" onClick={() => setOpen(false)}>
@@ -106,7 +106,7 @@ export default function GradeNoteButton({ note, label, onSave, previewChars }: G
                 </div>
               </>
             ) : (
-              <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] text-label">{note?.trim() || '입력된 근거가 없습니다.'}</p>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-[14px] text-label">{note?.trim() || '입력된 근거가 없습니다.'}</p>
             )}
           </div>,
           document.body,

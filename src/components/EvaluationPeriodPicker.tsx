@@ -90,13 +90,13 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
             value={customLabel}
             onChange={(e) => setCustomLabel(e.target.value)}
             placeholder="예: 특별 평가"
-            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
+            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[14px] text-label"
           />
         ) : (
           <Select
             value={periodCode}
             onChange={(e) => setPeriodCode(e.target.value)}
-            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13px] text-label"
+            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[14px] text-label"
           >
             {fixedOptions.map((o) => (
               <option key={o.code} value={o.code}>
@@ -112,7 +112,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
           </IconButton>
           {settingsOpen && (
             <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-44 py-1">
-              <p className="px-3.5 py-1 text-[13px] font-semibold text-label-3">평가 주기</p>
+              <p className="px-3.5 py-1 text-[14px] font-semibold text-label-3">평가 주기</p>
               {(['half', 'quarter', 'month', 'custom'] as EvaluationCycle[]).map((c) => (
                 <button key={c} onClick={() => handleCycleChange(c)} className="mac-menu-item">
                   <Check {...icSm} className={cycle === c ? '' : 'invisible'} />
@@ -133,7 +133,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
                 setYear(w.evaluationYear)
                 setCustomLabel(w.periodName)
               }}
-              className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[13px] text-label-2 hover:bg-accent-soft hover:text-accent"
+              className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[14px] text-label-2 hover:bg-accent-soft hover:text-accent"
             >
               {w.evaluationYear} {w.periodName}
             </button>
@@ -145,12 +145,12 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
         {matched ? (
           <>
             <div className="flex items-baseline justify-between">
-              <span className="text-[13px] font-semibold text-label">
+              <span className="text-[14px] font-semibold text-label">
                 {year} {effectiveLabel}
               </span>
-              <span className="text-[13px] text-label-3">최근 수정 {fmtWorkspaceDate(matched.updatedAt)}</span>
+              <span className="text-[14px] text-label-3">최근 수정 {fmtWorkspaceDate(matched.updatedAt)}</span>
             </div>
-            <p className="mt-1 text-[13px] text-label-2">
+            <p className="mt-1 text-[14px] text-label-2">
               과제 {readWorkspaceCounts(matched.id).taskCount}개 · 팀원 {readWorkspaceCounts(matched.id).memberCount}명
             </p>
             <Button variant="primary" onClick={handleSubmit} className="mt-3 w-full">
@@ -159,17 +159,17 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
           </>
         ) : (
           <>
-            <p className="text-[13px] text-label-2">
+            <p className="text-[14px] text-label-2">
               {year} {effectiveLabel || '평가'}가 없습니다.
             </p>
             {mostRecent && (
               <div className="mt-3 space-y-1.5 border-t border-separator pt-3">
-                <p className="text-[13px] font-semibold text-label-3">'{mostRecent.periodName}'에서 가져오기</p>
-                <label className="flex items-center gap-2 text-[13px] text-label">
+                <p className="text-[14px] font-semibold text-label-3">'{mostRecent.periodName}'에서 가져오기</p>
+                <label className="flex items-center gap-2 text-[14px] text-label">
                   <input type="checkbox" checked={copyMembers} onChange={(e) => setCopyMembers(e.target.checked)} />
                   팀원 정보 복사
                 </label>
-                <label className="flex items-center gap-2 text-[13px] text-label">
+                <label className="flex items-center gap-2 text-[14px] text-label">
                   <input type="checkbox" checked={copyTaskNames} onChange={(e) => setCopyTaskNames(e.target.checked)} />
                   과제명 복사 (등급·목표·성과는 새로 입력)
                 </label>

@@ -68,17 +68,17 @@ export default function EmptyStateDropzone({ title, addHint, busyLabel, onDownlo
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         {busy ? <Spinner className="h-6 w-6 text-accent" /> : <Upload size={24} strokeWidth={1.5} className="text-label-3" />}
-        <p className="text-[13px] font-semibold text-label">{busy ? busyLabel : title}</p>
+        <p className="text-[14px] font-semibold text-label">{busy ? busyLabel : title}</p>
         {!busy && (
           <>
-            <p className="text-[13px] text-label-2">{addHint}</p>
-            <p className="text-[13px] text-label-3">엑셀 파일을 여기로 끌어다 놓거나 눌러서 업로드하세요 (.xlsx)</p>
+            <p className="text-[14px] text-label-2">{addHint}</p>
+            <p className="text-[14px] text-label-3">엑셀 파일을 여기로 끌어다 놓거나 눌러서 업로드하세요 (.xlsx)</p>
             <button
               onClick={(e) => {
                 e.stopPropagation()
                 void onDownloadTemplate()
               }}
-              className="mt-1 text-[13px] font-medium text-accent hover:underline"
+              className="mt-1 text-[14px] font-medium text-accent hover:underline"
             >
               빈양식 다운로드
             </button>
@@ -90,7 +90,7 @@ export default function EmptyStateDropzone({ title, addHint, busyLabel, onDownlo
       {summary && (
         <div className={`mt-3 rounded-card border px-4 py-3 ${summary.errors.length > 0 ? 'border-danger/30 bg-danger/[0.06]' : 'border-success/30 bg-success/[0.06]'}`}>
           <div className="flex items-start justify-between gap-4">
-            <p className={`text-[13px] font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
+            <p className={`text-[14px] font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
               {summary.addedCount > 0 || summary.updatedCount > 0
                 ? `신규 ${summary.addedCount}건 추가, 기존 ${summary.updatedCount}건 업데이트되었습니다.`
                 : '변경된 건이 없습니다.'}
@@ -101,7 +101,7 @@ export default function EmptyStateDropzone({ title, addHint, busyLabel, onDownlo
             </IconButton>
           </div>
           {summary.errors.length > 0 && (
-            <ul className="mt-2 list-inside list-disc space-y-1 text-[13px] text-danger">
+            <ul className="mt-2 list-inside list-disc space-y-1 text-[14px] text-danger">
               {summary.errors.map((err, i) => (
                 <li key={i}>{err}</li>
               ))}

@@ -165,7 +165,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
     return (
       <div className="border-t border-separator pt-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-label">최종 고과 배분</p>
+          <p className="text-[14px] font-semibold text-label">최종 고과 배분</p>
           <button
             onClick={() => dispatch({ type: 'SET_CRITERIA', payload: { gradeDistribution: dist ? null : START_DISTRIBUTION } })}
             title="클릭해서 방식 전환"
@@ -193,7 +193,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
                     max={100}
                     value={dist[g]}
                     onChange={(e) => change(g, Number(e.target.value))}
-                    className="mt-1 h-8 w-full min-w-0 rounded-control border border-hairline !px-1 text-center text-[13px] tabular-nums text-label"
+                    className="mt-1 h-8 w-full min-w-0 rounded-control border border-hairline !px-1 text-center text-[14px] tabular-nums text-label"
                   />
                 </label>
               ))}
@@ -211,9 +211,9 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
     return (
       <div className="mac-card p-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-label">
+          <p className="text-[14px] font-semibold text-label">
             {label}
-            {checked && <span className="ml-2 tabular-nums text-[13px] font-semibold text-accent">{value}%</span>}
+            {checked && <span className="ml-2 tabular-nums text-[14px] font-semibold text-accent">{value}%</span>}
           </p>
           <button
             onClick={() => set(itemKey, checked ? 0 : 100)}
@@ -237,7 +237,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
             className="criteria-slider mt-2.5 w-full"
           />
         )}
-        <p className="mt-2 text-[13px] font-medium leading-relaxed text-label-2">{desc}</p>
+        <p className="mt-2 text-[14px] font-medium leading-relaxed text-label-2">{desc}</p>
       </div>
     )
   }
@@ -300,7 +300,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
           <CollapseButton />
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-          <p className="text-[13px] leading-relaxed text-label-2">켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.</p>
+          <p className="text-[14px] leading-relaxed text-label-2">켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.</p>
           <div className="ds-group">
             <p className="ds-group-head">과제 평가 기준</p>
             <div className="space-y-1.5">
@@ -360,15 +360,15 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
         <div className="flex h-full flex-col overflow-hidden">
           <div className="flex shrink-0 items-center gap-2 border-b border-separator px-3 py-3">
             <CollapseButton />
-            <span className="text-[13px] font-semibold text-label">기준 설정</span>
+            <span className="text-[14px] font-semibold text-label">기준 설정</span>
           </div>
           <div className="flex-1 space-y-5 overflow-y-auto px-4 py-4">
-            <p className="text-[13px] leading-relaxed text-label-2">
+            <p className="text-[14px] leading-relaxed text-label-2">
               켜면 반영 비율(0~100%)을 슬라이더로 조절할 수 있습니다. 변경 시 결과가 즉시 재계산됩니다.
             </p>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-label-2">과제 평가 기준</p>
+              <p className="mb-2 text-[14px] font-semibold text-label-2">과제 평가 기준</p>
               <div className="space-y-2">
                 {TASK_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />
@@ -377,7 +377,7 @@ export default function CriteriaPanel({ size, onSize, headerHeight, sheet = fals
             </div>
 
             <div>
-              <p className="mb-2 text-[13px] font-semibold text-label-2">팀원 평가 기준</p>
+              <p className="mb-2 text-[14px] font-semibold text-label-2">팀원 평가 기준</p>
               <div className="space-y-2">
                 {MEMBER_ITEMS.map(({ key, label, desc }) => (
                   <CriteriaItem key={key} itemKey={key} label={label} desc={desc} />

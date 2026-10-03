@@ -43,7 +43,7 @@ export default function YearPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-8 items-center gap-1.5 rounded-control bg-white px-2.5 text-[13px] text-label shadow-control hover:bg-[#FAFAFA] ${
+        className={`flex h-8 items-center gap-1.5 rounded-control bg-white px-2.5 text-[14px] text-label shadow-control hover:bg-[#FAFAFA] ${
           open ? 'shadow-focus' : ''
         }`}
       >
@@ -56,7 +56,7 @@ export default function YearPicker({
             <IconButton onClick={() => setRangeStart((s) => s - YEAR_GRID_SIZE)} aria-label="이전 연대" title="이전 연대">
               <ChevronLeft {...icSm} />
             </IconButton>
-            <span className="text-[13px] font-semibold text-label-2 tabular-nums">
+            <span className="text-[14px] font-semibold text-label-2 tabular-nums">
               {rangeStart} – {rangeStart + YEAR_GRID_SIZE - 1}
             </span>
             <IconButton onClick={() => setRangeStart((s) => s + YEAR_GRID_SIZE)} aria-label="다음 연대" title="다음 연대">
@@ -72,7 +72,7 @@ export default function YearPicker({
                   setOpen(false)
                 }}
                 type="button"
-                className={`relative rounded-control py-1.5 text-[13px] tabular-nums ${
+                className={`relative rounded-control py-1.5 text-[14px] tabular-nums ${
                   y === year ? 'bg-accent font-semibold text-white' : y === thisYear ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'
                 }`}
               >

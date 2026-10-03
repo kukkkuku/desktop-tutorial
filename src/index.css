@@ -177,7 +177,7 @@ body {
   }
   /* 메뉴 한 줄: 마우스를 올리면 옅은 회색 */
   .mac-menu-item {
-    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[7px] px-2.5 py-[6px] text-left text-[13px] text-label hover:bg-[#F1F1F3] disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
+    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[7px] px-2.5 py-[6px] text-left text-[14px] text-label hover:bg-[#F1F1F3] disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
   }
   .mac-menu-item-danger {
     @apply text-danger hover:bg-danger-soft;
@@ -197,7 +197,7 @@ body {
     @apply inline-flex items-center gap-0.5 rounded-[10px] bg-[#EFEFF1] p-[3px];
   }
   .mac-seg-item {
-    @apply rounded-[7px] px-3 py-[5px] text-[13px] font-medium text-label-2 transition-colors hover:text-label;
+    @apply rounded-[7px] px-3 py-[5px] text-[14px] font-medium text-label-2 transition-colors hover:text-label;
   }
   .mac-seg-item-on {
     @apply bg-white text-label shadow-pill;
@@ -211,32 +211,32 @@ body {
     @apply rounded-[14px] bg-subtle p-1.5 shadow-[0_0_0_1px_rgba(24,24,27,0.05)];
   }
   .ds-group-head {
-    @apply flex items-center gap-2 px-2.5 pb-2 pt-1.5 text-[13px] font-medium text-label-2;
+    @apply flex items-center gap-2 px-2.5 pb-2 pt-1.5 text-[14px] font-medium text-label-2;
   }
   .ds-group-body {
     @apply rounded-[10px] bg-white shadow-card;
   }
   /* 작은 라벨 · 배지: 옅은 바탕 + 같은 색 옅은 테두리 */
   .mac-badge {
-    @apply inline-flex items-center rounded-[6px] px-1.5 py-[1px] text-[11.5px] font-medium ring-1 ring-inset ring-black/[0.06];
+    @apply inline-flex items-center rounded-[6px] px-1.5 py-[1px] text-[12.5px] font-medium ring-1 ring-inset ring-black/[0.06];
   }
   /* 단축키 표시 */
   .ds-kbd {
-    @apply inline-flex h-5 items-center rounded-[5px] bg-white px-1.5 text-[11px] font-medium text-label-3 shadow-[0_0_0_1px_rgba(24,24,27,0.08)];
+    @apply inline-flex h-5 items-center rounded-[5px] bg-white px-1.5 text-[12px] font-medium text-label-3 shadow-[0_0_0_1px_rgba(24,24,27,0.08)];
   }
   /* 사이드바 항목 */
   .ds-nav-item {
-    @apply flex h-8 w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left text-[13.5px] text-label-2 transition-colors hover:bg-black/[0.04] hover:text-label;
+    @apply flex h-8 w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left text-[14.5px] text-label-2 transition-colors hover:bg-black/[0.04] hover:text-label;
   }
   .ds-nav-item-on {
     @apply bg-white font-medium text-label shadow-pill hover:bg-white;
   }
   .ds-nav-label {
-    @apply px-2.5 pb-1 pt-4 text-[12px] font-medium text-label-3;
+    @apply px-2.5 pb-1 pt-4 text-[13px] font-medium text-label-3;
   }
   /* 까만 말풍선(툴팁) */
   .ds-tip {
-    @apply pointer-events-none rounded-[8px] bg-ink px-2.5 py-1.5 text-[12px] font-medium text-white shadow-pop;
+    @apply pointer-events-none rounded-[8px] bg-ink px-2.5 py-1.5 text-[13px] font-medium text-white shadow-pop;
   }
 }
 

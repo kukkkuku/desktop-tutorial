@@ -1,6 +1,6 @@
 // 앱 드롭다운. 기본 <select>는 운영체제 목록(맥에서는 까만 팝업)으로 떠서 앱과 모양이 달라,
 // 같은 쓰임새(<option> 자식 · value · onChange(e.target.value))로 앱 메뉴(.mac-pop)를 띄운다.
-//   <Select value={v} onChange={(e) => setV(e.target.value)} className="h-8 px-2.5 text-[13px]">
+//   <Select value={v} onChange={(e) => setV(e.target.value)} className="h-8 px-2.5 text-[14px]">
 //     <option value="a">가</option> …
 //   </Select>
 // 목록: 흰 팝오버 · 고른 값 ✓ · 마우스를 올리면 #EFEFEF · ↑↓ Enter Esc

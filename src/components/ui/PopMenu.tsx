@@ -53,7 +53,7 @@ export default function FileMenu({
         title={title}
         aria-label={label ? undefined : '파일 메뉴'}
         aria-expanded={open}
-        className={`flex h-7 items-center justify-center gap-1 rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-40 ${label ? 'px-2 text-[13px] font-medium' : 'w-7'} ${open ? 'bg-black/[0.05] text-label' : ''}`}
+        className={`flex h-7 items-center justify-center gap-1 rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-40 ${label ? 'px-2 text-[14px] font-medium' : 'w-7'} ${open ? 'bg-black/[0.05] text-label' : ''}`}
       >
         {label ? (
           <>

@@ -158,7 +158,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
     <div className="rounded-card border border-separator bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
         <span className="text-[14px] font-semibold text-label">
-          면담 인사이트 <span className="ml-1 text-[12px] font-normal text-label-3">{insights.length}</span>
+          면담 인사이트 <span className="ml-1 text-[13px] font-normal text-label-3">{insights.length}</span>
         </span>
         <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
       </div>
@@ -168,7 +168,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
             <li key={s.id} className="px-4 py-3">
               <div className="flex items-start gap-2">
                 <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-label-3" />
-                <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-label" title={`${s.title}\n근거 · ${s.basis}`}>
+                <p className="min-w-0 flex-1 truncate text-[14px] font-semibold text-label" title={`${s.title}\n근거 · ${s.basis}`}>
                   {s.title}
                 </p>
                 <button
@@ -180,7 +180,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                   <FileText {...icSm} />
                 </button>
               </div>
-              <p className="mt-1 pl-3.5 text-[13px] text-label-2">
+              <p className="mt-1 pl-3.5 text-[14px] text-label-2">
                 <span className="mr-1.5 text-label-3">추천 질문</span>
                 {s.question}
               </p>
@@ -228,7 +228,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
       </div>
 
       {calendarError && (
-        <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[13px] text-danger">
+        <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[14px] text-danger">
           <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
           면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
         </p>
@@ -240,7 +240,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         onChange={(e) => setComment(e.target.value)}
         rows={4}
         placeholder="면담 내용을 입력하세요."
-        className="mt-3 min-h-[120px] w-full flex-1 resize-y rounded-control border border-hairline px-3 py-2 text-[13px] text-label"
+        className="mt-3 min-h-[120px] w-full flex-1 resize-y rounded-control border border-hairline px-3 py-2 text-[14px] text-label"
       />
 
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
@@ -248,7 +248,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           있게 한다. */}
       <div className="mt-3 flex items-center gap-1.5">
         <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
-        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[13px] font-medium text-label-2 hover:text-accent">
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[14px] font-medium text-label-2 hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
       </div>
@@ -256,43 +256,43 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
       {detailsOpen && (
         <div className="mt-2 flex flex-col gap-3">
           <div>
-            <label className="block text-[13px] font-medium text-label-2">강점</label>
+            <label className="block text-[14px] font-medium text-label-2">강점</label>
             <input
               type="text"
               value={strengths}
               onChange={(e) => setStrengths(e.target.value)}
               placeholder="강점 입력"
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-0.5 w-full text-label"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-label-2">보완 필요</label>
+            <label className="block text-[14px] font-medium text-label-2">보완 필요</label>
             <input
               type="text"
               value={improvements}
               onChange={(e) => setImprovements(e.target.value)}
               placeholder="보완이 필요한 영역 입력"
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-0.5 w-full text-label"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-label-2">다음 도전 경험</label>
+            <label className="block text-[14px] font-medium text-label-2">다음 도전 경험</label>
             <input
               type="text"
               value={nextExperience}
               onChange={(e) => setNextExperience(e.target.value)}
               placeholder="도전해 보고 싶은 경험 입력"
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-0.5 w-full text-label"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-label-2">Career Goal</label>
+            <label className="block text-[14px] font-medium text-label-2">Career Goal</label>
             <input
               type="text"
               value={careerGoal}
               onChange={(e) => setCareerGoal(e.target.value)}
               placeholder="성장 커리어/목표 입력"
-              className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-0.5 w-full text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-0.5 w-full text-label"
             />
           </div>
         </div>
@@ -306,13 +306,13 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
       <div className="flex flex-wrap items-center gap-1.5">
         <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
-        <h4 className="text-[13px] font-semibold text-label">면담 기록</h4>
+        <h4 className="text-[14px] font-semibold text-label">면담 기록</h4>
         <span className="mac-badge bg-black/[0.05] text-label-2">최근 {notes.length}건</span>
       </div>
 
       {pastOpen && (
         <div className="mt-2">
-          {notes.length === 0 && <p className="text-[13px] text-label-3">아직 면담 기록이 없습니다.</p>}
+          {notes.length === 0 && <p className="text-[14px] text-label-3">아직 면담 기록이 없습니다.</p>}
           {notes.map((note, i) =>
             editingNoteId === note.id ? (
               <div key={note.id} className="flex items-stretch gap-4 pb-4">
@@ -359,7 +359,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                       value={editComment}
                       onChange={(e) => setEditComment(e.target.value)}
                       rows={3}
-                      className="py-1.5 rounded-control border border-hairline px-2.5 text-[13px] min-h-[72px] min-w-[160px] flex-1 resize-y text-label"
+                      className="py-1.5 rounded-control border border-hairline px-2.5 text-[14px] min-h-[72px] min-w-[160px] flex-1 resize-y text-label"
                     />
                     <div className="flex shrink-0 flex-col items-center gap-2">
                       <div className="grid grid-cols-3 gap-0.5">
@@ -400,8 +400,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                 <div className="min-w-0 flex-1 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
-                      <span className="text-[13px] tabular-nums text-label">{note.date}</span>
-                      {i === 0 && <span className="text-[13px] text-label-3">최근 면담</span>}
+                      <span className="text-[14px] tabular-nums text-label">{note.date}</span>
+                      {i === 0 && <span className="text-[14px] text-label-3">최근 면담</span>}
                       {note.date > todayStr && <Badge tone="accent">예정</Badge>}
                       {note.calendarEventId && (
                         <span title="Google 캘린더에 등록됨" className="flex shrink-0 text-accent">
@@ -428,7 +428,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                       </IconButton>
                     </div>
                   </div>
-                  <div className="mt-0.5 space-y-0.5 text-[13px] text-label">
+                  <div className="mt-0.5 space-y-0.5 text-[14px] text-label">
                     <p className="whitespace-pre-wrap break-words">{note.comment}</p>
                     {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">강점 : {note.strengths}</p>}
                     {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">보완 : {note.improvements}</p>}

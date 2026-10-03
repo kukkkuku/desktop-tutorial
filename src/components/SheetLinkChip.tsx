@@ -89,16 +89,16 @@ export default function SheetLinkChip({
       )}
 
       {open && (
-        <div className="mac-pop absolute right-0 top-full z-50 mt-1.5 w-[440px] p-3 text-[13px]">
+        <div className="mac-pop absolute right-0 top-full z-50 mt-1.5 w-[440px] p-3 text-[14px]">
           <p className="font-semibold text-label">연결된 구글시트</p>
-          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] text-label">
+          <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-label">
             <span className="min-w-0 truncate">
               {label}
               {sub && <span className="text-label-3"> › {sub}</span>}
             </span>
             {meta && <span className="shrink-0">{meta}</span>}
           </div>
-          {note && <div className="mt-0.5 text-[12px] text-label-2">{note}</div>}
+          {note && <div className="mt-0.5 text-[13px] text-label-2">{note}</div>}
           {onConnect && (
           <form
             onSubmit={(e) => {
@@ -113,18 +113,18 @@ export default function SheetLinkChip({
               onChange={(e) => setUrl(e.target.value)}
               onFocus={(e) => e.target.select()}
               placeholder="https://docs.google.com/spreadsheets/d/..."
-              className="h-8 min-w-0 flex-1 rounded-control border border-hairline bg-white px-2.5 text-[12px]"
+              className="h-8 min-w-0 flex-1 rounded-control border border-hairline bg-white px-2.5 text-[13px]"
             />
             <Button variant="primary" size="sm" type="submit" disabled={!url.trim()}>
               연결
             </Button>
           </form>
           )}
-          {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
+          {error && <p className="mt-1.5 text-[13px] text-danger">{error}</p>}
           {(openUrl || extra) && (
             <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-separator pt-2">
               {openUrl ? (
-                <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">
+                <a href={openUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[13px] font-medium text-accent hover:underline">
                   <ExternalLink {...icSm} className="shrink-0" />
                   <span className="truncate">{sub ? `${label} 구글시트로 바로 가기` : '구글시트로 바로 가기'}</span>
                 </a>

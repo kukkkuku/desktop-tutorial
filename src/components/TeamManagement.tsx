@@ -343,7 +343,7 @@ export default function TeamManagement() {
           <span className={`relative h-[18px] w-8 shrink-0 rounded-full transition-colors ${m.active ? 'bg-success' : 'bg-black/[0.15]'}`}>
             <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-all ${m.active ? 'left-[16px]' : 'left-[2px]'}`} />
           </span>
-          <span className={`text-[12.5px] ${m.active ? 'text-label' : 'text-label-3'}`}>{m.active ? '활성' : '비활성'}</span>
+          <span className={`text-[13.5px] ${m.active ? 'text-label' : 'text-label-3'}`}>{m.active ? '활성' : '비활성'}</span>
         </button>
       )
     if (col.id === 'service' || col.id === 'levelTenure' || col.id === 'work' || col.id === 'tasks')
@@ -409,13 +409,13 @@ export default function TeamManagement() {
           </Button>
         </div>
       </div>
-      <p className="mt-1 text-[13px] text-label-2">
+      <p className="mt-1 text-[14px] text-label-2">
         칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께
         지워집니다.
       </p>
 
       {unmatched.length > 0 && !unmatchedOpen && (
-        <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[13px] text-label-2 hover:text-accent">
+        <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[14px] text-label-2 hover:text-accent">
           <ChevronRight {...icSm} />
           과제 담당자 중 팀원 목록에 없는 사람 <span className="font-semibold text-label">{unmatched.length}명</span> · 눌러서 추가
         </button>
@@ -426,13 +426,13 @@ export default function TeamManagement() {
             <div>
               <button
                 onClick={() => setUnmatchedOpen(false)}
-                className="flex items-center gap-1 text-[13px] font-semibold text-label hover:text-accent"
+                className="flex items-center gap-1 text-[14px] font-semibold text-label hover:text-accent"
                 title="접기"
               >
                 <ChevronDown {...icSm} />
                 과제 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명
               </button>
-              <p className="mt-0.5 text-[13px] text-label-2">
+              <p className="mt-0.5 text-[14px] text-label-2">
                 시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만
                 추가하세요.
               </p>
@@ -487,7 +487,7 @@ export default function TeamManagement() {
             </IconButton>
             {colMenuOpen && (
               <div
-                className="mac-pop absolute right-0 top-9 z-30 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
+                className="mac-pop absolute right-0 top-9 z-30 max-h-[70vh] w-64 overflow-y-auto py-1 text-[14px]"
                 onMouseLeave={() => setColMenuOpen(false)}
               >
                 <label className="flex items-center gap-2 px-3 py-2 text-label-2">
@@ -502,7 +502,7 @@ export default function TeamManagement() {
                       const m = v.match(/^(\d{1,2})-(\d{1,2})$/)
                       setFoundingDay(m ? `${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : null)
                     }}
-                    className="h-7 w-20 rounded-control border border-hairline px-2 text-center text-[13px]"
+                    className="h-7 w-20 rounded-control border border-hairline px-2 text-center text-[14px]"
                     title="근속년월 괄호 안의 '창립기념일 기준' 년수를 세는 날짜(월-일)"
                   />
                 </label>
@@ -518,7 +518,7 @@ export default function TeamManagement() {
                         onChange={() => saveCfg({ hidden: hiddenSet.has(id) ? cfg.hidden.filter((x) => x !== id) : [...cfg.hidden, id] })}
                       />
                       <span className="truncate">{cfg.labels[id] ?? c.label}</span>
-                      {!c.system && <span className="ml-auto text-[11px] text-label-3">추가</span>}
+                      {!c.system && <span className="ml-auto text-[12px] text-label-3">추가</span>}
                     </label>
                   )
                 })}
@@ -526,7 +526,7 @@ export default function TeamManagement() {
             )}
           </div>
         </div>
-        {notice && <p className="mb-2 text-[13px] text-danger">{notice}</p>}
+        {notice && <p className="mb-2 text-[14px] text-danger">{notice}</p>}
         <DataGrid
           columns={columns}
           rows={state.members}
@@ -586,11 +586,11 @@ export default function TeamManagement() {
             </div>
             <div className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto">
               {peerReviewsForViewing.length === 0 ? (
-                <p className="rounded-control bg-black/[0.03] px-4 py-4 text-center text-[13px] text-label-2">아직 받은 피어리뷰가 없습니다.</p>
+                <p className="rounded-control bg-black/[0.03] px-4 py-4 text-center text-[14px] text-label-2">아직 받은 피어리뷰가 없습니다.</p>
               ) : (
                 peerReviewsForViewing.map((review) => (
                   <div key={review.id} className="flex items-center justify-between gap-3 rounded-control border border-separator px-4 py-2">
-                    <span className="text-[13px] font-medium text-label">{review.reviewerName}</span>
+                    <span className="text-[14px] font-medium text-label">{review.reviewerName}</span>
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${GRADE_COLORS[review.grade]}`}>{review.grade}</span>
                       <Button variant="danger" onClick={() => setDeletingPeerReview(review)} size="sm">

@@ -100,7 +100,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[13px] text-label-2">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-[14px] text-label-2">
         {/* 연도는 앱 공통 연도 피커 */}
         <YearPicker year={reviewYear} onChange={changeReviewYear} />
         {kind === 'special' ? '9월 특별심사' : '4월 정기심사'} 기준,{' '}
@@ -110,7 +110,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-card border border-separator">
-        <table className="w-full min-w-[320px] table-fixed text-[13px]">
+        <table className="w-full min-w-[320px] table-fixed text-[14px]">
           <colgroup>
             <col style={{ width: 52 }} />
             <col />
@@ -136,7 +136,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                   <td className="px-2 py-1.5">
                     <span className="font-semibold text-label">{year}</span>
                     {info && info.weight > 0 && (
-                      <span className="block text-[11px] text-label-3">
+                      <span className="block text-[12px] text-label-3">
                         ×{Math.round(info.weight * 100)}%{year === halfOnlyYear ? ' · 상반기만' : ''}
                       </span>
                     )}
@@ -148,7 +148,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                         value={r?.[key] ?? ''}
                         onChange={(e) => setGrade(year, key, e.target.value as EvaluationGrade | '')}
                         title={year === halfOnlyYear && key !== 'firstHalfGrade' ? '9월 특별심사에서는 이 해의 상반기 업적만 반영합니다' : undefined}
-                        className={`h-8 w-full max-w-[64px] rounded-control border border-hairline !pl-2 !pr-5 text-center text-[13px] font-medium ${
+                        className={`h-8 w-full max-w-[64px] rounded-control border border-hairline !pl-2 !pr-5 text-center text-[14px] font-medium ${
                           year === halfOnlyYear && key !== 'firstHalfGrade' ? 'opacity-40' : ''
                         } ${r?.[key] ? GRADE_TEXT[r[key] as EvaluationGrade] : 'text-label-3'}`}
                       >
@@ -167,7 +167,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
                     ) : info.predicted ? (
                       <span className="text-label-3" title="기록이 없어 입력된 해의 평균으로 예측한 값">
                         {info.weighted.toFixed(1)}
-                        <span className="block text-[11px]">예상</span>
+                        <span className="block text-[12px]">예상</span>
                       </span>
                     ) : (
                       <span className="font-semibold text-label">{info.weighted.toFixed(1)}</span>
@@ -192,21 +192,21 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       {/* 보조지표: 제목 · 합계 한 줄, 그 아래 칸 네 개(판이 넓으면 1×4, 좁으면 2×2) */}
       <div className="aux-box mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-label">보조지표</p>
-          <span className="text-[13px] text-label-2">
+          <p className="text-[14px] font-semibold text-label">보조지표</p>
+          <span className="text-[14px] text-label-2">
             합계 <b className="tabular-nums text-label">{auxSum}</b>점
           </span>
         </div>
         <div className="aux-grid">
           {AUX_KEYS.map(({ key, label }) => (
-            <label key={key} className="flex min-w-0 items-center justify-between gap-2 rounded-control bg-white px-2.5 py-1.5 text-[13px] text-label-2 ring-1 ring-separator">
+            <label key={key} className="flex min-w-0 items-center justify-between gap-2 rounded-control bg-white px-2.5 py-1.5 text-[14px] text-label-2 ring-1 ring-separator">
               <span className="shrink-0">{label}</span>
               <input
                 type="number"
                 value={member.auxScores?.[key] ?? ''}
                 onChange={(e) => setAux(key, e.target.value)}
                 placeholder="0"
-                className="h-7 w-16 min-w-0 rounded-control border border-hairline px-2 text-right text-[13px] tabular-nums text-label"
+                className="h-7 w-16 min-w-0 rounded-control border border-hairline px-2 text-right text-[14px] tabular-nums text-label"
               />
             </label>
           ))}
@@ -214,14 +214,14 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
 
       {extraYears.length > 0 && (
-        <button onClick={() => setShowAll((v) => !v)} className="mt-2 flex items-center gap-1 text-[13px] font-medium text-label-2 hover:text-accent">
+        <button onClick={() => setShowAll((v) => !v)} className="mt-2 flex items-center gap-1 text-[14px] font-medium text-label-2 hover:text-accent">
           {showAll ? <ChevronUp {...icSm} /> : <ChevronDown {...icSm} />}
           {showAll ? '이전 기록 접기' : `이전 기록 ${extraYears.length}개 더보기`}
         </button>
       )}
 
       {records.length > 0 && (
-        <div className="mt-2 rounded-card bg-[#F7F7F9] px-3 py-2 text-[13px] text-label">
+        <div className="mt-2 rounded-card bg-[#F7F7F9] px-3 py-2 text-[14px] text-label">
           <span className="text-label-2">업적</span> {achievementTrend} &nbsp;&nbsp;
           <span className="text-label-2">역량</span> {competencyTrend}
         </div>

@@ -2,11 +2,11 @@
 import type { peerSummaryOf } from '../utils/calculations'
 
 export default function PeerLine({ summary }: { summary: ReturnType<typeof peerSummaryOf> }) {
-  if (!summary) return <span className="block text-[11px] font-normal text-label-3">피어 없음</span>
+  if (!summary) return <span className="block text-[12px] font-normal text-label-3">피어 없음</span>
   const { avgScore, count, factor, applied } = summary
   return (
     <span
-      className="block text-[11px] font-normal text-label-2"
+      className="block text-[12px] font-normal text-label-2"
       title={
         applied
           ? `받은 피어리뷰 ${count}건 평균 ${avgScore.toFixed(1)}점 → 성과점수 × ${factor.toFixed(2)}`

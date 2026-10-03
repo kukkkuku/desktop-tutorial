@@ -61,7 +61,7 @@ export function GradeCell({ value, onPick, muted }: { value: PerformanceGrade | 
         {value ? (
           <span className={`${CHIP_BASE} ${muted ? 'bg-slate-100 text-slate-500' : GRADE_COLORS[value]}`}>{value}</span>
         ) : (
-          <span className="text-[13px] text-label-3">미입력</span>
+          <span className="text-[14px] text-label-3">미입력</span>
         )}
         <ChevronDown {...icSm} className="shrink-0 text-label-3" />
       </button>
@@ -115,7 +115,7 @@ export function GoalCell({
           setAnchor(td.getBoundingClientRect())
         }}
         title={empty ? '목표 · 성과 입력하기' : `목표: ${objective}\n성과: ${achievement}`}
-        className="cursor-text py-1 text-[13px] leading-snug"
+        className="cursor-text py-1 text-[14px] leading-snug"
       >
         {empty ? (
           <span className="text-orange-600">목표 · 성과 입력하기</span>
@@ -134,7 +134,7 @@ export function GoalCell({
 function Line({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex min-w-0 gap-1.5">
-      <span className="shrink-0 text-[11px] leading-[18px] text-label-3">{k}</span>
+      <span className="shrink-0 text-[12px] leading-[18px] text-label-3">{k}</span>
       <span className={`min-w-0 truncate ${v.trim() ? 'text-label' : 'text-label-3'}`}>{v.trim() ? v.replace(/\s*\n\s*/g, ' · ') : '-'}</span>
     </div>
   )
@@ -163,18 +163,18 @@ function GoalEditor({
     if (latest.current.o !== objective || latest.current.a !== achievement) onSave(latest.current.o, latest.current.a)
     onClose()
   }
-  const box = 'mt-1 block w-full resize-y rounded-control border border-hairline px-2 py-1.5 text-[13px] leading-relaxed outline-none focus:border-accent'
+  const box = 'mt-1 block w-full resize-y rounded-control border border-hairline px-2 py-1.5 text-[14px] leading-relaxed outline-none focus:border-accent'
   return (
     <Pop anchor={anchor} onClose={() => close.current()} width={Math.max(340, anchor.width)}>
-      <label className="block text-[11px] font-semibold text-label-2">
+      <label className="block text-[12px] font-semibold text-label-2">
         목표
         <textarea autoFocus rows={3} value={o} onChange={(e) => setO(e.target.value)} className={box} />
       </label>
-      <label className="mt-2 block text-[11px] font-semibold text-label-2">
+      <label className="mt-2 block text-[12px] font-semibold text-label-2">
         성과
         <textarea rows={3} value={a} onChange={(e) => setA(e.target.value)} className={box} />
       </label>
-      <div className="mt-1.5 flex items-center justify-between text-[11px] text-label-3">
+      <div className="mt-1.5 flex items-center justify-between text-[12px] text-label-3">
         <span>Enter 줄바꿈 · Esc · 바깥 누르면 저장하고 닫기</span>
         <button onClick={() => close.current()} className="rounded-control px-2 py-0.5 font-medium text-accent hover:bg-accent-soft">
           완료
@@ -203,7 +203,7 @@ export function PeriodCell({ start, done, onSave }: { start: string; done: strin
             : undefined
         }
         title={onSave ? '시작일 · 완료일 바꾸기' : '하위 과제의 가장 이른 시작일 · 가장 늦은 완료일'}
-        className={`py-1 text-[13px] tabular-nums leading-snug ${onSave ? 'cursor-text' : ''}`}
+        className={`py-1 text-[14px] tabular-nums leading-snug ${onSave ? 'cursor-text' : ''}`}
       >
         <div className={start ? 'text-label' : 'text-label-3'}>{start || '-'}</div>
         <div className={done ? 'text-label-2' : 'text-label-3'}>{done || '-'}</div>
@@ -235,19 +235,19 @@ function PeriodEditor({
     if (latest.current.s !== start || latest.current.d !== done) onSave(latest.current.s, latest.current.d)
     onClose()
   }
-  const field = 'mt-1 block h-8 w-full rounded-control border border-hairline px-2 text-[13px] outline-none focus:border-accent'
+  const field = 'mt-1 block h-8 w-full rounded-control border border-hairline px-2 text-[14px] outline-none focus:border-accent'
   return (
     <Pop anchor={anchor} onClose={() => close.current()} width={200}>
-      <label className="block text-[11px] font-semibold text-label-2">
+      <label className="block text-[12px] font-semibold text-label-2">
         시작일
         <input type="date" autoFocus value={s} onChange={(e) => setS(e.target.value)} className={field} />
       </label>
-      <label className="mt-2 block text-[11px] font-semibold text-label-2">
+      <label className="mt-2 block text-[12px] font-semibold text-label-2">
         완료일
         <input type="date" value={d} onChange={(e) => setD(e.target.value)} className={field} />
       </label>
       <div className="mt-2 text-right">
-        <button onClick={() => close.current()} className="rounded-control px-2 py-0.5 text-[12px] font-medium text-accent hover:bg-accent-soft">
+        <button onClick={() => close.current()} className="rounded-control px-2 py-0.5 text-[13px] font-medium text-accent hover:bg-accent-soft">
           완료
         </button>
       </div>

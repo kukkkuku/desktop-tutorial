@@ -113,25 +113,25 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   }
 
   if (!isSheetsApiConfigured())
-    return <p className="text-[13px] text-label-2">구글 연동이 켜져 있지 않은 빌드입니다. 권한 관리 시트는 구글 로그인이 필요합니다.</p>
+    return <p className="text-[14px] text-label-2">구글 연동이 켜져 있지 않은 빌드입니다. 권한 관리 시트는 구글 로그인이 필요합니다.</p>
 
   const url = accessSheetUrl(id)
   return (
     <div className="max-w-4xl space-y-5">
-      <p className="text-[13px] leading-relaxed text-label-2">
+      <p className="text-[14px] leading-relaxed text-label-2">
         누가 <b>관리자 · 팀장 · 팀원</b>인지와 팀별 <b>추진현황 시트</b>를 구글시트 한 곳에 적어 둡니다. 모두의 앱이 로그인할 때 이 시트를 읽어, 메뉴(역할)와
         추진현황의 "관리자가 공유한 시트"를 정합니다. 아래 표에서 바로 고쳐 <b>구글시트에 저장</b>하세요(시트의 「변경 기록」 탭에 남습니다).
       </p>
 
       {!id && !canEdit ? (
-        <p className="text-[13px] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
+        <p className="text-[14px] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
       ) : !id ? (
         <section className="rounded-card border border-separator p-5">
           <h3 className="flex items-center gap-2 text-[15px] font-semibold text-label">
             <ShieldCheck size={17} strokeWidth={1.8} className="text-accent" />
             권한 관리 시트가 아직 없습니다
           </h3>
-          <p className="mt-1 text-[13px] text-label-2">
+          <p className="mt-1 text-[14px] text-label-2">
             만들면 내 구글 드라이브에 「성과관리 앱 권한 관리」 시트가 생기고, 지금 아는 관리자 · 팀장과 지금 연결된 추진현황 시트가 미리 들어갑니다.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -139,7 +139,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               {busy === 'create' ? <Spinner className="h-3.5 w-3.5" /> : <FileSpreadsheet {...icSm} />}
               권한 관리 시트 만들기
             </Button>
-            <span className="text-[12px] text-label-3">구글 시트 쓰기 권한 창이 한 번 뜹니다.</span>
+            <span className="text-[13px] text-label-3">구글 시트 쓰기 권한 창이 한 번 뜹니다.</span>
           </div>
           <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
         </section>
@@ -156,7 +156,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               >
                 {data?.title ?? '권한 관리 시트'} ↗
               </a>
-              <span className="text-[12px] text-label-3">{data ? `${new Date(data.fetchedAt).toLocaleString('ko-KR')} 읽음` : '아직 못 읽음'}</span>
+              <span className="text-[13px] text-label-3">{data ? `${new Date(data.fetchedAt).toLocaleString('ko-KR')} 읽음` : '아직 못 읽음'}</span>
               <span className="ml-auto flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => void reread()} disabled={!!busy}>
                   {busy === 'read' ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
@@ -176,7 +176,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               </span>
             </div>
             {me && (
-              <p className="mt-2 text-[12.5px] text-label-2">
+              <p className="mt-2 text-[13.5px] text-label-2">
                 지금 계정 {me} · <b>{ROLE_LABEL[roleOf(me)]}</b>
               </p>
             )}
@@ -184,7 +184,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
 
           <section className="rounded-card border border-separator p-5">
             <h3 className="text-[14px] font-semibold text-label">팀원에게 공유하기</h3>
-            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[13px] text-label-2">
+            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[14px] text-label-2">
               <li>
                 <a href={withGoogleAccount(url!)} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
                   권한 관리 시트 열기 ↗
@@ -194,7 +194,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               <li>
                 팀원에게 아래 앱 링크를 보냅니다(관리 › 팀원 초대 메일에도 들어갑니다). 이 링크로 열면 팀원 앱이 이 권한 시트를 기억합니다.
                 <div className="mt-1.5 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-control border border-hairline bg-subtle px-2 py-1 text-[12px]">{appInviteUrl(id)}</code>
+                  <code className="min-w-0 flex-1 truncate rounded-control border border-hairline bg-subtle px-2 py-1 text-[13px]">{appInviteUrl(id)}</code>
                   <Button variant="secondary" size="sm" onClick={copyInvite}>
                     {copied ? <Check {...icSm} /> : <Copy {...icSm} />}
                     {copied ? '복사함' : '복사'}
@@ -206,14 +206,14 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
 
           {data && <AccessEditor data={data} me={me} onSaved={sync} readOnly={!canEdit} />}
           {canEdit && (
-            <details className="text-[13px] text-label-2">
+            <details className="text-[14px] text-label-2">
               <summary className="cursor-pointer select-none">다른 권한 시트로 바꾸기</summary>
               <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
             </details>
           )}
         </>
       )}
-      {error && <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[13px] text-danger">{error}</p>}
+      {error && <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[14px] text-danger">{error}</p>}
     </div>
   )
 }
@@ -227,12 +227,12 @@ function LinkExisting({ value, onChange, onSubmit, busy }: { value: string; onCh
       }}
       className="mt-3 flex flex-wrap items-center gap-2"
     >
-      <span className="text-[12.5px] text-label-2">이미 있는 권한 시트:</span>
+      <span className="text-[13.5px] text-label-2">이미 있는 권한 시트:</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="https://docs.google.com/spreadsheets/d/..."
-        className="h-8 min-w-[280px] flex-1 rounded-control border border-hairline px-2.5 text-[12.5px] outline-none focus:border-accent"
+        className="h-8 min-w-[280px] flex-1 rounded-control border border-hairline px-2.5 text-[13.5px] outline-none focus:border-accent"
       />
       <Button variant="secondary" size="sm" type="submit" disabled={!value.trim() || busy}>
         {busy ? <Spinner className="h-3.5 w-3.5" /> : null}

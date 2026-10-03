@@ -63,7 +63,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="평가기간 바꾸기 · 평가 목록"
-        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[13px] font-medium text-label-2 transition-colors hover:bg-black/[0.05] hover:text-label ${
+        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[14px] font-medium text-label-2 transition-colors hover:bg-black/[0.05] hover:text-label ${
           open ? 'bg-black/[0.05]' : ''
         }`}
       >
@@ -78,7 +78,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
         pos &&
         createPortal(
           <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-[300px] overflow-hidden py-1">
-            <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">{displayTeamName} 평가기간</p>
+            <p className="px-3.5 pb-1 pt-1 text-[14px] font-semibold text-label-3">{displayTeamName} 평가기간</p>
             {periods.map((p) => {
               const selected = p.id === currentWorkspaceId
               return (
@@ -94,12 +94,12 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
                   {p.evaluationYear} {p.periodName}
                   {selected ? (
-                    <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-success">
+                    <span className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-success">
                       <span className="h-1.5 w-1.5 rounded-full bg-success" />
                       지금 평가
                     </span>
                   ) : (
-                    <span className="ml-auto text-[11px] font-normal text-label-3">{p.updatedAt.slice(5, 10).replace('-', '.')} 수정</span>
+                    <span className="ml-auto text-[12px] font-normal text-label-3">{p.updatedAt.slice(5, 10).replace('-', '.')} 수정</span>
                   )}
                 </button>
               )

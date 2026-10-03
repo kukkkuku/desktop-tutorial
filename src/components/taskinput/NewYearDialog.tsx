@@ -60,7 +60,7 @@ export default function NewYearDialog({
             <h2 className="flex items-center gap-2 text-[17px] font-bold text-label">
               <FilePlus2 size={19} strokeWidth={1.9} className="text-accent" />새 연도 만들기
             </h2>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-label-2">
+            <p className="mt-1 text-[13.5px] leading-relaxed text-label-2">
               한 해의 추진현황 표를 시작합니다.{' '}
               {sheetName
                 ? '연결된 구글시트에 탭으로 바로 만들거나, 이 브라우저에 먼저 만들 수 있습니다.'
@@ -73,20 +73,20 @@ export default function NewYearDialog({
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <span className="w-14 shrink-0 text-[13px] font-semibold text-label">연도</span>
+          <span className="w-14 shrink-0 text-[14px] font-semibold text-label">연도</span>
           <YearPicker year={year} onChange={setYear} />
-          <span className="text-[13px] text-label-2">→ {year} 실적관리</span>
+          <span className="text-[14px] text-label-2">→ {year} 실적관리</span>
         </div>
-        {clash && <p className="ml-[68px] mt-1 text-[12px] text-danger">「{title}」은(는) 이미 있습니다. 다른 연도를 고르세요.</p>}
+        {clash && <p className="ml-[68px] mt-1 text-[13px] text-danger">「{title}」은(는) 이미 있습니다. 다른 연도를 고르세요.</p>}
 
-        <p className="mb-2 mt-5 text-[13px] font-semibold text-label">시작 방법</p>
+        <p className="mb-2 mt-5 text-[14px] font-semibold text-label">시작 방법</p>
         <div className="space-y-2">
           {inheritFrom && (
             <button type="button" onClick={() => setMode('inherit')} className={opt(mode === 'inherit')}>
               <span className={radio(mode === 'inherit')} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-semibold text-label">{inheritFrom.replace(/추진현황/, '실적관리')}에서 이어받기</span>
-                <span className="block text-[12px] leading-snug text-label-2">
+                <span className="block text-[14.5px] font-semibold text-label">{inheritFrom.replace(/추진현황/, '실적관리')}에서 이어받기</span>
+                <span className="block text-[13px] leading-snug text-label-2">
                   그룹(L1) · 구분(L2) · 열 구성을 그대로 가져옵니다. 주 칸(계획 · 실적)은 비웁니다.
                 </span>
                 {mode === 'inherit' && (
@@ -102,7 +102,7 @@ export default function NewYearDialog({
                         key={k}
                         role="button"
                         onClick={() => setCarry(k)}
-                        className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${carry === k ? 'bg-accent text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'}`}
+                        className={`rounded-full px-2.5 py-1 text-[13px] font-medium ${carry === k ? 'bg-accent text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'}`}
                       >
                         {label}
                       </span>
@@ -115,15 +115,15 @@ export default function NewYearDialog({
           <button type="button" onClick={() => setMode('blank')} className={opt(mode === 'blank')}>
             <span className={radio(mode === 'blank')} />
             <span className="min-w-0 flex-1">
-              <span className="block text-[13.5px] font-semibold text-label">빈 표로 시작</span>
-              <span className="block text-[12px] leading-snug text-label-2">기본 열: {DEFAULT_FIELD_LABELS.join(' · ')} (나중에 "+ 열"로 바꿀 수 있음)</span>
+              <span className="block text-[14.5px] font-semibold text-label">빈 표로 시작</span>
+              <span className="block text-[13px] leading-snug text-label-2">기본 열: {DEFAULT_FIELD_LABELS.join(' · ')} (나중에 "+ 열"로 바꿀 수 있음)</span>
               {mode === 'blank' && (
                 <input
                   value={l1}
                   onChange={(e) => setL1(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                   placeholder="첫 그룹(L1) 이름 · 예: 브랜드 디자인"
-                  className="mt-2 h-8 w-full rounded-control border border-hairline bg-white px-2 text-[13px]"
+                  className="mt-2 h-8 w-full rounded-control border border-hairline bg-white px-2 text-[14px]"
                 />
               )}
             </span>
@@ -132,13 +132,13 @@ export default function NewYearDialog({
 
         {sheetName && (
           <>
-            <p className="mb-2 mt-5 text-[13px] font-semibold text-label">저장 위치</p>
+            <p className="mb-2 mt-5 text-[14px] font-semibold text-label">저장 위치</p>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" disabled={sheetBlocked} onClick={() => setTarget('sheet')} className={`${opt(to === 'sheet')} disabled:opacity-50`}>
                 <span className={radio(to === 'sheet')} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold text-label">구글시트</span>
-                  <span className="block text-[12px] leading-snug text-label-2" title={sheetName}>
+                  <span className="block text-[14.5px] font-semibold text-label">구글시트</span>
+                  <span className="block text-[13px] leading-snug text-label-2" title={sheetName}>
                     연결된 시트에 「{title}」 탭
                   </span>
                 </span>
@@ -146,13 +146,13 @@ export default function NewYearDialog({
               <button type="button" onClick={() => setTarget('local')} className={opt(to === 'local')}>
                 <span className={radio(to === 'local')} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold text-label">이 브라우저</span>
-                  <span className="block text-[12px] leading-snug text-label-2">나중에 ⋯ › 구글시트로 만들기</span>
+                  <span className="block text-[14.5px] font-semibold text-label">이 브라우저</span>
+                  <span className="block text-[13px] leading-snug text-label-2">나중에 ⋯ › 구글시트로 만들기</span>
                 </span>
               </button>
             </div>
             {sheetBlocked && (
-              <p className="mt-1.5 text-[12px] text-label-3">과제 없이 시작하면 이 브라우저에 먼저 만듭니다. 과제 이름을 넣은 뒤 ⋯ › 구글시트로 만들기.</p>
+              <p className="mt-1.5 text-[13px] text-label-3">과제 없이 시작하면 이 브라우저에 먼저 만듭니다. 과제 이름을 넣은 뒤 ⋯ › 구글시트로 만들기.</p>
             )}
           </>
         )}

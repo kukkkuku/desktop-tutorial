@@ -54,7 +54,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
       {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
       <div className="flex min-w-0 flex-1 items-end gap-1 pt-1">
         {activeMembers.length === 0 ? (
-          <p className="px-2 py-2.5 text-[13px] text-label-3">등록된 팀원이 없습니다.</p>
+          <p className="px-2 py-2.5 text-[14px] text-label-3">등록된 팀원이 없습니다.</p>
         ) : (
           activeMembers.map((member) => {
             const isSelected = selectedMemberId === member.id
@@ -71,7 +71,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                     : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
                 }`}
               >
-                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
+                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[12px] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
                   {grade ?? '-'}
                 </span>
                 <span className="min-w-0 truncate">{member.name}</span>

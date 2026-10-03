@@ -44,9 +44,9 @@ export default {
           'sans-serif',
         ],
       },
-      // 폰트 최소 사이즈 규칙: 13px 미만은 쓰지 않는다(text-xs = 13px).
+      // 기본 글자 14px(text-xs = 14px). 추진현황 입력 표(ScheduleTable의 <table>)만 예전 크기 유지
       fontSize: {
-        xs: ['13px', { lineHeight: '18px' }],
+        xs: ['14px', { lineHeight: '20px' }],
       },
       borderRadius: {
         control: '8px',

@@ -30,7 +30,7 @@ export default function ConfirmDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]">
       <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-[12px] bg-white/95 p-5 shadow-dialog backdrop-blur-xl`}>
         <h3 className="text-[15px] font-semibold text-label">{title}</h3>
-        <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-label-2">{message}</p>
+        <p className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-label-2">{message}</p>
         {children}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>

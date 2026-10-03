@@ -54,7 +54,7 @@ export default function HomePage() {
         setManual(area)
       }}
       title={area === 'tasks' ? '과제 입력 매뉴얼 -- 구글시트 연결부터' : '성과관리 매뉴얼 -- 준비할 데이터부터'}
-      className="absolute right-4 top-4 z-10 flex h-7 items-center gap-1 rounded-[8px] bg-white px-2.5 text-[12px] font-medium text-label-2 shadow-control hover:text-label"
+      className="absolute right-4 top-4 z-10 flex h-7 items-center gap-1 rounded-[8px] bg-white px-2.5 text-[13px] font-medium text-label-2 shadow-control hover:text-label"
     >
       <BookOpen size={13} strokeWidth={1.9} />
       매뉴얼
@@ -83,10 +83,10 @@ export default function HomePage() {
                 </span>
                 <span>
                   <span className="block text-[17px] font-bold text-label">과제 입력</span>
-                  <span className="block text-[12.5px] text-label-2">추진현황 · 진척률 · 연구소 공용</span>
+                  <span className="block text-[13.5px] text-label-2">추진현황 · 진척률 · 연구소 공용</span>
                 </span>
               </span>
-              <dl className="mt-5 space-y-1.5 text-[13px]">
+              <dl className="mt-5 space-y-1.5 text-[14px]">
                 <div className="flex gap-2">
                   <dt className="w-16 shrink-0 text-label-3">지금 연도</dt>
                   <dd className="text-label">{t.year ? `${t.year} · ${t.where} · 과제 ${t.tasks}건` : '아직 불러오지 않음'}</dd>
@@ -108,7 +108,7 @@ export default function HomePage() {
                   </div>
                 )}
               </dl>
-              <span className="mt-auto flex items-center gap-1 pt-5 text-[13px] font-semibold text-accent">
+              <span className="mt-auto flex items-center gap-1 pt-5 text-[14px] font-semibold text-accent">
                 {t.year ? '이어서 입력하기' : '시작하기'}
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
               </span>
@@ -131,11 +131,11 @@ export default function HomePage() {
                 </span>
                 <span>
                   <span className="block text-[17px] font-bold text-label">성과관리</span>
-                  <span className="block text-[12.5px] text-label-2">팀 · 평가기간 · 피어리뷰 · 면담 (팀장)</span>
+                  <span className="block text-[13.5px] text-label-2">팀 · 평가기간 · 피어리뷰 · 면담 (팀장)</span>
                 </span>
               </button>
               <div className="mt-5 space-y-1">
-                {recent.length === 0 && <p className="text-[13px] text-label-3">아직 평가가 없습니다.</p>}
+                {recent.length === 0 && <p className="text-[14px] text-label-3">아직 평가가 없습니다.</p>}
                 {recent.map((w) => (
                   <button
                     key={w.id}
@@ -143,12 +143,12 @@ export default function HomePage() {
                       selectWorkspace(w.id)
                       setMode('perf')
                     }}
-                    className="flex w-full items-center justify-between rounded-[9px] px-2.5 py-1.5 text-left text-[13px] text-label hover:bg-black/[0.04]"
+                    className="flex w-full items-center justify-between rounded-[9px] px-2.5 py-1.5 text-left text-[14px] text-label hover:bg-black/[0.04]"
                   >
                     <span className="truncate">
                       <span className="font-semibold">{w.teamName}</span> {w.evaluationYear} {w.periodName}
                     </span>
-                    <span className="shrink-0 text-[11.5px] text-label-3">{w.updatedAt.slice(5, 10).replace('-', '/')}</span>
+                    <span className="shrink-0 text-[12.5px] text-label-3">{w.updatedAt.slice(5, 10).replace('-', '/')}</span>
                   </button>
                 ))}
               </div>
@@ -157,7 +157,7 @@ export default function HomePage() {
                   exitToLanding()
                   setMode('perf')
                 }}
-                className="mt-auto flex items-center gap-1 pt-5 text-[13px] font-semibold text-accent"
+                className="mt-auto flex items-center gap-1 pt-5 text-[14px] font-semibold text-accent"
               >
                 {recent.length ? '평가 목록' : '팀 만들기'}
                 <ArrowRight size={14} />

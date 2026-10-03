@@ -1582,13 +1582,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 파일 메뉴(머리 오른쪽 「파일」) = 불러오기 · 내보내기 · 시트 연결. 오랜만에 와서 불러오기를 찾을 때 맨 위에 보이게.
   const fileMenuItems = (
     <>
-      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">불러오기</p>
+      <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">불러오기</p>
       {isSheetsApiConfigured() && (
         <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
           <RefreshCw {...icSm} className="shrink-0" />
           {data && !data.local && data.spreadsheetId ? '구글시트에서 다시 불러오기' : '구글시트에서 불러오기'}
           {data && !data.local && data.spreadsheetId && (
-            <span className="ml-auto text-[11px] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
+            <span className="ml-auto text-[12px] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
               {timeAgo(data.fetchedAt)}
             </span>
           )}
@@ -1603,11 +1603,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         >
           <Upload {...icSm} className="shrink-0" />
           엑셀 파일 열기
-          <span className="ml-auto text-[11px] font-normal text-label-3">보기 전용</span>
+          <span className="ml-auto text-[12px] font-normal text-label-3">보기 전용</span>
         </button>
       )}
       <div className="mac-menu-sep" />
-      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">내보내기</p>
+      <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">내보내기</p>
       {data && (
         <button
           onClick={() => void downloadProgressExcel(data, drafts, l1s)}
@@ -1627,11 +1627,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         >
           <CloudUpload {...icSm} className="shrink-0" />
           {data?.local ? '구글시트로 만들기' : '구글시트로 올리기'}
-          <span className="ml-auto text-[11px] font-normal text-label-3">{data?.local ? '이 브라우저 → 시트' : '엑셀 → 시트'}</span>
+          <span className="ml-auto text-[12px] font-normal text-label-3">{data?.local ? '이 브라우저 → 시트' : '엑셀 → 시트'}</span>
         </button>
       )}
       <div className="mac-menu-sep" />
-      <p className="px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">구글시트</p>
+      <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">구글시트</p>
       <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="mac-menu-item" title={sheetLink}>
         <ExternalLink {...icSm} className="shrink-0" />
         <span className="min-w-0 truncate">{sheetName} 열기</span>
@@ -1660,7 +1660,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <X size={16} />
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[14px]">
           <span className="text-label-3">지금 연결</span>
           <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
             {sheetName} ↗
@@ -1733,7 +1733,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {sheetSettings}
         <div className="mx-auto mt-10 max-w-[940px] text-center">
           <h2 className="text-[20px] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
-          <p className="mt-1.5 text-[13px] text-label-2">
+          <p className="mt-1.5 text-[14px] text-label-2">
             그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 「파일」 메뉴에서 다시 불러오거나 엑셀로 받습니다.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
@@ -1781,7 +1781,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             )}
           </div>
           {!canManage && !isSheetsApiConfigured() && (
-            <p className="mt-4 text-[13px] text-label-2">구글 연동이 켜져 있지 않습니다. 관리자에게 공유된 추진현황 시트를 요청해 주세요.</p>
+            <p className="mt-4 text-[14px] text-label-2">구글 연동이 켜져 있지 않습니다. 관리자에게 공유된 추진현황 시트를 요청해 주세요.</p>
           )}
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
@@ -1962,7 +1962,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onClick={() => void createInSheet()}
           disabled={saving || !parseSheetUrl(sheetLink)}
           title={`연결된 시트(${sheetName})에 이 표를 새 탭으로 올립니다(고친 내용 포함). 같은 이름 탭이 있으면 「… (엑셀 날짜)」 탭으로 따로 만듭니다.`}
-          className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[13px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
+          className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[14px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
         >
           {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
           구글시트로 올리기
@@ -1988,7 +1988,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <button
               onClick={() => setConfirmSave(true)}
               disabled={saving}
-              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[13px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
+              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[14px] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
             >
               {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
               구글시트에 저장
@@ -2025,7 +2025,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </NoticeBar>
       )}
       {/* 늘 보이는 출처 한 줄: 연결된 시트 이름 › 탭 · 불러온 시각 · 최신 확인 */}
-      <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-label-2">
+      <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13.5px] text-label-2">
         <FileSpreadsheet size={14} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
         <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="font-medium text-label hover:underline" title="구글시트에서 열기">
           {sheetName} › {data.tabTitle}
@@ -2100,7 +2100,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {sheetSettings}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
       {message && (
-        <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[13px] text-success">
+        <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[14px] text-success">
           <span className="flex-1">{message}</span>
           <button
             onClick={() => setMessage('')}
@@ -2137,7 +2137,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
                   }}
                   data-l1-tab={name}
-                  className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[13px] font-semibold transition-colors ${
+                  className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[14px] font-semibold transition-colors ${
                     tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
                   } ${
                     on
@@ -2150,7 +2150,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
                   )}
                   <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                  {!tabsCompact && <span className="shrink-0 text-[11px] font-medium text-label-3">{alive}</span>}
+                  {!tabsCompact && <span className="shrink-0 text-[12px] font-medium text-label-3">{alive}</span>}
                   {/* 탭 ✕ 삭제는 없앴다(우리 팀이 아닌 그룹은 우클릭 › 숨기기). 줄을 모두 지워 빈 그룹이 되면 되살리기만 */}
                   {!readOnly && gone && (
                     <button
@@ -2175,7 +2175,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
                 }}
                 title="그룹(L1) 추가"
-                className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[13px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+                className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[14px] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
               >
                 <Plus {...icSm} />
                 그룹 추가
@@ -2191,7 +2191,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 setViewOpen(viewOpen ? null : { x: Math.min(r.right - 264, window.innerWidth - 272), y: r.bottom + 4 })
               }}
               title="보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다"
-              className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[12.5px] font-medium hover:bg-black/[0.05] hover:text-label ${
+              className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[13.5px] font-medium hover:bg-black/[0.05] hover:text-label ${
                 viewOpen || hiddenL1Count > 0 ? 'bg-black/[0.05] text-label' : 'text-label-2'
               }`}
             >
@@ -2201,14 +2201,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             {viewOpen && (
               <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
                 <div
-                  className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[13px]"
+                  className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[14px]"
                   style={{ left: viewOpen.x, top: viewOpen.y }}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between px-3 py-1.5">
-                    <span className="text-[12px] font-semibold text-label-2">보이는 그룹</span>
+                    <span className="text-[13px] font-semibold text-label-2">보이는 그룹</span>
                     {hiddenL1.length > 0 && (
-                      <button onClick={() => setHiddenL1([])} className="text-[12px] font-medium text-accent hover:underline">
+                      <button onClick={() => setHiddenL1([])} className="text-[13px] font-medium text-accent hover:underline">
                         모두 보기
                       </button>
                     )}
@@ -2225,13 +2225,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                           onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
                         />
                         <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
-                        <span className="ml-auto text-[11px] text-label-3">
+                        <span className="ml-auto text-[12px] text-label-3">
                           {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
                         </span>
                       </label>
                     )
                   })}
-                  <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[11px] leading-snug text-label-3">
+                  <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[12px] leading-snug text-label-3">
                     체크를 끄면 그 그룹 탭을 숨깁니다. 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
                   </p>
                 </div>
@@ -2241,12 +2241,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {tabMenu && (
             <div className="fixed inset-0 z-40" onMouseDown={() => setTabMenu(null)} onContextMenu={(e) => (e.preventDefault(), setTabMenu(null))}>
               <div
-                className="mac-pop absolute z-50 w-[220px] py-1 text-[13px]"
+                className="mac-pop absolute z-50 w-[220px] py-1 text-[14px]"
                 style={{ left: tabMenu.x, top: tabMenu.y }}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => setTabMenu(null)}
               >
-                <p className="truncate px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">{tabMenu.name === NO_L1 ? 'L1 없음' : tabMenu.name}</p>
+                <p className="truncate px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">{tabMenu.name === NO_L1 ? 'L1 없음' : tabMenu.name}</p>
                 <button
                   className="mac-menu-item disabled:opacity-40"
                   disabled={shownL1s.length <= 1}
@@ -2281,17 +2281,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {editing && boardView === 'table' && !readOnly && (
           <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[10px] border border-accent/20 bg-accent-soft/60 px-3.5 py-1.5">
             <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-            <p className="min-w-0 flex-1 text-[12.5px] text-label-2">
+            <p className="min-w-0 flex-1 text-[13.5px] text-label-2">
               <b className="font-semibold text-accent">입력 모드</b> · 주 칸을 누르거나 끌어 계획 · 실적을 칠합니다. 아래 도구에서 계획 · 실적 · 지우개를 고르세요.
             </p>
-            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12.5px] font-semibold text-accent hover:bg-accent/10">
+            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[13.5px] font-semibold text-accent hover:bg-accent/10">
               <Check size={14} strokeWidth={2.2} />
               입력 끝내기
             </button>
           </div>
         )}
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[14px]">
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
           <label className="relative" title="L2 · L3 · 담당자 찾기">
             <Search {...icSm} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${searchOpen ? 'left-2 text-label-3' : 'left-1/2 -translate-x-1/2 text-label-2'}`} />
@@ -2326,7 +2326,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 role="tab"
                 aria-selected={boardView === k}
                 onClick={() => changeBoardView(k)}
-                className={`flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12.5px] font-medium ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+                className={`flex h-7 items-center gap-1 rounded-[7px] px-2 text-[13.5px] font-medium ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
               >
                 <Icon size={14} strokeWidth={1.8} />
                 {label}
@@ -2336,7 +2336,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {activeFilters > 0 && (
             <button
               onClick={() => setFilters({})}
-              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[13px] font-medium text-accent"
               title="머리글 필터 모두 해제"
             >
               필터 {activeFilters} ✕
@@ -2345,7 +2345,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {boardView === 'table' && eff.fields.some((f) => hiddenCols.includes(f.id)) && (
             <button
               onClick={() => setHiddenCols([])}
-              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[13px] font-medium text-accent"
               title={`숨긴 열: ${eff.fields
                 .filter((f) => hiddenCols.includes(f.id))
                 .map((f) => f.label)
@@ -2357,7 +2357,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {!(period.start === 1 && period.months === 12) && (
             <button
               onClick={() => setPeriod({ start: 1, months: 12 })}
-              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[13px] font-medium text-accent"
               title="일정 기간을 전체로(일정 머리글 우클릭으로 바꿀 수 있음)"
             >
               기간 {periodLabel(period)} ✕
@@ -2387,7 +2387,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <button
               onClick={() => setFontSize(fontSize - 1)}
               disabled={fontSize <= 10}
-              className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[12px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
+              className="flex h-8 items-center gap-0.5 border-l border-hairline px-2 text-[13px] font-semibold text-label hover:bg-black/[0.04] disabled:opacity-30"
               aria-label="표 글자 작게"
             >
               가<span className="text-[9px] text-accent">▼</span>
@@ -2430,11 +2430,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <span className="h-5 w-px shrink-0 bg-separator" />
           {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
           {readOnly ? (
-            <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[13px] font-semibold text-orange-800 ring-1 ring-orange-200">
+            <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[14px] font-semibold text-orange-800 ring-1 ring-orange-200">
               {data.tabTitle.replace(/추진현황/, '실적관리')} · 보기 전용
               <button
                 onClick={() => archive && void viewYear(archive.data.tabTitle)}
-                className="rounded px-1.5 py-0.5 text-[12px] font-semibold text-accent hover:bg-white"
+                className="rounded px-1.5 py-0.5 text-[13px] font-semibold text-accent hover:bg-white"
               >
                 {archive?.data.tabTitle.replace(/추진현황/, '실적관리')}로 돌아가기
               </button>
@@ -2445,7 +2445,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <button
                 onClick={finishEditing}
                 title="입력 모드 끝내기(저장 안 한 변경이 있으면 구글시트 저장을 권합니다)"
-                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-accent/40 bg-accent-soft px-3 text-[13px] font-semibold text-accent hover:bg-accent/15"
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-accent/40 bg-accent-soft px-3 text-[14px] font-semibold text-accent hover:bg-accent/15"
               >
                 <Check {...icSm} />
                 입력 끝내기
@@ -2501,7 +2501,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   </button>
                 ))}
               </span>
-              <span className="flex items-center gap-3 text-[13px] text-label-3">
+              <span className="flex items-center gap-3 text-[14px] text-label-3">
                 {tool === 'erase'
                   ? '누르거나 끌어서 비우기'
                   : (tool === 'actual'
@@ -2549,7 +2549,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     {name}
                   </span>
                   {marks.map(([m, t]) => (
-                    <span key={m + t} className="flex items-center gap-1 text-[13px] text-label-3">
+                    <span key={m + t} className="flex items-center gap-1 text-[14px] text-label-3">
                       <b className="font-bold text-label-2">{m}</b>
                       {t}
                     </span>
@@ -2740,14 +2740,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
                 <div className="min-w-0">
                   <h3 className="text-[15px] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[14px]">
                     <span className="font-semibold text-label-2">보낼 곳</span>
                     {workspaces.length > 0 ? (
                       <Select
                         value={target}
                         onChange={(e) => setExportTo(e.target.value)}
                         aria-label="보낼 성과관리 평가"
-                        className="h-8 rounded-control border border-hairline bg-white px-2 text-[13px] font-semibold text-label"
+                        className="h-8 rounded-control border border-hairline bg-white px-2 text-[14px] font-semibold text-label"
                       >
                         {workspaces.map((w) => (
                           <option key={w.id} value={w.id}>
@@ -2805,23 +2805,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 setTabAdd(null)
               }}
             >
-              <p className="text-[13px] font-semibold text-label">그룹(L1) 추가</p>
-              <p className="mt-0.5 text-[11px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 그룹 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
+              <p className="text-[14px] font-semibold text-label">그룹(L1) 추가</p>
+              <p className="mt-0.5 text-[12px] text-label-3">「{l1 === NO_L1 ? 'L1 없음' : l1}」 그룹 뒤에 넣습니다. 첫 구분(L2)과 과제 한 줄로 시작합니다.</p>
               <input
                 autoFocus
                 value={tabAdd.l1}
                 onChange={(e) => setTabAdd({ ...tabAdd, l1: e.target.value })}
                 onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
                 placeholder="L1 이름"
-                className="mt-2 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+                className="mt-2 h-8 w-full rounded-control border border-hairline px-2 text-[14px]"
               />
-              {l1s.includes(tabAdd.l1.trim()) && <p className="mt-1 text-[11px] text-danger">이미 있는 L1입니다.</p>}
+              {l1s.includes(tabAdd.l1.trim()) && <p className="mt-1 text-[12px] text-danger">이미 있는 L1입니다.</p>}
               <input
                 value={tabAdd.l2}
                 onChange={(e) => setTabAdd({ ...tabAdd, l2: e.target.value })}
                 onKeyDown={(e) => e.key === 'Escape' && setTabAdd(null)}
                 placeholder="첫 구분(L2) 이름 (태그는 끝에 [태그])"
-                className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[13px]"
+                className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[14px]"
               />
               <div className="mt-2.5 flex justify-end gap-1.5">
                 <Button variant="secondary" size="sm" type="button" onClick={() => setTabAdd(null)}>
@@ -2837,7 +2837,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {fillMenu && (
           <div className="fixed inset-0 z-50" onMouseDown={() => setFillMenu(null)}>
             <div className="mac-pop absolute w-[280px] px-3 py-2.5" style={{ left: fillMenu.x, top: fillMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-              <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-label-2">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-label-2">
                 <CellSwatch cell={{ m: '', f: fillMenu.which }} size={14} />
                 <span className="flex-1">{fillMenu.which === 'plan' ? '계획' : '실적'} 칠하기 색</span>
                 <button
@@ -2858,7 +2858,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setFillMenu(null)
                 }}
               />
-              <p className="mt-2 text-[11px] leading-snug text-label-3">
+              <p className="mt-2 text-[12px] leading-snug text-label-3">
                 이 브라우저에 기억합니다. 새로 칠하거나 고친 칸은 구글시트에 이 색으로 저장되고, 시트를 다시 읽을 때 이 색을 계획/실적으로 알아봅니다.
                 재설정하면 기본색(회색 · 분홍)입니다.
               </p>
@@ -2875,13 +2875,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             }}
           >
             <div
-              className={`mac-pop absolute py-1 text-[13px] ${schPalette ? 'w-[268px]' : 'w-[220px]'}`}
+              className={`mac-pop absolute py-1 text-[14px] ${schPalette ? 'w-[268px]' : 'w-[220px]'}`}
               style={{ left: Math.min(schMenu.x, window.innerWidth - 276), top: schMenu.y }}
               onMouseDown={(e) => e.stopPropagation()}
             >
               {schPalette ? (
                 <div className="px-3 py-1.5">
-                  <button onClick={() => setSchPalette(false)} className="mb-1 flex items-center gap-1 text-[12px] font-medium text-label-2 hover:text-label">
+                  <button onClick={() => setSchPalette(false)} className="mb-1 flex items-center gap-1 text-[13px] font-medium text-label-2 hover:text-label">
                     ‹ 일정 머리글 색
                   </button>
                   <ColorPalette
@@ -2895,7 +2895,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 </div>
               ) : (
                 <>
-                  <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold text-label-3">일정 보기</p>
+                  <p className="px-3 pb-1 pt-1.5 text-[12px] font-semibold text-label-3">일정 보기</p>
                   {(
                     [
                       ['full', '전체 펴기'],
@@ -2916,7 +2916,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     </button>
                   ))}
                   <div className="mac-menu-sep" />
-                  <p className="px-3 pb-1 pt-1 text-[11px] font-semibold text-label-3">기간</p>
+                  <p className="px-3 pb-1 pt-1 text-[12px] font-semibold text-label-3">기간</p>
                   {/* 전체·상반기·하반기 │ 1~4분기 │ 1~12월(한 줄이 한 분기) */}
                   {(
                     [
@@ -2938,7 +2938,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                                 if (scheduleMode === 'hidden') setScheduleMode(lastShownMode.current)
                                 setSchMenu(null)
                               }}
-                              className={`h-7 rounded-control text-[12px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
+                              className={`h-7 rounded-control text-[13px] ${on ? 'bg-label font-semibold text-white' : 'text-label-2 hover:bg-black/[0.05]'}`}
                             >
                               {label}
                             </button>
@@ -2975,13 +2975,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         >
           {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
           <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-            <p className="text-[11px] font-medium text-label-3">저장할 곳</p>
+            <p className="text-[12px] font-medium text-label-3">저장할 곳</p>
             <p className="mt-0.5 break-all text-[14px] font-bold text-label">
               {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
             </p>
-            {drafts.newRows.length > 0 && <p className="mt-1 text-[12px] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
+            {drafts.newRows.length > 0 && <p className="mt-1 text-[13px] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
             {(drafts.deleted?.length ?? 0) > 0 && (
-              <p className="mt-1 text-[12px] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
+              <p className="mt-1 text-[13px] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
             )}
           </div>
         </ConfirmDialog>
@@ -3021,14 +3021,14 @@ function StartCard({
         {badge && <span className="mac-badge ml-auto bg-accent-soft text-accent">{badge}</span>}
       </span>
       <span className="mt-3 text-[14px] font-semibold text-label">{title}</span>
-      <span className="mt-1 text-[12.5px] leading-relaxed text-label-2">{desc}</span>
+      <span className="mt-1 text-[13.5px] leading-relaxed text-label-2">{desc}</span>
     </button>
   )
 }
 
 function ErrorBox({ error, onRetryAccount }: { error: string; onRetryAccount: () => void }) {
   return (
-    <div className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-left text-[13px] text-danger">
+    <div className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-left text-[14px] text-danger">
       {error}
       <button onClick={onRetryAccount} className="ml-2 font-medium underline">
         다른 계정으로 다시 시도
@@ -3087,8 +3087,8 @@ function NoticeBar({
     >
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${tone === 'warn' ? 'text-[#C2410C]' : 'text-accent'}`}>{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13.5px] font-semibold">{title}</p>
-        {sub && <p className={`mt-0.5 text-[12px] ${tone === 'warn' ? 'text-[#9A3412]/80' : 'text-label-2'}`}>{sub}</p>}
+        <p className="text-[14.5px] font-semibold">{title}</p>
+        {sub && <p className={`mt-0.5 text-[13px] ${tone === 'warn' ? 'text-[#9A3412]/80' : 'text-label-2'}`}>{sub}</p>}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {children}

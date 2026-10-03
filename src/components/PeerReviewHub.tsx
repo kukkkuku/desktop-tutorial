@@ -23,7 +23,7 @@ export default function PeerReviewHub() {
           value={mode}
           onChange={setMode}
         />
-        <span className="text-[13px] text-label-2">
+        <span className="text-[14px] text-label-2">
           {mode === 'simple'
             ? '팀원 전체(본인 제외)에게 1위부터 순위 + 근거'
             : '참여한 평가과제마다 참여자 전원(본인 포함)에게 순위 + 근거 (기여도는 팀장이 평가하기에서)'}

@@ -133,8 +133,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         </button>
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[13.5px] font-semibold text-label">페이스</span>
-            <span className="block truncate text-[11.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
+            <span className="block truncate text-[14.5px] font-semibold text-label">페이스</span>
+            <span className="block truncate text-[12.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
           </span>
         )}
       </div>
@@ -172,7 +172,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
                     className={`mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left ${inPerf ? 'cursor-default' : 'hover:bg-black/[0.04]'}`}
                   >
                     <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-label">
+                    <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-label">
                       {currentWorkspace ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : '열어 둔 평가'}
                     </span>
                   </button>
@@ -206,13 +206,13 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           className={`mt-2 flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
           footer={<LogoutItem onClick={handleLogout} />}
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[13px] font-semibold text-label shadow-pill">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[14px] font-semibold text-label shadow-pill">
             {accountEmail.slice(0, 1).toUpperCase()}
           </span>
           {!collapsed && (
             <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[13px] font-medium text-label">{accountEmail}</span>
-              <span className="block truncate text-[12px] text-label-3">{ROLE_LABEL[role]}</span>
+              <span className="block truncate text-[14px] font-medium text-label">{accountEmail}</span>
+              <span className="block truncate text-[13px] text-label-3">{ROLE_LABEL[role]}</span>
             </span>
           )}
         </GoogleAccountMenu>
@@ -339,7 +339,7 @@ export function TopNav({
             className="ml-0.5 rounded-full"
             footer={<LogoutItem onClick={handleLogout} />}
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[13px] font-semibold text-label shadow-pill">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[14px] font-semibold text-label shadow-pill">
               {accountEmail.slice(0, 1).toUpperCase()}
             </span>
           </GoogleAccountMenu>

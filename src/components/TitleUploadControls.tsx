@@ -44,7 +44,7 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
   return (
     <div className="relative flex shrink-0 flex-wrap items-center gap-2">
       {busy && (
-        <span className="flex items-center gap-1.5 text-[13px] text-label-2">
+        <span className="flex items-center gap-1.5 text-[14px] text-label-2">
           <Spinner className="h-3.5 w-3.5 text-accent" />
           {busyLabel}
         </span>
@@ -62,7 +62,7 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
           className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-80 px-3 py-2.5"
         >
           <div className="flex items-start justify-between gap-3">
-            <p className={`text-[13px] font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
+            <p className={`text-[14px] font-semibold ${summary.errors.length > 0 ? 'text-danger' : 'text-success'}`}>
               {summary.addedCount > 0 || summary.updatedCount > 0
                 ? `신규 ${summary.addedCount}건 추가, 기존 ${summary.updatedCount}건 업데이트되었습니다.`
                 : '변경된 건이 없습니다.'}
@@ -73,7 +73,7 @@ export default function TitleUploadControls({ busyLabel, onDownload, onFiles }: 
             </IconButton>
           </div>
           {summary.errors.length > 0 && (
-            <ul className="mt-2 list-inside list-disc space-y-1 text-[13px] text-danger">
+            <ul className="mt-2 list-inside list-disc space-y-1 text-[14px] text-danger">
               {summary.errors.map((err, i) => (
                 <li key={i}>{err}</li>
               ))}

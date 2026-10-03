@@ -97,14 +97,14 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
       <div className="w-full max-w-md rounded-[12px] bg-white px-10 py-12 text-center shadow-dialog">
         <AppLogo size={48} className="mx-auto" />
         <h1 className="mt-3 text-[26px] font-semibold tracking-tight text-label">페이스</h1>
-        <p className="mt-2 text-[13px] text-label-2">과제 입력과 성과관리. 일의 과정이 쌓여, 사람의 성장을 만듭니다.</p>
+        <p className="mt-2 text-[14px] text-label-2">과제 입력과 성과관리. 일의 과정이 쌓여, 사람의 성장을 만듭니다.</p>
 
         {/* 이 브라우저에 마지막 로그인 계정이 남아 있으면 그 계정으로 바로
             들어갈지 먼저 물어본다 -- 계정을 바꿔야 할 때도 있으니 자동으로
             넘기지 않고, 아래에 다른 계정으로 가는 길을 같이 둔다. */}
         {configured && rememberedEmail ? (
           <>
-            <p className="mt-8 truncate rounded-card bg-[#F7F7F9] px-3 py-2 text-[13px] text-label-2">
+            <p className="mt-8 truncate rounded-card bg-[#F7F7F9] px-3 py-2 text-[14px] text-label-2">
               최근 로그인 · <span className="font-medium text-label">{rememberedEmail}</span>
             </p>
             <Button
@@ -119,7 +119,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             <button
               onClick={() => handleStart(true)}
               disabled={working}
-              className="mt-3 w-full text-[13px] text-accent hover:underline disabled:opacity-50"
+              className="mt-3 w-full text-[14px] text-accent hover:underline disabled:opacity-50"
             >
               {busy === 'other' ? '계정 선택 중...' : '다른 계정으로 로그인'}
             </button>
@@ -137,7 +137,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
         )}
 
         {configured && (
-          <label className="mt-5 flex items-center justify-center gap-2 text-[13px] text-label-2">
+          <label className="mt-5 flex items-center justify-center gap-2 text-[14px] text-label-2">
             <input
               type="checkbox"
               checked={keepLogin}
@@ -149,25 +149,25 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
 
         {!configured && (
           <>
-            <p className="mt-3 text-[13px] text-danger">
+            <p className="mt-3 text-[14px] text-danger">
               이 빌드에 Google Client ID가 없습니다. 프로젝트 루트 .env.local에
               VITE_GOOGLE_CLIENT_ID를 넣고 dev 서버를 다시 시작하세요.
             </p>
             <button
               onClick={() => setPassed(true)}
-              className="mt-4 text-[13px] text-accent hover:underline"
+              className="mt-4 text-[14px] text-accent hover:underline"
             >
               Google 연동 없이 시작
             </button>
           </>
         )}
         {/* Google 로그인 동의 화면의 개인정보처리방침과 같은 문서 */}
-        <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noreferrer" className="mt-6 block text-[12px] text-label-3 hover:underline">
+        <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noreferrer" className="mt-6 block text-[13px] text-label-3 hover:underline">
           개인정보처리방침
         </a>
         {error && (
           <div className="mt-4 rounded-card bg-[#FFF4F3] px-3 py-3 text-left">
-            <p className="text-[13px] text-danger">{error}</p>
+            <p className="text-[14px] text-danger">{error}</p>
             <Button variant="secondary" size="sm" onClick={() => handleStart(true)} disabled={working} className="mt-2">
               계정 골라서 다시 로그인
             </Button>

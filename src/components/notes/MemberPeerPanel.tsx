@@ -83,24 +83,24 @@ export default function MemberPeerPanel({ state, memberId }: { state: PeerState;
   }))
 
   const total = simple.length + taskGroups.reduce((n, g) => n + g.list.length, 0)
-  if (total === 0) return <p className="py-6 text-center text-[13px] text-label-3">아직 받은 피어리뷰가 없습니다.</p>
+  if (total === 0) return <p className="py-6 text-center text-[14px] text-label-3">아직 받은 피어리뷰가 없습니다.</p>
 
   const EntryRow = ({ e }: { e: Entry }) => (
     <li className="py-2">
-      <div className="flex items-center justify-between gap-2 text-[13px]">
+      <div className="flex items-center justify-between gap-2 text-[14px]">
         <span className={e.self ? 'text-label-3' : 'font-medium text-label'}>
           {e.reviewer}
           {e.self && ' (본인)'}
         </span>
         <span className="shrink-0 tabular-nums text-label-2">{e.value}</span>
       </div>
-      {e.reason.trim() && <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-label-2">{e.reason}</p>}
+      {e.reason.trim() && <p className="mt-0.5 whitespace-pre-wrap break-words text-[14px] text-label-2">{e.reason}</p>}
     </li>
   )
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-label-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[14px] text-label-2">
         <span>
           동료 리뷰 <b className="font-semibold text-label">{summary.count}</b>건
         </span>
@@ -117,7 +117,7 @@ export default function MemberPeerPanel({ state, memberId }: { state: PeerState;
       </div>
       {simple.length > 0 && (
         <div className="rounded-card border border-separator bg-white px-4 py-3">
-          <p className="text-[13px] font-semibold text-label">팀원 전체 순위</p>
+          <p className="text-[14px] font-semibold text-label">팀원 전체 순위</p>
           <ul className="mt-1 divide-y divide-dashed divide-separator">
             {simple.map((e) => (
               <EntryRow key={e.key} e={e} />
@@ -127,7 +127,7 @@ export default function MemberPeerPanel({ state, memberId }: { state: PeerState;
       )}
       {taskGroups.map((g) => (
         <div key={g.taskId || 'none'} className="rounded-card border border-separator bg-white px-4 py-3">
-          <p className="truncate text-[13px] font-semibold text-label" title={g.title}>
+          <p className="truncate text-[14px] font-semibold text-label" title={g.title}>
             {g.title}
           </p>
           <ul className="mt-1 divide-y divide-dashed divide-separator">

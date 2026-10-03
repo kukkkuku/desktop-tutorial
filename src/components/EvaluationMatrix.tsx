@@ -68,7 +68,7 @@ export function OutOfSyncBanner() {
   const outOfSync = useMemo(() => tasksOutOfSync(state), [state])
   if (outOfSync.length === 0) return null
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[13px] text-orange-800">
+    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[14px] text-orange-800">
       <span>
         과제리스트의 담당자와 기여도(참여자)가 다른 평가과제가 <b>{outOfSync.length}개</b> 있습니다
         <span className="text-orange-700/80">
@@ -190,19 +190,19 @@ export default function EvaluationMatrix() {
       </div>
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
-      <p className="mt-1 text-[13px] text-label-2">
+      <p className="mt-1 text-[14px] text-label-2">
         팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 성과등급 · 목표 · 성과는 과제관리 표에서 입력합니다.
       </p>
       <OutOfSyncBanner />
 
       {tasks.length === 0 || activeMembers.length === 0 ? (
-        <p className="mt-4 rounded-control bg-black/[0.03] px-4 py-6 text-center text-[13px] text-label-2">
+        <p className="mt-4 rounded-control bg-black/[0.03] px-4 py-6 text-center text-[14px] text-label-2">
           {tasks.length === 0 ? '평가 매트릭스를 입력하려면 먼저 과제를 등록하세요.' : '활성화된 팀원이 없습니다. 팀원 관리에서 팀원을 활성화하세요.'}
         </p>
       ) : (
         <>
           <div className="mt-4 overflow-x-auto rounded-card border border-separator bg-white">
-            <table className="table-fixed border-collapse text-left text-[13px]" style={{ width: '100%', minWidth: tableWidth }}>
+            <table className="table-fixed border-collapse text-left text-[14px]" style={{ width: '100%', minWidth: tableWidth }}>
               <colgroup>
                 <col style={{ width: taskWidth }} />
                 <col style={{ width: SUM_COL_WIDTH }} />
@@ -239,7 +239,7 @@ export default function EvaluationMatrix() {
                           <span className="text-label">{member.name}</span>
                           {result && hasScores ? (
                             <>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${GRADE_COLORS[result.grade]}`}>{result.grade}</span>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[12px] font-semibold ${GRADE_COLORS[result.grade]}`}>{result.grade}</span>
                               <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
                               <span
                                 className="cursor-help text-xs font-normal text-label-2 underline decoration-dotted underline-offset-2"
@@ -313,14 +313,14 @@ export default function EvaluationMatrix() {
                                 step={1}
                                 value={percent || ''}
                                 onChange={(e) => handlePercentChange(task.id, member.id, e.target.value)}
-                                className={`h-8 w-full rounded-control border border-hairline px-2 text-[13px] text-label ${percent ? '' : 'bg-black/[0.03]'}`}
+                                className={`h-8 w-full rounded-control border border-hairline px-2 text-[14px] text-label ${percent ? '' : 'bg-black/[0.03]'}`}
                               />
                               {(() => {
                                 const pr = peerRankOf.get(`${task.id}|${member.id}`)
                                 if (!pr) return null
                                 return (
                                   <p
-                                    className="mt-0.5 whitespace-nowrap text-[11px] text-label-3"
+                                    className="mt-0.5 whitespace-nowrap text-[12px] text-label-3"
                                     title={`동료 ${pr.count}명이 매긴 이 과제 안 순위의 평균(본인 평가 제외) · 기여도를 정할 때 참고`}
                                   >
                                     동료 {pr.avg.toFixed(1)}위
@@ -339,7 +339,7 @@ export default function EvaluationMatrix() {
                                     disabled={!gradeEnabled}
                                     title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
                                     onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                    className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[13px] ${
+                                    className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[14px] ${
                                       gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'
                                     }`}
                                   >
@@ -378,7 +378,7 @@ export default function EvaluationMatrix() {
                 const diff = 100 - sum
                 const action = diff > 0 ? `${diff.toFixed(0)}%를 추가하세요` : `${Math.abs(diff).toFixed(0)}%를 줄이세요`
                 return (
-                  <p key={task.id} className="text-[13px] text-danger">
+                  <p key={task.id} className="text-[14px] text-danger">
                     '{task.name}' 과제의 기여도 합계가 {sum.toFixed(0)}%입니다. {action}.
                   </p>
                 )

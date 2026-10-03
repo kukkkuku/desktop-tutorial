@@ -69,7 +69,7 @@ export default function PromotionCriteriaManager({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-[15px] font-semibold text-label">승진 기준</h3>
-            <p className="mt-1 text-[13px] text-label-2">
+            <p className="mt-1 text-[14px] text-label-2">
               성과평가 기준(기준 설정)과는 별개인 승진 제도 기준입니다. 첨부된 승진 제도 자료를 기준으로 합니다.
             </p>
           </div>
@@ -79,9 +79,9 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-[13px] font-semibold text-label">직급별 승진자격기준</h4>
+          <h4 className="text-[14px] font-semibold text-label">직급별 승진자격기준</h4>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
-            <table className="table-fixed text-left text-[13px]" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
+            <table className="table-fixed text-left text-[14px]" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
               <thead className="bg-[#F7F7F9] text-label-2">
                 <tr>
                   {(
@@ -118,7 +118,7 @@ export default function PromotionCriteriaManager({
                             min={0}
                             value={row.tenureYears}
                             onChange={(e) => updateCriteriaField(i, 'tenureYears', Number(e.target.value))}
-                            className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-16 text-label"
+                            className="h-8 rounded-control border border-hairline px-2.5 text-[14px] w-16 text-label"
                           />
                           년
                         </>
@@ -134,7 +134,7 @@ export default function PromotionCriteriaManager({
                             min={0}
                             value={row.requiredScore}
                             onChange={(e) => updateCriteriaField(i, 'requiredScore', Number(e.target.value))}
-                            className="h-8 rounded-control border border-hairline px-2.5 text-[13px] w-16 text-label"
+                            className="h-8 rounded-control border border-hairline px-2.5 text-[14px] w-16 text-label"
                           />
                           점
                         </>
@@ -150,8 +150,8 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-[13px] font-semibold text-label">평가 등급 점수</h4>
-          <p className="mt-0.5 text-[13px] text-label-2">
+          <h4 className="text-[14px] font-semibold text-label">평가 등급 점수</h4>
+          <p className="mt-0.5 text-[14px] text-label-2">
             인사평가 등급을 승진점수로 환산할 때 쓰는 등급별 점수입니다. <strong className="text-label">역량 등급은 이 점수의 2배</strong>로
             반영됩니다(업적(상)·업적(하)는 그대로, 역량만 ×2 — 인사평가 히스토리의 "역량 (×2)" 컬럼과 같은 계산입니다).
           </p>
@@ -159,7 +159,7 @@ export default function PromotionCriteriaManager({
             <div className="mt-2 grid grid-cols-5 gap-2">
               {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
                 <div key={grade}>
-                  <label className="block text-center text-[13px] font-semibold text-label-2">{grade}</label>
+                  <label className="block text-center text-[14px] font-semibold text-label-2">{grade}</label>
                   <input
                     type="number"
                     min={0}
@@ -167,14 +167,14 @@ export default function PromotionCriteriaManager({
                     onChange={(e) =>
                       setLocalGradeScores((prev: Record<EvaluationGrade, number>) => ({ ...prev, [grade]: Number(e.target.value) }))
                     }
-                    className="h-8 rounded-control border border-hairline px-2.5 text-[13px] mt-1 w-full text-center text-label"
+                    className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-center text-label"
                   />
                 </div>
               ))}
             </div>
           ) : (
             <div className="mt-2 overflow-x-auto rounded-card border border-separator">
-              <table className="w-full text-left text-[13px]">
+              <table className="w-full text-left text-[14px]">
                 <thead className="bg-[#F7F7F9] text-label-2">
                   <tr>
                     <th className="px-3 py-2 font-semibold">구분</th>
@@ -209,12 +209,12 @@ export default function PromotionCriteriaManager({
         </div>
 
         <div className="mt-5">
-          <h4 className="text-[13px] font-semibold text-label">연차별 가중치</h4>
-          <p className="mt-0.5 text-[13px] text-label-2">
+          <h4 className="text-[14px] font-semibold text-label">연차별 가중치</h4>
+          <p className="mt-0.5 text-[14px] text-label-2">
             체류년수(정기/발탁 승진 트랙)에 따라 최근 연도일수록 크게 반영되는 고정 참고값입니다(수정 대상 아님).
           </p>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
-            <table className="w-full text-left text-[13px]">
+            <table className="w-full text-left text-[14px]">
               <thead className="bg-[#F7F7F9] text-label-2">
                 <tr>
                   <th className="px-3 py-2 font-semibold">체류년수</th>

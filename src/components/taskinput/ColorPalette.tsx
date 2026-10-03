@@ -97,7 +97,7 @@ export default function ColorPalette({
   const hasEyedropper = typeof window !== 'undefined' && 'EyeDropper' in window
 
   return (
-    <div className="w-[236px] text-[13px]">
+    <div className="w-[236px] text-[14px]">
       <button onClick={() => onPick('')} className="flex w-full items-center gap-2 rounded px-1 py-1 text-left font-medium text-label hover:bg-black/[0.05]">
         <PaintBucket size={16} strokeWidth={1.75} className="text-label-2" />
         재설정
@@ -111,14 +111,14 @@ export default function ColorPalette({
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[12px] font-semibold text-label-2">테마</p>
+      <p className="mt-3 text-[13px] font-semibold text-label-2">테마</p>
       <div className="mt-1.5 flex gap-[5px]">
         {THEME.map((hex) => (
           <Swatch key={hex} hex={hex} on={cur === hex} onPick={onPick} />
         ))}
       </div>
       <div className="mac-menu-sep my-2.5" />
-      <p className="text-[12px] font-semibold text-label-2">맞춤</p>
+      <p className="text-[13px] font-semibold text-label-2">맞춤</p>
       {mine.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-[5px]">
           {mine.map((hex) => (

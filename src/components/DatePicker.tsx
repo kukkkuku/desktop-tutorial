@@ -52,7 +52,7 @@ export default function DatePicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={ariaLabel}
-        className={`flex h-8 w-full items-center gap-1.5 rounded-control bg-white px-2.5 text-[13px] shadow-control hover:bg-[#FAFAFA] ${
+        className={`flex h-8 w-full items-center gap-1.5 rounded-control bg-white px-2.5 text-[14px] shadow-control hover:bg-[#FAFAFA] ${
           m ? 'text-label' : 'text-label-3'
         } ${open ? 'shadow-focus' : ''}`}
       >

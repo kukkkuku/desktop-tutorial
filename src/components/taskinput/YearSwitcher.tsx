@@ -96,7 +96,7 @@ export default function YearSwitcher({
           setOpen(!open)
         }}
         title={canPick ? `연도 고르기 · 지난 연도는 보기 전용 (시트 탭: ${title})` : `시트 탭: ${title}`}
-        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[13px] font-medium text-label-2 transition-colors hover:text-label ${
+        className={`-ml-1.5 flex h-7 shrink-0 items-center gap-1.5 rounded-[7px] px-1.5 text-[14px] font-medium text-label-2 transition-colors hover:text-label ${
           canPick ? 'hover:bg-black/[0.05]' : 'cursor-default'
         } ${open ? 'bg-black/[0.05]' : ''}`}
       >
@@ -105,7 +105,7 @@ export default function YearSwitcher({
         {readOnly && <span className="mac-badge bg-warning-soft text-warning">보기 전용</span>}
         {isLocal && (
           <span
-            className="mac-badge bg-accent-soft text-[11px] text-accent"
+            className="mac-badge bg-accent-soft text-[12px] text-accent"
             title="이 화면에서 만든 연도 · 이 브라우저에 저장(관리자가 구글시트로 만들 수 있음)"
           >
             이 브라우저
@@ -121,7 +121,7 @@ export default function YearSwitcher({
         pos &&
         createPortal(
           <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-[300px] overflow-hidden py-1">
-            <p className="px-3.5 pb-1 pt-1 text-[13px] font-semibold text-label-3">실적관리 연도</p>
+            <p className="px-3.5 pb-1 pt-1 text-[14px] font-semibold text-label-3">실적관리 연도</p>
             {all.map(({ t, local }) => {
               const selected = t === title
               return (
@@ -138,7 +138,7 @@ export default function YearSwitcher({
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
                   {yearLabel(t)}
                   {local ? (
-                    <span className="ml-auto flex items-center gap-1.5 text-[11px] font-normal text-accent">
+                    <span className="ml-auto flex items-center gap-1.5 text-[12px] font-normal text-accent">
                       이 브라우저
                       {onDeleteLocal && (
                         <button
@@ -158,12 +158,12 @@ export default function YearSwitcher({
                     </span>
                   ) : connectedTitle !== undefined ? (
                     t === connectedTitle ? (
-                      <span className="ml-auto flex items-center gap-1 text-[11px] font-semibold text-success">
+                      <span className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-success">
                         <span className="h-1.5 w-1.5 rounded-full bg-success" />
                         연결됨 · 편집
                       </span>
                     ) : (
-                      <span className="ml-auto flex items-center gap-1.5 text-[11px] font-normal text-label-3">
+                      <span className="ml-auto flex items-center gap-1.5 text-[12px] font-normal text-label-3">
                         보기 전용
                         {onConnect && (
                           <button
@@ -196,7 +196,7 @@ export default function YearSwitcher({
                       </span>
                     )
                   ) : (
-                    t !== editableTitle && pastYear(t) && <span className="ml-auto text-[11px] text-label-3">보기 전용</span>
+                    t !== editableTitle && pastYear(t) && <span className="ml-auto text-[12px] text-label-3">보기 전용</span>
                   )}
                 </div>
               )
