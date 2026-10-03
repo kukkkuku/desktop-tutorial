@@ -26,6 +26,8 @@ import {
   TableCellsSplit,
   Trash2,
   Undo2,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
@@ -834,6 +836,9 @@ export default function ScheduleTable({
   filterOptions,
   hiddenOf,
   onFilter,
+  hiddenCols = [],
+  onHideColumns,
+  onShowColumns,
   sheetColors = [],
   headColors = {},
   onHeadColor,
@@ -897,6 +902,9 @@ export default function ScheduleTable({
   sheetColors?: string[] // 이 시트에서 쓰는 칸 색(색 팔레트 맞춤 줄)
   headColors?: Record<string, string> // 머리글 색(열 id · 'l2' · 'l3' · 'schedule' · 'group:이름' → RRGGBB)
   onHeadColor?: (key: string, hex: string) => void // '' = 기본색으로
+  hiddenCols?: string[] // 숨긴 열(이 브라우저) -- 머리글 경계의 ◀▶를 누르면 다시 보인다
+  onHideColumns?: (ids: string[]) => void
+  onShowColumns?: (ids: string[]) => void
 }) {
   const [filterOpen, setFilterOpen] = useState<{ f: FieldDef; x: number; y: number } | null>(null)
   // 머리글 이름 + 필터 버튼
@@ -924,7 +932,34 @@ export default function ScheduleTable({
       </span>
     )
   }
-  const cols = fields.filter((f) => f.id !== 'name')
+  const allCols = fields.filter((f) => f.id !== 'name')
+  const cols = allCols.filter((f) => !hiddenCols.includes(f.id))
+  // 숨긴 열 자리 표시(구글시트처럼): 보이는 열 바로 왼쪽에 숨은 열들 · 맨 끝 보이는 열 오른쪽에 숨은 열들
+  const hiddenBefore = (id: string) => {
+    const out: string[] = []
+    for (let i = allCols.findIndex((f) => f.id === id) - 1; i >= 0 && hiddenCols.includes(allCols[i].id); i--) out.unshift(allCols[i].id)
+    return out
+  }
+  const lastShown = cols[cols.length - 1]?.id
+  const hiddenAfterLast = lastShown ? allCols.slice(allCols.findIndex((f) => f.id === lastShown) + 1).map((f) => f.id).filter((id) => hiddenCols.includes(id)) : []
+  const unhideMark = (ids: string[], side: 'left' | 'right') =>
+    ids.length > 0 && onShowColumns ? (
+      <button
+        type="button"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          onShowColumns(ids)
+        }}
+        title={`숨긴 열 ${ids.length}개 펼치기: ${ids.map((id) => allCols.find((f) => f.id === id)?.label ?? id).join(', ')}`}
+        aria-label={`숨긴 열 ${ids.length}개 펼치기`}
+        className={`absolute top-1/2 z-30 flex h-5 -translate-y-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[1px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent ${
+          side === 'left' ? '-left-[9px]' : '-right-[9px]'
+        }`}
+      >
+        ◀▶
+      </button>
+    ) : null
   // 분류 · 상태는 칩으로 고른다(시트 선택지 + 시트에 있는 값)
   const choicesOf = (f: FieldDef): string[] | undefined =>
     f.id === 'status' || f.id === 'category' ? Array.from(new Set([...(f.options ?? []), ...(optionsOf?.(f) ?? [])])).filter(Boolean) : undefined
@@ -962,7 +997,7 @@ export default function ScheduleTable({
   const blackTh = (key: 'l2' | 'l3'): React.CSSProperties => headOn(headColors[key] || HEAD_DEFAULT[key])
   const grayTh: React.CSSProperties = headOn(headColors.schedule || HEAD_DEFAULT.schedule)
   const headMenuOn = (key: string) => (e: React.MouseEvent) => {
-    if (!onHeadColor) return
+    if (!onHeadColor && !onHideColumns) return
     e.preventDefault()
     setHeadMenu({ key, x: Math.min(e.clientX, window.innerWidth - 276), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 380)) })
   }
@@ -2195,7 +2230,8 @@ export default function ScheduleTable({
             {cols.map((f) => {
               const g = groupOf.get(f.id)
               if (g) {
-                if (g.fieldIds[0] !== f.id) return null
+                // 묶음 머리글은 묶음에서 처음 보이는 열에 둔다(앞 열을 숨겨도 남게)
+                if (g.fieldIds.find((id) => cols.some((c) => c.id === id)) !== f.id) return null
                 return (
                   <th
                     key={`g-${f.id}`}
@@ -2219,6 +2255,8 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
+                  {unhideMark(hiddenBefore(f.id), 'left')}
+                  {f.id === lastShown && unhideMark(hiddenAfterLast, 'right')}
                   {(onResize || onAddColumns) && (
                     <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={tableH} extra={addColButton(f)} />
                   )}
@@ -2250,6 +2288,8 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
+                  {unhideMark(hiddenBefore(f.id), 'left')}
+                  {f.id === lastShown && unhideMark(hiddenAfterLast, 'right')}
                   {(onResize || onAddColumns) && (
                     <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={subLineH} extra={addColButton(f)} />
                   )}
@@ -3329,11 +3369,37 @@ export default function ScheduleTable({
         </div>
       )}
 
-      {headMenu && onHeadColor && (
+      {headMenu && (onHeadColor || onHideColumns) && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setHeadMenu(null)} onContextMenu={(e) => (e.preventDefault(), setHeadMenu(null))}>
           <div className="mac-pop absolute w-[268px] px-3 py-2" style={{ left: headMenu.x, top: headMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            {cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns) && (
-              <div className="-mx-3 mb-1.5 border-b border-separator pb-1 text-[13px]">
+            {cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns || onHideColumns) && (
+              <div className={`-mx-3 border-separator pb-1 text-[13px] ${onHeadColor ? 'mb-1.5 border-b' : ''}`}>
+                {onHideColumns && (
+                  <button
+                    onClick={() => {
+                      const k = headMenu.key
+                      setHeadMenu(null)
+                      onHideColumns(selectedCols.includes(k) ? selectedCols : [k])
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                  >
+                    <EyeOff size={14} strokeWidth={1.9} className="text-label-2" />
+                    {selectedCols.includes(headMenu.key) && selectedCols.length > 1 ? `열 ${selectedCols.length}개 숨기기` : '열 숨기기'}
+                  </button>
+                )}
+                {onShowColumns && hiddenCols.some((id) => allCols.some((f) => f.id === id)) && (
+                  <button
+                    onClick={() => {
+                      setHeadMenu(null)
+                      onShowColumns(hiddenCols)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]"
+                  >
+                    <Eye size={14} strokeWidth={1.9} className="text-label-2" />
+                    숨긴 열 {hiddenCols.filter((id) => allCols.some((f) => f.id === id)).length}개 모두 펼치기
+                  </button>
+                )}
+                {onHideColumns && (onAddColumns || onDeleteColumns) && <div className="my-1 border-t border-separator" />}
                 {onAddColumns &&
                   (['left', 'right'] as const).map((side) => (
                     <button
@@ -3382,6 +3448,8 @@ export default function ScheduleTable({
                 )}
               </div>
             )}
+            {onHeadColor && (
+              <>
             <p className="mb-1 text-[12px] font-semibold text-label-2">머리글 색</p>
             <ColorPalette
               current={headColors[headMenu.key] ?? ''}
@@ -3392,6 +3460,8 @@ export default function ScheduleTable({
                 setHeadMenu(null)
               }}
             />
+              </>
+            )}
           </div>
         </div>
       )}

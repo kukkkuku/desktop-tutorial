@@ -304,6 +304,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
   const [viewOpen, setViewOpen] = useState<{ x: number; y: number } | null>(null)
+  // 숨긴 열(속성 · 분류 · 상태 …): 머리글 우클릭 › 열 숨기기. 이 브라우저에만 기억(시트는 그대로)
+  const [hiddenCols, setHiddenColsState] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:hidden-cols') ?? '[]')
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  })
+  function setHiddenCols(next: string[]) {
+    setHiddenColsState(next)
+    try {
+      localStorage.setItem('progress-board:hidden-cols', JSON.stringify(next))
+    } catch {
+      // 기억 못 해도 지금 화면엔 반영
+    }
+  }
   // 그룹(L1) 탭 우클릭 메뉴: 숨기기 · 이 그룹만 보기
   const [tabMenu, setTabMenu] = useState<{ name: string; x: number; y: number } | null>(null)
   const shownL1s = l1s.filter((x) => !hiddenL1.includes(x))
@@ -2220,6 +2237,18 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               필터 {activeFilters} ✕
             </button>
           )}
+          {boardView === 'table' && eff.fields.some((f) => hiddenCols.includes(f.id)) && (
+            <button
+              onClick={() => setHiddenCols([])}
+              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[12px] font-medium text-accent"
+              title={`숨긴 열: ${eff.fields
+                .filter((f) => hiddenCols.includes(f.id))
+                .map((f) => f.label)
+                .join(', ')} · 누르면 모두 펼칩니다(머리글 경계의 ◀▶로 하나씩도 펼칠 수 있음)`}
+            >
+              숨긴 열 {eff.fields.filter((f) => hiddenCols.includes(f.id)).length} ✕
+            </button>
+          )}
           {!(period.start === 1 && period.months === 12) && (
             <button
               onClick={() => setPeriod({ start: 1, months: 12 })}
@@ -2574,6 +2603,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               sheetColors={sheetColors}
               headColors={headColors}
               onHeadColor={setHeadColor}
+              hiddenCols={hiddenCols}
+              onHideColumns={(ids) => setHiddenCols(Array.from(new Set([...hiddenCols, ...ids])))}
+              onShowColumns={(ids) => setHiddenCols(hiddenCols.filter((x) => !ids.includes(x)))}
               filterOptions={filterOptions}
               hiddenOf={(id) => filters[id] ?? []}
               onFilter={(id, hidden) => setFilters((cur) => ({ ...cur, [id]: hidden }))}
