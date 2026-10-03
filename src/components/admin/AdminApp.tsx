@@ -9,17 +9,16 @@ import AppShell, { PageHeader, PageTabs } from '../shell/AppShell'
 import UnderlineTabs from '../ui/UnderlineTabs'
 import Button from '../Button'
 import Spinner from '../Spinner'
-import AccessEditor from './AccessEditor'
 import MembersPanel from './MembersPanel'
 import TaskSheetPanel from './TaskSheetPanel'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { icSm } from '../ui/icon'
-import { ACCESS_EVENT, accessSheetUrl, getAccessSheetId, readAccessCache, refreshAccess } from '../../utils/accessSheet'
-import { getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
+import { ACCESS_EVENT, getAccessSheetId, readAccessCache, refreshAccess } from '../../utils/accessSheet'
+import { getConnectedEmail } from '../../utils/googleDrive'
 import { isSheetsApiConfigured } from '../../utils/sheetSources'
 
-type Tab = 'members' | 'task' | 'roles'
-const TITLES: Record<Tab, string> = { members: '팀원', task: '과제 시트', roles: '권한' }
+type Tab = 'members' | 'task'
+const TITLES: Record<Tab, string> = { members: '팀원 · 권한', task: '과제 시트' }
 
 export default function AdminApp() {
   const { isAdminUser } = useGoogleAccount()
@@ -49,15 +48,14 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <AppShell header={<PageHeader area="관리" title={TITLES[cur]} />}>
-      {/* 팀장: 팀원 탭만. 관리자: 팀원 · 과제 시트 · 권한 */}
+    <AppShell header={<PageHeader area="관리" title={isAdminUser ? TITLES[cur] : '팀원'} />}>
+      {/* 팀장: 팀원 화면만. 관리자: 팀원 · 권한(역할 · 팀을 표에서 바로) · 과제 시트 */}
       {isAdminUser && (
         <PageTabs>
           <UnderlineTabs
             items={[
-              { key: 'members', label: '팀원', title: '팀원 추가 · 초대 메일 · 시트 공유' },
+              { key: 'members', label: '팀원 · 권한', title: '사람 추가 · 역할 · 초대 메일 · 시트 공유' },
               { key: 'task', label: '과제 시트', title: '연구소가 함께 쓰는 과제(추진현황) 시트 연결' },
-              { key: 'roles', label: '권한', title: '누가 관리자 · 팀장 · 팀원인지' },
             ]}
             value={cur}
             onChange={(k) => setTab(k as Tab)}
@@ -78,26 +76,8 @@ export default function AdminApp() {
           </section>
         ) : cur === 'members' ? (
           <MembersPanel data={data} me={me} isAdmin={isAdminUser} onChanged={sync} />
-        ) : cur === 'task' ? (
-          <TaskSheetPanel data={data} me={me} onChanged={sync} />
         ) : (
-          <div className="max-w-6xl space-y-4">
-            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              누가 <b className="text-label">관리자 · 팀장 · 팀원</b>인지 정합니다. 고치고 <b className="text-label">구글시트에 저장</b>하면 모두의 앱에 반영됩니다(변경 기록이
-              남습니다).
-            </p>
-            <AccessEditor data={data} me={me} onSaved={sync} hideLinks />
-            {accessSheetUrl() && (
-              <a
-                href={withGoogleAccount(accessSheetUrl()!)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block text-[length:calc(13px*var(--ui-fs,1))] text-label-3 hover:text-accent hover:underline"
-              >
-                원본 시트 보기 ↗
-              </a>
-            )}
-          </div>
+          <TaskSheetPanel data={data} me={me} onChanged={sync} />
         )}
         {data && error && <p className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{error}</p>}
       </main>

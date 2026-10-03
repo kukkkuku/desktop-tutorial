@@ -21,9 +21,10 @@ import {
   sendInviteEmails,
   type InviteEntry,
 } from '../../utils/adminInvite'
-import { ROLE_WORD, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { ROLE_WORD, type AccessRole, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 
+const ROLES: AccessRole[] = ['admin', 'leader', 'member']
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
 // 인사말만 고친다. 앱 버튼 · 로그인할 계정 · 처음 로그인 안내는 메일 틀(inviteHtml)이 자동으로 넣는다
 const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
@@ -65,6 +66,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const [addOpen, setAddOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [team, setTeam] = useState(myTeam)
+  const [addRole, setAddRole] = useState<AccessRole>('member') // 관리자만 고름(팀장이 추가하면 늘 팀원)
   const fileRef = useRef<HTMLInputElement>(null)
   function addEntries(entries: InviteEntry[], invalid: string[] = []) {
     if (!entries.length) return setNote({ ok: false, text: '추가할 수 있는 Gmail이 없습니다.' })
@@ -80,7 +82,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
             ...users,
             ...fresh
               .filter((e) => !users.some((u) => u.email === e.email.toLowerCase()))
-              .map<AccessUser>((e) => ({ email: e.email.toLowerCase(), name: e.name ?? '', role: 'member', team: team.trim(), memo: '', addedBy: me, sendTo: e.sendTo ?? '' })),
+              .map<AccessUser>((e) => ({ email: e.email.toLowerCase(), name: e.name ?? '', role: isAdmin ? addRole : 'member', team: team.trim(), memo: '', addedBy: me, sendTo: e.sendTo ?? '' })),
           ],
           me,
           [`팀원 추가: ${fresh.map((e) => e.name || e.email).join(', ')}`],
@@ -106,6 +108,8 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const saveSendTo = (u: AccessUser, v: string) =>
     v.trim() !== (u.sendTo ?? '') &&
     void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, sendTo: v.trim() } : x)), me, [`받는 메일: ${u.email} → ${v.trim() || '(Gmail)'}`]), '받는 메일을 저장했습니다.')
+  const saveField = (u: AccessUser, patch: Partial<AccessUser>, what: string) =>
+    void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, ...patch } : x)), me, [what]), '저장했습니다.')
   const [removeAsk, setRemoveAsk] = useState<AccessUser[] | null>(null)
   const canRemove = (u: AccessUser) => u.email !== me && (isAdmin || u.addedBy === me)
 
@@ -166,7 +170,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   return (
     <div className="max-w-6xl space-y-4">
       <p className={`text-[length:calc(14px*var(--ui-fs,1))] text-label-2`}>
-        {isAdmin ? '모든 사람을 봅니다(팀장이 추가한 팀원 포함).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 팀원으로 등록되고, 초대 메일과 시트 공유로 마무리합니다.
+        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일과 시트 공유로 마무리합니다.
       </p>
 
       {/* 도구 줄 */}
@@ -205,6 +209,22 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                 className={`w-full rounded-control border border-hairline bg-white px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent`}
               />
               <div className="mt-2 flex flex-wrap items-center gap-2">
+                {isAdmin && (
+                  <label className={`flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2`}>
+                    역할
+                    <select
+                      value={addRole}
+                      onChange={(e) => setAddRole(e.target.value as AccessRole)}
+                      className={`h-9 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent`}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_WORD[r]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className={`flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2`}>
                   팀
                   <input
@@ -292,13 +312,45 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                         aria-label={`${u.name || u.email} 고르기`}
                       />
                     </td>
-                    <td className="px-3 py-2 font-medium text-label">{u.name || <span className="text-label-3">-</span>}</td>
+                    <td className="px-3 py-1.5 font-medium text-label">
+                      {isAdmin || u.addedBy === me ? (
+                        <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${u.email} → ${v}`)} />
+                      ) : (
+                        u.name || <span className="text-label-3">-</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-label">{u.email}</td>
                     <td className="px-3 py-1.5">
                       <SendToInput u={u} disabled={busy || !(isAdmin || u.addedBy === me)} onSave={(v) => saveSendTo(u, v)} />
                     </td>
-                    <td className="px-3 py-2 text-label-2">{u.team || '-'}</td>
-                    <td className="px-3 py-2 text-label-2">{ROLE_WORD[u.role]}</td>
+                    <td className="px-3 py-1.5 text-label-2">
+                      {isAdmin ? (
+                        <CellInput value={u.team} placeholder="팀" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${u.email} → ${v || '(없음)'}`)} />
+                      ) : (
+                        u.team || '-'
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-label-2">
+                      {/* 역할은 관리자만 바꾼다(자기 자신은 못 바꿈 -- 관리자가 없어지지 않게) */}
+                      {isAdmin && u.email !== me ? (
+                        <select
+                          value={u.role}
+                          disabled={busy}
+                          onChange={(e) => saveField(u, { role: e.target.value as AccessRole }, `역할: ${u.email} ${ROLE_WORD[u.role]} → ${ROLE_WORD[e.target.value as AccessRole]}`)}
+                          className={`h-8 rounded-control border bg-white px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent ${
+                            u.role === 'admin' ? 'border-accent/50 text-accent' : u.role === 'leader' ? 'border-hairline font-semibold text-label' : 'border-hairline text-label-2'
+                          }`}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_WORD[r]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        ROLE_WORD[u.role]
+                      )}
+                    </td>
                     {isAdmin && <td className={`px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>{u.addedBy || '-'}</td>}
                     <td className={`whitespace-nowrap px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))]`}>
                       {u.invitedAt ? <span className="text-success">{u.invitedAt.slice(5)} 보냄</span> : <span className="text-label-3">안 보냄</span>}
@@ -309,6 +361,26 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
             </table>
           </div>
         </div>
+      )}
+
+      {isAdmin && (
+        <dl className={`grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]`}>
+          <dt className="font-semibold text-label">관리자</dt>
+          <dd>팀장이 하는 것 전부 + 모든 사람 보기 · 역할 · 팀 바꾸기 · 과제 시트 연결</dd>
+          <dt className="font-semibold text-label">팀장</dt>
+          <dd>과제 입력 + 성과관리 + 관리 › 팀원(내가 추가한 팀원만 초대 · 관리)</dd>
+          <dt className="font-semibold text-label">팀원</dt>
+          <dd>과제 입력만(추진현황 입력 · 저장, 진척률 보기)</dd>
+          <dt className="text-label-3">기록</dt>
+          <dd className="text-label-3">
+            바꾼 내용은 권한 시트 「변경 기록」 탭에 남습니다.{' '}
+            {accessSheetUrl() && (
+              <a href={withGoogleAccount(accessSheetUrl()!)} target="_blank" rel="noreferrer" className="hover:text-accent hover:underline">
+                원본 시트 보기 ↗
+              </a>
+            )}
+          </dd>
+        </dl>
       )}
 
       {/* 시트 공유: 초대받은 Gmail이 권한 시트(역할)를 읽고 과제 시트에 저장하려면 두 시트를 그 Gmail에 공유해야 한다 */}
@@ -440,6 +512,22 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       placeholder="같으면 비워 둠"
       className={`h-8 w-full min-w-[200px] rounded-control border px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none focus:border-accent disabled:bg-transparent disabled:text-label-2 ${bad ? 'border-danger/60' : 'border-hairline'}`}
+    />
+  )
+}
+
+// 표 칸에서 바로 고치기(칸을 떠나거나 Enter면 저장)
+function CellInput({ value, placeholder, disabled, onSave }: { value: string; placeholder?: string; disabled?: boolean; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value)
+  return (
+    <input
+      value={v}
+      disabled={disabled}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => v.trim() !== value && onSave(v.trim())}
+      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+      placeholder={placeholder}
+      className="h-8 w-full min-w-[90px] rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-inherit outline-none hover:border-hairline focus:border-accent focus:bg-white"
     />
   )
 }
