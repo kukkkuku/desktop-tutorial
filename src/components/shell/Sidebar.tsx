@@ -93,7 +93,7 @@ function useShellNav() {
   return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel }
 }
 
-// 계정 메뉴의 글자 크기: 자동(창 너비) · 보통 · 크게 · 아주 크게
+// 계정 메뉴의 글자 크기: 자동(창 너비) · 작게 · 보통 · 크게 · 아주 크게
 function FontSizeItem() {
   const [pref, setPref] = useState<FontPref>(readFontPref)
   useEffect(() => onFontPrefChange(() => setPref(readFontPref())), [])
@@ -104,7 +104,7 @@ function FontSizeItem() {
         글자 크기
       </p>
       <div className="mac-seg flex" role="radiogroup" aria-label="글자 크기">
-        {(['auto', 'normal', 'large', 'xlarge'] as const).map((k) => (
+        {(['auto', 'small', 'normal', 'large', 'xlarge'] as const).map((k) => (
           <button
             key={k}
             role="radio"
@@ -114,7 +114,7 @@ function FontSizeItem() {
               setFontPref(k)
             }}
             title={k === 'auto' ? '창 너비에 맞춰 자동(큰 모니터일수록 크게)' : undefined}
-            className={`mac-seg-item flex-1 whitespace-nowrap px-1.5 ${pref === k ? 'mac-seg-item-on' : ''}`}
+            className={`mac-seg-item flex-1 whitespace-nowrap !px-1 text-[13px] ${pref === k ? 'mac-seg-item-on' : ''}`}
           >
             {FONT_PREF_LABEL[k]}
           </button>

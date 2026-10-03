@@ -1,10 +1,10 @@
-// 화면 글자 크기: 창 너비에 맞춰 자동으로 키우거나(기본), 계정 메뉴에서 직접 고른다(이 브라우저에 기억).
+// 화면 글자 크기: 창 너비에 맞춰 자동으로 키우거나(기본), 계정 메뉴에서 직접 고른다(작게 · 보통 · 크게 · 아주 크게)(이 브라우저에 기억).
 // 글자 크기만 --ui-fs 배율로 바뀐다(여백 · 버튼 높이 · 메뉴 위치는 그대로). 추진현황 입력 표는 이 배율을 쓰지 않는다.
-export type FontPref = 'auto' | 'normal' | 'large' | 'xlarge'
+export type FontPref = 'auto' | 'small' | 'normal' | 'large' | 'xlarge'
 const KEY = 'ui-font-scale'
 const EVENT = 'ui-font-scale-change'
-const FIXED: Record<Exclude<FontPref, 'auto'>, number> = { normal: 1, large: 1.1, xlarge: 1.2 }
-export const FONT_PREF_LABEL: Record<FontPref, string> = { auto: '자동', normal: '보통', large: '크게', xlarge: '아주 크게' }
+const FIXED: Record<Exclude<FontPref, 'auto'>, number> = { small: 0.93, normal: 1, large: 1.1, xlarge: 1.2 }
+export const FONT_PREF_LABEL: Record<FontPref, string> = { auto: '자동', small: '작게', normal: '보통', large: '크게', xlarge: '아주 크게' }
 
 // 창 너비(CSS px) → 배율: 노트북 그대로, 큰 모니터일수록 조금씩
 export function autoScale(width: number): number {
@@ -17,7 +17,7 @@ export function autoScale(width: number): number {
 export function readFontPref(): FontPref {
   try {
     const v = localStorage.getItem(KEY)
-    return v === 'normal' || v === 'large' || v === 'xlarge' ? v : 'auto'
+    return v === 'small' || v === 'normal' || v === 'large' || v === 'xlarge' ? v : 'auto'
   } catch {
     return 'auto'
   }
