@@ -1,13 +1,12 @@
-// 관리 › 구글 시트: 과제 시트 연결(관리자) + 시트 공유 안내(관리자 · 팀장).
-//   과제 시트: 연구소가 함께 쓰는 과제(추진현황) 시트 하나. 바꿀 때는 링크에 추진현황 탭이 있는지 먼저 확인한다.
-//   시트 공유: 서버가 없어서 앱은 로그인한 사람 계정으로 시트를 읽는다.
-//     과제 시트 → 팀장 · 팀원 모두 편집자 / 권한 시트 → 관리자 · 팀장만 편집자(팀원은 명단을 보지 않게 공유 안 함)
+// 관리 › 실적관리 시트: 연구소가 함께 쓰는 실적관리(추진현황) 시트 연결(관리자) + 그 시트 공유 안내(관리자 · 팀장).
+//   서버가 없어서 앱은 로그인한 사람 계정으로 시트를 읽는다 -- 팀장 · 팀원 모두 편집자로 공유해야 한다.
+//   권한 시트 공유는 관리 › 권한 시트(관리자만)에서.
 import { useEffect, useState } from 'react'
 import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import { icSm } from '../ui/icon'
-import { accessSheetUrl, setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet } from '../../utils/progressBoard'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -67,45 +66,15 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
   const locked = isProtectedSheet(curId ?? undefined)
   // 공유할 사람: 관리자는 모두, 팀장은 내가 추가한 사람만(나는 빼고)
   const people = (isAdmin ? data.users : data.users.filter((u) => u.addedBy === me)).filter((u) => u.email !== me)
-  const managers = people.filter((u) => u.role !== 'member')
-  const shares: {
-    key: string
-    name: string
-    url: string | null
-    who: string
-    why: string
-    list: AccessUser[]
-  }[] = [
-    {
-      key: 'task',
-      name: '과제(추진현황) 시트',
-      url: cur?.url ?? TASK_INPUT_SHEET_URL,
-      who: isAdmin ? '팀장 · 팀원 모두' : '내가 추가한 팀원',
-      why: '추진현황을 보고 저장하는 데 필요',
-      list: people,
-    },
-    ...(isAdmin
-      ? [
-          {
-            key: 'access',
-            name: '권한 시트',
-            url: accessSheetUrl(),
-            who: '관리자 · 팀장만',
-            why: '역할을 읽고 팀원을 추가하는 데 필요 · 팀원은 공유하지 않습니다(명단이 보이지 않게)',
-            list: managers,
-          },
-        ]
-      : []),
-  ]
   return (
     <div className="max-w-4xl space-y-6">
       <section className="space-y-3">
-        <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">과제 시트</h3>
         <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-          연구소가 함께 쓰는 <b className="text-label">과제(추진현황) 시트 하나</b>
-          {isAdmin ? '를 정합니다' : '입니다'}. 모든 사람이 추진현황을 열면 이 시트가 뜹니다.
+          연구소가 함께 쓰는 <b className="text-label">실적관리(추진현황) 시트 하나</b>
+          {isAdmin ? '를 연결하고' : '입니다'}, 팀장 · 팀원에게 공유합니다. 모든 사람이 추진현황을 열면 이 시트가 뜹니다.
         </p>
         <section className="rounded-card border border-separator p-5">
+          <p className="mb-3 text-[length:calc(13px*var(--ui-fs,1))] font-semibold uppercase tracking-wide text-label-3">1 · 시트 연결</p>
           {cur ? (
             <div className="flex flex-wrap items-start gap-3">
               <FileSpreadsheet size={22} strokeWidth={1.7} className="mt-0.5 shrink-0 text-emerald-700" />
@@ -174,28 +143,21 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
                 </Button>
               )}
               <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-                링크를 넣으면 추진현황 탭이 있는지 먼저 확인합니다. 바꾼 뒤 아래 「시트 공유」대로 새 시트를 공유하고, 팀원에게는 초대 메일을 다시 보내세요(메일
+                링크를 넣으면 추진현황 탭이 있는지 먼저 확인합니다. 바꾼 뒤 아래 「공유」대로 새 시트를 공유하고, 팀원에게는 초대 메일을 다시 보내세요(메일
                 링크로 새 시트를 알려 줍니다).
               </p>
             </div>
           )}
+          <div className="mt-5 border-t border-separator pt-4">
+            <p className="mb-3 text-[length:calc(13px*var(--ui-fs,1))] font-semibold uppercase tracking-wide text-label-3">2 · 공유</p>
+            <ShareBlock
+              url={cur?.url ?? TASK_INPUT_SHEET_URL}
+              who={isAdmin ? '팀장 · 팀원 모두에게' : '내가 추가한 팀원에게'}
+              why="추진현황을 보고 저장하려면 이 시트의 편집자여야 합니다. 시트를 열어 [공유]에 아래 Gmail을 넣어 주세요(알림 메일은 꺼도 됩니다)."
+              list={people}
+            />
+          </div>
         </section>
-      </section>
-
-      {/* 시트 공유 */}
-      <section className="space-y-3">
-        <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">시트 공유</h3>
-        <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-          앱은 로그인한 사람의 구글 계정으로 시트를 읽습니다. 사람을 추가하면 시트를 열어 [공유]에 아래 Gmail을 넣어 주세요(알림 메일은 꺼도 됩니다).
-        </p>
-        {shares.map((x) => (
-          <ShareCard key={x.key} name={x.name} url={x.url} who={x.who} why={x.why} list={x.list} />
-        ))}
-        {isAdmin && (
-          <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-            예전에 팀원에게 권한 시트를 공유했다면 권한 시트의 [공유]에서 빼도 됩니다. 팀원 앱은 초대 메일 링크로 과제 시트를 알아냅니다.
-          </p>
-        )}
       </section>
 
       {note && (
@@ -209,8 +171,8 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
   )
 }
 
-// 시트 하나: 누구에게 어떤 권한으로 + Gmail 목록 복사 + 시트 열기
-function ShareCard({ name, url, who, why, list }: { name: string; url: string | null; who: string; why: string; list: AccessUser[] }) {
+// 공유 안내: 누구에게 편집자로 + Gmail 목록 복사 + 시트 열기
+export function ShareBlock({ url, who, why, list }: { url: string | null; who: string; why: string; list: AccessUser[] }) {
   const [copied, setCopied] = useState(false)
   async function copy() {
     try {
@@ -222,13 +184,11 @@ function ShareCard({ name, url, who, why, list }: { name: string; url: string | 
     }
   }
   return (
-    <div className="rounded-card border border-separator p-4">
+    <div>
       <div className="flex flex-wrap items-center gap-3">
-        <FileSpreadsheet size={20} strokeWidth={1.8} className="shrink-0 text-emerald-700" />
         <div className="min-w-0 flex-1">
           <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
-            {name} → <span className="text-accent">편집자</span>
-            <span className="ml-2 font-normal text-label-2">{who}</span>
+            {who} <span className="text-accent">편집자</span>로 공유
           </p>
           <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{why}</p>
         </div>
@@ -247,10 +207,12 @@ function ShareCard({ name, url, who, why, list }: { name: string; url: string | 
           </a>
         )}
       </div>
-      {list.length > 0 && (
+      {list.length > 0 ? (
         <p className="mt-2 select-all break-all rounded-control bg-subtle px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
           {list.map((u) => u.email).join(', ')}
         </p>
+      ) : (
+        <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">공유할 사람이 아직 없습니다.</p>
       )}
     </div>
   )

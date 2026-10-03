@@ -164,7 +164,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       setNote(
         res.failed.length
           ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => `${f.email}(${f.error.slice(0, 60)})`).join(', ')}` }
-          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다. 「구글 시트」 탭에서 과제 시트 공유도 해 주세요.` },
+          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다. 「실적관리 시트」 탭에서 시트 공유도 해 주세요.` },
       )
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : '보내지 못했습니다.' })
@@ -442,7 +442,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   return (
     <div className={`space-y-4 ${compose ? 'max-w-none' : 'max-w-6xl'}`}>
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「구글 시트」 탭에서 시트를 공유하면 끝납니다.
+        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「실적관리 시트」 탭에서 시트를 공유하면 끝납니다.
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
@@ -666,7 +666,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       <ConfirmDialog
         open={!!removeAsk}
         title="목록에서 빼기"
-        message={`${removeAsk?.map((u) => u.name || u.email).join(', ')}\n앱 권한 목록에서 뺍니다. 시트 공유는 「구글 시트」 탭에서 시트를 열어 해제하세요.`}
+        message={`${removeAsk?.map((u) => u.name || u.email).join(', ')}\n앱 권한 목록에서 뺍니다. 시트 공유는 「실적관리 시트」 · 「권한 시트」 탭에서 시트를 열어 해제하세요.`}
         confirmLabel="빼기"
         onCancel={() => setRemoveAsk(null)}
         onConfirm={() => {
