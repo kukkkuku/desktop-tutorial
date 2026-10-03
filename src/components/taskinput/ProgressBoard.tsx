@@ -2261,16 +2261,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
         {/* 입력 모드 알림: 켜져 있는 동안 표 위에 파란 줄 + 표 테두리 */}
         {editing && boardView === 'table' && !readOnly && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[12px] bg-accent px-4 py-2 text-white">
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
-            </span>
-            <p className="min-w-0 flex-1 text-[13px]">
-              <b className="font-semibold">입력 모드</b>
-              <span className="text-white/85"> · 주 칸을 누르거나 끌어 계획 · 실적을 칠합니다. 아래 도구에서 계획 · 실적 · 지우개를 고르세요.</span>
+          <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[10px] border border-accent/20 bg-accent-soft/60 px-3.5 py-1.5">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
+            <p className="min-w-0 flex-1 text-[12.5px] text-label-2">
+              <b className="font-semibold text-accent">입력 모드</b> · 주 칸을 누르거나 끌어 계획 · 실적을 칠합니다. 아래 도구에서 계획 · 실적 · 지우개를 고르세요.
             </p>
-            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] bg-white px-2.5 text-[12.5px] font-semibold text-accent hover:bg-white/90">
+            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[12.5px] font-semibold text-accent hover:bg-accent/10">
               <Check size={14} strokeWidth={2.2} />
               입력 끝내기
             </button>
@@ -2431,7 +2427,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <button
                 onClick={finishEditing}
                 title="입력 모드 끝내기(저장 안 한 변경이 있으면 구글시트 저장을 권합니다)"
-                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-accent px-3 text-[13px] font-semibold text-white shadow-sm hover:bg-accent-hover"
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-accent/40 bg-accent-soft px-3 text-[13px] font-semibold text-accent hover:bg-accent/15"
               >
                 <Check {...icSm} />
                 입력 끝내기
@@ -2612,7 +2608,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`mt-2 overflow-auto pb-4 ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-2 ring-accent ring-offset-2' : ''}`}
+          className={`mt-2 overflow-auto pb-4 ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''}`}
           style={{ maxHeight: tableBoxH }}
         >
           {boardView === 'board' ? (
