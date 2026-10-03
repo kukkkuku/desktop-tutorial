@@ -1938,14 +1938,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       엑셀로 받기
     </Button>
   )
-  const loadingBar = loading && view !== 'rate' && (
-    <NoticeBar
-      tone="info"
-      icon={<Spinner className="h-4 w-4" />}
-      title={`${loadingNote || '구글시트'}를 불러오는 중입니다…`}
-      sub="연도 탭 · 과제 · 칸 색을 읽고 있습니다. 시트 크기에 따라 몇 초에서 십여 초 걸립니다."
-    />
-  )
   const statusBar = view === 'rate' ? null : fromXlsx ? (
     <NoticeBar
       tone="warn"
@@ -1976,84 +1968,129 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     </NoticeBar>
   ) : !data.local && data.spreadsheetId ? (
     <>
-      {editCount > 0 && !readOnly && (
-        <NoticeBar
-          tone="warn"
-          icon={<span className="h-2.5 w-2.5 rounded-full bg-orange-500" />}
-          title={`저장 안 한 변경 ${editCount}건이 있습니다. 구글시트에 저장해야 다른 팀원도 볼 수 있습니다.`}
-          sub={
-            canSave
-              ? `저장할 곳: ${sheetName} › ${data.tabTitle} · 주황 점이 고친 칸입니다`
-              : protectedSheet
-                ? '운영 팀 시트라 여기서는 저장하지 않습니다. 고친 내용은 엑셀로 받아 두세요.'
-                : '이 시트에는 저장할 수 없습니다. 고친 내용은 엑셀로 받아 두세요.'
-          }
-        >
-          {canSave ? (
-            <button
-              onClick={() => setConfirmSave(true)}
-              disabled={saving}
-              className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
-            >
-              {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
-              구글시트에 저장
-            </button>
-          ) : (
-            excelButton
-          )}
-        </NoticeBar>
-      )}
-      {/* 출처 한 줄(늘 보임): 연결된 시트 › 탭 · 불러온 시각 · 상태. 받을 새 내용이 있으면 이 줄이 파랗게 바뀌고 받기 버튼이 붙는다(따로 알림을 겹쳐 띄우지 않음) */}
+      {/* 상태 줄(높이 고정 · 늘 보임): 시트 › 탭 · 불러온 시각 + 지금 상태 하나. 상태에 따라 색과 오른쪽 버튼만 바뀌고 줄 수는 그대로라
+          칠하는 도중 알림이 생겨도 표가 밀리지 않는다 */}
       {(() => {
-        const pending = !loading && (remote ? 'remote' : stale ? 'stale' : null)
+        const unsaved = editCount > 0 && !readOnly
+        const state = loading
+          ? 'loading'
+          : unsaved
+            ? canSave
+              ? 'unsaved'
+              : 'unsavable'
+            : remote
+              ? 'remote'
+              : stale
+                ? 'stale'
+                : protectedSheet
+                  ? 'locked'
+                  : 'ok'
+        const tone =
+          state === 'unsaved' || state === 'unsavable'
+            ? 'border-[#F5B48A] bg-[#FFF3EA]'
+            : state === 'remote' || state === 'stale'
+              ? 'border-accent/25 bg-accent-soft'
+              : state === 'locked'
+                ? 'border-separator bg-subtle'
+                : 'border-transparent'
         return (
           <div
-            className={`mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(13.5px*var(--ui-fs,1))] ${
-              pending ? 'rounded-[10px] border border-accent/25 bg-accent-soft px-3 py-1.5 text-label' : 'text-label-2'
-            }`}
+            className={`mb-2 flex h-10 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
           >
             <FileSpreadsheet size={15} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
-            <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="font-medium text-label hover:underline" title="구글시트에서 열기">
+            <a
+              href={sheetOpenUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="min-w-0 shrink truncate font-medium text-label hover:underline"
+              title={`${sheetName} › ${data.tabTitle} · 구글시트에서 열기 · ${fmt(data.fetchedAt)} 불러옴`}
+            >
               {sheetName} › {data.tabTitle}
             </a>
-            <span className="text-label-3">·</span>
-            <span>{fmt(data.fetchedAt)} 불러옴</span>
-            <span className="text-label-3">·</span>
-            {pending === 'remote' ? (
-              <b className="font-semibold text-accent">다른 팀원이 새로 저장했습니다</b>
-            ) : pending === 'stale' ? (
-              <b className="font-semibold text-accent">그 뒤 저장된 내용은 아직 안 받음</b>
+            <span className="shrink-0 text-label-3">·</span>
+            <span className="shrink-0">{fmt(data.fetchedAt)} 불러옴</span>
+            <span className="shrink-0 text-label-3">·</span>
+            {state === 'loading' ? (
+              <span className="flex shrink-0 items-center gap-1.5 text-accent">
+                <Spinner className="h-3.5 w-3.5" />
+                {loadingNote ? `${loadingNote}를 ` : ''}불러오는 중…
+              </span>
+            ) : state === 'unsaved' || state === 'unsavable' ? (
+              <span className="flex shrink-0 items-center gap-1.5 font-semibold text-[#9A3412]" title="주황 점 = 고쳤지만 아직 저장 안 한 칸">
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                저장 안 한 변경 {editCount}건{state === 'unsavable' ? ' · 이 시트에는 저장되지 않음' : ''}
+                {remote && <span className="font-normal text-accent">· 다른 팀원도 새로 저장함</span>}
+              </span>
+            ) : state === 'remote' ? (
+              <b className="shrink-0 font-semibold text-accent">다른 팀원이 새로 저장했습니다</b>
+            ) : state === 'stale' ? (
+              <b className="shrink-0 font-semibold text-accent">그 뒤 저장된 내용은 아직 안 받음</b>
+            ) : state === 'locked' ? (
+              <span className="shrink-0 font-medium text-label">🔒 읽기 전용 · 고쳐도 저장되지 않습니다</span>
             ) : (
-              <span className="flex items-center gap-1" title="열어 둔 동안 5분마다, 다시 열면 바로 시트와 견줘 봅니다">
+              <span className="flex shrink-0 items-center gap-1" title="열어 둔 동안 5분마다, 다시 열면 바로 시트와 견줘 봅니다">
                 <CircleCheck size={14} strokeWidth={2} className="text-emerald-600" />
                 최신 · {timeAgo(new Date(seenAt).toISOString())} 확인
               </span>
             )}
-            {pending ? (
-              <span className="ml-auto flex items-center gap-1">
-                <Button variant="primary" size="sm" onClick={() => void (pending === 'remote' ? acceptRemote() : loadFromSheet())}>
-                  <RefreshCw {...icSm} />
-                  최신 내용 받기
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              {state === 'unsaved' || state === 'unsavable' ? (
+                <>
+                  <button
+                    onClick={() => updateDrafts({ edits: {}, newRows: [] })}
+                    disabled={saving}
+                    title="모두 되돌리기 -- 고친 내용과 새 과제를 모두 지우고 시트 값으로"
+                    className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[#9A3412] hover:bg-black/[0.05] disabled:opacity-50"
+                  >
+                    <RotateCcw size={14} strokeWidth={2} />
+                    되돌리기
+                  </button>
+                  {state === 'unsaved' ? (
+                    <button
+                      onClick={() => setConfirmSave(true)}
+                      disabled={saving}
+                      className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#C2410C] px-3 font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
+                    >
+                      {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
+                      구글시트에 저장
+                    </button>
+                  ) : (
+                    <>
+                      <Button variant="secondary" size="sm" onClick={() => void downloadProgressExcel(data, drafts, l1s)}>
+                        <FileDown {...icSm} />
+                        엑셀로 받기
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={openSheetSettings}>
+                        저장할 수 있는 시트로 바꾸기
+                      </Button>
+                    </>
+                  )}
+                </>
+              ) : state === 'remote' || state === 'stale' ? (
+                <>
+                  <Button variant="primary" size="sm" onClick={() => void (state === 'remote' ? acceptRemote() : loadFromSheet())}>
+                    <RefreshCw {...icSm} />
+                    최신 내용 받기
+                  </Button>
+                  <button
+                    onClick={() => (state === 'remote' ? setRemote(null) : setStale(false))}
+                    aria-label="닫기"
+                    className="flex h-7 w-7 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.06]"
+                  >
+                    <X size={14} strokeWidth={2} />
+                  </button>
+                </>
+              ) : state === 'locked' ? (
+                <Button variant="secondary" size="sm" onClick={openSheetSettings}>
+                  저장할 수 있는 시트로 바꾸기
                 </Button>
-                <button
-                  onClick={() => (pending === 'remote' ? setRemote(null) : setStale(false))}
-                  aria-label="닫기"
-                  title={pending === 'remote' ? '받아도 저장 안 한 내 변경(주황 점)은 그대로 남습니다' : undefined}
-                  className="flex h-7 w-7 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.06]"
-                >
-                  <X size={14} strokeWidth={2} />
+              ) : state === 'ok' ? (
+                <button onClick={() => void loadFromSheet()} disabled={saving} className="flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-accent hover:bg-accent-soft">
+                  <RefreshCw size={13} strokeWidth={2} />
+                  다시 불러오기
                 </button>
-              </span>
-            ) : (
-              <button
-                onClick={() => void loadFromSheet()}
-                disabled={loading || saving}
-                className="flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-accent hover:bg-accent-soft disabled:opacity-50"
-              >
-                {loading ? <Spinner className="h-3 w-3" /> : <RefreshCw size={13} strokeWidth={2} />}
-                {loading ? '불러오는 중' : '다시 불러오기'}
-              </button>
-            )}
+              ) : null}
+            </span>
           </div>
         )
       })()}
@@ -2123,7 +2160,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
       {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}
       <div className={view === 'rate' ? 'hidden' : ''}>
-        {loadingBar}
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
@@ -2284,21 +2320,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </div>
         </div>
 
-        {/* 입력 모드 알림: 켜져 있는 동안 표 위에 파란 줄 + 표 테두리 */}
-        {editing && boardView === 'table' && !readOnly && (
-          <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-2 rounded-[10px] border border-accent/20 bg-accent-soft/60 px-3.5 py-1.5">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-            <p className="min-w-0 flex-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
-              <b className="font-semibold text-accent">입력 모드</b> · 주 칸을 누르거나 끌어 계획 · 실적을 칠합니다. 아래 도구에서 계획 · 실적 · 지우개를 고르세요.
-            </p>
-            <button onClick={finishEditing} className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-accent hover:bg-accent/10">
-              <Check size={14} strokeWidth={2.2} />
-              입력 끝내기
-            </button>
-          </div>
-        )}
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+        <div
+          className={`-mx-2 mt-2 flex min-h-[52px] flex-wrap items-center gap-2 rounded-[12px] px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
+            editing && boardView === 'table' && !readOnly ? 'bg-accent-soft/70' : ''
+          }`}
+        >
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
           <label className="relative" title="L2 · L3 · 담당자 찾기">
             <Search {...icSm} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${searchOpen ? 'left-2 text-label-3' : 'left-1/2 -translate-x-1/2 text-label-2'}`} />
@@ -2320,6 +2347,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             />
           </label>
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
+          {/* 입력 중에는 보기 도구 자리에 서식 막대가 들어온다(한 줄 유지 -- 표가 밀리지 않게) */}
+          {!(editing && boardView === 'table') && (
           <span className="flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
             {(
               [
@@ -2333,13 +2362,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 role="tab"
                 aria-selected={boardView === k}
                 onClick={() => changeBoardView(k)}
-                className={`flex h-7 items-center gap-1 rounded-[7px] px-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+                title={label}
+                aria-label={label}
+                className={`flex h-7 w-8 items-center justify-center rounded-[7px] ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
               >
-                <Icon size={14} strokeWidth={1.8} />
-                {label}
+                <Icon size={16} strokeWidth={1.8} />
               </button>
             ))}
           </span>
+          )}
           {activeFilters > 0 && (
             <button
               onClick={() => setFilters({})}
@@ -2360,6 +2391,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           )}
           {/* 표 전용 도구(글자 · 행간 · 입력하기 · 칠하기)는 보드 · 타임라인에서 숨긴다 */}
           {boardView === 'table' && (
+            <>
+          {!editing && (
             <>
           <span className="h-5 w-px shrink-0 bg-separator" />
           <button
@@ -2423,6 +2456,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             </button>
           </span>
           <span className="h-5 w-px shrink-0 bg-separator" />
+            </>
+          )}
           {/* 입력하기 · 범례(입력 중엔 칠하기 도구): 색 아이콘만, 이름은 마우스를 올리면. 지난 연도는 보기 전용 표시 */}
           {readOnly ? (
             <span className="flex items-center gap-2 rounded-control bg-orange-50 px-2.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-orange-800 ring-1 ring-orange-200">
@@ -2450,7 +2485,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 // 팀장은 과제 내보내기가 프라이머리(머리 줄), 입력하기는 세컨더리
                 variant={canPerf ? 'secondary' : 'primary'}
                 size="sm"
-                onClick={() => setEditing(true)}
+                onClick={async () => {
+                  // 저장할 수 없는 시트(운영 팀 시트 등)면 먼저 알린다 -- 모르고 고친 내용이 쌓이지 않게
+                  if (!data.local && !canSave && data.spreadsheetId) {
+                    const ok = await askConfirm({
+                      title: '이 시트는 읽기 전용입니다',
+                      message: '운영 중인 팀 시트라 여기서 고친 내용은 구글시트에 저장되지 않습니다(엑셀로 받기만 됨).\n저장하려면 위 상태 줄의 「저장할 수 있는 시트로 바꾸기」로 팀 시트(사본)를 연결하세요.',
+                      confirmLabel: '그래도 입력(연습)',
+                      tone: 'accent',
+                    })
+                    if (!ok) return
+                  }
+                  setEditing(true)
+                }}
                 title="입력 모드 켜기: 주 칸에 계획 · 실적을 칠합니다(칸 글자는 언제든 칸을 눌러 고침)"
               >
                 <Pencil {...icSm} />
@@ -2573,7 +2620,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 <Redo2 {...ic} />
               </IconButton>
             </span>
-            {editCount > 0 && (
+            {/* 시트 연도는 저장 안 한 변경 · 저장 버튼이 표 위 상태 줄에 있다. 여기는 이 브라우저 연도만 */}
+            {editCount > 0 && data.local && (
               <>
                 <span
                   className="flex items-center gap-1.5 whitespace-nowrap text-label-2"
@@ -2614,19 +2662,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   </Button>
                 )}
               </>
-            )}
-            {/* 숨긴 열: 도구 줄 맨 오른쪽(표 오른쪽 끝 열들과 가깝게) */}
-            {boardView === 'table' && eff.fields.some((f) => hiddenCols.includes(f.id)) && (
-              <button
-                onClick={() => setHiddenCols([])}
-                className="flex h-7 items-center gap-1 whitespace-nowrap rounded-full bg-black/[0.06] px-2.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.1] hover:text-label"
-                title={`숨긴 열: ${eff.fields
-                  .filter((f) => hiddenCols.includes(f.id))
-                  .map((f) => f.label)
-                  .join(', ')} · 누르면 모두 펼칩니다(머리글 경계의 ◀▶로 하나씩도 펼칠 수 있음)`}
-              >
-                숨긴 열 {eff.fields.filter((f) => hiddenCols.includes(f.id)).length} ✕
-              </button>
             )}
           </span>
         </div>
