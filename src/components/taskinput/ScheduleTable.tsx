@@ -942,10 +942,12 @@ export default function ScheduleTable({
   }
   const lastShown = cols[cols.length - 1]?.id
   const hiddenAfterLast = lastShown ? allCols.slice(allCols.findIndex((f) => f.id === lastShown) + 1).map((f) => f.id).filter((id) => hiddenCols.includes(id)) : []
-  const unhideMark = (ids: string[], side: 'left' | 'right') =>
+  const unhideMark = (ids: string[], x: number) =>
     ids.length > 0 && onShowColumns ? (
       <button
+        key={ids.join('|')}
         type="button"
+        style={{ left: x }}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation()
@@ -953,9 +955,7 @@ export default function ScheduleTable({
         }}
         title={`숨긴 열 ${ids.length}개 펼치기: ${ids.map((id) => allCols.find((f) => f.id === id)?.label ?? id).join(', ')}`}
         aria-label={`숨긴 열 ${ids.length}개 펼치기`}
-        className={`absolute top-1/2 z-30 flex h-5 -translate-y-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[1px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent ${
-          side === 'left' ? '-left-[9px]' : '-right-[9px]'
-        }`}
+        className="absolute bottom-[3px] flex h-[15px] -translate-x-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[2px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent"
       >
         ◀▶
       </button>
@@ -2136,6 +2136,23 @@ export default function ScheduleTable({
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
+          {/* 숨긴 열 자리 표시 줄(머리글 위 · 표 밖처럼 흰 줄): ◀▶를 누르면 그 자리 열을 펼친다. 머리글 칸 기능과 겹치지 않게 따로 */}
+          {hiddenCols.some((id) => allCols.some((f) => f.id === id)) && onShowColumns && (
+            <tr style={{ height: 20 }}>
+              <th colSpan={3 + (scheduleOpen ? weekCols.length : showSummary ? 1 : 0) + cols.length} className="relative bg-white p-0">
+                {(() => {
+                  let x = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0)
+                  const marks: React.ReactNode[] = []
+                  cols.forEach((f, i) => {
+                    marks.push(unhideMark(hiddenBefore(f.id), x))
+                    x += colW(f) + (f.id === lastColId ? fillExtra : 0)
+                    if (i === cols.length - 1) marks.push(unhideMark(hiddenAfterLast, x))
+                  })
+                  return marks
+                })()}
+              </th>
+            </tr>
+          )}
           <tr>
             {/* 행 머리(구글시트의 행 번호): 누르면 행 전체 선택, 끌어서 옮기기, 아래 경계로 높이 조절 */}
             {/* 모서리 칸(구글시트처럼): 누르면 보이는 과제 전체 선택 · 다시 누르면 해제 */}
@@ -2255,8 +2272,6 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
-                  {unhideMark(hiddenBefore(f.id), 'left')}
-                  {f.id === lastShown && unhideMark(hiddenAfterLast, 'right')}
                   {(onResize || onAddColumns) && (
                     <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={tableH} extra={addColButton(f)} />
                   )}
@@ -2288,8 +2303,6 @@ export default function ScheduleTable({
                   title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
-                  {unhideMark(hiddenBefore(f.id), 'left')}
-                  {f.id === lastShown && unhideMark(hiddenAfterLast, 'right')}
                   {(onResize || onAddColumns) && (
                     <ResizeHandle width={colW(f)} onResize={onResize ? (v) => resizeTo(f.id, v) : undefined} lineH={subLineH} extra={addColButton(f)} />
                   )}
