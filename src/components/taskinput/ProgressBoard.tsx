@@ -32,6 +32,7 @@ import {
   Table2,
   Settings2,
   Eye,
+  EyeOff,
   ExternalLink,
   UnfoldVertical,
   FileDown,
@@ -304,7 +305,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
   const [viewOpen, setViewOpen] = useState<{ x: number; y: number } | null>(null)
+  // 그룹(L1) 탭 우클릭 메뉴: 숨기기 · 이 그룹만 보기
+  const [tabMenu, setTabMenu] = useState<{ name: string; x: number; y: number } | null>(null)
   const shownL1s = l1s.filter((x) => !hiddenL1.includes(x))
+  const hiddenL1Count = l1s.length - shownL1s.length
   const l1 = activeL1 && shownL1s.includes(activeL1) ? activeL1 : (shownL1s[0] ?? l1s[0] ?? null)
   // 브라우저 탭처럼 줄어드는 L1 탭 줄(좁으면 개수를 숨기고 여백을 줄임)
   const tabStripRef = useRef<HTMLDivElement>(null)
@@ -2020,6 +2024,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 <div
                   key={name}
                   onClick={() => setActiveL1(name)}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
+                  }}
                   data-l1-tab={name}
                   className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[13px] font-semibold transition-colors ${
                     tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
@@ -2070,17 +2078,20 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </div>
           {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
           <div className="relative shrink-0 pb-1.5">
-            <IconButton
+            {/* 우리 팀이 아닌 그룹은 숨긴다(이 브라우저에서만). 숨긴 게 있으면 개수를 보여 되돌리기 쉽게 */}
+            <button
               onClick={(e) => {
                 const r = e.currentTarget.getBoundingClientRect()
-                setViewOpen(viewOpen ? null : { x: Math.min(r.left, window.innerWidth - 264), y: r.bottom + 4 })
+                setViewOpen(viewOpen ? null : { x: Math.min(r.right - 264, window.innerWidth - 272), y: r.bottom + 4 })
               }}
-              title="보이는 그룹 고르기"
-              aria-label="보이는 그룹 고르기"
-              className={viewOpen || hiddenL1.some((x) => l1s.includes(x)) ? 'bg-black/[0.05] text-label' : ''}
+              title="보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다"
+              className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[12.5px] font-medium hover:bg-black/[0.05] hover:text-label ${
+                viewOpen || hiddenL1Count > 0 ? 'bg-black/[0.05] text-label' : 'text-label-2'
+              }`}
             >
-              <Settings2 {...icSm} />
-            </IconButton>
+              <EyeOff size={14} strokeWidth={1.8} />
+              {hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}` : '그룹 숨기기'}
+            </button>
             {viewOpen && (
               <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
                 <div
@@ -2115,12 +2126,46 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     )
                   })}
                   <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[11px] leading-snug text-label-3">
-                    숨겨도 시트에서는 지워지지 않습니다. 이 브라우저에서만 안 보입니다.
+                    체크를 끄면 그 그룹 탭을 숨깁니다. 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
                   </p>
                 </div>
               </div>
             )}
           </div>
+          {tabMenu && (
+            <div className="fixed inset-0 z-40" onMouseDown={() => setTabMenu(null)} onContextMenu={(e) => (e.preventDefault(), setTabMenu(null))}>
+              <div
+                className="mac-pop absolute z-50 w-[220px] py-1 text-[13px]"
+                style={{ left: tabMenu.x, top: tabMenu.y }}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={() => setTabMenu(null)}
+              >
+                <p className="truncate px-3.5 pb-1 pt-1 text-[12px] font-semibold text-label-3">{tabMenu.name === NO_L1 ? 'L1 없음' : tabMenu.name}</p>
+                <button
+                  className="mac-menu-item disabled:opacity-40"
+                  disabled={shownL1s.length <= 1}
+                  onClick={() => setHiddenL1([...hiddenL1, tabMenu.name])}
+                >
+                  <EyeOff {...icSm} className="shrink-0" />이 그룹 숨기기
+                </button>
+                <button
+                  className="mac-menu-item disabled:opacity-40"
+                  disabled={shownL1s.length <= 1}
+                  onClick={() => {
+                    setHiddenL1(l1s.filter((x) => x !== tabMenu.name))
+                    setActiveL1(tabMenu.name)
+                  }}
+                >
+                  <Eye {...icSm} className="shrink-0" />이 그룹만 보기
+                </button>
+                {hiddenL1Count > 0 && (
+                  <button className="mac-menu-item" onClick={() => setHiddenL1([])}>
+                    <Eye {...icSm} className="shrink-0" />숨긴 그룹 {hiddenL1Count}개 다시 보기
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="hidden">
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
           </div>
