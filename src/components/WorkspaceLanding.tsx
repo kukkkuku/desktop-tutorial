@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
-import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces, workspaceStateKey } from '../state/WorkspaceContext'
+import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import Button from './Button'
@@ -14,6 +14,7 @@ import { ic, icSm } from './ui/icon'
 import { readAccessCache, updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { isAdminEmail } from '../utils/roles'
+import { renameEvalTeam } from '../utils/teamRename'
 
 const MAX_VISIBLE_AVATARS = 6
 
@@ -271,23 +272,7 @@ export default function WorkspaceLanding() {
     const to = teamRename.to.trim()
     const { from } = teamRename
     if (!to || to === from) return setTeamRename(null)
-    for (const ws of workspaces.filter((w) => w.teamName === from)) {
-      renameWorkspace(ws.id, to, ws.periodName)
-      // 팀원 담당팀이 예전 팀 이름이면 새 이름으로(안 그러면 모두 "다른 팀"으로 보인다)
-      try {
-        const key = workspaceStateKey(ws.id)
-        const raw = localStorage.getItem(key)
-        if (raw) {
-          const st = JSON.parse(raw)
-          if (Array.isArray(st.members) && st.members.some((m: { team?: string }) => m.team === from)) {
-            st.members = st.members.map((m: { team?: string }) => (m.team === from ? { ...m, team: to } : m))
-            localStorage.setItem(key, JSON.stringify(st))
-          }
-        }
-      } catch {
-        // 팀원 담당팀을 못 고쳐도 팀 이름은 바뀐다
-      }
-    }
+    renameEvalTeam(workspaces, renameWorkspace, from, to)
     setTeamName(to)
     setTeamRename(null)
     // 관리(권한 시트)의 팀 이름은 바로 바꾸지 않고, 바뀌는 사람을 보여 주고 고르게 한다

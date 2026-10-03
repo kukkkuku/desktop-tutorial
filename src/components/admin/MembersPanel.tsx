@@ -25,6 +25,7 @@ import { ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import { renameEvalTeam } from '../../utils/teamRename'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
@@ -43,7 +44,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   // 역할 설명은 처음 관리자 계정에만
   const isSuper = ADMIN_EMAILS.some((e) => e.toLowerCase() === me)
   // 팀 이름: 성과관리 › 평가 목록에서 만든 팀 이름(팀장 본인 팀). 팀장이 추가하는 팀원도 그 팀으로
-  const { currentWorkspace, workspaces } = useWorkspaces()
+  const { currentWorkspace, workspaces, renameWorkspace } = useWorkspaces()
   const evalTeam = (currentWorkspace?.teamName ?? workspaces[0]?.teamName ?? '').trim()
   const defaultTeam = evalTeam || myTeam
   // 팀장: 내가 추가한 사람만 · 관리자: 모두
@@ -455,38 +456,67 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일과 시트 공유로 마무리합니다.
       </p>
 
-      {/* 팀 이름은 평가 목록이 기준: 다르면 맞출지 묻는다(내 줄 + 내가 추가한 사람 중 예전 팀 이름인 사람) */}
+      {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
       {(() => {
         const mine = data.users.find((u) => u.email === me)
         if (!mine || !mine.team || !evalTeam || mine.team === evalTeam || mine.role === 'member') return null
         const old = mine.team
         const also = data.users.filter((u) => u.email !== me && u.addedBy === me && u.team === old).length
+        const evalCount = workspaces.filter((w) => w.teamName === evalTeam).length
         return (
           <div className="flex flex-wrap items-center gap-3 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
             <span>
-              평가 목록의 팀 이름이 <b>「{evalTeam}」</b>입니다. 관리에는 <b>「{old}」</b>로 적혀 있습니다.
-              {also > 0 && <span className="text-label-2"> 내가 추가한 팀원 {also}명도 함께 바꿉니다.</span>}
+              팀 이름이 서로 다릅니다. 평가 목록 <b>「{evalTeam}」</b> · 관리 <b>「{old}」</b>. 어느 이름으로 맞출까요?
             </span>
-            <Button
-              variant="primary"
-              size="sm"
-              className="ml-auto"
-              disabled={busy}
-              onClick={() =>
-                void run(
-                  () =>
-                    updateUsers(
-                      data.id,
-                      (users) => users.map((x) => (x.email === me || (x.addedBy === me && x.team === old) ? { ...x, team: evalTeam } : x)),
-                      me,
-                      [`팀 이름 맞춤: ${old} → ${evalTeam}(평가 목록)`],
-                    ),
-                  `팀 이름을 「${evalTeam}」로 맞췄습니다.`,
-                )
-              }
-            >
-              평가 목록 이름으로 맞추기
-            </Button>
+            <span className="ml-auto flex flex-wrap items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                title={`관리에서 나${also ? `와 내가 추가한 팀원 ${also}명` : ''}의 팀을 「${evalTeam}」로 바꿉니다`}
+                onClick={() =>
+                  void run(
+                    () =>
+                      updateUsers(
+                        data.id,
+                        (users) => users.map((x) => (x.email === me || (x.addedBy === me && x.team === old) ? { ...x, team: evalTeam } : x)),
+                        me,
+                        [`팀 이름 맞춤: ${old} → ${evalTeam}(평가 목록 기준)`],
+                      ),
+                    `관리의 팀 이름을 「${evalTeam}」로 맞췄습니다.`,
+                  )
+                }
+              >
+                「{evalTeam}」로 맞추기
+                <span className="font-normal text-label-3">평가 목록 이름</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                title={`평가 목록에서 「${evalTeam}」 팀의 평가 ${evalCount}개 이름을 「${old}」로 바꿉니다`}
+                onClick={() => {
+                  renameEvalTeam(workspaces, renameWorkspace, evalTeam, old)
+                  // 내가 추가한 팀원 중 평가 목록 이름으로 적힌 사람도 같은 이름으로
+                  const stray = data.users.some((u) => u.addedBy === me && u.team === evalTeam)
+                  if (stray)
+                    void run(
+                      () =>
+                        updateUsers(
+                          data.id,
+                          (users) => users.map((x) => (x.addedBy === me && x.team === evalTeam ? { ...x, team: old } : x)),
+                          me,
+                          [`팀 이름 맞춤: ${evalTeam} → ${old}(관리 기준)`],
+                        ),
+                      `평가 목록의 팀 이름을 「${old}」로 맞췄습니다.`,
+                    )
+                  else setNote({ ok: true, text: `평가 목록의 팀 이름을 「${old}」로 맞췄습니다.` })
+                }}
+              >
+                「{old}」로 맞추기
+                <span className="font-normal text-label-3">관리 이름</span>
+              </Button>
+            </span>
           </div>
         )
       })()}
@@ -759,6 +789,8 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
 // 표 칸에서 바로 고치기(칸을 떠나거나 Enter면 저장)
 function CellInput({ value, placeholder, disabled, onSave }: { value: string; placeholder?: string; disabled?: boolean; onSave: (v: string) => void }) {
   const [v, setV] = useState(value)
+  // 다른 곳에서 바뀐 값(맞추기 · 다시 읽기)을 따라간다
+  useEffect(() => setV(value), [value])
   return (
     <input
       value={v}
