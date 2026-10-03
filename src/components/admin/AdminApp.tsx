@@ -75,7 +75,8 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   const me = getConnectedEmail()
   // 화면을 열 때 한 번 시트를 다시 읽는다(고치기 전에 최신 내용으로 -- 저장 때 덮어쓰기 충돌을 줄임)
   useEffect(() => {
-    if (id && isSheetsApiConfigured()) void refreshAccess(id).then(sync, () => undefined)
+    if (id && isSheetsApiConfigured())
+      void refreshAccess(id).then(sync, (e) => setError(`권한 시트를 읽지 못했습니다: ${e instanceof Error ? e.message : ''} 「읽기」를 눌러 다시 시도하세요.`))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -118,10 +119,21 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   const url = accessSheetUrl(id)
   return (
     <div className="max-w-4xl space-y-5">
-      <p className="text-[14px] leading-relaxed text-label-2">
-        누가 <b>관리자 · 팀장 · 팀원</b>인지와 팀별 <b>추진현황 시트</b>를 구글시트 한 곳에 적어 둡니다. 모두의 앱이 로그인할 때 이 시트를 읽어, 메뉴(역할)와
-        추진현황의 "관리자가 공유한 시트"를 정합니다. 아래 표에서 바로 고쳐 <b>구글시트에 저장</b>하세요(시트의 「변경 기록」 탭에 남습니다).
-      </p>
+      {/* 이 화면이 무엇인지: 앱 설정을 담은 구글시트(권한 시트) 하나 = 표 두 개 */}
+      <div className="rounded-card bg-subtle p-4 text-[14px] leading-relaxed text-label-2">
+        <p>
+          <b className="text-label">권한 시트</b>는 앱 설정을 적어 두는 구글시트 하나입니다. 과제를 입력하는 시트와는 다른 파일이고, 안에 표가 두 개 있습니다.
+        </p>
+        <ul className="mt-2 space-y-1">
+          <li>
+            <b className="text-label">① 누가 어떤 역할인지</b> · 관리자 · 팀장 · 팀원. 역할에 따라 앱 메뉴가 달라집니다.
+          </li>
+          <li>
+            <b className="text-label">② 팀별 과제(추진현황) 시트</b> · 팀마다 과제를 입력하는 구글시트 링크. 팀원이 추진현황을 열면 이 시트가 뜹니다.
+          </li>
+        </ul>
+        <p className="mt-2">모두의 앱이 로그인할 때 이 시트를 읽습니다. 아래 표에서 고치고 <b className="text-label">구글시트에 저장</b>하면 됩니다(시트의 「변경 기록」 탭에 남음).</p>
+      </div>
 
       {!id && !canEdit ? (
         <p className="text-[14px] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
@@ -182,6 +194,21 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
             )}
           </section>
 
+
+          {data ? (
+            <AccessEditor data={data} me={me} onSaved={sync} readOnly={!canEdit} />
+          ) : (
+            <section className="rounded-card border border-dashed border-separator p-5 text-[14px] text-label-2">
+              <p className="font-semibold text-label">표를 아직 불러오지 못했습니다</p>
+              <p className="mt-1">
+                권한 시트를 읽어야 ① 역할 표와 ② 팀별 과제 시트 표가 보입니다. 이 계정이 권한 시트를 볼 수 있는지 확인하고 읽기를 눌러 주세요.
+              </p>
+              <Button variant="primary" size="sm" className="mt-3" onClick={() => void reread()} disabled={!!busy}>
+                {busy === 'read' ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
+                권한 시트 읽기
+              </Button>
+            </section>
+          )}
           <section className="rounded-card border border-separator p-5">
             <h3 className="text-[14px] font-semibold text-label">팀원에게 공유하기</h3>
             <ol className="mt-2 list-decimal space-y-2 pl-5 text-[14px] text-label-2">
@@ -203,11 +230,12 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               </li>
             </ol>
           </section>
-
-          {data && <AccessEditor data={data} me={me} onSaved={sync} readOnly={!canEdit} />}
           {canEdit && (
             <details className="text-[14px] text-label-2">
-              <summary className="cursor-pointer select-none">다른 권한 시트로 바꾸기</summary>
+              <summary className="cursor-pointer select-none">고급 · 권한 시트 파일 자체를 다른 파일로 바꾸기</summary>
+              <p className="mt-2 text-[13px] text-label-3">
+                보통은 쓸 일이 없습니다. 권한 시트를 새로 만들어 옮겼을 때만 그 파일 링크를 넣습니다. 과제 시트를 바꾸려면 위 ② 표의 링크를 고치세요.
+              </p>
               <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
             </details>
           )}

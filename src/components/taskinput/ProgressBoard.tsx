@@ -2347,18 +2347,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               필터 {activeFilters} ✕
             </button>
           )}
-          {boardView === 'table' && eff.fields.some((f) => hiddenCols.includes(f.id)) && (
-            <button
-              onClick={() => setHiddenCols([])}
-              className="flex h-7 items-center gap-1 rounded-full bg-accent-soft px-2.5 text-[13px] font-medium text-accent"
-              title={`숨긴 열: ${eff.fields
-                .filter((f) => hiddenCols.includes(f.id))
-                .map((f) => f.label)
-                .join(', ')} · 누르면 모두 펼칩니다(머리글 경계의 ◀▶로 하나씩도 펼칠 수 있음)`}
-            >
-              숨긴 열 {eff.fields.filter((f) => hiddenCols.includes(f.id)).length} ✕
-            </button>
-          )}
           {!(period.start === 1 && period.months === 12) && (
             <button
               onClick={() => setPeriod({ start: 1, months: 12 })}
@@ -2624,6 +2612,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   </Button>
                 )}
               </>
+            )}
+            {/* 숨긴 열: 도구 줄 맨 오른쪽(표 오른쪽 끝 열들과 가깝게) */}
+            {boardView === 'table' && eff.fields.some((f) => hiddenCols.includes(f.id)) && (
+              <button
+                onClick={() => setHiddenCols([])}
+                className="flex h-7 items-center gap-1 whitespace-nowrap rounded-full bg-black/[0.06] px-2.5 text-[13px] font-medium text-label-2 hover:bg-black/[0.1] hover:text-label"
+                title={`숨긴 열: ${eff.fields
+                  .filter((f) => hiddenCols.includes(f.id))
+                  .map((f) => f.label)
+                  .join(', ')} · 누르면 모두 펼칩니다(머리글 경계의 ◀▶로 하나씩도 펼칠 수 있음)`}
+              >
+                숨긴 열 {eff.fields.filter((f) => hiddenCols.includes(f.id)).length} ✕
+              </button>
             )}
           </span>
         </div>

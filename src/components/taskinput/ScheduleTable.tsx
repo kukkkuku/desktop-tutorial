@@ -955,7 +955,7 @@ export default function ScheduleTable({
         }}
         title={`숨긴 열 ${ids.length}개 펼치기: ${ids.map((id) => allCols.find((f) => f.id === id)?.label ?? id).join(', ')}`}
         aria-label={`숨긴 열 ${ids.length}개 펼치기`}
-        className="absolute bottom-[3px] flex h-[15px] -translate-x-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[2px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent"
+        className="absolute -bottom-[8px] z-40 flex h-[15px] -translate-x-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[2px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent"
       >
         ◀▶
       </button>
@@ -2136,9 +2136,9 @@ export default function ScheduleTable({
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10" style={{ fontSize: HEADER_FONT }}>
-          {/* 숨긴 열 자리 표시 줄(머리글 위 · 표 밖처럼 흰 줄): ◀▶를 누르면 그 자리 열을 펼친다. 머리글 칸 기능과 겹치지 않게 따로 */}
+          {/* 숨긴 열 자리 표시 줄(머리글 위 얇은 줄): ◀▶가 머리글 윗선에 반쯤 걸친다. 누르면 그 자리 열을 펼친다 */}
           {hiddenCols.some((id) => allCols.some((f) => f.id === id)) && onShowColumns && (
-            <tr style={{ height: 20 }}>
+            <tr style={{ height: 8 }}>
               <th colSpan={3 + (scheduleOpen ? weekCols.length : showSummary ? 1 : 0) + cols.length} className="relative bg-white p-0">
                 {(() => {
                   let x = WH + wL2 + wL3 + (scheduleOpen ? weekCols.length * wWeek : showSummary ? wSummary : 0)

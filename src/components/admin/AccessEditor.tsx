@@ -154,9 +154,9 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-[14px] font-semibold text-label">
-            {USERS_TAB} <span className="font-normal text-label-3">{users.length}명</span>
+            ① 누가 어떤 역할인지 <span className="font-normal text-label-3">「{USERS_TAB}」 탭 · {users.length}명</span>
           </h3>
-          <span className="text-[13px] text-label-3">칸을 눌러 바로 고칩니다</span>
+          <span className="text-[13px] text-label-3">역할에 따라 앱 메뉴가 달라집니다 · 칸을 눌러 바로 고칩니다</span>
           <span className={`ml-auto flex gap-1.5 ${readOnly ? 'hidden' : ''}`}>
             <Button variant="secondary" size="sm" onClick={() => setPaste(paste ? null : { text: '', role: 'member' })}>
               <ClipboardPaste {...icSm} />
@@ -284,9 +284,11 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-[14px] font-semibold text-label">
-            {LINKS_TAB} <span className="font-normal text-label-3">{links.length}개</span>
+            ② 팀별 과제(추진현황) 시트 <span className="font-normal text-label-3">「{LINKS_TAB}」 탭 · {links.length}개</span>
           </h3>
-          <span className="text-[13px] text-label-3">팀별 추진현황 시트 · 「{ALL_TEAMS}」 = 팀 줄이 없는 모두</span>
+          <span className="text-[13px] text-label-3">
+            팀원이 추진현황을 열면 내 팀 줄의 시트가 「관리자가 공유한 시트」로 뜹니다 · 「{ALL_TEAMS}」 = 팀 줄이 없는 모두
+          </span>
           <Button
             variant="secondary"
             size="sm"
