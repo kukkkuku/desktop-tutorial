@@ -33,6 +33,8 @@ export interface AccessData {
   fetchedAt: string
   users: AccessUser[]
   links: AccessLink[]
+  // 앱 설정(「연결 시트」 탭의 # 줄): contact = 로그인 문의 받는 사람('leader' 초대한 팀장 · 'admin' 관리자)
+  settings?: Record<string, string>
 }
 
 export const USERS_TAB = '사용자'
@@ -141,7 +143,8 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
     }))
     .filter((x) => x.email.includes('@'))
   const links = l.map((r) => ({ team: (r[0] ?? '').trim(), url: (r[1] ?? '').trim(), note: (r[2] ?? '').trim() })).filter((x) => x.team && parseSheetUrl(x.url))
-  return { id, title, fetchedAt: new Date().toISOString(), users, links, userRows: u.length, linkRows: l.length }
+  const settings = Object.fromEntries(l.filter((r) => (r[0] ?? '').trim().startsWith('#')).map((r) => [(r[0] ?? '').trim().slice(1), (r[1] ?? '').trim()]))
+  return { id, title, fetchedAt: new Date().toISOString(), users, links, settings, userRows: u.length, linkRows: l.length }
 }
 
 // ---- 앱에서 고쳐 저장
@@ -200,6 +203,7 @@ async function writeAccess(
   links: AccessLink[],
   by: string,
   changes: string[],
+  settings?: Record<string, string>,
 ): Promise<AccessData> {
   const base = fresh
   const pad = (rows: string[][], n: number, w: number) => [...rows, ...Array.from({ length: Math.max(0, n - rows.length) }, () => Array(w).fill(''))]
@@ -209,7 +213,10 @@ async function writeAccess(
     8,
   )
   const lRows = pad(
-    links.map((l) => [l.team.trim(), l.url.trim(), l.note.trim()]),
+    [
+      ...links.map((l) => [l.team.trim(), l.url.trim(), l.note.trim()]),
+      ...Object.entries(settings ?? fresh.settings ?? {}).map(([k, v]) => [`#${k}`, v, '앱 설정']),
+    ],
     fresh.linkRows,
     3,
   )
@@ -230,6 +237,23 @@ async function writeAccess(
 export async function setTaskSheet(id: string, url: string, title: string, by: string): Promise<AccessData> {
   const fresh = await readSheet(id)
   return writeAccess(fresh, fresh.users, [{ team: ALL_TEAMS, url, note: title }], by, [`과제 시트 바꿈: ${title}`])
+}
+// 앱 설정 한 칸 바꾸기(예: 로그인 문의 받는 사람)
+export async function setAccessSetting(id: string, key: string, value: string, by: string, what: string): Promise<AccessData> {
+  const fresh = await readSheet(id)
+  return writeAccess(fresh, fresh.users, fresh.links, by, [what], { ...(fresh.settings ?? {}), [key]: value })
+}
+export type ContactMode = 'leader' | 'admin'
+export const contactModeOf = (d: AccessData | null): ContactMode => (d?.settings?.contact === 'admin' ? 'admin' : 'leader')
+// 초대받은 사람의 로그인 문의를 받을 사람: 팀장 모드면 추가한 팀장(아니면 그 팀의 팀장), 관리자 모드면 첫 관리자
+export function contactFor(d: AccessData, u: AccessUser, sender: string): { email: string; name: string } | null {
+  const byEmail = (e: string) => d.users.find((x) => x.email === e)
+  const pick = (x: AccessUser | undefined) => (x ? { email: x.email, name: x.name } : null)
+  const admin = pick(d.users.find((x) => x.role === 'admin')) ?? (sender ? { email: sender, name: '' } : null)
+  if (contactModeOf(d) === 'admin') return admin
+  const adder = byEmail(u.addedBy ?? '') ?? byEmail(sender)
+  if (adder && adder.role !== 'member') return pick(adder)
+  return pick(d.users.find((x) => x.role === 'leader' && x.team && x.team === u.team)) ?? admin
 }
 export function taskSheetOf(d: AccessData | null): AccessLink | null {
   return d?.links.find((x) => x.team === ALL_TEAMS) ?? d?.links[0] ?? null

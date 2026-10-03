@@ -21,14 +21,14 @@ import {
   sendInviteEmails,
   type InviteEntry,
 } from '../../utils/adminInvite'
-import { ROLE_WORD, type AccessRole, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
 // 인사말만 고친다. 앱 버튼 · 로그인할 계정 · 처음 로그인 안내는 메일 틀(inviteHtml)이 자동으로 넣는다
 const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
-아래 버튼을 눌러 Google 계정으로 로그인하시면 바로 사용하실 수 있습니다.`
+아래 시작하는 방법대로 들어와 주세요.`
 
 const stamp = () => {
   const d = new Date()
@@ -132,6 +132,10 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         subject,
         body,
         appInviteUrl(),
+        (r) => {
+          const u = data.users.find((x) => x.email === r.email)
+          return u ? contactFor(data, u, me) : null
+        },
       )
       if (res.sent.length) {
         const at = stamp()
@@ -452,6 +456,39 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                   <code>{LOGIN_TOKEN}</code> · <code>{NAME_TOKEN}</code>을 쓰면 사람마다 바뀝니다.
                 </p>
                 <p className={`mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>보내는 계정: {connected ? getAdminEmail() : '보낼 때 Google 계정 연결'}</p>
+                {/* 메일의 「문의하기」 버튼이 갈 곳: 관리자가 정한다(팀장 화면에서는 보기만) */}
+                <div className={`mt-4 rounded-card bg-subtle px-3.5 py-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2`}>
+                  <p className="font-semibold text-label">로그인 문의 받는 사람</p>
+                  {isAdmin ? (
+                    <div className="mt-1.5 flex flex-wrap gap-4">
+                      {(
+                        [
+                          ['leader', '초대한 팀장(없으면 그 팀 팀장)'],
+                          ['admin', '관리자'],
+                        ] as [ContactMode, string][]
+                      ).map(([k, label]) => (
+                        <label key={k} className="flex cursor-pointer items-center gap-1.5">
+                          <input
+                            type="radio"
+                            name="contact-mode"
+                            checked={contactModeOf(data) === k}
+                            disabled={busy}
+                            onChange={() =>
+                              void run(() => setAccessSetting(data.id, 'contact', k, me, `로그인 문의 받는 사람: ${label}`), '문의 받는 사람을 바꿨습니다.')
+                            }
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className={`mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3`}>
+                    메일의 「문의하기」 버튼 → {(() => {
+                      const c = targets[0] ? contactFor(data, targets[0], me) : null
+                      return c ? (c.name ? `${c.name}(${c.email})` : c.email) : '없음'
+                    })()}
+                  </p>
+                </div>
               </div>
               <div>
                 <p className={`text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2`}>미리보기 · {targets[0]?.name || targets[0]?.email}</p>
@@ -460,7 +497,13 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                   className="mt-1 h-[520px] w-full rounded-card border border-separator bg-[#F3F4F6]"
                   srcDoc={
                     targets[0]
-                      ? inviteHtml(body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''), targets[0], getAdminEmail() ?? '보내는 사람', appInviteUrl())
+                      ? inviteHtml(
+                          body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''),
+                          targets[0],
+                          getAdminEmail() ?? me,
+                          appInviteUrl(),
+                          contactFor(data, targets[0], me),
+                        )
                       : ''
                   }
                 />
