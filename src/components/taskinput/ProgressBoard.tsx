@@ -1677,6 +1677,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             onConnect={(u) => void connectSheet(u)}
           />
         </div>
+        {/* 「관리자가 공유한 시트」가 어디서 오는지: 권한 시트의 「연결 시트」 표(내 팀 줄 → 없으면 「전체」 줄) */}
+        <p className="mt-2.5 text-[13px] leading-relaxed text-label-3">
+          관리자가 공유한 시트는 <b className="font-semibold text-label-2">관리 › 권한 시트 › 연결 시트</b>에서 정합니다. 내 팀 줄의 시트, 없으면 「전체」 줄의 시트가
+          보입니다.
+        </p>
       </div>
     </div>
   )
