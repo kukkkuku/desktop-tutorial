@@ -136,18 +136,18 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
   }
 
   if (!hasAnySource) {
-    return <p className="mt-4 text-[14px] text-label-2">가져올 수 있는 이전 평가가 없습니다.</p>
+    return <p className="mt-4 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">가져올 수 있는 이전 평가가 없습니다.</p>
   }
 
   return (
     <>
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-[14px] font-medium text-label-2">팀</label>
+          <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀</label>
           <Select
             value={sourceTeam}
             onChange={(e) => setSourceTeam(e.target.value)}
-            className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-label"
+            className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
           >
             {teamNames.map((t) => (
               <option key={t} value={t}>
@@ -157,12 +157,12 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
           </Select>
         </div>
         <div>
-          <label className="block text-[14px] font-medium text-label-2">평가기간</label>
+          <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">평가기간</label>
           <Select
             value={sourceId}
             onChange={(e) => setSourceId(e.target.value)}
             disabled={periodCandidates.length === 0}
-            className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
+            className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label disabled:cursor-not-allowed disabled:bg-black/[0.05] disabled:text-label-3"
           >
             {periodCandidates.length === 0 ? (
               <option value="">가져올 기간 없음</option>
@@ -178,28 +178,28 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
       </div>
 
       {!sourceId ? (
-        <p className="mt-4 text-[14px] text-label-2">이 팀에는 가져올 다른 기간이 없습니다. 다른 팀을 선택해보세요.</p>
+        <p className="mt-4 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">이 팀에는 가져올 다른 기간이 없습니다. 다른 팀을 선택해보세요.</p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-card border border-separator">
               <div className="flex items-center justify-between border-b border-separator px-3 py-2">
-                <p className="text-[14px] font-semibold text-label">과제</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">과제</p>
                 <button
                   type="button"
                   onClick={() => setSelectedTaskIds(allTasksSelected ? new Set() : new Set(sourceState.tasks.map((t) => t.id)))}
                   disabled={sourceState.tasks.length === 0}
-                  className="text-[14px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
+                  className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
                 >
                   전체 {allTasksSelected ? '해제' : '선택'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto p-2">
                 {sourceState.tasks.length === 0 ? (
-                  <p className="px-1 py-1 text-[14px] text-label-3">과제가 없습니다.</p>
+                  <p className="px-1 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">과제가 없습니다.</p>
                 ) : (
                   sourceState.tasks.map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[14px] text-label hover:bg-black/[0.03]">
+                    <label key={t.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-black/[0.03]">
                       <input type="checkbox" checked={selectedTaskIds.has(t.id)} onChange={() => toggleTask(t.id)} />
                       {t.name}
                     </label>
@@ -210,22 +210,22 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
 
             <div className="rounded-card border border-separator">
               <div className="flex items-center justify-between border-b border-separator px-3 py-2">
-                <p className="text-[14px] font-semibold text-label">팀원</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">팀원</p>
                 <button
                   type="button"
                   onClick={() => setSelectedMemberIds(allMembersSelected ? new Set() : new Set(sourceState.members.map((m) => m.id)))}
                   disabled={sourceState.members.length === 0}
-                  className="text-[14px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
+                  className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:text-label-3 disabled:no-underline"
                 >
                   전체 {allMembersSelected ? '해제' : '선택'}
                 </button>
               </div>
               <div className="max-h-48 overflow-y-auto p-2">
                 {sourceState.members.length === 0 ? (
-                  <p className="px-1 py-1 text-[14px] text-label-3">팀원이 없습니다.</p>
+                  <p className="px-1 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">팀원이 없습니다.</p>
                 ) : (
                   sourceState.members.map((m) => (
-                    <label key={m.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[14px] text-label hover:bg-black/[0.03]">
+                    <label key={m.id} className="flex items-center gap-2 rounded-[5px] px-1.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-black/[0.03]">
                       <input type="checkbox" checked={selectedMemberIds.has(m.id)} onChange={() => toggleMember(m.id)} />
                       {m.name}
                     </label>
@@ -236,7 +236,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-separator pt-3">
-            <label className="flex items-center gap-2 text-[14px] text-label">
+            <label className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
               <input
                 type="checkbox"
                 checked={importCriteria}
@@ -256,7 +256,7 @@ export default function ImportFromPreviousPanel({ teamName, currentWorkspaceId, 
                 type="button"
                 onClick={justApplied ? onApplied : handleImport}
                 disabled={!justApplied && selectedTaskIds.size === 0 && selectedMemberIds.size === 0}
-                className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-control px-3.5 text-[14px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-control px-3.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${
                   justApplied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
                 } ${pulsing ? 'scale-110' : 'scale-100'}`}
               >

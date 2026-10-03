@@ -34,12 +34,12 @@ export default function AdminApp() {
   // 팀원 초대가 먼저(관리를 열면 초대부터)
   const [tab, setTab] = useState<Tab>('invite')
   return (
-    <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 시트' : '팀원 초대'} />}>
+    <AppShell header={<PageHeader area="관리" title={tab === 'access' ? '권한 · 시트 설정' : '팀원 초대'} />}>
       <PageTabs>
         <UnderlineTabs
           items={[
             { key: 'invite', label: '팀원 초대', title: '앱 링크를 메일로 보내기' },
-            { key: 'access', label: '권한 시트', title: '역할 · 팀별 추진현황 시트를 정하는 구글시트' },
+            { key: 'access', label: '권한 · 시트 설정', title: '누가 어떤 역할인지 · 팀별 과제(추진현황) 시트를 정합니다' },
           ]}
           value={tab}
           onChange={(k) => setTab(k as Tab)}
@@ -114,13 +114,13 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
   }
 
   if (!isSheetsApiConfigured())
-    return <p className="text-[14px] text-label-2">구글 연동이 켜져 있지 않은 빌드입니다. 권한 관리 시트는 구글 로그인이 필요합니다.</p>
+    return <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">구글 연동이 켜져 있지 않은 빌드입니다. 권한 관리 시트는 구글 로그인이 필요합니다.</p>
 
   const url = accessSheetUrl(id)
   return (
     <div className="max-w-4xl space-y-5">
       {/* 이 화면이 무엇인지: 앱 설정을 담은 구글시트(권한 시트) 하나 = 표 두 개 */}
-      <div className="rounded-card bg-subtle p-4 text-[14px] leading-relaxed text-label-2">
+      <div className="rounded-card bg-subtle p-4 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
         <p>
           <b className="text-label">권한 시트</b>는 앱 설정을 적어 두는 구글시트 하나입니다. 과제를 입력하는 시트와는 다른 파일이고, 안에 표가 두 개 있습니다.
         </p>
@@ -136,14 +136,14 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
       </div>
 
       {!id && !canEdit ? (
-        <p className="text-[14px] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">권한 관리 시트가 아직 연결되지 않았습니다. 관리자가 만들거나 연결하면 여기서 볼 수 있습니다.</p>
       ) : !id ? (
         <section className="rounded-card border border-separator p-5">
-          <h3 className="flex items-center gap-2 text-[15px] font-semibold text-label">
+          <h3 className="flex items-center gap-2 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
             <ShieldCheck size={17} strokeWidth={1.8} className="text-accent" />
             권한 관리 시트가 아직 없습니다
           </h3>
-          <p className="mt-1 text-[14px] text-label-2">
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             만들면 내 구글 드라이브에 「성과관리 앱 권한 관리」 시트가 생기고, 지금 아는 관리자 · 팀장과 지금 연결된 추진현황 시트가 미리 들어갑니다.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -151,7 +151,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               {busy === 'create' ? <Spinner className="h-3.5 w-3.5" /> : <FileSpreadsheet {...icSm} />}
               권한 관리 시트 만들기
             </Button>
-            <span className="text-[13px] text-label-3">구글 시트 쓰기 권한 창이 한 번 뜹니다.</span>
+            <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">구글 시트 쓰기 권한 창이 한 번 뜹니다.</span>
           </div>
           <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
         </section>
@@ -164,11 +164,11 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
                 href={withGoogleAccount(url!)}
                 target="_blank"
                 rel="noreferrer"
-                className="min-w-0 truncate text-[15px] font-semibold text-accent hover:underline"
+                className="min-w-0 truncate text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-accent hover:underline"
               >
                 {data?.title ?? '권한 관리 시트'} ↗
               </a>
-              <span className="text-[13px] text-label-3">{data ? `${new Date(data.fetchedAt).toLocaleString('ko-KR')} 읽음` : '아직 못 읽음'}</span>
+              <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{data ? `${new Date(data.fetchedAt).toLocaleString('ko-KR')} 읽음` : '아직 못 읽음'}</span>
               <span className="ml-auto flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => void reread()} disabled={!!busy}>
                   {busy === 'read' ? <Spinner className="h-3.5 w-3.5" /> : <RefreshCw {...icSm} />}
@@ -188,7 +188,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               </span>
             </div>
             {me && (
-              <p className="mt-2 text-[13.5px] text-label-2">
+              <p className="mt-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
                 지금 계정 {me} · <b>{ROLE_LABEL[roleOf(me)]}</b>
               </p>
             )}
@@ -198,7 +198,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
           {data ? (
             <AccessEditor data={data} me={me} onSaved={sync} readOnly={!canEdit} />
           ) : (
-            <section className="rounded-card border border-dashed border-separator p-5 text-[14px] text-label-2">
+            <section className="rounded-card border border-dashed border-separator p-5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               <p className="font-semibold text-label">표를 아직 불러오지 못했습니다</p>
               <p className="mt-1">
                 권한 시트를 읽어야 ① 역할 표와 ② 팀별 과제 시트 표가 보입니다. 이 계정이 권한 시트를 볼 수 있는지 확인하고 읽기를 눌러 주세요.
@@ -210,8 +210,8 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
             </section>
           )}
           <section className="rounded-card border border-separator p-5">
-            <h3 className="text-[14px] font-semibold text-label">팀원에게 공유하기</h3>
-            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[14px] text-label-2">
+            <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">팀원에게 공유하기</h3>
+            <ol className="mt-2 list-decimal space-y-2 pl-5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               <li>
                 <a href={withGoogleAccount(url!)} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
                   권한 관리 시트 열기 ↗
@@ -221,7 +221,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
               <li>
                 팀원에게 아래 앱 링크를 보냅니다(관리 › 팀원 초대 메일에도 들어갑니다). 이 링크로 열면 팀원 앱이 이 권한 시트를 기억합니다.
                 <div className="mt-1.5 flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-control border border-hairline bg-subtle px-2 py-1 text-[13px]">{appInviteUrl(id)}</code>
+                  <code className="min-w-0 flex-1 truncate rounded-control border border-hairline bg-subtle px-2 py-1 text-[length:calc(13px*var(--ui-fs,1))]">{appInviteUrl(id)}</code>
                   <Button variant="secondary" size="sm" onClick={copyInvite}>
                     {copied ? <Check {...icSm} /> : <Copy {...icSm} />}
                     {copied ? '복사함' : '복사'}
@@ -231,9 +231,9 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
             </ol>
           </section>
           {canEdit && (
-            <details className="text-[14px] text-label-2">
+            <details className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               <summary className="cursor-pointer select-none">고급 · 권한 시트 파일 자체를 다른 파일로 바꾸기</summary>
-              <p className="mt-2 text-[13px] text-label-3">
+              <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
                 보통은 쓸 일이 없습니다. 권한 시트를 새로 만들어 옮겼을 때만 그 파일 링크를 넣습니다. 과제 시트를 바꾸려면 위 ② 표의 링크를 고치세요.
               </p>
               <LinkExisting value={linkInput} onChange={setLinkInput} onSubmit={() => void connect()} busy={busy === 'link'} />
@@ -241,7 +241,7 @@ function AccessSheetPanel({ canEdit }: { canEdit: boolean }) {
           )}
         </>
       )}
-      {error && <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[14px] text-danger">{error}</p>}
+      {error && <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{error}</p>}
     </div>
   )
 }
@@ -255,12 +255,12 @@ function LinkExisting({ value, onChange, onSubmit, busy }: { value: string; onCh
       }}
       className="mt-3 flex flex-wrap items-center gap-2"
     >
-      <span className="text-[13.5px] text-label-2">이미 있는 권한 시트:</span>
+      <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">이미 있는 권한 시트:</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="https://docs.google.com/spreadsheets/d/..."
-        className="h-8 min-w-[280px] flex-1 rounded-control border border-hairline px-2.5 text-[13.5px] outline-none focus:border-accent"
+        className="h-8 min-w-[280px] flex-1 rounded-control border border-hairline px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none focus:border-accent"
       />
       <Button variant="secondary" size="sm" type="submit" disabled={!value.trim() || busy}>
         {busy ? <Spinner className="h-3.5 w-3.5" /> : null}

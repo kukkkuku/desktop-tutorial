@@ -126,7 +126,7 @@ export default function RankPeerReview() {
       {/* 응답 현황 + 직접 입력 */}
       <section className="mac-card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-[14px] font-semibold text-label">
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             응답 현황 {submitted.size}/{expected.length}명
           </p>
           <span className="flex items-center gap-1.5">
@@ -183,7 +183,7 @@ export default function RankPeerReview() {
         </div>
 
         {notice && (
-          <p className="mt-3 flex items-start gap-2 text-[14px] text-success">
+          <p className="mt-3 flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-success">
             <span className="flex-1">{notice}</span>
             <button
               onClick={() => setNotice(null)}
@@ -196,10 +196,10 @@ export default function RankPeerReview() {
           </p>
         )}
         {uploads.length > 0 && (
-          <ul className="mt-3 space-y-2 text-[14px]">
+          <ul className="mt-3 space-y-2 text-[length:calc(14px*var(--ui-fs,1))]">
             {uploads.length > 1 && (
               <li className="flex justify-end">
-                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
+                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05] hover:text-label">
                   모두 닫기
                 </button>
               </li>
@@ -246,12 +246,12 @@ export default function RankPeerReview() {
 
       {/* 결과 */}
       <section>
-        <p className="text-[14px] font-semibold text-label">피어리뷰 결과 · {RANK_MODE_LABEL[mode]}</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">피어리뷰 결과 · {RANK_MODE_LABEL[mode]}</p>
         <p className="mt-0.5 text-xs text-label-2">대상자가 받은 순위의 평균입니다. 낮을수록 동료들이 높게 봤습니다.</p>
         {state.rankReviews.some((r) => r.mode === mode) ? (
           <SummaryTable rows={summary} mode={mode} />
         ) : (
-          <p className="mt-3 text-[14px] text-label-3">아직 받은 리뷰가 없습니다.</p>
+          <p className="mt-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 받은 리뷰가 없습니다.</p>
         )}
       </section>
     </div>
@@ -278,14 +278,14 @@ function RankForm({
   const get = (taskId: string | undefined, targetId: string) => draft.find((e) => e.targetMemberId === targetId && (e.taskId ?? '') === (taskId ?? ''))
   return (
     <div className="mt-4 rounded-card bg-[#F7F7F9] p-4">
-      <p className="text-[14px] font-semibold text-label">평가자: {reviewer.name}</p>
+      <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">평가자: {reviewer.name}</p>
       <p className="mt-0.5 text-xs text-label-2">1위부터 중복 없이 매기고, 모든 순위에 근거를 적어 주세요.</p>
       <div className="mt-3 space-y-4">
         {groups.map((g) => (
           <div key={g.taskId ?? 'simple'}>
-            {g.taskName && <p className="mb-1.5 text-[14px] font-semibold text-label">{g.taskName}</p>}
+            {g.taskName && <p className="mb-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.taskName}</p>}
             <div className="overflow-x-auto rounded-control border border-separator bg-white">
-              <table className="w-full text-[14px]">
+              <table className="w-full text-[length:calc(14px*var(--ui-fs,1))]">
                 <thead className="bg-[#F7F7F9] text-left text-label-2">
                   <tr>
                     <th className="w-32 px-3 py-2 font-semibold">대상팀원</th>
@@ -303,7 +303,7 @@ function RankForm({
                           <Select
                             value={e?.rank ?? ''}
                             onChange={(ev) => onChange(g.taskId, t.id, { rank: ev.target.value ? Number(ev.target.value) : null })}
-                            className="h-8 w-full rounded-control border border-hairline px-2.5 text-[14px]"
+                            className="h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
                           >
                             <option value="">-</option>
                             {g.targets.map((_, i) => {
@@ -322,7 +322,7 @@ function RankForm({
                             onChange={(ev) => onChange(g.taskId, t.id, { reason: ev.target.value })}
                             rows={2}
                             placeholder="이 순위를 준 근거"
-                            className="w-full resize-y rounded-control border border-hairline px-2.5 py-1.5 text-[14px]"
+                            className="w-full resize-y rounded-control border border-hairline px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]"
                           />
                         </td>
                       </tr>
@@ -358,7 +358,7 @@ function SummaryTable({ rows, mode, compact }: { rows: RankSummaryRow[]; mode: R
   let place = 0
   return (
     <div className={`${compact ? 'mt-1.5' : 'mt-3'} overflow-x-auto rounded-card border border-separator bg-white`}>
-      <table className="w-full min-w-[640px] text-[14px]">
+      <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
         <thead className="bg-[#F7F7F9] text-left">
           <tr>
             <th className="w-24 whitespace-nowrap px-4 py-2.5 font-semibold">종합순위</th>
@@ -394,7 +394,7 @@ function SummaryTable({ rows, mode, compact }: { rows: RankSummaryRow[]; mode: R
                   ) : (
                     <div className="space-y-1">
                       {shown.map((x, i) => (
-                        <p key={i} className="text-[14px] leading-snug text-label">
+                        <p key={i} className="text-[length:calc(14px*var(--ui-fs,1))] leading-snug text-label">
                           <span className="font-semibold">
                             {x.reviewer} · {x.rank}위{x.groupSize ? `/${x.groupSize}` : ''}
                             {x.taskName ? ` · ${x.taskName}` : ''}

@@ -46,7 +46,7 @@ function AvatarRow({ names }: { names: string[] }) {
     return () => resizeObserver.disconnect()
   }, [itemCount])
 
-  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[14px] font-semibold text-label-2 ${
+  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2 ${
     overlapped ? 'border-2 border-white' : ''
   }`
   const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
@@ -60,7 +60,7 @@ function AvatarRow({ names }: { names: string[] }) {
       ))}
       {overflow > 0 && (
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[14px] font-semibold text-label-2 ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2 ${
             overlapped ? 'border-2 border-white' : ''
           }`}
           style={overlapStyle(visible.length)}
@@ -130,7 +130,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
         {renaming ? (
           // 연도 · 기간 이름을 그 자리에서 고친다(Enter 저장 · Esc 취소 · 카드 밖을 누르면 저장)
           <form
-            className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-semibold text-label"
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label"
             onClick={(e) => e.stopPropagation()}
             onSubmit={(e) => {
               e.preventDefault()
@@ -159,12 +159,12 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
               defaultValue={workspace.periodName}
               onFocus={(e) => e.target.select()}
               aria-label="기간 이름"
-              className="h-7 min-w-0 flex-1 rounded-control border border-accent px-1.5 text-[15px] font-semibold"
+              className="h-7 min-w-0 flex-1 rounded-control border border-accent px-1.5 text-[length:calc(15px*var(--ui-fs,1))] font-semibold"
             />
           </form>
         ) : (
           <>
-            <p className="min-w-0 truncate text-[15px] font-semibold text-label">
+            <p className="min-w-0 truncate text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
               {workspace.evaluationYear} {workspace.periodName}
             </p>
             <IconButton
@@ -183,14 +183,14 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
         )}
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 flex-1 truncate text-[14px] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-        <span className="shrink-0 text-[14px] text-label-3">팀원 {counts.memberCount}명</span>
+        <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
+        <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">팀원 {counts.memberCount}명</span>
       </div>
       <AvatarRow names={counts.memberNames} />
       {menu &&
         createPortal(
           <div
-            className="mac-pop fixed z-50 w-[230px] py-1 text-[14px]"
+            className="mac-pop fixed z-50 w-[230px] py-1 text-[length:calc(14px*var(--ui-fs,1))]"
             style={{ left: menu.x, top: menu.y }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
@@ -334,8 +334,8 @@ export default function WorkspaceLanding() {
   return (
     <AppShell header={<PageHeader area="성과관리" title="평가 목록" />}>
       <main className="w-full max-w-7xl flex-1 px-6 pb-10 pt-5 lg:px-8">
-        <p className="text-[14px] text-label-2">진행할 팀과 평가기간을 선택하세요. 평가를 우클릭하면 복제하거나 지울 수 있습니다.</p>
-        {dupError && <p className="mt-2 text-[14px] text-danger">{dupError}</p>}
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">진행할 팀과 평가기간을 선택하세요. 평가를 우클릭하면 복제하거나 지울 수 있습니다.</p>
+        {dupError && <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{dupError}</p>}
 
         {existingTeamNames.length > 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-6">
@@ -351,7 +351,7 @@ export default function WorkspaceLanding() {
                       onClick={() => setTeamName(name)}
                       onDoubleClick={() => setTeamRename({ from: name, to: name })}
                       title="두 번 누르면 팀 이름 바꾸기"
-                      className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[14px] transition-colors ${
+                      className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
                         active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
                       }`}
                     >
@@ -382,7 +382,7 @@ export default function WorkspaceLanding() {
           </div>
         ) : (
           <div className="mt-8 flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
-            <p className="text-[14px] text-label-2">첫 팀을 만들어 성과관리를 시작하세요.</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">첫 팀을 만들어 성과관리를 시작하세요.</p>
             <Button
               variant="primary"
               onClick={() => {
@@ -399,8 +399,8 @@ export default function WorkspaceLanding() {
           <div className="mt-8">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex items-end gap-3">
-                <h2 className="text-[17px] font-semibold text-label">{teamName}</h2>
-                <span className="text-[14px] text-label-2">평가 {teamWorkspaces.length}개</span>
+                <h2 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{teamName}</h2>
+                <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">평가 {teamWorkspaces.length}개</span>
               </div>
               <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
                 <Plus {...icSm} /> 새 평가 만들기
@@ -409,7 +409,7 @@ export default function WorkspaceLanding() {
 
             {teamWorkspaces.length === 0 ? (
               <div className="mt-4 flex flex-col items-center gap-1 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
-                <p className="text-[14px] text-label-2">첫 평가를 만들어 시작하세요.</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">첫 평가를 만들어 시작하세요.</p>
               </div>
             ) : (
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -436,8 +436,8 @@ export default function WorkspaceLanding() {
       {teamRename && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamRename(null)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[15px] font-semibold text-label">팀 이름 바꾸기</h3>
-            <p className="mt-1 text-[14px] text-label-2">
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">팀 이름 바꾸기</h3>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               「{teamRename.from}」의 평가 {workspaces.filter((w) => w.teamName === teamRename.from).length}개와, 담당팀이 이 이름인 팀원까지 함께 바뀝니다.
             </p>
             <input
@@ -450,10 +450,10 @@ export default function WorkspaceLanding() {
                 if (e.key === 'Enter') saveTeamRename()
                 if (e.key === 'Escape') setTeamRename(null)
               }}
-              className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[14px] text-label"
+              className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
             />
             {existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== teamRename.from && (
-              <p className="mt-1 text-[13px] text-danger">이미 있는 팀 이름입니다.</p>
+              <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-danger">이미 있는 팀 이름입니다.</p>
             )}
             <div className="mt-5 flex justify-end gap-2">
               <Button onClick={() => setTeamRename(null)}>취소</Button>
@@ -472,9 +472,9 @@ export default function WorkspaceLanding() {
       {teamNameModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamNameModalOpen(false)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[15px] font-semibold text-label">새 팀 만들기</h3>
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">새 팀 만들기</h3>
             <div className="mt-4">
-              <label className="block text-[14px] font-medium text-label-2">팀명</label>
+              <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀명</label>
               <input
                 type="text"
                 autoFocus
@@ -484,7 +484,7 @@ export default function WorkspaceLanding() {
                   if (e.key === 'Enter') confirmTeamName()
                 }}
                 placeholder="예: UX팀"
-                className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-label"
+                className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
               />
             </div>
             <div className="mt-6 flex justify-end gap-2">
@@ -501,7 +501,7 @@ export default function WorkspaceLanding() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setPeriodModalTeam(null)}>
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-label">새 평가</h3>
+              <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">새 평가</h3>
               <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
                 <X {...ic} />
               </IconButton>
@@ -524,26 +524,26 @@ export default function WorkspaceLanding() {
       {renamingWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
           <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog">
-            <h3 className="text-[15px] font-semibold text-label">평가 정보 수정</h3>
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">평가 정보 수정</h3>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-[14px] font-medium text-label-2">팀 이름</label>
+                <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀 이름</label>
                 <input
                   type="text"
                   value={renameTeamName}
                   onChange={(e) => setRenameTeamName(e.target.value)}
-                  className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-label"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
                 />
               </div>
               <div>
-                <label className="block text-[14px] font-medium text-label-2">평가 기간 표시명</label>
+                <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">평가 기간 표시명</label>
                 <input
                   type="text"
                   value={renamePeriodName}
                   onChange={(e) => setRenamePeriodName(e.target.value)}
-                  className="h-8 rounded-control border border-hairline px-2.5 text-[14px] mt-1 w-full text-label"
+                  className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
                 />
-                <p className="mt-1 text-[14px] text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
+                <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

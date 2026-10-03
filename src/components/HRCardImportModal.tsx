@@ -139,8 +139,8 @@ export default function HRCardImportModal({
       <div className="w-full max-w-2xl rounded-[12px] bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-[15px] font-semibold text-label">인사기록카드로 팀원 정보 맞추기</h3>
-            <p className="mt-1 text-[14px] text-label-2">
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">인사기록카드로 팀원 정보 맞추기</h3>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               종합 인사기록카드에서 직위·입사일·최종승진일·소속을 읽어, 이름이 같은 팀원에게 적용합니다.
               <br />
               주민번호·연락처·주소·가족 등 다른 정보는 읽지도 저장하지도 않습니다.
@@ -172,8 +172,8 @@ export default function HRCardImportModal({
               <Spinner className="h-6 w-6 text-accent" />
             ) : (
               <>
-                <span className="text-[14px] font-medium text-label">{dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}</span>
-                <span className="text-[14px] text-label-3">.xls · .xlsx · 여러 명 한 번에 가능</span>
+                <span className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}</span>
+                <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">.xls · .xlsx · 여러 명 한 번에 가능</span>
               </>
             )}
             <input
@@ -190,11 +190,11 @@ export default function HRCardImportModal({
           </label>
         )}
 
-        {error && <p className="mt-3 text-[14px] text-danger">{error}</p>}
+        {error && <p className="mt-3 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{error}</p>}
 
         {rows && (
           <div className="mt-4">
-            <div className="flex items-center justify-between gap-2 text-[14px] text-label-2">
+            <div className="flex items-center justify-between gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               <span className="truncate">{fileNames}</span>
               <button onClick={() => setRows(null)} className="shrink-0 text-accent hover:underline">
                 다른 파일 선택
@@ -204,7 +204,7 @@ export default function HRCardImportModal({
               {rows.map((r, i) => {
                 const matched = !!r.memberId
                 return (
-                  <li key={`${r.person.source}-${i}`} className="flex items-start gap-3 px-3 py-2.5 text-[14px]">
+                  <li key={`${r.person.source}-${i}`} className="flex items-start gap-3 px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))]">
                     <input
                       type="checkbox"
                       checked={r.on}

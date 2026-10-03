@@ -75,13 +75,13 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
   const ctx = useContext(ShellCtx)
   if (ctx?.layout === 'top')
     return (
-      <header className="flex min-h-[48px] flex-wrap items-center gap-x-1.5 gap-y-1 px-1 py-2 text-[14px]">
+      <header className="flex min-h-[48px] flex-wrap items-center gap-x-1.5 gap-y-1 px-1 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
         {/* 위 메뉴: 로고가 맨 앞, 메뉴 모양 버튼은 그 뒤 */}
         <TopNav toggle={<LayoutToggle />} chooser={chooser} title={title} actions={actions} perf={ctx.perf} />
       </header>
     )
   return (
-    <header className="flex min-h-[48px] flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-2 text-[14px]">
+    <header className="flex min-h-[48px] flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
       <LayoutToggle />
       {(area || chooser) && (
         <>
@@ -93,7 +93,7 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
           <CrumbSep />
         </>
       )}
-      <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-label">{title}</h1>
+      <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>
       {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
   )

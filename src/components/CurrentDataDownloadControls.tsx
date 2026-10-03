@@ -55,9 +55,9 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
 
       {open && (
         <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-56 p-3">
-          <p className="text-[14px] font-semibold text-label-2">받을 형식 선택</p>
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2">받을 형식 선택</p>
           <div className="mt-2 space-y-1.5">
-            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[14px] text-label hover:bg-black/[0.05]">
+            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-black/[0.05]">
               <input
                 type="checkbox"
                 checked={wantExcel}
@@ -65,7 +65,7 @@ export default function CurrentDataDownloadControls({ label = '리포트 다운�
               />
               엑셀
             </label>
-            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[14px] text-label hover:bg-black/[0.05]">
+            <label className="flex cursor-pointer items-center gap-2 rounded-[5px] px-1.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-black/[0.05]">
               <input
                 type="checkbox"
                 checked={wantPdf}

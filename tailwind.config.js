@@ -46,7 +46,7 @@ export default {
       },
       // 기본 글자 14px(text-xs = 14px). 추진현황 입력 표(ScheduleTable의 <table>)만 예전 크기 유지
       fontSize: {
-        xs: ['14px', { lineHeight: '20px' }],
+        xs: ['calc(14px * var(--ui-fs, 1))', { lineHeight: '1.43' }],
       },
       borderRadius: {
         control: '8px',

@@ -315,14 +315,14 @@ export default function SheetImportPanel({
     <div className="flex min-h-full flex-col">
       {source === 'progress' ? (
         <div>
-          <h3 className="text-[15px] font-semibold text-label">{verb === 'export' ? '추진현황 과제 내보내기' : '추진현황에서 과제 가져오기'}</h3>
-          <p className="mt-1 text-[14px] text-label-2">
+          <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '추진현황 과제 내보내기' : '추진현황에서 과제 가져오기'}</h3>
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             {verb === 'export'
               ? '추진현황에서 L1/L2 분류를 골라 L3 과제와 담당자를 성과관리 과제리스트로 내보냅니다. 내보낸 L2는 과제관리의 탭이 됩니다.'
               : '과제 입력 › 추진현황에 불러온 과제에서 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.'}
           </p>
           {progress ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-label">
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label">
               <SheetsIcon className="h-4 w-3.5 shrink-0" />
               <span className="font-semibold">
                 {progress.data.fileTitle ? (
@@ -345,20 +345,20 @@ export default function SheetImportPanel({
               )}
             </p>
           ) : (
-            <p className="mt-3 rounded-card bg-black/[0.04] px-3 py-2.5 text-[14px] text-label-2">
+            <p className="mt-3 rounded-card bg-black/[0.04] px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               아직 과제 입력 › 추진현황을 불러온 적이 없습니다. 맨 위 「과제 입력」에서 추진현황을 먼저 불러와 주세요.
             </p>
           )}
           {progress && board.sheetLink && (
-            <p className="mt-1 text-[14px] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>
           )}
         </div>
       ) : source === 'sheet' ? (
         <>
           <div>
-            <h3 className="text-[15px] font-semibold text-label">구글시트에서 과제 가져오기</h3>
-            <p className="mt-1 text-[14px] text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
-            <p className="mt-1 text-[14px] text-label-2">
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">구글시트에서 과제 가져오기</h3>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">시트의 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.</p>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               추진현황 양식의 H·L1·L2·L3 열과 담당자·상태 등을 머리글 이름으로 찾아 읽습니다. 원본 시트는 바꾸지 않습니다.
             </p>
           </div>
@@ -372,7 +372,7 @@ export default function SheetImportPanel({
               target="_blank"
               rel="noreferrer"
               title="구글시트로 바로 가기"
-              className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-control px-1 py-0.5 text-[14px] text-label-2 hover:bg-black/[0.04] hover:text-label"
+              className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-control px-1 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.04] hover:text-label"
             >
               <span className="shrink-0 text-label-3">{spreadsheetId ? '읽은 시트' : '현재 연결'}</span>
               <SheetsIcon className="h-4 w-3.5 shrink-0" />
@@ -397,7 +397,7 @@ export default function SheetImportPanel({
                   ? 'https://docs.google.com/spreadsheets/d/...'
                   : '이 빌드에는 구글 연동이 없어 링크로 읽을 수 없습니다 -- Excel로 시작 탭에서 xlsx 파일로 올려 주세요'
               }
-              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] min-w-0 flex-1 disabled:bg-black/[0.03]"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] min-w-0 flex-1 disabled:bg-black/[0.03]"
             />
             <Button variant="secondary" onClick={loadFromLink} disabled={!urlInput.trim() || loading !== null || !isSheetsApiConfigured()}>
               목록 확인
@@ -407,8 +407,8 @@ export default function SheetImportPanel({
       ) : (
         <>
           <div>
-            <h3 className="text-[15px] font-semibold text-label">추진현황 xlsx로 과제 가져오기</h3>
-            <p className="mt-1 text-[14px] text-label-2">
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">추진현황 xlsx로 과제 가져오기</h3>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면, 구글시트 연결과 똑같이 L1/L2를 골라 가져옵니다.
             </p>
           </div>
@@ -427,18 +427,18 @@ export default function SheetImportPanel({
             <Button variant="primary" onClick={() => fileRef.current?.click()} disabled={loading !== null}>
               xlsx 파일 고르기
             </Button>
-            {book && <span className="truncate text-[14px] text-label-2">{bookTitle}</span>}
+            {book && <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{bookTitle}</span>}
           </div>
         </>
       )}
       {loading && (
-        <p className="mt-2 flex items-center gap-1.5 text-[14px] text-label-2">
+        <p className="mt-2 flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
           <Spinner className="h-3.5 w-3.5 text-accent" />
           {loading}
         </p>
       )}
       {error && (
-        <div className="mt-2 rounded-card bg-danger/[0.06] px-3 py-2 text-[14px] text-danger">
+        <div className="mt-2 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">
           <p>{error}</p>
           {authTrouble && (
             <button
@@ -457,12 +457,12 @@ export default function SheetImportPanel({
       {/* 불러온 탭 */}
       {tabs.length > 0 && (
         <div className="mt-3 space-y-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-label">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label">
             <span title={bookTitle}>불러온 탭:</span>
             <Select
               value={tabName ?? ''}
               onChange={(e) => changeTab(e.target.value)}
-              className="h-8 rounded-control border border-hairline px-2.5 text-[14px] font-semibold text-label"
+              className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
             >
               {tabs.map((t) => (
                 <option key={t.title} value={t.title}>
@@ -483,7 +483,7 @@ export default function SheetImportPanel({
                       ? '앱의 이 열과 같은 이름의 머리글을 시트에서 찾지 못해 그 칸은 가져오지 않습니다(시작일은 주차 칸의 첫 표시로 추정). 눌러서 시트의 다른 열과 짝지을 수 있습니다.'
                       : '앱의 열과 시트 머리글이 모두 짝지어졌습니다'
                   }
-                  className={`text-[14px] hover:underline ${unmapped.length ? 'text-warning' : 'text-label-2'}`}
+                  className={`text-[length:calc(14px*var(--ui-fs,1))] hover:underline ${unmapped.length ? 'text-warning' : 'text-label-2'}`}
                 >
                   {unmapped.length ? `시트에 없는 열: ${unmapped.map((c) => c.label).join(', ')} · 열 매칭` : '열 매칭 확인'}
                 </button>
@@ -491,24 +491,24 @@ export default function SheetImportPanel({
             )}
           </div>
           {raw && !header && (
-            <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[14px] text-danger">
+            <p className="rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">
               이 탭에서 'L2'·'L3' 머리글을 찾지 못했습니다. 「YYYY 추진현황」처럼 H/L1/L2/L3 열이 있는 탭을 골라 주세요.
             </p>
           )}
-          {board.sheetLink && <p className="text-[14px] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>}
+          {board.sheetLink && <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>}
         </div>
       )}
 
       {header && mapOpen && (
         <div className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 rounded-card border border-separator p-3 sm:grid-cols-2">
           {SYSTEM_COLUMNS.map((c) => (
-            <label key={c.id} className="flex items-center gap-2 text-[14px]">
+            <label key={c.id} className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
               <span className="w-28 shrink-0 text-label-2">{c.label}</span>
               <Select
                 value={columnMap[c.id] ?? ''}
                 disabled={c.id === COL_NAME}
                 onChange={(e) => setColumnMap({ ...columnMap, [c.id]: e.target.value === '' ? null : Number(e.target.value) })}
-                className="h-8 rounded-control border border-hairline px-2.5 text-[14px] min-w-0 flex-1"
+                className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] min-w-0 flex-1"
               >
                 <option value="">(가져오지 않음)</option>
                 {header.labels.map((label, idx) =>
@@ -569,21 +569,21 @@ export default function SheetImportPanel({
                   <label key={g.name} className={`flex cursor-pointer gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
                     <input type="checkbox" className="mt-0.5 shrink-0" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} />
                     <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-x-2 text-[14px] font-semibold text-label">
+                      <span className="flex flex-wrap items-center gap-x-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
                         {g.tag ? ` [${g.tag}]` : ''}
                         {already && <span className="mac-badge bg-success/15 text-success">{V.badge}</span>}
                         {g.inferred && (
-                          <span className="text-[14px] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
+                          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
                             H/L1 추정
                           </span>
                         )}
                       </span>
-                      <span className="mt-1 block text-[14px] text-label-2">
+                      <span className="mt-1 block text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                         L3 하위과제 {g.count}개{g.assignees.length > 0 && ` · 담당자 ${g.assignees.join(', ')}`}
                         {g.teams.length > 0 && <span className="text-label-3"> · {g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}</span>}
                       </span>
-                      <span className="mt-2 block truncate border-l-2 border-warning/50 pl-3 text-[14px] text-label">
+                      <span className="mt-2 block truncate border-l-2 border-warning/50 pl-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">
                         {g.l3Names.slice(0, 4).join(' · ')}
                         {g.l3Names.length > 4 && ` 외 ${g.l3Names.length - 4}개`}
                       </span>
@@ -596,7 +596,7 @@ export default function SheetImportPanel({
 
           <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-3 border-t border-separator bg-white pb-1 pt-4">
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] text-label-2">
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
               </p>
               {selectedGroups.length > 0 && (
@@ -604,7 +604,7 @@ export default function SheetImportPanel({
                   {selectedGroups.map((g) => (
                     <span
                       key={g.name}
-                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[14px] font-medium text-accent"
+                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
                     >
                       <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
                         {g.name}
@@ -640,10 +640,10 @@ export default function SheetImportPanel({
       {/* 확인 */}
       {header && confirming && !result && (
         <div className="mt-4 rounded-card border border-separator p-4">
-          <p className="text-[14px] font-semibold text-label">
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             L2 {selectedGroups.length}개 · L3 {importRows.length}건을 {V.doing}
           </p>
-          <ul className="mt-2 space-y-1.5 text-[14px]">
+          <ul className="mt-2 space-y-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
             {warnings.inferredRows.length > 0 && (
               <li className="flex items-start gap-1.5 text-warning">
                 <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
@@ -673,10 +673,10 @@ export default function SheetImportPanel({
 
           {warnings.unknownAssignees.length > 0 && (
             <div className="mt-3 rounded-card bg-[#F7F7F9] p-3">
-              <p className="text-[14px] font-semibold text-label">
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                 팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요
               </p>
-              <p className="mt-0.5 text-[14px] text-label-2">
+              <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도
                 들어가니 우리 팀 사람만 고르세요.
               </p>
@@ -692,7 +692,7 @@ export default function SheetImportPanel({
                         else next.add(u.name)
                         setAddNames(next)
                       }}
-                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[14px] ${on ? 'bg-accent-soft font-semibold text-accent' : 'bg-white text-label-2 shadow-control hover:text-label'}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on ? 'bg-accent-soft font-semibold text-accent' : 'bg-white text-label-2 shadow-control hover:text-label'}`}
                       title={u.team ?? undefined}
                     >
                       {on && <Check {...icSm} />}
@@ -718,8 +718,8 @@ export default function SheetImportPanel({
 
       {result && (
         <div className="mt-4 rounded-card border border-success/25 bg-success/[0.08] p-4">
-          <p className="text-[14px] font-semibold text-success">{V.done}</p>
-          <p className="mt-1 text-[14px] text-success">
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-success">{V.done}</p>
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-success">
             새 L2 {result.newGroups}개 · 새 L3 {result.added}건 · 바뀐 L3 {result.updated}건
             {result.keptEdits > 0 && ` · 앱에서 고친 값 ${result.keptEdits}칸 유지`}
             {result.missing > 0 && ` · 시트에 없어진 행 ${result.missing}건 표시`}

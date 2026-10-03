@@ -74,14 +74,14 @@ export default function MeetingPaperModal({
   const header = (
     <div className="flex items-end justify-between border-b-2 border-label pb-4">
       <div>
-        <p className="text-[28px] font-bold leading-tight text-label">{name}</p>
-        {opts.basic && basicInfo && <p className="mt-1 text-[13px] text-label-2">{basicInfo}</p>}
+        <p className="text-[length:calc(28px*var(--ui-fs,1))] font-bold leading-tight text-label">{name}</p>
+        {opts.basic && basicInfo && <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">{basicInfo}</p>}
       </div>
-      {opts.date && <p className="text-[13px] text-label-2">면담일 {blankDate ? '______ . ____ . ____' : dotted(date)}</p>}
+      {opts.date && <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-2">면담일 {blankDate ? '______ . ____ . ____' : dotted(date)}</p>}
     </div>
   )
   const footer = (i: number) => <p className="absolute bottom-10 right-14 text-[10px] text-label-3">{`${i} / ${total}`}</p>
-  const section = (title: string) => <p className="mb-2 mt-6 border-b border-separator pb-2 text-[14px] font-semibold text-label">{title}</p>
+  const section = (title: string) => <p className="mb-2 mt-6 border-b border-separator pb-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{title}</p>
 
   const pageCls = 'paper-page relative flex h-[1123px] w-[794px] shrink-0 flex-col bg-white px-14 pb-20 pt-14 text-label shadow-[0_1px_4px_rgba(0,0,0,0.12)]'
   const showInsights = (opts.insights || opts.questions) && insights.length > 0
@@ -91,14 +91,14 @@ export default function MeetingPaperModal({
       {header}
       {opts.perf && (
         <div className="border-b border-separator py-4">
-          <p className="text-[14px] font-semibold">{perfLines.title}</p>
-          {perfLines.tasks.length > 0 && <p className="mt-1 text-[12px] leading-relaxed text-label-2">{perfLines.tasks.join(' · ')}</p>}
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold">{perfLines.title}</p>
+          {perfLines.tasks.length > 0 && <p className="mt-1 text-[length:calc(12px*var(--ui-fs,1))] leading-relaxed text-label-2">{perfLines.tasks.join(' · ')}</p>}
         </div>
       )}
       {showInsights && (
         <ol className="mt-5 space-y-3">
           {insights.map((s, i) => (
-            <li key={s.id} className="text-[13px] leading-relaxed">
+            <li key={s.id} className="text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed">
               {opts.insights && (
                 <p className="font-semibold">
                   {i + 1}. {s.title}
@@ -109,7 +109,7 @@ export default function MeetingPaperModal({
                   {!opts.insights && `${i + 1}. `}질문 · {s.question}
                 </p>
               )}
-              {opts.basis && <p className="text-[12px] text-label-3">근거 · {s.basis}</p>}
+              {opts.basis && <p className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">근거 · {s.basis}</p>}
             </li>
           ))}
         </ol>
@@ -117,13 +117,13 @@ export default function MeetingPaperModal({
       {opts.last && lastMeeting && (
         <>
           {section(`지난 면담 요약 (${dotted(lastMeeting.date)})`)}
-          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-label-2">{lastMeeting.comment}</p>
+          <p className="whitespace-pre-wrap text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-2">{lastMeeting.comment}</p>
         </>
       )}
       {opts.growth && (
         <>
           {section('육성 포인트')}
-          <div className="grid grid-cols-[88px_1fr] gap-y-0 text-[13px]">
+          <div className="grid grid-cols-[88px_1fr] gap-y-0 text-[length:calc(13px*var(--ui-fs,1))]">
             {[
               ['강점', draft.strengths],
               ['보완 필요', draft.improvements],
@@ -141,7 +141,7 @@ export default function MeetingPaperModal({
       {opts.notes && (
         <>
           {section('면담 내용')}
-          {opts.draft && draft.comment.trim() && <p className="mb-2 whitespace-pre-wrap text-[13px] leading-relaxed">{draft.comment}</p>}
+          {opts.draft && draft.comment.trim() && <p className="mb-2 whitespace-pre-wrap text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed">{draft.comment}</p>}
           <Ruled className="min-h-[108px] flex-1 basis-0" />
         </>
       )}
@@ -212,41 +212,41 @@ export default function MeetingPaperModal({
 
       <aside className="flex w-[340px] shrink-0 flex-col bg-[#DADDE3] px-6 py-6" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="flex items-baseline gap-2 text-[17px] font-bold text-label">
-            면담용지 출력하기 <span className="text-[13px] font-normal text-label-2">출력할 항목만 선택</span>
+          <h3 className="flex items-baseline gap-2 text-[length:calc(17px*var(--ui-fs,1))] font-bold text-label">
+            면담용지 출력하기 <span className="text-[length:calc(13px*var(--ui-fs,1))] font-normal text-label-2">출력할 항목만 선택</span>
           </h3>
           <IconButton onClick={onClose} aria-label="닫기">
             <X {...ic} />
           </IconButton>
         </div>
 
-        <p className="mt-6 text-[14px] font-semibold text-label">면담일</p>
+        <p className="mt-6 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">면담일</p>
         <input
           type="date"
           value={date}
           disabled={blankDate}
           onChange={(e) => setDate(e.target.value || initialDate)}
-          className="mt-2 h-10 rounded-control border border-hairline bg-white px-3 text-[14px] disabled:opacity-50"
+          className="mt-2 h-10 rounded-control border border-hairline bg-white px-3 text-[length:calc(14px*var(--ui-fs,1))] disabled:opacity-50"
         />
-        <label className="mt-2 flex items-center gap-2 text-[14px] text-label">
+        <label className="mt-2 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
           <input type="checkbox" checked={blankDate} onChange={(e) => setBlankDate(e.target.checked)} />빈 날짜로 출력
         </label>
 
         <div className="my-5 h-px bg-black/[0.08]" />
-        <p className="text-[14px] font-semibold text-label">출력 항목</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">출력 항목</p>
         <div className="mt-2 space-y-2">
           {OPTIONS.map((o) => (
-            <label key={o.key} className={`flex items-center gap-2 text-[14px] ${o.key === 'draft' && !hasDraft ? 'text-label-3' : 'text-label'}`}>
+            <label key={o.key} className={`flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] ${o.key === 'draft' && !hasDraft ? 'text-label-3' : 'text-label'}`}>
               <input type="checkbox" checked={opts[o.key]} onChange={(e) => setOpts((cur) => ({ ...cur, [o.key]: e.target.checked }))} />
               {o.label}
-              {o.key === 'draft' && !hasDraft && <span className="text-[12px]">(작성 중인 내용 없음)</span>}
+              {o.key === 'draft' && !hasDraft && <span className="text-[length:calc(12px*var(--ui-fs,1))]">(작성 중인 내용 없음)</span>}
             </label>
           ))}
         </div>
 
         <div className="my-5 h-px bg-black/[0.08]" />
-        <p className="text-[14px] font-semibold text-label">빈 면담 페이지</p>
-        <p className="mt-0.5 text-[13px] text-label-2">메모 공간이 더 필요하면 추가하세요.</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">빈 면담 페이지</p>
+        <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">메모 공간이 더 필요하면 추가하세요.</p>
         <div className="mt-2 flex h-10 items-stretch overflow-hidden rounded-control border border-hairline bg-white">
           <button
             onClick={() => setExtraPages((n) => Math.max(0, n - 1))}
@@ -256,7 +256,7 @@ export default function MeetingPaperModal({
           >
             <Minus {...icSm} className="mx-auto" />
           </button>
-          <span className="flex flex-1 items-center justify-center border-x border-hairline text-[14px] font-semibold">{extraPages}장 추가</span>
+          <span className="flex flex-1 items-center justify-center border-x border-hairline text-[length:calc(14px*var(--ui-fs,1))] font-semibold">{extraPages}장 추가</span>
           <button onClick={() => setExtraPages((n) => Math.min(10, n + 1))} className="w-10 text-label-2 hover:bg-black/[0.04]" aria-label="한 장 더하기">
             <Plus {...icSm} className="mx-auto" />
           </button>

@@ -265,8 +265,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[14px] font-semibold text-label">전체 일괄 업로드</p>
-        <p className="mt-0.5 text-[14px] text-label-2">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">전체 일괄 업로드</p>
+        <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제·팀원·이전 성과·피어리뷰 파일을 함께 올리면 데이터 종류를 자동으로 구분합니다.</p>
       </div>
 
       {/* wide일 때만 좌우 2단(5:7, 왼쪽도 문구가 안 잘릴 만큼 넉넉히).
@@ -277,7 +277,7 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
       <div className={wide ? 'grid gap-4 md:grid-cols-12' : 'space-y-4'}>
         <div className={wide ? 'md:col-span-5 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[14px] font-semibold text-label">양식 다운로드</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">양식 다운로드</p>
             <div className="flex shrink-0 gap-1.5">
               <Button size="sm" onClick={handleDownloadSelected} disabled={isBusy || selectedKinds.size === 0}>
                 선택 다운로드{selectedKinds.size > 0 && ` (${selectedKinds.size})`}
@@ -312,8 +312,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
                       <FileText {...icLg} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold text-label">{t.name}</p>
-                      <p className="text-[14px] leading-snug text-label-2">{t.description}</p>
+                      <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{t.name}</p>
+                      <p className="text-[length:calc(14px*var(--ui-fs,1))] leading-snug text-label-2">{t.description}</p>
                     </div>
                     <Button
                       size="sm"
@@ -341,9 +341,9 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
 
         <div className={wide ? 'md:col-span-7 space-y-2' : 'space-y-2'}>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[14px] font-semibold text-label">작성한 양식 업로드</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">작성한 양식 업로드</p>
             {isBusy && (
-              <span className="flex items-center gap-1.5 text-[14px] text-label-2">
+              <span className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 <Spinner className="h-3.5 w-3.5 text-accent" />
                 {loadingLabel}
               </span>
@@ -363,8 +363,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
             } ${isBusy ? 'pointer-events-none opacity-60' : ''}`}
           >
             <FileText size={24} strokeWidth={1.5} className="text-label-3" />
-            <p className="text-[14px] text-label-2">작성한 양식 파일을 여기에 드래그</p>
-            <p className="text-[14px] text-label-3">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">작성한 양식 파일을 여기에 드래그</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">여러 Excel 파일 동시 업로드 가능 (.xlsx)</p>
           </div>
           <input ref={bulkInputRef} type="file" accept=".xlsx,.xls" multiple className="hidden" onChange={onBulkInputChange} />
         </div>
@@ -378,7 +378,7 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
         <div className="rounded-card border border-separator bg-white p-3">
           <div className="flex flex-wrap items-center gap-1.5">
             {bulkSummary.kinds.length === 0 ? (
-              <span className="text-[14px] text-label-3">변경된 건이 없습니다.</span>
+              <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">변경된 건이 없습니다.</span>
             ) : (
               bulkSummary.kinds.map((k) => (
                 <span
@@ -405,8 +405,8 @@ export default function BulkUploadPanel({ onDone, wide = false }: { onDone?: () 
           </div>
           {bulkSummary.errors.length > 0 && (
             <>
-              <p className="mt-2 text-[14px] font-semibold text-danger">{bulkSummary.errors.length}건 오류</p>
-              <ul className="mt-1 list-inside list-disc space-y-1 text-[14px] text-danger">
+              <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-danger">{bulkSummary.errors.length}건 오류</p>
+              <ul className="mt-1 list-inside list-disc space-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-danger">
                 {bulkSummary.errors.map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}

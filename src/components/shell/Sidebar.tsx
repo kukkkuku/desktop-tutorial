@@ -3,8 +3,9 @@
 //   아래: 매뉴얼 · 데이터 백업(성과관리) · 계정(메뉴 안에 로그아웃)
 // 접으면 아이콘만(마우스를 올리면 이름). 한 번 더 접으면 사이드바 없이 머리 줄에 메뉴(TopNav).
 // 메뉴 모양 버튼과 고른 모양은 AppShell(화면 머리 맨 앞)에.
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
+  ALargeSmall,
   BarChart3,
   BookOpen,
   CalendarRange,
@@ -28,6 +29,7 @@ import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
 import { IS_PREVIEW } from '../../utils/previewMode'
+import { FONT_PREF_LABEL, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
 import { getConnectedEmail } from '../../utils/googleDrive'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
@@ -91,6 +93,37 @@ function useShellNav() {
   return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel }
 }
 
+// 계정 메뉴의 글자 크기: 자동(창 너비) · 보통 · 크게 · 아주 크게
+function FontSizeItem() {
+  const [pref, setPref] = useState<FontPref>(readFontPref)
+  useEffect(() => onFontPrefChange(() => setPref(readFontPref())), [])
+  return (
+    <div className="px-3.5 pb-1.5 pt-1">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+        <ALargeSmall size={15} strokeWidth={1.8} />
+        글자 크기
+      </p>
+      <div className="mac-seg flex" role="radiogroup" aria-label="글자 크기">
+        {(['auto', 'normal', 'large', 'xlarge'] as const).map((k) => (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={pref === k}
+            onClick={(e) => {
+              e.stopPropagation()
+              setFontPref(k)
+            }}
+            title={k === 'auto' ? '창 너비에 맞춰 자동(큰 모니터일수록 크게)' : undefined}
+            className={`mac-seg-item flex-1 whitespace-nowrap px-1.5 ${pref === k ? 'mac-seg-item-on' : ''}`}
+          >
+            {FONT_PREF_LABEL[k]}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function LogoutItem({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick} className="mac-menu-item">
@@ -133,8 +166,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         </button>
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[14.5px] font-semibold text-label">페이스</span>
-            <span className="block truncate text-[12.5px] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
+            <span className="block truncate text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">페이스</span>
+            <span className="block truncate text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
           </span>
         )}
       </div>
@@ -172,7 +205,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
                     className={`mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left ${inPerf ? 'cursor-default' : 'hover:bg-black/[0.04]'}`}
                   >
                     <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-label">
+                    <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                       {currentWorkspace ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : '열어 둔 평가'}
                     </span>
                   </button>
@@ -204,15 +237,21 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           onAccountChange={onAccountChange}
           title={accountEmail}
           className={`mt-2 flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
-          footer={<LogoutItem onClick={handleLogout} />}
+          footer={
+            <>
+              <FontSizeItem />
+              <div className="mac-menu-sep" />
+              <LogoutItem onClick={handleLogout} />
+            </>
+          }
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[14px] font-semibold text-label shadow-pill">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
             {accountEmail.slice(0, 1).toUpperCase()}
           </span>
           {!collapsed && (
             <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[14px] font-medium text-label">{accountEmail}</span>
-              <span className="block truncate text-[13px] text-label-3">{ROLE_LABEL[role]}</span>
+              <span className="block truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{accountEmail}</span>
+              <span className="block truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{ROLE_LABEL[role]}</span>
             </span>
           )}
         </GoogleAccountMenu>
@@ -283,7 +322,7 @@ export function TopNav({
     )
   else if (inPerf)
     menu = PERF_ITEMS.map(({ key, label, Icon, also }) => pill(key, label, Icon, perfStage === key || !!also?.includes(perfStage), () => setPerfStage(key)))
-  else if (mode !== 'home') menu = <h1 className="px-1 text-[16px] font-semibold tracking-[-0.01em] text-label">{title}</h1>
+  else if (mode !== 'home') menu = <h1 className="px-1 text-[length:calc(16px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>
 
   return (
     <>
@@ -337,9 +376,15 @@ export function TopNav({
             onAccountChange={onAccountChange}
             title={accountEmail}
             className="ml-0.5 rounded-full"
-            footer={<LogoutItem onClick={handleLogout} />}
+            footer={
+            <>
+              <FontSizeItem />
+              <div className="mac-menu-sep" />
+              <LogoutItem onClick={handleLogout} />
+            </>
+          }
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[14px] font-semibold text-label shadow-pill">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
               {accountEmail.slice(0, 1).toUpperCase()}
             </span>
           </GoogleAccountMenu>

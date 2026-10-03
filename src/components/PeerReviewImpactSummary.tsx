@@ -21,7 +21,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
   return (
     <div className="mac-card p-4">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h4 className="text-[14px] font-semibold text-label">피어리뷰가 평가에 미친 영향</h4>
+        <h4 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">피어리뷰가 평가에 미친 영향</h4>
         <span className="text-xs text-label-3">
           리뷰 {impact.reviewCount}건 · 반영 비율 {impact.weightPercent}%
         </span>
@@ -31,14 +31,14 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
           "바뀐 사람 없음"으로만 두면 리뷰 내용이 서로 비슷해서 그런 줄로
           오해하므로, 원인을 그대로 말해준다. */}
       {impact.weightPercent === 0 ? (
-        <p className="mt-2 text-[15px] text-label">
+        <p className="mt-2 text-[length:calc(15px*var(--ui-fs,1))] text-label">
           피어리뷰 <span className="font-semibold text-danger">반영 비율이 0%</span>라 이 리뷰들은 평가 점수에 전혀
           반영되지 않습니다.
           <span className="text-label-2"> 반영하려면 좌측 평가 기준에서 피어리뷰 비율을 올리세요.</span>
         </p>
       ) : impact.changed.length > 0 ? (
         <>
-          <p className="mt-2 text-[15px] text-label">
+          <p className="mt-2 text-[length:calc(15px*var(--ui-fs,1))] text-label">
             피어리뷰로 최종 고과가 바뀐 팀원 <span className="font-semibold text-accent">{impact.changed.length}명</span>
           </p>
           <ul className="mt-2 flex flex-wrap gap-2">
@@ -47,7 +47,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
               return (
                 <li
                   key={r.member.id}
-                  className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[14px]"
+                  className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]"
                 >
                   <span className="font-medium text-label">{r.member.name}</span>
                   <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWithout]}`}>
@@ -67,7 +67,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
           </ul>
         </>
       ) : (
-        <p className="mt-2 text-[15px] text-label">
+        <p className="mt-2 text-[length:calc(15px*var(--ui-fs,1))] text-label">
           피어리뷰로 <span className="font-semibold">최종 고과가 바뀐 팀원은 없습니다.</span>
           {biggestShift && Math.abs(biggestShift.ratioDeltaPercent) >= 0.05 && (
             <span className="text-label-2">
@@ -80,7 +80,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
       )}
 
       {noReviews.length > 0 && (
-        <p className="mt-2 rounded-control bg-warning/10 px-3 py-2 text-[14px] text-warning">
+        <p className="mt-2 rounded-control bg-warning/10 px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-warning">
           받은 리뷰가 없어 동료 의견이 반영되지 않은 팀원 {noReviews.length}명 ·{' '}
           <span className="font-medium">{noReviews.map((m) => m.name).join(', ')}</span>
         </p>

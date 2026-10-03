@@ -155,7 +155,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         }`}
       >
         <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <h2 className="text-[15px] font-semibold text-label">데이터 백업</h2>
+          <h2 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">데이터 백업</h2>
           <IconButton onClick={onClose} aria-label="닫기" title="닫기">
             <X {...ic} />
           </IconButton>
@@ -227,8 +227,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               {isDirectoryPickerSupported() && (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-separator bg-[#F7F7F9] px-4 py-3">
                   <div>
-                    <p className="text-[14px] font-semibold text-label">저장 위치</p>
-                    <p className="mt-0.5 text-[14px] text-label-2">
+                    <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">저장 위치</p>
+                    <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                       {saveDirName ? (
                         <>
                           <span className="font-medium text-label">{saveDirName}</span> 폴더 안의{' '}
@@ -238,7 +238,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                         '지정하지 않으면 브라우저 기본 다운로드 폴더에 저장됩니다.'
                       )}
                     </p>
-                    {saveDirError && <p className="mt-0.5 text-[14px] text-danger">{saveDirError}</p>}
+                    {saveDirError && <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{saveDirError}</p>}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button variant="secondary" onClick={handlePickSaveDirectory} size="sm">
@@ -256,8 +256,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               {/* "로컬 파일" 탭은 이름대로 이 기기에 지금 데이터를 백업하는
                   용도다 -- 새 데이터를 올리는 통합 양식 일괄 등록은 옆 "엑셀 양식으로 등록" 탭에. */}
               <div className="rounded-card border border-separator p-4">
-                <p className="text-[14px] font-semibold text-label">지금 데이터 백업</p>
-                <p className="mt-0.5 text-[14px] text-label-2">현재 계정에 저장된 모든 팀·평가 데이터를 이 기기에 파일로 내려받습니다.</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">지금 데이터 백업</p>
+                <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">현재 계정에 저장된 모든 팀·평가 데이터를 이 기기에 파일로 내려받습니다.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                   <Button variant="secondary" onClick={handleLocalJsonBackup} disabled={isBusy || !hasAnyWorkspaceData}>
                     로컬 파일로 백업 (JSON)
@@ -266,18 +266,18 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                     엑셀로 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-[14px] text-label-2">
+                    <span className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-[14px] leading-relaxed text-label-2">
+                <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
                   JSON 백업은 필요하면 그대로 복원할 수 있는 원본이고, 엑셀 백업은 사람이 보기 좋은 사본입니다(복원용 아님).
                 </p>
               </div>
 
-              <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[14px] text-label-2">
+              <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
               </div>
             </div>
@@ -286,7 +286,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           {tab === 'bulk' && (
             <div>
               <BulkUploadPanel wide />
-              <p className="mt-4 text-[13px] text-label-3">과제만 넣을 때는 과제관리 「가져오기」, 팀원은 팀원관리 「인사기록 불러오기」도 쓸 수 있습니다.</p>
+              <p className="mt-4 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">과제만 넣을 때는 과제관리 「가져오기」, 팀원은 팀원관리 「인사기록 불러오기」도 쓸 수 있습니다.</p>
             </div>
           )}
 
@@ -303,7 +303,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
-                <p className="px-1 py-6 text-center text-[14px] text-label-3">평가를 먼저 선택해주세요.</p>
+                <p className="px-1 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">평가를 먼저 선택해주세요.</p>
               )}
             </div>
           )}
@@ -311,23 +311,23 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           {tab === 'reset' && (
             <div className="mx-auto max-w-2xl space-y-4">
               <div className="rounded-card border border-danger/25 bg-danger/[0.04] p-5">
-                <p className="text-[15px] font-semibold text-danger">전체 데이터 초기화</p>
-                <p className="mt-2 text-[14px] leading-relaxed text-label">
+                <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-danger">전체 데이터 초기화</p>
+                <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label">
                   초기화 범위를 선택하세요. 두 기능 모두 지금 열려 있는 평가 하나가 아니라 <span className="font-semibold">모든 팀·평가 데이터</span>를 대상으로
                   합니다.
                 </p>
-                <p className="text-[14px] text-danger">아래에서 먼저 백업하세요.</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] text-danger">아래에서 먼저 백업하세요.</p>
 
                 <div className="my-4 h-px w-full bg-danger/15" />
 
-                <p className="text-[14px] font-semibold text-label">삭제 전 브라우저 전체 데이터 백업</p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">삭제 전 브라우저 전체 데이터 백업</p>
                 <p className="mt-0.5 text-xs text-label-2">모든 팀, 평가, 과제, 팀원, 평가, 성장 및 면담 데이터가 포함됩니다.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <label className="flex items-center gap-1.5 text-[14px] font-medium text-label">
+                  <label className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">
                     <input type="checkbox" checked={backupJson} onChange={(e) => setBackupJson(e.target.checked)} />
                     JSON 전체 데이터 원본
                   </label>
-                  <label className="flex items-center gap-1.5 text-[14px] font-medium text-label">
+                  <label className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">
                     <input type="checkbox" checked={backupExcel} onChange={(e) => setBackupExcel(e.target.checked)} />
                     Excel 전체 확인·보관용
                   </label>
@@ -335,7 +335,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                     선택 항목 전체 백업
                   </Button>
                   {isBusy && (
-                    <span className="flex items-center gap-1.5 text-[14px] text-label-2">
+                    <span className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                       <Spinner className="h-3.5 w-3.5 text-accent" />
                       {loadingLabel}
                     </span>
@@ -343,7 +343,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 </div>
               </div>
 
-              <label className="flex items-start gap-2 rounded-card border border-separator bg-white px-5 py-3 text-[14px] text-label">
+              <label className="flex items-start gap-2 rounded-card border border-separator bg-white px-5 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">
                 <input type="checkbox" className="mt-0.5" checked={clearTasks} onChange={(e) => setClearTasks(e.target.checked)} />
                 <span>
                   <span className="font-semibold">과제 입력 데이터도 같이 지우기</span>
@@ -356,7 +356,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-card border border-separator bg-white p-5">
-                  <p className="text-[15px] font-semibold text-label">이 브라우저 데이터만 초기화</p>
+                  <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">이 브라우저 데이터만 초기화</p>
                   <p className="mt-2 text-xs leading-relaxed text-label-2">
                     이 브라우저에 저장된 데이터를 비웁니다. Google Drive에 저장한 데이터는 그대로 남아, 다시 연결하면 복원할 수 있습니다.
                   </p>
@@ -365,7 +365,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   </Button>
                 </div>
                 <div className="rounded-card border border-danger/30 bg-white p-5">
-                  <p className="text-[15px] font-semibold text-danger">Google Drive 포함 전체 데이터 초기화</p>
+                  <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-danger">Google Drive 포함 전체 데이터 초기화</p>
                   <p className="mt-2 text-xs leading-relaxed text-label-2">
                     이 브라우저와 연결된 Google Drive의 앱 전용 성장관리 데이터를 함께 비웁니다. Drive 데이터는 휴지통으로 이동합니다.
                   </p>

@@ -14,7 +14,7 @@ export default function PromotionDatePicker({ year, month, onChange }: { year: n
       <Select
         value={month >= 7 ? 9 : 4}
         onChange={(e) => onChange(year, Number(e.target.value))}
-        className="h-8 rounded-control border border-hairline px-2.5 text-[14px] text-label"
+        className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
         title="4월 정기심사: 직전 5개년 · 9월 특별심사: 그해 상반기 포함 5개년"
       >
         <option value={4}>4월 정기</option>

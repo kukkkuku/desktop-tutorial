@@ -127,12 +127,12 @@ export default function TaskPeerPanel() {
   return (
     <div className="space-y-6">
       {peerTasks.length === 0 && (
-        <p className="text-[14px] text-label-3">참여자가 2명 이상인 평가과제가 없습니다. 과제관리에서 평가과제를 먼저 만들어 주세요.</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">참여자가 2명 이상인 평가과제가 없습니다. 과제관리에서 평가과제를 먼저 만들어 주세요.</p>
       )}
 
       <section className="mac-card p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-[14px] font-semibold text-label">
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             응답 현황 {expected.filter((m) => submitted.has(m.id)).length}/{expected.length}명
           </p>
           <span className="flex items-center gap-1.5">
@@ -188,7 +188,7 @@ export default function TaskPeerPanel() {
         </div>
 
         {notice && (
-          <p className="mt-3 flex items-start gap-2 text-[14px] text-success">
+          <p className="mt-3 flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-success">
             <span className="flex-1">{notice}</span>
             <button
               onClick={() => setNotice(null)}
@@ -201,10 +201,10 @@ export default function TaskPeerPanel() {
           </p>
         )}
         {uploads.length > 0 && (
-          <ul className="mt-3 space-y-2 text-[14px]">
+          <ul className="mt-3 space-y-2 text-[length:calc(14px*var(--ui-fs,1))]">
             {uploads.length > 1 && (
               <li className="flex justify-end">
-                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label">
+                <button onClick={() => setUploads([])} className="rounded px-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05] hover:text-label">
                   모두 닫기
                 </button>
               </li>
@@ -238,7 +238,7 @@ export default function TaskPeerPanel() {
         )}
         {reviewer && (
           <div className="mt-4 rounded-card bg-[#F7F7F9] p-4">
-            <p className="text-[14px] font-semibold text-label">평가자: {reviewer.name}</p>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">평가자: {reviewer.name}</p>
             <div className="mt-3 space-y-4">
               {groups.map((g) => {
                 const isRank = g.method === 'rank'
@@ -258,14 +258,14 @@ export default function TaskPeerPanel() {
                     : { ok: false, text: '100% 확인' }
                 return (
                   <div key={g.taskId}>
-                    <p className="mb-1.5 text-[14px] font-semibold text-label">
+                    <p className="mb-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                       과제: {g.taskName}
                       <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-label-2 ring-1 ring-separator">
                         {isRank ? `순위 · 1~${n} 중복 없이` : '기여도 · 합계 100%'}
                       </span>
                     </p>
                     <div className="overflow-x-auto rounded-control border border-separator bg-white">
-                      <table className="w-full text-[14px]">
+                      <table className="w-full text-[length:calc(14px*var(--ui-fs,1))]">
                         <thead className="bg-[#F7F7F9] text-left text-label-2">
                           <tr>
                             <th className="w-36 px-3 py-2 font-semibold">평가 대상</th>
@@ -287,7 +287,7 @@ export default function TaskPeerPanel() {
                                     <Select
                                       value={e?.value ?? ''}
                                       onChange={(ev) => patchRank(g.taskId, p.id, ev.target.value === '' ? null : Number(ev.target.value))}
-                                      className="h-8 w-full rounded-control border border-hairline px-2.5 text-[14px]"
+                                      className="h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
                                     >
                                       <option value="">-</option>
                                       {Array.from({ length: n }, (_, i) => i + 1).map((r) => {
@@ -308,7 +308,7 @@ export default function TaskPeerPanel() {
                                       max={100}
                                       value={e?.value ?? ''}
                                       onChange={(ev) => patch(g.taskId, p.id, { value: ev.target.value === '' ? null : Number(ev.target.value) })}
-                                      className="h-8 w-full rounded-control border border-hairline px-2.5 text-[14px] tabular-nums"
+                                      className="h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] tabular-nums"
                                     />
                                   )}
                                 </td>
@@ -318,7 +318,7 @@ export default function TaskPeerPanel() {
                                     value={e?.reason ?? ''}
                                     onChange={(ev) => patch(g.taskId, p.id, { reason: ev.target.value })}
                                     placeholder={isRank ? '이 순위를 준 근거' : '이 기여도를 준 근거'}
-                                    className="w-full resize-y rounded-control border border-hairline px-2.5 py-1.5 text-[14px]"
+                                    className="w-full resize-y rounded-control border border-hairline px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]"
                                   />
                                 </td>
                               </tr>
@@ -356,20 +356,20 @@ export default function TaskPeerPanel() {
       </section>
 
       <section>
-        <p className="text-[14px] font-semibold text-label">피어리뷰 결과 · 과제별</p>
+        <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">피어리뷰 결과 · 과제별</p>
         <p className="mt-0.5 text-xs text-label-2">과제마다 대상자가 받은 평균 순위(본인이 매긴 값 포함, 점수에는 본인 평가 제외).</p>
-        {resultTasks.length === 0 && <p className="mt-3 text-[14px] text-label-3">아직 받은 리뷰가 없습니다.</p>}
+        {resultTasks.length === 0 && <p className="mt-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 받은 리뷰가 없습니다.</p>}
         {resultTasks.map((t) => {
           const isRank = peerMethodOf(t) === 'rank'
           const rows = summarizeTaskPeer(t, state)
           return (
             <div key={t.id} className="mt-4">
-              <p className="text-[14px] font-semibold text-label">
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                 {t.name}
                 <span className="ml-2 text-xs font-normal text-label-2">{isRank ? '순위' : '기여도'}</span>
               </p>
               <div className="mt-1.5 overflow-x-auto rounded-card border border-separator bg-white">
-                <table className="w-full min-w-[640px] text-[14px]">
+                <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
                   <thead className="bg-[#F7F7F9] text-left">
                     <tr>
                       <th className="w-32 px-4 py-2.5 font-semibold">대상</th>
@@ -394,7 +394,7 @@ export default function TaskPeerPanel() {
                         <td className="px-4 py-2.5 tabular-nums">{row.count}명</td>
                         <td className="space-y-1 px-4 py-2.5">
                           {row.reviews.map((r) => (
-                            <p key={r.id} className="text-[14px] leading-snug text-label">
+                            <p key={r.id} className="text-[length:calc(14px*var(--ui-fs,1))] leading-snug text-label">
                               <span className="font-semibold">
                                 {state.members.find((m) => m.id === r.reviewerMemberId)?.name ?? '(삭제된 팀원)'}
                                 {r.reviewerMemberId === row.memberId ? '(본인)' : ''} · {isRank ? `${r.value}위` : `${r.value}%`}
@@ -414,7 +414,7 @@ export default function TaskPeerPanel() {
       </section>
 
       {legacyContribution.length > 0 && (
-        <details className="rounded-card border border-separator bg-white px-4 py-2.5 text-[14px]">
+        <details className="rounded-card border border-separator bg-white px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))]">
           <summary className="cursor-pointer text-label-2">예전에 받은 기여도 리뷰 {legacyContribution.length}건 (참고용 · 점수 미반영)</summary>
           <div className="mt-2 space-y-2">
             {Array.from(new Set(legacyContribution.map((r) => r.taskId))).map((tid) => {

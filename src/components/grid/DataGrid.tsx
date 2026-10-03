@@ -1151,7 +1151,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           style={{ width: '100%', minWidth: tableWidth }}
         >
           <table
-            className="table-fixed border-separate border-spacing-0 text-[14.5px] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
+            className="table-fixed border-separate border-spacing-0 text-[length:calc(14.5px*var(--ui-fs,1))] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
             style={{ width: '100%', minWidth: tableWidth }}
           >
             <colgroup>
@@ -1177,7 +1177,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 {check && (
                   <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
                     {check.headerTitle ? (
-                      <span className="text-[12px] font-semibold text-label-2" title={check.headerTitle}>
+                      <span className="text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-label-2" title={check.headerTitle}>
                         {check.headerTitle.slice(0, 2)}
                       </span>
                     ) : (
@@ -1218,7 +1218,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               .join(', ')
                           : undefined,
                       }}
-                      className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[14px] font-semibold ${
+                      className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
                         colSelected ? 'bg-accent-soft text-accent' : ''
                       } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
                       title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
@@ -1238,19 +1238,19 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
                             if (e.key === 'Escape') setRenaming(null)
                           }}
-                          className="w-full rounded bg-white px-1 py-0.5 text-[14px] font-medium text-black outline-none"
+                          className="w-full rounded bg-white px-1 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-black outline-none"
                         />
                       ) : (
                         <span className="flex items-center gap-1 truncate">
                           {col.sub ? (
                             <span className="flex min-w-0 flex-col leading-tight">
                               <span className="truncate">{col.label}</span>
-                              <span className="truncate text-[12px] font-normal text-label-3">{col.sub}</span>
+                              <span className="truncate text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{col.sub}</span>
                             </span>
                           ) : (
                             <span className="truncate">{col.label}</span>
                           )}
-                          {!col.system && <span className="shrink-0 text-[12px] font-normal text-label-3">추가</span>}
+                          {!col.system && <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">추가</span>}
                         </span>
                       )}
                       <span onMouseDown={(e) => onResizeStart(e, col)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
@@ -1350,7 +1350,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                                 custom
                               ) : (
                                 <div
-                                  className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[14px]' : ''}`}
+                                  className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[length:calc(14px*var(--ui-fs,1))]' : ''}`}
                                   title={col.type === 'memo' && text.length > 20 ? text : undefined}
                                 >
                                   {text}
@@ -1463,7 +1463,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 if (editing && !menu) commitEdit()
               }}
               spellCheck={false}
-              className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[14.5px] leading-snug outline-none ${
+              className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[length:calc(14.5px*var(--ui-fs,1))] leading-snug outline-none ${
                 editing && !plainPick
                   ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
                   : 'pointer-events-none bg-transparent text-transparent caret-transparent shadow-none'
@@ -1580,7 +1580,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   )}
                 </div>
                 {activeCol.picker.multi && (
-                  <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[14px]">
+                  <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
                     {
                       <button
                         onMouseDown={(e) => {
@@ -1607,7 +1607,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             select(nR, 0)
             wantFocus.current = true
           }}
-          className="mt-1 flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-[14px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-accent"
+          className="mt-1 flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.04] hover:text-accent"
         >
           <Plus {...icSm} />
           {props.addRowLabel ?? '행 추가'}
@@ -1618,7 +1618,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
         <div
           ref={ghostRef}
           style={{ transform: `translate(${ghost.x + 14}px, ${ghost.y + 10}px)` }}
-          className="pointer-events-none fixed left-0 top-0 z-[60] flex max-w-[560px] items-center gap-2 rounded-md border border-gray-200 bg-white/90 px-3 py-1.5 text-[14px] font-semibold text-gray-800 opacity-90 shadow-[0_6px_20px_rgba(17,19,24,.18)]"
+          className="pointer-events-none fixed left-0 top-0 z-[60] flex max-w-[560px] items-center gap-2 rounded-md border border-gray-200 bg-white/90 px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-gray-800 opacity-90 shadow-[0_6px_20px_rgba(17,19,24,.18)]"
         >
           {ghost.hint != null && (
             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-white">
@@ -1626,7 +1626,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             </span>
           )}
           <span className="min-w-[60px] max-w-[260px] truncate">{ghost.label || '(이름 없음)'}</span>
-          {ghost.count > 1 && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[12px] text-gray-500">{ghost.count}건</span>}
+          {ghost.count > 1 && <span className="shrink-0 rounded bg-gray-100 px-1.5 text-[length:calc(12px*var(--ui-fs,1))] text-gray-500">{ghost.count}건</span>}
           {ghost.hint && <span className="max-w-[220px] truncate text-xs font-medium text-accent">{ghost.hint}</span>}
         </div>
       )}
@@ -1850,7 +1850,7 @@ function MenuItem({ label, hint, onClick, danger, disabled }: { label: string; h
   return (
     <button disabled={disabled} onClick={onClick} className={`group/mi mac-menu-item justify-between gap-4 ${danger ? 'mac-menu-item-danger' : ''}`}>
       <span>{label}</span>
-      {hint && <span className="text-[13px] text-label-3 group-hover/mi:text-white/80">{hint}</span>}
+      {hint && <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3 group-hover/mi:text-white/80">{hint}</span>}
     </button>
   )
 }

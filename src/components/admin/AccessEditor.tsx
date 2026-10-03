@@ -32,7 +32,7 @@ const norm = (e: string) => e.trim().toLowerCase()
 const fullEmail = (x: string) => (x.includes('@') ? x.trim() : /^[a-z0-9.]{3,}$/i.test(x.trim()) ? `${x.trim()}@gmail.com` : x.trim())
 
 const input =
-  'h-8 w-full min-w-0 rounded-control border border-transparent bg-transparent px-2 text-[13.5px] outline-none hover:border-hairline focus:border-accent focus:bg-white'
+  'h-8 w-full min-w-0 rounded-control border border-transparent bg-transparent px-2 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none hover:border-hairline focus:border-accent focus:bg-white'
 
 export default function AccessEditor({ data, me, onSaved, readOnly }: { data: AccessData; me: string | null; onSaved: () => void; readOnly?: boolean }) {
   const [users, setUsers] = useState<AccessUser[]>(data.users)
@@ -112,15 +112,15 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
     // 팀장은 보기만(칸 · 버튼이 모두 잠김)
     <fieldset disabled={readOnly} className="m-0 min-w-0 space-y-5 border-0 p-0">
       {readOnly && (
-        <p className="rounded-card bg-subtle px-3 py-2 text-[13.5px] text-label-2">
+        <p className="rounded-card bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
           사람 · 역할 · 연결 시트를 고치는 것은 관리자만 합니다. 바꿀 것이 있으면 관리자에게 알려 주세요.
         </p>
       )}
       {/* 저장 줄: 고친 것이 있을 때만 */}
       {dirty && (
         <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-card border border-accent/30 bg-accent-soft px-4 py-2.5">
-          <span className="text-[14px] font-medium text-label">저장 안 한 변경 {changes.length}건</span>
-          <span className="min-w-0 flex-1 truncate text-[13px] text-label-2" title={changes.join('\n')}>
+          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">저장 안 한 변경 {changes.length}건</span>
+          <span className="min-w-0 flex-1 truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-2" title={changes.join('\n')}>
             {changes.slice(0, 3).join(' · ')}
             {changes.length > 3 ? ` 외 ${changes.length - 3}건` : ''}
           </span>
@@ -141,22 +141,22 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
         </div>
       )}
       {dirty && problems.length > 0 && (
-        <ul className="list-disc space-y-0.5 rounded-card bg-danger/[0.06] px-6 py-2 text-[13.5px] text-danger">
+        <ul className="list-disc space-y-0.5 rounded-card bg-danger/[0.06] px-6 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-danger">
           {problems.map((p) => (
             <li key={p}>{p}</li>
           ))}
         </ul>
       )}
       {note && (
-        <p className={`rounded-card px-3 py-2 text-[13.5px] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>
+        <p className={`rounded-card px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>
       )}
 
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[14px] font-semibold text-label">
+          <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             ① 누가 어떤 역할인지 <span className="font-normal text-label-3">「{USERS_TAB}」 탭 · {users.length}명</span>
           </h3>
-          <span className="text-[13px] text-label-3">역할에 따라 앱 메뉴가 달라집니다 · 칸을 눌러 바로 고칩니다</span>
+          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">역할에 따라 앱 메뉴가 달라집니다 · 칸을 눌러 바로 고칩니다</span>
           <span className={`ml-auto flex gap-1.5 ${readOnly ? 'hidden' : ''}`}>
             <Button variant="secondary" size="sm" onClick={() => setPaste(paste ? null : { text: '', role: 'member' })}>
               <ClipboardPaste {...icSm} />
@@ -170,7 +170,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
 
         {paste && (
           <div className="mt-3 rounded-card border border-separator bg-subtle p-3">
-            <p className="text-[13px] text-label-2">
+            <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
               한 줄에 한 명: <b>이메일</b>(탭 · 쉼표) <b>이름</b>(탭 · 쉼표) <b>팀</b>. 아이디만 적으면 @gmail.com이 붙습니다. 이미 있는 사람은 역할만 바꿉니다.
             </p>
             <textarea
@@ -179,11 +179,11 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
               onChange={(e) => setPaste({ ...paste, text: e.target.value })}
               rows={5}
               placeholder={'kim@example.com, 김가온, 브랜드디자인팀\nlee@example.com, 이나래'}
-              className="mt-2 w-full rounded-control border border-hairline bg-white px-2.5 py-2 font-mono text-[13px] outline-none focus:border-accent"
+              className="mt-2 w-full rounded-control border border-hairline bg-white px-2.5 py-2 font-mono text-[length:calc(13px*var(--ui-fs,1))] outline-none focus:border-accent"
             />
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-[13.5px] text-label-2">역할</span>
-              <Select value={paste.role} onChange={(e) => setPaste({ ...paste, role: e.target.value as AccessRole })} className="h-8 px-2.5 text-[13.5px]">
+              <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">역할</span>
+              <Select value={paste.role} onChange={(e) => setPaste({ ...paste, role: e.target.value as AccessRole })} className="h-8 px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))]">
                 {ROLES.map((r) => (
                   <option key={r} value={r}>
                     {ROLE_WORD[r]}
@@ -202,7 +202,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
         )}
 
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-[13.5px]">
+          <table className="w-full min-w-[720px] text-[length:calc(13.5px*var(--ui-fs,1))]">
             <thead>
               <tr className="text-left text-label-3">
                 <th className="w-[30%] px-2 py-1 font-medium">이메일</th>
@@ -231,7 +231,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
                       <input value={u.name} onChange={(e) => setUser(i, { name: e.target.value })} className={input} />
                     </td>
                     <td className="py-0.5">
-                      <Select value={u.role} onChange={(e) => setUser(i, { role: e.target.value as AccessRole })} className="h-8 w-full px-2 text-[13.5px]">
+                      <Select value={u.role} onChange={(e) => setUser(i, { role: e.target.value as AccessRole })} className="h-8 w-full px-2 text-[length:calc(13.5px*var(--ui-fs,1))]">
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
                             {ROLE_WORD[r]}
@@ -266,9 +266,9 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
             ))}
           </datalist>
         </div>
-        {!users.length && <p className="mt-2 text-[13.5px] text-label-3">비어 있습니다. 한 명 추가 · 여러 명 붙여넣기로 넣으세요.</p>}
+        {!users.length && <p className="mt-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">비어 있습니다. 한 명 추가 · 여러 명 붙여넣기로 넣으세요.</p>}
         {/* 역할별로 되는 것(roles.ts · useSheetManager · AdminApp과 같은 기준) */}
-        <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[13px] text-label-2 sm:grid-cols-[auto_1fr]">
+        <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]">
           <dt className="font-semibold text-label">관리자</dt>
           <dd>팀장이 하는 것 전부 + 이 권한 표(사람 · 역할 · 연결 시트) 고치기</dd>
           <dt className="font-semibold text-label">팀장</dt>
@@ -283,10 +283,10 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
 
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-[14px] font-semibold text-label">
+          <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             ② 팀별 과제(추진현황) 시트 <span className="font-normal text-label-3">「{LINKS_TAB}」 탭 · {links.length}개</span>
           </h3>
-          <span className="text-[13px] text-label-3">
+          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
             팀원이 추진현황을 열면 내 팀 줄의 시트가 「관리자가 공유한 시트」로 뜹니다 · 「{ALL_TEAMS}」 = 팀 줄이 없는 모두
           </span>
           <Button
@@ -299,7 +299,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
           </Button>
         </div>
         <div className="mt-2 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-[13.5px]">
+          <table className="w-full min-w-[640px] text-[length:calc(13.5px*var(--ui-fs,1))]">
             <thead>
               <tr className="text-left text-label-3">
                 <th className="w-[18%] px-2 py-1 font-medium">팀</th>
@@ -345,7 +345,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
           </table>
         </div>
         {!links.some((l) => l.team === ALL_TEAMS) && (
-          <p className="mt-2 text-[13px] text-orange-600">「{ALL_TEAMS}」 줄이 없습니다 -- 팀이 안 적힌 사람은 앱 기본 시트(테스트 시트)를 씁니다.</p>
+          <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-orange-600">「{ALL_TEAMS}」 줄이 없습니다 -- 팀이 안 적힌 사람은 앱 기본 시트(테스트 시트)를 씁니다.</p>
         )}
       </section>
 
@@ -358,7 +358,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
         onConfirm={() => void save()}
         onCancel={() => setConfirm(false)}
       >
-        <ul className="mt-3 max-h-[240px] list-disc space-y-0.5 overflow-auto rounded-card border border-separator bg-[#F7F7F9] py-2 pl-7 pr-3 text-[13.5px] text-label">
+        <ul className="mt-3 max-h-[240px] list-disc space-y-0.5 overflow-auto rounded-card border border-separator bg-[#F7F7F9] py-2 pl-7 pr-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
           {changes.map((c) => (
             <li key={c}>{c}</li>
           ))}

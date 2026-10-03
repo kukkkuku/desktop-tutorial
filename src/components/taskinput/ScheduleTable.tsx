@@ -744,16 +744,16 @@ function FilterPopover({
   const hid = new Set(hidden)
   return (
     <div className="fixed inset-0 z-50" onMouseDown={onClose}>
-      <div className="mac-pop absolute w-[250px] p-2 text-[14px] font-normal text-label" style={{ left: x, top: y }} onMouseDown={(e) => e.stopPropagation()}>
-        <p className="px-1 text-[13px] font-semibold">{label} 필터</p>
+      <div className="mac-pop absolute w-[250px] p-2 text-[length:calc(14px*var(--ui-fs,1))] font-normal text-label" style={{ left: x, top: y }} onMouseDown={(e) => e.stopPropagation()}>
+        <p className="px-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold">{label} 필터</p>
         <input
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="값 찾기"
-          className="mt-1.5 h-7 w-full rounded-control border border-hairline px-2 text-[13px]"
+          className="mt-1.5 h-7 w-full rounded-control border border-hairline px-2 text-[length:calc(13px*var(--ui-fs,1))]"
         />
-        <div className="mt-1.5 flex items-center gap-2 px-1 text-[13px]">
+        <div className="mt-1.5 flex items-center gap-2 px-1 text-[length:calc(13px*var(--ui-fs,1))]">
           <button onClick={() => onChange(hidden.filter((v) => !shown.some((o) => o.value === v)))} className="font-medium text-accent hover:underline">
             모두 선택
           </button>
@@ -777,10 +777,10 @@ function FilterPopover({
               <span className={`min-w-0 flex-1 truncate ${o.value === '(빈 칸)' ? 'text-label-3' : ''}`} title={o.value}>
                 {o.value}
               </span>
-              <span className="shrink-0 text-[12px] text-label-3">{o.count}</span>
+              <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] text-label-3">{o.count}</span>
             </label>
           ))}
-          {shown.length === 0 && <p className="px-1 py-2 text-[13px] text-label-3">맞는 값이 없습니다</p>}
+          {shown.length === 0 && <p className="px-1 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">맞는 값이 없습니다</p>}
         </div>
       </div>
     </div>
@@ -2735,7 +2735,7 @@ export default function ScheduleTable({
           <>
             {dropLine && <div className="pointer-events-none fixed z-[46] h-[2px] bg-orange-500" style={dropLine} />}
             <div
-              className="pointer-events-none fixed z-[47] max-w-[360px] truncate rounded-[6px] bg-white/95 px-3 py-1.5 text-[14px] font-semibold text-label opacity-90 shadow-[0_4px_16px_rgba(0,0,0,0.18)] ring-1 ring-black/10"
+              className="pointer-events-none fixed z-[47] max-w-[360px] truncate rounded-[6px] bg-white/95 px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label opacity-90 shadow-[0_4px_16px_rgba(0,0,0,0.18)] ring-1 ring-black/10"
               style={{ left: drag.x + 14, top: drag.y + 10 }}
             >
               {rows.find((x) => x.row.key === drag.key)?.vals.name || '(이름 없음)'}
@@ -2792,7 +2792,7 @@ export default function ScheduleTable({
         )}
       {hoverNote && !menu && !noteEdit && (
         <div
-          className="pointer-events-none fixed z-50 max-w-[300px] whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[13px] leading-relaxed text-label shadow-dialog"
+          className="pointer-events-none fixed z-50 max-w-[300px] whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label shadow-dialog"
           style={{ left: hoverNote.x, top: hoverNote.y }}
         >
           {hoverNote.text}
@@ -2802,14 +2802,14 @@ export default function ScheduleTable({
       {menu && menuView && (
         <div
           ref={menuBoxRef}
-          className={`mac-pop fixed z-50 py-1 text-[14px] ${paletteFor ? 'w-[268px]' : 'w-[240px]'}`}
+          className={`mac-pop fixed z-50 py-1 text-[length:calc(14px*var(--ui-fs,1))] ${paletteFor ? 'w-[268px]' : 'w-[240px]'}`}
           style={{ left: Math.min(menu.x, window.innerWidth - (paletteFor ? 276 : 248)), top: menu.y }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           {menu.kind === 'group' && menuGroup ? (
             paletteFor ? (
               <div className="px-3 py-1.5">
-                <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[13px] font-medium text-label-2 hover:text-label">
+                <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:text-label">
                   ‹ 구분(L2) {paletteFor === 'text' ? '글자 색' : '칸 색'}
                 </button>
                 <ColorPalette
@@ -2944,7 +2944,7 @@ export default function ScheduleTable({
             )
           ) : paletteFor ? (
             <div className="px-3 py-1.5">
-              <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[13px] font-medium text-label-2 hover:text-label">
+              <button onClick={() => setPaletteFor(null)} className="mb-1 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:text-label">
                 ‹ {paletteFor === 'cell' ? '칸 색' : paletteFor === 'text' ? '글자 색' : '행 색 (L3 · 입력 열 전체)'}
               </button>
               <ColorPalette
@@ -2970,7 +2970,7 @@ export default function ScheduleTable({
               const noteKey = menu.kind === 'row' ? 'name' : menu.key
               const item = 'flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05] disabled:opacity-40 disabled:hover:bg-transparent'
               const ic = { size: 14, strokeWidth: 1.9, className: 'shrink-0 text-label-2' }
-              const hint = (t: string) => <span className="ml-auto text-[12px] text-label-3">{t}</span>
+              const hint = (t: string) => <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] text-label-3">{t}</span>
               const close = () => setMenu(null)
               // 고른 범위(우클릭한 칸이 범위 안일 때)
               const rect = menu.kind === 'field' && menuInRange && range ? range : menuRowRange ? { ...menuRowRange, c1: 0, c2: 0 } : null
@@ -3205,7 +3205,7 @@ export default function ScheduleTable({
                                 <TableCellsMerge size={14} strokeWidth={1.9} className="text-label-2" />
                                 병합
                               </span>
-                              <span className="text-[12px] text-label-3">{lost ? '글 이어 붙임' : `${mRows.length}×${mIds.length}`}</span>
+                              <span className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">{lost ? '글 이어 붙임' : `${mRows.length}×${mIds.length}`}</span>
                             </button>
                           )}
                           {hit.length > 0 && (
@@ -3358,7 +3358,7 @@ export default function ScheduleTable({
               setColAdd(null)
             }}
           >
-            <p className="text-[13px] font-semibold text-label">
+            <p className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label">
               {colAdd.rename ? '열 이름 고치기' : `${colAdd.side === 'left' ? '왼쪽' : '오른쪽'}에 새 열${colAdd.count > 1 ? ` ${colAdd.count}개` : ''}`}
             </p>
             <input
@@ -3367,14 +3367,14 @@ export default function ScheduleTable({
               onChange={(e) => setColAdd({ ...colAdd, text: e.target.value })}
               onKeyDown={(e) => e.key === 'Escape' && setColAdd(null)}
               placeholder="열 이름(머리글)"
-              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[14px]"
+              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))]"
             />
-            {!colAdd.rename && <p className="mt-1 text-[12px] leading-snug text-label-3">저장하면 구글시트에도 이 자리에 열이 생깁니다.</p>}
+            {!colAdd.rename && <p className="mt-1 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">저장하면 구글시트에도 이 자리에 열이 생깁니다.</p>}
             <div className="mt-2 flex justify-end gap-1.5">
-              <button type="button" onClick={() => setColAdd(null)} className="rounded-control px-2.5 py-1 text-[13px] text-label-2 hover:bg-black/[0.05]">
+              <button type="button" onClick={() => setColAdd(null)} className="rounded-control px-2.5 py-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]">
                 취소
               </button>
-              <button type="submit" className="rounded-control bg-accent px-2.5 py-1 text-[13px] font-semibold text-white">
+              <button type="submit" className="rounded-control bg-accent px-2.5 py-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-white">
                 {colAdd.rename ? '바꾸기' : '추가'}
               </button>
             </div>
@@ -3386,7 +3386,7 @@ export default function ScheduleTable({
         <div className="fixed inset-0 z-50" onMouseDown={() => setHeadMenu(null)} onContextMenu={(e) => (e.preventDefault(), setHeadMenu(null))}>
           <div className="mac-pop absolute w-[268px] px-3 py-2" style={{ left: headMenu.x, top: headMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
             {cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns || onHideColumns) && (
-              <div className={`-mx-3 border-separator pb-1 text-[14px] ${onHeadColor ? 'mb-1.5 border-b' : ''}`}>
+              <div className={`-mx-3 border-separator pb-1 text-[length:calc(14px*var(--ui-fs,1))] ${onHeadColor ? 'mb-1.5 border-b' : ''}`}>
                 {onHideColumns && (
                   <button
                     onClick={() => {
@@ -3463,7 +3463,7 @@ export default function ScheduleTable({
             )}
             {onHeadColor && (
               <>
-            <p className="mb-1 text-[13px] font-semibold text-label-2">머리글 색</p>
+            <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 색</p>
             <ColorPalette
               current={headColors[headMenu.key] ?? ''}
               sheetColors={sheetColors}
@@ -3486,7 +3486,7 @@ export default function ScheduleTable({
             style={{ left: Math.min(groupEdit.x, window.innerWidth - 308), top: groupEdit.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <p className="text-[13px] font-semibold text-label">
+            <p className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label">
               {groupEdit.mode === 'rename'
                 ? '구분(L2) 이름 고치기'
                 : groupEdit.mode === 'split'
@@ -3502,23 +3502,23 @@ export default function ScheduleTable({
                 if (e.key === 'Enter') commitGroup()
               }}
               placeholder="구분 이름 (태그는 끝에 [태그])"
-              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[14px] text-label"
+              className="mt-1.5 h-8 w-full rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label"
             />
             {groupEdit.mode === 'split' ? (
-              <p className="mt-1 text-[12px] text-label-3">
+              <p className="mt-1 text-[length:calc(12px*var(--ui-fs,1))] text-label-3">
                 이 줄부터 아래 과제 {groupEdit.count ?? 0}건이 새 구분이 됩니다. 저장하면 시트의 구분 칸도 둘로 나뉩니다.
               </p>
             ) : (
-              groupEdit.mode !== 'rename' && <p className="mt-1 text-[12px] text-label-3">과제 한 줄과 함께 만들어집니다. 과제 이름을 넣어야 저장됩니다.</p>
+              groupEdit.mode !== 'rename' && <p className="mt-1 text-[length:calc(12px*var(--ui-fs,1))] text-label-3">과제 한 줄과 함께 만들어집니다. 과제 이름을 넣어야 저장됩니다.</p>
             )}
             <div className="mt-2 flex justify-end gap-1.5">
-              <button onClick={() => setGroupEdit(null)} className="h-7 rounded-control px-2.5 text-[13px] text-label-2 hover:bg-black/[0.05]">
+              <button onClick={() => setGroupEdit(null)} className="h-7 rounded-control px-2.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]">
                 취소
               </button>
               <button
                 onClick={commitGroup}
                 disabled={!groupEdit.text.trim()}
-                className="h-7 rounded-control bg-accent px-3 text-[13px] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
+                className="h-7 rounded-control bg-accent px-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-white hover:bg-accent-hover disabled:opacity-40"
               >
                 {groupEdit.mode === 'rename' ? '바꾸기' : groupEdit.mode === 'split' ? '나누기' : '추가'}
               </button>
@@ -3530,7 +3530,7 @@ export default function ScheduleTable({
       {noteEdit && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setNoteEdit(null)}>
           <div className="mac-pop absolute w-[300px] p-2.5" style={{ left: noteEdit.x, top: noteEdit.y }} onMouseDown={(e) => e.stopPropagation()}>
-            <p className="text-[13px] font-semibold text-label">메모</p>
+            <p className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label">메모</p>
             <textarea
               autoFocus
               value={noteEdit.text}
@@ -3544,10 +3544,10 @@ export default function ScheduleTable({
               }}
               rows={5}
               placeholder="메모를 입력하세요 (⌘/Ctrl+Enter로 넣기)"
-              className="mt-1.5 w-full resize-y rounded-control border border-hairline px-2 py-1.5 text-[14px] text-label"
+              className="mt-1.5 w-full resize-y rounded-control border border-hairline px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
             />
             <div className="mt-2 flex justify-end gap-1.5">
-              <button onClick={() => setNoteEdit(null)} className="h-7 rounded-control px-2.5 text-[13px] text-label-2 hover:bg-black/[0.05]">
+              <button onClick={() => setNoteEdit(null)} className="h-7 rounded-control px-2.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]">
                 취소
               </button>
               <button
@@ -3555,7 +3555,7 @@ export default function ScheduleTable({
                   onNote(noteEdit.row, noteEdit.key, noteEdit.text)
                   setNoteEdit(null)
                 }}
-                className="h-7 rounded-control bg-accent px-3 text-[13px] font-medium text-white hover:bg-accent-hover"
+                className="h-7 rounded-control bg-accent px-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-white hover:bg-accent-hover"
               >
                 메모 넣기
               </button>

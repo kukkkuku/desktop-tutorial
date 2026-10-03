@@ -78,7 +78,7 @@ export default function FormatBar({
         onChange={(e) => setSize(Number(e.target.value))}
         title="글자 크기(pt)"
         aria-label="글자 크기"
-        className="h-7 w-[58px] rounded-[7px] border border-hairline bg-white pl-2 pr-0.5 text-[14px] tabular-nums text-label"
+        className="h-7 w-[58px] rounded-[7px] border border-hairline bg-white pl-2 pr-0.5 text-[length:calc(14px*var(--ui-fs,1))] tabular-nums text-label"
       />
       {/* 굵게 · 기울임 · 취소선 */}
       <span className="flex items-center gap-0.5">
@@ -162,7 +162,7 @@ export default function FormatBar({
       </button>
       {pop && !off && (
         <div className="mac-pop absolute left-0 top-full z-50 mt-1.5 w-[268px] px-3 py-2">
-          <p className="mb-1 text-[13px] font-semibold text-label-2">글자 색</p>
+          <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">글자 색</p>
           <ColorPalette
             current={fmt.c ?? ''}
             sheetColors={sheetColors}

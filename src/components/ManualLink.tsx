@@ -31,14 +31,14 @@ export function ManualPanel({ area, chapter, onClose }: { area?: ManualArea; cha
       >
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-separator px-3">
           <BookOpen size={16} strokeWidth={1.9} className="text-label-2" />
-          <span className="text-[14px] font-semibold text-label">
+          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
             {area === 'tasks' ? '과제 입력 매뉴얼' : area === 'perf' ? '성과관리 매뉴얼' : '사용 매뉴얼'}
           </span>
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="ml-auto flex items-center gap-1 rounded-control px-2 py-1 text-[13px] text-label-2 hover:bg-black/[0.05] hover:text-label"
+            className="ml-auto flex items-center gap-1 rounded-control px-2 py-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05] hover:text-label"
           >
             <ExternalLink size={13} strokeWidth={1.9} />새 창으로
           </a>

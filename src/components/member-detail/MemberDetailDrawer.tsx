@@ -57,8 +57,8 @@ export default function MemberDetailDrawer({ memberId, onClose, onNavigateToNote
       <div className="relative flex h-full w-full flex-col bg-white shadow-dialog sm:w-[400px] sm:rounded-l-[12px] md:w-[420px]">
         <div className="flex items-start justify-between gap-3 border-b border-separator px-5 py-4">
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-semibold text-label">{member.name}</p>
-            <p className="truncate text-[14px] text-label-2">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
+            <p className="truncate text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{member.name}</p>
+            <p className="truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{[member.role, member.level].filter(Boolean).join(' · ')}</p>
           </div>
           <IconButton onClick={onClose} aria-label="닫기" className="shrink-0">
             <X {...ic} />

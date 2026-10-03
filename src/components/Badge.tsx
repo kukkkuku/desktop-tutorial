@@ -20,7 +20,7 @@ interface BadgeProps {
 export default function Badge({ tone = 'neutral', children, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[12px] font-semibold leading-none ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[length:calc(12px*var(--ui-fs,1))] font-semibold leading-none ${TONE_CLASSES[tone]} ${className}`}
     >
       {children}
     </span>

@@ -95,17 +95,17 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
             className="mac-pop z-50 w-60 overflow-hidden py-1"
           >
             <div className="px-3.5 py-1.5">
-              <p className="truncate text-[14px] text-label-2">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
+              <p className="truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
               <button
                 type="button"
                 onClick={() => void handleConnectDifferentAccount()}
                 disabled={switching}
-                className="mt-1 flex w-full items-center gap-1.5 whitespace-nowrap text-[14px] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-1 flex w-full items-center gap-1.5 whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Plus {...icSm} className="shrink-0" />
                 {switching ? '전환하는 중...' : '다른 Google 계정 연결'}
               </button>
-              {switchError && <p className="mt-1 text-[14px] text-danger">{switchError}</p>}
+              {switchError && <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{switchError}</p>}
             </div>
             <div className="mac-menu-sep" />
 

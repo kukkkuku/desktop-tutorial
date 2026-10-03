@@ -69,32 +69,32 @@ export default function SharedSheetPrompt({
   const tabName = tab ?? meta?.tab
   return (
     <div className="text-left">
-      <p className="text-[13px] font-semibold text-label-3">{label}</p>
+      <p className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">{label}</p>
       <div className="mt-1.5 flex items-center gap-2 rounded-control border border-separator bg-subtle px-3 py-2">
         <FileSpreadsheet size={16} strokeWidth={1.8} className="shrink-0 text-success" />
         {meta ? (
-          <span className="min-w-0 flex-1 truncate text-[14px] text-label" title={url}>
+          <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] text-label" title={url}>
             <b className="font-semibold">{meta.title}</b>
             {tabName && <span className="text-label-2"> › {tabName}</span>}
           </span>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-[13.5px] text-label-2" title={url}>
+          <span className="min-w-0 flex-1 truncate text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2" title={url}>
             {url}
           </span>
         )}
         {!meta && id && (
-          <button onClick={() => void check()} disabled={checking} className="shrink-0 text-[13px] font-medium text-accent hover:underline disabled:opacity-50">
+          <button onClick={() => void check()} disabled={checking} className="shrink-0 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-accent hover:underline disabled:opacity-50">
             {checking ? <Spinner className="h-3.5 w-3.5" /> : '시트 이름 확인'}
           </button>
         )}
       </div>
-      {checkError && <p className="mt-1 text-[13px] text-danger">{checkError}</p>}
-      {readOnlyNote && <p className="mt-1 text-[13px] text-label-3">{readOnlyNote}</p>}
-      <p className="mt-2.5 text-[14px] text-label">
+      {checkError && <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-danger">{checkError}</p>}
+      {readOnlyNote && <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{readOnlyNote}</p>}
+      <p className="mt-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
         {meta ? `「${meta.title}${tabName ? ` › ${tabName}` : ''}」 시트로 연결할까요?` : '이 시트로 연결할까요?'}
       </p>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <button onClick={() => setPasting((v) => !v)} className="text-[13.5px] font-medium text-label-2 hover:text-accent">
+        <button onClick={() => setPasting((v) => !v)} className="text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label-2 hover:text-accent">
           {pasting ? '닫기' : '아니요, 공유받은 다른 링크 붙여넣기'}
         </button>
         <Button variant="primary" size="sm" onClick={() => onConnect(url)} disabled={busy}>
@@ -115,7 +115,7 @@ export default function SharedSheetPrompt({
             value={link}
             onChange={(e) => setLink(e.target.value)}
             placeholder="https://docs.google.com/spreadsheets/d/..."
-            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[13.5px] outline-none focus:border-accent"
+            className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none focus:border-accent"
           />
           <Button variant="secondary" size="sm" type="submit" disabled={!link.trim() || busy}>
             이 링크로 연결

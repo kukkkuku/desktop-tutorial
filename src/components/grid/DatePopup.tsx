@@ -76,13 +76,13 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
             key={label as string}
             type="button"
             onClick={() => onPick(toIso(d as Date))}
-            className="rounded-control px-2.5 py-1 text-[14px] font-medium text-label hover:bg-black/[0.05]"
+            className="rounded-control px-2.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label hover:bg-black/[0.05]"
           >
             {label as string}
           </button>
         ))}
         {onClear && (
-          <button type="button" onClick={onClear} className="ml-auto rounded-control px-2.5 py-1 text-[14px] text-label-2 hover:bg-black/[0.05]">
+          <button type="button" onClick={onClear} className="ml-auto rounded-control px-2.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]">
             지우기
           </button>
         )}
@@ -97,7 +97,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
         <button
           type="button"
           onClick={() => setMode((m) => (m === 'days' ? 'months' : m === 'months' ? 'years' : 'days'))}
-          className="flex items-center gap-1 rounded-control px-2 py-1 text-[14px] font-semibold text-label hover:bg-black/[0.05]"
+          className="flex items-center gap-1 rounded-control px-2 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:bg-black/[0.05]"
         >
           {mode === 'days' ? `${view.y}년 ${view.m + 1}월` : mode === 'months' ? `${view.y}년` : `${yearStart}–${yearStart + 11}`}
           <ChevronDown size={12} strokeWidth={2} className="text-label-2" />
@@ -111,7 +111,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
 
       {mode === 'days' ? (
         <>
-          <div className="mt-2 grid grid-cols-7 text-center text-[12px] font-medium text-label-3">
+          <div className="mt-2 grid grid-cols-7 text-center text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">
             {WEEK.map((w) => (
               <span key={w} className="py-1">
                 {w}
@@ -128,7 +128,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
                   key={d.toISOString()}
                   type="button"
                   onClick={() => onPick(toIso(d))}
-                  className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[14px] tabular-nums ${
+                  className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[length:calc(14px*var(--ui-fs,1))] tabular-nums ${
                     isSel
                       ? 'bg-accent font-semibold text-white'
                       : isToday
@@ -157,7 +157,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
                   setView((v) => ({ ...v, m }))
                   setMode('days')
                 }}
-                className={`rounded-control py-2 text-[14px] ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
+                className={`rounded-control py-2 text-[length:calc(14px*var(--ui-fs,1))] ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
               >
                 {m + 1}월
               </button>
@@ -177,7 +177,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
                   setView((v) => ({ ...v, y }))
                   setMode('months')
                 }}
-                className={`rounded-control py-2 text-[14px] tabular-nums ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
+                className={`rounded-control py-2 text-[length:calc(14px*var(--ui-fs,1))] tabular-nums ${isSel ? 'bg-accent font-semibold text-white' : isNow ? 'font-semibold text-accent hover:bg-accent-soft' : 'text-label hover:bg-black/[0.05]'}`}
               >
                 {y}
               </button>
@@ -185,7 +185,7 @@ export default function DatePopup({ value, onPick, onClear, typingHint = false }
           })}
         </div>
       )}
-      {typingHint &&       <p className="mt-2 text-center text-[12px] text-label-3">직접 입력도 됩니다 (예: 2026-05-14) · Esc 취소</p>}
+      {typingHint &&       <p className="mt-2 text-center text-[length:calc(12px*var(--ui-fs,1))] text-label-3">직접 입력도 됩니다 (예: 2026-05-14) · Esc 취소</p>}
     </div>
   )
 }

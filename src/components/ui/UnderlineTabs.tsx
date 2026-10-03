@@ -22,7 +22,7 @@ export default function UnderlineTabs<K extends string>({ items, value, onChange
             aria-selected={on}
             title={it.title}
             onClick={() => onChange(it.key)}
-            className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[14px] transition-colors ${
+            className={`-mb-px flex items-center gap-1.5 border-b-2 pb-2.5 pt-1 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
               on ? 'border-ink font-medium text-label' : 'border-transparent text-label-2 hover:text-label'
             }`}
           >

@@ -80,14 +80,14 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
           ) : activeMembers.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-4 py-16 text-center">
               <Users size={40} strokeWidth={1.5} className="text-label-3" />
-              <p className="text-[14px] font-semibold text-label">아직 등록된 팀원이 없습니다</p>
-              <p className="text-[14px] text-label-2">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">아직 등록된 팀원이 없습니다</p>
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀원을 등록하면 여기서 성과·면담을 한눈에 관리할 수 있어요.</p>
               <Button variant="primary" onClick={onManageTeam} className="mt-1">
                 <Plus {...icSm} /> 팀원 추가하기
               </Button>
             </div>
           ) : (
-            <p className="rounded-card border border-separator px-4 py-10 text-center text-[14px] text-label-2 m-6">
+            <p className="rounded-card border border-separator px-4 py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2 m-6">
               위에서 팀원을 선택하세요.
             </p>
           )}

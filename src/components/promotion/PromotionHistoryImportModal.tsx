@@ -108,8 +108,8 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
     <div>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-[15px] font-semibold text-label">인사평가 이력 엑셀로 가져오기</h3>
-          <p className="mt-1 text-[14px] text-label-2">
+          <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">인사평가 이력 엑셀로 가져오기</h3>
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             승진 시뮬레이션 Excel의 팀원별 연도별 평가등급(업적 상/하, 역량)과 승급심사일, 보조지표를 읽어, 이름이 일치하는 현재 팀원에게 바로 적용합니다.
           </p>
         </div>
@@ -139,8 +139,8 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
             <Spinner className="h-6 w-6 text-accent" />
           ) : (
             <>
-              <span className="text-[14px] font-medium text-label">{dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}</span>
-              <span className="text-[14px] text-label-3">.xlsx</span>
+              <span className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{dragActive ? '여기에 놓아 업로드' : '클릭하거나 파일을 끌어다 놓으세요'}</span>
+              <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">.xlsx</span>
             </>
           )}
           <input
@@ -156,11 +156,11 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
         </label>
       )}
 
-      {error && <p className="mt-3 text-[14px] text-danger">{error}</p>}
+      {error && <p className="mt-3 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{error}</p>}
 
       {matches && (
         <div className="mt-4">
-          <div className="flex items-center justify-between gap-2 text-[14px] text-label-2">
+          <div className="flex items-center justify-between gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             <span>{fileName}</span>
             <button
               onClick={() => {
@@ -179,7 +179,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                 압축해 자리를 덜 차지하게 했다. */}
           <ul className="mt-3 divide-y divide-separator rounded-card border border-separator">
             {matches.map(({ sheet, member, candidates }, index) => (
-              <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[14px] text-label">
+              <li key={`${sheet.sheetName}-${sheet.name}-${index}`} className="flex items-center gap-2 px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
                 <span className="min-w-0 flex-1 truncate font-medium">{sheet.name}</span>
                 <span className="shrink-0">
                   {member ? (
@@ -188,7 +188,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                     <Select
                       value={manualPicks[index] ?? ''}
                       onChange={(e) => setManualPicks((p) => ({ ...p, [index]: e.target.value }))}
-                      className="h-8 rounded-control border border-hairline px-2.5 text-[14px] text-label"
+                      className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
                     >
                       <option value="">동명이인 {candidates.length}명 -- 선택</option>
                       {candidates.map((c) => (
@@ -198,26 +198,26 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
                       ))}
                     </Select>
                   ) : (
-                    <span className="text-[14px] text-label-3">매칭 안 됨</span>
+                    <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">매칭 안 됨</span>
                   )}
                 </span>
-                <span className="w-14 shrink-0 text-right text-[14px] text-label-3">{sheet.years.length}개 연도</span>
+                <span className="w-14 shrink-0 text-right text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{sheet.years.length}개 연도</span>
               </li>
             ))}
           </ul>
 
-          <label className="mt-3 flex items-center gap-2 text-[14px] text-label-2">
+          <label className="mt-3 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             <input type="checkbox" checked={applyHireDate} onChange={(e) => setApplyHireDate(e.target.checked)} />
             입사일 · 승급일 · 보조지표도 함께 적용 (팀원 상세정보에 해당 값이 비어있는 경우만)
           </label>
 
           {matchedCount === 0 ? (
-            <p className="mt-3 text-[14px] text-label-3">매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.</p>
+            <p className="mt-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">매칭되는 팀원이 없어 적용할 수 없습니다. 팀원 이름이 엑셀과 정확히 일치하는지 확인하세요.</p>
           ) : (
             <button
               type="button"
               onClick={applied ? onApplied : handleApply}
-              className={`mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-control text-[14px] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-colors ${
+              className={`mt-4 flex h-8 w-full items-center justify-center gap-1.5 rounded-control text-[length:calc(14px*var(--ui-fs,1))] font-medium text-white shadow-[inset_0_0.5px_0_rgba(255,255,255,0.25),0_0_0_0.5px_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.12)] transition-colors ${
                 applied ? 'bg-success' : 'bg-accent hover:bg-accent-hover'
               }`}
             >
@@ -227,7 +227,7 @@ export function PromotionHistoryImportPanel({ initialFile, onApplied, onDismiss 
           )}
 
           {applied && (
-            <p className="mt-3 rounded-card bg-success/10 px-3 py-2.5 text-[14px] text-success">
+            <p className="mt-3 rounded-card bg-success/10 px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-success">
               {applied.memberCount}명, {applied.yearCount}개 연도 기록을 적용했습니다.
               {applied.skipped > 0 && ` (매칭 안 된 ${applied.skipped}명은 건너뜀)`}
             </p>

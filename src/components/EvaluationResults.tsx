@@ -299,10 +299,10 @@ export default function EvaluationResults() {
       {/* 헤더 */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-[17px] font-semibold text-label">평가결과</h2>
-          <p className="mt-1 text-[14px] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
+          <h2 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">평가결과</h2>
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
           {tasks.some((t) => t.performanceGrade === null) && (
-            <p className="mt-1 text-[14px] font-medium text-warning">
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-warning">
               성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 과제관리 표의 성과등급 칸에서 매겨 주세요.
             </p>
           )}
@@ -368,7 +368,7 @@ export default function EvaluationResults() {
       </div>
 
       {noData ? (
-        <p className="rounded-control bg-black/[0.03] px-4 py-8 text-center text-[14px] text-label-2">
+        <p className="rounded-control bg-black/[0.03] px-4 py-8 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
           활성화된 팀원이 없습니다. 과제관리·팀원관리에서 팀원과 과제를 등록하고 평가를 입력하세요.
         </p>
       ) : (
@@ -377,7 +377,7 @@ export default function EvaluationResults() {
             <div className="rounded-card border border-separator bg-white">
               <button onClick={toggleInsight} className="flex w-full items-center gap-1.5 px-5 py-3 text-left">
                 {insightOpen ? <ChevronDown size={16} className="text-label-3" /> : <ChevronRight size={16} className="text-label-3" />}
-                <span className="text-[14px] font-semibold text-label">인사이트</span>
+                <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">인사이트</span>
                 {!insightOpen && (
                   <span className="min-w-0 truncate text-xs text-label-2">{memberHighlight ? `${memberHighlight.name} — ${memberHighlight.text}` : highlights[0]?.text ?? insights[0]?.title}</span>
                 )}
@@ -387,7 +387,7 @@ export default function EvaluationResults() {
                   <div className="space-y-2">
                     {memberHighlight && (
                       <div className="flex items-baseline gap-2 rounded-control bg-accent-soft px-2.5 py-1.5">
-                        <span className="w-14 shrink-0 text-[12px] font-semibold text-accent">{memberHighlight.name}</span>
+                        <span className="w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-accent">{memberHighlight.name}</span>
                         <p className="min-w-0 flex-1 text-xs leading-relaxed text-label">{memberHighlight.text}</p>
                         <button onClick={() => setHighlightId(null)} title="선택 해제" className="shrink-0 text-label-3 hover:text-label">
                           <X size={13} />
@@ -396,18 +396,18 @@ export default function EvaluationResults() {
                     )}
                     {highlights.map((h) => (
                       <div key={h.label} className="flex items-baseline gap-2">
-                        <span className="w-14 shrink-0 text-[12px] font-semibold text-accent">{h.label}</span>
+                        <span className="w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-accent">{h.label}</span>
                         <p className="min-w-0 text-xs leading-relaxed text-label-2">{h.text}</p>
                       </div>
                     ))}
-                    {!memberHighlight && highlights.length > 0 && <p className="text-[12px] text-label-3">팀원을 누르면 그 팀원의 요약이 여기에 나옵니다.</p>}
+                    {!memberHighlight && highlights.length > 0 && <p className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">팀원을 누르면 그 팀원의 요약이 여기에 나옵니다.</p>}
                   </div>
                   <div className="space-y-2">
                     {insights.map((ins, idx) => {
                       const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
                       return (
                         <div key={idx} className="flex items-baseline gap-2">
-                          <span className={`w-14 shrink-0 text-[12px] font-semibold ${lc}`}>{ins.label}</span>
+                          <span className={`w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${lc}`}>{ins.label}</span>
                           <p className="min-w-0 text-xs leading-relaxed text-label-2">
                             <span className="mr-1 font-semibold text-label">{ins.title}</span>
                             {ins.desc}
@@ -434,12 +434,12 @@ export default function EvaluationResults() {
             {(shownView !== 'tabs' || tab === 'members') && (
               <div className="min-w-0 space-y-4">
           <div>
-            <h3 className="text-[14px] font-semibold text-label">팀원별 성과</h3>
-            <p className="mt-0.5 text-[14px] text-label-2">행을 누르면 그 팀원의 요약과 과제별 기여가 강조됩니다.</p>
+            <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">팀원별 성과</h3>
+            <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">행을 누르면 그 팀원의 요약과 과제별 기여가 강조됩니다.</p>
           </div>
           {/* 팀원 결과 테이블 — 이 화면의 중심. */}
           <div className="overflow-x-auto rounded-card border border-separator bg-white">
-            <table className="w-full min-w-[860px] text-[14px]">
+            <table className="w-full min-w-[860px] text-[length:calc(14px*var(--ui-fs,1))]">
               <thead>
                 <tr className="border-b border-separator bg-[#F7F7F9]">
                   <th className="w-8 px-3 py-2.5">
@@ -508,7 +508,7 @@ export default function EvaluationResults() {
                           </span>
                         </button>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[14px] text-label">{r.member.level || '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">{r.member.level || '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
                           <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-black/[0.08]">
@@ -518,7 +518,7 @@ export default function EvaluationResults() {
                             />
                             <div className="absolute bottom-0 top-0 z-10 w-px bg-label-3" style={{ left: `${(avg / maxScore) * 100}%` }} />
                           </div>
-                          <span className="shrink-0 tabular-nums text-[14px] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
+                          <span className="shrink-0 tabular-nums text-[length:calc(14px*var(--ui-fs,1))] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
                             {r.cumulativeScore.toFixed(1)}
                           </span>
                         </div>
@@ -527,10 +527,10 @@ export default function EvaluationResults() {
                         <PeerLine summary={peerSummaryOf(peerInputs, r.member.id, criteria)} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <span className={`text-[14px] font-bold ${gradeTextColor(r.grade)}`}>{r.grade}</span>
+                        <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${gradeTextColor(r.grade)}`}>{r.grade}</span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-[14px] text-label-3">{prevGrade ?? '-'}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-[14px] font-semibold">
+                      <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{prevGrade ?? '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] font-semibold">
                         {delta === null ? (
                           <span className="text-label-3">-</span>
                         ) : delta > 0 ? (
@@ -580,8 +580,8 @@ export default function EvaluationResults() {
           <div>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h3 className="text-[14px] font-semibold text-label">과제별 성과</h3>
-                <p className="mt-0.5 text-[14px] text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
+                <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">과제별 성과</h3>
+                <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 {results.map(({ member: m }) => {
@@ -603,7 +603,7 @@ export default function EvaluationResults() {
             </div>
 
             {taskScores.length === 0 ? (
-              <p className="rounded-control bg-black/[0.03] px-4 py-6 text-center text-[14px] text-label-2">등록된 과제가 없습니다.</p>
+              <p className="rounded-control bg-black/[0.03] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">등록된 과제가 없습니다.</p>
             ) : (
               <div ref={taskTableRef} className="divide-y divide-separator overflow-hidden rounded-card border border-separator bg-white">
                 {/* 컬럼 헤더 */}
@@ -636,14 +636,14 @@ export default function EvaluationResults() {
                       {/* 1열: 과제 정보 + 성과등급/점수 */}
                       <div style={{ width: `${colWidths[0]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-[14px] font-semibold leading-snug text-label">{task.name}</p>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[12px] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
+                          <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold leading-snug text-label">{task.name}</p>
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
                             {task.importance}
                           </span>
                           {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-label-3">{task.workload}</span>}
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-[14px] font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
+                          <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
                           <span className="text-xs text-label-3">/</span>
                           <span className="tabular-nums text-xs font-semibold text-label-2">{score.toFixed(0)}점</span>
                         </div>
@@ -701,7 +701,7 @@ export default function EvaluationResults() {
                                   title={`${m.name} ${pct}%`}
                                 >
                                   {pct >= 16 && (
-                                    <span className="select-none tabular-nums text-[12px]" style={{ color: fg, fontWeight: isHL && highlightId !== null ? 700 : 400 }}>
+                                    <span className="select-none tabular-nums text-[length:calc(12px*var(--ui-fs,1))]" style={{ color: fg, fontWeight: isHL && highlightId !== null ? 700 : 400 }}>
                                       {pct}%
                                     </span>
                                   )}

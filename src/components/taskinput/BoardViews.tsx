@@ -97,8 +97,8 @@ export function KanbanBoard({
             className={`flex w-[264px] shrink-0 flex-col rounded-[12px] bg-[#F4F4F6] p-2 transition-colors ${overCol === col ? 'bg-accent-soft ring-2 ring-accent/40' : ''}`}
           >
             <header className="flex items-center gap-2 px-1.5 pb-2 pt-1">
-              <span className={`rounded-full px-2 py-0.5 text-[13px] font-semibold ${tone}`}>{col}</span>
-              <span className="text-[13px] tabular-nums text-label-3">{cards.length}</span>
+              <span className={`rounded-full px-2 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-semibold ${tone}`}>{col}</span>
+              <span className="text-[length:calc(13px*var(--ui-fs,1))] tabular-nums text-label-3">{cards.length}</span>
             </header>
             <div className="flex flex-col gap-2">
               {cards.map(({ v, s }) => {
@@ -115,12 +115,12 @@ export function KanbanBoard({
                     className={`rounded-[10px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] ${onStatus ? 'cursor-grab active:cursor-grabbing' : ''} ${dragKey === v.row.key ? 'opacity-40' : ''}`}
                     title={onStatus ? '다른 칸으로 끌면 상태가 바뀝니다(저장해야 시트에 반영)' : undefined}
                   >
-                    <p className="truncate text-[12.5px] text-label-3">
+                    <p className="truncate text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">
                       {v.row.l2}
                       {v.row.l2Tag ? ` [${v.row.l2Tag}]` : ''}
                     </p>
-                    <p className="mt-0.5 text-[14px] font-semibold leading-snug text-label">{v.vals.name}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12.5px]">
+                    <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold leading-snug text-label">{v.vals.name}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[length:calc(12.5px*var(--ui-fs,1))]">
                       {v.vals.category && <span className="rounded-full bg-black/[0.05] px-1.5 py-[1px] text-label-2">{v.vals.category}</span>}
                       {s.plan && (
                         <span className="text-label-3">
@@ -133,20 +133,20 @@ export function KanbanBoard({
                     {people.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1">
                         {people.slice(0, 4).map((p) => (
-                          <span key={p} className="flex items-center gap-1 rounded-full bg-[#F2F4F7] py-[1px] pl-[1px] pr-2 text-[12.5px] text-label-2">
+                          <span key={p} className="flex items-center gap-1 rounded-full bg-[#F2F4F7] py-[1px] pl-[1px] pr-2 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-[9.5px] font-bold text-label shadow-sm">
                               {p.slice(0, 1)}
                             </span>
                             {p}
                           </span>
                         ))}
-                        {people.length > 4 && <span className="text-[12px] text-label-3">+{people.length - 4}</span>}
+                        {people.length > 4 && <span className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">+{people.length - 4}</span>}
                       </div>
                     )}
                   </article>
                 )
               })}
-              {cards.length === 0 && <p className="px-2 py-6 text-center text-[13px] text-label-3">{onStatus ? '여기로 끌어 놓기' : '없음'}</p>}
+              {cards.length === 0 && <p className="px-2 py-6 text-center text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{onStatus ? '여기로 끌어 놓기' : '없음'}</p>}
             </div>
           </section>
         )
@@ -262,15 +262,15 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
             disabled={c.k !== 'all' && c.n === 0 && filter !== c.k}
             className={`rounded-[14px] border bg-white px-4 py-3 text-left transition-shadow enabled:hover:shadow-sm disabled:cursor-default disabled:opacity-60 ${filter === c.k ? 'border-accent ring-2 ring-accent/20' : 'border-[#ECECF0]'}`}
           >
-            <p className="text-[13px] font-medium text-label-2">{c.label}</p>
-            <p className={`mt-0.5 text-[24px] font-bold tabular-nums leading-tight ${c.tone}`}>{c.n}</p>
-            <p className="text-[12.5px] text-label-3">{c.sub}</p>
+            <p className="text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">{c.label}</p>
+            <p className={`mt-0.5 text-[length:calc(24px*var(--ui-fs,1))] font-bold tabular-nums leading-tight ${c.tone}`}>{c.n}</p>
+            <p className="text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{c.sub}</p>
           </button>
         ))}
       </div>
 
       <div ref={boxRef} className="overflow-x-auto rounded-[14px] border border-[#ECECF0] bg-white">
-        <div style={{ width: leftW + W + 24 }} className="relative text-[13.5px]">
+        <div style={{ width: leftW + W + 24 }} className="relative text-[length:calc(13.5px*var(--ui-fs,1))]">
           {/* 과제명 칸 경계: 끌어서 너비 조절(더블클릭 = 기본) */}
           <div
             onMouseDown={startResize}
@@ -299,7 +299,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
           {/* 머리글: 범례 · 달 · 주 */}
           <div className="sticky top-0 z-10 flex border-b border-[#ECECF0] bg-white">
             <div className="flex shrink-0 flex-col justify-end gap-1 px-4 pb-2" style={{ width: leftW }}>
-              <span className="flex items-center gap-3 text-[12.5px] text-label-2">
+              <span className="flex items-center gap-3 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                 <span className="flex items-center gap-1.5">
                   <i className="inline-block h-3 w-6 rounded-full border border-[#3BA9D3]/50 bg-[#3BA9D3]/10" />
                   계획
@@ -321,7 +321,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
               {months.map((m) => (
                 <div
                   key={m.from}
-                  className={`absolute top-2 text-center text-[13.5px] font-semibold ${m.month === nowMonth ? 'text-label' : 'text-label-2'}`}
+                  className={`absolute top-2 text-center text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold ${m.month === nowMonth ? 'text-label' : 'text-label-2'}`}
                   style={{ left: m.from * WEEK, width: m.n * WEEK }}
                 >
                   {m.month}월
@@ -360,11 +360,11 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                   <div className="relative flex items-center" style={{ height: 30 }}>
                     <div className="flex shrink-0 items-center gap-2 truncate px-4" style={{ width: leftW }}>
                       <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: hue }} />
-                      <span className="truncate text-[14px] font-semibold text-label">{g.label}</span>
+                      <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.label}</span>
                     </div>
                     {ranged.length > 0 && isFinite(from) && (
                       <div
-                        className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full bg-[#A9ABB8] px-3 text-[12px] font-semibold text-white"
+                        className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full bg-[#A9ABB8] px-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-white"
                         style={{ left: x0(from), width: span(from, to) }}
                         title={`완료 ${done} / 과제 ${g.items.length}`}
                       >
@@ -389,7 +389,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                       <div key={v.row.key} className="relative flex items-center" style={{ height: ROW_H }}>
                         <div className="flex shrink-0 items-center gap-2 px-4" style={{ width: leftW }}>
                           <span
-                            className={`w-10 shrink-0 whitespace-nowrap text-[12px] font-semibold ${s.done ? 'text-emerald-700' : s.late ? 'text-red-600' : s.started ? 'text-accent' : 'text-label-3'}`}
+                            className={`w-10 shrink-0 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${s.done ? 'text-emerald-700' : s.late ? 'text-red-600' : s.started ? 'text-accent' : 'text-label-3'}`}
                           >
                             {state}
                           </span>
@@ -421,14 +421,14 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                                 title={`계획 끝 ${weekLabel(weekCols[planEnd])} 이후`}
                               />
                             )}
-                            <span className="relative block truncate px-2.5 text-[12.5px] font-semibold leading-[24px]" style={{ color: hue }}>
+                            <span className="relative block truncate px-2.5 text-[length:calc(12.5px*var(--ui-fs,1))] font-semibold leading-[24px]" style={{ color: hue }}>
                               {v.vals.name}
                             </span>
                           </div>
                         )}
                         {has && (
                           <span
-                            className="absolute flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-label-3"
+                            className="absolute flex items-center gap-1.5 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3"
                             style={{ left: x0(a) + span(a, b) + 8, top: (ROW_H - 16) / 2 }}
                           >
                             {s.late && <span className="rounded-full bg-red-50 px-1.5 font-semibold text-red-600">지연</span>}
@@ -442,7 +442,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
               )
             })}
             {groups.every((g) => !g.items.some(pass)) && (
-              <p className="py-10 text-center text-[14px] text-label-3">
+              <p className="py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
                 {filter === 'all' ? '보여 줄 과제가 없습니다.' : `${cards.find((c) => c.k === filter)?.label} 과제가 없습니다. `}
                 {filter !== 'all' && (
                   <button onClick={() => setFilter('all')} className="font-semibold text-accent hover:underline">

@@ -280,7 +280,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           </button>
           <span className="min-w-0 flex-1 whitespace-pre-line break-words py-0.5 leading-snug">{task.name}</span>
           {recentlyAddedIds.has(task.id) && (
-            <span className="mt-0.5 shrink-0 rounded-full bg-success px-1.5 py-0.5 text-[12px] font-semibold leading-none text-white">N</span>
+            <span className="mt-0.5 shrink-0 rounded-full bg-success px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold leading-none text-white">N</span>
           )}
         </div>
       )
@@ -350,9 +350,9 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       const peer = peerRankOf.get(`${task.id}|${mid}`)
       return {
         key: `m:${mid}`,
-        lead: <span className="text-[14px] font-semibold text-[#1F2937]">{memberName.get(mid)}</span>,
+        lead: <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-[#1F2937]">{memberName.get(mid)}</span>,
         rest: (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[14px]">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))]">
             <label className="flex items-center gap-1.5 text-[#4B5563]">
               기여도
               <input
@@ -382,7 +382,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
                       payload: { taskId: task.id, memberId: mid, personalPerformanceGrade: e.target.value as PerformanceGrade },
                     })
                   }}
-                  className={`h-7 w-20 rounded-control border border-hairline px-2 text-[14px] ${pct ? 'bg-white text-label' : 'bg-black/[0.05] text-label-3'}`}
+                  className={`h-7 w-20 rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] ${pct ? 'bg-white text-label' : 'bg-black/[0.05] text-label-3'}`}
                 >
                   <option value="" disabled>
                     미입력
@@ -406,7 +406,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
               </span>
             )}
             {peer !== undefined && (
-              <span className="text-[13px] text-[#9CA3AF]" title="과제별 피어리뷰에서 동료들이 매긴 이 과제 안 순위의 평균(본인 평가 제외)">
+              <span className="text-[length:calc(13px*var(--ui-fs,1))] text-[#9CA3AF]" title="과제별 피어리뷰에서 동료들이 매긴 이 과제 안 순위의 평균(본인 평가 제외)">
                 동료 {peer.toFixed(1)}위
               </span>
             )}
@@ -417,7 +417,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     lines.push({
       key: 'sum',
       lead: (
-        <span className={`text-[14px] font-semibold ${ok ? 'text-success' : 'text-danger'}`}>
+        <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${ok ? 'text-success' : 'text-danger'}`}>
           기여도 합계 {sum.toFixed(0)}%{ok ? '' : ` -- ${sum > 100 ? `${(sum - 100).toFixed(0)}% 줄이세요` : `${(100 - sum).toFixed(0)}% 더 넣으세요`}`}
         </span>
       ),
@@ -425,7 +425,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         <Select
           value=""
           onChange={(e) => setAdded((cur) => ({ ...cur, [task.id]: [...(cur[task.id] ?? []), e.target.value] }))}
-          className="h-7 w-40 rounded-control border border-hairline bg-white px-2 text-[14px] text-label-2"
+          className="h-7 w-40 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
         >
           <option value="" disabled>
             + 참여자 추가
@@ -451,7 +451,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
   function l3Lines(task: Task): DetailLine[] {
     return (task.workItemIds ?? []).map((id) => {
       const it = itemById.get(id)
-      if (!it) return { key: id, lead: <span className="text-[14px] text-[#9CA3AF]">과제리스트에서 지워진 L3</span> }
+      if (!it) return { key: id, lead: <span className="text-[length:calc(14px*var(--ui-fs,1))] text-[#9CA3AF]">과제리스트에서 지워진 L3</span> }
       const status = it.fields.status ?? ''
       const people = it.assigneeIds.map((a) => memberName.get(a)).filter(Boolean) as string[]
       const start = it.fields.startDate ?? ''
@@ -460,7 +460,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       return {
         key: id,
         lead: (
-          <div className="flex min-w-0 items-center gap-5 text-[14px]">
+          <div className="flex min-w-0 items-center gap-5 text-[length:calc(14px*var(--ui-fs,1))]">
             {group && (
               <span className="min-w-0 max-w-[45%] shrink truncate text-[#646971]" title={group}>
                 {group} &gt;
@@ -470,7 +470,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           </div>
         ),
         rest: (
-          <div className="flex items-center gap-5 text-[14px]">
+          <div className="flex items-center gap-5 text-[length:calc(14px*var(--ui-fs,1))]">
             <span className="shrink-0">
               {status ? <span className={`${CHIP_BASE} ${STATUS_TONE[status] ?? MUTED}`}>{status}</span> : <span className="text-[#9CA3AF]">-</span>}
             </span>
@@ -505,7 +505,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           />
         </div>
       </div>
-      <p className="mt-1 text-[14px] text-label-2">
+      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
         과제리스트에서 "평가 대상"을 체크한 L3 · 묶음이 한 줄씩 나옵니다. 성과등급 · 목표 · 성과를 넣고, 줄을 펼쳐(›) 참여자 기여도 · 개인수행등급을 매깁니다.
         과제명 · 과제등급 · 묶기는 과제리스트에서 바꿉니다.
       </p>
@@ -513,7 +513,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
 
       {state.tasks.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
-          <p className="text-[14px] font-medium text-label">아직 평가과제가 없습니다</p>
+          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">아직 평가과제가 없습니다</p>
           <p className="mt-1 text-xs text-label-2">
             과제리스트에서 L3의 "평가 대상"을 체크하면 여기에 바로 생깁니다. 과제리스트와 상관없는 과제는 위 "과제 추가"로 만듭니다.
           </p>
@@ -525,7 +525,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         </div>
       ) : (
         <div className="mt-4">
-          {notice && <p className="mb-2 text-[14px] text-danger">{notice}</p>}
+          {notice && <p className="mb-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{notice}</p>}
           <DataGrid
             columns={columns}
             rows={state.tasks}

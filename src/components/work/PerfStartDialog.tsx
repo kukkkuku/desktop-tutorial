@@ -37,11 +37,11 @@ function Option({ Icon, title, desc, badge, onClick }: { Icon: LucideIcon; title
         <Icon size={17} strokeWidth={1.8} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-[14px] font-semibold text-label">
+        <span className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
           {title}
           {badge && <span className="mac-badge bg-accent-soft text-accent">{badge}</span>}
         </span>
-        <span className="mt-0.5 block text-[13.5px] leading-relaxed text-label-2">{desc}</span>
+        <span className="mt-0.5 block text-[length:calc(13.5px*var(--ui-fs,1))] leading-relaxed text-label-2">{desc}</span>
       </span>
     </button>
   )
@@ -78,8 +78,8 @@ export default function PerfStartDialog({
               </IconButton>
             )}
             <div>
-              <h3 className="text-[17px] font-semibold text-label">{view === 'pick' ? '새 평가를 어떻게 시작할까요?' : '이전 평가에서 이어받기'}</h3>
-              <p className="mt-1 text-[14px] text-label-2">
+              <h3 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{view === 'pick' ? '새 평가를 어떻게 시작할까요?' : '이전 평가에서 이어받기'}</h3>
+              <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 {teamName} · {periodLabel}
                 {view === 'pick' ? ' -- 나중에는 과제관리 「가져오기」에서 할 수 있습니다.' : ' -- 팀과 평가기간을 골라 필요한 것만 복사합니다.'}
               </p>
@@ -109,7 +109,7 @@ export default function PerfStartDialog({
               )}
               <button
                 onClick={onClose}
-                className="mt-2 w-full rounded-control py-2 text-[14px] font-medium text-label-2 hover:bg-black/[0.04] hover:text-label"
+                className="mt-2 w-full rounded-control py-2 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.04] hover:text-label"
               >
                 빈 상태로 시작
               </button>
