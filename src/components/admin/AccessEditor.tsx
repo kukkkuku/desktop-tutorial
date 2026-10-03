@@ -34,7 +34,19 @@ const fullEmail = (x: string) => (x.includes('@') ? x.trim() : /^[a-z0-9.]{3,}$/
 const input =
   'h-8 w-full min-w-0 rounded-control border border-transparent bg-transparent px-2 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none hover:border-hairline focus:border-accent focus:bg-white'
 
-export default function AccessEditor({ data, me, onSaved, readOnly }: { data: AccessData; me: string | null; onSaved: () => void; readOnly?: boolean }) {
+export default function AccessEditor({
+  data,
+  me,
+  onSaved,
+  readOnly,
+  hideLinks,
+}: {
+  data: AccessData
+  me: string | null
+  onSaved: () => void
+  readOnly?: boolean
+  hideLinks?: boolean // 관리 › 권한 탭: 역할 표만(과제 시트는 「과제 시트」 탭에서)
+}) {
   const [users, setUsers] = useState<AccessUser[]>(data.users)
   const [links, setLinks] = useState<AccessLink[]>(data.links)
   const [paste, setPaste] = useState<{ text: string; role: AccessRole } | null>(null)
@@ -154,7 +166,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-            ① 누가 어떤 역할인지 <span className="font-normal text-label-3">「{USERS_TAB}」 탭 · {users.length}명</span>
+            누가 어떤 역할인지 <span className="font-normal text-label-3">「{USERS_TAB}」 탭 · {users.length}명</span>
           </h3>
           <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">역할에 따라 앱 메뉴가 달라집니다 · 칸을 눌러 바로 고칩니다</span>
           <span className={`ml-auto flex gap-1.5 ${readOnly ? 'hidden' : ''}`}>
@@ -270,17 +282,15 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
         {/* 역할별로 되는 것(roles.ts · useSheetManager · AdminApp과 같은 기준) */}
         <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]">
           <dt className="font-semibold text-label">관리자</dt>
-          <dd>팀장이 하는 것 전부 + 이 권한 표(사람 · 역할 · 연결 시트) 고치기</dd>
+          <dd>팀장이 하는 것 전부 + 모든 팀원 보기 · 과제 시트 연결 · 역할 바꾸기(이 표)</dd>
           <dt className="font-semibold text-label">팀장</dt>
-          <dd>
-            과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담) + 관리 메뉴의 팀원 초대 메일 + 추진현황 · 과제관리의 시트 연결 바꾸기(링크 · 새 연도 · 엑셀로
-            시작). 권한 표는 보기만
-          </dd>
+          <dd>과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담) + 관리 › 팀원(내가 추가한 팀원 초대 · 관리)</dd>
           <dt className="font-semibold text-label">팀원</dt>
           <dd>과제 입력만(추진현황 입력 · 저장, 진척률 보기)</dd>
         </dl>
       </section>
 
+      {!hideLinks && (
       <section className="rounded-card border border-separator p-5">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
@@ -348,6 +358,7 @@ export default function AccessEditor({ data, me, onSaved, readOnly }: { data: Ac
           <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-orange-600">「{ALL_TEAMS}」 줄이 없습니다 -- 팀이 안 적힌 사람은 앱 기본 시트(테스트 시트)를 씁니다.</p>
         )}
       </section>
+      )}
 
       <ConfirmDialog
         open={confirm}

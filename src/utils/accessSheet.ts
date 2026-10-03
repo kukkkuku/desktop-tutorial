@@ -1,5 +1,5 @@
 // 권한 관리 시트 -- 서버 없이 팀 전체가 같은 설정을 쓰기 위한 구글시트 한 개.
-//   「사용자」 탭: 이메일 · 이름 · 역할(관리자/팀장/팀원) · 팀 · 메모
+//   「사용자」 탭: 이메일 · 이름 · 역할(관리자/팀장/팀원) · 팀 · 메모 · 추가한 사람 · 받는 메일 · 초대 보냄
 //   「연결 시트」 탭: 팀 · 추진현황 시트 링크 · 메모   ("전체" = 팀 행이 없는 사람 모두)
 //   「변경 기록」 탭: 앱에서 저장할 때마다 시각 · 누가 · 무엇을 한 줄씩
 // 관리자가 앱(관리 › 권한 시트)에서 만들고 고친다(앱에서 고쳐 저장하거나 시트에서 직접). 구글시트 공유로 팀원에게 "보기" 권한을 준다.
@@ -18,6 +18,9 @@ export interface AccessUser {
   role: AccessRole
   team: string
   memo?: string
+  addedBy?: string // 팀원 탭에서 추가한 사람(팀장은 자기가 추가한 사람만 보고 관리)
+  sendTo?: string // 초대 메일 받는 곳(비우면 로그인 Gmail)
+  invitedAt?: string // 마지막으로 초대 메일 보낸 날(YYYY-MM-DD HH:mm)
 }
 export interface AccessLink {
   team: string
@@ -123,7 +126,7 @@ export async function refreshAccess(id = getAccessSheetId()): Promise<AccessData
   }
 }
 async function readSheet(id: string): Promise<AccessData & { userRows: number; linkRows: number }> {
-  const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:E`, `'${LINKS_TAB}'!A2:C`])
+  const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:H`, `'${LINKS_TAB}'!A2:C`])
   const [u = [], l = []] = values
   const users = u
     .map((r) => ({
@@ -132,6 +135,9 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
       role: ROLE_WORDS[(r[2] ?? '').trim()] ?? 'member',
       team: (r[3] ?? '').trim(),
       memo: (r[4] ?? '').trim(),
+      addedBy: norm(r[5]),
+      sendTo: (r[6] ?? '').trim(),
+      invitedAt: (r[7] ?? '').trim(),
     }))
     .filter((x) => x.email.includes('@'))
   const links = l.map((r) => ({ team: (r[0] ?? '').trim(), url: (r[1] ?? '').trim(), note: (r[2] ?? '').trim() })).filter((x) => x.team && parseSheetUrl(x.url))
@@ -139,7 +145,8 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
 }
 
 // ---- 앱에서 고쳐 저장
-const userSig = (x: AccessUser[]) => JSON.stringify(x.map((u) => [norm(u.email), u.name.trim(), u.role, u.team.trim(), (u.memo ?? '').trim()]))
+const userRow = (u: AccessUser) => [norm(u.email), u.name.trim(), ROLE_WORD[u.role], u.team.trim(), (u.memo ?? '').trim(), norm(u.addedBy), (u.sendTo ?? '').trim(), (u.invitedAt ?? '').trim()]
+const userSig = (x: AccessUser[]) => JSON.stringify(x.map(userRow))
 const linkSig = (x: AccessLink[]) => JSON.stringify(x.map((l) => [l.team.trim(), l.url.trim(), l.note.trim()]))
 export const sameAccess = (a: { users: AccessUser[]; links: AccessLink[] }, b: { users: AccessUser[]; links: AccessLink[] }) =>
   userSig(a.users) === userSig(b.users) && linkSig(a.links) === linkSig(b.links)
@@ -180,12 +187,26 @@ export async function saveAccess(base: AccessData, users: AccessUser[], links: A
     writeCache(fresh)
     throw new AccessConflictError('그사이 구글시트에서 권한이 바뀌었습니다. 시트 내용을 다시 읽었으니 확인한 뒤 다시 고쳐 저장해 주세요.')
   }
-  const changes = describeChanges(base, users, links)
+  return writeAccess(fresh, users, links, by, describeChanges(base, users, links))
+}
+// 팀원 탭처럼 몇 사람만 바꿀 때: 시트를 새로 읽어 그 위에 바꿔 쓴다(다른 사람이 그사이 고친 줄은 그대로)
+export async function updateUsers(id: string, change: (users: AccessUser[]) => AccessUser[], by: string, what: string[]): Promise<AccessData> {
+  const fresh = await readSheet(id)
+  return writeAccess(fresh, change(fresh.users), fresh.links, by, what)
+}
+async function writeAccess(
+  fresh: AccessData & { userRows: number; linkRows: number },
+  users: AccessUser[],
+  links: AccessLink[],
+  by: string,
+  changes: string[],
+): Promise<AccessData> {
+  const base = fresh
   const pad = (rows: string[][], n: number, w: number) => [...rows, ...Array.from({ length: Math.max(0, n - rows.length) }, () => Array(w).fill(''))]
   const uRows = pad(
-    users.map((u) => [norm(u.email), u.name.trim(), ROLE_WORD[u.role], u.team.trim(), (u.memo ?? '').trim()]),
+    users.map(userRow),
     fresh.userRows,
-    5,
+    8,
   )
   const lRows = pad(
     links.map((l) => [l.team.trim(), l.url.trim(), l.note.trim()]),
@@ -193,7 +214,8 @@ export async function saveAccess(base: AccessData, users: AccessUser[], links: A
     3,
   )
   await writeValues(base.id, [
-    ...(uRows.length ? [{ range: `'${USERS_TAB}'!A2:E${uRows.length + 1}`, values: uRows }] : []),
+    { range: `'${USERS_TAB}'!F1:H1`, values: [['추가한 사람', '받는 메일', '초대 보냄']] },
+    ...(uRows.length ? [{ range: `'${USERS_TAB}'!A2:H${uRows.length + 1}`, values: uRows }] : []),
     ...(lRows.length ? [{ range: `'${LINKS_TAB}'!A2:C${lRows.length + 1}`, values: lRows }] : []),
   ])
   try {
@@ -203,6 +225,14 @@ export async function saveAccess(base: AccessData, users: AccessUser[], links: A
     // 기록 탭을 못 써도 권한은 저장됐다
   }
   return (await refreshAccess(base.id))!
+}
+// 과제 시트는 연구소에 하나: 「연결 시트」를 「전체」 한 줄로 바꿔 쓴다(예전 팀별 줄은 지움)
+export async function setTaskSheet(id: string, url: string, title: string, by: string): Promise<AccessData> {
+  const fresh = await readSheet(id)
+  return writeAccess(fresh, fresh.users, [{ team: ALL_TEAMS, url, note: title }], by, [`과제 시트 바꿈: ${title}`])
+}
+export function taskSheetOf(d: AccessData | null): AccessLink | null {
+  return d?.links.find((x) => x.team === ALL_TEAMS) ?? d?.links[0] ?? null
 }
 export function forgetAccess() {
   setAccessSheetId(null)
@@ -229,7 +259,7 @@ export function sharedSheetFor(email: string | null | undefined): { url: string;
 // 관리자가 처음 한 번: 머리글과 지금 아는 값으로 시트를 만든다(만든 사람 드라이브에).
 export async function createAccessSheet(opts: { adminEmail: string; leaders: string[]; sheetLink: string }): Promise<string> {
   const users: string[][] = [
-    ['이메일', '이름', '역할', '팀', '메모'],
+    ['이메일', '이름', '역할', '팀', '메모', '추가한 사람', '받는 메일', '초대 보냄'],
     [opts.adminEmail, '', '관리자', '', '처음 만든 사람'],
     ...opts.leaders.filter((e) => norm(e) !== norm(opts.adminEmail)).map((e) => [e, '', '팀장', '', '']),
   ]
