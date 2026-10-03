@@ -966,7 +966,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
 
   // 로그인할 때마다 시트의 최신 내용(다른 팀원이 저장한 것)을 받는다. 이 탭에서 한 번 받았으면 표시해 둔다.
-  // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신 내용 받기" 한 번 누르게 한다.
+  // 로그인 토큰이 있으면 바로 받고, 없으면(새로고침 · 로그인 유지로 들어옴) "최신으로 업데이트" 한 번 누르게 한다.
   const [stale, setStale] = useState(false)
   // 불러오는 동안 탭 위에 보일 대상(시트 연결을 바꿨을 때 등) -- 멈춘 것처럼 보이지 않게
   const [loadingNote, setLoadingNote] = useState('')
@@ -2009,7 +2009,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             </a>
             <span className="shrink-0 text-label-3">·</span>
             <span className="shrink-0">{fmt(data.fetchedAt)} 불러옴</span>
-            <span className="shrink-0 text-label-3">·</span>
+            {state !== 'stale' && <span className="shrink-0 text-label-3">·</span>}
             {state === 'loading' ? (
               <span className="flex shrink-0 items-center gap-1.5 text-accent">
                 <Spinner className="h-3.5 w-3.5" />
@@ -2023,9 +2023,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               </span>
             ) : state === 'remote' ? (
               <b className="shrink-0 font-semibold text-accent">다른 팀원이 새로 저장했습니다</b>
-            ) : state === 'stale' ? (
-              <b className="shrink-0 font-semibold text-accent">그 뒤 저장된 내용은 아직 안 받음</b>
-            ) : state === 'locked' ? (
+            ) : state === 'stale' ? null : state === 'locked' ? (
               <span className="shrink-0 font-medium text-label">🔒 읽기 전용 · 고쳐도 저장되지 않습니다</span>
             ) : (
               <span className="flex shrink-0 items-center gap-1" title="열어 둔 동안 5분마다, 다시 열면 바로 시트와 견줘 봅니다">
@@ -2070,7 +2068,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 <>
                   <Button variant="primary" size="sm" onClick={() => void (state === 'remote' ? acceptRemote() : loadFromSheet())}>
                     <RefreshCw {...icSm} />
-                    최신 내용 받기
+                    최신으로 업데이트
                   </Button>
                   <button
                     onClick={() => (state === 'remote' ? setRemote(null) : setStale(false))}
