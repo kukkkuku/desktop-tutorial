@@ -92,7 +92,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
           <div
             ref={menuRef}
             style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
-            className="mac-pop z-50 w-[360px] overflow-hidden py-1"
+            className="mac-pop z-50 w-72 overflow-hidden py-1"
           >
             <div className="px-3.5 py-1.5">
               <p className="truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>

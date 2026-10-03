@@ -29,7 +29,7 @@ import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
 import { IS_PREVIEW } from '../../utils/previewMode'
-import { FONT_PREF_LABEL, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
+import { FONT_PREF_LABEL, currentScale, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
 import { getConnectedEmail } from '../../utils/googleDrive'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
@@ -93,32 +93,62 @@ function useShellNav() {
   return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel }
 }
 
-// 계정 메뉴의 글자 크기: 자동(창 너비) · 아주 작게 · 작게 · 보통 · 크게 · 아주 크게
+// 계정 메뉴의 글자 크기: 자동(창 너비) 스위치 + 5단계 슬라이더(아주 작게 · 작게 · 보통 · 크게 · 아주 크게). 슬라이더를 움직이면 자동은 꺼진다
+const FONT_STEPS = ['xsmall', 'small', 'normal', 'large', 'xlarge'] as const
 function FontSizeItem() {
   const [pref, setPref] = useState<FontPref>(readFontPref)
   useEffect(() => onFontPrefChange(() => setPref(readFontPref())), [])
+  const auto = pref === 'auto'
+  const idx = auto ? 2 : FONT_STEPS.indexOf(pref)
+  const pct = Math.round(currentScale(pref) * 100)
   return (
-    <div className="px-3.5 pb-1.5 pt-1">
-      <p className="mb-1.5 flex items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-        <ALargeSmall size={15} strokeWidth={1.8} />
+    <div className="px-3.5 pb-2 pt-1.5" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
+        <ALargeSmall size={15} strokeWidth={1.8} className="text-label-2" />
         글자 크기
-      </p>
-      <div className="mac-seg flex" role="radiogroup" aria-label="글자 크기">
-        {(['auto', 'xsmall', 'small', 'normal', 'large', 'xlarge'] as const).map((k) => (
+        <span className="ml-1 tabular-nums text-label-3">{auto ? `자동 ${pct}%` : `${FONT_PREF_LABEL[pref]} ${pct}%`}</span>
+        <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2" title="창 너비에 맞춰 자동(큰 모니터일수록 크게)">
+          자동
           <button
-            key={k}
-            role="radio"
-            aria-checked={pref === k}
-            onClick={(e) => {
-              e.stopPropagation()
-              setFontPref(k)
-            }}
-            title={k === 'auto' ? '창 너비에 맞춰 자동(큰 모니터일수록 크게)' : undefined}
-            className={`mac-seg-item flex-1 whitespace-nowrap !px-1 text-[13px] ${pref === k ? 'mac-seg-item-on' : ''}`}
+            role="switch"
+            aria-checked={auto}
+            onClick={() => setFontPref(auto ? 'normal' : 'auto')}
+            className={`relative h-[18px] w-8 rounded-full transition-colors ${auto ? 'bg-accent' : 'bg-black/[0.15]'}`}
           >
-            {FONT_PREF_LABEL[k]}
+            <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-[left] ${auto ? 'left-[16px]' : 'left-[2px]'}`} />
           </button>
-        ))}
+        </label>
+      </div>
+      <div className={`mt-2.5 flex items-center gap-2.5 ${auto ? 'opacity-45' : ''}`}>
+        <span className="text-[12px] font-semibold text-label-2">가</span>
+        {/* 그림은 직접 그리고(트랙 · 채움 · 눈금 · 손잡이), 조작은 투명한 range 입력이 받는다(끌기 · 클릭 · 키보드) */}
+        <div className="relative h-6 flex-1">
+          <div className="absolute inset-x-2 top-1/2 h-1 -translate-y-1/2 rounded-full bg-black/[0.1]" />
+          <div className="absolute left-2 top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent" style={{ width: `calc((100% - 16px) * ${idx / 4})` }} />
+          {FONT_STEPS.map((k, i) => (
+            <span
+              key={k}
+              className={`absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full ${i <= idx ? 'bg-accent' : 'bg-[#D4D6DB]'}`}
+              style={{ left: `calc(8px + (100% - 16px) * ${i / 4})` }}
+            />
+          ))}
+          <span
+            className="absolute top-1/2 h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] transition-[left]"
+            style={{ left: `calc(8px + (100% - 16px) * ${idx / 4})` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={4}
+            step={1}
+            value={idx}
+            onChange={(e) => setFontPref(FONT_STEPS[Number(e.target.value)])}
+            aria-label="글자 크기"
+            aria-valuetext={FONT_PREF_LABEL[FONT_STEPS[idx]]}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
+        </div>
+        <span className="text-[18px] font-semibold text-label-2">가</span>
       </div>
     </div>
   )

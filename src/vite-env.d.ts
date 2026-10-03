@@ -11,3 +11,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// 빌드할 때 vite.config.ts가 넣는 버전(빌드 시각). 배포된 version.json의 id와 견줘 새 버전을 알아챈다.
+declare const __APP_BUILD__: string

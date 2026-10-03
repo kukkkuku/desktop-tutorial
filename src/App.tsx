@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import UpdateToast from './components/UpdateToast'
 import { getAccessSheetId, refreshAccess } from './utils/accessSheet'
 import { LOGIN_EVENT } from './utils/googleDrive'
 import { hasLoginSheetsToken } from './utils/sheetSources'
@@ -215,6 +216,7 @@ export default function App() {
   useAccessSync()
   return (
     <WorkspaceProvider>
+      <UpdateToast />
       <GoogleSignInGate>
         <AppModeProvider>
           <ModeGate />
