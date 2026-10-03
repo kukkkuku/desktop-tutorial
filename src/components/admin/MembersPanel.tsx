@@ -197,9 +197,9 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       return {}
     }
   })
-  const DEF_W: Record<ColKey, number> = { name: 120, email: 220, sendTo: 220, team: 130, role: 100, addedBy: 200, invited: 120 }
+  const DEF_W: Record<ColKey, number> = { name: 120, email: 220, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
-  const colW = (k: ColKey) => widths[k] ?? (compose ? ({ name: 110, email: 210, sendTo: 220 } as Partial<Record<ColKey, number>>)[k] ?? DEF_W[k] : DEF_W[k])
+  const colW = (k: ColKey) => widths[k] ?? (compose ? ({ name: 110, email: 210, sendTo: 260 } as Partial<Record<ColKey, number>>)[k] ?? DEF_W[k] : DEF_W[k])
   function resizeStart(e: React.MouseEvent, k: ColKey) {
     e.preventDefault()
     const x0 = e.clientX
@@ -664,20 +664,55 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   )
 }
 
-// 받는 메일 칸: 칸을 떠날 때(Enter) 저장. 비우면 로그인 Gmail로 보낸다.
+// 받는 메일 칸: 아이디 + 도메인 고르기(@osstem.com · @gmail.com). 칸을 떠나거나 도메인을 고르면 저장. 비우면 로그인 Gmail로 보낸다.
+const MAIL_DOMAINS = ['@osstem.com', '@gmail.com']
 function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolean; onSave: (v: string) => void }) {
-  const [v, setV] = useState(u.sendTo ?? '')
-  const bad = !!v.trim() && !isEmail(v)
+  const cur = (u.sendTo ?? '').trim()
+  const at = cur.lastIndexOf('@')
+  const [id, setId] = useState(at > 0 ? cur.slice(0, at) : cur)
+  const [domain, setDomain] = useState(at > 0 ? cur.slice(at) : MAIL_DOMAINS[0])
+  // 예전에 적은 다른 도메인도 그대로 고를 수 있게
+  const domains = MAIL_DOMAINS.includes(domain) ? MAIL_DOMAINS : [...MAIL_DOMAINS, domain]
+  const full = (i: string, d: string) => (i.trim() ? `${i.trim().replace(/@.*$/, '')}${d}` : '')
+  const save = (i: string, d: string) => {
+    const v = full(i, d)
+    if (v !== cur && (!v || isEmail(v))) onSave(v)
+  }
   return (
-    <input
-      value={v}
-      disabled={disabled}
-      onChange={(e) => setV(e.target.value)}
-      onBlur={() => !bad && onSave(v)}
-      onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-      placeholder="같으면 비워 둠"
-      className={`h-8 w-full min-w-0 rounded-control border px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none focus:border-accent disabled:bg-transparent disabled:text-label-2 ${bad ? 'border-danger/60' : 'border-hairline'}`}
-    />
+    <div className={`flex h-8 w-full min-w-0 items-center overflow-hidden rounded-control border bg-white focus-within:border-accent ${disabled ? 'border-transparent bg-transparent' : 'border-hairline'}`}>
+      <input
+        value={id}
+        disabled={disabled}
+        onChange={(e) => {
+          // 전체 주소를 붙여넣으면 아이디와 도메인으로 나눈다
+          const v = e.target.value
+          const k = v.lastIndexOf('@')
+          if (k > 0 && v.slice(k).includes('.')) {
+            setId(v.slice(0, k))
+            setDomain(v.slice(k))
+          } else setId(v)
+        }}
+        onBlur={() => save(id, domain)}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        placeholder="아이디"
+        className="h-full min-w-0 flex-1 bg-transparent px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none disabled:text-label-2"
+      />
+      <select
+        value={domain}
+        disabled={disabled}
+        onChange={(e) => {
+          setDomain(e.target.value)
+          if (id.trim()) save(id, e.target.value)
+        }}
+        className="h-full shrink-0 border-l border-hairline bg-subtle px-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 outline-none"
+      >
+        {domains.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }
 
