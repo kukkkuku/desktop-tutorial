@@ -65,6 +65,7 @@ import {
   type XlsxBook,
   sheetUrl,
   writeSheetCells,
+  appendRows,
   createSheetTab,
   parseFmt,
   fmtString,
@@ -73,6 +74,9 @@ import {
 import {
   NO_L1,
   buildSheetWrites,
+  describeChanges,
+  CHANGE_LOG_TAB,
+  CHANGE_LOG_HEADER,
   isProtectedSheet,
   readHiddenTabs,
   writeHiddenTabs,
@@ -1513,6 +1517,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (fresh.tabTitle !== data.tabTitle) throw new Error(`시트의 추진현황 탭이 「${fresh.tabTitle}」로 바뀌었습니다. 다시 불러온 뒤 입력해 주세요.`)
       const { kept, conflicts, ...plan } = buildSheetWrites(data, fresh, drafts)
       await writeSheetCells(data.spreadsheetId, data.sheetGid, plan)
+      // 변경 기록(숨김 탭): 못 남겨도 저장은 된 것
+      let logNote = ''
+      try {
+        const at = new Date().toLocaleString('sv-SE', { hour12: false }).slice(0, 16)
+        const by = getConnectedEmail() ?? ''
+        const log = describeChanges(data, drafts, kept).map((c) => [at, by, data.tabTitle, c.task, c.what, c.before, c.after])
+        if (log.length) await appendRows(data.spreadsheetId, CHANGE_LOG_TAB, CHANGE_LOG_HEADER, log, { hidden: true })
+      } catch {
+        logNote = ' (변경 기록은 남기지 못했습니다)'
+      }
       // 저장한 뒤 시트를 다시 읽어 화면을 시트와 맞춘다.
       accept(await readFromSheet(data.spreadsheetId, data.year ?? now.getFullYear(), data.tabTitle))
       updateDrafts(kept)
@@ -1522,7 +1536,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         `구글시트에 저장했습니다 · 고친 칸 ${plan.writes.length}${plan.inserts.length ? ` · 새 과제 ${plan.inserts.length}건` : ''}${plan.deletes.length ? ` · 지운 과제 ${plan.deletes.length}건` : ''}${plan.moves.length ? ` · 옮긴 줄 ${plan.moves.length}` : ''}${plan.colInserts.length ? ` · 새 열 ${plan.colInserts.length}` : ''}${plan.colDeletes.length ? ` · 지운 열 ${plan.colDeletes.length}` : ''}.` +
           (conflicts
             ? ` ${conflicts}건은 불러온 뒤 시트에서 먼저 바뀌었거나(또는 이름이 비어) 저장하지 않았습니다(주황 점으로 남겨 둠 · 확인 후 다시 저장).`
-            : ''),
+            : '') +
+          logNote,
       )
     } catch (e) {
       setError(e instanceof Error ? e.message : '시트에 저장하지 못했습니다.')

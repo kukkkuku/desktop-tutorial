@@ -619,10 +619,13 @@ export async function writeValues(spreadsheetId: string, data: { range: string; 
   )
 }
 // 탭 맨 아래에 줄 더하기(변경 기록 등). 탭이 없으면 머리글과 함께 만든다.
-export async function appendRows(spreadsheetId: string, tab: string, header: string[], rows: string[][]): Promise<void> {
+// hidden: 새로 만들 때 숨김 탭으로(시트를 쓰는 사람 눈에 띄지 않게 -- 운영 시트의 변경 기록 등)
+export async function appendRows(spreadsheetId: string, tab: string, header: string[], rows: string[][], opts: { hidden?: boolean } = {}): Promise<void> {
   const { tabs } = await fetchSpreadsheetTabs(spreadsheetId)
   if (!tabs.some((t) => t.title === tab)) {
-    await sheetBatchUpdate(spreadsheetId, [{ addSheet: { properties: { title: tab, gridProperties: { frozenRowCount: 1 } } } }])
+    await sheetBatchUpdate(spreadsheetId, [
+      { addSheet: { properties: { title: tab, hidden: opts.hidden === true, gridProperties: { frozenRowCount: 1 } } } },
+    ])
     await writeValues(spreadsheetId, [{ range: `${quoteTab(tab)}!A1`, values: [header] }])
   }
   await sheetsFetch(

@@ -1389,3 +1389,79 @@ export function writeHiddenTabs(spreadsheetId: string, titles: string[]) {
     // 기억 못 해도 지금 화면에는 반영
   }
 }
+
+// ---------- 변경 기록 ----------
+// 저장할 때 시트의 숨김 탭 「변경 기록」에 한 줄씩: 무엇을(과제 · 칸) 무엇에서 무엇으로 바꿨나.
+// 시트에 실제로 쓴 것만(그사이 시트에서 먼저 바뀌어 남긴 것 = kept는 빼고) 적는다.
+export const CHANGE_LOG_TAB = '변경 기록'
+export const CHANGE_LOG_HEADER = ['시각', '누가', '연도 탭', '과제', '바꾼 칸', '이전 값', '새 값']
+export type ChangeLogEntry = { task: string; what: string; before: string; after: string }
+
+const FILL_WORD: Record<WeekFill, string> = { plan: '계획', actual: '실적' }
+const cellWord = (c: CellState | undefined) => (c ? [c.m, c.f ? FILL_WORD[c.f] : ''].filter(Boolean).join(' ') : '') || '(빈칸)'
+const orBlank = (v: string | undefined) => (v ?? '').trim() || '(빈칸)'
+
+export function describeChanges(base: ProgressData, drafts: Drafts, kept: Drafts): ChangeLogEntry[] {
+  const out: ChangeLogEntry[] = []
+  const rowOf = new Map(base.rows.map((r) => [r.key, r]))
+  const label = new Map(base.fields.map((f) => [f.id, f.label]))
+  for (const c of drafts.newCols ?? []) label.set(c.id, c.label)
+  const weekLabel = (k: string) => {
+    const w = base.weekCols.find((x) => x.key === k)
+    return w ? `${w.month}월 ${w.week}주` : k
+  }
+  const colLabel = (id: string) => (id === LEVEL_KEY_L2 ? 'L2' : (label.get(id) ?? id))
+  const taskOf = (r: { l2: string; l3: string }) => `${r.l2} › ${r.l3 || '(이름 없음)'}`
+  const deleted = new Set(drafts.deleted ?? [])
+  const keptDel = new Set(kept.deleted ?? [])
+
+  for (const [key, e] of Object.entries(drafts.edits)) {
+    const r = rowOf.get(key)
+    if (!r || deleted.has(key)) continue
+    const k = kept.edits[key] ?? {}
+    const task = taskOf(r)
+    for (const [wk, cell] of Object.entries(e.cells ?? {}))
+      if (!k.cells?.[wk]) out.push({ task, what: weekLabel(wk), before: cellWord(baseCell(r, wk)), after: cellWord(cell) })
+    for (const [id, v] of Object.entries(e.fields ?? {}))
+      if (k.fields?.[id] === undefined) out.push({ task, what: colLabel(id), before: orBlank(baseField(r, id)), after: orBlank(v) })
+    for (const [id, v] of Object.entries(e.bg ?? {}))
+      if (k.bg?.[id] === undefined) out.push({ task, what: `배경색 · ${colLabel(id)}`, before: orBlank(r.bg[id]), after: orBlank(v) })
+    for (const [id, v] of Object.entries(e.notes ?? {}))
+      if (k.notes?.[id] === undefined)
+        out.push({ task, what: `메모 · ${label.has(id) ? colLabel(id) : weekLabel(id)}`, before: orBlank(r.notes[id]), after: orBlank(v) })
+    for (const [id, v] of Object.entries(e.fmt ?? {}))
+      if (k.fmt?.[id] === undefined) out.push({ task, what: `글자 서식 · ${colLabel(id)}`, before: orBlank(r.fmt?.[id]), after: orBlank(v) })
+  }
+  const keptNew = new Set(kept.newRows.map((n) => n.id))
+  for (const n of drafts.newRows) {
+    if (keptNew.has(n.id)) continue
+    const filled = Object.entries(n.fields)
+      .filter(([id, v]) => id !== COL_NAME && v.trim())
+      .map(([id, v]) => `${colLabel(id)}: ${v.trim()}`)
+    out.push({ task: taskOf({ l2: n.l2, l3: n.fields[COL_NAME] ?? '' }), what: '새 과제', before: '', after: filled.join(' / ') || '(추가)' })
+  }
+  for (const key of deleted) {
+    const r = rowOf.get(key)
+    if (!r || keptDel.has(key)) continue
+    const vals = Object.entries(r.values)
+      .filter(([, v]) => v.trim())
+      .map(([id, v]) => `${colLabel(id)}: ${v.trim()}`)
+    const weeks = Object.keys(r.weeks).map(weekLabel)
+    out.push({ task: taskOf(r), what: '과제 삭제', before: [...vals, weeks.length ? `일정: ${weeks.join(', ')}` : ''].filter(Boolean).join(' / ') || '(내용 없음)', after: '' })
+  }
+  const keptMoves = new Set((kept.moves ?? []).map((m) => m.key))
+  for (const m of drafts.moves ?? []) {
+    const r = rowOf.get(m.key)
+    if (r && !keptMoves.has(m.key)) out.push({ task: taskOf(r), what: '줄 옮김', before: '', after: '같은 구분 안에서 순서 바꿈' })
+  }
+  for (const c of drafts.newCols ?? []) out.push({ task: '(열)', what: '새 열', before: '', after: c.label })
+  for (const id of drafts.delCols ?? []) out.push({ task: '(열)', what: '열 삭제', before: colLabel(id), after: '' })
+  for (const [k, v] of Object.entries(drafts.l2Renames ?? {}))
+    if (kept.l2Renames?.[k] === undefined) out.push({ task: `${k.split('␟')[1]}`, what: '구분(L2) 이름', before: k.split('␟')[1], after: v })
+  for (const sp of drafts.l2Splits ?? [])
+    if (!kept.l2Splits?.some((x) => x.key === sp.key)) {
+      const r = rowOf.get(sp.key)
+      out.push({ task: r ? taskOf(r) : sp.key, what: '구분 나누기', before: r?.l2 ?? '', after: sp.label })
+    }
+  return out
+}
