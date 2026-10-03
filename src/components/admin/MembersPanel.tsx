@@ -445,6 +445,42 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일과 시트 공유로 마무리합니다.
       </p>
 
+      {/* 팀 이름은 평가 목록이 기준: 다르면 맞출지 묻는다(내 줄 + 내가 추가한 사람 중 예전 팀 이름인 사람) */}
+      {(() => {
+        const mine = data.users.find((u) => u.email === me)
+        if (!mine || !mine.team || !evalTeam || mine.team === evalTeam || mine.role === 'member') return null
+        const old = mine.team
+        const also = data.users.filter((u) => u.email !== me && u.addedBy === me && u.team === old).length
+        return (
+          <div className="flex flex-wrap items-center gap-3 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+            <span>
+              평가 목록의 팀 이름이 <b>「{evalTeam}」</b>입니다. 관리에는 <b>「{old}」</b>로 적혀 있습니다.
+              {also > 0 && <span className="text-label-2"> 내가 추가한 팀원 {also}명도 함께 바꿉니다.</span>}
+            </span>
+            <Button
+              variant="primary"
+              size="sm"
+              className="ml-auto"
+              disabled={busy}
+              onClick={() =>
+                void run(
+                  () =>
+                    updateUsers(
+                      data.id,
+                      (users) => users.map((x) => (x.email === me || (x.addedBy === me && x.team === old) ? { ...x, team: evalTeam } : x)),
+                      me,
+                      [`팀 이름 맞춤: ${old} → ${evalTeam}(평가 목록)`],
+                    ),
+                  `팀 이름을 「${evalTeam}」로 맞췄습니다.`,
+                )
+              }
+            >
+              평가 목록 이름으로 맞추기
+            </Button>
+          </div>
+        )
+      })()}
+
       {/* 도구 줄 */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>

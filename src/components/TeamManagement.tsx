@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
@@ -20,6 +20,8 @@ import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/Data
 import IconButton from './IconButton'
 import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
+import { ACCESS_EVENT, readAccessCache } from '../utils/accessSheet'
+import { getConnectedEmail } from '../utils/googleDrive'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
 // yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
@@ -55,6 +57,40 @@ export default function TeamManagement() {
   const [notice, setNotice] = useState('')
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
+  // ---- 관리 › 팀원 · 권한 명단과 잇기(Gmail로): 내가 추가했거나 우리 팀(평가 목록 팀 이름)인 팀원 중 여기 없는 사람
+  const [access, setAccess] = useState(readAccessCache)
+  useEffect(() => {
+    const on = () => setAccess(readAccessCache())
+    window.addEventListener(ACCESS_EVENT, on)
+    return () => window.removeEventListener(ACCESS_EVENT, on)
+  }, [])
+  const rosterInfo = useMemo(() => {
+    const me = (getConnectedEmail() ?? '').toLowerCase()
+    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && (u.addedBy === me || (!!teamName.trim() && u.team === teamName.trim())))
+    const byEmail = new Set(state.members.map((m) => (m.email ?? '').toLowerCase()).filter(Boolean))
+    const items = mine
+      .filter((u) => !byEmail.has(u.email))
+      .map((u) => {
+        // 이름이 같고 Gmail이 비어 있는 팀원이 있으면 새로 만들지 않고 그 팀원에 Gmail만 잇는다
+        const same = state.members.find((m) => !m.email && m.name.trim() === u.name.trim())
+        return { u, linkTo: same ?? null }
+      })
+    return { items, total: mine.length }
+  }, [access, state.members, teamName])
+  const [rosterOpen, setRosterOpen] = useState(false)
+  const [rosterPick, setRosterPick] = useState<Set<string> | null>(null)
+  const picked = rosterPick ?? new Set(rosterInfo.items.map((x) => x.u.email))
+  function addFromRoster() {
+    const take = rosterInfo.items.filter((x) => picked.has(x.u.email))
+    if (!take.length) return
+    for (const x of take.filter((x) => x.linkTo)) dispatch({ type: 'UPDATE_MEMBER', payload: { ...x.linkTo!, email: x.u.email, team: x.linkTo!.team || x.u.team || undefined } })
+    const added: TeamMember[] = take
+      .filter((x) => !x.linkTo)
+      .map((x) => ({ ...blankMember(x.u.name || x.u.email.split('@')[0]), email: x.u.email, team: x.u.team || undefined }))
+    if (added.length) dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
+    setRosterPick(null)
+    setRosterOpen(false)
+  }
   const [hrOpen, setHrOpen] = useState(false)
   function applyHRCards(updates: TeamMember[], adds: TeamMember[]) {
     history.record()
@@ -403,6 +439,11 @@ export default function TeamManagement() {
             onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
             onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
           />
+          {access && (
+            <Button variant="secondary" onClick={() => setRosterOpen(!rosterOpen)} title="관리 › 팀원 · 권한에서 초대한 팀원을 이 평가의 팀원으로">
+              관리 명단에서 불러오기
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
             <IdCard {...ic} />
             인사기록 불러오기
@@ -413,6 +454,61 @@ export default function TeamManagement() {
         칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께
         지워집니다.
       </p>
+
+      {/* 관리에서 초대한 팀원을 여기로(같은 사람을 두 번 입력하지 않게) */}
+      {rosterInfo.items.length > 0 && !rosterOpen && (
+        <button
+          onClick={() => setRosterOpen(true)}
+          className="mt-3 flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-accent hover:bg-accent/15"
+        >
+          <ChevronRight {...icSm} />
+          관리에 새 팀원 <b className="font-semibold">{rosterInfo.items.length}명</b> · 눌러서 추가
+        </button>
+      )}
+      {rosterOpen && (
+        <div className="mt-4 rounded-card border border-accent/30 bg-accent-soft/40 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <button onClick={() => setRosterOpen(false)} className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:text-accent" title="접기">
+                <ChevronDown {...icSm} />
+                관리 명단에서 불러오기 · {rosterInfo.items.length}명
+              </button>
+              <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                관리 › 팀원 · 권한에서 내가 추가했거나 우리 팀({teamName || '팀 이름 없음'})인 팀원입니다. 추가하면 이름 · Gmail · 팀이 채워지고, 직급 · 입사일 등은 여기서 입력합니다.
+              </p>
+            </div>
+            <Button variant="primary" size="sm" onClick={addFromRoster} disabled={picked.size === 0}>
+              선택한 {[...picked].filter((e) => rosterInfo.items.some((x) => x.u.email === e)).length}명 추가
+            </Button>
+          </div>
+          {rosterInfo.items.length === 0 ? (
+            <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">새로 불러올 팀원이 없습니다. 관리 명단의 {rosterInfo.total}명이 모두 연결돼 있습니다.</p>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {rosterInfo.items.map(({ u, linkTo }) => {
+                const on = picked.has(u.email)
+                return (
+                  <button
+                    key={u.email}
+                    onClick={() => {
+                      const next = new Set(picked)
+                      if (on) next.delete(u.email)
+                      else next.add(u.email)
+                      setRosterPick(next)
+                    }}
+                    title={u.email}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[length:calc(13px*var(--ui-fs,1))] ${on ? 'border-accent bg-white font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                  >
+                    {on && <Check {...icSm} />}
+                    {u.name || u.email}
+                    <span className="font-normal text-label-3">{linkTo ? '· 같은 이름 팀원에 Gmail 연결' : u.team ? `· ${u.team}` : ''}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {unmatched.length > 0 && !unmatchedOpen && (
         <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:text-accent">
