@@ -28,6 +28,7 @@ import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
 import type { TeamMember } from '../../types'
 import { renameEvalTeam } from '../../utils/teamRename'
+import { loadProgress } from '../../utils/progressBoard'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
@@ -155,6 +156,41 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const [team, setTeam] = useState(defaultTeam)
   const [addRole, setAddRole] = useState<AccessRole>('member') // 관리자만 고름(팀장이 추가하면 늘 팀원)
   const fileRef = useRef<HTMLInputElement>(null)
+  // ---- 추진현황(실적관리 시트) 담당자에서 가져오기: 담당팀이 이 팀인 과제의 담당자 중 명단에 없는 사람(이름만 -- Gmail은 표에서)
+  const [fromTasks, setFromTasks] = useState(false)
+  const [allTeams, setAllTeams] = useState(false)
+  const [taskPick, setTaskPick] = useState<Set<string>>(new Set())
+  const taskPeople = useMemo(() => {
+    if (!addOpen) return Object.assign([] as { name: string; n: number }[], { byTeam: false })
+    const rows = loadProgress().data?.rows ?? []
+    const have = new Set(data.users.map((u) => u.name.trim()).filter(Boolean))
+    const count = new Map<string, number>()
+    // 담당팀이 이 팀인 과제가 하나도 없으면 모든 팀으로
+    const byTeam = !allTeams && !!team.trim() && rows.some((r) => (r.values.team ?? '').trim() === team.trim())
+    for (const r of rows) {
+      if (byTeam && (r.values.team ?? '').trim() !== team.trim()) continue
+      for (const n of (r.values.assignees ?? '').split(/[/,·\n]+/).map((x) => x.trim()).filter(Boolean))
+        if (!have.has(n)) count.set(n, (count.get(n) ?? 0) + 1)
+    }
+    return Object.assign(
+      [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko')).map(([name, n]) => ({ name, n })),
+      { byTeam },
+    )
+  }, [addOpen, allTeams, team, data.users])
+  function addFromTasks() {
+    const names = taskPeople.filter((x) => taskPick.has(x.name)).map((x) => x.name)
+    if (!names.length) return
+    const add = names.map<AccessUser>((name, i) => ({ email: newPendingEmail(i), name, role: isAdmin ? addRole : 'member', team: team.trim(), memo: '', addedBy: me, sendTo: '' }))
+    void run(
+      async () => {
+        await updateUsers(data.id, (users) => [...users, ...add], me, [`추진현황 담당자에서 팀원 추가: ${names.join(', ')}`])
+        setTaskPick(new Set())
+        setFromTasks(false)
+        setAddOpen(false)
+      },
+      `${names.length}명을 추가했습니다 · 표의 계정 칸에 Gmail을 넣어 주세요.`,
+    )
+  }
   function addEntries(entries: InviteEntry[], invalid: string[] = []) {
     if (!entries.length) return setNote({ ok: false, text: '추가할 수 있는 Gmail이 없습니다.' })
     const have = new Set(data.users.map((u) => u.email))
@@ -702,6 +738,70 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                   추가
                 </Button>
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => void addFromExcel(e)} />
+              </div>
+              {/* 옵션: 추진현황 과제의 담당자에서 골라 가져오기 */}
+              <div className="mt-3 border-t border-accent/15 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setFromTasks(!fromTasks)}
+                  className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:underline"
+                >
+                  {fromTasks ? '▾' : '▸'} 추진현황 담당자에서 가져오기
+                </button>
+                {fromTasks && (
+                  <div className="mt-2">
+                    <div className="flex flex-wrap items-center gap-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                      <span>
+                        {taskPeople.byTeam
+                          ? `담당팀 「${team.trim()}」 과제의 담당자`
+                          : !allTeams && team.trim()
+                            ? `담당팀이 「${team.trim()}」인 과제가 없어 모든 팀 과제의 담당자`
+                            : '모든 팀 과제의 담당자'}{' '}
+                        중 명단에 없는 사람 · 많이 맡은 순
+                      </span>
+                      <label className="flex cursor-pointer items-center gap-1">
+                        <input type="checkbox" checked={allTeams} onChange={(e) => setAllTeams(e.target.checked)} />
+                        모든 팀
+                      </label>
+                      {taskPeople.length > 0 && (
+                        <button type="button" className="text-accent hover:underline" onClick={() => setTaskPick(taskPick.size === taskPeople.length ? new Set() : new Set(taskPeople.map((x) => x.name)))}>
+                          {taskPick.size === taskPeople.length ? '모두 해제' : '모두 고르기'}
+                        </button>
+                      )}
+                    </div>
+                    {taskPeople.length === 0 ? (
+                      <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                        가져올 사람이 없습니다. 추진현황을 한 번 불러왔는지, 담당팀 이름이 팀 칸과 같은지 확인하세요.
+                      </p>
+                    ) : (
+                      <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
+                        {taskPeople.map(({ name, n }) => {
+                          const on = taskPick.has(name)
+                          return (
+                            <button
+                              key={name}
+                              type="button"
+                              onClick={() => {
+                                const next = new Set(taskPick)
+                                if (on) next.delete(name)
+                                else next.add(name)
+                                setTaskPick(next)
+                              }}
+                              className={`rounded-full border px-2.5 py-1 text-[length:calc(13px*var(--ui-fs,1))] ${on ? 'border-accent bg-white font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                            >
+                              {name} <span className="font-normal text-label-3">{n}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {taskPeople.length > 0 && (
+                      <Button variant="primary" size="sm" className="mt-2" onClick={addFromTasks} disabled={!taskPick.size || busy}>
+                        선택한 {taskPick.size}명 추가
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div className={`rounded-card bg-white p-3.5 text-[length:calc(13.5px*var(--ui-fs,1))] leading-relaxed text-label-2`}>
