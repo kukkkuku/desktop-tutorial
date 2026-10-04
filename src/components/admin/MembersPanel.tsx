@@ -22,7 +22,7 @@ import {
   sendInviteEmails,
   type InviteEntry,
 } from '../../utils/adminInvite'
-import { PENDING_SUFFIX, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { PENDING_SUFFIX, type SheetShare, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
@@ -314,8 +314,8 @@ export default function MembersPanel({
 
   const [compose, setCompose] = useState(false)
   // ---- 표 열: 끌어서 폭 조절(이 브라우저에 기억) · 받는 메일 열은 켜고 끔 · 메일 쓰는 동안은 이름 · 계정 · e-mail만
-  type ColKey = 'name' | 'email' | 'sendTo' | 'team' | 'role' | 'addedBy' | 'invited'
-  const COL_LABEL: Record<ColKey, string> = { name: '이름', email: '계정(Gmail)', sendTo: 'e-mail', team: '팀', role: '역할', addedBy: '추가한 사람', invited: '초대' }
+  type ColKey = 'name' | 'email' | 'sendTo' | 'team' | 'role' | 'addedBy' | 'invited' | 'share'
+  const COL_LABEL: Record<ColKey, string> = { name: '이름', email: '계정(Gmail)', sendTo: 'e-mail', team: '팀', role: '역할', addedBy: '추가한 사람', invited: '초대', share: '시트 권한' }
   const [widths, setWidths] = useState<Record<string, number>>(() => {
     try {
       return JSON.parse(localStorage.getItem('members-col-w') ?? '{}')
@@ -323,7 +323,7 @@ export default function MembersPanel({
       return {}
     }
   })
-  const DEF_W: Record<ColKey, number> = { name: 120, email: 250, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120 }
+  const DEF_W: Record<ColKey, number> = { name: 120, email: 250, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120, share: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
   const colW = (k: ColKey) => widths[k] ?? (compose ? ({ name: 110, email: 210, sendTo: 260 } as Partial<Record<ColKey, number>>)[k] ?? DEF_W[k] : DEF_W[k])
   function resizeStart(e: React.MouseEvent, k: ColKey) {
@@ -368,7 +368,7 @@ export default function MembersPanel({
   const [previewOpen, setPreviewOpen] = useState(false)
   const cols: ColKey[] = compose
     ? ['name', 'email', 'sendTo']
-    : (['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin ? ['addedBy'] : []), 'invited'] as ColKey[])
+    : (['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[])
   const preview = targets[0]
     ? inviteHtml(
         body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''),
@@ -424,9 +424,57 @@ export default function MembersPanel({
             {u.addedBy ? nameOf(u.addedBy) : '-'}
           </span>
         )
+      case 'share': {
+        // 실적관리 시트 권한(관리자가 공유하고 표시). 초대했는데 아직 공유 안 했으면 주황 「공유 대기」
+        if (isPendingEmail(u.email)) return <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+        const v = u.sheetShare ?? ''
+        const wait = !v && !!u.invitedAt
+        return (
+          <select
+            value={v}
+            disabled={busy}
+            onChange={(e) => saveField(u, { sheetShare: e.target.value as SheetShare }, `시트 권한: ${logWho(u)} → ${e.target.value || '공유 전'}`)}
+            title="실적관리 시트를 공유한 뒤 표시합니다(구글에서 직접 읽지는 않음)"
+            className={`h-8 w-full rounded-control border bg-white px-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none focus:border-accent ${
+              v === '편집자' ? 'border-success/40 text-success' : v === '뷰어' ? 'border-accent/40 text-accent' : wait ? 'border-orange-300 text-orange-600' : 'border-hairline text-label-3'
+            }`}
+          >
+            <option value="">{wait ? '공유 대기' : '공유 전'}</option>
+            <option value="편집자">편집자</option>
+            <option value="뷰어">뷰어</option>
+          </select>
+        )
+      }
       case 'invited':
         return u.invitedAt ? <span className="text-[length:calc(13px*var(--ui-fs,1))] text-success">{u.invitedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, '$1.$2')} 보냄</span> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">안 보냄</span>
     }
+  }
+
+  // ---- 실적관리 시트 공유(관리자): 고른 사람 Gmail을 복사 → 시트를 열어 공유 → 편집자/뷰어로 표시
+  const waiting = isAdmin && scope ? rows.filter((u) => !isPendingEmail(u.email) && u.email !== me && !u.sheetShare && !!u.invitedAt) : []
+  const shareTargets = picked.filter((u) => !isPendingEmail(u.email))
+  const [shareOpen, setShareOpen] = useState<AccessUser[] | null>(null)
+  const [copied, setCopied] = useState(false)
+  async function openShare() {
+    const list = shareTargets
+    setShareOpen(list)
+    setCopied(false)
+    try {
+      await navigator.clipboard.writeText(list.map((u) => u.email).join(', '))
+      setCopied(true)
+    } catch {
+      // 복사가 막히면 창의 목록에서 직접 고른다
+    }
+  }
+  function markShared(v: SheetShare) {
+    const list = shareOpen ?? []
+    setShareOpen(null)
+    const set = new Set(list.map((u) => u.email))
+    void run(
+      () => updateUsers(data.id, (users) => users.map((x) => (set.has(x.email) ? { ...x, sheetShare: v } : x)), me, [`시트 권한 ${v}: ${list.map(logWho).join(', ')}`]),
+      `${list.length}명을 「${v}」로 표시했습니다.`,
+    )
+    setSel(new Set())
   }
 
   const table =
@@ -666,6 +714,18 @@ export default function MembersPanel({
         )
       })()}
 
+      {/* 관리자: 팀장이 초대했는데 아직 실적관리 시트를 공유하지 않은 사람 */}
+      {waiting.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-orange-200 bg-orange-50 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+          <span>
+            <b className="font-semibold text-orange-700">시트 공유 대기 {waiting.length}명</b>
+            <span className="ml-2 text-label-2">{waiting.slice(0, 6).map(label).join(', ')}{waiting.length > 6 ? ` 외 ${waiting.length - 6}명` : ''} -- 초대 메일을 받았지만 실적관리 시트 권한이 아직 없습니다.</span>
+          </span>
+          <Button variant="primary" size="sm" className="ml-auto" onClick={() => setSel(new Set(waiting.map((u) => u.email)))}>
+            대기 {waiting.length}명 고르기
+          </Button>
+        </div>
+      )}
       {/* 도구 줄 */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
@@ -680,6 +740,12 @@ export default function MembersPanel({
           <Trash2 {...icSm} />
           목록에서 빼기
         </Button>
+        {isAdmin && scope && (
+          <Button variant="secondary" onClick={() => void openShare()} disabled={!shareTargets.length || busy} title="고른 사람의 Gmail을 복사하고 실적관리 시트를 열어 공유합니다">
+            <FileSpreadsheet {...icSm} />
+            시트 공유{shareTargets.length ? ` (${shareTargets.length})` : ''}
+          </Button>
+        )}
         {busy && <Spinner className="h-4 w-4" />}
         <span className="relative ml-auto flex items-center gap-2">
           <input
@@ -897,6 +963,54 @@ export default function MembersPanel({
         </div>
       )}
 
+      {shareOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={(e) => e.target === e.currentTarget && setShareOpen(null)}>
+          <div className="w-full max-w-lg rounded-[14px] bg-white p-5 shadow-dialog">
+            <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">실적관리 시트 공유 · {shareOpen.length}명</h3>
+            <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              <li>
+                {copied ? <b className="font-semibold text-success">Gmail {shareOpen.length}개를 복사했습니다.</b> : '아래 Gmail을 복사합니다.'}{' '}
+                <button
+                  className="text-accent hover:underline"
+                  onClick={() =>
+                    void navigator.clipboard.writeText(shareOpen.map((u) => u.email).join(', ')).then(
+                      () => setCopied(true),
+                      () => setCopied(false),
+                    )
+                  }
+                >
+                  다시 복사
+                </button>
+              </li>
+              <li>
+                {taskUrl ? (
+                  <a href={withGoogleAccount(taskUrl)} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
+                    실적관리 시트 열기 ↗
+                  </a>
+                ) : (
+                  '실적관리 시트를 엽니다'
+                )}{' '}
+                → [공유]에 붙여넣고 권한(편집자 · 뷰어)을 골라 보냅니다. 알림 메일은 꺼도 됩니다.
+              </li>
+              <li>공유한 권한을 아래에서 눌러 표시합니다.</li>
+            </ol>
+            <p className="mt-3 max-h-28 select-all overflow-y-auto break-all rounded-control bg-subtle px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+              {shareOpen.map((u) => u.email).join(', ')}
+            </p>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShareOpen(null)}>
+                나중에
+              </Button>
+              <Button variant="secondary" onClick={() => markShared('뷰어')}>
+                뷰어로 공유함
+              </Button>
+              <Button variant="primary" onClick={() => markShared('편집자')}>
+                편집자로 공유함
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmDialog
         open={!!removeAsk}
         title="목록에서 빼기"

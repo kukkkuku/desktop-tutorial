@@ -203,7 +203,7 @@ export default function TeamManagement() {
     // 팀원 명단 · 초대: 이름 바로 뒤(Gmail을 넣으면 명단에 저장되고 초대할 수 있다)
     { id: 'email', label: 'Gmail', type: 'text', width: 190, system: true },
     // 초대 메일 상태(팀원 명단 기준): Gmail 없음 / 초대 전 / ○.○ 보냄
-    { id: 'invite', label: '초대', type: 'text', width: 96, system: true, readOnly: true },
+    { id: 'invite', label: '초대', type: 'text', width: 150, system: true, readOnly: true },
     { id: 'hireDate', label: '입사일', type: 'date', width: 110, system: true },
     { id: 'service', label: '근속년월(창립기념일 기준)', type: 'text', width: 170, system: true, readOnly: true },
     { id: 'level', label: '직급', type: 'select', width: 80, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
@@ -309,7 +309,10 @@ export default function TeamManagement() {
         return m.email ?? ''
       case 'invite': {
         const u = rosterUserOf(access, m, teamName, me)
-        return !m.email ? 'Gmail 없음' : u?.invitedAt ? `${u.invitedAt.slice(5, 10).replace('-', '.')} 보냄` : '초대 전'
+        // 초대 → 관리자가 실적관리 시트 공유하면 「사용 가능」
+        if (!m.email) return 'Gmail 없음'
+        if (u?.sheetShare) return `사용 가능(${u.sheetShare})`
+        return u?.invitedAt ? `${u.invitedAt.slice(5, 10).replace('-', '.')} 보냄 · 공유 대기` : '초대 전'
       }
       case 'active':
         return m.active ? '활성' : '비활성'
@@ -487,7 +490,14 @@ export default function TeamManagement() {
       )
     if (col.id === 'invite') {
       const t = textOf(m, 'invite')
-      return <span className={`text-[length:calc(13px*var(--ui-fs,1))] ${t.endsWith('보냄') ? 'text-success' : 'text-label-3'}`}>{t}</span>
+      return (
+        <span
+          title={t.includes('공유 대기') ? '초대했습니다. 관리자가 실적관리 시트를 공유하면 추진현황을 쓸 수 있습니다.' : undefined}
+          className={`text-[length:calc(13px*var(--ui-fs,1))] ${t.startsWith('사용 가능') ? 'text-success' : t.includes('공유 대기') ? 'text-orange-600' : 'text-label-3'}`}
+        >
+          {t}
+        </span>
+      )
     }
     if (col.id === 'email' && !m.email) return <span className="text-label-3/70">Gmail 입력</span>
     if (col.id === 'level') return m.level ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.level}</span> : null

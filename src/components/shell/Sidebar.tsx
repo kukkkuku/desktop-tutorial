@@ -24,6 +24,8 @@ import {
 import { useAppMode, type PerfStage, type TaskMenu } from '../../state/AppMode'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
+import { useAccessData } from '../../hooks/useAccessData'
+import { isPendingEmail } from '../../utils/accessSheet'
 import GoogleAccountMenu from '../GoogleAccountMenu'
 import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
@@ -183,6 +185,9 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       </button>
     )
   }
+  // 관리자: 초대했는데 실적관리 시트 공유를 아직 안 한 사람 수(관리 메뉴 옆 배지)
+  const { data: access } = useAccessData(false)
+  const shareWait = isAdminUser ? (access?.users ?? []).filter((u) => !isPendingEmail(u.email) && !!u.invitedAt && !u.sheetShare).length : 0
   const label = (t: string) => (collapsed ? <div className="mx-3 my-3 h-px bg-separator" /> : <p className="ds-nav-label">{t}</p>)
 
   return (
@@ -249,7 +254,19 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       <div className="space-y-0.5 pt-2">
         {item('manual', '사용 매뉴얼', BookOpen, false, openManual)}
         {/* 관리(관리자만): 팀장 · 팀원 권한 · 시트 연결. 팀장의 팀원 초대는 성과관리 › 팀원관리에서 */}
-        {isAdminUser && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
+        {isAdminUser &&
+          item(
+            'admin',
+            '관리',
+            ShieldCheck,
+            mode === 'admin',
+            () => mode !== 'admin' && setMode('admin'),
+            shareWait > 0 && (
+              <span className="rounded-full bg-orange-500 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold text-white" title={`실적관리 시트 공유 대기 ${shareWait}명`}>
+                {shareWait}
+              </span>
+            ),
+          )}
         {inPerf && perf?.onOpenDataManager && item('backup', '데이터 백업', Database, false, perf.onOpenDataManager, perf.saveBadge)}
       </div>
       {accountEmail && (

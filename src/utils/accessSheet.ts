@@ -12,6 +12,7 @@ import { appendRows, createSpreadsheet, fetchValues, parseSheetUrl, sheetUrl, wr
 export const DEFAULT_ACCESS_SHEET_ID = '14dxpm3aO7c3vbxh1SzZFftlZRbKUJdeX3GO7DpgkOz4'
 
 export type AccessRole = 'admin' | 'leader' | 'member'
+export type SheetShare = '' | '편집자' | '뷰어'
 export interface AccessUser {
   email: string
   name: string
@@ -21,6 +22,8 @@ export interface AccessUser {
   addedBy?: string // 팀원 탭에서 추가한 사람(팀장은 자기가 추가한 사람만 보고 관리)
   sendTo?: string // 초대 메일 받는 곳(비우면 로그인 Gmail)
   invitedAt?: string // 마지막으로 초대 메일 보낸 날(YYYY-MM-DD HH:mm)
+  // 실적관리 시트 권한(관리자가 공유하고 표시한 값 -- 구글에서 직접 읽지 않음): 편집자 · 뷰어 · 빈칸(공유 전)
+  sheetShare?: SheetShare
 }
 export interface AccessLink {
   team: string
@@ -155,7 +158,7 @@ export async function refreshAccess(id = getAccessSheetId()): Promise<AccessData
   }
 }
 async function readSheet(id: string): Promise<AccessData & { userRows: number; linkRows: number }> {
-  const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:H`, `'${LINKS_TAB}'!A2:C`])
+  const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:I`, `'${LINKS_TAB}'!A2:C`])
   const [u = [], l = []] = values
   const users = u
     .map((r) => ({
@@ -167,6 +170,7 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
       addedBy: norm(r[5]),
       sendTo: (r[6] ?? '').trim(),
       invitedAt: (r[7] ?? '').trim(),
+      sheetShare: (['편집자', '뷰어'].includes((r[8] ?? '').trim()) ? (r[8] ?? '').trim() : '') as SheetShare,
     }))
     .filter((x) => x.email.includes('@'))
   const links = l.map((r) => ({ team: (r[0] ?? '').trim(), url: (r[1] ?? '').trim(), note: (r[2] ?? '').trim() })).filter((x) => x.team && parseSheetUrl(x.url))
@@ -175,7 +179,7 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
 }
 
 // ---- 앱에서 고쳐 저장
-const userRow = (u: AccessUser) => [norm(u.email), u.name.trim(), ROLE_WORD[u.role], u.team.trim(), (u.memo ?? '').trim(), norm(u.addedBy), (u.sendTo ?? '').trim(), (u.invitedAt ?? '').trim()]
+const userRow = (u: AccessUser) => [norm(u.email), u.name.trim(), ROLE_WORD[u.role], u.team.trim(), (u.memo ?? '').trim(), norm(u.addedBy), (u.sendTo ?? '').trim(), (u.invitedAt ?? '').trim(), u.sheetShare ?? '']
 const userSig = (x: AccessUser[]) => JSON.stringify(x.map(userRow))
 const linkSig = (x: AccessLink[]) => JSON.stringify(x.map((l) => [l.team.trim(), l.url.trim(), l.note.trim()]))
 export const sameAccess = (a: { users: AccessUser[]; links: AccessLink[] }, b: { users: AccessUser[]; links: AccessLink[] }) =>
@@ -237,7 +241,7 @@ async function writeAccess(
   const uRows = pad(
     users.map(userRow),
     fresh.userRows,
-    8,
+    9,
   )
   const lRows = pad(
     [
@@ -248,8 +252,8 @@ async function writeAccess(
     3,
   )
   await writeValues(base.id, [
-    { range: `'${USERS_TAB}'!F1:H1`, values: [['추가한 사람', '받는 메일', '초대 보냄']] },
-    ...(uRows.length ? [{ range: `'${USERS_TAB}'!A2:H${uRows.length + 1}`, values: uRows }] : []),
+    { range: `'${USERS_TAB}'!F1:I1`, values: [['추가한 사람', '받는 메일', '초대 보냄', '시트 권한']] },
+    ...(uRows.length ? [{ range: `'${USERS_TAB}'!A2:I${uRows.length + 1}`, values: uRows }] : []),
     ...(lRows.length ? [{ range: `'${LINKS_TAB}'!A2:C${lRows.length + 1}`, values: lRows }] : []),
   ])
   try {
@@ -311,7 +315,7 @@ export function sharedSheetFor(email: string | null | undefined): { url: string;
 // 관리자가 처음 한 번: 머리글과 지금 아는 값으로 시트를 만든다(만든 사람 드라이브에).
 export async function createAccessSheet(opts: { adminEmail: string; leaders: string[]; sheetLink: string }): Promise<string> {
   const users: string[][] = [
-    ['이메일', '이름', '역할', '팀', '메모', '추가한 사람', '받는 메일', '초대 보냄'],
+    ['이메일', '이름', '역할', '팀', '메모', '추가한 사람', '받는 메일', '초대 보냄', '시트 권한'],
     [opts.adminEmail, '', '관리자', '', '처음 만든 사람'],
     ...opts.leaders.filter((e) => norm(e) !== norm(opts.adminEmail)).map((e) => [e, '', '팀장', '', '']),
   ]
