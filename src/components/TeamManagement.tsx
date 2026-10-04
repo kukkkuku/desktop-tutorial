@@ -23,7 +23,7 @@ import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquare
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, readHandovers, updateUsers, writeHandover, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
-import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf, teamRosterOf } from '../utils/teamRoster'
+import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
 import InviteDialog from './InviteDialog'
 import { getConnectedEmail } from '../utils/googleDrive'
 
@@ -100,7 +100,16 @@ export default function TeamManagement() {
     return () => window.clearTimeout(t)
   }, [access, state.members, teamName, me])
   const [inviteOpen, setInviteOpen] = useState(false)
-  const invitePeople = access ? teamRosterOf(access, teamName, me).filter((u) => !isPendingEmail(u.email) && state.members.some((m) => (m.email ?? '').toLowerCase() === u.email)) : []
+  // 초대 대상: 이 표에서 Gmail이 있는 팀원(명단 저장이 아직 안 끝났어도 보이게 -- 초대한 날은 명단에서)
+  const invitePeople = access
+    ? state.members
+        .filter((m) => (m.email ?? '').includes('@'))
+        .map((m) => {
+          const e = m.email!.toLowerCase()
+          const u = access.users.find((x) => x.email === e)
+          return u ?? { email: e, name: m.name, role: 'member' as const, team: teamName.trim(), addedBy: me }
+        })
+    : []
   const [alsoRoster, setAlsoRoster] = useState(false)
   // ---- 팀 이동: 관리 명단에서 다른 팀으로 옮긴 팀원(이전 팀장 쪽) · 이전 팀장 의견(새 팀장 쪽)
   const moved = useMemo(() => {
