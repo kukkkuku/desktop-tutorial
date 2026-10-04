@@ -2,10 +2,8 @@ import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
-import InviteModal from './InviteModal'
-import TeamStartStrip, { useTeamInfo } from './TeamStartStrip'
-import { useAppMode } from '../state/AppMode'
+import { Check, ChevronDown, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
+import TeamAccountsPanel from './TeamAccountsPanel'
 import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -15,7 +13,7 @@ import IconButton from './IconButton'
 import AppShell, { PageHeader } from './shell/AppShell'
 import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
-import { readAccessCache, updateUsers } from '../utils/accessSheet'
+import { isPendingEmail, readAccessCache, updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { isAdminEmail } from '../utils/roles'
 import { renameEvalTeam } from '../utils/teamRename'
@@ -263,26 +261,14 @@ export default function WorkspaceLanding() {
 
   const [teamName, setTeamName] = useState(mostRecentTeam)
   const [newTeamInput, setNewTeamInput] = useState('')
-  const [teamNameModalOpen, setTeamNameModalOpen] = useState(false)
-  const [periodModalTeam, setPeriodModalTeam] = useState<string | null>(null)
-  // 우리 팀(팀 만들기 · 평가 만들기 · 팀원 초대): 팀장의 성과관리 첫 화면 맨 위
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const team = useTeamInfo(workspaces)
-  const { setPerfStage } = useAppMode()
+  // 팝업 없이 이 화면 안에서: 새 팀 이름 칸 · 새 평가(기간 고르기) 칸 · 팀원 명단 펼치기
+  const [addingTeam, setAddingTeam] = useState(false)
+  const [newEvalOpen, setNewEvalOpen] = useState(false)
+  const [rosterOpen, setRosterOpen] = useState(false)
   const startTeam = (prefill = '') => {
     setNewTeamInput(prefill)
-    setTeamNameModalOpen(true)
+    setAddingTeam(true)
   }
-  // 홈 「우리 팀」의 팀 만들기 · 평가 만들기 버튼으로 들어오면 그 창을 바로 연다(한 번만)
-  useEffect(() => {
-    const got = takeLandingIntent()
-    if (!got) return
-    // 평가 만들기: 최근 평가의 팀으로 바로 기간 고르기. 평가가 없으면 팀 이름(권한 시트의 내 팀을 채워 둠)부터
-    if (got.intent === 'eval' && mostRecentTeam) return setPeriodModalTeam(mostRecentTeam)
-    setNewTeamInput(got.intent === 'eval' ? got.team : '')
-    setTeamNameModalOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
@@ -339,15 +325,27 @@ export default function WorkspaceLanding() {
     }
   }, [existingTeamNames, teamName, mostRecentTeam])
 
+  // 새 팀: 이름을 넣으면 그 팀을 고르고 바로 아래 「새 평가」 칸을 연다(팀은 첫 평가를 만들 때 생긴다)
   function confirmTeamName() {
     const name = newTeamInput.trim()
     if (!name) return
-    setTeamNameModalOpen(false)
-    setPeriodModalTeam(name)
+    setAddingTeam(false)
+    setTeamName(name)
+    setNewEvalOpen(true)
   }
   // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가
   // 뭐가 있는지" 한눈에 보이는 게 이 화면의 첫 번째 목적이라, 평가기간
   // 선택기보다 이 목록을 먼저 보여준다.
+  // 고른 팀의 팀원 요약(팀원 명단 = 권한 시트): 팀원 N명 · 초대 안 보냄 · Gmail 없음
+  const rosterLine = useMemo(() => {
+    const access = readAccessCache()
+    if (!access) return '팀원 명단을 펼쳐 추가 · 초대합니다'
+    const me = (getConnectedEmail() ?? '').toLowerCase()
+    const ms = access.users.filter((u) => u.role === 'member' && (u.team ? u.team === teamName : u.addedBy === me))
+    const noMail = ms.filter((u) => isPendingEmail(u.email)).length
+    const notInv = ms.filter((u) => !isPendingEmail(u.email) && !u.invitedAt).length
+    return `팀원 ${ms.length}명${notInv ? ` · 초대 안 보냄 ${notInv}명` : ''}${noMail ? ` · Gmail 없음 ${noMail}명` : ''}`
+  }, [teamName, rosterOpen])
   const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
   function openRename(workspace: WorkspaceMeta) {
@@ -384,87 +382,119 @@ export default function WorkspaceLanding() {
         )}
         {dupError && <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{dupError}</p>}
 
-        <div className="mt-5">
-          <TeamStartStrip
-            team={team}
-            onTeam={() => startTeam()}
-            onEval={() => (mostRecentTeam ? setPeriodModalTeam(mostRecentTeam) : startTeam(team.name))}
-            // 평가가 있으면 그 평가의 팀원관리 표(추가 · Gmail · 초대가 한 곳), 없으면 초대 창
-            onInvite={() => {
-              if (!team.latest) return setInviteOpen(true)
-              selectWorkspace(team.latest.id)
-              setPerfStage('members')
-            }}
-          />
-        </div>
-
-        {existingTeamNames.length > 0 ? (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-6">
-            <div className="flex flex-wrap items-center gap-2">
-              {existingTeamNames.map((name) => {
-                const teamWs = workspaces.filter((w) => w.teamName === name)
-                const mostRecentWs = [...teamWs].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
-                const memberCount = mostRecentWs ? readWorkspaceCounts(mostRecentWs.id).memberCount : 0
-                const active = name === teamName
-                return (
-                  <span key={name} className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => setTeamName(name)}
-                      onDoubleClick={() => setTeamRename({ from: name, to: name })}
-                      title="두 번 누르면 팀 이름 바꾸기"
-                      className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
-                        active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
-                      }`}
-                    >
-                      <span className="font-semibold">{name}</span>
-                      <span className="opacity-70">
-                        {memberCount}명 · {teamWs.length}개
-                      </span>
-                    </button>
-                    {active && (
-                      <IconButton onClick={() => setTeamRename({ from: name, to: name })} title="팀 이름 바꾸기" aria-label={`${name} 이름 바꾸기`}>
-                        <Pencil {...icSm} />
-                      </IconButton>
-                    )}
-                  </span>
-                )
-              })}
-            </div>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setNewTeamInput('')
-                setTeamNameModalOpen(true)
-              }}
-              className="shrink-0"
+        {/* 팀: 칩으로 고르기 · ✎ 이름 바꾸기(그 자리에서) · + 새 팀(그 자리에서 이름 넣기) */}
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-b border-separator pb-5">
+          {[...existingTeamNames, ...(teamName && !existingTeamNames.includes(teamName) ? [teamName] : [])].map((name) => {
+            const teamWs = workspaces.filter((w) => w.teamName === name)
+            const active = name === teamName
+            if (teamRename && teamRename.from === name)
+              return (
+                <span key={name} className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={teamRename.to}
+                    onChange={(e) => setTeamRename({ ...teamRename, to: e.target.value })}
+                    onFocus={(e) => e.target.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveTeamRename()
+                      if (e.key === 'Escape') setTeamRename(null)
+                    }}
+                    onBlur={() => saveTeamRename()}
+                    title={`평가 ${teamWs.length}개와 담당팀이 이 이름인 팀원까지 함께 바뀝니다 · Enter 반영 · Esc 취소`}
+                    className="h-8 w-44 rounded-full border border-accent px-3.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label outline-none"
+                  />
+                  {existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== name && (
+                    <span className="text-[length:calc(13px*var(--ui-fs,1))] text-danger">이미 있는 팀 이름</span>
+                  )}
+                </span>
+              )
+            return (
+              <span key={name} className="flex items-center gap-0.5">
+                <button
+                  onClick={() => {
+                    setTeamName(name)
+                    setNewEvalOpen(false)
+                  }}
+                  onDoubleClick={() => teamWs.length && setTeamRename({ from: name, to: name })}
+                  title={teamWs.length ? '두 번 누르면 팀 이름 바꾸기' : '평가를 만들면 팀이 생깁니다'}
+                  className={`flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
+                    active ? 'bg-ink text-white' : 'bg-white text-label shadow-control hover:bg-[#FAFAFA]'
+                  }`}
+                >
+                  <span className="font-semibold">{name}</span>
+                  <span className="opacity-70">평가 {teamWs.length}개</span>
+                </button>
+                {active && teamWs.length > 0 && (
+                  <IconButton onClick={() => setTeamRename({ from: name, to: name })} title="팀 이름 바꾸기" aria-label={`${name} 이름 바꾸기`}>
+                    <Pencil {...icSm} />
+                  </IconButton>
+                )}
+              </span>
+            )
+          })}
+          {addingTeam ? (
+            <span className="flex items-center gap-1.5">
+              <input
+                autoFocus
+                value={newTeamInput}
+                onChange={(e) => setNewTeamInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') confirmTeamName()
+                  if (e.key === 'Escape') setAddingTeam(false)
+                }}
+                placeholder="새 팀 이름(예: UX팀)"
+                className="h-8 w-48 rounded-full border border-accent px-3.5 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none"
+              />
+              <Button variant="primary" size="sm" onClick={confirmTeamName} disabled={!newTeamInput.trim() || existingTeamNames.includes(newTeamInput.trim())}>
+                <Check {...icSm} /> 만들기
+              </Button>
+              <Button size="sm" onClick={() => setAddingTeam(false)}>
+                취소
+              </Button>
+              {existingTeamNames.includes(newTeamInput.trim()) && <span className="text-[length:calc(13px*var(--ui-fs,1))] text-danger">이미 있는 팀입니다</span>}
+            </span>
+          ) : (
+            <button
+              onClick={() => startTeam()}
+              className="flex h-8 items-center gap-1 rounded-full border border-dashed border-separator px-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:border-accent hover:text-accent"
             >
               <Plus {...icSm} /> 새 팀
-            </Button>
-          </div>
-        ) : (
-          <div className="mt-8 flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
-            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">아직 평가가 없습니다. 위 「팀 만들기」로 시작하세요. 팀원 초대는 평가를 만들기 전에도 할 수 있습니다.</p>
-          </div>
+            </button>
+          )}
+        </div>
+
+        {!teamName && !addingTeam && (
+          <p className="mt-8 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+            팀이 아직 없습니다. 위 「+ 새 팀」에 팀 이름을 넣으면 바로 첫 평가를 만들 수 있습니다.
+          </p>
         )}
 
         {teamName && (
-          <div className="mt-8">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="flex items-end gap-3">
+          <div className="mt-6 space-y-6">
+            {/* 팀원: 한 줄 요약 + 펼치면 명단 · 초대(평가 전에도) */}
+            <section>
+              <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{teamName}</h2>
-                <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">평가 {teamWorkspaces.length}개</span>
+                <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{rosterLine}</span>
+                <button
+                  onClick={() => setRosterOpen(!rosterOpen)}
+                  className="ml-auto flex h-8 items-center gap-1 rounded-[8px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:bg-accent-soft"
+                >
+                  <Users {...icSm} /> 팀원 명단 · 초대
+                  <ChevronDown size={14} strokeWidth={2} className={`transition-transform ${rosterOpen ? 'rotate-180' : ''}`} />
+                </button>
               </div>
-              <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
-                <Plus {...icSm} /> 새 평가 만들기
-              </Button>
-            </div>
+              {rosterOpen && (
+                <div className="mt-3 rounded-card border border-hairline bg-[#FAFAFB] p-4">
+                  <TeamAccountsPanel />
+                </div>
+              )}
+            </section>
 
-            {teamWorkspaces.length === 0 ? (
-              <div className="mt-4 flex flex-col items-center gap-1 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
-                <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">첫 평가를 만들어 시작하세요.</p>
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* 평가: 카드 + 마지막 「+ 새 평가」 칸(누르면 그 자리에서 기간 고르기) */}
+            <section>
+              <p className="mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2">평가 {teamWorkspaces.length}개</p>
+              <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {teamWorkspaces.map((w) => (
                   <ProjectCard
                     key={w.id}
@@ -479,99 +509,40 @@ export default function WorkspaceLanding() {
                     onDelete={setDeletingWorkspace}
                   />
                 ))}
+                {newEvalOpen ? (
+                  <div className="rounded-card border-2 border-accent/40 bg-white p-4 sm:col-span-2">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">새 평가 · {teamName}</p>
+                      <IconButton onClick={() => setNewEvalOpen(false)} aria-label="닫기" title="닫기">
+                        <X {...ic} />
+                      </IconButton>
+                    </div>
+                    <EvaluationPeriodPicker
+                      key={teamName}
+                      teamName={teamName}
+                      onDone={(id, created) => {
+                        setNewEvalOpen(false)
+                        if (created) markNewWorkspace(id) // 새로 만들었으면 들어가서 "어떻게 시작할까요?" 안내를 한 번 띄운다
+                        selectWorkspace(id)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setNewEvalOpen(true)}
+                    className="flex min-h-[140px] flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed border-separator text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:border-accent hover:text-accent"
+                  >
+                    <Plus size={18} strokeWidth={2} />새 평가
+                  </button>
+                )}
               </div>
-            )}
+            </section>
           </div>
         )}
       </main>
 
-      {teamRename && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamRename(null)}>
-          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">팀 이름 바꾸기</h3>
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              「{teamRename.from}」의 평가 {workspaces.filter((w) => w.teamName === teamRename.from).length}개와, 담당팀이 이 이름인 팀원까지 함께 바뀝니다.
-            </p>
-            <input
-              type="text"
-              autoFocus
-              value={teamRename.to}
-              onChange={(e) => setTeamRename({ ...teamRename, to: e.target.value })}
-              onFocus={(e) => e.target.select()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveTeamRename()
-                if (e.key === 'Escape') setTeamRename(null)
-              }}
-              className="mt-3 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
-            />
-            {existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== teamRename.from && (
-              <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-danger">이미 있는 팀 이름입니다.</p>
-            )}
-            <div className="mt-5 flex justify-end gap-2">
-              <Button onClick={() => setTeamRename(null)}>취소</Button>
-              <Button
-                variant="primary"
-                onClick={saveTeamRename}
-                disabled={!teamRename.to.trim() || (existingTeamNames.includes(teamRename.to.trim()) && teamRename.to.trim() !== teamRename.from)}
-              >
-                바꾸기
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {teamNameModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setTeamNameModalOpen(false)}>
-          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">새 팀 만들기</h3>
-            <div className="mt-4">
-              <label className="block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀명</label>
-              <input
-                type="text"
-                autoFocus
-                value={newTeamInput}
-                onChange={(e) => setNewTeamInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') confirmTeamName()
-                }}
-                placeholder="예: UX팀"
-                className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
-              />
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button onClick={() => setTeamNameModalOpen(false)}>취소</Button>
-              <Button variant="primary" onClick={confirmTeamName} disabled={!newTeamInput.trim()}>
-                다음
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {periodModalTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onClick={() => setPeriodModalTeam(null)}>
-          <div className="w-full max-w-sm rounded-[12px] bg-white p-5 shadow-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">새 평가</h3>
-              <IconButton onClick={() => setPeriodModalTeam(null)} aria-label="닫기" title="닫기">
-                <X {...ic} />
-              </IconButton>
-            </div>
-            <div className="mt-4">
-              <EvaluationPeriodPicker
-                key={periodModalTeam}
-                teamName={periodModalTeam}
-                onDone={(id, created) => {
-                  setPeriodModalTeam(null)
-                  if (created) markNewWorkspace(id) // 새로 만들었으면 들어가서 "어떻게 시작할까요?" 안내를 한 번 띄운다
-                  selectWorkspace(id)
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {renamingWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
@@ -628,26 +599,7 @@ export default function WorkspaceLanding() {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeletingWorkspace(null)}
       />
-      {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
     </AppShell>
   )
 }
 
-// 홈에서 평가 목록으로 보낼 때 열 창(팀 만들기 · 평가 만들기). 평가 목록이 열리면서 한 번 읽고 지운다.
-const LANDING_INTENT = 'landing-intent'
-export function setLandingIntent(intent: 'team' | 'eval', team = '') {
-  try {
-    sessionStorage.setItem(LANDING_INTENT, JSON.stringify({ intent, team }))
-  } catch {
-    // 못 남기면 목록만 연다
-  }
-}
-function takeLandingIntent(): { intent: 'team' | 'eval'; team: string } | null {
-  try {
-    const v = JSON.parse(sessionStorage.getItem(LANDING_INTENT) ?? 'null') as { intent?: string; team?: string } | null
-    sessionStorage.removeItem(LANDING_INTENT)
-    return v && (v.intent === 'team' || v.intent === 'eval') ? { intent: v.intent, team: v.team ?? '' } : null
-  } catch {
-    return null
-  }
-}
