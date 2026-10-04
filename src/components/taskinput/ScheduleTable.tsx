@@ -1879,33 +1879,6 @@ export default function ScheduleTable({
     }
     setWideSel(true)
   }
-  // ---- 병합 · 나누기 대상(고른 범위): 서식 막대와 우클릭에서 같이 쓴다
-  const mergePlan = (() => {
-    const rect = selRect
-    if (!rect) return { rows: [] as ScheduleRowView[], ids: [] as string[], canMerge: false, hit: [] as CellMerge[] }
-    const mRows = rows.slice(rect.r1, rect.r2 + 1)
-    // L3와 입력 열 사이에는 일정 칸이 있어 가로로 함께 병합하지 않는다(L3를 뺀다)
-    const ids0 = editIds.slice(rect.c1, rect.c2 + 1)
-    const mIds = ids0.length > 1 ? ids0.filter((id) => id !== 'name') : ids0
-    const canMerge = mRows.length * mIds.length > 1 && mRows.every((v) => !v.deleted)
-    const hit = merges.filter((m) => m.rows.some((k) => mRows.some((v) => v.row.key === k)) && m.ids.some((id) => mIds.includes(id)))
-    return { rows: mRows, ids: mIds, canMerge, hit }
-  })()
-  function doMerge() {
-    if (!onMerge || !mergePlan.canMerge) return
-    onMerge(
-      mergePlan.rows.map((v) => v.row),
-      mergePlan.ids,
-      true,
-    )
-  }
-  function doSplit() {
-    if (!onMerge) return
-    for (const m of mergePlan.hit) {
-      const list = m.rows.map((k) => rows.find((v) => v.row.key === k)?.row).filter((r): r is ProgressRow => !!r)
-      if (list.length) onMerge(list, m.ids, false)
-    }
-  }
   // ---- 열 추가 이름 입력(우클릭 · 머리글 + 열)
   const [colAdd, setColAdd] = useState<{ anchor: string; side: 'left' | 'right'; count: number; x: number; y: number; text: string; rename?: string } | null>(
     null,
@@ -3088,8 +3061,11 @@ export default function ScheduleTable({
       {onFmt &&
         !readOnly &&
         (fmtTargets.length > 0 || !!headEdit) &&
-        // 한 칸(과제 칸 · 입력 칸 · 구분 칸)만 골랐을 때는 글자를 고치는 동안에만. 범위 · 행 · 열 · 머리글 편집은 고르면 바로
-        (headEdit || range || rowRange || wideSel || l2Col || (sel ? textEdit : l2Sel ? !!l2Edit : true)) &&
+        // 칸(한 칸 · 여러 칸)은 더블클릭해서 글자를 고치는 동안에만. 행 · 열 · 구분 열 · 머리글 편집은 고르면 바로.
+        // 우클릭 메뉴가 열려 있으면 숨긴다(메뉴만)
+        !menu &&
+        !headMenu &&
+        (headEdit || wideSel || (rowRange && !sel) || l2Col || (sel ? textEdit : l2Sel ? !!l2Edit : false)) &&
         createPortal(
           <div ref={barRef} data-keep-sel className="fixed z-40" style={barPos ? { left: barPos.x, top: barPos.y } : { left: -9999, top: -9999 }}>
             {headEdit ? (
@@ -3110,10 +3086,6 @@ export default function ScheduleTable({
                 onFmt={(patch) => applyFmt(patch)}
                 bg={anchorBg}
                 onBg={(hex) => applyBg(hex)}
-                canMerge={!!onMerge && mergePlan.canMerge}
-                canSplit={!!onMerge && mergePlan.hit.length > 0}
-                onMerge={doMerge}
-                onSplit={doSplit}
                 onDone={() => {
                   setSel(null)
                   setSelEnd(null)
