@@ -2410,8 +2410,24 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               }}
               placeholder={searchOpen ? 'L2 · L3 · 담당자 찾기' : ''}
               aria-label="L2 · L3 · 담당자 찾기"
-              className={`h-8 rounded-control border border-hairline transition-[width] duration-150 ${searchOpen ? 'w-48 pl-7 pr-2' : 'w-8 cursor-pointer px-0 text-transparent hover:bg-black/[0.04]'}`}
+              className={`h-8 rounded-control border border-hairline transition-[width] duration-150 ${searchOpen ? `w-48 pl-7 ${query ? 'pr-7' : 'pr-2'}` : 'w-8 cursor-pointer px-0 text-transparent hover:bg-black/[0.04]'}`}
             />
+            {/* 찾는 말 지우기(✕) */}
+            {query && (
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setQuery('')
+                  searchRef.current?.focus()
+                }}
+                aria-label="찾기 지우기"
+                title="찾기 지우기"
+                className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.07] hover:text-label"
+              >
+                <X size={13} strokeWidth={2.2} />
+              </button>
+            )}
           </label>
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
           {/* 입력 중에는 보기 도구 자리에 서식 막대가 들어온다(한 줄 유지 -- 표가 밀리지 않게) */}

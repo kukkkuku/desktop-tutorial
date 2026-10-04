@@ -616,13 +616,25 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
           목록에서 빼기
         </Button>
         {busy && <Spinner className="h-4 w-4" />}
-        <span className="ml-auto flex items-center gap-2">
+        <span className="relative ml-auto flex items-center gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
             placeholder="이름 · Gmail · 팀 찾기"
-            className="h-9 w-56 rounded-control border border-hairline px-3 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
+            className="h-9 w-56 rounded-control border border-hairline px-3 pr-8 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="찾기 지우기"
+              title="찾기 지우기"
+              className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.07] hover:text-label"
+            >
+              <X size={13} strokeWidth={2.2} />
+            </button>
+          )}
         </span>
       </div>
 
