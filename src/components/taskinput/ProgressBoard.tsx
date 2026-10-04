@@ -611,7 +611,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 알림은 잠깐 보여 주고 닫는다(X로 바로 닫기)
   useEffect(() => {
     if (!message) return
-    const t = window.setTimeout(() => setMessage(''), 6000)
+    // 긴 안내는 읽을 시간만큼 더(6초 + 글자 수, 최대 15초)
+    const t = window.setTimeout(() => setMessage(''), Math.min(15000, 6000 + message.length * 60))
     return () => window.clearTimeout(t)
   }, [message])
   // 시트 연도를 이 브라우저 연도로(시트에서 탭이 지워졌을 때)
@@ -2261,6 +2262,29 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 머리 오른쪽 빈 곳: 시트 상태 줄(저장 안 한 변경 · 저장) · 과제 내보내기(팀장) · 파일 메뉴 */}
         <span className="flex min-w-0 flex-1 items-center gap-2">
           {headStatus}
+          {/* 알림(저장했습니다 등): 머리 줄 빈 곳에 잠깐(6초) -- 표를 밀어내지 않게 */}
+          {message && (
+          <span className="flex min-w-0 max-w-[46%] shrink-0">
+            {(
+              <span
+                role="status"
+                title={message}
+                className="flex min-h-8 min-w-0 max-w-full items-center gap-1.5 rounded-[12px] bg-success/10 py-1 pl-3 pr-1 text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-success"
+              >
+                <CircleCheck size={14} strokeWidth={2} className="shrink-0" />
+                <span className={`min-w-0 ${message.length > 40 ? 'line-clamp-2' : 'truncate whitespace-nowrap'}`}>{message}</span>
+                <button
+                  onClick={() => setMessage('')}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-label-2 hover:bg-black/[0.08] hover:text-label"
+                  aria-label="알림 닫기"
+                  title="닫기"
+                >
+                  <X size={13} strokeWidth={2.2} />
+                </button>
+              </span>
+            )}
+          </span>
+          )}
           <span className="flex-1" />
           {/* 팀장: 지금 그룹(L1)을 성과관리 과제리스트로 내보내기가 주된 일 -- 머리 줄 프라이머리 버튼(성과관리의 구글시트 연결과 같은 화면) */}
           {canPerf && (
@@ -2284,19 +2308,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       {confirmDialog}
       {sheetSettings}
       {error && <ErrorBox error={error} onRetryAccount={() => loadFromSheet(true)} />}
-      {message && (
-        <p className="mt-3 flex items-start gap-2 rounded-card bg-success/10 px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-success">
-          <span className="flex-1">{message}</span>
-          <button
-            onClick={() => setMessage('')}
-            className="-mr-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-label-2 hover:bg-black/[0.08] hover:text-label"
-            aria-label="알림 닫기"
-            title="닫기"
-          >
-            <X size={14} strokeWidth={2.2} />
-          </button>
-        </p>
-      )}
 
       {/* 진척률: 같은 연도 · 고친 내용으로 센다(추진현황 화면은 숨겨 두고 그대로 유지) */}
       {view === 'rate' && <ProgressRate data={data} drafts={drafts} l1s={l1s} asOfDefault={currentKey} />}

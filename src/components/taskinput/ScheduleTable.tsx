@@ -1530,8 +1530,10 @@ export default function ScheduleTable({
     const b = rowSelEnd ? (rowIndexOf.get(rowSelEnd) ?? a) : a
     return { r1: Math.min(a, b), r2: Math.max(a, b) }
   })()
+  // 행 선택 표시: 행 번호로 고른 행, 또는 모서리로 표 전체를 골랐을 때 모든 행
   const isRowSel = (key: string) => {
     const i = rowIndexOf.get(key)
+    if (allSelected) return true
     return !!rowRange && i !== undefined && i >= rowRange.r1 && i <= rowRange.r2
   }
   // 선택 범위(행 · 열 번호). 한 칸만 골랐으면 null
@@ -1990,7 +1992,10 @@ export default function ScheduleTable({
     const w = barRef.current?.offsetWidth ?? 420
     const h = barRef.current?.offsetHeight ?? 44
     const y = r.top - h - 6 >= 8 ? r.top - h - 6 : r.bottom + 6
-    const x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
+    // 머리글 기준(열 · 전체 · 구분 열 · 제목 편집)이면 위 도구 줄 왼쪽 버튼(보기 · 입력하기)을 가리지 않게 표 오른쪽 끝 쪽으로
+    const head = !!el.closest('thead')
+    const tr = tableRef.current?.parentElement?.getBoundingClientRect()
+    const x = head && tr ? Math.max(8, Math.min(tr.right - w - 72, window.innerWidth - w - 8)) : Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
     setBarPos((cur) => (cur && cur.x === x && cur.y === y ? cur : { x, y }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })
@@ -2582,7 +2587,7 @@ export default function ScheduleTable({
                     style={{ ...(rowH ? { height: rowH } : {}) }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
                       isRowSel(v.row.key)
-                        ? `pb-row-sel ${rowRange && ri2 === rowRange.r1 ? 'pb-row-top' : ''} ${rowRange && ri2 === rowRange.r2 ? 'pb-row-bottom' : ''}`
+                        ? `pb-row-sel ${(allSelected ? ri2 === 0 : rowRange && ri2 === rowRange.r1) ? 'pb-row-top' : ''} ${(allSelected ? ri2 === rows.length - 1 : rowRange && ri2 === rowRange.r2) ? 'pb-row-bottom' : ''}`
                         : ''
                     }`}
                   >
@@ -2695,7 +2700,7 @@ export default function ScheduleTable({
                           left: WH,
                           ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}),
                           ...fmtStyle(g.rows[0].fmt?.[L2_KEY]),
-                          ...(l2Col && !l2Edit ? { boxShadow: selShadow(0.1, false, true, gi === groups.length - 1, true) } : {}),
+                          ...((l2Col || allSelected) && !l2Edit ? { boxShadow: selShadow(0.1, allSelected && gi === 0, !allSelected, gi === groups.length - 1, true) } : {}),
                         }}
                         className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-0.5px_0_#C9CDD3,0_0.5px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''

@@ -4,7 +4,7 @@
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
 import { ManualPanel, type ManualArea } from './ManualLink'
 import { useMemo, useState } from 'react'
-import { ArrowRight, BookOpen, ChartColumn, ClipboardList, FileSpreadsheet, FolderPlus, Send, UsersRound, X } from 'lucide-react'
+import { ArrowRight, BookOpen, ChartColumn, ClipboardList, FileSpreadsheet, FolderPlus, Send, UsersRound } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
 import { mmdd, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
@@ -15,7 +15,7 @@ import { parseSheetUrl } from '../utils/sheetSources'
 import { isPendingEmail, readAccessCache } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { setLandingIntent } from './WorkspaceLanding'
-import TeamAccountsPanel from './TeamAccountsPanel'
+import InviteModal from './InviteModal'
 
 const yearName = (t: string) => t.replace(/추진현황/, '실적관리')
 
@@ -250,20 +250,7 @@ export default function HomePage() {
           </section>
         )}
       </main>
-      {inviteOpen && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-10" onMouseDown={(e) => e.target === e.currentTarget && setInviteOpen(false)}>
-          <div className="w-full max-w-6xl rounded-[16px] bg-canvas p-6 shadow-pop">
-            <div className="mb-4 flex items-center gap-2">
-              <h3 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">팀원 초대</h3>
-              <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">평가를 만들면 성과관리 › 팀원관리 표에서 이어서 관리합니다</span>
-              <button onClick={() => setInviteOpen(false)} aria-label="닫기" className="ml-auto flex h-8 w-8 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.06]">
-                <X size={16} strokeWidth={2} />
-              </button>
-            </div>
-            <TeamAccountsPanel />
-          </div>
-        </div>
-      )}
+      {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
       {manual && <ManualPanel area={manual} chapter={manual === 'tasks' ? 'sheet' : 'prep'} onClose={() => setManual(null)} />}
     </AppShell>
   )
