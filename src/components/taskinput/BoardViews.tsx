@@ -4,6 +4,7 @@
 //   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight } from 'lucide-react'
 import type { ScheduleRowView } from './ScheduleTable'
 import { STATUS_TONE } from './ScheduleTable'
 import { planRange, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
@@ -391,9 +392,19 @@ export function TimelineView({
                     setCollapsed(next)
                     writeJson(COLLAPSE_KEY, next)
                   }}
-                  className="self-start whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-accent hover:underline"
+                  className="flex items-center gap-1 self-start whitespace-nowrap rounded-[6px] px-1 py-0.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05] hover:text-label"
                 >
-                  {groups.length && groups.every((g) => collapsed.includes(g.label)) ? '모두 펼치기' : '모두 접기'}
+                  {groups.length && groups.every((g) => collapsed.includes(g.label)) ? (
+                    <>
+                      <ChevronsUpDown size={14} strokeWidth={2} />
+                      모두 펼치기
+                    </>
+                  ) : (
+                    <>
+                      <ChevronsDownUp size={14} strokeWidth={2} />
+                      모두 접기
+                    </>
+                  )}
                 </button>
               <span className="flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                 <span className="flex items-center gap-1.5">
@@ -461,9 +472,9 @@ export function TimelineView({
                         onClick={() => toggleGroup(g.label)}
                         title={shut ? '펼치기' : '접기'}
                         aria-label={shut ? '펼치기' : '접기'}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.06] hover:text-label"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[6px] text-label-2 hover:bg-black/[0.06] hover:text-label"
                       >
-                        <span className={`inline-block text-[11px] transition-transform ${shut ? '' : 'rotate-90'}`}>▶</span>
+                        {shut ? <ChevronRight size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
                       </button>
                       {/* 구분 색: 누르면 고르기 */}
                       <button
@@ -507,14 +518,18 @@ export function TimelineView({
                     const state = s.late ? '지연' : s.stage
                     return (
                       <div key={v.row.key} className="relative flex items-center" style={{ height: ROW_H }}>
-                        <div className="flex shrink-0 items-center gap-2 px-4" style={{ width: leftW }}>
+                        {/* 구분 아래 들여 쓴 과제: ↳ 과제명 · 오른쪽 끝에 상태 */}
+                        <div className="flex shrink-0 items-center gap-1.5 pl-[38px] pr-3" style={{ width: leftW }}>
+                          <CornerDownRight size={14} strokeWidth={1.8} className="shrink-0 text-label-3/70" />
+                          <span className="min-w-0 flex-1 truncate text-label" title={v.vals.name}>
+                            {v.vals.name}
+                          </span>
                           <span
-                            className={`w-10 shrink-0 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${s.done ? 'text-emerald-700' : s.late ? 'text-red-600' : s.started ? 'text-accent' : 'text-label-3'}`}
+                            className={`shrink-0 whitespace-nowrap rounded-full px-1.5 py-[1px] text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold ${
+                              s.late ? 'bg-red-100 text-red-700' : (STATUS_TONE[s.stage] ?? 'bg-black/[0.05] text-label-2')
+                            }`}
                           >
                             {state}
-                          </span>
-                          <span className="truncate text-label-2" title={v.vals.name}>
-                            {v.vals.name}
                           </span>
                         </div>
                         {has && (
@@ -551,7 +566,6 @@ export function TimelineView({
                             className="absolute flex items-center gap-1.5 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3"
                             style={{ left: x0(a) + span(a, b) + 8, top: (ROW_H - 16) / 2 }}
                           >
-                            {s.late && <span className="rounded-full bg-red-50 px-1.5 font-semibold text-red-600">지연</span>}
                             {people}
                           </span>
                         )}
