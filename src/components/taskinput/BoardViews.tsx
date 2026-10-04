@@ -19,6 +19,25 @@ const GROUP_HUES = [
   ['#4A6FDB', '#C9D5F5'],
 ]
 
+// 구분 색 직접 고르기 · 접어 둔 구분(이 브라우저에 기억)
+const GROUP_COLORS_KEY = 'timeline-group-colors'
+const COLLAPSE_KEY = 'timeline-collapsed'
+const PICK_COLORS = ['#3BA9D3', '#3DBE84', '#A7327A', '#9A5BD6', '#E08A2C', '#4A6FDB', '#E04F5F', '#2BA6A0', '#8C8C99', '#B7791F']
+const readJson = <T,>(k: string, d: T): T => {
+  try {
+    return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d
+  } catch {
+    return d
+  }
+}
+const writeJson = (k: string, v: unknown) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v))
+  } catch {
+    // 기억 못 해도 지금은 바뀐다
+  }
+}
+
 const splitPeople = (s: string | undefined) =>
   (s ?? '')
     .split(/[,/·\n]+/)
@@ -171,6 +190,22 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
   const asOf = nowIdx >= 0 ? nowIdx : weekCols.length - 1
   const nowMonth = weekCols[asOf]?.month
   const [filter, setFilter] = useState<Filter>('all')
+  // 구분 색(사용자 지정) · 접기
+  const [groupColors, setGroupColors] = useState<Record<string, string>>(() => readJson(GROUP_COLORS_KEY, {}))
+  const setGroupColor = (label: string, hex: string | null) => {
+    const next = { ...groupColors }
+    if (hex) next[label] = hex
+    else delete next[label]
+    setGroupColors(next)
+    writeJson(GROUP_COLORS_KEY, next)
+  }
+  const [collapsed, setCollapsed] = useState<string[]>(() => readJson(COLLAPSE_KEY, []))
+  const toggleGroup = (label: string) => {
+    const next = collapsed.includes(label) ? collapsed.filter((x) => x !== label) : [...collapsed, label]
+    setCollapsed(next)
+    writeJson(COLLAPSE_KEY, next)
+  }
+  const [colorFor, setColorFor] = useState<{ label: string; x: number; y: number } | null>(null)
   // 그룹(L1) 탭을 바꾸면 요약 카드 거르기는 전체로(다른 탭에서 눌러 둔 거르기가 남아 빈 화면이 되지 않게)
   const l1Key = views[0]?.row.l1 ?? ''
   useEffect(() => setFilter('all'), [l1Key])
@@ -299,7 +334,17 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
           {/* 머리글: 범례 · 달 · 주 */}
           <div className="sticky top-0 z-10 flex border-b border-[#ECECF0] bg-white">
             <div className="flex shrink-0 flex-col justify-end gap-1 px-4 pb-2" style={{ width: leftW }}>
-              <span className="flex items-center gap-3 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
+              <button
+                  onClick={() => {
+                    const next = groups.every((g) => collapsed.includes(g.label)) ? [] : groups.map((g) => g.label)
+                    setCollapsed(next)
+                    writeJson(COLLAPSE_KEY, next)
+                  }}
+                  className="self-start whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-accent hover:underline"
+                >
+                  {groups.length && groups.every((g) => collapsed.includes(g.label)) ? '모두 펼치기' : '모두 접기'}
+                </button>
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                 <span className="flex items-center gap-1.5">
                   <i className="inline-block h-3 w-6 rounded-full border border-[#3BA9D3]/50 bg-[#3BA9D3]/10" />
                   계획
@@ -346,7 +391,8 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
               ))}
             </div>
             {groups.map((g, gi) => {
-              const hue = GROUP_HUES[gi % GROUP_HUES.length][0]
+              const hue = groupColors[g.label] ?? GROUP_HUES[gi % GROUP_HUES.length][0]
+              const shut = collapsed.includes(g.label)
               const items = g.items.filter(pass)
               if (!items.length) return null
               const done = g.items.filter((x) => x.s.done).length
@@ -358,14 +404,37 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                 <div key={g.label + gi} className="relative pt-4">
                   {/* 구분 머리: 회색 알약에 이름 · 완료 비율 */}
                   <div className="relative flex items-center" style={{ height: 30 }}>
-                    <div className="flex shrink-0 items-center gap-2 truncate px-4" style={{ width: leftW }}>
-                      <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: hue }} />
-                      <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.label}</span>
+                    <div className="flex shrink-0 items-center gap-1.5 truncate pl-2 pr-4" style={{ width: leftW }}>
+                      {/* 접기 · 펼치기 */}
+                      <button
+                        onClick={() => toggleGroup(g.label)}
+                        title={shut ? '펼치기' : '접기'}
+                        aria-label={shut ? '펼치기' : '접기'}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.06] hover:text-label"
+                      >
+                        <span className={`inline-block text-[11px] transition-transform ${shut ? '' : 'rotate-90'}`}>▶</span>
+                      </button>
+                      {/* 구분 색: 누르면 고르기 */}
+                      <button
+                        onClick={(e) => {
+                          const r = e.currentTarget.getBoundingClientRect()
+                          setColorFor({ label: g.label, x: r.left, y: r.bottom + 6 })
+                        }}
+                        title="구분 색 바꾸기"
+                        aria-label="구분 색 바꾸기"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-black/[0.06]"
+                      >
+                        <i className="h-2.5 w-2.5 rounded-full" style={{ background: hue }} />
+                      </button>
+                      <button onClick={() => toggleGroup(g.label)} className="truncate text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+                        {g.label}
+                        {shut && <span className="ml-1.5 font-normal text-label-3">{items.length}건</span>}
+                      </button>
                     </div>
                     {ranged.length > 0 && isFinite(from) && (
                       <div
-                        className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full bg-[#A9ABB8] px-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-white"
-                        style={{ left: x0(from), width: span(from, to) }}
+                        className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full px-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-white"
+                        style={{ left: x0(from), width: span(from, to), background: groupColors[g.label] ? hue : '#A9ABB8' }}
                         title={`완료 ${done} / 과제 ${g.items.length}`}
                       >
                         <span className="truncate">{g.label}</span>
@@ -373,7 +442,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                       </div>
                     )}
                   </div>
-                  {items.map(({ v, s }) => {
+                  {!shut && items.map(({ v, s }) => {
                     const people = splitPeople(v.vals.assignees).join(', ')
                     const a = Math.min(s.plan?.[0] ?? Infinity, s.act?.[0] ?? Infinity)
                     const b = Math.max(s.plan?.[1] ?? -1, s.act?.[1] ?? -1)
@@ -441,6 +510,36 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
                 </div>
               )
             })}
+            {colorFor && (
+              <div className="fixed inset-0 z-50" onMouseDown={() => setColorFor(null)}>
+                <div className="mac-pop absolute w-[212px] p-2.5" style={{ left: colorFor.x, top: colorFor.y }} onMouseDown={(e) => e.stopPropagation()}>
+                  <p className="mb-2 truncate text-[length:calc(12.5px*var(--ui-fs,1))] font-semibold text-label-2">{colorFor.label} 색</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {PICK_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          setGroupColor(colorFor.label, c)
+                          setColorFor(null)
+                        }}
+                        className={`h-7 w-7 rounded-full ${groupColors[colorFor.label] === c ? 'ring-2 ring-label ring-offset-2' : ''}`}
+                        style={{ background: c }}
+                        aria-label={c}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setGroupColor(colorFor.label, null)
+                      setColorFor(null)
+                    }}
+                    className="mt-2 w-full rounded-[7px] py-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]"
+                  >
+                    기본 색으로
+                  </button>
+                </div>
+              </div>
+            )}
             {groups.every((g) => !g.items.some(pass)) && (
               <p className="py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
                 {filter === 'all' ? '보여 줄 과제가 없습니다.' : `${cards.find((c) => c.k === filter)?.label} 과제가 없습니다. `}
