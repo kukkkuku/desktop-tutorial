@@ -3,13 +3,13 @@
 //   공유: 관리자 · 팀장만 편집자(팀원을 추가하면 이 시트에 적으므로). 팀원은 공유하지 않는다(명단이 보이지 않게).
 import { ExternalLink, FileSpreadsheet } from 'lucide-react'
 import { icSm } from '../ui/icon'
-import { accessSheetUrl, type AccessData } from '../../utils/accessSheet'
+import { accessSheetUrl, isPendingEmail, type AccessData } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ShareBlock } from './TaskSheetPanel'
 
 export default function AccessSheetPanel({ data, me }: { data: AccessData; me: string }) {
   const url = accessSheetUrl()
-  const managers = data.users.filter((u) => u.role !== 'member' && u.email !== me)
+  const managers = data.users.filter((u) => u.role !== 'member' && u.email !== me && !isPendingEmail(u.email))
   const members = data.users.filter((u) => u.role === 'member').length
   return (
     <div className="max-w-4xl space-y-3">

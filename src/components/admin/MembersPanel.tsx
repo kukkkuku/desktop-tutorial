@@ -21,7 +21,7 @@ import {
   sendInviteEmails,
   type InviteEntry,
 } from '../../utils/adminInvite'
-import { ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { PENDING_SUFFIX, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
@@ -58,16 +58,17 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   )
   // 평가 목록(지금 팀) 팀원 중 관리 명단에 없는 사람 -- Gmail을 넣어 명단에 추가하게
   const evalMissing = useMemo(() => {
-    if (!currentWorkspace) return []
+    const ws = currentWorkspace ?? workspaces[0]
+    if (!ws) return []
     try {
-      const st = JSON.parse(localStorage.getItem(workspaceStateKey(currentWorkspace.id)) ?? 'null') as { members?: TeamMember[] } | null
+      const st = JSON.parse(localStorage.getItem(workspaceStateKey(ws.id)) ?? 'null') as { members?: TeamMember[] } | null
       const have = new Set(data.users.map((u) => u.email))
       const names = new Set(data.users.map((u) => u.name.trim()).filter(Boolean))
       return (st?.members ?? []).filter((m) => m.active !== false && !have.has((m.email ?? '').toLowerCase()) && !names.has(m.name.trim()))
     } catch {
       return []
     }
-  }, [currentWorkspace, data.users])
+  }, [currentWorkspace, workspaces, data.users])
   const [query, setQuery] = useState('')
   const shown = rows.filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -153,6 +154,14 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, sendTo: v.trim() } : x)), me, [`받는 메일: ${u.email} → ${v.trim() || '(Gmail)'}`]), '받는 메일을 저장했습니다.')
   const saveField = (u: AccessUser, patch: Partial<AccessUser>, what: string) =>
     void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, ...patch } : x)), me, [what]), '저장했습니다.')
+  function saveEmail(u: AccessUser, v: string) {
+    const raw = v.trim().toLowerCase()
+    if (!raw) return
+    const mail = raw.includes('@') ? raw : `${raw}@gmail.com`
+    if (!isEmail(mail) || mail.endsWith(PENDING_SUFFIX)) return setNote({ ok: false, text: `「${v}」은(는) 메일 주소가 아닙니다.` })
+    if (data.users.some((x) => x.email === mail)) return setNote({ ok: false, text: `${mail}은(는) 이미 명단에 있습니다.` })
+    saveField(u, { email: mail }, `Gmail: ${u.name} → ${mail}`)
+  }
   const [removeAsk, setRemoveAsk] = useState<AccessUser[] | null>(null)
   const canRemove = (u: AccessUser) => u.email !== me && (isAdmin || u.addedBy === me)
 
@@ -170,7 +179,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         setConnected(true)
       }
       const res = await sendInviteEmails(
-        targets.map((u) => ({ email: u.email, sendTo: u.sendTo || undefined, name: u.name || undefined, addedAt: '', lastInvitedAt: null })),
+        targets.filter((u) => !isPendingEmail(u.email)).map((u) => ({ email: u.email, sendTo: u.sendTo || undefined, name: u.name || undefined, addedAt: '', lastInvitedAt: null })),
         subject,
         body,
         appInviteUrl(undefined, taskUrl),
@@ -190,7 +199,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       setNote(
         res.failed.length
           ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => `${f.email}(${f.error.slice(0, 60)})`).join(', ')}` }
-          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다. 「실적관리 시트」 탭에서 시트 공유도 해 주세요.` },
+          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다.${targets.some((u) => isPendingEmail(u.email)) ? ' (Gmail이 없는 사람은 뺐습니다)' : ''} 「실적관리 시트」 탭에서 시트 공유도 해 주세요.` },
       )
     } catch (e) {
       setNote({ ok: false, text: e instanceof Error ? e.message : '보내지 못했습니다.' })
@@ -279,6 +288,9 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       case 'name':
         return mine ? <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${u.email} → ${v}`)} /> : u.name || '-'
       case 'email':
+        // Gmail을 아직 모르는 사람: 여기에 넣는다(아이디만 적으면 @gmail.com)
+        if (isPendingEmail(u.email))
+          return mine ? <CellInput value="" placeholder="Gmail 입력" disabled={busy} onSave={(v) => saveEmail(u, v)} /> : <span className="text-label-3">Gmail 없음</span>
         return <span className="block truncate text-label" title={u.email}>{u.email}</span>
       case 'sendTo':
         return <SendToInput u={u} disabled={busy || !mine} onSave={(v) => saveSendTo(u, v)} />
@@ -468,7 +480,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   return (
     <div className={`space-y-4 ${compose ? 'max-w-none' : 'max-w-6xl'}`}>
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원만 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「실적관리 시트」 탭에서 시트를 공유하면 끝납니다.
+        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원과 우리 팀 팀원을 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「실적관리 시트」 탭에서 시트를 공유하면 끝납니다.
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
@@ -537,7 +549,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       })()}
 
       {/* 평가 목록 팀원 중 명단에 없는 사람: Gmail을 넣어 한 번에 추가 */}
-      {evalMissing.length > 0 && !addOpen && (
+      {evalMissing.length > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
           <span>
             평가 목록 <b>「{evalTeam}」</b> 팀원 {evalMissing.length}명이 관리 명단에 없습니다
@@ -547,11 +559,26 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
             variant="primary"
             size="sm"
             className="ml-auto"
+            disabled={busy}
             onClick={() => {
-              setPasteText(evalMissing.map((m) => `${m.email ?? ''}, , ${m.name}`).join('\n'))
-              setTeam(evalTeam || team)
-              setAddOpen(true)
-              setNote({ ok: true, text: 'Gmail이 빈 줄은 이름 앞에 로그인할 Gmail(아이디만 적어도 됨)을 적고 「추가」를 누르세요.' })
+              const have = new Set(data.users.map((u) => u.email))
+              const add = evalMissing.map<AccessUser>((m, i) => {
+                const mail = (m.email ?? '').trim().toLowerCase()
+                return {
+                  email: mail.includes('@') && !have.has(mail) ? mail : newPendingEmail(i),
+                  name: m.name.trim(),
+                  role: 'member',
+                  team: evalTeam,
+                  memo: '',
+                  addedBy: me,
+                  sendTo: '',
+                }
+              })
+              const noMail = add.filter((u) => isPendingEmail(u.email)).length
+              void run(
+                () => updateUsers(data.id, (users) => [...users, ...add.filter((a) => !users.some((u) => u.email === a.email))], me, [`평가 목록에서 팀원 추가: ${add.map((u) => u.name).join(', ')}`]),
+                `${add.length}명을 추가했습니다${noMail ? ` · Gmail이 없는 ${noMail}명은 표의 계정 칸에 Gmail을 넣어 주세요` : ''}.`,
+              )
             }}
           >
             평가 목록 팀원 불러오기

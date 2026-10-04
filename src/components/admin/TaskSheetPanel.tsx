@@ -6,7 +6,7 @@ import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import { icSm } from '../ui/icon'
-import { setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { isPendingEmail, setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet } from '../../utils/progressBoard'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -65,7 +65,7 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
 
   const locked = isProtectedSheet(curId ?? undefined)
   // 공유할 사람: 관리자는 모두, 팀장은 내가 추가한 사람만(나는 빼고)
-  const people = (isAdmin ? data.users : data.users.filter((u) => u.addedBy === me)).filter((u) => u.email !== me)
+  const people = (isAdmin ? data.users : data.users.filter((u) => u.addedBy === me)).filter((u) => u.email !== me && !isPendingEmail(u.email))
   return (
     <div className="max-w-4xl space-y-6">
       <section className="space-y-3">

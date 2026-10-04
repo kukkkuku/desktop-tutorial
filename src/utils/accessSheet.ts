@@ -46,6 +46,11 @@ const ID_KEY = 'access-sheet-id'
 const CACHE_KEY = 'access-sheet-cache'
 
 const ROLE_WORDS: Record<string, AccessRole> = { 관리자: 'admin', admin: 'admin', 팀장: 'leader', leader: 'leader', 팀원: 'member', member: 'member' }
+// Gmail을 아직 모르는 사람(평가 목록에서 이름만 불러옴): 자리표시 계정 '…@pending'. 표에서 Gmail을 넣으면 바뀐다.
+// 로그인 · 초대 메일 · 시트 공유에서는 빠진다.
+export const PENDING_SUFFIX = '@pending'
+export const isPendingEmail = (e: string | null | undefined) => (e ?? '').endsWith(PENDING_SUFFIX)
+export const newPendingEmail = (i = 0) => `p${Date.now().toString(36)}${i}${PENDING_SUFFIX}`
 export const ROLE_WORD: Record<AccessRole, string> = { admin: '관리자', leader: '팀장', member: '팀원' }
 const norm = (e: string | null | undefined) => (e ?? '').trim().toLowerCase()
 

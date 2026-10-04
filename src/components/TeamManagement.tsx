@@ -20,7 +20,7 @@ import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/Data
 import IconButton from './IconButton'
 import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-import { ACCESS_EVENT, readAccessCache } from '../utils/accessSheet'
+import { ACCESS_EVENT, isPendingEmail, readAccessCache } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -66,7 +66,7 @@ export default function TeamManagement() {
   }, [])
   const rosterInfo = useMemo(() => {
     const me = (getConnectedEmail() ?? '').toLowerCase()
-    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && (u.addedBy === me || (!!teamName.trim() && u.team === teamName.trim())))
+    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && !isPendingEmail(u.email) && (u.addedBy === me || (!!teamName.trim() && u.team === teamName.trim())))
     const byEmail = new Set(state.members.map((m) => (m.email ?? '').toLowerCase()).filter(Boolean))
     const items = mine
       .filter((u) => !byEmail.has(u.email))
@@ -374,12 +374,12 @@ export default function TeamManagement() {
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => save(state.members.map((x) => (x.id === m.id ? { ...x, active: !x.active } : x)), [])}
           title={m.active ? '누르면 비활성(평가 · 기여도 배분에서 빠짐)' : '누르면 활성'}
-          className="flex items-center gap-2 py-1"
+          // 켬/끔 뱃지(평가 기준 「사용 / 미사용」과 같은 모양)
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium transition-colors ${
+            m.active ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08]'
+          }`}
         >
-          <span className={`relative h-[18px] w-8 shrink-0 rounded-full transition-colors ${m.active ? 'bg-success' : 'bg-black/[0.15]'}`}>
-            <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-all ${m.active ? 'left-[16px]' : 'left-[2px]'}`} />
-          </span>
-          <span className={`text-[length:calc(13.5px*var(--ui-fs,1))] ${m.active ? 'text-label' : 'text-label-3'}`}>{m.active ? '활성' : '비활성'}</span>
+          {m.active ? '활성' : '비활성'}
         </button>
       )
     if (col.id === 'service' || col.id === 'levelTenure' || col.id === 'work' || col.id === 'tasks')
