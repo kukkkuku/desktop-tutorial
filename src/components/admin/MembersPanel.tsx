@@ -59,18 +59,51 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     [data.users, isAdmin, me, evalTeam, myTeam],
   )
   // 평가 목록(지금 팀) 팀원 중 관리 명단에 없는 사람 -- Gmail을 넣어 명단에 추가하게
+  // 명단에서 뺀 사람은 다시 자동으로 불러오지 않는다(평가 목록 이름 기준, 이 브라우저에 기억)
+  const evalWs = currentWorkspace ?? workspaces[0]
+  const skipKey = evalWs ? `members-import-skip:${evalWs.id}` : ''
+  const readSkip = (): string[] => {
+    try {
+      return skipKey ? (JSON.parse(localStorage.getItem(skipKey) ?? '[]') as string[]) : []
+    } catch {
+      return []
+    }
+  }
   const evalMissing = useMemo(() => {
-    const ws = currentWorkspace ?? workspaces[0]
+    const ws = evalWs
     if (!ws) return []
     try {
       const st = JSON.parse(localStorage.getItem(workspaceStateKey(ws.id)) ?? 'null') as { members?: TeamMember[] } | null
       const have = new Set(data.users.map((u) => u.email))
       const names = new Set(data.users.map((u) => u.name.trim()).filter(Boolean))
-      return (st?.members ?? []).filter((m) => m.active !== false && !have.has((m.email ?? '').toLowerCase()) && !names.has(m.name.trim()))
+      const skip = new Set(readSkip())
+      return (st?.members ?? []).filter((m) => m.active !== false && !skip.has(m.name.trim()) && !have.has((m.email ?? '').toLowerCase()) && !names.has(m.name.trim()))
     } catch {
       return []
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWorkspace, workspaces, data.users])
+  // 평가 목록(성과관리) 팀원을 관리 명단으로: 화면을 열면 자동으로(묻지 않음). Gmail을 모르면 이름만 -- 표에서 Gmail 입력
+  function importEvalMembers() {
+    const have = new Set(data.users.map((u) => u.email))
+    const add = evalMissing.map<AccessUser>((m, i) => {
+      const mail = (m.email ?? '').trim().toLowerCase()
+      return {
+        email: mail.includes('@') && !have.has(mail) ? mail : newPendingEmail(i),
+        name: m.name.trim(),
+        role: 'member',
+        team: evalTeam,
+        memo: '',
+        addedBy: me,
+        sendTo: '',
+      }
+    })
+    const noMail = add.filter((u) => isPendingEmail(u.email)).length
+    void run(
+      () => updateUsers(data.id, (users) => [...users, ...add.filter((a) => !users.some((u) => u.email === a.email))], me, [`평가 목록에서 팀원 추가: ${add.map((u) => u.name).join(', ')}`]),
+      `평가 목록 팀원 ${add.length}명을 명단에 불러왔습니다${noMail ? ` · Gmail이 없는 ${noMail}명은 표의 계정 칸에 Gmail을 넣어 주세요` : ''}.`,
+    )
+  }
   const [query, setQuery] = useState('')
   const shown = rows.filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -99,7 +132,14 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     } finally {
       setBusy(false)
     }
-  }
+  }  const autoImported = useRef(false)
+  useEffect(() => {
+    if (autoImported.current || busy || !evalMissing.length) return
+    autoImported.current = true
+    importEvalMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evalMissing.length, busy])
+
 
   // 팀장 · 관리자 본인 줄의 팀이 비어 있으면 평가 목록의 팀 이름을 한 번 채운다(고칠 수 있음)
   useEffect(() => {
@@ -173,7 +213,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     saveField(u, { email: mail }, `Gmail: ${u.name} → ${mail}`)
   }
   const [removeAsk, setRemoveAsk] = useState<AccessUser[] | null>(null)
-  const canRemove = (u: AccessUser) => u.email !== me && (isAdmin || u.addedBy === me)
+  const canRemove = (u: AccessUser) => u.email !== me && (isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam)))
 
   // ---- 초대 메일
   const [connected, setConnected] = useState(isAdminConnected())
@@ -571,44 +611,6 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         )
       })()}
 
-      {/* 평가 목록 팀원 중 명단에 없는 사람: Gmail을 넣어 한 번에 추가 */}
-      {evalMissing.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-          <span>
-            평가 목록 <b>「{evalTeam}」</b> 팀원 {evalMissing.length}명이 관리 명단에 없습니다
-            <span className="text-label-2"> ({evalMissing.slice(0, 6).map((m) => m.name).join(', ')}{evalMissing.length > 6 ? ' …' : ''})</span>
-          </span>
-          <Button
-            variant="primary"
-            size="sm"
-            className="ml-auto"
-            disabled={busy}
-            onClick={() => {
-              const have = new Set(data.users.map((u) => u.email))
-              const add = evalMissing.map<AccessUser>((m, i) => {
-                const mail = (m.email ?? '').trim().toLowerCase()
-                return {
-                  email: mail.includes('@') && !have.has(mail) ? mail : newPendingEmail(i),
-                  name: m.name.trim(),
-                  role: 'member',
-                  team: evalTeam,
-                  memo: '',
-                  addedBy: me,
-                  sendTo: '',
-                }
-              })
-              const noMail = add.filter((u) => isPendingEmail(u.email)).length
-              void run(
-                () => updateUsers(data.id, (users) => [...users, ...add.filter((a) => !users.some((u) => u.email === a.email))], me, [`평가 목록에서 팀원 추가: ${add.map((u) => u.name).join(', ')}`]),
-                `${add.length}명을 추가했습니다${noMail ? ` · Gmail이 없는 ${noMail}명은 표의 계정 칸에 Gmail을 넣어 주세요` : ''}.`,
-              )
-            }}
-          >
-            평가 목록 팀원 불러오기
-          </Button>
-        </div>
-      )}
-
       {/* 도구 줄 */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
@@ -619,7 +621,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
           <Send {...icSm} />
           초대 메일 보내기{targets.length ? ` (${targets.length})` : ''}
         </Button>
-        <Button variant="secondary" onClick={() => setRemoveAsk(targets.filter(canRemove))} disabled={!targets.some(canRemove) || busy}>
+        <Button variant="secondary" onClick={() => setRemoveAsk(picked.filter(canRemove))} disabled={!picked.some(canRemove) || busy}>
           <Trash2 {...icSm} />
           목록에서 빼기
         </Button>
@@ -782,6 +784,12 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
         onCancel={() => setRemoveAsk(null)}
         onConfirm={() => {
           const out = new Set((removeAsk ?? []).map((u) => u.email))
+          if (skipKey)
+            try {
+              localStorage.setItem(skipKey, JSON.stringify(Array.from(new Set([...readSkip(), ...(removeAsk ?? []).map((u) => u.name.trim()).filter(Boolean)]))))
+            } catch {
+              // 기억 못 하면 다음에 다시 불러올 수 있다
+            }
           setRemoveAsk(null)
           setSel(new Set())
           void run(
@@ -859,7 +867,7 @@ function CellInput({ value, placeholder, disabled, onSave }: { value: string; pl
       onBlur={() => v.trim() !== value && onSave(v.trim())}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       placeholder={placeholder}
-      className="h-8 w-full min-w-[90px] rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-inherit outline-none hover:border-hairline focus:border-accent focus:bg-white"
+      className="-mx-[7px] -my-1 h-8 w-[calc(100%+14px)] min-w-[90px] rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-inherit outline-none hover:border-hairline focus:border-accent focus:bg-white"
     />
   )
 }
