@@ -516,8 +516,8 @@ export default function TeamManagement() {
             onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
           />
           {access && (
-            <Button variant="secondary" onClick={() => setRosterOpen(!rosterOpen)} title="관리 › 팀원 · 권한에서 초대한 팀원을 이 평가의 팀원으로">
-              관리 명단에서 불러오기
+            <Button variant="secondary" onClick={() => setRosterOpen(!rosterOpen)} title="「초대 · 계정」 탭의 우리 팀 명단에서 이 평가의 팀원으로">
+              팀원 명단에서 불러오기
             </Button>
           )}
           <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
@@ -573,10 +573,10 @@ export default function TeamManagement() {
             <div>
               <button onClick={() => setRosterOpen(false)} className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:text-accent" title="접기">
                 <ChevronDown {...icSm} />
-                관리 명단에서 불러오기 · {rosterInfo.items.length}명
+                팀원 명단에서 불러오기 · {rosterInfo.items.length}명
               </button>
               <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                관리 › 팀원 · 권한에서 내가 추가했거나 우리 팀({teamName || '팀 이름 없음'})인 팀원입니다. 추가하면 이름 · Gmail · 팀이 채워지고, 직급 · 입사일 등은 여기서 입력합니다.
+                「초대 · 계정」 탭의 명단에서 내가 추가했거나 우리 팀({teamName || '팀 이름 없음'})인 팀원입니다. 추가하면 이름 · Gmail · 팀이 채워지고, 직급 · 입사일 등은 여기서 입력합니다.
               </p>
             </div>
             <Button variant="primary" size="sm" onClick={addFromRoster} disabled={picked.size === 0}>

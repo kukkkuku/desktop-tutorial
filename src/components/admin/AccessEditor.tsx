@@ -283,9 +283,9 @@ export default function AccessEditor({
         {/* 역할별로 되는 것(roles.ts · useSheetManager · AdminApp과 같은 기준) */}
         <dl className="mt-3 grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]">
           <dt className="font-semibold text-label">관리자</dt>
-          <dd>팀장이 하는 것 전부 + 모든 팀원 보기 · 과제 시트 연결 · 역할 바꾸기(이 표)</dd>
+          <dd>팀장이 하는 것 전부 + 관리 메뉴(팀장 지정 · 모든 팀원 보기 · 과제 시트 연결 · 역할 바꾸기)</dd>
           <dt className="font-semibold text-label">팀장</dt>
-          <dd>과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담) + 관리 › 팀원(내가 추가한 팀원 초대 · 관리)</dd>
+          <dd>과제 입력 + 성과관리(팀 · 평가 · 피어리뷰 · 면담 · 우리 팀 팀원 추가 · 초대)</dd>
           <dt className="font-semibold text-label">팀원</dt>
           <dd>과제 입력만(추진현황 입력 · 저장, 진척률 보기)</dd>
         </dl>

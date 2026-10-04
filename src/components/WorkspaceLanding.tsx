@@ -262,6 +262,16 @@ export default function WorkspaceLanding() {
   const [newTeamInput, setNewTeamInput] = useState('')
   const [teamNameModalOpen, setTeamNameModalOpen] = useState(false)
   const [periodModalTeam, setPeriodModalTeam] = useState<string | null>(null)
+  // 홈 「우리 팀」의 팀 만들기 · 평가 만들기 버튼으로 들어오면 그 창을 바로 연다(한 번만)
+  useEffect(() => {
+    const got = takeLandingIntent()
+    if (!got) return
+    // 평가 만들기: 최근 평가의 팀으로 바로 기간 고르기. 평가가 없으면 팀 이름(권한 시트의 내 팀을 채워 둠)부터
+    if (got.intent === 'eval' && mostRecentTeam) return setPeriodModalTeam(mostRecentTeam)
+    setNewTeamInput(got.intent === 'eval' ? got.team : '')
+    setTeamNameModalOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [deletingWorkspace, setDeletingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renamingWorkspace, setRenamingWorkspace] = useState<WorkspaceMeta | null>(null)
   const [renameTeamName, setRenameTeamName] = useState('')
@@ -303,7 +313,7 @@ export default function WorkspaceLanding() {
       )
       setAccessRenameNote(`관리의 팀 이름도 「${r.to}」로 바꿨습니다(${r.people.length}명).`)
     } catch (e) {
-      setAccessRenameNote(`관리의 팀 이름을 바꾸지 못했습니다: ${errText(e)} 관리 › 팀원 · 권한에서 「평가 목록 이름으로 맞추기」를 눌러 주세요.`)
+      setAccessRenameNote(`관리의 팀 이름을 바꾸지 못했습니다: ${errText(e)} 팀원관리 › 초대 · 계정에서 「평가 목록 이름으로 맞추기」를 눌러 주세요.`)
     }
   }
 
@@ -587,7 +597,7 @@ export default function WorkspaceLanding() {
         title="관리의 팀 이름도 바꿀까요?"
         message={
           accessRename
-            ? `성과관리의 팀 이름을 「${accessRename.from}」에서 「${accessRename.to}」로 바꿨습니다.\n관리 › 팀원 · 권한에도 「${accessRename.from}」로 적힌 사람이 ${accessRename.people.length}명 있습니다:\n${accessRename.people.slice(0, 12).join(', ')}${accessRename.people.length > 12 ? ' …' : ''}\n\n관리에도 「${accessRename.to}」로 바꿀까요? 안 바꾸면 나중에 관리 화면에서 맞출 수 있습니다.`
+            ? `성과관리의 팀 이름을 「${accessRename.from}」에서 「${accessRename.to}」로 바꿨습니다.\n팀원 명단(초대 · 계정)에도 「${accessRename.from}」로 적힌 사람이 ${accessRename.people.length}명 있습니다:\n${accessRename.people.slice(0, 12).join(', ')}${accessRename.people.length > 12 ? ' …' : ''}\n\n관리에도 「${accessRename.to}」로 바꿀까요? 안 바꾸면 나중에 관리 화면에서 맞출 수 있습니다.`
             : ''
         }
         confirmLabel="관리에도 적용"
@@ -604,4 +614,23 @@ export default function WorkspaceLanding() {
       />
     </AppShell>
   )
+}
+
+// 홈에서 평가 목록으로 보낼 때 열 창(팀 만들기 · 평가 만들기). 평가 목록이 열리면서 한 번 읽고 지운다.
+const LANDING_INTENT = 'landing-intent'
+export function setLandingIntent(intent: 'team' | 'eval', team = '') {
+  try {
+    sessionStorage.setItem(LANDING_INTENT, JSON.stringify({ intent, team }))
+  } catch {
+    // 못 남기면 목록만 연다
+  }
+}
+function takeLandingIntent(): { intent: 'team' | 'eval'; team: string } | null {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(LANDING_INTENT) ?? 'null') as { intent?: string; team?: string } | null
+    sessionStorage.removeItem(LANDING_INTENT)
+    return v && (v.intent === 'team' || v.intent === 'eval') ? { intent: v.intent, team: v.team ?? '' } : null
+  } catch {
+    return null
+  }
 }

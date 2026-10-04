@@ -1,7 +1,7 @@
 // 관리: 기능별 탭 셋.
-//   팀원 · 권한: 팀원 추가 · 역할 · 초대 메일 · 빼기. 팀장은 자기가 추가한 사람만, 관리자는 모두.
-//   실적관리 시트: 시트 연결(관리자) · 그 시트 공유 안내(팀장은 내가 추가한 팀원만).
-//   권한 시트(관리자만): 앱 설정 시트 정보 · 관리자 · 팀장에게 공유 안내.
+// 관리자만 들어온다(팀장의 팀원 추가 · 초대 · 시트 공유는 성과관리 › 팀원관리 › 계정 · 초대).
+//   팀장: 관리자 · 팀장 지정 · 초대 메일 · 빼기.  팀원: 모든 팀의 팀원 · 팀 · 역할(예외 처리용).
+//   실적관리 시트: 시트 연결 · 그 시트 공유 안내.  권한 시트: 앱 설정 시트 정보 · 관리자 · 팀장에게 공유 안내.
 // 모두 앱 설정을 담은 구글시트(권한 시트) 한 개에 저장된다 -- 화면에서는 그 시트를 직접 다룰 일이 없게 한다.
 import { errText } from '../../utils/googleError'
 import { useEffect, useState } from 'react'
@@ -19,9 +19,10 @@ import { ACCESS_EVENT, getAccessSheetId, readAccessCache, refreshAccess } from '
 import { getConnectedEmail } from '../../utils/googleDrive'
 import { isSheetsApiConfigured } from '../../utils/sheetSources'
 
-type Tab = 'members' | 'task' | 'access'
+type Tab = 'leaders' | 'members' | 'task' | 'access'
 const TITLES: Record<Tab, string> = {
-  members: '팀원 · 권한',
+  leaders: '팀장',
+  members: '팀원',
   task: '실적관리 시트',
   access: '권한 시트',
 }
@@ -29,8 +30,8 @@ const TITLES: Record<Tab, string> = {
 export default function AdminApp() {
   const { isAdminUser } = useGoogleAccount()
   const me = (getConnectedEmail() ?? '').toLowerCase()
-  const [tab, setTab] = useState<Tab>('members')
-  const cur: Tab = !isAdminUser && tab === 'access' ? 'members' : tab
+  const [tab, setTab] = useState<Tab>('leaders')
+  const cur: Tab = tab
   const { data, sync } = useAccess()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -54,19 +55,15 @@ export default function AdminApp() {
   }, [])
 
   return (
-    <AppShell header={<PageHeader area="관리" title={isAdminUser ? TITLES[cur] : cur === 'members' ? '팀원' : TITLES[cur]} />}>
-      {/* 관리자: 팀원 · 권한 · 실적관리 시트 · 권한 시트. 팀장: 팀원 · 실적관리 시트(공유 안내만) */}
+    <AppShell header={<PageHeader area="관리" title={TITLES[cur]} />}>
+      {/* 관리자만: 팀장(관리자 · 팀장 지정) · 팀원(모든 팀) · 실적관리 시트 · 권한 시트. 팀장의 팀원 추가 · 초대는 성과관리 › 팀원관리 */}
       <PageTabs>
         <UnderlineTabs
           items={[
-            {
-              key: 'members',
-              label: isAdminUser ? '팀원 · 권한' : '팀원',
-              title: '사람 추가 · 역할 · 초대 메일',
-            },
+            { key: 'leaders', label: '팀장', title: '관리자 · 팀장 지정 · 초대' },
+            { key: 'members', label: '팀원', title: '모든 팀의 팀원 · 팀 · 역할' },
             { key: 'task', label: '실적관리 시트', title: '실적관리(추진현황) 시트 연결 · 공유' },
-            // 권한 시트는 관리자만
-            ...(isAdminUser ? [{ key: 'access', label: '권한 시트', title: '앱 설정 시트 · 관리자 · 팀장에게 공유' }] : []),
+            { key: 'access', label: '권한 시트', title: '앱 설정 시트 · 관리자 · 팀장에게 공유' },
           ]}
           value={cur}
           onChange={(k) => setTab(k as Tab)}
@@ -84,8 +81,8 @@ export default function AdminApp() {
               </Button>
             </div>
           </section>
-        ) : cur === 'members' ? (
-          <MembersPanel data={data} me={me} isAdmin={isAdminUser} onChanged={sync} />
+        ) : cur === 'leaders' || cur === 'members' ? (
+          <MembersPanel key={cur} data={data} me={me} isAdmin={isAdminUser} scope={cur} onChanged={sync} />
         ) : cur === 'task' ? (
           <TaskSheetPanel data={data} me={me} isAdmin={isAdminUser} onChanged={sync} />
         ) : (

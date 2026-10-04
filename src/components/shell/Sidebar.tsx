@@ -166,7 +166,7 @@ function LogoutItem({ onClick }: { onClick: () => void }) {
 export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
-  const { accountEmail, role, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
+  const { accountEmail, role, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
   function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode, off?: string) {
     return (
       <button
@@ -248,8 +248,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       {/* 아래: 매뉴얼 · 백업 · 계정 */}
       <div className="space-y-0.5 pt-2">
         {item('manual', '사용 매뉴얼', BookOpen, false, openManual)}
-        {/* 관리(팀장 · 관리자): 권한 관리 시트(고치기는 관리자만) · 팀원 초대 */}
-        {canManage && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
+        {/* 관리(관리자만): 팀장 · 팀원 권한 · 시트 연결. 팀장의 팀원 초대는 성과관리 › 팀원관리에서 */}
+        {isAdminUser && item('admin', '관리', ShieldCheck, mode === 'admin', () => mode !== 'admin' && setMode('admin'))}
         {inPerf && perf?.onOpenDataManager && item('backup', '데이터 백업', Database, false, perf.onOpenDataManager, perf.saveBadge)}
       </div>
       {accountEmail && (
@@ -299,7 +299,7 @@ export function TopNav({
 }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
-  const { accountEmail, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
+  const { accountEmail, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
   const seg = (on: boolean, label: string, onClick: () => void) => (
     <button
       onClick={onClick}
@@ -390,7 +390,7 @@ export function TopNav({
           </span>
         )}
         {iconBtn('사용 매뉴얼', BookOpen, openManual)}
-        {canManage && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
+        {isAdminUser && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
         {accountEmail && (
           <GoogleAccountMenu
             placement="down"

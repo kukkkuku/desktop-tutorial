@@ -1,4 +1,4 @@
-// 관리 › 팀원: 팀원 추가 · 초대 메일 · 시트 공유 안내 · 목록 관리.
+// 팀원 명단: 관리 › 팀장 · 팀원(관리자) 탭과 성과관리 › 팀원관리 › 초대 · 계정(팀장)에서 같이 쓴다. 추가 · 초대 메일 · 목록 관리.
 //   팀장은 자기가 추가한 사람만 보고 관리하고, 관리자는 모두(누가 추가했는지 함께) 본다.
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
@@ -42,7 +42,20 @@ const stamp = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: AccessData; me: string; isAdmin: boolean; onChanged: () => void }) {
+// scope(관리자 화면의 탭): leaders = 관리자 · 팀장, members = 팀원. 없으면 팀장 화면(우리 팀 팀원)
+export default function MembersPanel({
+  data,
+  me,
+  isAdmin,
+  onChanged,
+  scope,
+}: {
+  data: AccessData
+  me: string
+  isAdmin: boolean
+  onChanged: () => void
+  scope?: 'leaders' | 'members'
+}) {
   const myTeam = data.users.find((u) => u.email === me)?.team ?? ''
   // 역할 설명은 처음 관리자 계정에만
   const isSuper = ADMIN_EMAILS.some((e) => e.toLowerCase() === me)
@@ -54,10 +67,10 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const rows = useMemo(
     () =>
       isAdmin
-        ? data.users
+        ? data.users.filter((u) => !scope || (scope === 'leaders' ? u.role !== 'member' : u.role === 'member'))
         : // 팀 칸이 기준: 우리 팀(평가 목록 팀 이름 · 내 팀) 팀원. 팀이 비어 있으면 내가 추가한 사람만. 다른 팀으로 옮기면 빠진다
           data.users.filter((u) => u.email === me || (u.role === 'member' && (u.team ? u.team === evalTeam || u.team === myTeam : u.addedBy === me))),
-    [data.users, isAdmin, me, evalTeam, myTeam],
+    [data.users, isAdmin, me, evalTeam, myTeam, scope],
   )
   // 평가 목록(지금 팀) 팀원 중 관리 명단에 없는 사람 -- Gmail을 넣어 명단에 추가하게
   // 명단에서 뺀 사람은 다시 자동으로 불러오지 않는다(평가 목록 이름 기준, 이 브라우저에 기억)
@@ -133,9 +146,11 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     } finally {
       setBusy(false)
     }
-  }  const autoImported = useRef(false)
+  }
+  // 평가 목록 팀원 자동 불러오기 · 내 팀 채우기 · 팀 이름 맞추기는 팀장 화면(성과관리 › 팀원관리)에서만 -- 관리자 탭에서는 하지 않음
+  const autoImported = useRef(false)
   useEffect(() => {
-    if (autoImported.current || busy || !evalMissing.length) return
+    if (scope || autoImported.current || busy || !evalMissing.length) return
     autoImported.current = true
     importEvalMembers()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,7 +160,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   // 팀장 · 관리자 본인 줄의 팀이 비어 있으면 평가 목록의 팀 이름을 한 번 채운다(고칠 수 있음)
   useEffect(() => {
     const mine = data.users.find((u) => u.email === me)
-    if (!mine || mine.team || !evalTeam || mine.role === 'member') return
+    if (scope || !mine || mine.team || !evalTeam || mine.role === 'member') return
     void updateUsers(data.id, (users) => users.map((x) => (x.email === me && !x.team ? { ...x, team: evalTeam } : x)), me, [`팀: ${me} → ${evalTeam}(평가 목록)`]).then(onChanged, () => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.id, evalTeam])
@@ -154,7 +169,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const [addOpen, setAddOpen] = useState(false)
   const [pasteText, setPasteText] = useState('')
   const [team, setTeam] = useState(defaultTeam)
-  const [addRole, setAddRole] = useState<AccessRole>('member') // 관리자만 고름(팀장이 추가하면 늘 팀원)
+  const [addRole, setAddRole] = useState<AccessRole>(scope === 'leaders' ? 'leader' : 'member') // 관리자만 고름(팀장이 추가하면 늘 팀원)
   const fileRef = useRef<HTMLInputElement>(null)
   // ---- 추진현황(실적관리 시트) 담당자에서 가져오기: 담당팀이 이 팀인 과제의 담당자 중 명단에 없는 사람(이름만 -- Gmail은 표에서)
   const [fromTasks, setFromTasks] = useState(false)
@@ -579,13 +594,17 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   return (
     <div className={`space-y-4 ${compose ? 'max-w-none' : 'max-w-6xl'}`}>
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {isAdmin ? '모든 사람을 보고 역할 · 팀을 바로 바꿉니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장).' : '내가 추가한 팀원과 우리 팀 팀원을 보고 관리합니다.'} 추가하면 바로 등록되고, 초대 메일을 보낸 뒤 「실적관리 시트」 탭에서 시트를 공유하면 끝납니다.
+        {scope === 'leaders'
+          ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
+          : isAdmin
+            ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장). 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
+            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다. 초대한 뒤 아래 「실적관리 시트 공유」로 시트를 공유하면 끝납니다.'}
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
       {(() => {
         const mine = data.users.find((u) => u.email === me)
-        if (!mine || !mine.team || !evalTeam || mine.team === evalTeam || mine.role === 'member') return null
+        if (scope || !mine || !mine.team || !evalTeam || mine.team === evalTeam || mine.role === 'member') return null
         const old = mine.team
         const also = data.users.filter((u) => u.email !== me && u.addedBy === me && u.team === old).length
         const evalCount = workspaces.filter((w) => w.teamName === evalTeam).length
@@ -651,7 +670,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
           <Plus {...icSm} />
-          팀원 추가
+          {scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
         <Button variant="secondary" onClick={() => setCompose(true)} disabled={!targets.length || busy || compose}>
           <Send {...icSm} />
@@ -740,6 +759,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                 <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => void addFromExcel(e)} />
               </div>
               {/* 옵션: 추진현황 과제의 담당자에서 골라 가져오기 */}
+              {scope !== 'leaders' && (
               <div className="mt-3 border-t border-accent/15 pt-3">
                 <button
                   type="button"
@@ -803,6 +823,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                   </div>
                 )}
               </div>
+              )}
             </div>
             <div className={`rounded-card bg-white p-3.5 text-[length:calc(13.5px*var(--ui-fs,1))] leading-relaxed text-label-2`}>
               <p className="font-semibold text-label">한 줄에 한 명</p>
@@ -830,9 +851,9 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       {isSuper && !compose && (
         <dl className={`grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]`}>
           <dt className="font-semibold text-label">관리자</dt>
-          <dd>팀장이 하는 것 전부 + 모든 사람 보기 · 역할 · 팀 바꾸기 · 과제 시트 연결</dd>
+          <dd>팀장이 하는 것 전부 + 관리 메뉴(팀장 지정 · 모든 팀원 · 역할 · 팀 바꾸기 · 시트 연결)</dd>
           <dt className="font-semibold text-label">팀장</dt>
-          <dd>과제 입력 + 성과관리 + 관리 › 팀원(내가 추가한 팀원만 초대 · 관리)</dd>
+          <dd>과제 입력 + 성과관리(팀원관리 › 초대 · 계정에서 우리 팀 팀원 추가 · 초대)</dd>
           <dt className="font-semibold text-label">팀원</dt>
           <dd>과제 입력만(추진현황 입력 · 저장, 진척률 보기)</dd>
           <dt className="text-label-3">기록</dt>
