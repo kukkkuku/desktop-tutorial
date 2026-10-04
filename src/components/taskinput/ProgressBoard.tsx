@@ -2293,13 +2293,20 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     const last = shown && shownL1s.length === 1
                     return (
                       <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
+                        {/* 체크 대신 눈: 뜬 눈 = 보임, 감은 눈(연한 회색) = 숨김 */}
                         <input
                           type="checkbox"
+                          className="sr-only"
                           checked={shown}
                           disabled={last}
                           onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
                         />
-                        <span className="truncate">{name === NO_L1 ? 'L1 없음' : name}</span>
+                        {shown ? (
+                          <Eye size={16} strokeWidth={1.9} className="shrink-0 text-accent" />
+                        ) : (
+                          <EyeOff size={16} strokeWidth={1.7} className="shrink-0 text-label-3/60" />
+                        )}
+                        <span className={`truncate ${shown ? '' : 'text-label-3'}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
                         <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] text-label-3">
                           {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
                         </span>
@@ -2307,7 +2314,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     )
                   })}
                   <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">
-                    체크를 끄면 그 그룹 탭을 숨깁니다. 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
+                    눈을 누르면 그 그룹 탭을 숨깁니다(감은 눈 = 숨김). 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
                   </p>
                 </div>
               </div>
