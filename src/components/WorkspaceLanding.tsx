@@ -2,8 +2,10 @@ import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { Copy, Pencil, Plus, Send, Trash2, Users, X } from 'lucide-react'
+import { Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
 import InviteModal from './InviteModal'
+import TeamStartStrip, { useTeamInfo } from './TeamStartStrip'
+import { useAppMode } from '../state/AppMode'
 import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -263,8 +265,14 @@ export default function WorkspaceLanding() {
   const [newTeamInput, setNewTeamInput] = useState('')
   const [teamNameModalOpen, setTeamNameModalOpen] = useState(false)
   const [periodModalTeam, setPeriodModalTeam] = useState<string | null>(null)
-  // 팀원 초대(평가가 없어도): 홈 「우리 팀」과 같은 창
+  // 우리 팀(팀 만들기 · 평가 만들기 · 팀원 초대): 팀장의 성과관리 첫 화면 맨 위
   const [inviteOpen, setInviteOpen] = useState(false)
+  const team = useTeamInfo(workspaces)
+  const { setPerfStage } = useAppMode()
+  const startTeam = (prefill = '') => {
+    setNewTeamInput(prefill)
+    setTeamNameModalOpen(true)
+  }
   // 홈 「우리 팀」의 팀 만들기 · 평가 만들기 버튼으로 들어오면 그 창을 바로 연다(한 번만)
   useEffect(() => {
     const got = takeLandingIntent()
@@ -376,6 +384,20 @@ export default function WorkspaceLanding() {
         )}
         {dupError && <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{dupError}</p>}
 
+        <div className="mt-5">
+          <TeamStartStrip
+            team={team}
+            onTeam={() => startTeam()}
+            onEval={() => (mostRecentTeam ? setPeriodModalTeam(mostRecentTeam) : startTeam(team.name))}
+            // 평가가 있으면 그 평가의 팀원관리 표(추가 · Gmail · 초대가 한 곳), 없으면 초대 창
+            onInvite={() => {
+              if (!team.latest) return setInviteOpen(true)
+              selectWorkspace(team.latest.id)
+              setPerfStage('members')
+            }}
+          />
+        </div>
+
         {existingTeamNames.length > 0 ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-b border-separator pb-6">
             <div className="flex flex-wrap items-center gap-2">
@@ -421,21 +443,7 @@ export default function WorkspaceLanding() {
           </div>
         ) : (
           <div className="mt-8 flex flex-col items-center gap-3 rounded-card border-2 border-dashed border-separator px-6 py-16 text-center">
-            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">첫 팀을 만들어 성과관리를 시작하세요. 팀원 초대는 평가를 만들기 전에도 할 수 있습니다.</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setNewTeamInput('')
-                  setTeamNameModalOpen(true)
-                }}
-              >
-                <Plus {...icSm} /> 팀 만들기
-              </Button>
-              <Button variant="secondary" onClick={() => setInviteOpen(true)}>
-                <Send {...icSm} /> 팀원 초대
-              </Button>
-            </div>
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">아직 평가가 없습니다. 위 「팀 만들기」로 시작하세요. 팀원 초대는 평가를 만들기 전에도 할 수 있습니다.</p>
           </div>
         )}
 
@@ -446,14 +454,9 @@ export default function WorkspaceLanding() {
                 <h2 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{teamName}</h2>
                 <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">평가 {teamWorkspaces.length}개</span>
               </div>
-              <span className="flex items-center gap-2">
-                <Button variant="secondary" onClick={() => setInviteOpen(true)}>
-                  <Send {...icSm} /> 팀원 초대
-                </Button>
-                <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
-                  <Plus {...icSm} /> 새 평가 만들기
-                </Button>
-              </span>
+              <Button variant="primary" onClick={() => setPeriodModalTeam(teamName)}>
+                <Plus {...icSm} /> 새 평가 만들기
+              </Button>
             </div>
 
             {teamWorkspaces.length === 0 ? (
