@@ -2085,7 +2085,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   disabled={saving}
                   title="다시 불러오기"
                   aria-label="다시 불러오기"
-                  className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-[6px] text-accent hover:bg-accent-soft disabled:opacity-40"
+                  className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-[6px] text-label-3 hover:bg-black/[0.06] hover:text-label disabled:opacity-40"
                 >
                   <RefreshCw size={13} strokeWidth={2} />
                 </button>

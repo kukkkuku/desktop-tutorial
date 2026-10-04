@@ -4,7 +4,7 @@
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
 import { ManualPanel, type ManualArea } from './ManualLink'
 import { useMemo, useState } from 'react'
-import { ArrowRight, BookOpen, ChartColumn, ClipboardList } from 'lucide-react'
+import { ArrowRight, BookOpen, ChartColumn, ClipboardList, FileSpreadsheet } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
 import { mmdd, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
@@ -36,7 +36,7 @@ function taskSummary() {
     tasks: data ? data.rows.length : 0,
     pending,
     localYears,
-    sheet: isProtectedSheet(id) ? '운영 팀 시트(읽기 전용)' : link === TASK_INPUT_SHEET_URL ? '테스트 시트' : '연결된 시트',
+    readOnly: isProtectedSheet(id),
   }
 }
 
@@ -86,28 +86,25 @@ export default function HomePage() {
                   <span className="block text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">추진현황 · 진척률 · 연구소 공용</span>
                 </span>
               </span>
-              <dl className="mt-5 space-y-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-label-3">지금 연도</dt>
-                  <dd className="text-label">{t.year ? `${t.year} · ${t.where} · 과제 ${t.tasks}건` : '아직 불러오지 않음'}</dd>
-                </div>
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 text-label-3">시트</dt>
-                  <dd className="text-label">{t.sheet}</dd>
-                </div>
-                {t.pending > 0 && (
-                  <div className="flex gap-2">
-                    <dt className="w-16 shrink-0 text-label-3">고친 내용</dt>
-                    <dd className="font-medium text-orange-600">저장 안 한 고침 {t.pending}건</dd>
-                  </div>
+              {/* 지금 입력하는 연도 · 과제 수 / 그 연도가 있는 곳(구글시트 파일 · 이 브라우저) -- 항목 이름 없이 두 줄로 */}
+              <div className="mt-5 space-y-1 text-[length:calc(14px*var(--ui-fs,1))]">
+                {t.year ? (
+                  <>
+                    <p className="font-semibold text-label">
+                      {t.year} <span className="font-normal text-label-2">· 과제 {t.tasks}건</span>
+                    </p>
+                    <p className="flex items-center gap-1.5 text-label-2">
+                      <FileSpreadsheet size={14} strokeWidth={1.8} className="shrink-0 text-emerald-700" />
+                      <span className="truncate">{t.where}</span>
+                      {t.readOnly && <span className="shrink-0 rounded bg-black/[0.05] px-1.5 text-[length:calc(12px*var(--ui-fs,1))] text-label-2">읽기 전용</span>}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-label-2">아직 불러오지 않음</p>
                 )}
-                {t.localYears > 0 && (
-                  <div className="flex gap-2">
-                    <dt className="w-16 shrink-0 text-label-3">이 브라우저</dt>
-                    <dd className="text-label">여기서 만든 연도 {t.localYears}개</dd>
-                  </div>
-                )}
-              </dl>
+                {t.pending > 0 && <p className="font-medium text-orange-600">저장 안 한 변경 {t.pending}건</p>}
+                {t.localYears > 0 && <p className="text-label-3">이 브라우저에서 만든 연도 {t.localYears}개</p>}
+              </div>
               <span className="mt-auto flex items-center gap-1 pt-5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-accent">
                 {t.year ? '이어서 입력하기' : '시작하기'}
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
