@@ -8,6 +8,8 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ChevronDown,
+  CopyPlus,
+  Scissors,
   Italic,
   Strikethrough,
   AlignVerticalSpaceAround,
@@ -1591,6 +1593,22 @@ export default function ScheduleTable({
       })),
     )
   }
+  // 행 복제: 고른 행(값 · 칸 색 · 서식)을 바로 아래에 그대로 한 벌 더
+  function duplicateRows(rect: NonNullable<typeof selRect>) {
+    if (!onAddRows) return
+    const c = copySel(rect)
+    if (!c) return
+    onAddRows(
+      rows[rect.r2].row,
+      'below',
+      c.cells.length,
+      c.cells.map((r) => ({
+        fields: Object.fromEntries(c.ids.map((id, j) => [id, r[j].value])),
+        bg: Object.fromEntries(c.ids.flatMap((id, j) => (r[j].bg ? [[id, r[j].bg!]] : []))),
+        fmt: Object.fromEntries(c.ids.flatMap((id, j) => (r[j].fmt ? [[id, r[j].fmt!]] : []))),
+      })),
+    )
+  }
   // ---- 셀 삽입: 고른 칸 자리에 빈 칸을 넣고 기존 칸을 오른쪽/아래로 민다(입력 열만 · 끝에서 밀려나는 값이 있으면 막음)
   function shiftCells(dir: 'right' | 'down'): string | null {
     if (!selRect || !onCells || readOnly) return null
@@ -2246,7 +2264,9 @@ export default function ScheduleTable({
               rowSpan={2}
               style={{ left: WH + wL2, ...blackTh('l3') }}
               onContextMenu={headMenuOn('l3')}
-              className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}
+              onMouseDown={(e) => headDown(e, 'name')}
+              title="누르면 과제(L3) 열 전체 선택 · 우클릭: 머리글 색"
+              className={`sticky z-20 cursor-pointer px-2 py-2 font-bold ${thBorder}`}
             >
               과제(L3)
               {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} lineH={tableH} />}
@@ -3085,6 +3105,54 @@ export default function ScheduleTable({
               const sep = <div className="mac-menu-sep" />
               return (
                 <>
+                  {/* 칸 메뉴: 맨 위는 잘라내기 · 복사 · 붙여넣기(행 메뉴와 같은 자리) */}
+                  {menu.kind === 'field' && onCells && (() => {
+                    const ri = rowIndexOf.get(menu.row.key) ?? -1
+                    const ci = editIds.indexOf(menu.key)
+                    const r = rect ?? (ri >= 0 && ci >= 0 ? { r1: ri, r2: ri, c1: ci, c2: ci } : null)
+                    if (!r) return null
+                    return (
+                      <>
+                        <button
+                          onClick={() => {
+                            const c = copySel(r)
+                            if (c) void navigator.clipboard?.writeText?.(c.tsv).catch(() => {})
+                            const list: { row: ProgressRow; id: string; value: string }[] = []
+                            for (let i = r.r1; i <= r.r2; i++)
+                              for (let j = r.c1; j <= r.c2; j++) if (rows[i] && !rows[i].deleted) list.push({ row: rows[i].row, id: editIds[j], value: '' })
+                            if (list.length) onCells(list)
+                            close()
+                          }}
+                          className={item}
+                        >
+                          <Scissors {...ic} />
+                          잘라내기{hint('⌘X')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const c = copySel(r)
+                            if (c) void navigator.clipboard?.writeText?.(c.tsv).catch(() => {})
+                            close()
+                          }}
+                          className={item}
+                        >
+                          <Copy {...ic} />
+                          복사{hint('⌘C')}
+                        </button>
+                        <button
+                          onClick={() => {
+                            pasteFromMenu(r)
+                            close()
+                          }}
+                          className={item}
+                        >
+                          <ClipboardPaste {...ic} />
+                          붙여넣기{hint('⌘V')}
+                        </button>
+                        {sep}
+                      </>
+                    )
+                  })()}
                   {/* 번호칸(행 선택) 메뉴에는 메모 없음 */}
                   {menu.kind !== 'row' && (
                     <>
@@ -3136,6 +3204,20 @@ export default function ScheduleTable({
                       >
                         <ClipboardPaste {...ic} />행 붙여넣기(덮어쓰기){hint('⌘V')}
                       </button>
+                      {onAddRows && (
+                        <button
+                          onClick={() => {
+                            const r = rowRect(menu.row.key)
+                            if (r) duplicateRows(r)
+                            close()
+                          }}
+                          className={item}
+                          title="고른 행을 값 · 칸 색 · 서식 그대로 바로 아래에 한 벌 더"
+                        >
+                          <CopyPlus {...ic} />
+                          {nRows > 1 ? `행 ${nRows}개 복제` : '행 복제'}
+                        </button>
+                      )}
                       {clip && onAddRows && (
                         <>
                           <button
