@@ -139,7 +139,7 @@ import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
 import { KanbanBoard, TimelineView } from './BoardViews'
-import ScheduleTable, { CellSwatch, FORMAT_BAR_SLOT, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
+import ScheduleTable, { CellSwatch, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
 import { SHELL_LAYOUT_EVENT } from '../shell/AppShell'
@@ -505,6 +505,29 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       else delete next[key]
       try {
         localStorage.setItem('progress-board:head-colors', JSON.stringify(next))
+      } catch {
+        // 기억 못 해도 지금 화면엔 반영
+      }
+      return next
+    })
+  }
+  // 머리글 글자 서식(글자 색 · 크기 · 굵게 · 정렬) -- 머리글 색처럼 이 브라우저에 기억(열 key → fmtString)
+  const [headFmts, setHeadFmts] = useState<Record<string, string>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('progress-board:head-fmts') ?? '{}')
+      return v && typeof v === 'object' ? v : {}
+    } catch {
+      return {}
+    }
+  })
+  function setHeadFmt(key: string, patch: CellFmt | null) {
+    setHeadFmts((cur) => {
+      const nextFmt = patch ? fmtString({ ...parseFmt(cur[key] ?? ''), ...patch }) : ''
+      const next = { ...cur }
+      if (nextFmt) next[key] = nextFmt
+      else delete next[key]
+      try {
+        localStorage.setItem('progress-board:head-fmts', JSON.stringify(next))
       } catch {
         // 기억 못 해도 지금 화면엔 반영
       }
@@ -2471,7 +2494,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             )}
           </label>
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
-          {/* 입력 중에는 보기 도구 자리에 서식 막대가 들어온다(한 줄 유지 -- 표가 밀리지 않게) */}
+          {/* 입력 중에는 보기 바꾸기를 숨긴다(서식 막대는 고른 칸 위에 뜬다) */}
           {!(editing && boardView === 'table') && (
           <span className="flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
             {(
@@ -2727,7 +2750,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             </>
           )}
           <span className="flex items-center gap-1">
-            <span id={FORMAT_BAR_SLOT} className="ml-1 flex items-center" />
             {scheduleMode === 'hidden' && (
               <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
                 <CalendarRange {...icSm} />
@@ -2883,13 +2905,24 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onRenameColumn={
                 readOnly
                   ? undefined
-                  : (id, label) => updateDrafts((d) => ({ ...d, newCols: (d.newCols ?? []).map((c) => (c.id === id ? { ...c, label } : c)) }))
+                  : (id, label) =>
+                      updateDrafts((d) => {
+                        if (id.startsWith('newcol:')) return { ...d, newCols: (d.newCols ?? []).map((c) => (c.id === id ? { ...c, label } : c)) }
+                        // 시트 열: 원래 이름으로 되돌리면 고친 것에서 뺀다
+                        const orig = data?.fields.find((f) => f.id === id)?.label
+                        const ren = { ...(d.colRenames ?? {}) }
+                        if (!label.trim() || label.trim() === orig) delete ren[id]
+                        else ren[id] = label.trim()
+                        return { ...d, colRenames: ren }
+                      })
               }
               merges={merges}
               onMerge={readOnly ? undefined : mergeCells}
               zebra={zebra}
               sheetColors={sheetColors}
               headColors={headColors}
+              headFmts={headFmts}
+              onHeadFmt={setHeadFmt}
               onHeadColor={setHeadColor}
               hiddenCols={hiddenCols}
               onHideColumns={(ids) => setHiddenCols(Array.from(new Set([...hiddenCols, ...ids])))}

@@ -135,7 +135,11 @@ export interface Drafts {
   delCols?: string[] // 지울 입력 열 id(저장하면 시트에서 열을 지운다)
   l2Renames?: Record<string, string> // 구분(L2) 이름 고치기: '그룹(L1)␟원래 L2␟원래 태그' → 새 이름("이름 [태그]")
   l2Splits?: L2Split[] // 구분(L2) 나누기: 이 줄부터 그 구분 끝까지 새 구분(순서대로 적용)
+  colRenames?: Record<string, string> // 시트 입력 열 이름 바꾸기: 열 id → 새 머리글(저장하면 시트 머리글 칸에 쓴다)
 }
+// 이름을 바꿀 수 있는 열: 앱이 모르는(이름으로 알아보지 않는) 시트 열 · 새로 넣은 열. 상태 · 담당자 같은 기본 열은
+// 앱이 머리글 이름으로 찾기 때문에 바꾸면 다음에 불러올 때 못 찾는다.
+export const canRenameColumn = (id: string) => /^col\d+$/.test(id) || id.startsWith('newcol:')
 // 구분 나누기: key = 새 구분의 첫 줄(시트 과제) · label = 새 구분 이름("이름 [태그]")
 export interface L2Split {
   key: string
@@ -197,9 +201,10 @@ export interface NewCol {
 }
 
 // 화면에 보일 입력 열: 지운 열은 빼고 새 열은 기준 열 옆에(같은 기준 · 같은 쪽이면 만든 순서대로 바깥으로)
-export function effectiveFields(fields: FieldDef[], headerStyle: HeaderStyle | undefined, drafts: Pick<Drafts, 'newCols' | 'delCols'>) {
+export function effectiveFields(fields: FieldDef[], headerStyle: HeaderStyle | undefined, drafts: Pick<Drafts, 'newCols' | 'delCols' | 'colRenames'>) {
   const del = new Set(drafts.delCols ?? [])
-  const list = fields.filter((f) => !del.has(f.id))
+  const ren = drafts.colRenames ?? {}
+  const list = fields.filter((f) => !del.has(f.id)).map((f) => (ren[f.id] ? { ...f, label: ren[f.id] } : f))
   const groupOf = new Map<string, string>() // 열 id → 묶음 이름
   for (const g of headerStyle?.groups ?? []) for (const id of g.fieldIds) groupOf.set(id, g.label)
   const byId = new Map((drafts.newCols ?? []).map((n) => [n.id, n]))
@@ -750,7 +755,8 @@ export function countDrafts(d: Drafts): number {
     (d.newCols?.length ?? 0) +
     (d.delCols?.length ?? 0) +
     Object.keys(d.l2Renames ?? {}).length +
-    (d.l2Splits?.length ?? 0)
+    (d.l2Splits?.length ?? 0) +
+    Object.keys(d.colRenames ?? {}).length
   )
 }
 
@@ -1255,6 +1261,13 @@ export function buildSheetWrites(base: ProgressData, fresh: ProgressData, drafts
     colArr.splice(at, 0, n.id)
     colInserts.push(at)
   }
+  // 시트 열 이름 바꾸기: 그 열의 머리글 칸(묶음 안이면 아래 줄, 아니면 위 줄)에 새 이름 -- 열 작업 전 열 번호 기준
+  if (top !== undefined && sub !== undefined)
+    for (const [id, label] of Object.entries(draftsIn.colRenames ?? {})) {
+      const f = fieldById.get(id)
+      if (!f || delColIds.has(id) || !label.trim()) continue
+      writes.push({ row: inGroup.has(id) ? sub : top, col: f.col, value: label.trim() })
+    }
   // 머리글 이름(묶음 안이면 아래 줄, 아니면 위 줄 · 두 줄 머리글이면 세로로 병합)
   if (top !== undefined && sub !== undefined) {
     for (const n of draftsIn.newCols ?? []) {
@@ -1481,6 +1494,7 @@ export function describeChanges(base: ProgressData, drafts: Drafts, kept: Drafts
   }
   for (const c of drafts.newCols ?? []) out.push({ task: '(열)', what: '새 열', before: '', after: c.label })
   for (const id of drafts.delCols ?? []) out.push({ task: '(열)', what: '열 삭제', before: colLabel(id), after: '' })
+  for (const [id, v] of Object.entries(drafts.colRenames ?? {})) out.push({ task: '(열)', what: '열 이름', before: colLabel(id), after: v })
   for (const [k, v] of Object.entries(drafts.l2Renames ?? {}))
     if (kept.l2Renames?.[k] === undefined) out.push({ task: `${k.split('␟')[1]}`, what: '구분(L2) 이름', before: k.split('␟')[1], after: v })
   for (const sp of drafts.l2Splits ?? [])

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react'
 import type { Importance, WeekColumn } from '../../types'
 import type { CellMerge, CellState, FieldDef, HeaderStyle, ProgressRow } from '../../utils/progressBoard'
-import { FILL_HEX, planRange } from '../../utils/progressBoard'
+import { FILL_HEX, canRenameColumn, planRange } from '../../utils/progressBoard'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import ColorPalette from './ColorPalette'
 import FormatBar from './FormatBar'
@@ -860,6 +860,8 @@ export default function ScheduleTable({
   onShowColumns,
   sheetColors = [],
   headColors = {},
+  headFmts = {},
+  onHeadFmt,
   onHeadColor,
 }: {
   weekCols: WeekColumn[]
@@ -923,6 +925,8 @@ export default function ScheduleTable({
   onFilter?: (id: string, hidden: string[]) => void
   sheetColors?: string[] // 이 시트에서 쓰는 칸 색(색 팔레트 맞춤 줄)
   headColors?: Record<string, string> // 머리글 색(열 id · 'l2' · 'l3' · 'schedule' · 'group:이름' → RRGGBB)
+  headFmts?: Record<string, string> // 머리글 글자 서식(같은 key → fmtString)
+  onHeadFmt?: (key: string, patch: CellFmt | null) => void
   onHeadColor?: (key: string, hex: string) => void // '' = 기본색으로
   hiddenCols?: string[] // 숨긴 열(이 브라우저) -- 머리글 경계의 ◀▶를 누르면 다시 보인다
   onHideColumns?: (ids: string[]) => void
@@ -935,8 +939,10 @@ export default function ScheduleTable({
   const filterable = (f: FieldDef) => f.col < firstGroupCol && f.kind !== 'memo' && f.kind !== 'date' && f.kind !== 'link'
   const headLabel = (f: FieldDef) => {
     const active = (hiddenOf?.(f.id).length ?? 0) > 0
+    const a = parseFmt(headFmts[f.id]).a
+    if (headEdit?.key === f.id) return headEditor(f.id, canRenameColumn(f.id))
     return (
-      <span className="flex items-center justify-center gap-0.5">
+      <span className={`flex items-center gap-0.5 ${a === 'left' ? 'justify-start' : a === 'right' ? 'justify-end' : 'justify-center'}`}>
         <span className="min-w-0 break-keep">{f.label}</span>
         {onFilter && filterOptions && filterable(f) && (
           <button
@@ -1012,11 +1018,24 @@ export default function ScheduleTable({
   // 머리글 칸: 시트 색이 있으면 그 색(글자는 검정), 시트 색을 모르는 예전 데이터면 검은 띠
   // 머리글 색은 우클릭으로 바꿀 수 있다(이 브라우저에 기억). 글자는 바탕 밝기에 맞춰 검정/흰색
   const headOn = (hex: string): React.CSSProperties => ({ background: `#${hex}`, color: isLightHex(hex) ? '#14161A' : '#FFFFFF' })
-  const thStyle = (hex: string | null | undefined, key?: string): React.CSSProperties =>
-    key && headColors[key] ? headOn(headColors[key]) : hs ? headOn(hex || 'FFFFFF') : headOn('14161A')
+  // 머리글 글자 서식(글자 색 · 크기 · 기울임 · 취소선 · 정렬) -- 굵기는 머리글이 늘 굵게라 그대로
+  const headFmtStyle = (key: string): React.CSSProperties => {
+    const st = fmtStyle(headFmts[key])
+    delete st.fontWeight
+    return st
+  }
+  const thStyle = (hex: string | null | undefined, key?: string): React.CSSProperties => ({
+    ...(key && headColors[key] ? headOn(headColors[key]) : hs ? headOn(hex || 'FFFFFF') : headOn('14161A')),
+    ...(key ? headFmtStyle(key) : {}),
+    ...(key ? headSelStyle(key) : {}),
+  })
   const thBorder = 'border border-[#D3D3D3]'
   // 구분·과제 머리글은 짙은 회색(#666666), 일정(월·주) 머리글은 회색(#999999)
-  const blackTh = (key: 'l2' | 'l3'): React.CSSProperties => headOn(headColors[key] || HEAD_DEFAULT[key])
+  const blackTh = (key: 'l2' | 'l3'): React.CSSProperties => ({
+    ...headOn(headColors[key] || HEAD_DEFAULT[key]),
+    ...headFmtStyle(key),
+    ...headSelStyle(key === 'l3' ? 'name' : key),
+  })
   const grayTh: React.CSSProperties = headOn(headColors.schedule || HEAD_DEFAULT.schedule)
   const headMenuOn = (key: string) => (e: React.MouseEvent) => {
     if (!onHeadColor && !onHideColumns) return
@@ -1024,6 +1043,52 @@ export default function ScheduleTable({
     setHeadMenu({ key, x: Math.min(e.clientX, window.innerWidth - 276), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 380)) })
   }
   const [headMenu, setHeadMenu] = useState<{ key: string; x: number; y: number } | null>(null)
+  // ---- 머리글 더블클릭 = 제목 편집(글씨 · 글자 색 · 크기 · 정렬). 이름은 바꿀 수 있는 열만(기본 열은 서식만)
+  const [headEdit, setHeadEdit] = useState<{ key: string; text: string } | null>(null)
+  useEffect(() => {
+    if (!headEdit) return
+    // 머리글 · 서식 막대 밖을 누르면 끝(입력칸이 초점을 잃어도 서식 막대를 쓰는 동안은 유지)
+    const out = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest(`[data-head="${CSS.escape(headEdit.key)}"],[data-keep-sel],.mac-pop`)) return
+      commitHead()
+    }
+    window.addEventListener('mousedown', out)
+    return () => window.removeEventListener('mousedown', out)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headEdit])
+  function startHeadEdit(key: string, label: string) {
+    if (readOnly || !onHeadFmt) return
+    setHeadEdit({ key, text: label })
+  }
+  function commitHead() {
+    if (!headEdit) return
+    const f = cols.find((x) => x.id === headEdit.key)
+    if (f && canRenameColumn(f.id) && headEdit.text.trim() && headEdit.text.trim() !== f.label) onRenameColumn?.(f.id, headEdit.text.trim())
+    setHeadEdit(null)
+  }
+  const headEditor = (key: string, renamable: boolean) => (
+    <input
+      autoFocus
+      value={headEdit?.text ?? ''}
+      readOnly={!renamable}
+      onChange={(e) => headEdit && setHeadEdit({ ...headEdit, text: e.target.value })}
+      onFocus={(e) => e.currentTarget.select()}
+      onMouseDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault()
+          commitHead()
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          setHeadEdit(null)
+        }
+      }}
+      title={renamable ? 'Enter 반영 · Esc 취소 · 위 서식 막대로 글자 색 · 크기 · 정렬' : '앱이 이름으로 알아보는 기본 열이라 이름은 바꿀 수 없습니다 · 위 서식 막대로 글자 색 · 크기 · 정렬'}
+      style={{ ...headFmtStyle(key), fontWeight: 700 }}
+      className={`block w-full rounded-none border-2 border-accent bg-white px-1 py-0.5 text-[1em] text-label shadow-none outline-none focus:shadow-none ${parseFmt(headFmts[key]).a ? '' : 'text-center'} ${renamable ? '' : 'cursor-default'}`}
+    />
+  )
   const groupOf = new Map((hs?.groups ?? []).flatMap((g) => g.fieldIds.map((id) => [id, g] as const)))
   const allIds = ['name', ...cols.map((f) => f.id)]
 
@@ -1733,10 +1798,12 @@ export default function ScheduleTable({
     window.addEventListener('mouseup', up)
   }
   // ---- 열 전체 선택: 머리글을 누르면 그 열의 보이는 칸 전체(Shift = 여러 열)
-  const colSelected = (id: string) => {
-    if (!range || range.r1 !== 0 || range.r2 !== rows.length - 1) return false
-    const c = editIds.indexOf(id)
-    return c >= range.c1 && c <= range.c2
+  // 고른 열의 머리글: 열 선택 테두리가 머리글까지 이어지게(위 · 양옆 파란 선 + 옅은 파랑)
+  function headSelStyle(key: string): React.CSSProperties {
+    if (!wideSel || !range || range.r1 !== 0 || range.r2 !== rows.length - 1) return {}
+    const c = editIds.indexOf(key)
+    if (c < range.c1 || c > range.c2) return {}
+    return { boxShadow: selShadow(0.12, true, c === range.c2, false, c === range.c1) }
   }
   const selectedCols = range && range.r1 === 0 && range.r2 === rows.length - 1 ? editIds.slice(range.c1, range.c2 + 1).filter((id) => id !== 'name') : []
   function headDown(e: React.MouseEvent, id: string) {
@@ -1854,6 +1921,47 @@ export default function ScheduleTable({
       patch,
     )
   }
+  // ---- 떠 있는 서식 막대 자리: 고른 것의 위(자리가 없으면 아래). 스크롤 · 창 크기가 바뀌면 다시 잰다
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barPos, setBarPos] = useState<{ x: number; y: number } | null>(null)
+  const [barTick, setBarTick] = useState(0)
+  useEffect(() => {
+    const bump = () => setBarTick((n) => n + 1)
+    window.addEventListener('scroll', bump, true)
+    window.addEventListener('resize', bump)
+    return () => {
+      window.removeEventListener('scroll', bump, true)
+      window.removeEventListener('resize', bump)
+    }
+  }, [])
+  const q = (sel0: string) => document.querySelector(sel0) as HTMLElement | null
+  const barAnchor = (): HTMLElement | null => {
+    if (headEdit) return q(`[data-head="${CSS.escape(headEdit.key)}"]`)
+    if (wideSel && range && range.r1 === 0 && range.r2 === rows.length - 1) {
+      const id = editIds[range.c1]
+      return q(`[data-head="${CSS.escape(id === 'name' ? 'l3' : id)}"]`)
+    }
+    if (!sel && rowRange) return q(`[data-cell="${CSS.escape(`${rows[rowRange.r1]?.row.key}|name`)}"]`)
+    if (!sel && l2Sel) return q(`[data-l2="${CSS.escape(l2Sel)}"]`)
+    if (sel) {
+      const r = range ? rows[range.r1]?.row.key : sel.row
+      const id = range ? editIds[range.c1] : sel.id
+      return q(`[data-cell="${CSS.escape(`${r}|${id}`)}"]`)
+    }
+    return null
+  }
+  useLayoutEffect(() => {
+    const el = barAnchor()
+    if (!el || !editing) return setBarPos(null)
+    const r = el.getBoundingClientRect()
+    const w = barRef.current?.offsetWidth ?? 420
+    const h = barRef.current?.offsetHeight ?? 44
+    const y = r.top - h - 6 >= 8 ? r.top - h - 6 : r.bottom + 6
+    const x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
+    setBarPos((cur) => (cur && cur.x === x && cur.y === y ? cur : { x, y }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+  void barTick
   function applyBg(hex: string) {
     if (readOnly) return
     if (wideIds && onScopeBg) return onScopeBg(wideIds, hex)
@@ -1865,8 +1973,6 @@ export default function ScheduleTable({
     }
     byRow.forEach((g) => onBg(g.row, g.ids, hex))
   }
-  const [fmtSlot, setFmtSlot] = useState<HTMLElement | null>(null)
-  useEffect(() => setFmtSlot(document.getElementById(FORMAT_BAR_SLOT)), [])
   // ⌘/Ctrl+B: 고른 칸 굵게 켜기/끄기
   // ⌘/Ctrl+B 굵게 · ⌘/Ctrl+I 기울임 · ⌘/Ctrl+Shift+X 취소선
   const toggleRef = useRef<(k: 'b' | 'i' | 'x') => void>(() => {})
@@ -2260,19 +2366,29 @@ export default function ScheduleTable({
                 }`}
               />
             </th>
-            <th rowSpan={2} style={{ left: WH, ...blackTh('l2') }} onContextMenu={headMenuOn('l2')} className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}>
-              구분(L2)
+            <th
+              rowSpan={2}
+              data-head="l2"
+              style={{ left: WH, ...blackTh('l2') }}
+              onContextMenu={headMenuOn('l2')}
+              onDoubleClick={() => startHeadEdit('l2', '구분(L2)')}
+              title="더블클릭: 제목 서식(글자 색 · 크기 · 정렬) · 우클릭: 머리글 색"
+              className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}
+            >
+              {headEdit?.key === 'l2' ? headEditor('l2', false) : '구분(L2)'}
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} lineH={tableH} />}
             </th>
             <th
               rowSpan={2}
               style={{ left: WH + wL2, ...blackTh('l3') }}
+              data-head="l3"
               onContextMenu={headMenuOn('l3')}
-              onMouseDown={(e) => headDown(e, 'name')}
-              title="누르면 과제(L3) 열 전체 선택 · 우클릭: 머리글 색"
+              onMouseDown={(e) => headEdit?.key !== 'l3' && headDown(e, 'name')}
+              onDoubleClick={() => startHeadEdit('l3', '과제(L3)')}
+              title="누르면 과제(L3) 열 전체 선택 · 더블클릭: 제목 서식(글자 색 · 크기 · 정렬) · 우클릭: 머리글 색"
               className={`sticky z-20 cursor-pointer px-2 py-2 font-bold ${thBorder}`}
             >
-              과제(L3)
+              {headEdit?.key === 'l3' ? headEditor('l3', false) : '과제(L3)'}
               {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} lineH={tableH} />}
             </th>
             {scheduleOpen ? (
@@ -2351,11 +2467,13 @@ export default function ScheduleTable({
                 <th
                   key={f.id}
                   rowSpan={2}
+                  data-head={f.id}
                   style={thStyle(hs?.fields[f.id], f.id)}
-                  onMouseDown={(e) => headDown(e, f.id)}
+                  onMouseDown={(e) => headEdit?.key !== f.id && headDown(e, f.id)}
+                  onDoubleClick={() => startHeadEdit(f.id, f.label)}
                   onContextMenu={headMenuOn(f.id)}
-                  className={`relative cursor-pointer px-1 py-2 font-bold ${thBorder} ${colSelected(f.id) ? 'shadow-[inset_0_-3px_0_#1A73E8]' : ''}`}
-                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
+                  className={`relative cursor-pointer px-1 py-2 font-bold ${thBorder}`}
+                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 더블클릭: 제목 편집 · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
                   {(onResize || onAddColumns) && (
@@ -2382,11 +2500,13 @@ export default function ScheduleTable({
               .map((f) => (
                 <th
                   key={f.id}
+                  data-head={f.id}
                   style={thStyle(hs?.fields[f.id], f.id)}
-                  onMouseDown={(e) => headDown(e, f.id)}
+                  onMouseDown={(e) => headEdit?.key !== f.id && headDown(e, f.id)}
+                  onDoubleClick={() => startHeadEdit(f.id, f.label)}
                   onContextMenu={headMenuOn(f.id)}
-                  className={`relative cursor-pointer px-1 pb-1.5 font-bold ${thBorder} ${colSelected(f.id) ? 'shadow-[inset_0_-3px_0_#1A73E8]' : ''}`}
-                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 우클릭: 열 삽입·삭제 · 머리글 색`}
+                  className={`relative cursor-pointer px-1 pb-1.5 font-bold ${thBorder}`}
+                  title={`${f.label} · 눌러서 열 전체 선택(Shift로 여러 열) · 더블클릭: 제목 편집 · 우클릭: 열 삽입·삭제 · 머리글 색`}
                 >
                   {headLabel(f)}
                   {(onResize || onAddColumns) && (
@@ -2885,32 +3005,45 @@ export default function ScheduleTable({
         />
       )}
 
-      {fmtSlot &&
-        onFmt &&
+      {/* 서식 막대: 고른 것(칸 · 범위 · 행 · 열 · 구분 · 편집 중인 머리글) 바로 위에 뜬다 */}
+      {onFmt &&
         !readOnly &&
         editing &&
+        (fmtTargets.length > 0 || !!headEdit) &&
         createPortal(
-          <FormatBar
-            fmt={anchorFmt}
-            count={fmtTargets.length}
-            sheetColors={sheetColors}
-            onFmt={(patch) => applyFmt(patch)}
-            bg={anchorBg}
-            onBg={(hex) => applyBg(hex)}
-            onClear={() => {
-              applyFmt(null)
-              applyBg('')
-            }}
-            canMerge={!!onMerge && mergePlan.canMerge}
-            canSplit={!!onMerge && mergePlan.hit.length > 0}
-            onMerge={doMerge}
-            onSplit={doSplit}
-            onDone={() => {
-              setSel(null)
-              setSelEnd(null)
-            }}
-          />,
-          fmtSlot,
+          <div ref={barRef} data-keep-sel className="fixed z-40" style={barPos ? { left: barPos.x, top: barPos.y } : { left: -9999, top: -9999 }}>
+            {headEdit ? (
+              <FormatBar
+                fmt={parseFmt(headFmts[headEdit.key])}
+                count={1}
+                sheetColors={sheetColors}
+                onFmt={(patch) => onHeadFmt?.(headEdit.key, patch)}
+                bg={headColors[headEdit.key] ?? ''}
+                onBg={onHeadColor ? (hex) => onHeadColor(headEdit.key, hex) : undefined}
+                onDone={commitHead}
+              />
+            ) : (
+              <FormatBar
+                fmt={anchorFmt}
+                count={fmtTargets.length}
+                sheetColors={sheetColors}
+                onFmt={(patch) => applyFmt(patch)}
+                bg={anchorBg}
+                onBg={(hex) => applyBg(hex)}
+                canMerge={!!onMerge && mergePlan.canMerge}
+                canSplit={!!onMerge && mergePlan.hit.length > 0}
+                onMerge={doMerge}
+                onSplit={doSplit}
+                onDone={() => {
+                  setSel(null)
+                  setSelEnd(null)
+                  setRowSel(null)
+                  setL2Sel(null)
+                }}
+              />
+            )}
+          </div>,
+          document.body,
         )}
       {hoverNote && !menu && !noteEdit && (
         <div
@@ -3647,7 +3780,7 @@ export default function ScheduleTable({
             )}
             {onHeadColor && (
               <>
-            <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 색</p>
+            <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 배경</p>
             <ColorPalette
               current={headColors[headMenu.key] ?? ''}
               sheetColors={sheetColors}
@@ -3657,6 +3790,19 @@ export default function ScheduleTable({
                 setHeadMenu(null)
               }}
             />
+            {onHeadFmt && (
+              <>
+                <p className="mb-1 mt-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 글자 색</p>
+                <ColorPalette
+                  current={parseFmt(headFmts[headMenu.key]).c ?? ''}
+                  sheetColors={sheetColors}
+                  onPick={(hex) => {
+                    for (const k of selectedCols.includes(headMenu.key) ? selectedCols : [headMenu.key]) onHeadFmt(k, { c: hex || undefined })
+                    setHeadMenu(null)
+                  }}
+                />
+              </>
+            )}
               </>
             )}
           </div>
