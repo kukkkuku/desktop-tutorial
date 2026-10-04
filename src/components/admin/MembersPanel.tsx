@@ -361,12 +361,20 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                 {cols.map((k) => (
                   <th key={k} className="relative truncate px-3 py-2 font-medium">
                     {k === 'email' && !compose ? (
-                      <span className="flex items-center gap-2 pr-2">
+                      <span className="flex items-center gap-1.5 pr-2">
                         <span className="truncate">{COL_LABEL[k]}</span>
-                        <label className="ml-auto flex shrink-0 cursor-pointer items-center gap-1 font-normal text-label-3 hover:text-label-2" title="초대 메일을 Gmail 대신 회사 메일 등으로 받을 때">
-                          <input type="checkbox" checked={mailCol} onChange={(e) => setMailCol(e.target.checked)} />
-                          받는 메일 열
-                        </label>
+                        {/* +✉ = 받는 메일 열 추가(초대 메일을 Gmail 대신 회사 메일 등으로 받을 때). 켜져 있으면 파랗게 · 다시 누르면 숨김 */}
+                        <button
+                          type="button"
+                          onClick={() => setMailCol(!mailCol)}
+                          aria-pressed={mailCol}
+                          aria-label="받는 메일 열"
+                          title={mailCol ? '받는 메일 열 숨기기' : '받는 메일 추가 · 초대 메일을 Gmail 대신 회사 메일 등으로 받을 때'}
+                          className={`flex h-6 shrink-0 items-center gap-px rounded-[6px] px-1 ${mailCol ? 'bg-accent-soft text-accent' : 'text-label-3 hover:bg-black/[0.06] hover:text-label'}`}
+                        >
+                          <Plus size={11} strokeWidth={2.6} />
+                          <Mail size={14} strokeWidth={1.9} />
+                        </button>
                       </span>
                     ) : (
                       COL_LABEL[k]
