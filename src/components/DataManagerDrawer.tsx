@@ -3,8 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllWorkspacesExcelZip } from '../utils/excel'
-import { downloadLocalJsonBackup, loadAllWorkspaceEntries, wipeAllAppData } from '../utils/backup'
-import { getConnectedEmail, trashAllAppDriveData } from '../utils/googleDrive'
+import { downloadLocalJsonBackup, loadAllWorkspaceEntries } from '../utils/backup'
 import {
   clearSaveDirectory,
   getSaveDirectoryName,
@@ -15,7 +14,6 @@ import {
 } from '../utils/localSave'
 import { FileSpreadsheet, HardDrive, Monitor, X } from 'lucide-react'
 import Button from './Button'
-import ConfirmDialog from './ConfirmDialog'
 import GoogleDrivePanel from './GoogleDrivePanel'
 import IconButton from './IconButton'
 import Spinner from './Spinner'
@@ -24,7 +22,6 @@ import BulkUploadPanel from './BulkUploadPanel'
 import Segmented from './ui/Segmented'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
-import { clearTaskInputData } from '../utils/progressBoard'
 
 interface DataManagerDrawerProps {
   open: boolean
@@ -41,7 +38,7 @@ interface DataManagerDrawerProps {
   onGoToWork?: () => void
 }
 
-export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'bulk' | 'admin' | 'reset'
+export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'bulk' | 'admin'
 type Tab = DataManagerTab
 
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
@@ -65,12 +62,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   }
 
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
-  const [resetMode, setResetMode] = useState<'local' | 'drive' | null>(null)
-  const [resetError, setResetError] = useState<string | null>(null)
-  const [backupJson, setBackupJson] = useState(true)
-  const [backupExcel, setBackupExcel] = useState(true)
-  // 과제 입력(이 브라우저에 저장된 추진현황)도 같이 지우기
-  const [clearTasks, setClearTasks] = useState(false)
   const isBusy = loadingLabel !== null
 
   // 로컬 저장 위치 -- 지정해두면 "전체 양식 ZIP/JSON 백업/엑셀 백업"이 브라우저
@@ -123,35 +114,11 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     setLoadingLabel(null)
   }
 
-  async function handleSelectedBackup() {
-    if (backupJson) await handleLocalJsonBackup()
-    if (backupExcel) await handleExcelBackup()
-  }
-
-  async function handleResetConfirm() {
-    const mode = resetMode
-    setResetMode(null)
-    setResetError(null)
-    if (mode === 'drive') {
-      setLoadingLabel('Google Drive 데이터를 휴지통으로 옮기는 중...')
-      try {
-        await trashAllAppDriveData()
-      } catch (err) {
-        setLoadingLabel(null)
-        setResetError(errText(err, 'Google Drive 데이터를 지우지 못했습니다. 이 브라우저 데이터는 그대로입니다.'))
-        return
-      }
-    }
-    if (clearTasks) clearTaskInputData()
-    if (hasAnyWorkspaceData) wipeAllAppData()
-    else window.location.reload()
-  }
-
   return (
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${open ? '' : 'pointer-events-none'}`} aria-hidden={!open}>
       <div className={`absolute inset-0 bg-black/25 transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`} onClick={onClose} />
       <div
-        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : tab === 'reset' ? 'max-h-[94vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : tab === 'bulk' ? 'h-[720px] max-w-5xl' : tab === 'reset' ? 'max-w-4xl' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
+        className={`relative flex ${tab === 'sheet' ? 'max-h-[92vh]' : 'max-h-[85vh]'} w-full ${tab === 'sheet' ? 'h-[92vh] max-w-[1600px]' : tab === 'bulk' ? 'h-[720px] max-w-5xl' : 'h-[640px] max-w-3xl'} transform flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-all duration-200 ${
           open ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
@@ -164,7 +131,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
         <div className="flex items-center justify-between gap-3 border-b border-separator px-5 pb-3">
           <Segmented<Tab>
-            value={tab === 'reset' ? ('' as Tab) : tab}
+            value={tab}
             onChange={setTab}
             items={[
               {
@@ -196,14 +163,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               },
             ]}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setTab('reset')}
-            className={tab === 'reset' ? 'bg-danger/10 text-danger hover:bg-danger/15 hover:text-danger' : ''}
-          >
-            데이터 초기화
-          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -309,81 +268,9 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             </div>
           )}
 
-          {/* 초기화: 스크롤 없이 한 화면에 -- ① 백업 → ② 함께 지울 것 → ③ 범위 고르기(두 칸 나란히) */}
-          {tab === 'reset' && (
-            <div className="space-y-3">
-              <p className="text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label">
-                <span className="font-semibold text-danger">전체 데이터 초기화</span> · 지금 열린 평가 하나가 아니라 <b>모든 팀 · 평가 데이터</b>를 지웁니다. 먼저 백업하세요.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-danger/25 bg-danger/[0.04] px-4 py-3">
-                <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">① 백업</span>
-                <label className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label" title="모든 팀 · 평가 · 과제 · 팀원 · 성장 · 면담 데이터">
-                  <input type="checkbox" checked={backupJson} onChange={(e) => setBackupJson(e.target.checked)} />
-                  JSON 원본
-                </label>
-                <label className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                  <input type="checkbox" checked={backupExcel} onChange={(e) => setBackupExcel(e.target.checked)} />
-                  Excel 보관용
-                </label>
-                <Button variant="secondary" size="sm" onClick={handleSelectedBackup} disabled={isBusy || !hasAnyWorkspaceData || (!backupJson && !backupExcel)} className="ml-auto">
-                  선택 항목 백업
-                </Button>
-                {isBusy && (
-                  <span className="flex w-full items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                    <Spinner className="h-3.5 w-3.5 text-accent" />
-                    {loadingLabel}
-                  </span>
-                )}
-              </div>
-
-              <label className="flex items-start gap-2 rounded-card border border-separator px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                <input type="checkbox" className="mt-1" checked={clearTasks} onChange={(e) => setClearTasks(e.target.checked)} />
-                <span>
-                  <span className="font-semibold">② 과제 입력 데이터도 같이 지우기</span>
-                  <span className="ml-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                    이 브라우저의 추진현황 · 저장 안 한 고친 내용 · 만든 연도 · 진척률 수정값(구글시트는 그대로)
-                  </span>
-                </span>
-              </label>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex flex-col rounded-card border border-separator p-4">
-                  <p className="text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">③ 이 브라우저만 초기화</p>
-                  <p className="mt-1 flex-1 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-2">Google Drive에 저장한 데이터는 남아, 다시 연결하면 복원됩니다.</p>
-                  <Button variant="secondary" size="sm" onClick={() => setResetMode('local')} disabled={!hasAnyWorkspaceData && !clearTasks} className="mt-3 self-start">
-                    이 브라우저만 초기화
-                  </Button>
-                </div>
-                <div className="flex flex-col rounded-card border border-danger/30 p-4">
-                  <p className="text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-danger">③ Google Drive 포함 전체 초기화</p>
-                  <p className="mt-1 flex-1 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                    Drive의 앱 전용 성장관리 데이터도 휴지통으로 옮깁니다(30일 안에 되살림 가능).
-                  </p>
-                  <Button variant="secondary" size="sm" onClick={() => setResetMode('drive')} disabled={!getConnectedEmail()} className="mt-3 self-start !text-danger">
-                    Drive 포함 전체 초기화
-                  </Button>
-                  {!getConnectedEmail() && <p className="mt-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">Google 계정이 연결돼 있어야 합니다.</p>}
-                  {resetError && <p className="mt-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-danger">{resetError}</p>}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      <ConfirmDialog
-        open={resetMode !== null}
-        title={resetMode === 'drive' ? 'Google Drive 포함 전체 초기화' : '이 브라우저 데이터만 초기화'}
-        message={
-          (resetMode === 'drive'
-            ? `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 평가 ${workspaces.length}개 데이터를 지우고,\n${getConnectedEmail() ?? ''} 드라이브의 성장관리 폴더를 휴지통으로 옮깁니다.\n휴지통은 드라이브에서 30일 안에 되살릴 수 있습니다. 계속하시겠습니까?`
-            : `이 브라우저의 팀 ${new Set(workspaces.map((w) => w.teamName)).size}개, 평가 ${workspaces.length}개 데이터를 지우고 처음 화면으로 돌아갑니다.\nGoogle Drive에 저장한 데이터는 남아 있어 다시 연결하면 복원할 수 있습니다. 계속하시겠습니까?`) +
-          (clearTasks ? '\n\n과제 입력 데이터(이 브라우저에 저장된 추진현황 · 고친 내용 · 만든 연도)도 함께 지웁니다.' : '')
-        }
-        onConfirm={handleResetConfirm}
-        onCancel={() => setResetMode(null)}
-      />
     </div>
   )
 }

@@ -20,6 +20,23 @@ import { renameEvalTeam } from '../utils/teamRename'
 
 const MAX_VISIBLE_AVATARS = 6
 
+// 지운 팀(평가 목록 탭에서 숨김) -- 권한 시트의 내 팀처럼 평가 없이 보이던 팀도 다시 안 보이게. 같은 이름으로 새 팀을 만들면 다시 보인다
+const HIDDEN_TEAMS = 'hidden-teams'
+function readHiddenTeams(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(HIDDEN_TEAMS) ?? '[]') as string[]
+  } catch {
+    return []
+  }
+}
+function writeHiddenTeams(v: string[]) {
+  try {
+    localStorage.setItem(HIDDEN_TEAMS, JSON.stringify(v))
+  } catch {
+    // 못 남기면 다음에 다시 보인다
+  }
+}
+
 // 팀원 이니셜(2자) 아바타 -- 색은 인덱스(카드마다 0부터 다시 시작)로
 // 정하지 않고 전부 같은 중립 톤으로 통일한다. 순환 색상을 쓰면 카드마다
 // "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
@@ -259,7 +276,11 @@ export default function WorkspaceLanding() {
   // 카드 목록에서 "평가 진행중" 배지로 구분해 바로 이어할 수 있게 한다.
   const mostRecentWorkspaceId = sortedByRecency[sortedByRecency.length - 1]?.id ?? null
 
-  const [teamName, setTeamName] = useState(() => mostRecentTeam || readAccessCache()?.users.find((u) => u.email === (getConnectedEmail() ?? '').toLowerCase())?.team || '')
+  const [teamName, setTeamName] = useState(() => {
+    if (mostRecentTeam) return mostRecentTeam
+    const mine = readAccessCache()?.users.find((u) => u.email === (getConnectedEmail() ?? '').toLowerCase())?.team || ''
+    return readHiddenTeams().includes(mine) ? '' : mine
+  })
   const [newTeamInput, setNewTeamInput] = useState('')
   // 팝업 없이 이 화면 안에서: 새 팀 이름 칸 · 새 평가(기간 고르기) 칸 · 팀원 명단 펼치기
   const [addingTeam, setAddingTeam] = useState(false)
@@ -334,6 +355,11 @@ export default function WorkspaceLanding() {
     setAddingTeam(false)
     setTeamName(name)
     setNewEvalOpen(true)
+    if (hiddenTeams.includes(name)) {
+      const hidden = hiddenTeams.filter((t) => t !== name)
+      setHiddenTeams(hidden)
+      writeHiddenTeams(hidden)
+    }
   }
   // 최근 수정한 평가가 맨 위로 오도록 정렬 -- "지금까지 만들어진 평가가
   // 뭐가 있는지" 한눈에 보이는 게 이 화면의 첫 번째 목적이라, 평가기간
@@ -357,10 +383,25 @@ export default function WorkspaceLanding() {
     const added = access.users.filter((u) => u.addedBy === me && u.team).map((u) => u.team)
     return { myTeam: mine, accessTeams: [mine, ...added].filter(Boolean) }
   }, [])
+  const [hiddenTeams, setHiddenTeams] = useState(readHiddenTeams)
   const teamList = useMemo(
-    () => Array.from(new Set([...existingTeamNames, ...accessTeams, ...(teamName ? [teamName] : [])])),
-    [existingTeamNames, accessTeams, teamName],
+    () => Array.from(new Set([...existingTeamNames, ...accessTeams.filter((t) => !hiddenTeams.includes(t)), ...(teamName ? [teamName] : [])])),
+    [existingTeamNames, accessTeams, hiddenTeams, teamName],
   )
+  // 팀 삭제: 그 팀의 평가를 모두 지우고 탭에서 숨긴다(팀원 명단 = 권한 시트는 그대로)
+  const [deletingTeam, setDeletingTeam] = useState<string | null>(null)
+  function handleDeleteTeam() {
+    const name = deletingTeam
+    setDeletingTeam(null)
+    if (!name) return
+    workspaces.filter((w) => w.teamName === name).forEach((w) => deleteWorkspace(w.id))
+    const hidden = Array.from(new Set([...hiddenTeams, name]))
+    setHiddenTeams(hidden)
+    writeHiddenTeams(hidden)
+    setRosterOpen(false)
+    setNewEvalOpen(false)
+    setTeamName(existingTeamNames.find((t) => t !== name) ?? accessTeams.find((t) => t !== name && !hidden.includes(t)) ?? '')
+  }
   const panelRef = useRef<HTMLElement>(null)
   useEffect(() => {
     if (rosterOpen || newEvalOpen) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -538,6 +579,9 @@ export default function WorkspaceLanding() {
                   <IconButton onClick={() => setTeamRename({ from: teamName, to: teamName })} title="팀 이름 바꾸기" aria-label="팀 이름 바꾸기">
                     <Pencil {...icSm} />
                   </IconButton>
+                  <IconButton onClick={() => setDeletingTeam(teamName)} title="팀 삭제" aria-label="팀 삭제" className="hover:!text-danger">
+                    <Trash2 {...icSm} />
+                  </IconButton>
                 </>
               )}
             </header>
@@ -680,6 +724,17 @@ export default function WorkspaceLanding() {
         tone="accent"
         onConfirm={() => void applyAccessRename()}
         onCancel={() => setAccessRename(null)}
+      />
+      <ConfirmDialog
+        open={deletingTeam !== null}
+        title="팀 삭제"
+        message={(() => {
+          const n = workspaces.filter((w) => w.teamName === deletingTeam).length
+          return `「${deletingTeam}」 팀을 지웁니다.${n ? `\n이 팀의 평가 ${n}개와 그 안의 과제 · 평가 · 면담 데이터가 모두 지워지며 되돌릴 수 없습니다(먼저 데이터 백업 권장).` : ''}\n팀원 명단(권한 시트)과 과제 입력 데이터는 그대로입니다.`
+        })()}
+        confirmLabel="팀 삭제"
+        onConfirm={handleDeleteTeam}
+        onCancel={() => setDeletingTeam(null)}
       />
       <ConfirmDialog
         open={deletingWorkspace !== null}

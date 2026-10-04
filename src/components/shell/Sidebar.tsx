@@ -15,6 +15,7 @@ import {
   House,
   LayoutList,
   LogOut,
+  RotateCcw,
   MessageCircle,
   ShieldCheck,
   SlidersHorizontal,
@@ -27,6 +28,7 @@ import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useAccessData } from '../../hooks/useAccessData'
 import { isPendingEmail } from '../../utils/accessSheet'
 import GoogleAccountMenu from '../GoogleAccountMenu'
+import DataResetDialog from '../DataResetDialog'
 import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
@@ -90,9 +92,12 @@ function useShellNav() {
     else setManual({})
   }
   const manualPanel = manual && <ManualPanel area={manual.area} chapter={manual.chapter} onClose={() => setManual(null)} />
+  // 데이터 초기화(계정 메뉴): 평가를 열지 않아도 어디서나
+  const [resetOpen, setResetOpen] = useState(false)
+  const resetDialog = resetOpen && <DataResetDialog onClose={() => setResetOpen(false)} />
   // 과제 입력 메뉴가 칠해지는 때(팀원은 홈 밖이면 늘 과제 입력)
   const inTasks = mode === 'tasks' || (!canPerf && mode !== 'home' && mode !== 'admin')
-  return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel }
+  return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel, resetDialog, openReset: () => setResetOpen(true) }
 }
 
 // 계정 메뉴의 글자 크기: 자동(창 너비) 스위치 + 5단계 슬라이더(아주 작게 · 작게 · 보통 · 크게 · 아주 크게). 슬라이더를 움직이면 자동은 꺼진다
@@ -153,6 +158,15 @@ function FontSizeItem() {
         <span className="text-[18px] font-semibold text-label-2">가</span>
       </div>
     </div>
+  )
+}
+
+function ResetItem({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="mac-menu-item">
+      <RotateCcw size={14} strokeWidth={1.8} />
+      데이터 초기화…
+    </button>
   )
 }
 
@@ -279,6 +293,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
             <>
               <FontSizeItem />
               <div className="mac-menu-sep" />
+              <ResetItem onClick={nav.openReset} />
               <LogoutItem onClick={handleLogout} />
             </>
           }
@@ -295,6 +310,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         </GoogleAccountMenu>
       )}
       {nav.manualPanel}
+      {nav.resetDialog}
     </aside>
   )
 }
@@ -418,6 +434,7 @@ export function TopNav({
             <>
               <FontSizeItem />
               <div className="mac-menu-sep" />
+              <ResetItem onClick={nav.openReset} />
               <LogoutItem onClick={handleLogout} />
             </>
           }
@@ -429,6 +446,7 @@ export function TopNav({
         )}
       </div>
       {nav.manualPanel}
+      {nav.resetDialog}
     </>
   )
 }
