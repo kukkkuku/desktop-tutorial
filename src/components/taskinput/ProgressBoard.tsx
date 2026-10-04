@@ -1933,6 +1933,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     return seen.size <= 60 ? Array.from(seen).sort((a, b) => a.localeCompare(b, 'ko')) : []
   }
   const editCount = countDrafts(drafts)
+  // 저장 안 한 변경이 있는 그룹(L1): 고친 줄 · 새 과제 · 지울 과제 · 옮긴 줄 · 구분 이름 · 구분 나누기
+  const dirtyL1 = (() => {
+    const l1Of = new Map(data.rows.map((r) => [r.key, r.l1]))
+    const out = new Set<string>()
+    const add = (k: string) => {
+      const v = l1Of.get(k)
+      if (v !== undefined) out.add(v)
+    }
+    for (const [k, e] of Object.entries(drafts.edits)) if (e.cells || e.fields || e.bg || e.notes || e.fmt) add(k)
+    for (const n of drafts.newRows) out.add(n.l1)
+    for (const k of drafts.deleted ?? []) add(k)
+    for (const m of drafts.moves ?? []) add(m.key)
+    for (const k of Object.keys(drafts.l2Renames ?? {})) out.add(k.split('␟')[0])
+    for (const sp of drafts.l2Splits ?? []) add(sp.key)
+    return out
+  })()
   const merges = effectiveMerges(data, drafts)
   const protectedSheet = isProtectedSheet(data.spreadsheetId)
   const seenAt = Math.max(new Date(data.fetchedAt).getTime(), confirmedAt)
@@ -2197,6 +2213,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
           <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
             {shownL1s.map((name) => {
+              const dirty = dirtyL1.has(name)
               const rowsOf = data.rows.filter((r) => r.l1 === name)
               const newOf = drafts.newRows.filter((n) => n.l1 === name)
               const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
@@ -2218,8 +2235,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       ? 'border-[#E3E3E8] border-b-white bg-white text-label'
                       : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
                   }`}
-                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name} · 우클릭하면 숨기기`}
+                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
                 >
+                  {/* 저장 안 한 변경이 있는 그룹: 상태줄과 같은 주황 점 */}
+                  {dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />}
                   {newOf.length > 0 && rowsOf.length === 0 && (
                     <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
                   )}
