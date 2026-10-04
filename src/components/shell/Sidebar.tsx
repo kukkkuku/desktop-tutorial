@@ -10,7 +10,7 @@ import {
   BookOpen,
   CalendarRange,
   Database,
-  FolderOpen,
+  LayoutGrid,
   Gauge,
   House,
   LayoutList,
@@ -165,16 +165,17 @@ function LogoutItem({ onClick }: { onClick: () => void }) {
 
 export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
   const nav = useShellNav()
-  const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, currentWorkspace, exitToLanding } = nav
+  const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
   const { accountEmail, role, canPerf, canManage, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
-  function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode) {
+  function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode, off?: string) {
     return (
       <button
         key={key}
-        onClick={onClick}
+        onClick={off ? undefined : onClick}
+        aria-disabled={off ? true : undefined}
         aria-current={on ? 'page' : undefined}
-        title={collapsed ? label : undefined}
-        className={`ds-nav-item ${on ? 'ds-nav-item-on' : ''} ${collapsed ? 'justify-center !px-0' : ''}`}
+        title={off ?? (collapsed ? label : undefined)}
+        className={`ds-nav-item ${on ? 'ds-nav-item-on' : ''} ${collapsed ? 'justify-center !px-0' : ''} ${off ? 'cursor-default opacity-40 hover:bg-transparent' : ''}`}
       >
         <Icon size={17} strokeWidth={1.8} className={`shrink-0 ${on ? 'text-accent' : ''}`} />
         {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
@@ -218,38 +219,28 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         {canPerf && (
           <>
             {label('성과관리')}
-            {/* 위계: 프로젝트 목록 → 프로젝트를 고르면 그 아래에 프로젝트 메뉴(과제관리 · 팀원관리 · 평가하기 …)가 열린다 */}
+            {/* 평평한 메뉴: 어느 평가를 보는지는 페이지 머리 줄(성과관리 / 팀 · 기간 ▾)에서 고르고 바꾼다(과제 입력의 연도와 같은 방식).
+                펼쳐도 접어도 같은 모양. 평가를 아직 안 골랐으면 메뉴는 흐리게 */}
             <div className="space-y-0.5">
-              {item('projects', '평가 목록', FolderOpen, mode === 'perf' && !currentWorkspaceId, () => {
+              {item('projects', '평가 목록', LayoutGrid, mode === 'perf' && !currentWorkspaceId, () => {
                 exitToLanding()
                 if (mode !== 'perf') setMode('perf')
               })}
+              {PERF_ITEMS.map(({ key, label: l, Icon, also }) =>
+                item(
+                  key,
+                  l,
+                  Icon,
+                  inPerf && !!currentWorkspaceId && (perfStage === key || !!also?.includes(perfStage)),
+                  () => {
+                    setPerfStage(key)
+                    if (mode !== 'perf') setMode('perf')
+                  },
+                  undefined,
+                  currentWorkspaceId ? undefined : `${l} -- 평가 목록에서 평가를 먼저 고르세요`,
+                ),
+              )}
             </div>
-            {currentWorkspaceId && (
-              <div className="mt-1.5">
-                {/* 프로젝트 이름(제목 줄) -- 평가기간 바꾸기는 페이지 머리에서. 다른 영역에 있으면 눌러서 이 프로젝트로 */}
-                {!collapsed && (
-                  <button
-                    onClick={() => !inPerf && setMode('perf')}
-                    title={inPerf ? undefined : '이 평가로 가기'}
-                    className={`mb-1 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left ${inPerf ? 'cursor-default' : 'hover:bg-black/[0.04]'}`}
-                  >
-                    <FolderOpen size={15} strokeWidth={1.8} className="shrink-0 text-accent" />
-                    <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-                      {currentWorkspace ? `${currentWorkspace.teamName} · ${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : '열어 둔 평가'}
-                    </span>
-                  </button>
-                )}
-                <div className={collapsed ? 'space-y-0.5' : 'ml-[18px] space-y-0.5 border-l border-separator pl-2'}>
-                  {PERF_ITEMS.map(({ key, label: l, Icon, also }) =>
-                    item(key, l, Icon, inPerf && (perfStage === key || !!also?.includes(perfStage)), () => {
-                      setPerfStage(key)
-                      if (mode !== 'perf') setMode('perf')
-                    }),
-                  )}
-                </div>
-              </div>
-            )}
           </>
         )}
       </nav>
