@@ -6,6 +6,7 @@
 // 있어야 한다(지금은 초대 메일 발송 편의 기능일 뿐, 앱 접근 자체를 막는
 // 수단은 아니다. 앱 접근 제한은 Google Cloud Console의 OAuth 테스트
 // 사용자 목록이 담당한다).
+import { loadToken, saveToken } from './tokenStore'
 import * as XLSX from 'xlsx'
 import { loadGis } from './googleDrive'
 import { googleErrorText, oauthErrorText } from './googleError'
@@ -27,8 +28,10 @@ interface GoogleTokenResponse {
   error?: string
 }
 
-let adminToken: { token: string; expiresAt: number } | null = null
-let adminEmail: string | null = null
+// 이 탭에 보관해 둔 메일 보내기 토큰이 있으면 이어 쓴다(tokenStore)
+const restoredAdmin = loadToken('admin-mail')
+let adminToken: { token: string; expiresAt: number } | null = restoredAdmin ? { token: restoredAdmin.token, expiresAt: restoredAdmin.expiresAt } : null
+let adminEmail: string | null = restoredAdmin?.email ?? null
 
 export function isAdminConnected(): boolean {
   return adminToken !== null && adminToken.expiresAt - 60_000 > Date.now() && canSend(adminEmail)
@@ -73,6 +76,7 @@ export async function connectAdmin(): Promise<void> {
 
   adminToken = { token: accessToken, expiresAt: Date.now() + 3300 * 1000 }
   adminEmail = email
+  saveToken('admin-mail', { ...adminToken, email })
 }
 
 // ---------- 초대 대상자 명단(로컬 저장) ----------

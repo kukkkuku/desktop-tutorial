@@ -7,6 +7,7 @@ import { googleErrorText, oauthErrorText } from './googleError'
 import * as XLSX from 'xlsx'
 import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
 import { getConnectedEmail, loadGis, peekLoginToken, withAuthLock, dropLoginToken } from './googleDrive'
+import { loadToken, saveToken } from './tokenStore'
 
 // ---------- 링크 ----------
 
@@ -35,8 +36,9 @@ const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly'
 // 과제 입력에서 시트에 저장할 때만 쓰기 권한을 따로 받는다(읽기만 하는 사람은 동의할 일 없음).
 const SHEETS_WRITE_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 
-let sheetsToken: { token: string; expiresAt: number } | null = null
-let sheetsWriteToken: { token: string; expiresAt: number } | null = null
+// 이 탭에 보관해 둔 시트 토큰이 있으면 이어 쓴다(tokenStore)
+let sheetsToken: { token: string; expiresAt: number } | null = loadToken('sheets-read')
+let sheetsWriteToken: { token: string; expiresAt: number } | null = loadToken('sheets-write')
 // 다음 시트 권한 요청은 계정 힌트 없이 계정 선택 화면부터 연다. 브라우저에 구글 계정이
 // 여러 개 로그인돼 있으면 힌트와 엇갈려 구글이 "400 · malformed"를 내는 경우가 있어서,
 // 그때 사용자가 직접 계정을 고르게 하는 재시도 경로.
@@ -44,6 +46,7 @@ let chooseAccountNext = false
 export function chooseSheetsAccountNext() {
   chooseAccountNext = true
   sheetsToken = null
+  saveToken('sheets-read', null)
 }
 
 // 로그인 토큰으로 시트를 바로 읽고 쓸 수 있나(권한 창 없이)
@@ -117,6 +120,7 @@ async function openSheetsPopup(write = false): Promise<string> {
         const tok = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
         if (write) sheetsWriteToken = tok
         else sheetsToken = tok
+        saveToken(write ? 'sheets-write' : 'sheets-read', tok)
         resolve(resp.access_token)
       },
     })
@@ -150,6 +154,8 @@ async function sheetsFetch<T>(url: string, init?: { method: string; body: string
   if (res.status === 401) {
     sheetsToken = null
     sheetsWriteToken = null
+    saveToken('sheets-read', null)
+    saveToken('sheets-write', null)
     dropLoginToken()
   }
   const text = await res.text().catch(() => '')

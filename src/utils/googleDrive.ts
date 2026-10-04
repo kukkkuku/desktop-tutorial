@@ -16,6 +16,7 @@
 // 있으면 isGoogleDriveConfigured()가 false를 반환하고, 호출부는 버튼을
 // 비활성 상태로만 보여주면 된다.
 
+import { clearAllTokens, loadToken, saveToken } from './tokenStore'
 import { googleErrorText, oauthErrorText } from './googleError'
 import type { AppState, EvaluationCycle, WorkspaceMeta } from '../types'
 import { PREVIEW_NAMESPACE } from './previewMode'
@@ -95,9 +96,11 @@ export function loadGis(): Promise<void> {
 
 // 같은 브라우저 세션에서는 매번 로그인 팝업을 띄우지 않도록 토큰을
 // 만료 1분 전까지 재사용한다.
-let cachedToken: { token: string; expiresAt: number } | null = null
+// 이 탭에 보관해 둔 토큰이 있으면 이어 쓴다(새로고침해도 다시 로그인하지 않게 -- tokenStore)
+const restored = loadToken('login')
+let cachedToken: { token: string; expiresAt: number } | null = restored ? { token: restored.token, expiresAt: restored.expiresAt } : null
 // 로그인 토큰이 실제로 받은 권한(사용자가 일부를 빼고 허용할 수 있다)
-let cachedScope = ''
+let cachedScope = restored?.scope ?? ''
 
 // 로그인 토큰이 이 권한을 받았고 아직 유효하면 그 토큰(권한 창을 띄우지 않는다)
 export function peekLoginToken(scope: string): string | null {
@@ -206,9 +209,11 @@ export function getConnectedEmail(): string | null {
 // 구글이 토큰을 거절(401)하면 버린다 -- 안 그러면 만료 시각 전까지 같은 토큰을 계속 써서 매번 실패한다
 export function dropLoginToken(): void {
   cachedToken = null
+  saveToken('login', null)
 }
 export function disconnectDrive(): void {
   cachedToken = null
+  clearAllTokens()
   cachedEmail = null
   writePersistedEmail(null)
 }
@@ -281,6 +286,7 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
         else {
           cachedToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
           cachedScope = (resp as { scope?: string }).scope ?? ''
+          saveToken('login', { ...cachedToken, scope: cachedScope })
           void fetchConnectedEmail(resp.access_token).finally(() => {
             resolve(resp.access_token!)
             window.dispatchEvent(new Event(LOGIN_EVENT))
