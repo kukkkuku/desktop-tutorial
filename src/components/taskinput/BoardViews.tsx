@@ -24,11 +24,24 @@ const GROUP_HUES = [
 const GROUP_COLORS_KEY = 'timeline-group-colors'
 const COLLAPSE_KEY = 'timeline-collapsed'
 const PICK_COLORS = ['#3BA9D3', '#3DBE84', '#A7327A', '#9A5BD6', '#E08A2C', '#4A6FDB', '#E04F5F', '#2BA6A0', '#8C8C99', '#B7791F']
-// 구분 요약 막대: 고른 색을 어둡게(점은 밝은 그대로, 과제 막대는 연한 그대로)
-const darken = (hex: string, k = 0.5) => {
+// 구분 요약 막대: 고른 색의 기운만 살짝 남긴 회색(채도 낮게 · 중간 어둡기). 점은 밝은 색 그대로, 과제 막대는 연한 그대로
+const muted = (hex: string, sat = 0.1, light = 0.42) => {
   const n = parseInt(hex.replace('#', ''), 16)
-  const ch = (sh: number) => Math.round(((n >> sh) & 255) * k)
-  return `#${[16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('')}`
+  const r = ((n >> 16) & 255) / 255
+  const g = ((n >> 8) & 255) / 255
+  const bl = (n & 255) / 255
+  const mx = Math.max(r, g, bl)
+  const mn = Math.min(r, g, bl)
+  const d = mx - mn
+  let h = 0
+  if (d) h = mx === r ? ((g - bl) / d) % 6 : mx === g ? (bl - r) / d + 2 : (r - g) / d + 4
+  h = (h * 60 + 360) % 360
+  // HSL → RGB (채도 · 밝기를 고정)
+  const c = (1 - Math.abs(2 * light - 1)) * sat
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = light - c / 2
+  const [r1, g1, b1] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+  return `#${[r1, g1, b1].map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`
 }
 const readJson = <T,>(k: string, d: T): T => {
   try {
@@ -503,7 +516,7 @@ export function TimelineView({
                     {ranged.length > 0 && isFinite(from) && (
                       <div
                         className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full px-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-white"
-                        style={{ left: x0(from), width: span(from, to), background: darken(hue) }}
+                        style={{ left: x0(from), width: span(from, to), background: muted(hue) }}
                         title={`완료 ${done} / 과제 ${g.items.length}`}
                       >
                         <span className="truncate">{g.label}</span>
