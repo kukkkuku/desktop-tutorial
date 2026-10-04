@@ -1295,7 +1295,9 @@ export function paintCells(cells: Record<string, CellState>, weekKeys: string[],
   if (color === 'erase') {
     if (!cur) return out
     delete out[key]
-    return cur.f ? autoRunLetters(out, weekKeys, cur.f) : out
+    // 지운 칸 양옆 묶음만 다시 맞춘다
+    const i = weekKeys.indexOf(key)
+    return cur.f ? autoRunLetters(out, weekKeys, cur.f, [weekKeys[i - 1], weekKeys[i + 1]]) : out
   }
   if (cur?.f === color) {
     if (!click) return out
@@ -1316,17 +1318,22 @@ export function paintCells(cells: Record<string, CellState>, weekKeys: string[],
     return out
   }
   out[key] = { m: '', f: color }
-  return autoRunLetters(out, weekKeys, color)
+  return autoRunLetters(out, weekKeys, color, [key])
 }
 
-function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], color: WeekFill): Record<string, CellState> {
+// touched: 방금 칠하거나 지운 자리 -- 그 칸이 든 묶음만 S/F를 맞춘다(같은 줄의 다른 묶음 · 예전 기록은 그대로)
+function autoRunLetters(cells: Record<string, CellState>, weekKeys: string[], color: WeekFill, touched: (string | undefined)[]): Record<string, CellState> {
   const out = { ...cells }
+  const hit = new Set(touched.filter(Boolean))
   // 묶음의 첫 칸 S, 끝 칸은 회색이면 F 자동 · 분홍 완은 직접 눌러서(자동으로 붙이지 않음)
   const end: WeekMark = color === 'plan' ? 'F' : '완'
   const autoEnd = color === 'plan'
   let run: string[] = []
   const flush = () => {
-    if (run.length === 0) return
+    if (run.length === 0 || !run.some((k) => hit.has(k))) {
+      run = []
+      return
+    }
     run.forEach((k, i) => {
       const c = out[k]
       const first = i === 0

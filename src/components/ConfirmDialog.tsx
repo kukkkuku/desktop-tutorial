@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   onCancel: () => void
   // 기본은 삭제 확인(빨간 버튼). 삭제가 아닌 확인(예: 평가 확정)은 accent 톤으로.
   confirmLabel?: string
+  cancelLabel?: string
   tone?: 'danger' | 'accent'
   // 메시지 아래에 덧붙이는 선택 항목 등
   children?: ReactNode
@@ -21,6 +22,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
   confirmLabel = '삭제',
+  cancelLabel = '취소',
   tone = 'danger',
   children,
 }: ConfirmDialogProps) {
@@ -34,7 +36,7 @@ export default function ConfirmDialog({
         {children}
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>
-            취소
+            {cancelLabel}
           </Button>
           <Button variant={tone === 'danger' ? 'danger' : 'primary'} onClick={onConfirm}>
             {confirmLabel}

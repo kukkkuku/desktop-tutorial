@@ -3022,20 +3022,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
         <ConfirmDialog
           open={confirmSave}
-          title="구글시트에 저장"
-          message={`저장 안 한 변경 ${editCount}건${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? `, 지울 과제 ${drafts.deleted.length}건` : ''}을 아래 시트에 씁니다. 저장해야 다른 팀원도 받아 볼 수 있습니다.${hasLoginSheetsToken() ? '' : ' 처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.'}`}
-          confirmLabel="저장"
+          title="구글시트에 업데이트"
+          message={`${editCount}건의 변경이 있습니다${drafts.newRows.length ? `(새 과제 ${drafts.newRows.length}건 포함)` : ''}${drafts.deleted?.length ? ` · 지울 과제 ${drafts.deleted.length}건` : ''}. 구글 시트에 업데이트하여 공유하시겠습니까?`}
+          confirmLabel="지금 업데이트"
+          cancelLabel="나중에"
           tone="accent"
           onConfirm={saveToSheet}
           onCancel={() => setConfirmSave(false)}
         >
           {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
           <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
-            <p className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">저장할 곳</p>
+            <p className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">업데이트할 곳</p>
             <p className="mt-0.5 break-all text-[length:calc(14px*var(--ui-fs,1))] font-bold text-label">
               {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}
             </p>
             {drafts.newRows.length > 0 && <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">새 과제·새 구분은 화면에 보이는 자리에 줄을 넣어 씁니다.</p>}
+            {!hasLoginSheetsToken() && <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">처음 한 번은 구글 시트 편집 권한을 허용해야 합니다.</p>}
             {(drafts.deleted?.length ?? 0) > 0 && (
               <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
             )}
