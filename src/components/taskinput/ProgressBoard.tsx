@@ -1348,6 +1348,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       }, d),
     )
   }
+  // 열 전체 서식 · 칸 색: 시트의 그 열 전체(모든 그룹 · 거른 행 · 새 과제 포함, 지울 과제는 빼고)
+  const allRowsOf = () => (data ? orderWithNewRows(data.rows, drafts.newRows, drafts.moves) : [])
+  function setScopeFmt(ids: string[], patch: CellFmt | null) {
+    setFmt(
+      allRowsOf().flatMap((row) => ids.map((id) => ({ row, id }))),
+      patch,
+    )
+  }
+  function setScopeBg(ids: string[], hex: string) {
+    const rows = allRowsOf().filter((r) => !isDeleted(r))
+    updateDrafts((d) =>
+      rows.reduce((acc, row) => {
+        if (row.isNew) {
+          const nid = row.key.slice(NEW_PREFIX.length)
+          return { ...acc, newRows: acc.newRows.map((n) => (n.id === nid ? { ...n, bg: { ...(n.bg ?? {}), ...Object.fromEntries(ids.map((id) => [id, hex])) } } : n)) }
+        }
+        let edits = acc.edits
+        for (const id of ids) edits = setBgEdit(edits, row, id, hex)
+        return { ...acc, edits }
+      }, d),
+    )
+  }
   function setNote(row: ProgressRow, key: string, note: string) {
     updateDrafts((d) => {
       if (row.isNew) {
@@ -1412,12 +1434,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
   function buildNewRows(row: ProgressRow, where: 'above' | 'below', count: number, values?: RowValues[]): NewRow[] {
     const list: NewRow[] = []
+    const ids = ['name', ...(data?.fields.map((f) => f.id) ?? [])]
+    const nid = row.isNew ? row.key.slice(NEW_PREFIX.length) : ''
+    const fmtOf = (id: string) => (row.isNew ? (drafts.newRows.find((x) => x.id === nid)?.fmt?.[id] ?? '') : effectiveFmt(row, drafts.edits[row.key], id))
+    const inherited = Object.fromEntries(ids.map((id) => [id, fmtOf(id)]).filter(([, f]) => f))
+    const inheritFmt = Object.keys(inherited).length ? inherited : null
     const n = values?.length ?? count
     for (let i = 0; i < n; i++) {
       const anchor = i === 0 ? { key: row.key, where } : { key: NEW_PREFIX + list[i - 1].id, where: 'below' as const }
       const r = makeNewRow({ l1: row.l1, ...baseGroupOf(row), h: row.h }, anchor)
       const v = values?.[i]
       if (v) Object.assign(r, { fields: { name: '', ...v.fields }, bg: v.bg, fmt: v.fmt })
+      // 붙여넣기가 아니면 옆 행(기준 행)의 글자 서식을 이어받는다(시트처럼 -- 열 서식이 새 행에도 이어지게)
+      else if (inheritFmt) r.fmt = { ...inheritFmt }
       list.push(r)
     }
     return list
@@ -2838,6 +2867,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onBg={setBg}
               onNote={setNote}
               onFmt={readOnly ? undefined : setFmt}
+              onScopeFmt={readOnly ? undefined : setScopeFmt}
+              onScopeBg={readOnly ? undefined : setScopeBg}
               onCells={readOnly ? undefined : setCells}
               onAddRows={readOnly ? undefined : addRows}
               onAddColumns={readOnly ? undefined : addColumns}

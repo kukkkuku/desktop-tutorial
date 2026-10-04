@@ -826,6 +826,8 @@ export default function ScheduleTable({
   onBg,
   onNote,
   onFmt,
+  onScopeFmt,
+  onScopeBg,
   merges = [],
   rowHeights = {},
   onRowHeights,
@@ -881,6 +883,9 @@ export default function ScheduleTable({
   onBg: (row: ProgressRow, ids: string[], hex: string) => void
   onNote: (row: ProgressRow, key: string, note: string) => void
   onFmt?: (list: { row: ProgressRow; id: string }[], patch: CellFmt | null) => void // 고른 칸 글자 서식(null = 기본으로)
+  // 열 전체(머리글 · 모서리로 고름): 이 탭에 보이는 행만이 아니라 시트의 그 열 전체(다른 그룹 · 거른 행 포함)
+  onScopeFmt?: (ids: string[], patch: CellFmt | null) => void
+  onScopeBg?: (ids: string[], hex: string) => void
   merges?: CellMerge[] // 입력 열 칸 병합(행 키 × 열 id)
   onMerge?: (rows: ProgressRow[], ids: string[], merge: boolean) => void // 고른 칸 병합 · 병합 해제
   onCells?: (
@@ -1040,7 +1045,10 @@ export default function ScheduleTable({
   const setRowSel = (key: string | null) => {
     setRowSelOnly(key)
     setRowSelEnd(null)
+    setWideSel(false)
   }
+  // 열 머리글 · 모서리로 고른 선택(서식은 열 전체에)
+  const [wideSel, setWideSel] = useState(false)
   // 여러 칸 선택: sel(시작 칸, 입력기가 있는 칸) ~ selEnd(끝 칸) 사각형
   const [selEnd, setSelEnd] = useState<{ row: string; id: string } | null>(null)
   const selDrag = useRef(false)
@@ -1226,6 +1234,7 @@ export default function ScheduleTable({
     window.addEventListener('mouseup', up)
   }
   function selectCell(row: string, id: string, edit = false) {
+    setWideSel(false)
     setWeekSel(null)
     setRowSel(null)
     setSelEnd(null)
@@ -1424,6 +1433,7 @@ export default function ScheduleTable({
     return selShadow(0.1, ri === range.r1, ci === range.c2, ri === range.r2, ci === range.c1)
   }
   function cellDown(e: React.MouseEvent, row: string, id: string) {
+    setWideSel(false)
     if (e.shiftKey && sel) {
       setRowSel(null)
       setSelEnd({ row, id })
@@ -1725,6 +1735,7 @@ export default function ScheduleTable({
       setSel({ row: first, id })
       setSelEnd({ row: last, id })
     }
+    setWideSel(true)
   }
   // ---- 병합 · 나누기 대상(고른 범위): 서식 막대와 우클릭에서 같이 쓴다
   const mergePlan = (() => {
@@ -1779,6 +1790,7 @@ export default function ScheduleTable({
     setRowSel(null)
     setSel({ row: rows[0].row.key, id: 'name' })
     setSelEnd({ row: rows[rows.length - 1].row.key, id: editIds[editIds.length - 1] })
+    setWideSel(true)
   }
   const allSelected = !!range && range.r1 === 0 && range.r2 === rows.length - 1 && range.c1 === 0 && range.c2 === editIds.length - 1 && rows.length > 0
   // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
@@ -1787,6 +1799,15 @@ export default function ScheduleTable({
     if (!sel && l2Sel) {
       const v = rows.find((x) => x.row.key === l2Sel)
       return v ? [{ v, id: L2_KEY }] : []
+    }
+    // 행 머리로 고른 행: 그 행의 모든 칸(L3 ~ 마지막 입력 열)
+    if (!sel && rowRange) {
+      const out: { v: ScheduleRowView; id: string }[] = []
+      for (let ri = rowRange.r1; ri <= rowRange.r2; ri++) {
+        const v = rows[ri]
+        if (v && !v.deleted) for (const id of editIds) out.push({ v, id })
+      }
+      return out
     }
     if (!sel) return []
     const out: { v: ScheduleRowView; id: string }[] = []
@@ -1800,10 +1821,14 @@ export default function ScheduleTable({
     const v = rows.find((x) => x.row.key === sel.row)
     return v && !v.deleted && editIds.includes(sel.id) ? [{ v, id: sel.id }] : []
   })()
-  const anchorView = sel ? rows.find((x) => x.row.key === sel.row) : undefined
-  const anchorFmt = parseFmt(sel ? anchorView?.fmt?.[sel.id] : l2Sel ? rows.find((x) => x.row.key === l2Sel)?.fmt?.[L2_KEY] : '')
+  const anchorFmt = parseFmt(fmtTargets[0] ? fmtTargets[0].v.fmt?.[fmtTargets[0].id] : '')
+  const anchorBg = fmtTargets[0] ? (fmtTargets[0].v.bg[fmtTargets[0].id] ?? '') : ''
+  // 열 전체 서식: 머리글 · 모서리로 고른 채 보이는 행 전체가 범위일 때
+  const wideIds = wideSel && range && range.r1 === 0 && range.r2 === rows.length - 1 ? editIds.slice(range.c1, range.c2 + 1) : null
   function applyFmt(patch: CellFmt | null) {
-    if (!onFmt || readOnly || !fmtTargets.length) return
+    if (readOnly) return
+    if (wideIds && onScopeFmt) return onScopeFmt(wideIds, patch)
+    if (!onFmt || !fmtTargets.length) return
     onFmt(
       fmtTargets.map((t) => ({ row: t.v.row, id: t.id })),
       patch,
@@ -1811,6 +1836,7 @@ export default function ScheduleTable({
   }
   function applyBg(hex: string) {
     if (readOnly) return
+    if (wideIds && onScopeBg) return onScopeBg(wideIds, hex)
     const byRow = new Map<string, { row: ProgressRow; ids: string[] }>()
     for (const t of fmtTargets) {
       const g = byRow.get(t.v.row.key) ?? { row: t.v.row, ids: [] }
@@ -2838,6 +2864,12 @@ export default function ScheduleTable({
             count={fmtTargets.length}
             sheetColors={sheetColors}
             onFmt={(patch) => applyFmt(patch)}
+            bg={anchorBg}
+            onBg={(hex) => applyBg(hex)}
+            onClear={() => {
+              applyFmt(null)
+              applyBg('')
+            }}
             canMerge={!!onMerge && mergePlan.canMerge}
             canSplit={!!onMerge && mergePlan.hit.length > 0}
             onMerge={doMerge}

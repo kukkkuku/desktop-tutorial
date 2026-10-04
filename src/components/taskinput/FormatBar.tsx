@@ -1,8 +1,7 @@
-// 칸 서식 막대(입력 중에만): 글자색 · 글자 크기 · 굵게 · 가로 정렬 · 완료(✓).
-// 고른 칸(여러 칸이면 범위 전체)에 한 번에 적용한다. 값은 저장할 때 시트 칸 서식으로 쓴다.
-// 칸 색 · 서식 지우기는 우클릭 메뉴에 있다.
+// 칸 서식 막대(입력 중에만): 글자색 · 칸 색 · 글자 크기 · 굵게 · 가로 정렬 · 병합 · 서식 지우기 · 완료(✓).
+// 고른 것(칸 · 범위 · 행 · 열 · 전체)에 한 번에 적용한다. 값은 저장할 때 시트 칸 서식으로 쓴다.
 import { useEffect, useRef, useState } from 'react'
-import { AlignCenter, AlignLeft, AlignRight, Bold, Check, Italic, Strikethrough, TableCellsMerge, TableCellsSplit } from 'lucide-react'
+import { AlignCenter, AlignLeft, AlignRight, Bold, Check, Italic, PaintBucket, RemoveFormatting, Strikethrough, TableCellsMerge, TableCellsSplit } from 'lucide-react'
 import type { CellAlign, CellFmt } from '../../utils/sheetSources'
 import ColorPalette from './ColorPalette'
 
@@ -19,6 +18,9 @@ export default function FormatBar({
   canSplit,
   onMerge,
   onSplit,
+  bg,
+  onBg,
+  onClear,
 }: {
   fmt: CellFmt // 기준 칸(처음 고른 칸)의 서식
   disabled?: boolean
@@ -30,8 +32,11 @@ export default function FormatBar({
   canSplit?: boolean // 고른 칸에 병합이 있을 때
   onMerge?: () => void
   onSplit?: () => void
+  bg?: string // 기준 칸의 칸 색(RRGGBB, 없으면 흰색)
+  onBg?: (hex: string) => void // 칸 색('' = 색 없음)
+  onClear?: () => void // 서식 지우기(글자 서식 · 칸 색 모두 기본으로)
 }) {
-  const [pop, setPop] = useState(false)
+  const [pop, setPop] = useState<'text' | 'fill' | false>(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!pop) return
@@ -62,12 +67,25 @@ export default function FormatBar({
       {/* 글자 색 */}
       <button
         disabled={off}
-        onClick={() => setPop(!pop)}
+        onClick={() => setPop(pop === 'text' ? false : 'text')}
         className="h-6 w-6 rounded-[6px] ring-1 ring-inset ring-black/15 disabled:cursor-default"
         style={{ background: `#${fmt.c ?? '1D1D1F'}` }}
         title="글자 색"
         aria-label="글자 색"
       />
+      {/* 칸 색 */}
+      {onBg && (
+        <button
+          disabled={off}
+          onClick={() => setPop(pop === 'fill' ? false : 'fill')}
+          className="relative flex h-7 w-7 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.06] disabled:cursor-default"
+          title="칸 색"
+          aria-label="칸 색"
+        >
+          <PaintBucket size={15} strokeWidth={2} />
+          <span className="absolute inset-x-1.5 bottom-0.5 h-[3px] rounded-full ring-1 ring-inset ring-black/10" style={{ background: `#${bg || 'FFFFFF'}` }} />
+        </button>
+      )}
       {/* 글자 크기(pt) */}
       <input
         type="number"
@@ -149,6 +167,18 @@ export default function FormatBar({
           </button>
         </span>
       )}
+      {/* 서식 지우기 */}
+      {onClear && (
+        <button
+          disabled={off}
+          onClick={onClear}
+          className="flex h-7 w-7 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.06] disabled:opacity-35"
+          title="서식 지우기(글자 서식 · 칸 색을 기본으로)"
+          aria-label="서식 지우기"
+        >
+          <RemoveFormatting size={16} strokeWidth={2} />
+        </button>
+      )}
       <span className="mx-0.5 h-5 border-l border-separator" />
       {/* 완료: 칸 선택 끝내기 */}
       <button
@@ -162,12 +192,13 @@ export default function FormatBar({
       </button>
       {pop && !off && (
         <div className="mac-pop absolute left-0 top-full z-50 mt-1.5 w-[268px] px-3 py-2">
-          <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">글자 색</p>
+          <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">{pop === 'text' ? '글자 색' : '칸 색'}</p>
           <ColorPalette
-            current={fmt.c ?? ''}
+            current={pop === 'text' ? (fmt.c ?? '') : (bg ?? '')}
             sheetColors={sheetColors}
             onPick={(hex) => {
-              onFmt({ c: hex && hex !== '000000' ? hex : undefined })
+              if (pop === 'text') onFmt({ c: hex && hex !== '000000' ? hex : undefined })
+              else onBg?.(hex && hex !== 'FFFFFF' ? hex : '')
               setPop(false)
             }}
           />
