@@ -2079,6 +2079,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <span className="flex shrink-0 items-center gap-1" title="열어 둔 동안 5분마다, 다시 열면 바로 시트와 견줘 봅니다">
                 <CircleCheck size={14} strokeWidth={2} className="text-emerald-600" />
                 최신 · {timeAgo(new Date(seenAt).toISOString())} 확인
+                {/* 다시 불러오기: 확인 시각 바로 뒤 아이콘(글자는 툴팁) */}
+                <button
+                  onClick={() => void loadFromSheet()}
+                  disabled={saving}
+                  title="다시 불러오기"
+                  aria-label="다시 불러오기"
+                  className="ml-0.5 flex h-6 w-6 items-center justify-center rounded-[6px] text-accent hover:bg-accent-soft disabled:opacity-40"
+                >
+                  <RefreshCw size={13} strokeWidth={2} />
+                </button>
               </span>
             )}
             <span className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -2132,11 +2142,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 <Button variant="secondary" size="sm" onClick={openSheetSettings}>
                   저장할 수 있는 시트로 바꾸기
                 </Button>
-              ) : state === 'ok' ? (
-                <button onClick={() => void loadFromSheet()} disabled={saving} className="flex items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-accent hover:bg-accent-soft">
-                  <RefreshCw size={13} strokeWidth={2} />
-                  다시 불러오기
-                </button>
               ) : null}
             </span>
           </div>
