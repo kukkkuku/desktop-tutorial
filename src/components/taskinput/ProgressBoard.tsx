@@ -2107,7 +2107,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 : 'border-transparent'
         return (
           <div
-            className={`flex h-9 min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
+            className={`flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
           >
             <FileSpreadsheet size={15} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
             <a
@@ -2153,7 +2153,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 </button>
               </span>
             )}
-            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            <span className="flex shrink-0 items-center gap-1.5">
               {state === 'unsaved' || state === 'unsavable' ? (
                 <>
                   <button
@@ -2235,8 +2235,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
         {/* 머리 오른쪽 빈 곳: 시트 상태 줄(저장 안 한 변경 · 저장) · 과제 내보내기(팀장) · 파일 메뉴 */}
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           {headStatus}
+          <span className="flex-1" />
           {/* 팀장: 지금 그룹(L1)을 성과관리 과제리스트로 내보내기가 주된 일 -- 머리 줄 프라이머리 버튼(성과관리의 구글시트 연결과 같은 화면) */}
           {canPerf && (
             <Button
