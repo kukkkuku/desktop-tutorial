@@ -88,7 +88,16 @@ const riskHit = (s: Sched, r: ViewFilter['risk'], weekCols: WeekCols, nowMonth: 
   r === null || (r === 'late' ? s.late : monthHit(s, weekCols, nowMonth))
 export const passView = (s: Sched, f: ViewFilter, weekCols: WeekCols, nowMonth: number | undefined) => stageHit(s, f.stage) && riskHit(s, f.risk, weekCols, nowMonth)
 
-function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { list: Sched[]; value: ViewFilter; onChange: (f: ViewFilter) => void; weekCols: WeekCols; nowMonth: number | undefined }) {
+// 거르기 줄에 쓸 과제들의 일정(보드 · 타임라인과 같은 규칙) -- 줄은 추진현황 도구 줄(보기 버튼 옆)에 둔다
+export function scheduleListOf(views: ScheduleRowView[], weekCols: WeekCols, currentKey: string | null) {
+  const idx = new Map(weekCols.map((w, i) => [w.key, i]))
+  const nowIdx = currentKey ? (idx.get(currentKey) ?? weekCols.length - 1) : weekCols.length - 1
+  return {
+    list: views.filter((v) => !v.deleted && v.vals.name?.trim()).map((v) => scheduleOf(v, weekCols, idx, nowIdx)),
+    nowMonth: weekCols[nowIdx]?.month,
+  }
+}
+export function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { list: Sched[]; value: ViewFilter; onChange: (f: ViewFilter) => void; weekCols: WeekCols; nowMonth: number | undefined }) {
   const stages: [ViewFilter['stage'], string, string][] = [
     ['all', '전체', 'text-label'],
     ['대기', '대기', 'text-label-2'],
@@ -101,7 +110,7 @@ function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { list: Sc
     ['month', '이번 달 마감', 'text-[#B7791F]', `${nowMonth ?? ''}월에 계획이 끝나는 대기 · 진행 중 과제`],
   ]
   const chip = (on: boolean) =>
-    `flex h-8 items-center gap-1.5 rounded-full px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium transition-colors ${
+    `flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium transition-colors ${
       on ? 'bg-label text-white' : 'bg-black/[0.04] text-label-2 hover:bg-black/[0.07]'
     }`
   return (
@@ -117,7 +126,7 @@ function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { list: Sc
           </button>
         )
       })}
-      <span className="mx-1.5 h-5 w-px bg-separator" />
+      <span className="mx-1 h-5 w-px bg-separator" />
       {risks.map(([k, label, tone, why]) => {
         const n = list.filter((s) => riskHit(s, k, weekCols, nowMonth)).length
         const on = value.risk === k
@@ -141,7 +150,6 @@ export function KanbanBoard({
   statusOptions,
   onStatus,
   filter = ALL_FILTER,
-  onFilter,
 }: {
   views: ScheduleRowView[]
   weekCols: WeekCols
@@ -149,7 +157,6 @@ export function KanbanBoard({
   statusOptions?: string[]
   onStatus?: (row: ProgressRow, value: string) => void
   filter?: ViewFilter
-  onFilter?: (f: ViewFilter) => void
 }) {
   const idx = useMemo(() => new Map(weekCols.map((w, i) => [w.key, i])), [weekCols])
   const nowIdx = currentKey ? (idx.get(currentKey) ?? weekCols.length - 1) : weekCols.length - 1
@@ -165,8 +172,6 @@ export function KanbanBoard({
   const [overCol, setOverCol] = useState<string | null>(null)
 
   return (
-    <div className="space-y-3">
-    {onFilter && <ViewFilterBar list={staged.map((x) => x.s)} value={filter} onChange={onFilter} weekCols={weekCols} nowMonth={nowMonth} />}
     <div className="flex min-h-[420px] gap-3 overflow-x-auto pb-2">
       {cols.map((col) => {
         const cards = staged.filter((x) => x.s.stage === col && riskHit(x.s, filter.risk, weekCols, nowMonth))
@@ -244,7 +249,6 @@ export function KanbanBoard({
           </section>
         )
       })}
-    </div>
     </div>
   )
 }
@@ -345,7 +349,6 @@ export function TimelineView({
     }
     return out
   }, [views, weekCols, idx, asOf])
-  const all = groups.flatMap((g) => g.items)
   const pass = (x: Item) => passView(x.s, filter, weekCols, nowMonth)
   // 달 머리글: 같은 달 주들을 한 칸으로
   const months: { month: number; from: number; n: number }[] = []
@@ -360,8 +363,6 @@ export function TimelineView({
 
   return (
     <div className="space-y-4">
-      {onFilter && <ViewFilterBar list={all.map((x) => x.s)} value={filter} onChange={onFilter} weekCols={weekCols} nowMonth={nowMonth} />}
-
       <div ref={boxRef} className="overflow-x-auto rounded-[14px] border border-[#ECECF0] bg-white">
         <div style={{ width: leftW + W + 24 }} className="relative text-[length:calc(13.5px*var(--ui-fs,1))]">
           {/* 과제명 칸 경계: 끌어서 너비 조절(더블클릭 = 기본) */}

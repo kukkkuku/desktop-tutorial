@@ -138,7 +138,7 @@ import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
-import { KanbanBoard, TimelineView, ALL_FILTER, type ViewFilter } from './BoardViews'
+import { KanbanBoard, TimelineView, ALL_FILTER, ViewFilterBar, scheduleListOf, type ViewFilter } from './BoardViews'
 import ScheduleTable, { CellSwatch, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
@@ -2547,6 +2547,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             ))}
           </span>
           )}
+          {/* 보드 · 타임라인 거르기(단계 + 지연 · 이번 달 마감): 보기 버튼 바로 옆 */}
+          {boardView !== 'table' &&
+            (() => {
+              const { list, nowMonth } = scheduleListOf(views, weekCols, currentKey)
+              return <ViewFilterBar list={list} value={viewFilter} onChange={setViewFilter} weekCols={weekCols} nowMonth={nowMonth} />
+            })()}
           {activeFilters > 0 && (
             <button
               onClick={() => setFilters({})}
@@ -2857,7 +2863,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               statusOptions={data.fields.find((f) => f.id === 'status')?.options}
               onStatus={readOnly || !data.fields.some((f) => f.id === 'status') ? undefined : (row, value) => setField(row, 'status', value)}
               filter={viewFilter}
-              onFilter={setViewFilter}
             />
           ) : boardView === 'timeline' ? (
             <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} filter={viewFilter} onFilter={setViewFilter} />
