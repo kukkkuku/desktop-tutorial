@@ -1044,7 +1044,13 @@ export default function ScheduleTable({
     e.preventDefault()
     setHeadMenu({ key, x: Math.min(e.clientX, window.innerWidth - 276), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 380)) })
   }
-  const [headMenu, setHeadMenu] = useState<{ key: string; x: number; y: number } | null>(null)
+  const [headMenu, setHeadMenuState] = useState<{ key: string; x: number; y: number } | null>(null)
+  // 머리글 메뉴의 색: 항목(머리글 배경 ▸ · 머리글 글자 색 ▸)을 누르면 그 팔레트 하나만(칸 메뉴와 같게)
+  const [headPal, setHeadPal] = useState<'bg' | 'text' | null>(null)
+  const setHeadMenu = (v: { key: string; x: number; y: number } | null) => {
+    setHeadMenuState(v)
+    setHeadPal(null)
+  }
   // ---- 머리글 더블클릭 = 제목 편집(글씨 · 글자 색 · 크기 · 정렬). 이름은 바꿀 수 있는 열만(기본 열은 서식만)
   const [headEdit, setHeadEdit] = useState<{ key: string; text: string } | null>(null)
   useEffect(() => {
@@ -2646,7 +2652,13 @@ export default function ScheduleTable({
                           const first = g.rows[0].row.key
                           window.setTimeout(() => (document.querySelector(`[data-rowhead="${CSS.escape(first)}"]`) as HTMLElement | null)?.focus({ preventScroll: true }))
                           const canEdit = !!onRenameGroup && !readOnly && !g.rows.every((x) => x.deleted)
-                          startL2Edit.current = canEdit ? () => setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 }) : null
+                          // 이름 고치기에 들어가면 행 선택은 풀고 구분 칸만(서식 막대도 구분 칸에만)
+                          startL2Edit.current = canEdit
+                            ? () => {
+                                setRowSel(null)
+                                setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 })
+                              }
+                            : null
                         }}
                         onDoubleClick={(e) => {
                           // 더블클릭하면 그 자리에서 구분 이름 고치기
@@ -3709,7 +3721,7 @@ export default function ScheduleTable({
       {headMenu && (onHeadColor || onHideColumns) && (
         <div className="fixed inset-0 z-50" onMouseDown={() => setHeadMenu(null)} onContextMenu={(e) => (e.preventDefault(), setHeadMenu(null))}>
           <div className="mac-pop absolute w-[268px] px-3 py-2" style={{ left: headMenu.x, top: headMenu.y }} onMouseDown={(e) => e.stopPropagation()}>
-            {cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns || onHideColumns) && (
+            {!headPal && cols.some((f) => f.id === headMenu.key) && (onAddColumns || onDeleteColumns || onHideColumns) && (
               <div className={`-mx-3 border-separator pb-1 text-[length:calc(14px*var(--ui-fs,1))] ${onHeadColor ? 'mb-1.5 border-b' : ''}`}>
                 {onHideColumns && (
                   <button
@@ -3785,33 +3797,44 @@ export default function ScheduleTable({
                 )}
               </div>
             )}
-            {onHeadColor && (
-              <>
-            <p className="mb-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 배경</p>
-            <ColorPalette
-              current={headColors[headMenu.key] ?? ''}
-              sheetColors={sheetColors}
-              onPick={(hex) => {
-                // 여러 열을 골랐으면 고른 열 머리글 모두
-                for (const k of selectedCols.includes(headMenu.key) ? selectedCols : [headMenu.key]) onHeadColor(k, hex)
-                setHeadMenu(null)
-              }}
-            />
-            {onHeadFmt && (
-              <>
-                <p className="mb-1 mt-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">머리글 글자 색</p>
-                <ColorPalette
-                  current={parseFmt(headFmts[headMenu.key]).c ?? ''}
-                  sheetColors={sheetColors}
-                  onPick={(hex) => {
-                    for (const k of selectedCols.includes(headMenu.key) ? selectedCols : [headMenu.key]) onHeadFmt(k, { c: hex || undefined })
-                    setHeadMenu(null)
-                  }}
-                />
-              </>
-            )}
-              </>
-            )}
+            {onHeadColor &&
+              (headPal ? (
+                <>
+                  <button
+                    onClick={() => setHeadPal(null)}
+                    className="-mx-3 mb-1.5 flex w-[calc(100%+24px)] items-center gap-1 border-b border-separator px-3 pb-1.5 text-left text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-label-2 hover:text-label"
+                  >
+                    ‹ {headPal === 'bg' ? '머리글 배경' : '머리글 글자 색'}
+                  </button>
+                  <ColorPalette
+                    current={headPal === 'bg' ? (headColors[headMenu.key] ?? '') : (parseFmt(headFmts[headMenu.key]).c ?? '')}
+                    sheetColors={sheetColors}
+                    onPick={(hex) => {
+                      // 여러 열을 골랐으면 고른 열 머리글 모두
+                      for (const k of selectedCols.includes(headMenu.key) ? selectedCols : [headMenu.key]) {
+                        if (headPal === 'bg') onHeadColor(k, hex)
+                        else onHeadFmt?.(k, { c: hex || undefined })
+                      }
+                      setHeadMenu(null)
+                    }}
+                  />
+                </>
+              ) : (
+                <div className="-mx-3 text-[length:calc(14px*var(--ui-fs,1))]">
+                  {(
+                    [
+                      ['bg', '머리글 배경', headColors[headMenu.key] ?? ''],
+                      ...(onHeadFmt ? [['text', '머리글 글자 색', parseFmt(headFmts[headMenu.key]).c ?? '']] : []),
+                    ] as ['bg' | 'text', string, string][]
+                  ).map(([k, label, cur]) => (
+                    <button key={k} onClick={() => setHeadPal(k)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-black/[0.05]">
+                      <span className="h-3.5 w-3.5 shrink-0 rounded-[3px] border border-black/15" style={{ background: cur ? `#${cur}` : k === 'text' ? '#18181B' : '#FFFFFF' }} />
+                      <span className="flex-1">{label}</span>
+                      <span className="text-label-3">›</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
           </div>
         </div>
       )}
