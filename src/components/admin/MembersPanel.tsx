@@ -24,7 +24,8 @@ import {
 import { ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
-import { useWorkspaces } from '../../state/WorkspaceContext'
+import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
+import type { TeamMember } from '../../types'
 import { renameEvalTeam } from '../../utils/teamRename'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
@@ -47,8 +48,26 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const { currentWorkspace, workspaces, renameWorkspace } = useWorkspaces()
   const evalTeam = (currentWorkspace?.teamName ?? workspaces[0]?.teamName ?? '').trim()
   const defaultTeam = evalTeam || myTeam
-  // 팀장: 내가 추가한 사람만 · 관리자: 모두
-  const rows = useMemo(() => (isAdmin ? data.users : data.users.filter((u) => u.addedBy === me)), [data.users, isAdmin, me])
+  // 팀장: 내가 추가한 사람 + 우리 팀(평가 목록 팀 이름 · 내 팀) 팀원 · 관리자: 모두
+  const rows = useMemo(
+    () =>
+      isAdmin
+        ? data.users
+        : data.users.filter((u) => u.email === me || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))),
+    [data.users, isAdmin, me, evalTeam, myTeam],
+  )
+  // 평가 목록(지금 팀) 팀원 중 관리 명단에 없는 사람 -- Gmail을 넣어 명단에 추가하게
+  const evalMissing = useMemo(() => {
+    if (!currentWorkspace) return []
+    try {
+      const st = JSON.parse(localStorage.getItem(workspaceStateKey(currentWorkspace.id)) ?? 'null') as { members?: TeamMember[] } | null
+      const have = new Set(data.users.map((u) => u.email))
+      const names = new Set(data.users.map((u) => u.name.trim()).filter(Boolean))
+      return (st?.members ?? []).filter((m) => m.active !== false && !have.has((m.email ?? '').toLowerCase()) && !names.has(m.name.trim()))
+    } catch {
+      return []
+    }
+  }, [currentWorkspace, data.users])
   const [query, setQuery] = useState('')
   const shown = rows.filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -90,7 +109,14 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     const have = new Set(data.users.map((u) => u.email))
     const fresh = entries.filter((e) => !have.has(e.email.toLowerCase()))
     const dup = entries.length - fresh.length
-    if (!fresh.length) return setNote({ ok: false, text: '모두 이미 등록된 사람입니다.' })
+    // 이미 등록됐는데 내 목록에 안 보이는 사람(다른 팀장 · 관리자가 다른 팀으로 등록): 누가 · 어느 팀인지 알려 준다
+    const hiddenDup = entries
+      .map((e) => data.users.find((u) => u.email === e.email.toLowerCase()))
+      .filter((u): u is AccessUser => !!u && !rows.some((r) => r.email === u.email))
+    const dupNote = hiddenDup.length
+      ? ` ${hiddenDup.map((u) => `${u.name || u.email}: ${u.team ? `「${u.team}」 팀` : '팀 없음'} · ${u.addedBy ? `${u.addedBy}가 추가` : '처음부터 등록'}`).join(' / ')} -- 우리 팀으로 옮기려면 관리자에게 팀을 바꿔 달라고 하세요.`
+      : ''
+    if (!fresh.length) return setNote({ ok: false, text: `이미 등록된 사람입니다.${dupNote}` })
     void run(
       () =>
         updateUsers(
@@ -288,7 +314,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const table =
     rows.length === 0 ? (
       <p className="rounded-card border border-dashed border-separator px-4 py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
-        아직 추가한 팀원이 없습니다. <b className="text-label-2">팀원 추가</b>로 시작하세요.
+        아직 관리 명단에 팀원이 없습니다. <b className="text-label-2">팀원 추가</b>{evalMissing.length > 0 ? ' 또는 위 「평가 목록 팀원 불러오기」' : ''}로 시작하세요.
       </p>
     ) : (
       <div className="overflow-hidden rounded-card border border-separator">
@@ -509,6 +535,29 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
           </div>
         )
       })()}
+
+      {/* 평가 목록 팀원 중 명단에 없는 사람: Gmail을 넣어 한 번에 추가 */}
+      {evalMissing.length > 0 && !addOpen && (
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-accent/25 bg-accent-soft px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+          <span>
+            평가 목록 <b>「{evalTeam}」</b> 팀원 {evalMissing.length}명이 관리 명단에 없습니다
+            <span className="text-label-2"> ({evalMissing.slice(0, 6).map((m) => m.name).join(', ')}{evalMissing.length > 6 ? ' …' : ''})</span>
+          </span>
+          <Button
+            variant="primary"
+            size="sm"
+            className="ml-auto"
+            onClick={() => {
+              setPasteText(evalMissing.map((m) => `${m.email ?? ''}, , ${m.name}`).join('\n'))
+              setTeam(evalTeam || team)
+              setAddOpen(true)
+              setNote({ ok: true, text: 'Gmail이 빈 줄은 이름 앞에 로그인할 Gmail(아이디만 적어도 됨)을 적고 「추가」를 누르세요.' })
+            }}
+          >
+            평가 목록 팀원 불러오기
+          </Button>
+        </div>
+      )}
 
       {/* 도구 줄 */}
       <div className="flex flex-wrap items-center gap-2">
