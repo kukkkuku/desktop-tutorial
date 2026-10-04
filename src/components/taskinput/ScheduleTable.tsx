@@ -481,7 +481,7 @@ function FieldCell({
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 더블클릭 · Enter · 타이핑으로 입력 · 우클릭: 메모·색`}
       style={bg || rangeShadow ? { ...(bg ? { background: `#${bg}` } : {}), ...(rangeShadow ? { boxShadow: rangeShadow } : {}) } : undefined}
       className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
-        selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
+        selected && !rangeShadow ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
       } ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
@@ -1837,6 +1837,8 @@ export default function ScheduleTable({
   // ---- 열 전체 선택: 머리글을 누르면 그 열의 보이는 칸 전체(Shift = 여러 열)
   // 고른 열의 머리글: 열 선택 테두리가 머리글까지 이어지게(위 · 양옆 파란 선 + 옅은 파랑)
   function headSelStyle(key: string): React.CSSProperties {
+    // 구분(L2) 열 전체 선택: 과제 열과 같은 파란 테두리 + 옅은 파랑
+    if (key === 'l2') return l2Col ? { boxShadow: selShadow(0.12, true, true, false, true) } : {}
     if (!wideSel || !range || range.r1 !== 0 || range.r2 !== rows.length - 1) return {}
     const c = editIds.indexOf(key)
     if (c < range.c1 || c > range.c2) return {}
@@ -2423,7 +2425,7 @@ export default function ScheduleTable({
               }}
               onDoubleClick={() => startHeadEdit('l2', '구분(L2)')}
               title="누르면 구분(L2) 열 전체 선택 · 더블클릭: 제목 서식(글자 색 · 크기 · 정렬) · 우클릭: 머리글 색"
-              className={`sticky z-20 cursor-pointer px-2 py-2 font-bold ${thBorder} ${l2Col ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
+              className={`sticky z-20 cursor-pointer px-2 py-2 font-bold ${thBorder}`}
             >
               {headEdit?.key === 'l2' ? headEditor('l2', false) : '구분(L2)'}
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} lineH={tableH} />}
@@ -2698,10 +2700,15 @@ export default function ScheduleTable({
                           startL2Edit.current?.()
                         }}
                         title={`${g.l2} · 더블클릭(또는 Enter)해서 이름 고치기 · 우클릭: 구분(L2) 추가·삭제 · 칸 색 · 글자 서식`}
-                        style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
+                        style={{
+                          left: WH,
+                          ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}),
+                          ...fmtStyle(g.rows[0].fmt?.[L2_KEY]),
+                          ...(l2Col && !l2Edit ? { boxShadow: selShadow(0.1, false, true, gi === groups.length - 1, true) } : {}),
+                        }}
                         className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-0.5px_0_#C9CDD3,0_0.5px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
-                        } ${(l2Sel === g.rows[0].row.key || l2Col) && !l2Edit ? `outline outline-2 -outline-offset-2 outline-accent ${l2Col ? 'bg-accent/[0.06]' : ''}` : ''}`}
+                        } ${l2Sel === g.rows[0].row.key && !l2Col && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         <div className="sticky top-[64px] py-1">
@@ -2802,7 +2809,7 @@ export default function ScheduleTable({
                           ...(inRange(ri2, 'name') ? { boxShadow: rangeShadow(ri2, 'name') } : {}),
                         }}
                         className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
-                          isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
+                          isSel(v.row.key, 'name') && !range ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
                         } ${
                           inFill(ri2, 'name') ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
                         }`}
@@ -2895,7 +2902,7 @@ export default function ScheduleTable({
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                             } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : 'cursor-cell'} ${
                               ''
-                            } ${weekSel && weekSel.a.r === ri2 && weekSel.a.c === i ? 'outline outline-2 -outline-offset-2 outline-accent' : ''} ${
+                            } ${weekSel && weekSel.a.r === ri2 && weekSel.a.c === i && weekSel.a.r === weekSel.b.r && weekSel.a.c === weekSel.b.c ? 'outline outline-2 -outline-offset-2 outline-accent' : ''} ${
                               inWeekFill(ri2, i) ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
                             }`}
                           >
