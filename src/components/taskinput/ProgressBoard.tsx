@@ -138,7 +138,7 @@ import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
-import { KanbanBoard, TimelineView } from './BoardViews'
+import { KanbanBoard, TimelineView, ALL_FILTER, type ViewFilter } from './BoardViews'
 import ScheduleTable, { CellSwatch, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
 import Select from '../ui/Select'
@@ -1658,6 +1658,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const sheetOpenUrl = withGoogleAccount(data?.spreadsheetId && !data.local ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : sheetLink)
   // 시트 링크를 그 행으로: 고른 과제가 있으면 그 행, 없으면 지금 그룹(L1)의 첫 행(불러온 때의 행 번호 기준)
   const activeRowRef = useRef<string | null>(null)
+  // 보드 · 타임라인 공통 거르기(단계 + 지연 · 이번 달 마감). 보기를 바꿔도 그대로, 그룹(L1) 탭을 바꾸면 전체로
+  const [viewFilter, setViewFilter] = useState<ViewFilter>(ALL_FILTER)
+  useEffect(() => setViewFilter(ALL_FILTER), [l1])
   const pickedRowRef = useRef<string | null>(null)
   function sheetRowUrl(key: string | null): string {
     if (!data?.spreadsheetId || data.local || data.sheetGid == null) return sheetOpenUrl
@@ -2853,9 +2856,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               currentKey={currentKey}
               statusOptions={data.fields.find((f) => f.id === 'status')?.options}
               onStatus={readOnly || !data.fields.some((f) => f.id === 'status') ? undefined : (row, value) => setField(row, 'status', value)}
+              filter={viewFilter}
+              onFilter={setViewFilter}
             />
           ) : boardView === 'timeline' ? (
-            <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} />
+            <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} filter={viewFilter} onFilter={setViewFilter} />
           ) : (
             <ScheduleTable
               weekCols={weekCols}

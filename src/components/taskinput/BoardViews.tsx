@@ -3,7 +3,7 @@
 //   단계는 stageOf 한 규칙으로 보드 · 타임라인이 같이 쓴다.
 //   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ScheduleRowView } from './ScheduleTable'
 import { STATUS_TONE } from './ScheduleTable'
 import { planRange, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
@@ -69,6 +69,63 @@ function stageOf(status: string | undefined, done: boolean, started: boolean) {
 }
 const weekLabel = (w: WeekCols[number] | undefined) => (w ? `${w.month}/${w.week}주` : '')
 
+// ---------------- 보드 · 타임라인 공통 거르기 ----------------
+// 단계(한 과제는 한 단계) 하나 + 위험 표시(지연 · 이번 달 마감, 단계와 겹칠 수 있음)하나를 고른다. 보드 · 타임라인이 같은 값을 쓴다.
+export type ViewFilter = { stage: 'all' | '대기' | '진행중' | '보류중단' | '완료'; risk: null | 'late' | 'month' }
+export const ALL_FILTER: ViewFilter = { stage: 'all', risk: null }
+type Sched = ReturnType<typeof scheduleOf>
+const stageHit = (s: Sched, st: ViewFilter['stage']) => st === 'all' || (st === '보류중단' ? s.stage === '보류' || s.stage === '중단' : s.stage === st)
+const monthHit = (s: Sched, weekCols: WeekCols, nowMonth: number | undefined) =>
+  (s.stage === '대기' || s.stage === '진행중') && !!s.plan && weekCols[s.plan[1]]?.month === nowMonth
+const riskHit = (s: Sched, r: ViewFilter['risk'], weekCols: WeekCols, nowMonth: number | undefined) =>
+  r === null || (r === 'late' ? s.late : monthHit(s, weekCols, nowMonth))
+export const passView = (s: Sched, f: ViewFilter, weekCols: WeekCols, nowMonth: number | undefined) => stageHit(s, f.stage) && riskHit(s, f.risk, weekCols, nowMonth)
+
+function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { list: Sched[]; value: ViewFilter; onChange: (f: ViewFilter) => void; weekCols: WeekCols; nowMonth: number | undefined }) {
+  const stages: [ViewFilter['stage'], string, string][] = [
+    ['all', '전체', 'text-label'],
+    ['대기', '대기', 'text-label-2'],
+    ['진행중', '진행 중', 'text-accent'],
+    ['보류중단', '보류 · 중단', 'text-[#8A6D3B]'],
+    ['완료', '완료', 'text-emerald-700'],
+  ]
+  const risks: [NonNullable<ViewFilter['risk']>, string, string, string][] = [
+    ['late', '지연', 'text-red-600', '계획이 끝났는데 완료가 없음'],
+    ['month', '이번 달 마감', 'text-[#B7791F]', `${nowMonth ?? ''}월에 계획이 끝나는 대기 · 진행 중 과제`],
+  ]
+  const chip = (on: boolean) =>
+    `flex h-8 items-center gap-1.5 rounded-full px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium transition-colors ${
+      on ? 'bg-label text-white' : 'bg-black/[0.04] text-label-2 hover:bg-black/[0.07]'
+    }`
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {stages.map(([k, label, tone]) => {
+        const n = list.filter((s) => stageHit(s, k)).length
+        if (k === '보류중단' && !n && value.stage !== k) return null
+        const on = value.stage === k
+        return (
+          <button key={k} onClick={() => onChange({ ...value, stage: k })} className={chip(on)}>
+            {label}
+            <span className={`tabular-nums font-semibold ${on ? 'text-white' : tone}`}>{n}</span>
+          </button>
+        )
+      })}
+      <span className="mx-1.5 h-5 w-px bg-separator" />
+      {risks.map(([k, label, tone, why]) => {
+        const n = list.filter((s) => riskHit(s, k, weekCols, nowMonth)).length
+        const on = value.risk === k
+        return (
+          <button key={k} title={why} onClick={() => onChange({ ...value, risk: on ? null : k })} className={chip(on)}>
+            {k === 'late' && <span aria-hidden>⚠</span>}
+            {label}
+            <span className={`tabular-nums font-semibold ${on ? 'text-white' : tone}`}>{n}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ---------------- 보드 ----------------
 export function KanbanBoard({
   views,
@@ -76,26 +133,36 @@ export function KanbanBoard({
   currentKey,
   statusOptions,
   onStatus,
+  filter = ALL_FILTER,
+  onFilter,
 }: {
   views: ScheduleRowView[]
   weekCols: WeekCols
   currentKey: string | null
   statusOptions?: string[]
   onStatus?: (row: ProgressRow, value: string) => void
+  filter?: ViewFilter
+  onFilter?: (f: ViewFilter) => void
 }) {
   const idx = useMemo(() => new Map(weekCols.map((w, i) => [w.key, i])), [weekCols])
   const nowIdx = currentKey ? (idx.get(currentKey) ?? weekCols.length - 1) : weekCols.length - 1
   const list = views.filter((v) => !v.deleted && v.vals.name?.trim())
   const staged = list.map((v) => ({ v, s: scheduleOf(v, weekCols, idx, nowIdx) }))
   // 칸은 단계만: 대기 · 진행중 · 완료는 늘, 보류 · 중단은 시트 선택지에 있거나 쓰인 카드가 있을 때
-  const cols = STAGES.filter((c) => ['대기', '진행중', '완료'].includes(c) || statusOptions?.includes(c) || staged.some((x) => x.s.stage === c))
+  const nowMonth = weekCols[nowIdx]?.month
+  // 단계를 고르면 그 칸만(보류 · 중단은 두 칸), 위험 표시는 카드를 거른다
+  const cols = STAGES.filter((c) => ['대기', '진행중', '완료'].includes(c) || statusOptions?.includes(c) || staged.some((x) => x.s.stage === c)).filter(
+    (c) => filter.stage === 'all' || (filter.stage === '보류중단' ? c === '보류' || c === '중단' : c === filter.stage),
+  )
   const [dragKey, setDragKey] = useState<string | null>(null)
   const [overCol, setOverCol] = useState<string | null>(null)
 
   return (
+    <div className="space-y-3">
+    {onFilter && <ViewFilterBar list={staged.map((x) => x.s)} value={filter} onChange={onFilter} weekCols={weekCols} nowMonth={nowMonth} />}
     <div className="flex min-h-[420px] gap-3 overflow-x-auto pb-2">
       {cols.map((col) => {
-        const cards = staged.filter((x) => x.s.stage === col)
+        const cards = staged.filter((x) => x.s.stage === col && riskHit(x.s, filter.risk, weekCols, nowMonth))
         const tone = STATUS_TONE[col] ?? 'bg-black/[0.05] text-label-2'
         return (
           <section
@@ -171,6 +238,7 @@ export function KanbanBoard({
         )
       })}
     </div>
+    </div>
   )
 }
 
@@ -182,14 +250,23 @@ const MIN_WEEK = 14
 const LEFT_KEY = 'timeline-left-w'
 const ROW_H = 38
 const BAR_H = 26
-type Filter = 'all' | 'doing' | 'late' | 'month'
-
-export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleRowView[]; weekCols: WeekCols; currentKey: string | null }) {
+export function TimelineView({
+  views,
+  weekCols,
+  currentKey,
+  filter = ALL_FILTER,
+  onFilter,
+}: {
+  views: ScheduleRowView[]
+  weekCols: WeekCols
+  currentKey: string | null
+  filter?: ViewFilter
+  onFilter?: (f: ViewFilter) => void
+}) {
   const idx = useMemo(() => new Map(weekCols.map((w, i) => [w.key, i])), [weekCols])
   const nowIdx = currentKey ? (idx.get(currentKey) ?? -1) : -1
   const asOf = nowIdx >= 0 ? nowIdx : weekCols.length - 1
   const nowMonth = weekCols[asOf]?.month
-  const [filter, setFilter] = useState<Filter>('all')
   // 구분 색(사용자 지정) · 접기
   const [groupColors, setGroupColors] = useState<Record<string, string>>(() => readJson(GROUP_COLORS_KEY, {}))
   const setGroupColor = (label: string, hex: string | null) => {
@@ -206,9 +283,6 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
     writeJson(COLLAPSE_KEY, next)
   }
   const [colorFor, setColorFor] = useState<{ label: string; x: number; y: number } | null>(null)
-  // 그룹(L1) 탭을 바꾸면 요약 카드 거르기는 전체로(다른 탭에서 눌러 둔 거르기가 남아 빈 화면이 되지 않게)
-  const l1Key = views[0]?.row.l1 ?? ''
-  useEffect(() => setFilter('all'), [l1Key])
   // 화면 너비 · 과제명 칸 너비
   const boxRef = useRef<HTMLDivElement>(null)
   const [cw, setCw] = useState(0)
@@ -265,16 +339,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
     return out
   }, [views, weekCols, idx, asOf])
   const all = groups.flatMap((g) => g.items)
-  const isDoing = (x: Item) => x.s.started && !x.s.done
-  const isLate = (x: Item) => x.s.late
-  const isMonth = (x: Item) => (x.s.stage === '대기' || x.s.stage === '진행중') && !!x.s.plan && weekCols[x.s.plan[1]]?.month === nowMonth
-  const pass = (x: Item) => filter === 'all' || (filter === 'doing' ? isDoing(x) : filter === 'late' ? isLate(x) : isMonth(x))
-  const cards: { k: Filter; label: string; n: number; sub: string; tone: string }[] = [
-    { k: 'all', label: '전체 과제', n: all.length, sub: `완료 ${all.filter((x) => x.s.done).length}`, tone: 'text-label' },
-    { k: 'doing', label: '진행 중', n: all.filter(isDoing).length, sub: '보드의 진행중 칸', tone: 'text-accent' },
-    { k: 'month', label: '이번 달 마감', n: all.filter(isMonth).length, sub: `${nowMonth ?? ''}월에 계획이 끝남`, tone: 'text-[#B7791F]' },
-    { k: 'late', label: '지연', n: all.filter(isLate).length, sub: '계획이 끝났는데 완료 없음', tone: 'text-red-600' },
-  ]
+  const pass = (x: Item) => passView(x.s, filter, weekCols, nowMonth)
   // 달 머리글: 같은 달 주들을 한 칸으로
   const months: { month: number; from: number; n: number }[] = []
   weekCols.forEach((w, i) => {
@@ -288,21 +353,7 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
 
   return (
     <div className="space-y-4">
-      {/* 요약 카드: 누르면 그 과제만 */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => (
-          <button
-            key={c.k}
-            onClick={() => setFilter(filter === c.k && c.k !== 'all' ? 'all' : c.k)}
-            disabled={c.k !== 'all' && c.n === 0 && filter !== c.k}
-            className={`rounded-[14px] border bg-white px-4 py-3 text-left transition-shadow enabled:hover:shadow-sm disabled:cursor-default disabled:opacity-60 ${filter === c.k ? 'border-accent ring-2 ring-accent/20' : 'border-[#ECECF0]'}`}
-          >
-            <p className="text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">{c.label}</p>
-            <p className={`mt-0.5 text-[length:calc(24px*var(--ui-fs,1))] font-bold tabular-nums leading-tight ${c.tone}`}>{c.n}</p>
-            <p className="text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{c.sub}</p>
-          </button>
-        ))}
-      </div>
+      {onFilter && <ViewFilterBar list={all.map((x) => x.s)} value={filter} onChange={onFilter} weekCols={weekCols} nowMonth={nowMonth} />}
 
       <div ref={boxRef} className="overflow-x-auto rounded-[14px] border border-[#ECECF0] bg-white">
         <div style={{ width: leftW + W + 24 }} className="relative text-[length:calc(13.5px*var(--ui-fs,1))]">
@@ -542,9 +593,9 @@ export function TimelineView({ views, weekCols, currentKey }: { views: ScheduleR
             )}
             {groups.every((g) => !g.items.some(pass)) && (
               <p className="py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
-                {filter === 'all' ? '보여 줄 과제가 없습니다.' : `${cards.find((c) => c.k === filter)?.label} 과제가 없습니다. `}
-                {filter !== 'all' && (
-                  <button onClick={() => setFilter('all')} className="font-semibold text-accent hover:underline">
+                {filter.stage === 'all' && !filter.risk ? '보여 줄 과제가 없습니다.' : '고른 조건의 과제가 없습니다. '}
+                {(filter.stage !== 'all' || filter.risk) && onFilter && (
+                  <button onClick={() => onFilter(ALL_FILTER)} className="font-semibold text-accent hover:underline">
                     전체 보기
                   </button>
                 )}
