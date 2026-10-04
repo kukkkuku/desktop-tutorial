@@ -8,6 +8,7 @@
 // 사용자 목록이 담당한다).
 import * as XLSX from 'xlsx'
 import { loadGis } from './googleDrive'
+import { googleErrorText, oauthErrorText } from './googleError'
 import { canManageEmail } from './roles'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
@@ -56,7 +57,7 @@ export async function connectAdmin(): Promise<void> {
       client_id: CLIENT_ID,
       scope: ADMIN_SCOPE,
       callback: (resp: GoogleTokenResponse) => {
-        if (resp.error || !resp.access_token) reject(new Error(resp.error || '로그인이 취소되었습니다.'))
+        if (resp.error || !resp.access_token) reject(new Error(oauthErrorText(resp.error)))
         else resolve(resp.access_token)
       },
     })
@@ -357,7 +358,7 @@ export async function sendInviteEmails(
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        throw new Error(`(${res.status}) ${text}`)
+        throw new Error(googleErrorText(res.status, text, '메일 보내기'))
       }
       sent.push(email)
       sentTo.set(email, to)

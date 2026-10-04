@@ -40,6 +40,13 @@ export function fmtWorkspaceDate(iso: string): string {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 
+// 월 · 일만(이 컴퓨터 시간 기준 -- ISO 원문을 자르면 한국 시간 오전 9시 전에는 하루 전 날짜가 된다)
+export function mmdd(iso: string, sep = '.'): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '-'
+  return `${String(d.getMonth() + 1).padStart(2, '0')}${sep}${String(d.getDate()).padStart(2, '0')}`
+}
+
 // 예전 워크스페이스는 evaluationYear/evaluationCycle/evaluationPeriodCode/
 // updatedAt이 없다(자유 텍스트 periodName만 있었다). periodName에서 최대한
 // 구조화된 값을 추론해 채워 넣는다 -- 실패해도 원래 데이터(periodName 등)는

@@ -1,6 +1,7 @@
 // 관리 › 팀원: 팀원 추가 · 초대 메일 · 시트 공유 안내 · 목록 관리.
 //   팀장은 자기가 추가한 사람만 보고 관리하고, 관리자는 모두(누가 추가했는지 함께) 본다.
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
+import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
@@ -74,7 +75,15 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   const shown = rows.filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
   const picked = shown.filter((u) => sel.has(u.email))
-  const targets = picked.length ? picked : []
+  // 초대 메일 대상: Gmail을 아직 모르는 사람은 뺀다(미리보기 · 칩에 자리표시 계정이 보이지 않게)
+  const targets = picked.filter((u) => !isPendingEmail(u.email))
+  // 화면 · 기록에 쓸 사람 이름(이메일은 이름이 없을 때만, 자리표시 계정은 보이지 않게)
+  const label = (u: AccessUser) => u.name || (isPendingEmail(u.email) ? '(이름 없음)' : u.email)
+  const nameOf = (email: string) => {
+    const u = data.users.find((x) => x.email === email || (x.sendTo ?? '').toLowerCase() === email.toLowerCase())
+    return u ? label(u) : email
+  }
+  const logWho = (u: AccessUser) => (isPendingEmail(u.email) ? label(u) : u.name ? `${u.name}(${u.email})` : u.email)
 
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
@@ -86,7 +95,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       onChanged()
       setNote({ ok: true, text: okText })
     } catch (e) {
-      setNote({ ok: false, text: e instanceof Error ? e.message : '저장하지 못했습니다.' })
+      setNote({ ok: false, text: errText(e, '저장하지 못했습니다.') })
     } finally {
       setBusy(false)
     }
@@ -116,7 +125,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       .map((e) => data.users.find((u) => u.email === e.email.toLowerCase()))
       .filter((u): u is AccessUser => !!u && !rows.some((r) => r.email === u.email))
     const dupNote = hiddenDup.length
-      ? ` ${hiddenDup.map((u) => `${u.name || u.email}: ${u.team ? `「${u.team}」 팀` : '팀 없음'} · ${u.addedBy ? `${u.addedBy}가 추가` : '처음부터 등록'}`).join(' / ')} -- 우리 팀으로 옮기려면 관리자에게 팀을 바꿔 달라고 하세요.`
+      ? ` ${hiddenDup.map((u) => `${label(u)}: ${u.team ? `「${u.team}」 팀` : '팀 없음'} · ${u.addedBy ? `${nameOf(u.addedBy)}님이 추가` : '처음부터 등록'}`).join(' / ')} -- 우리 팀으로 옮기려면 관리자에게 팀을 바꿔 달라고 하세요.`
       : ''
     if (!fresh.length) return setNote({ ok: false, text: `이미 등록된 사람입니다.${dupNote}` })
     void run(
@@ -152,7 +161,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   // ---- 받는 메일 고치기 · 빼기
   const saveSendTo = (u: AccessUser, v: string) =>
     v.trim() !== (u.sendTo ?? '') &&
-    void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, sendTo: v.trim() } : x)), me, [`받는 메일: ${u.email} → ${v.trim() || '(Gmail)'}`]), '받는 메일을 저장했습니다.')
+    void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, sendTo: v.trim() } : x)), me, [`받는 메일: ${logWho(u)} → ${v.trim() || '(Gmail)'}`]), '받는 메일을 저장했습니다.')
   const saveField = (u: AccessUser, patch: Partial<AccessUser>, what: string) =>
     void run(() => updateUsers(data.id, (users) => users.map((x) => (x.email === u.email ? { ...x, ...patch } : x)), me, [what]), '저장했습니다.')
   function saveEmail(u: AccessUser, v: string) {
@@ -199,11 +208,11 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       setSel(new Set())
       setNote(
         res.failed.length
-          ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => `${f.email}(${f.error.slice(0, 60)})`).join(', ')}` }
+          ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => nameOf(f.email)).join(', ')} -- ${Array.from(new Set(res.failed.map((f) => f.error))).join(' / ')}` }
           : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다.${targets.some((u) => isPendingEmail(u.email)) ? ' (Gmail이 없는 사람은 뺐습니다)' : ''} 「실적관리 시트」 탭에서 시트 공유도 해 주세요.` },
       )
     } catch (e) {
-      setNote({ ok: false, text: e instanceof Error ? e.message : '보내지 못했습니다.' })
+      setNote({ ok: false, text: errText(e, '보내지 못했습니다.') })
     } finally {
       setSending(false)
     }
@@ -288,7 +297,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
     switch (k) {
       case 'name':
-        return mine ? <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${u.email} → ${v}`)} /> : u.name || '-'
+        return mine ? <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${logWho(u)} → ${v}`)} /> : u.name || '-'
       case 'email':
         // Gmail을 아직 모르는 사람: 여기에 넣는다(아이디만 적으면 @gmail.com)
         if (isPendingEmail(u.email))
@@ -297,14 +306,14 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       case 'sendTo':
         return <SendToInput u={u} disabled={busy || !mine} onSave={(v) => saveSendTo(u, v)} />
       case 'team':
-        return mine ? <CellInput value={u.team} placeholder="팀" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${u.email} → ${v || '(없음)'}`)} /> : u.team || '-'
+        return mine ? <CellInput value={u.team} placeholder="팀" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} /> : u.team || '-'
       case 'role':
         // 역할은 관리자만 바꾼다(자기 자신은 못 바꿈 -- 관리자가 없어지지 않게)
         return isAdmin && u.email !== me ? (
           <select
             value={u.role}
             disabled={busy}
-            onChange={(e) => saveField(u, { role: e.target.value as AccessRole }, `역할: ${u.email} ${ROLE_WORD[u.role]} → ${ROLE_WORD[e.target.value as AccessRole]}`)}
+            onChange={(e) => saveField(u, { role: e.target.value as AccessRole }, `역할: ${logWho(u)} ${ROLE_WORD[u.role]} → ${ROLE_WORD[e.target.value as AccessRole]}`)}
             className={`h-8 w-full rounded-control border bg-white px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent ${
               u.role === 'admin' ? 'border-accent/50 text-accent' : u.role === 'leader' ? 'border-hairline font-semibold text-label' : 'border-hairline text-label-2'
             }`}
@@ -319,9 +328,13 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
           ROLE_WORD[u.role]
         )
       case 'addedBy':
-        return <span className="block truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{u.addedBy || '-'}</span>
+        return (
+          <span className="block truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3" title={u.addedBy || undefined}>
+            {u.addedBy ? nameOf(u.addedBy) : '-'}
+          </span>
+        )
       case 'invited':
-        return u.invitedAt ? <span className="text-[length:calc(13px*var(--ui-fs,1))] text-success">{u.invitedAt.slice(5)} 보냄</span> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">안 보냄</span>
+        return u.invitedAt ? <span className="text-[length:calc(13px*var(--ui-fs,1))] text-success">{u.invitedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, '$1.$2')} 보냄</span> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">안 보냄</span>
     }
   }
 
@@ -382,7 +395,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
                         else n.add(u.email)
                         setSel(n)
                       }}
-                      aria-label={`${u.name || u.email} 고르기`}
+                      aria-label={`${label(u)} 고르기`}
                     />
                   </td>
                   {cols.map((k) => (
@@ -413,15 +426,15 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       <div className="mt-1 flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-control border border-hairline px-2 py-1.5">
         {targets.length === 0 && <span className="px-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">왼쪽 표에서 받을 사람을 고르세요</span>}
         {targets.map((u) => (
-          <span key={u.email} className="flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2.5 pr-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-accent" title={u.sendTo || u.email}>
-            {u.name || u.email}
+          <span key={u.email} className="flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2.5 pr-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-accent" title={u.sendTo || (isPendingEmail(u.email) ? undefined : u.email)}>
+            {label(u)}
             <button
               onClick={() => {
                 const n = new Set(sel)
                 n.delete(u.email)
                 setSel(n)
               }}
-              aria-label={`${u.name || u.email} 빼기`}
+              aria-label={`${label(u)} 빼기`}
               className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-accent/15"
             >
               <X size={12} strokeWidth={2.4} />
@@ -744,7 +757,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
       <ConfirmDialog
         open={!!removeAsk}
         title="목록에서 빼기"
-        message={`${removeAsk?.map((u) => u.name || u.email).join(', ')}\n앱 권한 목록에서 뺍니다. 시트 공유는 「실적관리 시트」 · 「권한 시트」 탭에서 시트를 열어 해제하세요.`}
+        message={`${removeAsk?.map(label).join(', ')}\n앱 권한 목록에서 뺍니다. 시트 공유는 「실적관리 시트」 · 「권한 시트」 탭에서 시트를 열어 해제하세요.`}
         confirmLabel="빼기"
         onCancel={() => setRemoveAsk(null)}
         onConfirm={() => {
@@ -752,7 +765,7 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
           setRemoveAsk(null)
           setSel(new Set())
           void run(
-            () => updateUsers(data.id, (users) => users.filter((x) => !out.has(x.email)), me, [`팀원 빼기: ${[...out].join(', ')}`]),
+            () => updateUsers(data.id, (users) => users.filter((x) => !out.has(x.email)), me, [`팀원 빼기: ${(removeAsk ?? []).map(logWho).join(', ')}`]),
             `${out.size}명을 목록에서 뺐습니다.`,
           )
         }}

@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
@@ -302,7 +303,7 @@ export default function WorkspaceLanding() {
       )
       setAccessRenameNote(`관리의 팀 이름도 「${r.to}」로 바꿨습니다(${r.people.length}명).`)
     } catch (e) {
-      setAccessRenameNote(`관리의 팀 이름을 바꾸지 못했습니다: ${e instanceof Error ? e.message : ''} 관리 › 팀원 · 권한에서 「평가 목록 이름으로 맞추기」를 눌러 주세요.`)
+      setAccessRenameNote(`관리의 팀 이름을 바꾸지 못했습니다: ${errText(e)} 관리 › 팀원 · 권한에서 「평가 목록 이름으로 맞추기」를 눌러 주세요.`)
     }
   }
 

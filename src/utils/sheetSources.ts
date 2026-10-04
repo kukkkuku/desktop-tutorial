@@ -3,6 +3,7 @@
 //   B) xlsx 파일 -- 시트에서 "파일 › 다운로드 › xlsx"로 받은 파일(대체 경로)
 // 둘 다 같은 RawSheet를 돌려주고, 해석은 sheetImport.ts가 한다.
 
+import { googleErrorText, oauthErrorText } from './googleError'
 import * as XLSX from 'xlsx'
 import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
 import { getConnectedEmail, loadGis, peekLoginToken, withAuthLock } from './googleDrive'
@@ -108,7 +109,7 @@ async function openSheetsPopup(write = false): Promise<string> {
         if (resp.error || !resp.access_token) {
           reject(
             new Error(
-              resp.error === 'access_denied' ? `시트 ${write ? '저장' : '읽기'} 권한을 허용하지 않았습니다.` : resp.error || '로그인이 취소되었습니다.',
+              resp.error === 'access_denied' ? `시트 ${write ? '저장' : '읽기'} 권한을 허용하지 않았습니다.` : oauthErrorText(resp.error, '로그인이 취소되었습니다.'),
             ),
           )
           return
@@ -164,21 +165,21 @@ async function sheetsFetch<T>(url: string, init?: { method: string; body: string
     err?.details?.flatMap((d) => d.links ?? []).find((l) => l.url?.includes('console'))?.url
   const who = getConnectedEmail()
   if (reasons.includes('SERVICE_DISABLED') || /has not been used|is disabled/i.test(err?.message ?? '')) {
-    throw new Error(
-      `구글 클라우드 프로젝트에서 "Google Sheets API"가 꺼져 있습니다. 앱 관리자가 한 번 켜 주면 됩니다${activation ? `: ${activation}` : ' (구글 클라우드 콘솔 › API 및 서비스 › 라이브러리 › Google Sheets API › 사용)'}. 켠 뒤 몇 분 지나 다시 시도해 주세요.`,
-    )
+    // 켜는 곳(콘솔 주소)은 개발자 콘솔에만
+    console.warn('[google sheets] SERVICE_DISABLED', activation ?? '')
+    throw new Error('구글 시트 연결이 아직 준비되지 않았습니다. 앱 관리자에게 알려 주세요.')
   }
   if (res.status === 404) throw new Error('시트를 찾지 못했습니다. 링크가 맞는지 확인해 주세요.')
   if (res.status === 403) {
     if (write)
       throw new Error(
-        `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 편집할 권한이 없습니다. 시트 소유자에게 편집 권한을 요청해 주세요. (구글 응답: ${err?.message ?? res.status})`,
+        `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 편집할 권한이 없습니다. 시트 소유자에게 편집 권한을 요청해 주세요.`,
       )
     throw new Error(
-      `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 볼 권한이 없습니다. 시트를 볼 수 있는 계정으로 로그인하거나, 시트 공유에 이 계정을 추가해 주세요. (구글 응답: ${err?.message ?? res.status})`,
+      `${who ? `로그인한 계정(${who})` : '로그인한 계정'}에 이 시트를 볼 권한이 없습니다. 시트를 볼 수 있는 계정으로 로그인하거나, 시트 공유에 이 계정을 추가해 주세요.`,
     )
   }
-  throw new Error(`시트를 읽지 못했습니다 (${res.status}) ${err?.message ?? text.slice(0, 200)}`)
+  throw new Error(googleErrorText(res.status, text, write ? '시트 저장' : '시트 읽기'))
 }
 
 export interface SheetTabInfo {

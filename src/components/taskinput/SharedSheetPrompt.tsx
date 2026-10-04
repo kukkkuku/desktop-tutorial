@@ -2,6 +2,7 @@
 // 아니면 아래에서 공유받은 다른 링크를 붙여 넣는다(처음부터 링크를 치게 하지 않는다).
 // 파일 제목을 읽으려면 구글 권한 창이 떠야 해서(자동으로 띄우면 막힘) 모르면 "시트 이름 확인"을 눌러 읽고,
 // 한 번 읽은(또는 불러온 적 있는) 이름은 이 브라우저에 기억한다.
+import { errText } from '../../utils/googleError'
 import { useState } from 'react'
 import { FileSpreadsheet } from 'lucide-react'
 import Button from '../Button'
@@ -60,7 +61,7 @@ export default function SharedSheetPrompt({
       writeSheetMeta(id, info.title, t)
       setMeta({ title: info.title, tab: t })
     } catch (e) {
-      setCheckError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
+      setCheckError(errText(e, '시트를 읽지 못했습니다.'))
     } finally {
       setChecking(false)
     }

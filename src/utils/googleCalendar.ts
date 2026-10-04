@@ -7,6 +7,7 @@
 // 전용 캘린더에 등록한다(ensureTeamCalendarId) -- 그래야 사용자가 구글
 // 캘린더 앱에서 그 캘린더만 따로 보이거나 숨길 수 있고, 이 앱이 다른
 // 개인 일정 사이에 섞여 들어가지 않는다.
+import { googleErrorText } from './googleError'
 import { getAccessToken, isGoogleDriveConfigured } from './googleDrive'
 import { IS_PREVIEW } from './previewMode'
 
@@ -22,7 +23,7 @@ async function calendarFetch(url: string, init?: RequestInit): Promise<Response>
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Google 캘린더 요청에 실패했습니다 (${res.status}). ${text}`)
+    throw new Error(googleErrorText(res.status, text, '구글 캘린더 요청'))
   }
   return res
 }
@@ -60,7 +61,7 @@ async function createTeamCalendar(accessToken: string, name: string): Promise<st
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Google 캘린더 생성에 실패했습니다 (${res.status}). ${text}`)
+    throw new Error(googleErrorText(res.status, text, '구글 캘린더 만들기'))
   }
   const data = (await res.json()) as { id: string }
   return data.id

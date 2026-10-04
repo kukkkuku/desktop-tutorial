@@ -1,6 +1,7 @@
 // 관리 › 권한 시트: 「사용자」 · 「연결 시트」를 앱에서 바로 고쳐 구글시트에 저장한다.
 // 고친 내용은 저장하기 전까지 이 화면에만 있다. 저장하면 시트에 쓰고 「변경 기록」에 한 줄 남긴다(accessSheet.saveAccess).
 // 막는 것: 이메일 모양 · 같은 이메일 두 번 · 관리자 0명 · 나 자신의 관리자 해제(잠겨서 못 돌아옴).
+import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
 import { ClipboardPaste, Plus, RotateCcw, Save, Trash2, UserPlus } from 'lucide-react'
 import Button from '../Button'
@@ -114,7 +115,7 @@ export default function AccessEditor({
       onSaved()
     } catch (e) {
       if (e instanceof AccessConflictError) onSaved()
-      setNote({ ok: false, text: e instanceof Error ? e.message : '저장하지 못했습니다.' })
+      setNote({ ok: false, text: errText(e, '저장하지 못했습니다.') })
     } finally {
       setSaving(false)
     }

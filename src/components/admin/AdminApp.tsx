@@ -3,6 +3,7 @@
 //   실적관리 시트: 시트 연결(관리자) · 그 시트 공유 안내(팀장은 내가 추가한 팀원만).
 //   권한 시트(관리자만): 앱 설정 시트 정보 · 관리자 · 팀장에게 공유 안내.
 // 모두 앱 설정을 담은 구글시트(권한 시트) 한 개에 저장된다 -- 화면에서는 그 시트를 직접 다룰 일이 없게 한다.
+import { errText } from '../../utils/googleError'
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import AppShell, { PageHeader, PageTabs } from '../shell/AppShell'
@@ -40,7 +41,7 @@ export default function AdminApp() {
     try {
       await refreshAccess()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '읽지 못했습니다.')
+      setError(errText(e, '읽지 못했습니다.'))
     } finally {
       setBusy(false)
       sync()

@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useState, type Dispatch } from 'react'
 import type ExcelJS from 'exceljs'
 import type { AppAction } from '../state/appReducer'
@@ -88,7 +89,7 @@ export default function GoogleDrivePanel({ workspace, state, dispatch, buildRepo
       await fn()
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : '요청을 처리하지 못했습니다.')
+      setError(errText(err, '요청을 처리하지 못했습니다.'))
       return false
     } finally {
       setBusy(null)

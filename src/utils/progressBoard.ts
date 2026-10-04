@@ -1435,7 +1435,7 @@ export function describeChanges(base: ProgressData, drafts: Drafts, kept: Drafts
     const w = base.weekCols.find((x) => x.key === k)
     return w ? `${w.month}월 ${w.week}주` : k
   }
-  const colLabel = (id: string) => (id === LEVEL_KEY_L2 ? 'L2' : (label.get(id) ?? id))
+  const colLabel = (id: string) => (id === LEVEL_KEY_L2 ? '구분(L2)' : label.get(id) || '이름 없는 열')
   const taskOf = (r: { l2: string; l3: string }) => `${r.l2} › ${r.l3 || '(이름 없음)'}`
   const deleted = new Set(drafts.deleted ?? [])
   const keptDel = new Set(kept.deleted ?? [])
@@ -1486,7 +1486,7 @@ export function describeChanges(base: ProgressData, drafts: Drafts, kept: Drafts
   for (const sp of drafts.l2Splits ?? [])
     if (!kept.l2Splits?.some((x) => x.key === sp.key)) {
       const r = rowOf.get(sp.key)
-      out.push({ task: r ? taskOf(r) : sp.key, what: '구분 나누기', before: r?.l2 ?? '', after: sp.label })
+      out.push({ task: r ? taskOf(r) : '(과제)', what: '구분 나누기', before: r?.l2 ?? '', after: sp.label })
     }
   return out
 }

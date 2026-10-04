@@ -1,3 +1,4 @@
+import { errText } from './googleError'
 import type { PeerInput } from './calculations'
 import * as XLSX from 'xlsx'
 import ExcelJS from 'exceljs'
@@ -61,7 +62,7 @@ async function saveStyledViaClaudeDownloads(wb: ExcelJS.Workbook, filename: stri
     if (code === 'declined') return false
     if (code !== 'extension_not_enabled' && code !== 'rejected_extension') {
       console.error('다운로드 실패:', err)
-      alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
+      alert('다운로드에 실패했습니다: ' + errText(err, '잠시 후 다시 시도해 주세요.'))
       return false
     }
   }
@@ -73,7 +74,7 @@ async function saveStyledViaClaudeDownloads(wb: ExcelJS.Workbook, filename: stri
     const code = (err as ClaudeDownloadsError | undefined)?.code
     if (code === 'declined') return false
     console.error('다운로드 실패:', err)
-    alert('다운로드에 실패했습니다: ' + ((err as ClaudeDownloadsError | undefined)?.message ?? '알 수 없는 오류'))
+    alert('다운로드에 실패했습니다: ' + errText(err, '잠시 후 다시 시도해 주세요.'))
     return false
   }
 }

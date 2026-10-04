@@ -16,6 +16,7 @@
 // 있으면 isGoogleDriveConfigured()가 false를 반환하고, 호출부는 버튼을
 // 비활성 상태로만 보여주면 된다.
 
+import { googleErrorText, oauthErrorText } from './googleError'
 import type { AppState, EvaluationCycle, WorkspaceMeta } from '../types'
 import { PREVIEW_NAMESPACE } from './previewMode'
 
@@ -272,7 +273,7 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
           ),
         ),
       callback: (resp) => {
-        if (resp.error || !resp.access_token) reject(new Error(resp.error || '로그인이 취소되었습니다.'))
+        if (resp.error || !resp.access_token) reject(new Error(oauthErrorText(resp.error)))
         else {
           cachedToken = { token: resp.access_token, expiresAt: Date.now() + (resp.expires_in ?? 3300) * 1000 }
           cachedScope = (resp as { scope?: string }).scope ?? ''
@@ -322,7 +323,7 @@ async function driveFetch(url: string, accessToken: string, init?: RequestInit):
   const res = await fetch(url, { ...init, headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` } })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`Google Drive 요청에 실패했습니다 (${res.status}). ${text}`)
+    throw new Error(googleErrorText(res.status, text, '구글 드라이브 요청'))
   }
   return res
 }
@@ -627,7 +628,12 @@ export async function fetchSyncPayload(fileId: string): Promise<DriveSyncPayload
   const accessToken = await getAccessToken()
   const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, accessToken)
   const text = await res.text()
-  const data = JSON.parse(text) as DriveSyncPayload
+  let data: DriveSyncPayload | null = null
+  try {
+    data = JSON.parse(text) as DriveSyncPayload
+  } catch {
+    // 깨진 파일 -- 아래 형식 안내로
+  }
   if (!data || data.version !== 1 || !data.state) throw new Error('저장된 파일 형식을 알아볼 수 없습니다.')
   return data
 }

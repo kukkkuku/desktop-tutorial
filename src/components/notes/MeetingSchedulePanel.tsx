@@ -1,3 +1,4 @@
+import { errText } from '../../utils/googleError'
 import { useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, ChevronsRight, RefreshCw, Trash2, X } from 'lucide-react'
@@ -145,7 +146,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
       setSyncMessage(parts.length > 0 ? parts.join(' · ') : '변경된 내용이 없습니다.')
     } catch (err) {
       console.warn('캘린더 동기화 실패:', err)
-      setSyncMessage(err instanceof Error ? err.message : '캘린더 동기화에 실패했습니다.')
+      setSyncMessage(errText(err, '캘린더 동기화에 실패했습니다.'))
     } finally {
       setSyncing(false)
     }
@@ -285,7 +286,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
-          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+          setCalendarError(errText(err, '캘린더 일정 등록에 실패했습니다.'))
         })
     }
   }

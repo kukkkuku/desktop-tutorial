@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
@@ -149,7 +150,7 @@ export default function TeamManagement() {
       setOpinion('')
       setNotice(`${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`)
     } catch (e) {
-      setNotice(`의견을 남기지 못했습니다: ${e instanceof Error ? e.message : ''}`)
+      setNotice(`의견을 남기지 못했습니다: ${errText(e)}`)
     } finally {
       setHandoverBusy(false)
     }
@@ -790,7 +791,7 @@ export default function TeamManagement() {
           <div className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
             <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{handoverView.name} · 이전 팀장 의견</h3>
             <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-              「{handoverView.fromTeam}」 → 「{handoverView.toTeam}」 · {handoverView.by} · {handoverView.at}
+              「{handoverView.fromTeam}」 → 「{handoverView.toTeam}」 · {access?.users.find((u) => u.email === handoverView.by)?.name || handoverView.by} · {handoverView.at.replace(/^(\d{4})-(\d{2})-(\d{2})/, '$1.$2.$3')}
             </p>
             <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">이전 팀에서 맡았던 과제</p>
             <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{handoverView.tasks || '(없음)'}</p>

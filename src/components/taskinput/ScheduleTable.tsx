@@ -953,7 +953,7 @@ export default function ScheduleTable({
           e.stopPropagation()
           onShowColumns(ids)
         }}
-        title={`숨긴 열 ${ids.length}개 펼치기: ${ids.map((id) => allCols.find((f) => f.id === id)?.label ?? id).join(', ')}`}
+        title={`숨긴 열 ${ids.length}개 펼치기: ${ids.map((id) => allCols.find((f) => f.id === id)?.label || '이름 없는 열').join(', ')}`}
         aria-label={`숨긴 열 ${ids.length}개 펼치기`}
         className="absolute -bottom-[8px] z-40 flex h-[15px] -translate-x-1/2 items-center rounded-[4px] border border-[#9AA0A6] bg-white px-[2px] text-[8px] leading-none text-[#5F6368] shadow-sm hover:border-accent hover:text-accent"
       >

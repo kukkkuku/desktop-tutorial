@@ -1,3 +1,4 @@
+import { errText } from '../../utils/googleError'
 import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { AlertTriangle, CalendarCheck, FileText, Pencil, Trash2, X } from 'lucide-react'
@@ -108,7 +109,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...note, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
-          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+          setCalendarError(errText(err, '캘린더 일정 등록에 실패했습니다.'))
         })
     }
     setDate(todayStr)
@@ -131,7 +132,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
       if (editDate >= todayStr) {
         void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment, teamName }).catch((err) => {
           console.warn('캘린더 일정 수정 실패:', err)
-          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 수정에 실패했습니다.')
+          setCalendarError(errText(err, '캘린더 일정 수정에 실패했습니다.'))
         })
       } else {
         // 과거 날짜로 바뀌면 더 이상 "예정"이 아니니 캘린더 일정은 지운다.
@@ -143,7 +144,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
-          setCalendarError(err instanceof Error ? err.message : '캘린더 일정 등록에 실패했습니다.')
+          setCalendarError(errText(err, '캘린더 일정 등록에 실패했습니다.'))
         })
     }
   }

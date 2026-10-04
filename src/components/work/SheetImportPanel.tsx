@@ -4,6 +4,7 @@
 // 다시 가져오기 규칙(앱에서 고친 값 유지, 사라진 행은 표시만, 지운 행은
 // 되살리지 않음)은 utils/sheetImport.ts의 applySheetImport.
 
+import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
@@ -123,8 +124,8 @@ export default function SheetImportPanel({
     try {
       await fn()
     } catch (e) {
-      setAuthTrouble(e instanceof SheetsAuthError || /권한|로그인|계정/.test(e instanceof Error ? e.message : ''))
-      setError(e instanceof Error ? e.message : String(e))
+      setAuthTrouble(e instanceof SheetsAuthError || /권한|로그인|계정/.test(errText(e)))
+      setError(errText(e))
     } finally {
       setLoading(null)
     }

@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Calendar, HardDrive, Mail, Plus } from 'lucide-react'
@@ -47,7 +48,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
       onAccountChange?.()
       setOpen(false)
     } catch (err) {
-      setSwitchError(err instanceof Error ? err.message : '계정 전환에 실패했습니다.')
+      setSwitchError(errText(err, '계정 전환에 실패했습니다.'))
     } finally {
       setSwitching(false)
     }

@@ -11,6 +11,7 @@
 // 숫자 칸은 더블클릭으로 고칠 수 있다(팀장이 맞춤 · 이 브라우저에 기억). 우클릭: 과제 목록 · 자동값으로.
 // 구글시트에 저장: 같은 파일의 「YYYY 진척률」 탭에 모든 표를 위아래로(없으면 탭을 만들고, 있으면 내용을 바꾼다 · rateExport).
 // 다운로드: PPT(탭마다 한 장 · 미리보기에서 고르기) · 엑셀(표마다 시트 한 장).
+import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
 import { CloudUpload, Download, ExternalLink, FileSpreadsheet, List, Presentation, RotateCcw, X } from 'lucide-react'
 import Button from '../Button'
@@ -206,7 +207,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
         url: sheetUrl(data.spreadsheetId, sheetId),
       })
     } catch (e) {
-      setNote({ ok: false, text: e instanceof Error ? e.message : '구글시트에 저장하지 못했습니다.' })
+      setNote({ ok: false, text: errText(e, '구글시트에 저장하지 못했습니다.') })
     } finally {
       setBusy('')
     }

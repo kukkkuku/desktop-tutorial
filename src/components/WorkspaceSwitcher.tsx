@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Folder, FolderOpen, Plus } from 'lucide-react'
 import type { WorkspaceMeta } from '../types'
 import { ic, icSm } from './ui/icon'
+import { mmdd } from '../state/WorkspaceContext'
 
 interface WorkspaceSwitcherProps {
   teamName: string
@@ -99,7 +100,7 @@ export default function WorkspaceSwitcher({ teamName, currentWorkspaceId, period
                       지금 평가
                     </span>
                   ) : (
-                    <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{p.updatedAt.slice(5, 10).replace('-', '.')} 수정</span>
+                    <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{mmdd(p.updatedAt, '.')} 수정</span>
                   )}
                 </button>
               )

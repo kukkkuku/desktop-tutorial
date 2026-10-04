@@ -1,6 +1,7 @@
 // 관리 › 실적관리 시트: 연구소가 함께 쓰는 실적관리(추진현황) 시트 연결(관리자) + 그 시트 공유 안내(관리자 · 팀장).
 //   서버가 없어서 앱은 로그인한 사람 계정으로 시트를 읽는다 -- 팀장 · 팀원 모두 편집자로 공유해야 한다.
 //   권한 시트 공유는 관리 › 권한 시트(관리자만)에서.
+import { errText } from '../../utils/googleError'
 import { useEffect, useState } from 'react'
 import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
@@ -28,7 +29,7 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
           title,
           years: tabs.map((t) => t.title).filter((t) => YEAR_TAB.test(t)),
         }),
-      (e) => setInfoErr(e instanceof Error ? e.message : '시트를 읽지 못했습니다.'),
+      (e) => setInfoErr(errText(e, '시트를 읽지 못했습니다.')),
     )
   }, [curId])
 
@@ -56,7 +57,7 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
     } catch (e) {
       setNote({
         ok: false,
-        text: e instanceof Error ? e.message : '바꾸지 못했습니다.',
+        text: errText(e, '바꾸지 못했습니다.'),
       })
     } finally {
       setBusy(false)

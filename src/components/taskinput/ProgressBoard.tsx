@@ -1,6 +1,7 @@
 // 과제 입력 › 추진현황 -- 구글시트 「YYYY 추진현황」 탭을 통째로 읽어 L1마다 탭을 만들고,
 // 탭마다 일정표(구분=L2, 항목=L3, 월·주 칸)를 시트와 같은 색으로 그린다.
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
+import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFitHeight } from '../../hooks/useFitHeight'
 import { createPortal } from 'react-dom'
@@ -661,7 +662,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (cur) rest[shelfKeyOf(cur.data)] = cur
       activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
     } catch (e) {
-      setError(e instanceof Error ? e.message : `「${t}」 탭을 읽지 못했습니다.`)
+      setError(errText(e, `「${t}」 탭을 읽지 못했습니다.`))
     } finally {
       setYearLoading(false)
     }
@@ -792,7 +793,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 오른쪽 위 ⋯ 파일 메뉴의 "구글시트로 만들기"로 시트에 탭을 만들 수 있습니다' : ''}.`,
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : '새 연도를 만들지 못했습니다.')
+      setError(errText(e, '새 연도를 만들지 못했습니다.'))
     }
   }
   // 이 브라우저에서 만든 연도: 고친 내용을 표에 굳혀 저장
@@ -808,7 +809,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       clearHistory()
       setMessage(`이 브라우저에 저장했습니다${m.left.length ? ` · 이름이 빈 과제 ${m.left.length}건은 이름을 넣으면 저장됩니다` : ''}.`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '저장하지 못했습니다.')
+      setError(errText(e, '저장하지 못했습니다.'))
     }
   }
   // 이 브라우저에서 만든 연도 → 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 만들어 통째로 쓴다(관리자)
@@ -868,7 +869,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           : `구글시트에 「${tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`,
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : '구글시트에 탭을 만들지 못했습니다.')
+      setError(errText(e, '구글시트에 탭을 만들지 못했습니다.'))
     } finally {
       setSaving(false)
     }
@@ -924,7 +925,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       setActiveL1(null)
       setOpenKey(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : `「${title}」 탭을 읽지 못했습니다.`)
+      setError(errText(e, `「${title}」 탭을 읽지 못했습니다.`))
     } finally {
       setYearLoading(false)
     }
@@ -1117,7 +1118,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         )
       return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : '시트를 읽지 못했습니다.')
+      setError(errText(e, '시트를 읽지 못했습니다.'))
       return false
     } finally {
       setLoading(false)
@@ -1145,7 +1146,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         yearTabs: progressYearTabs(book.sheets.map((x) => x.title)),
       })
     } catch (e) {
-      setError(e instanceof Error ? e.message : '파일을 읽지 못했습니다.')
+      setError(errText(e, '파일을 읽지 못했습니다.'))
     } finally {
       setLoading(false)
     }
@@ -1430,7 +1431,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     const newIds = ids.filter((id) => id.startsWith(NEW_COL_PREFIX))
     const oldIds = ids.filter((id) => !id.startsWith(NEW_COL_PREFIX) && id !== 'name')
     if (oldIds.length) {
-      const names = oldIds.map((id) => data?.fields.find((f) => f.id === id)?.label ?? id).join(', ')
+      const names = oldIds.map((id) => data?.fields.find((f) => f.id === id)?.label || '이름 없는 열').join(', ')
       if (
         !(await askConfirm({
           title: '열 삭제',
@@ -1549,7 +1550,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           logNote,
       )
     } catch (e) {
-      setError(e instanceof Error ? e.message : '시트에 저장하지 못했습니다.')
+      setError(errText(e, '시트에 저장하지 못했습니다.'))
     } finally {
       setSaving(false)
     }

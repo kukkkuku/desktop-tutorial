@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
@@ -91,7 +92,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
       // 사용자가 폴더 선택창을 취소한 경우도 여기로 온다 -- 에러로
       // 보여줄 필요 없이 조용히 넘어간다.
       if (err instanceof Error && err.name === 'AbortError') return
-      setSaveDirError(err instanceof Error ? err.message : '폴더를 지정하지 못했습니다.')
+      setSaveDirError(errText(err, '폴더를 지정하지 못했습니다.'))
     }
   }
 
@@ -137,7 +138,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         await trashAllAppDriveData()
       } catch (err) {
         setLoadingLabel(null)
-        setResetError(err instanceof Error ? err.message : 'Google Drive 데이터를 지우지 못했습니다. 이 브라우저 데이터는 그대로입니다.')
+        setResetError(errText(err, 'Google Drive 데이터를 지우지 못했습니다. 이 브라우저 데이터는 그대로입니다.'))
         return
       }
     }

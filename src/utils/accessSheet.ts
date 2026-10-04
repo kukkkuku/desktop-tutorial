@@ -186,7 +186,7 @@ export function describeChanges(before: { users: AccessUser[]; links: AccessLink
   const out: string[] = []
   const old = new Map(before.users.map((u) => [norm(u.email), u]))
   const now = new Map(users.map((u) => [norm(u.email), u]))
-  const who = (u: AccessUser) => (u.name ? `${u.name}(${u.email})` : u.email)
+  const who = (u: AccessUser) => (isPendingEmail(u.email) ? u.name || '(이름 없음)' : u.name ? `${u.name}(${u.email})` : u.email)
   for (const [e, u] of now) {
     const o = old.get(e)
     if (!o) out.push(`추가: ${who(u)} · ${ROLE_WORD[u.role]}${u.team ? ` · ${u.team}` : ''}`)

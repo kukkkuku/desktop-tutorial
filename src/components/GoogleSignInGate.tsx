@@ -1,3 +1,4 @@
+import { errText } from '../utils/googleError'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import {
@@ -84,7 +85,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
       }
       setPassed(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google 로그인에 실패했습니다.')
+      setError(errText(err, 'Google 로그인에 실패했습니다.'))
     } finally {
       setBusy(null)
     }

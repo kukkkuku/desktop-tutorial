@@ -6,7 +6,7 @@ import { ManualPanel, type ManualArea } from './ManualLink'
 import { useMemo, useState } from 'react'
 import { ArrowRight, BookOpen, ChartColumn, ClipboardList } from 'lucide-react'
 import { useAppMode } from '../state/AppMode'
-import { useWorkspaces } from '../state/WorkspaceContext'
+import { mmdd, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
 import AppShell, { PageHeader } from './shell/AppShell'
 import { ROLE_LABEL } from '../utils/roles'
@@ -148,7 +148,7 @@ export default function HomePage() {
                     <span className="truncate">
                       <span className="font-semibold">{w.teamName}</span> {w.evaluationYear} {w.periodName}
                     </span>
-                    <span className="shrink-0 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{w.updatedAt.slice(5, 10).replace('-', '/')}</span>
+                    <span className="shrink-0 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{mmdd(w.updatedAt, '/')}</span>
                   </button>
                 ))}
               </div>
