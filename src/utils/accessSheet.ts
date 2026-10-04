@@ -337,3 +337,34 @@ export async function createAccessSheet(opts: { adminEmail: string; leaders: str
   setAccessSheetId(id)
   return id
 }
+
+// ---- 인수인계(팀 이동): 이전 팀장이 남긴 의견 · 맡았던 과제 → 새 팀장이 평가할 때 참고
+// 권한 시트의 숨김 탭 「인수인계」(팀장 · 관리자만 공유받는 시트라 팀원 본인은 못 본다).
+export const HANDOVER_TAB = '인수인계'
+const HANDOVER_HEADER = ['시각', 'Gmail', '이름', '이전 팀', '새 팀', '이전 팀장', '의견', '맡았던 과제']
+export interface Handover {
+  at: string
+  email: string
+  name: string
+  fromTeam: string
+  toTeam: string
+  by: string
+  opinion: string
+  tasks: string
+}
+export async function writeHandover(id: string, h: Omit<Handover, 'at'>): Promise<void> {
+  const at = new Date().toLocaleString('sv-SE', { hour12: false }).slice(0, 16)
+  await appendRows(id, HANDOVER_TAB, HANDOVER_HEADER, [[at, norm(h.email), h.name, h.fromTeam, h.toTeam, norm(h.by), h.opinion, h.tasks]], { hidden: true })
+}
+// 없으면(탭이 아직 없음 · 못 읽음) 빈 목록
+export async function readHandovers(id = getAccessSheetId()): Promise<Handover[]> {
+  if (!id) return []
+  try {
+    const { values } = await fetchValues(id, [`'${HANDOVER_TAB}'!A2:H`])
+    return (values[0] ?? [])
+      .map((r) => ({ at: r[0] ?? '', email: norm(r[1]), name: r[2] ?? '', fromTeam: r[3] ?? '', toTeam: r[4] ?? '', by: norm(r[5]), opinion: r[6] ?? '', tasks: r[7] ?? '' }))
+      .filter((h) => h.email)
+  } catch {
+    return []
+  }
+}

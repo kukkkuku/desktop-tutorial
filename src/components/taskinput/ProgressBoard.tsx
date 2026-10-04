@@ -2237,13 +2237,21 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   }`}
                   title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
                 >
-                  {/* 저장 안 한 변경이 있는 그룹: 상태줄과 같은 주황 점 */}
-                  {dirty && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />}
                   {newOf.length > 0 && rowsOf.length === 0 && (
                     <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
                   )}
                   <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                  {!tabsCompact && <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">{alive}</span>}
+                  {/* 과제 수: 저장 안 한 변경이 있으면 오른쪽 위 주황 점, 과제가 늘거나 줄었으면 숫자도 주황 */}
+                  {!tabsCompact ? (
+                    <span
+                      className={`relative shrink-0 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${alive !== rowsOf.length ? 'font-bold text-orange-600' : 'font-medium text-label-3'}`}
+                    >
+                      {alive}
+                      {dirty && <span className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />}
+                    </span>
+                  ) : (
+                    dirty && <span className="h-1.5 w-1.5 shrink-0 self-start rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />
+                  )}
                   {/* 탭 ✕ 삭제는 없앴다(우리 팀이 아닌 그룹은 우클릭 › 숨기기). 줄을 모두 지워 빈 그룹이 되면 되살리기만 */}
                   {!readOnly && gone && (
                     <button

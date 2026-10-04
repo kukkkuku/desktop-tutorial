@@ -18,9 +18,9 @@ import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { Check, ChevronDown, ChevronRight, IdCard, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
+import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquareText, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-import { ACCESS_EVENT, isPendingEmail, readAccessCache } from '../utils/accessSheet'
+import { ACCESS_EVENT, isPendingEmail, readAccessCache, readHandovers, writeHandover, type Handover } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -66,7 +66,7 @@ export default function TeamManagement() {
   }, [])
   const rosterInfo = useMemo(() => {
     const me = (getConnectedEmail() ?? '').toLowerCase()
-    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && !isPendingEmail(u.email) && (u.addedBy === me || (!!teamName.trim() && u.team === teamName.trim())))
+    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && !isPendingEmail(u.email) && (u.team ? !!teamName.trim() && u.team === teamName.trim() : u.addedBy === me))
     const byEmail = new Set(state.members.map((m) => (m.email ?? '').toLowerCase()).filter(Boolean))
     const items = mine
       .filter((u) => !byEmail.has(u.email))
@@ -90,6 +90,69 @@ export default function TeamManagement() {
     if (added.length) dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
     setRosterPick(null)
     setRosterOpen(false)
+  }
+  // ---- 팀 이동: 관리 명단에서 다른 팀으로 옮긴 팀원(이전 팀장 쪽) · 이전 팀장 의견(새 팀장 쪽)
+  const moved = useMemo(() => {
+    const t = teamName.trim()
+    if (!t || !access) return []
+    const byEmail = new Map(access.users.map((u) => [u.email, u]))
+    return state.members
+      .filter((m) => m.active && m.email)
+      .map((m) => ({ m, u: byEmail.get(m.email!.toLowerCase()) }))
+      .filter((x): x is { m: TeamMember; u: NonNullable<typeof x.u> } => !!x.u && !!x.u.team && x.u.team !== t)
+  }, [access, state.members, teamName])
+  const [handovers, setHandovers] = useState<Handover[]>([])
+  useEffect(() => {
+    if (!access?.id) return
+    let live = true
+    void readHandovers(access.id).then((h) => live && setHandovers(h))
+    return () => {
+      live = false
+    }
+  }, [access?.id])
+  // 이 팀원에 대한 가장 최근 인수인계(우리 팀으로 온 것)
+  const handoverOf = (m: TeamMember) =>
+    m.email ? [...handovers].reverse().find((h) => h.email === m.email!.toLowerCase() && (!teamName.trim() || h.toTeam === teamName.trim())) : undefined
+  const [handoverView, setHandoverView] = useState<Handover | null>(null)
+  const [handoverFor, setHandoverFor] = useState<{ m: TeamMember; toTeam: string } | null>(null)
+  const [opinion, setOpinion] = useState('')
+  const [handoverBusy, setHandoverBusy] = useState(false)
+  const tasksOf = (m: TeamMember) =>
+    state.contributions
+      .filter((c) => c.memberId === m.id && c.contributionPercent > 0)
+      .map((c) => {
+        const t = state.tasks.find((x) => x.id === c.taskId)
+        return t ? `${t.name} ${c.contributionPercent}%` : ''
+      })
+      .filter(Boolean)
+      .join(' / ')
+  async function submitHandover() {
+    if (!handoverFor || !access) return
+    const { m, toTeam } = handoverFor
+    setHandoverBusy(true)
+    try {
+      await writeHandover(access.id, {
+        email: m.email!,
+        name: m.name,
+        fromTeam: teamName.trim(),
+        toTeam,
+        by: getConnectedEmail() ?? '',
+        opinion: opinion.trim(),
+        tasks: tasksOf(m),
+      })
+      // 이번 평가에서는 비활성(지난 기록은 그대로)
+      save(
+        state.members.map((x) => (x.id === m.id ? { ...x, active: false } : x)),
+        [],
+      )
+      setHandoverFor(null)
+      setOpinion('')
+      setNotice(`${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`)
+    } catch (e) {
+      setNotice(`의견을 남기지 못했습니다: ${e instanceof Error ? e.message : ''}`)
+    } finally {
+      setHandoverBusy(false)
+    }
   }
   const [hrOpen, setHrOpen] = useState(false)
   function applyHRCards(updates: TeamMember[], adds: TeamMember[]) {
@@ -352,7 +415,19 @@ export default function TeamManagement() {
     if (col.id === 'name')
       return (
         <div className="group/name flex items-center gap-1 py-1.5">
-          <span className="min-w-0 flex-1 truncate">{m.name}</span>
+          <span className={`min-w-0 truncate ${handoverOf(m) ? '' : 'flex-1'}`}>{m.name}</span>
+          {handoverOf(m) && (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setHandoverView(handoverOf(m)!)}
+              title="이전 팀장 의견 보기"
+              aria-label="이전 팀장 의견"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800 hover:bg-amber-200"
+            >
+              <MessageSquareText size={12} strokeWidth={2} />
+            </button>
+          )}
+          {handoverOf(m) && <span className="flex-1" />}
           <button
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => openMemberDetail(m.id)}
@@ -464,6 +539,32 @@ export default function TeamManagement() {
           <ChevronRight {...icSm} />
           관리에 새 팀원 <b className="font-semibold">{rosterInfo.items.length}명</b> · 눌러서 추가
         </button>
+      )}
+      {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
+      {moved.length > 0 && (
+        <div className="mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))]">
+          <p className="flex items-center gap-1.5 font-semibold text-amber-900">
+            <ArrowRightLeft {...icSm} />
+            다른 팀으로 옮긴 팀원 {moved.length}명
+            <span className="font-normal text-amber-800">· 평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</span>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {moved.map(({ m, u }) => (
+              <span key={m.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-label">
+                {m.name} → 「{u.team}」
+                <button
+                  onClick={() => {
+                    setOpinion('')
+                    setHandoverFor({ m, toTeam: u.team })
+                  }}
+                  className="rounded-full bg-amber-600 px-2.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-white hover:bg-amber-700"
+                >
+                  의견 남기고 비활성
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
       )}
       {rosterOpen && (
         <div className="mt-4 rounded-card border border-accent/30 bg-accent-soft/40 p-4">
@@ -654,6 +755,55 @@ export default function TeamManagement() {
 
       {hrOpen && <HRCardImportModal members={state.members} onApply={applyHRCards} onClose={() => setHrOpen(false)} />}
 
+      {/* 이전 팀장: 의견 남기기 */}
+      {handoverFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => !handoverBusy && setHandoverFor(null)}>
+          <div className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+              {handoverFor.m.name} → 「{handoverFor.toTeam}」 · 이전 팀장 의견
+            </h3>
+            <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">새 팀장이 평가할 때 참고합니다. 팀원 본인에게는 보이지 않습니다.</p>
+            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">우리 팀에서 맡았던 과제(이번 평가 · 기여도)</p>
+            <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{tasksOf(handoverFor.m) || '(기여도를 입력한 과제가 없습니다)'}</p>
+            <textarea
+              autoFocus
+              value={opinion}
+              onChange={(e) => setOpinion(e.target.value)}
+              rows={5}
+              placeholder="성과 · 강점 · 아쉬운 점 등 새 팀장에게 전할 의견"
+              className="mt-3 w-full rounded-control border border-hairline px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setHandoverFor(null)} disabled={handoverBusy}>
+                취소
+              </Button>
+              <Button variant="primary" onClick={() => void submitHandover()} disabled={handoverBusy}>
+                남기고 비활성
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 새 팀장: 이전 팀장 의견 보기 */}
+      {handoverView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => setHandoverView(null)}>
+          <div className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{handoverView.name} · 이전 팀장 의견</h3>
+            <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+              「{handoverView.fromTeam}」 → 「{handoverView.toTeam}」 · {handoverView.by} · {handoverView.at}
+            </p>
+            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">이전 팀에서 맡았던 과제</p>
+            <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{handoverView.tasks || '(없음)'}</p>
+            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">의견</p>
+            <p className="mt-1 whitespace-pre-line text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label">{handoverView.opinion || '(의견 없음)'}</p>
+            <div className="mt-4 flex justify-end">
+              <Button variant="secondary" onClick={() => setHandoverView(null)}>
+                닫기
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <ConfirmDialog
         open={deleting !== null}
         title={deleting && deleting.length > 1 ? `팀원 ${deleting.length}명 삭제` : '팀원 삭제'}

@@ -53,7 +53,8 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
     () =>
       isAdmin
         ? data.users
-        : data.users.filter((u) => u.email === me || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))),
+        : // 팀 칸이 기준: 우리 팀(평가 목록 팀 이름 · 내 팀) 팀원. 팀이 비어 있으면 내가 추가한 사람만. 다른 팀으로 옮기면 빠진다
+          data.users.filter((u) => u.email === me || (u.role === 'member' && (u.team ? u.team === evalTeam || u.team === myTeam : u.addedBy === me))),
     [data.users, isAdmin, me, evalTeam, myTeam],
   )
   // 평가 목록(지금 팀) 팀원 중 관리 명단에 없는 사람 -- Gmail을 넣어 명단에 추가하게
@@ -283,7 +284,8 @@ export default function MembersPanel({ data, me, isAdmin, onChanged }: { data: A
   })()
   const canSend = !sending && isAdminConfigured() && targets.length > 0 && !targets.some((u) => !!u.sendTo && !isEmail(u.sendTo))
   const cell = (u: AccessUser, k: ColKey) => {
-    const mine = isAdmin || u.addedBy === me
+    // 팀장: 보이는 우리 팀 팀원은 이름 · 팀(옮기기) · Gmail을 고칠 수 있다
+    const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
     switch (k) {
       case 'name':
         return mine ? <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${u.email} → ${v}`)} /> : u.name || '-'
