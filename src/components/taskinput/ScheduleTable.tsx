@@ -149,6 +149,18 @@ export function CellSwatch({ cell, size = 18 }: { cell: CellState; size?: number
   )
 }
 
+// 고른 범위: 옅은 파랑 + 범위 바깥 테두리만 파란 선(칸마다 선이 생기지 않게 가장자리 칸에만)
+const SEL_LINE = '#2563eb'
+function selShadow(tint: number, top: boolean, right: boolean, bottom: boolean, left: boolean): string {
+  const s: string[] = []
+  if (top) s.push(`inset 0 2px 0 ${SEL_LINE}`)
+  if (bottom) s.push(`inset 0 -2px 0 ${SEL_LINE}`)
+  if (left) s.push(`inset 2px 0 0 ${SEL_LINE}`)
+  if (right) s.push(`inset -2px 0 0 ${SEL_LINE}`)
+  s.push(`inset 0 0 0 9999px rgba(37,99,235,${tint})`)
+  return s.join(', ')
+}
+
 // 구글시트처럼 메모가 있는 칸의 오른쪽 위 검은 삼각형
 function NoteMark() {
   return <span className="pointer-events-none absolute right-0 top-0 h-0 w-0 border-l-[7px] border-t-[7px] border-l-transparent border-t-[#14161A]" />
@@ -324,7 +336,8 @@ function CellEditor({
     setDraft(v)
     setMode('type')
   }
-  const shown = 'absolute z-30 border-2 border-accent bg-white text-[1em] text-label outline-none'
+  // 칸 편집 상자: 네모 · 파란 2px 테두리(전역 입력칸의 둥근 모서리 · 초점 그림자는 끔)
+  const shown = 'absolute z-30 rounded-none border-2 border-accent bg-white text-[1em] text-label shadow-none outline-none focus:shadow-none'
   if (mode === 'edit' && kind === 'memo')
     return (
       <textarea
@@ -391,6 +404,7 @@ function FieldCell({
   cellId,
   onMoveRow,
   inRange,
+  rangeShadow,
   onPointerDown,
   onPointerEnter,
   onExtend,
@@ -423,6 +437,7 @@ function FieldCell({
   cellId?: string // 선택을 옮길 때 화면에 보이게 스크롤하는 데 씀
   onMoveRow?: (dir: -1 | 1) => void
   inRange?: boolean // 여러 칸 선택 범위 안
+  rangeShadow?: string // 범위 표시(옅은 파랑 + 바깥 테두리)
   onPointerDown?: (e: React.MouseEvent) => void // 누르기(Shift = 범위 늘리기, 끌기 = 범위 고르기)
   onPointerEnter?: () => void
   onExtend?: (dx: number, dy: number) => void
@@ -462,10 +477,10 @@ function FieldCell({
       }}
       onMouseLeave={note ? () => onHoverNote(null) : undefined}
       title={note ? undefined : value ? `${f.label}: ${value}` : `${f.label} · 더블클릭 · Enter · 타이핑으로 입력 · 우클릭: 메모·색`}
-      style={bg ? { background: `#${bg}` } : undefined}
+      style={bg || rangeShadow ? { ...(bg ? { background: `#${bg}` } : {}), ...(rangeShadow ? { boxShadow: rangeShadow } : {}) } : undefined}
       className={`relative cursor-cell border-b border-l border-b-[#DADDE2] border-l-[#E3E5E8] px-1.5 py-[var(--row-pad)] align-middle text-[0.92em] text-label ${
         selected ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-      } ${inRange ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
+      } ${fillPreview ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''}`}
     >
       {/* 폭을 줄이면 줄바꿈. 긴 메모는 두 줄까지만. 행 높이를 정했으면 그 높이에서 자른다 */}
       {/* 칩으로 고르는 칸: 고르면 오른쪽에 ▾ (누르면 칩 목록) */}
@@ -1119,11 +1134,13 @@ export default function ScheduleTable({
   }
   function weekKey(e: React.KeyboardEvent) {
     if (!weekSel) return
-    const a = ARROWS[e.key]
+    // Tab · Shift+Tab: 표 안에서 옆 칸으로(브라우저가 초점을 표 밖으로 옮기지 않게)
+    const a = e.key === 'Tab' ? ([e.shiftKey ? -1 : 1, 0] as [number, number]) : ARROWS[e.key]
+    const extend = e.shiftKey && e.key !== 'Tab'
     if (a) {
       e.preventDefault()
       const move = (p: WPos) => ({ r: Math.max(0, Math.min(rows.length - 1, p.r + a[1])), c: Math.max(0, Math.min(weekCols.length - 1, p.c + a[0])) })
-      if (e.shiftKey) setWeekSel({ ...weekSel, b: move(weekSel.b) })
+      if (extend) setWeekSel({ ...weekSel, b: move(weekSel.b) })
       else {
         const p = move(weekSel.a)
         setWeekSel({ a: p, b: p })
@@ -1306,11 +1323,20 @@ export default function ScheduleTable({
   const [l2Sel, setL2Sel] = useState<string | null>(null)
   useEffect(() => {
     if (!l2Sel) return
-    const out = (e: MouseEvent) => !(e.target as HTMLElement).closest(`[data-l2="${l2Sel}"]`) && setL2Sel(null)
+    const out = (e: MouseEvent) =>
+      !(e.target as HTMLElement).closest(`[data-l2="${l2Sel}"],[data-keep-sel],.mac-pop,[role="menu"]`) && setL2Sel(null)
     const key = (e: KeyboardEvent) => {
       if (l2Edit || e.isComposing) return
       if (e.key === 'Escape') setL2Sel(null)
-      else if ((e.key === 'Enter' || e.key === 'F2') && startL2Edit.current) {
+      else if (e.key === 'Tab') {
+        // Tab: 표 안에서 오른쪽(그 구분 첫 과제의 L3)으로 · Shift+Tab은 그대로(왼쪽 끝)
+        e.preventDefault()
+        if (!e.shiftKey) {
+          const key = l2Sel
+          setL2Sel(null)
+          selectCell(key, 'name')
+        }
+      } else if ((e.key === 'Enter' || e.key === 'F2') && startL2Edit.current) {
         e.preventDefault()
         startL2Edit.current()
       }
@@ -1391,6 +1417,11 @@ export default function ScheduleTable({
     if (!range) return false
     const ci = editIds.indexOf(id)
     return ri >= range.r1 && ri <= range.r2 && ci >= range.c1 && ci <= range.c2
+  }
+  const rangeShadow = (ri: number, id: string) => {
+    if (!range || !inRange(ri, id)) return undefined
+    const ci = editIds.indexOf(id)
+    return selShadow(0.1, ri === range.r1, ci === range.c2, ri === range.r2, ci === range.c1)
   }
   function cellDown(e: React.MouseEvent, row: string, id: string) {
     if (e.shiftKey && sel) {
@@ -1752,6 +1783,11 @@ export default function ScheduleTable({
   const allSelected = !!range && range.r1 === 0 && range.r2 === rows.length - 1 && range.c1 === 0 && range.c2 === editIds.length - 1 && rows.length > 0
   // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
   const fmtTargets = (() => {
+    // 구분(L2) 칸을 골랐으면 그 칸(서식 막대로 굵게 · 색 · 크기 · 정렬)
+    if (!sel && l2Sel) {
+      const v = rows.find((x) => x.row.key === l2Sel)
+      return v ? [{ v, id: L2_KEY }] : []
+    }
     if (!sel) return []
     const out: { v: ScheduleRowView; id: string }[] = []
     if (range) {
@@ -1765,7 +1801,7 @@ export default function ScheduleTable({
     return v && !v.deleted && editIds.includes(sel.id) ? [{ v, id: sel.id }] : []
   })()
   const anchorView = sel ? rows.find((x) => x.row.key === sel.row) : undefined
-  const anchorFmt = parseFmt(sel ? anchorView?.fmt?.[sel.id] : '')
+  const anchorFmt = parseFmt(sel ? anchorView?.fmt?.[sel.id] : l2Sel ? rows.find((x) => x.row.key === l2Sel)?.fmt?.[L2_KEY] : '')
   function applyFmt(patch: CellFmt | null) {
     if (!onFmt || readOnly || !fmtTargets.length) return
     onFmt(
@@ -2455,6 +2491,14 @@ export default function ScheduleTable({
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                   e.preventDefault()
                                   commitL2(g.rows[0].row)
+                                } else if (e.key === 'Tab') {
+                                  // 반영하고 표 안에서 오른쪽 칸(L3)으로
+                                  e.preventDefault()
+                                  commitL2(g.rows[0].row)
+                                  if (!e.shiftKey) {
+                                    setL2Sel(null)
+                                    selectCell(g.rows[0].row.key, 'name')
+                                  }
                                 } else if (e.key === 'Escape') {
                                   e.stopPropagation() // 칸 선택은 그대로
                                   setL2Edit(null)
@@ -2462,7 +2506,7 @@ export default function ScheduleTable({
                               }}
                               onBlur={() => commitL2(g.rows[0].row)}
                               title="Enter 반영 · Esc 취소 · [중점]처럼 쓰면 태그"
-                              className="block w-full resize-none rounded-[4px] border-2 border-accent bg-white px-1 py-0.5 text-center text-[1em] font-bold leading-snug text-label outline-none"
+                              className="-mx-1 block w-[calc(100%+8px)] resize-none rounded-none border-2 border-accent bg-white px-1.5 py-1 shadow-none focus:shadow-none text-center text-[1em] font-bold leading-snug text-label outline-none selection:bg-accent/25"
                             />
                           ) : (
                             <>
@@ -2522,10 +2566,15 @@ export default function ScheduleTable({
                           if (l3Note) showNote(e, l3Note)
                         }}
                         onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
-                        style={{ left: WH + wL2, ...(l3Bg ? { background: `#${l3Bg}` } : {}), ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }) }}
+                        style={{
+                          left: WH + wL2,
+                          ...(l3Bg ? { background: `#${l3Bg}` } : {}),
+                          ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }),
+                          ...(inRange(ri2, 'name') ? { boxShadow: rangeShadow(ri2, 'name') } : {}),
+                        }}
                         className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${
                           isSel(v.row.key, 'name') ? 'outline outline-2 -outline-offset-2 outline-accent' : ''
-                        } ${inRange(ri2, 'name') ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.13)]' : ''} ${
+                        } ${
                           inFill(ri2, 'name') ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
                         }`}
                       >
@@ -2603,11 +2652,20 @@ export default function ScheduleTable({
                                 ? undefined
                                 : `${x.month}월 ${x.week}주${c ? ` · ${cellLabel(c)}` : ''}${edited ? ' · 고침(아직 저장 안 함)' : ''} · 우클릭: 메모`
                             }
-                            style={c?.f ? { background: `#${FILL_HEX[c.f]}` } : undefined}
+                            style={
+                              c?.f || inWeek(ri2, i)
+                                ? {
+                                    ...(c?.f ? { background: `#${FILL_HEX[c.f]}` } : {}),
+                                    ...(inWeek(ri2, i) && wRange
+                                      ? { boxShadow: selShadow(0.12, ri2 === wRange.r1, i === wRange.c2, ri2 === wRange.r2, i === wRange.c1) }
+                                      : {}),
+                                  }
+                                : undefined
+                            }
                             className={`relative border-b border-b-[#DADDE2] p-0 text-center text-[0.78em] font-bold leading-none text-[#14161A] ${
                               monthStart.has(x.key) ? 'border-l border-l-[#A6A6A6]' : 'border-l border-l-[#E5E7EB]'
                             } ${editing ? 'cursor-crosshair hover:outline hover:outline-2 hover:-outline-offset-2 hover:outline-accent' : 'cursor-cell'} ${
-                              inWeek(ri2, i) ? 'shadow-[inset_0_0_0_9999px_rgba(26,115,232,0.2)]' : ''
+                              ''
                             } ${weekSel && weekSel.a.r === ri2 && weekSel.a.c === i ? 'outline outline-2 -outline-offset-2 outline-accent' : ''} ${
                               inWeekFill(ri2, i) ? 'outline-dashed outline-1 -outline-offset-2 outline-accent' : ''
                             }`}
@@ -2674,6 +2732,7 @@ export default function ScheduleTable({
                           cellId={`${v.row.key}|${f.id}`}
                           onMoveRow={(dir) => moveRowBy(v, dir)}
                           inRange={inRange(ri2, f.id)}
+                          rangeShadow={rangeShadow(ri2, f.id)}
                           onFillStart={fillCorner === `${v.row.key}|${f.id}` ? fillStart : undefined}
                           fillPreview={inFill(ri2, f.id)}
                           onPointerDown={(e) => cellDown(e, v.row.key, f.id)}
