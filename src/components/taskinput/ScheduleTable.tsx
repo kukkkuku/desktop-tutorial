@@ -221,7 +221,9 @@ function CellEditor({
   onExtend,
   onClearRange,
   onPick,
+  onEditing,
 }: {
+  onEditing?: (on: boolean) => void // 글자 고치기 중인지(서식 막대는 이때만 -- 한 칸 선택일 때)
   onPick?: () => void // 고르는 칸(분류 · 상태): Enter · F2 · 더블클릭이면 글자 입력 대신 칩 목록을 연다
   value: string
   kind: 'text' | 'memo' | 'date'
@@ -253,7 +255,15 @@ function CellEditor({
   )
   useEffect(() => {
     ref.current?.focus({ preventScroll: mode === 'select' })
+    onEditing?.(mode !== 'select')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
+  // 칸을 떠나면(선택이 옮겨 가 이 입력기가 사라지면) 고치기 끝
+  useEffect(
+    () => () => onEditing?.(false),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
   useEffect(() => {
     if (editSignal && !disabled) {
       if (onPick) onPick()
@@ -401,6 +411,7 @@ function FieldCell({
   selected,
   onSelect,
   editSignal,
+  onEditing,
   onMove,
   rowH,
   cellId,
@@ -433,6 +444,7 @@ function FieldCell({
   disabled?: boolean
   selected?: boolean
   onSelect?: (edit: boolean) => void // 누르면 선택(더블클릭이면 edit = true)
+  onEditing?: (on: boolean) => void
   editSignal?: number
   onMove: (dx: number, dy: number) => void
   rowH?: number // 사용자가 정한 행 높이(px) -- 넘치는 내용은 가린다
@@ -532,6 +544,7 @@ function FieldCell({
           list={`pb-opts-${f.id}`}
           disabled={disabled}
           editSignal={editSignal}
+          onEditing={onEditing}
           onCommit={onCommit}
           onMove={onMove}
           onMoveRow={onMoveRow}
@@ -1411,6 +1424,11 @@ export default function ScheduleTable({
   const [l2Edit, setL2Edit] = useState<{ key: string; text: string } | null>(null)
   // 구분(L2) 칸: 누르면 칸 선택, 더블클릭 · Enter · F2로 이름 고치기
   const [l2Sel, setL2Sel] = useState<string | null>(null)
+  // 칸 글자 고치기 중(더블클릭 · Enter · 타이핑) -- 한 칸만 골랐을 때 서식 막대는 이때만
+  // (막대의 크기 칸을 누르면 입력기가 초점을 잃으므로, 한 번 고치기 시작하면 다른 칸을 고를 때까지 유지)
+  const [textEdit, setTextEditState] = useState(false)
+  const setTextEdit = (on: boolean) => on && setTextEditState(true)
+  useEffect(() => setTextEditState(false), [sel?.row, sel?.id])
   // 구분(L2) 열 전체(머리글을 눌렀을 때): 모든 구분 칸에 서식
   const [l2Col, setL2Col] = useState(false)
   useEffect(() => {
@@ -2821,6 +2839,7 @@ export default function ScheduleTable({
                             bold
                             disabled={v.deleted || readOnly}
                             editSignal={sigOf(v.row.key, 'name')}
+                            onEditing={setTextEdit}
                             onCommit={(val) => onField(v.row, 'name', val)}
                             onMove={(dx, dy) => moveSel(v.row.key, 'name', dx, dy)}
                             onMoveRow={(dir) => moveRowBy(v, dir)}
@@ -2947,6 +2966,7 @@ export default function ScheduleTable({
                       if (mg && !mg.span) return null
                       return (
                         <FieldCell
+                          onEditing={setTextEdit}
                           span={mg?.span}
                           key={f.id}
                           f={f}
@@ -3068,6 +3088,8 @@ export default function ScheduleTable({
       {onFmt &&
         !readOnly &&
         (fmtTargets.length > 0 || !!headEdit) &&
+        // 한 칸(과제 칸 · 입력 칸 · 구분 칸)만 골랐을 때는 글자를 고치는 동안에만. 범위 · 행 · 열 · 머리글 편집은 고르면 바로
+        (headEdit || range || rowRange || wideSel || l2Col || (sel ? textEdit : l2Sel ? !!l2Edit : true)) &&
         createPortal(
           <div ref={barRef} data-keep-sel className="fixed z-40" style={barPos ? { left: barPos.x, top: barPos.y } : { left: -9999, top: -9999 }}>
             {headEdit ? (
