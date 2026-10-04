@@ -2264,13 +2264,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 const r = e.currentTarget.getBoundingClientRect()
                 setViewOpen(viewOpen ? null : { x: Math.min(r.right - 264, window.innerWidth - 272), y: r.bottom + 4 })
               }}
-              title="보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다"
+              title={`${hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개 · ` : ''}보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다`}
+              aria-label={hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개` : '그룹 숨기기'}
               className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium hover:bg-black/[0.05] hover:text-label ${
                 viewOpen || hiddenL1Count > 0 ? 'bg-black/[0.05] text-label' : 'text-label-2'
               }`}
             >
               <EyeOff size={14} strokeWidth={1.8} />
-              {hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}` : '그룹 숨기기'}
+              {hiddenL1Count > 0 && <span className="tabular-nums">{hiddenL1Count}</span>}
             </button>
             {viewOpen && (
               <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
