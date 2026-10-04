@@ -1,5 +1,5 @@
 import { errText } from '../utils/googleError'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
@@ -19,9 +19,12 @@ import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquareText, PanelRightOpen, Redo2, Settings2, Undo2, X } from 'lucide-react'
+import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-import { ACCESS_EVENT, isPendingEmail, readAccessCache, readHandovers, writeHandover, type Handover } from '../utils/accessSheet'
+import { isPendingEmail, readHandovers, updateUsers, writeHandover, type Handover } from '../utils/accessSheet'
+import { useAccessData } from '../hooks/useAccessData'
+import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf, teamRosterOf } from '../utils/teamRoster'
+import InviteDialog from './InviteDialog'
 import { getConnectedEmail } from '../utils/googleDrive'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -58,40 +61,47 @@ export default function TeamManagement() {
   const [notice, setNotice] = useState('')
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
-  // ---- 관리 › 팀원 · 권한 명단과 잇기(Gmail로): 내가 추가했거나 우리 팀(평가 목록 팀 이름)인 팀원 중 여기 없는 사람
-  const [access, setAccess] = useState(readAccessCache)
+  // ---- 팀원 명단(권한 시트)과 이 표를 뒤에서 맞춘다(teamRoster) -- 팀장은 이 표 하나로 추가 · Gmail · 초대까지
+  const { data: access } = useAccessData()
+  const me = (getConnectedEmail() ?? '').toLowerCase()
+  const wsId = currentWorkspace?.id ?? null
+  const [info, setInfo] = useState('')
+  // 명단 → 이 표: 우리 팀 명단에 있는데 이 평가에 없는 사람을 넣는다(이 평가에서 지운 사람은 빼고)
   useEffect(() => {
-    const on = () => setAccess(readAccessCache())
-    window.addEventListener(ACCESS_EVENT, on)
-    return () => window.removeEventListener(ACCESS_EVENT, on)
-  }, [])
-  const rosterInfo = useMemo(() => {
-    const me = (getConnectedEmail() ?? '').toLowerCase()
-    const mine = (access?.users ?? []).filter((u) => u.role === 'member' && !isPendingEmail(u.email) && (u.team ? !!teamName.trim() && u.team === teamName.trim() : u.addedBy === me))
-    const byEmail = new Set(state.members.map((m) => (m.email ?? '').toLowerCase()).filter(Boolean))
-    const items = mine
-      .filter((u) => !byEmail.has(u.email))
-      .map((u) => {
-        // 이름이 같고 Gmail이 비어 있는 팀원이 있으면 새로 만들지 않고 그 팀원에 Gmail만 잇는다
-        const same = state.members.find((m) => !m.email && m.name.trim() === u.name.trim())
-        return { u, linkTo: same ?? null }
+    if (!access || !me || !wsId) return
+    const seen = new Set<string>()
+    const miss = rosterMissing(access, state.members, teamName, me, readRosterSkip(wsId)).filter((u) => {
+      const k = u.name.trim() || u.email
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+    if (!miss.length) return
+    const added = miss.map((u) => ({ ...blankMember(u.name.trim() || u.email.split('@')[0]), email: isPendingEmail(u.email) ? undefined : u.email }))
+    dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
+    setInfo(`팀원 명단에 있는 ${added.map((m) => m.name).join(', ')}님을 이 평가에 넣었습니다. 평가하지 않을 사람은 행을 지우면 됩니다.`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access, wsId, teamName])
+  // 이 표 → 명단: 이름 · Gmail을 고치면 잠시 뒤 명단에도(초대 메일 · 로그인에 쓰임). 저장이 막히면(권한 시트 공유 안 됨) 한 번만 알린다
+  const syncFailed = useRef(false)
+  const lastSent = useRef('')
+  useEffect(() => {
+    if (!access || !me || !teamName.trim() || syncFailed.current) return
+    const ch = rosterChanges(access, state.members, teamName, me)
+    // 같은 변경을 두 번 보내지 않는다(시트가 아직 안 바뀐 것처럼 읽혀도 되풀이하지 않게)
+    if (!ch || ch.log.join() === lastSent.current) return
+    const t = window.setTimeout(() => {
+      lastSent.current = ch.log.join()
+      void updateUsers(access.id, ch.apply, me, ch.log).catch((e) => {
+        syncFailed.current = true
+        setInfo(`팀원 명단에 저장하지 못했습니다(초대 메일을 보내려면 필요): ${errText(e)} 관리자에게 권한 시트 편집자 공유를 요청해 주세요.`)
       })
-    return { items, total: mine.length }
-  }, [access, state.members, teamName])
-  const [rosterOpen, setRosterOpen] = useState(false)
-  const [rosterPick, setRosterPick] = useState<Set<string> | null>(null)
-  const picked = rosterPick ?? new Set(rosterInfo.items.map((x) => x.u.email))
-  function addFromRoster() {
-    const take = rosterInfo.items.filter((x) => picked.has(x.u.email))
-    if (!take.length) return
-    for (const x of take.filter((x) => x.linkTo)) dispatch({ type: 'UPDATE_MEMBER', payload: { ...x.linkTo!, email: x.u.email, team: x.linkTo!.team || x.u.team || undefined } })
-    const added: TeamMember[] = take
-      .filter((x) => !x.linkTo)
-      .map((x) => ({ ...blankMember(x.u.name || x.u.email.split('@')[0]), email: x.u.email, team: x.u.team || undefined }))
-    if (added.length) dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
-    setRosterPick(null)
-    setRosterOpen(false)
-  }
+    }, 1200)
+    return () => window.clearTimeout(t)
+  }, [access, state.members, teamName, me])
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const invitePeople = access ? teamRosterOf(access, teamName, me).filter((u) => !isPendingEmail(u.email) && state.members.some((m) => (m.email ?? '').toLowerCase() === u.email)) : []
+  const [alsoRoster, setAlsoRoster] = useState(false)
   // ---- 팀 이동: 관리 명단에서 다른 팀으로 옮긴 팀원(이전 팀장 쪽) · 이전 팀장 의견(새 팀장 쪽)
   const moved = useMemo(() => {
     const t = teamName.trim()
@@ -181,6 +191,10 @@ export default function TeamManagement() {
 
   const baseColumns: GridColumn[] = [
     { id: 'name', label: '이름', type: 'text', width: 110, system: true },
+    // 팀원 명단 · 초대: 이름 바로 뒤(Gmail을 넣으면 명단에 저장되고 초대할 수 있다)
+    { id: 'email', label: 'Gmail', type: 'text', width: 190, system: true },
+    // 초대 메일 상태(팀원 명단 기준): Gmail 없음 / 초대 전 / ○.○ 보냄
+    { id: 'invite', label: '초대', type: 'text', width: 96, system: true, readOnly: true },
     { id: 'hireDate', label: '입사일', type: 'date', width: 110, system: true },
     { id: 'service', label: '근속년월(창립기념일 기준)', type: 'text', width: 170, system: true, readOnly: true },
     { id: 'level', label: '직급', type: 'select', width: 80, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
@@ -195,7 +209,6 @@ export default function TeamManagement() {
       system: true,
       picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' },
     },
-    { id: 'email', label: '이메일', type: 'text', width: 170, system: true },
     {
       id: 'active',
       label: '상태',
@@ -213,7 +226,16 @@ export default function TeamManagement() {
   const cfg: MemberTableConfig = state.memberTable ?? { order: [], hidden: [], widths: {}, labels: {}, custom: [] }
   const customCols: GridColumn[] = cfg.custom.map((c) => ({ id: c.id, label: c.label, type: 'text', width: 140, system: false }))
   const allCols = [...baseColumns, ...customCols]
-  const orderIds = [...cfg.order.filter((id) => allCols.some((c) => c.id === id)), ...allCols.map((c) => c.id).filter((id) => !cfg.order.includes(id))]
+  // 저장된 순서에 없는 열(새로 생긴 기본 열 등)은 기본 순서의 바로 앞 열 뒤에 끼운다
+  const orderIds = (() => {
+    const out = cfg.order.filter((id) => allCols.some((c) => c.id === id))
+    allCols.forEach((c, i) => {
+      if (out.includes(c.id)) return
+      const prev = i > 0 ? out.indexOf(allCols[i - 1].id) : -1
+      out.splice(prev + 1, 0, c.id)
+    })
+    return out
+  })()
   const hiddenSet = new Set(cfg.hidden.filter((id) => id !== 'name'))
   const columns: GridColumn[] = orderIds
     .map((id) => allCols.find((c) => c.id === id)!)
@@ -276,6 +298,10 @@ export default function TeamManagement() {
         return m.team ?? ''
       case 'email':
         return m.email ?? ''
+      case 'invite': {
+        const u = rosterUserOf(access, m, teamName, me)
+        return !m.email ? 'Gmail 없음' : u?.invitedAt ? `${u.invitedAt.slice(5, 10).replace('-', '.')} 보냄` : '초대 전'
+      }
       case 'active':
         return m.active ? '활성' : '비활성'
       case 'work':
@@ -332,7 +358,8 @@ export default function TeamManagement() {
           m.team = v || undefined
           break
         case 'email':
-          m.email = v || undefined
+          // 아이디만 적으면 @gmail.com
+          m.email = normalizeGmail(v) || undefined
           break
         case 'active':
           if (v === '활성' || v === '비활성') m.active = v === '활성'
@@ -409,6 +436,16 @@ export default function TeamManagement() {
     if (!deleting) return
     history.record()
     for (const m of deleting) dispatch({ type: 'DELETE_MEMBER', payload: { id: m.id } })
+    // 다시 자동으로 들어오지 않게. 「팀 명단에서도 빼기」면 로그인 · 초대 목록에서도 뺀다
+    addRosterSkip(wsId, deleting.flatMap((m) => [m.name.trim(), (m.email ?? '').toLowerCase()]))
+    if (alsoRoster && access) {
+      const gone = deleting.map((m) => rosterUserOf(access, m, teamName, me)).filter((u) => !!u && u.role === 'member' && u.email !== me)
+      if (gone.length)
+        void updateUsers(access.id, (users) => users.filter((u) => !gone.some((g) => g!.email === u.email)), me, [`팀원관리에서 팀 명단 빼기: ${gone.map((u) => u!.name || u!.email).join(', ')}`]).catch(
+          (e) => setInfo(`팀 명단에서 빼지 못했습니다: ${errText(e)}`),
+        )
+    }
+    setAlsoRoster(false)
     setDeleting(null)
   }
 
@@ -439,6 +476,11 @@ export default function TeamManagement() {
           </button>
         </div>
       )
+    if (col.id === 'invite') {
+      const t = textOf(m, 'invite')
+      return <span className={`text-[length:calc(13px*var(--ui-fs,1))] ${t.endsWith('보냄') ? 'text-success' : 'text-label-3'}`}>{t}</span>
+    }
+    if (col.id === 'email' && !m.email) return <span className="text-label-3/70">Gmail 입력</span>
     if (col.id === 'level') return m.level ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.level}</span> : null
     if (col.id === 'team') return m.team ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.team}</span> : null
     if (col.id === 'active')
@@ -516,8 +558,9 @@ export default function TeamManagement() {
             onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
           />
           {access && (
-            <Button variant="secondary" onClick={() => setRosterOpen(!rosterOpen)} title="「초대 · 계정」 탭의 우리 팀 명단에서 이 평가의 팀원으로">
-              팀원 명단에서 불러오기
+            <Button variant="primary" onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
+              <Send {...icSm} />
+              초대 메일 보내기
             </Button>
           )}
           <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
@@ -531,15 +574,13 @@ export default function TeamManagement() {
         지워집니다.
       </p>
 
-      {/* 관리에서 초대한 팀원을 여기로(같은 사람을 두 번 입력하지 않게) */}
-      {rosterInfo.items.length > 0 && !rosterOpen && (
-        <button
-          onClick={() => setRosterOpen(true)}
-          className="mt-3 flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-accent hover:bg-accent/15"
-        >
-          <ChevronRight {...icSm} />
-          관리에 새 팀원 <b className="font-semibold">{rosterInfo.items.length}명</b> · 눌러서 추가
-        </button>
+      {info && (
+        <p className="mt-3 flex items-start gap-2 rounded-card bg-accent-soft px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+          <span className="flex-1">{info}</span>
+          <button onClick={() => setInfo('')} aria-label="닫기" className="text-label-3 hover:text-label">
+            <X {...icSm} />
+          </button>
+        </p>
       )}
       {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
       {moved.length > 0 && (
@@ -567,51 +608,6 @@ export default function TeamManagement() {
           </div>
         </div>
       )}
-      {rosterOpen && (
-        <div className="mt-4 rounded-card border border-accent/30 bg-accent-soft/40 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <button onClick={() => setRosterOpen(false)} className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:text-accent" title="접기">
-                <ChevronDown {...icSm} />
-                팀원 명단에서 불러오기 · {rosterInfo.items.length}명
-              </button>
-              <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                「초대 · 계정」 탭의 명단에서 내가 추가했거나 우리 팀({teamName || '팀 이름 없음'})인 팀원입니다. 추가하면 이름 · Gmail · 팀이 채워지고, 직급 · 입사일 등은 여기서 입력합니다.
-              </p>
-            </div>
-            <Button variant="primary" size="sm" onClick={addFromRoster} disabled={picked.size === 0}>
-              선택한 {[...picked].filter((e) => rosterInfo.items.some((x) => x.u.email === e)).length}명 추가
-            </Button>
-          </div>
-          {rosterInfo.items.length === 0 ? (
-            <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">새로 불러올 팀원이 없습니다. 관리 명단의 {rosterInfo.total}명이 모두 연결돼 있습니다.</p>
-          ) : (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {rosterInfo.items.map(({ u, linkTo }) => {
-                const on = picked.has(u.email)
-                return (
-                  <button
-                    key={u.email}
-                    onClick={() => {
-                      const next = new Set(picked)
-                      if (on) next.delete(u.email)
-                      else next.add(u.email)
-                      setRosterPick(next)
-                    }}
-                    title={u.email}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[length:calc(13px*var(--ui-fs,1))] ${on ? 'border-accent bg-white font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
-                  >
-                    {on && <Check {...icSm} />}
-                    {u.name || u.email}
-                    <span className="font-normal text-label-3">{linkTo ? '· 같은 이름 팀원에 Gmail 연결' : u.team ? `· ${u.team}` : ''}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {unmatched.length > 0 && !unmatchedOpen && (
         <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:text-accent">
           <ChevronRight {...icSm} />
@@ -819,8 +815,21 @@ export default function TeamManagement() {
             : ''
         }
         onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
-      />
+        onCancel={() => {
+          setAlsoRoster(false)
+          setDeleting(null)
+        }}
+      >
+        {access && (
+          <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+            <input type="checkbox" className="mt-0.5" checked={alsoRoster} onChange={(e) => setAlsoRoster(e.target.checked)} />
+            <span>
+              <b className="font-semibold text-label">팀 명단에서도 빼기</b> -- 앱 로그인 · 초대 목록에서도 빠집니다(퇴사 · 팀 이동 등). 끄면 이번 평가에서만 빠집니다.
+            </span>
+          </label>
+        )}
+      </ConfirmDialog>
+      {inviteOpen && access && <InviteDialog data={access} people={invitePeople} me={me} onClose={() => setInviteOpen(false)} onSent={setInfo} />}
 
       {viewingPeerReviewsFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">

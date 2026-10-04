@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import TeamManagement from './TeamManagement'
-import TeamAccountsPanel from './TeamAccountsPanel'
 import PeerReviewManagement from './PeerReviewManagement'
 import PeerReviewHub from './PeerReviewHub'
 import { useAppState } from '../state/AppContext'
 import UnderlineTabs from './ui/UnderlineTabs'
 
-type TeamSubTab = 'members' | 'accounts' | 'rank' | 'peer'
+type TeamSubTab = 'members' | 'rank' | 'peer' // 팀원 추가 · Gmail · 초대 메일은 「팀원」 표 하나에서(명단은 뒤에서 맞춤)
 
 export interface TeamSubTabRequest {
   subTab: TeamSubTab
@@ -15,8 +14,6 @@ export interface TeamSubTabRequest {
 
 const SUB_TABS: { key: TeamSubTab; label: string }[] = [
   { key: 'members', label: '팀원' },
-  // 팀원 추가 · Gmail · 초대 메일 · 실적관리 시트 공유(관리 메뉴는 관리자만)
-  { key: 'accounts', label: '초대 · 계정' },
   { key: 'rank', label: '피어리뷰' },
   // 예전 방식(과제별 등급·기여도). 순위 방식과 따로 저장되고, 점수의 "피어리뷰 반영 비율"은
   // 이 데이터를 쓴다. 새로 쓰지 않으므로 예전 데이터가 있을 때만 탭을 보여 준다.
@@ -46,7 +43,6 @@ export default function TeamStage({ subTabRequest }: TeamStageProps) {
 
       <div className="mt-5">
         {sub === 'members' && <TeamManagement />}
-        {sub === 'accounts' && <TeamAccountsPanel />}
         {sub === 'rank' && <PeerReviewHub />}
         {sub === 'peer' && <PeerReviewManagement />}
       </div>

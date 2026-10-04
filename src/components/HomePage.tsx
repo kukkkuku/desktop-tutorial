@@ -45,7 +45,7 @@ function taskSummary() {
 }
 
 export default function HomePage() {
-  const { setMode } = useAppMode()
+  const { setMode, setPerfStage } = useAppMode()
   const { workspaces, selectWorkspace, exitToLanding } = useWorkspaces()
   const { accountEmail, role, canPerf } = useGoogleAccount()
   const t = useMemo(taskSummary, [])
@@ -221,7 +221,13 @@ export default function HomePage() {
                     sub: !team.known
                       ? '팀원 추가 · 초대 메일 · 시트 공유'
                       : `팀원 ${team.members}명${team.notInvited ? ` · 초대 안 보냄 ${team.notInvited}명` : ''}${team.noMail ? ` · Gmail 없음 ${team.noMail}명` : ''}`,
-                    onClick: () => setInviteOpen(true),
+                    // 평가가 있으면 그 평가의 팀원관리 표(추가 · Gmail · 초대가 한 곳), 없으면 바로 창으로
+                    onClick: () => {
+                      if (!team.latest) return setInviteOpen(true)
+                      selectWorkspace(team.latest.id)
+                      setPerfStage('members')
+                      setMode('perf')
+                    },
                   },
                 ] as const
               ).map(({ key, Icon, title, sub, onClick }) => (
@@ -249,7 +255,7 @@ export default function HomePage() {
           <div className="w-full max-w-6xl rounded-[16px] bg-canvas p-6 shadow-pop">
             <div className="mb-4 flex items-center gap-2">
               <h3 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">팀원 초대</h3>
-              <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">성과관리 › 팀원관리 › 초대 · 계정과 같은 화면입니다</span>
+              <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">평가를 만들면 성과관리 › 팀원관리 표에서 이어서 관리합니다</span>
               <button onClick={() => setInviteOpen(false)} aria-label="닫기" className="ml-auto flex h-8 w-8 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.06]">
                 <X size={16} strokeWidth={2} />
               </button>

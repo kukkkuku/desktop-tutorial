@@ -300,7 +300,7 @@ export default function MembersPanel({
       setNote(
         res.failed.length
           ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => nameOf(f.email)).join(', ')} -- ${Array.from(new Set(res.failed.map((f) => f.error))).join(' / ')}` }
-          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다.${targets.some((u) => isPendingEmail(u.email)) ? ' (Gmail이 없는 사람은 뺐습니다)' : ''} 「실적관리 시트」 탭에서 시트 공유도 해 주세요.` },
+          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다.${targets.some((u) => isPendingEmail(u.email)) ? ' (Gmail이 없는 사람은 뺐습니다)' : ''}${isAdmin ? ' 「실적관리 시트」 탭에서 시트 공유도 해 주세요.' : ' 실적관리 시트 공유는 관리자가 합니다.'}` },
       )
     } catch (e) {
       setNote({ ok: false, text: errText(e, '보내지 못했습니다.') })
@@ -598,7 +598,7 @@ export default function MembersPanel({
           ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
           : isAdmin
             ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장). 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
-            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다. 초대한 뒤 아래 「실적관리 시트 공유」로 시트를 공유하면 끝납니다.'}
+            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다. 실적관리 시트 공유는 관리자가 합니다.'}
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
