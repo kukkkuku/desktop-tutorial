@@ -24,6 +24,12 @@ const GROUP_HUES = [
 const GROUP_COLORS_KEY = 'timeline-group-colors'
 const COLLAPSE_KEY = 'timeline-collapsed'
 const PICK_COLORS = ['#3BA9D3', '#3DBE84', '#A7327A', '#9A5BD6', '#E08A2C', '#4A6FDB', '#E04F5F', '#2BA6A0', '#8C8C99', '#B7791F']
+// 구분 요약 막대: 고른 색을 어둡게(점은 밝은 그대로, 과제 막대는 연한 그대로)
+const darken = (hex: string, k = 0.5) => {
+  const n = parseInt(hex.replace('#', ''), 16)
+  const ch = (sh: number) => Math.round(((n >> sh) & 255) * k)
+  return `#${[16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('')}`
+}
 const readJson = <T,>(k: string, d: T): T => {
   try {
     return (JSON.parse(localStorage.getItem(k) ?? 'null') as T) ?? d
@@ -496,7 +502,7 @@ export function TimelineView({
                     {ranged.length > 0 && isFinite(from) && (
                       <div
                         className="absolute flex h-[22px] items-center justify-between overflow-hidden rounded-full px-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-white"
-                        style={{ left: x0(from), width: span(from, to), background: groupColors[g.label] ? hue : '#A9ABB8' }}
+                        style={{ left: x0(from), width: span(from, to), background: darken(hue) }}
                         title={`완료 ${done} / 과제 ${g.items.length}`}
                       >
                         <span className="truncate">{g.label}</span>
