@@ -1066,6 +1066,12 @@ export default function ScheduleTable({
   }, [headEdit])
   function startHeadEdit(key: string, label: string) {
     if (readOnly || !onHeadFmt) return
+    // 제목 편집 중에는 머리글만 고른 것으로(열 전체 선택 표시는 푼다)
+    setSel(null)
+    setSelEnd(null)
+    setRowSel(null)
+    setL2Sel(null)
+    setL2Col(false)
     setHeadEdit({ key, text: label })
   }
   function commitHead() {
@@ -1405,6 +1411,23 @@ export default function ScheduleTable({
   const [l2Edit, setL2Edit] = useState<{ key: string; text: string } | null>(null)
   // 구분(L2) 칸: 누르면 칸 선택, 더블클릭 · Enter · F2로 이름 고치기
   const [l2Sel, setL2Sel] = useState<string | null>(null)
+  // 구분(L2) 열 전체(머리글을 눌렀을 때): 모든 구분 칸에 서식
+  const [l2Col, setL2Col] = useState(false)
+  useEffect(() => {
+    if (sel || rowSel || l2Sel) setL2Col(false)
+  }, [sel, rowSel, l2Sel])
+  useEffect(() => {
+    if (!l2Col) return
+    const out = (e: MouseEvent) =>
+      !(e.target as HTMLElement).closest('[data-l2],[data-head="l2"],[data-keep-sel],.mac-pop,[role="menu"]') && setL2Col(false)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setL2Col(false)
+    window.addEventListener('mousedown', out)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('mousedown', out)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [l2Col])
   // 고른 과제 행을 알린다(칸 > 행 > 구분의 첫 과제)
   const activeKey = sel?.row ?? rowSel ?? l2Sel
   useEffect(() => {
@@ -1894,6 +1917,8 @@ export default function ScheduleTable({
   const allSelected = !!range && range.r1 === 0 && range.r2 === rows.length - 1 && range.c1 === 0 && range.c2 === editIds.length - 1 && rows.length > 0
   // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
   const fmtTargets = (() => {
+    // 구분(L2) 머리글로 고른 구분 열 전체: 각 구분의 첫 줄에 있는 구분 칸
+    if (l2Col) return rows.filter((v, i) => i === 0 || rows[i - 1].row.l2 !== v.row.l2).map((v) => ({ v, id: L2_KEY }))
     // 구분(L2) 칸을 골랐으면 그 칸(서식 막대로 굵게 · 색 · 크기 · 정렬)
     // 행 머리로 고른 행(구분 칸을 눌러 고른 구분 행 전체 포함): 그 행의 모든 칸(L3 ~ 마지막 입력 열) + 구분 칸
     if (!sel && rowRange) {
@@ -1951,6 +1976,7 @@ export default function ScheduleTable({
   const q = (sel0: string) => document.querySelector(sel0) as HTMLElement | null
   const barAnchor = (): HTMLElement | null => {
     if (headEdit) return q(`[data-head="${CSS.escape(headEdit.key)}"]`)
+    if (l2Col) return q('[data-head="l2"]')
     if (wideSel && range && range.r1 === 0 && range.r2 === rows.length - 1) {
       const id = editIds[range.c1]
       return q(`[data-head="${CSS.escape(id === 'name' ? 'l3' : id)}"]`)
@@ -2385,9 +2411,19 @@ export default function ScheduleTable({
               data-head="l2"
               style={{ left: WH, ...blackTh('l2') }}
               onContextMenu={headMenuOn('l2')}
+              onMouseDown={(e) => {
+                // 누르면 구분(L2) 열 전체 선택(과제 머리글처럼)
+                if (e.button !== 0 || headEdit?.key === 'l2' || (e.target as HTMLElement).closest('button,input')) return
+                e.preventDefault()
+                setSel(null)
+                setSelEnd(null)
+                setRowSel(null)
+                setL2Sel(null)
+                setL2Col(true)
+              }}
               onDoubleClick={() => startHeadEdit('l2', '구분(L2)')}
-              title="더블클릭: 제목 서식(글자 색 · 크기 · 정렬) · 우클릭: 머리글 색"
-              className={`sticky z-20 px-2 py-2 font-bold ${thBorder}`}
+              title="누르면 구분(L2) 열 전체 선택 · 더블클릭: 제목 서식(글자 색 · 크기 · 정렬) · 우클릭: 머리글 색"
+              className={`sticky z-20 cursor-pointer px-2 py-2 font-bold ${thBorder} ${l2Col ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
             >
               {headEdit?.key === 'l2' ? headEditor('l2', false) : '구분(L2)'}
               {onResize && <ResizeHandle width={wL2} onResize={(v) => resizeTo('l2', v)} lineH={tableH} />}
@@ -2644,13 +2680,9 @@ export default function ScheduleTable({
                           setSel(null)
                           setSelEnd(null)
                           setWeekSel(null)
-                          // 구분 칸을 누르면 그 구분의 행 전체 선택(행 번호로 고른 것과 같게 -- 서식 · 복사 · 삭제 · 복제)
-                          setRowSel(g.rows[0].row.key)
-                          if (g.rows.length > 1) setRowSelEnd(g.rows[g.rows.length - 1].row.key)
+                          // 구분 칸을 누르면 그 칸만 선택(행 전체는 행 번호를 Shift로 골라서)
+                          setRowSel(null)
                           setL2Sel(g.rows[0].row.key)
-                          // ⌘C · ⌘V · Delete가 행 단위로 되게 첫 행 번호칸에 초점
-                          const first = g.rows[0].row.key
-                          window.setTimeout(() => (document.querySelector(`[data-rowhead="${CSS.escape(first)}"]`) as HTMLElement | null)?.focus({ preventScroll: true }))
                           const canEdit = !!onRenameGroup && !readOnly && !g.rows.every((x) => x.deleted)
                           // 이름 고치기에 들어가면 행 선택은 풀고 구분 칸만(서식 막대도 구분 칸에만)
                           startL2Edit.current = canEdit
@@ -2669,7 +2701,7 @@ export default function ScheduleTable({
                         style={{ left: WH, ...(g.rows[0].bg[L2_KEY] ? { background: `#${g.rows[0].bg[L2_KEY]}` } : {}), ...fmtStyle(g.rows[0].fmt?.[L2_KEY]) }}
                         className={`pb-l2 group/l2 sticky z-[5] border-r border-[#C9CDD3] bg-white px-2 py-2 shadow-[inset_0_-0.5px_0_#C9CDD3,0_0.5px_0_#C9CDD3] text-center align-top font-bold text-label ${
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
-                        } ${l2Sel === g.rows[0].row.key && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
+                        } ${(l2Sel === g.rows[0].row.key || l2Col) && !l2Edit ? `outline outline-2 -outline-offset-2 outline-accent ${l2Col ? 'bg-accent/[0.06]' : ''}` : ''}`}
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         <div className="sticky top-[64px] py-1">
