@@ -6,7 +6,7 @@
 import { googleErrorText, oauthErrorText } from './googleError'
 import * as XLSX from 'xlsx'
 import type { DateCell, RawSheet, SheetMerge } from './sheetImport'
-import { getConnectedEmail, loadGis, peekLoginToken, withAuthLock } from './googleDrive'
+import { getConnectedEmail, loadGis, peekLoginToken, withAuthLock, dropLoginToken } from './googleDrive'
 
 // ---------- 링크 ----------
 
@@ -150,6 +150,7 @@ async function sheetsFetch<T>(url: string, init?: { method: string; body: string
   if (res.status === 401) {
     sheetsToken = null
     sheetsWriteToken = null
+    dropLoginToken()
   }
   const text = await res.text().catch(() => '')
   let parsed: GoogleApiError = {}

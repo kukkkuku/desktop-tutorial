@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { errText } from '../utils/googleError'
 import { ACCESS_EVENT, getAccessSheetId, readAccessCache, refreshAccess } from '../utils/accessSheet'
-import { isSheetsApiConfigured } from '../utils/sheetSources'
+import { hasSheetsTokenNow, isSheetsApiConfigured } from '../utils/sheetSources'
 
 export function useAccessData(loadOnMount = true) {
   const [data, setData] = useState(readAccessCache)
@@ -27,8 +27,9 @@ export function useAccessData(loadOnMount = true) {
       sync()
     }
   }
+  // 화면을 열 때는 권한이 이미 있을 때만 조용히 새로 읽는다(로그인 창을 띄우지 않음 -- 없으면 기억해 둔 내용으로)
   useEffect(() => {
-    if (loadOnMount) void reload()
+    if (loadOnMount && hasSheetsTokenNow()) void reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return { data, busy, error, reload, sync }

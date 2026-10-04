@@ -25,6 +25,7 @@ import { isPendingEmail, readHandovers, updateUsers, writeHandover, type Handove
 import { useAccessData } from '../hooks/useAccessData'
 import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
 import InviteDialog from './InviteDialog'
+import { hasSheetsTokenNow } from '../utils/sheetSources'
 import { getConnectedEmail } from '../utils/googleDrive'
 
 // 입사일이 있으면 자동 계산한 근속연차를 우선 쓰고, 없으면 예전처럼 수동 입력된
@@ -82,22 +83,33 @@ export default function TeamManagement() {
     setInfo(`팀원 명단에 있는 ${added.map((m) => m.name).join(', ')}님을 이 평가에 넣었습니다. 평가하지 않을 사람은 행을 지우면 됩니다.`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access, wsId, teamName])
-  // 이 표 → 명단: 이름 · Gmail을 고치면 잠시 뒤 명단에도(초대 메일 · 로그인에 쓰임). 저장이 막히면(권한 시트 공유 안 됨) 한 번만 알린다
+  // 이 표 → 명단: 이름 · Gmail을 고치면 잠시 뒤 명단에도(초대 메일 · 로그인에 쓰임).
+  // 뒤에서는 권한이 이미 있을 때만 조용히 저장하고, 없으면 로그인 창 대신 「팀원 명단 저장」 버튼 하나만 보여 준다(누를 때 한 번 로그인).
   const syncFailed = useRef(false)
   const lastSent = useRef('')
+  const rosterCh = access && me && teamName.trim() ? rosterChanges(access, state.members, teamName, me) : null
+  const [rosterBusy, setRosterBusy] = useState(false)
+  async function saveRoster() {
+    const ch = access && me ? rosterChanges(access, state.members, teamName, me) : null
+    if (!ch || !access) return
+    lastSent.current = ch.log.join()
+    setRosterBusy(true)
+    try {
+      await updateUsers(access.id, ch.apply, me, ch.log)
+    } catch (e) {
+      syncFailed.current = true
+      setInfo(`팀원 명단에 저장하지 못했습니다: ${errText(e)} 권한 시트 편집 권한이 없으면 관리자에게 공유를 요청해 주세요.`)
+    } finally {
+      setRosterBusy(false)
+    }
+  }
   useEffect(() => {
-    if (!access || !me || !teamName.trim() || syncFailed.current) return
-    const ch = rosterChanges(access, state.members, teamName, me)
+    if (!rosterCh || syncFailed.current || !hasSheetsTokenNow()) return
     // 같은 변경을 두 번 보내지 않는다(시트가 아직 안 바뀐 것처럼 읽혀도 되풀이하지 않게)
-    if (!ch || ch.log.join() === lastSent.current) return
-    const t = window.setTimeout(() => {
-      lastSent.current = ch.log.join()
-      void updateUsers(access.id, ch.apply, me, ch.log).catch((e) => {
-        syncFailed.current = true
-        setInfo(`팀원 명단에 저장하지 못했습니다(초대 메일을 보내려면 필요): ${errText(e)} 관리자에게 권한 시트 편집자 공유를 요청해 주세요.`)
-      })
-    }, 1200)
+    if (rosterCh.log.join() === lastSent.current) return
+    const t = window.setTimeout(() => void saveRoster(), 1200)
     return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access, state.members, teamName, me])
   const [inviteOpen, setInviteOpen] = useState(false)
   // 초대 대상: 이 표에서 Gmail이 있는 팀원(명단 저장이 아직 안 끝났어도 보이게 -- 초대한 날은 명단에서)
@@ -585,6 +597,14 @@ export default function TeamManagement() {
         지워집니다.
       </p>
 
+      {rosterCh && !hasSheetsTokenNow() && rosterCh.log.join() !== lastSent.current && (
+        <p className="mt-3 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+          <span className="flex-1">바꾼 팀원 · Gmail을 팀원 명단(초대 · 로그인용)에 아직 저장하지 않았습니다.</span>
+          <Button variant="secondary" size="sm" onClick={() => void saveRoster()} disabled={rosterBusy}>
+            팀원 명단 저장
+          </Button>
+        </p>
+      )}
       {info && (
         <p className="mt-3 flex items-start gap-2 rounded-card bg-accent-soft px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
           <span className="flex-1">{info}</span>

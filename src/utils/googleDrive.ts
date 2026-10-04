@@ -203,6 +203,10 @@ export function getConnectedEmail(): string | null {
 // 헤더의 "로그아웃" -- 캐시된 토큰/이메일과, 새로고침에도 남아있던 계정
 // 표시까지 전부 지운다. 다음에 뭔가 Google API를 호출하면(연결 버튼이든
 // 자동 로그인 게이트든) 새로 로그인 팝업을 띄운다.
+// 구글이 토큰을 거절(401)하면 버린다 -- 안 그러면 만료 시각 전까지 같은 토큰을 계속 써서 매번 실패한다
+export function dropLoginToken(): void {
+  cachedToken = null
+}
 export function disconnectDrive(): void {
   cachedToken = null
   cachedEmail = null
