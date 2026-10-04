@@ -413,31 +413,19 @@ export default function WorkspaceLanding() {
   }
   const steps = [
     {
-      title: '팀원 명단',
+      // 팀원 초대 = 명단(이름 · Gmail) + 초대 메일 -- 펼치면 같은 표에서 둘 다
+      title: '팀원 초대',
       status: !roster
-        ? '명단을 열면 팀원 수와 Gmail 상태가 보입니다'
+        ? '팀원 이름과 Gmail을 넣고 초대 메일을 보냅니다'
         : roster.n === 0
-          ? '아직 팀원이 없습니다. 이름과 Gmail을 넣어 주세요'
-          : `${roster.n}명${roster.noMail ? ` · Gmail 없는 사람 ${roster.noMail}명` : ' · 모두 Gmail 있음'}`,
-      done: !!roster && roster.n > 0 && roster.noMail === 0,
-      action: !roster || roster.n === 0 ? '팀원 추가' : roster.noMail ? 'Gmail 채우기' : '명단 보기',
+          ? '아직 팀원이 없습니다. 이름과 Gmail을 넣고 초대 메일을 보내세요'
+          : [`팀원 ${roster.n}명`, roster.noMail ? `Gmail 없는 사람 ${roster.noMail}명` : '', roster.notInv ? `초대 안 보낸 사람 ${roster.notInv}명` : '', !roster.noMail && !roster.notInv ? '모두 초대함' : '']
+              .filter(Boolean)
+              .join(' · '),
+      done: !!roster && roster.n > 0 && roster.noMail === 0 && roster.notInv === 0,
+      action: !roster || roster.n === 0 ? '팀원 추가' : roster.noMail ? 'Gmail 채우기' : roster.notInv ? '초대 메일 보내기' : '명단 보기',
       open: rosterOpen,
       onClick: openRoster,
-    },
-    {
-      title: '초대 메일',
-      status: !roster || roster.withMail === 0
-        ? 'Gmail이 있는 팀원에게 앱 시작 링크를 보냅니다'
-        : roster.notInv
-          ? `아직 안 보낸 사람 ${roster.notInv}명`
-          : `${roster.withMail}명 모두 보냄`,
-      done: !!roster && roster.withMail > 0 && roster.notInv === 0,
-      action: '초대 메일 보내기',
-      open: false,
-      onClick: () => {
-        setNewEvalOpen(false)
-        setRosterOpen(true)
-      },
     },
     {
       title: '평가 만들기',
@@ -544,7 +532,7 @@ export default function WorkspaceLanding() {
         {!teamName && !addingTeam && (
           <section className="mt-6 max-w-xl rounded-[14px] bg-white p-6 shadow-card">
             <h2 className="text-[length:calc(20px*var(--ui-fs,1))] font-semibold text-label">팀부터 만들어요</h2>
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀을 만들면 팀원 명단 → 초대 메일 → 평가 만들기 순서로 안내합니다.</p>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀을 만들면 팀원 초대 → 평가 만들기 순서로 안내합니다.</p>
             <Button variant="primary" className="mt-4" onClick={() => startTeam(myTeam)}>
               <Plus {...icSm} /> 팀 만들기
             </Button>
@@ -586,8 +574,8 @@ export default function WorkspaceLanding() {
               )}
             </header>
 
-            {/* 할 일 순서: 팀원 명단 → 초대 메일 → 평가 만들기. 다음에 할 칸이 파랗게 */}
-            <ol className="mt-4 grid gap-3 md:grid-cols-3">
+            {/* 할 일 순서: 팀원 초대 → 평가 만들기. 다음에 할 칸이 파랗게 */}
+            <ol className="mt-4 grid max-w-4xl gap-3 md:grid-cols-2">
               {steps.map((s, i) => {
                 const now = i === nextStep
                 return (
@@ -624,7 +612,7 @@ export default function WorkspaceLanding() {
               })}
             </ol>
 
-            {/* 펼친 칸: 팀원 명단(추가 · Gmail · 초대 메일) 또는 새 평가(연도 · 기간) */}
+            {/* 펼친 칸: 팀원 초대(명단 추가 · Gmail · 초대 메일) 또는 새 평가(연도 · 기간) */}
             {rosterOpen && (
               <section ref={panelRef} className="mt-3 rounded-[14px] bg-white p-5 shadow-card">
                 <TeamAccountsPanel />
