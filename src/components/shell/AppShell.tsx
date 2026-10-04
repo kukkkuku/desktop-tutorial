@@ -94,7 +94,7 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
         </>
       )}
       <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>
-      {actions && <div className="ml-auto flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{actions}</div>}
     </header>
   )
 }

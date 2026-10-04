@@ -389,7 +389,7 @@ export function TopNav({
           </nav>
         </>
       )}
-      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+      <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
         {actions}
         {inPerf && perf?.onOpenDataManager && (
           // 저장 상태(저장됨 · 저장 중 · 실패)는 백업 버튼 바로 앞에

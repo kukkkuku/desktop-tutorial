@@ -14,7 +14,7 @@ export default function TaskInputApp() {
           chooser={<span id={PROGRESS_MENU_SLOT} className="flex" />}
           title={taskMenu === 'rate' ? '진척률' : '추진현황'}
           // 파일 메뉴(⋯) -- 추진현황 화면이 채운다
-          actions={<span id={PROGRESS_ACTIONS_SLOT} className="flex" />}
+          actions={<span id={PROGRESS_ACTIONS_SLOT} className="flex min-w-0 flex-1" />}
         />
       }
     >

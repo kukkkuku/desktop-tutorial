@@ -220,7 +220,8 @@ const STALE_MS = 60 * 60 * 1000
 const FILE_LABEL = (
   <>
     <FolderOpen size={15} strokeWidth={1.8} />
-    파일
+    {/* 머리 줄이 좁으면 아이콘만 */}
+    <span className="hidden xl:inline">파일</span>
   </>
 )
 
@@ -2075,7 +2076,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </button>
       )}
     </NoticeBar>
-  ) : !data.local && data.spreadsheetId ? (
+  ) : null
+  // 시트 상태 줄: 머리 줄(과제 입력 / 연도 / 추진현황 … 파일) 가운데 빈 곳에 둔다
+  const headStatus = !fromXlsx && !data.local && data.spreadsheetId ? (
     <>
       {/* 상태 줄(높이 고정 · 늘 보임): 시트 › 탭 · 불러온 시각 + 지금 상태 하나. 상태에 따라 색과 오른쪽 버튼만 바뀌고 줄 수는 그대로라
           칠하는 도중 알림이 생겨도 표가 밀리지 않는다 */}
@@ -2104,7 +2107,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 : 'border-transparent'
         return (
           <div
-            className={`mb-2 flex h-10 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
+            className={`flex h-9 min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
           >
             <FileSpreadsheet size={15} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
             <a
@@ -2116,8 +2119,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             >
               {sheetName} › {data.tabTitle}
             </a>
-            <span className="shrink-0 text-label-3">·</span>
-            <span className="shrink-0">{fmt(data.fetchedAt)} 불러옴</span>
+            <span className="hidden shrink-0 text-label-3 2xl:inline">·</span>
+            <span className="hidden shrink-0 2xl:inline">{fmt(data.fetchedAt)} 불러옴</span>
             {state !== 'stale' && <span className="shrink-0 text-label-3">·</span>}
             {state === 'loading' ? (
               <span className="flex shrink-0 items-center gap-1.5 text-accent">
@@ -2160,7 +2163,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     className="flex h-7 items-center gap-1 rounded-[7px] px-2 text-[#9A3412] hover:bg-black/[0.05] disabled:opacity-50"
                   >
                     <RotateCcw size={14} strokeWidth={2} />
-                    되돌리기
+                    <span className="hidden 2xl:inline">되돌리기</span>
                   </button>
                   {state === 'unsaved' ? (
                     <button
@@ -2231,8 +2234,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         />
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-        {/* 머리 오른쪽: 과제 내보내기(팀장) · 파일 메뉴. 시트 상태 · 저장 안 한 변경은 탭 위 알림 줄에 크게 */}
-        <span className="flex items-center gap-2">
+        {/* 머리 오른쪽 빈 곳: 시트 상태 줄(저장 안 한 변경 · 저장) · 과제 내보내기(팀장) · 파일 메뉴 */}
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          {headStatus}
           {/* 팀장: 지금 그룹(L1)을 성과관리 과제리스트로 내보내기가 주된 일 -- 머리 줄 프라이머리 버튼(성과관리의 구글시트 연결과 같은 화면) */}
           {canPerf && (
             <Button
@@ -2245,7 +2249,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               }
             >
               <Send {...icSm} />
-              과제 내보내기
+              <span className="hidden xl:inline">과제 내보내기</span>
             </Button>
           )}
           <FileMenu disabled={yearLoading} label={FILE_LABEL} title="불러오기 · 내보내기 · 시트 연결">{fileMenuItems}</FileMenu>

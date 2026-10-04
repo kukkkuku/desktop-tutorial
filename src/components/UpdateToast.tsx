@@ -21,34 +21,68 @@ async function fetchRemote(): Promise<Remote | null> {
   }
 }
 
-// 새 버전으로 새로고침: GitHub Pages가 index.html을 브라우저에 최대 10분 캐시하게 해서, 그냥 reload()하면
-// 캐시된 옛 index.html이 옛 화면 파일을 다시 불러온다. 그래서 ① 캐시를 건너뛰고 index.html을 새로 받아 캐시를 바꾸고
-// ② 주소에 ?v=새버전을 붙여 다른 주소로 연다(캐시에 없는 주소라 반드시 새로 받는다). ?v는 열린 뒤 주소에서 지운다.
-async function reloadToLatest(id: string) {
+// 새 버전으로 새로고침: GitHub Pages는 index.html을 브라우저 · CDN에 최대 10분 캐시한다. version.json은 바로 새것이 와도
+// index.html은 한동안 옛것이 와서, 그냥 새로고침하면 옛 화면이 다시 뜨고 알림도 다시 뜬다.
+// 그래서 ① 캐시를 건너뛰고 index.html을 받아 그 안의 빌드 id(<meta name="app-build">)가 새 버전인지 확인하고
+// ② 맞으면 처음 쓰는 주소(?v=새버전&t=시각)로 연다. 아직 옛것이면 잠시 뒤 다시 확인한다(알림에 「반영 중」).
+async function htmlBuildId(): Promise<string | null> {
   try {
-    await fetch(window.location.pathname, { cache: 'reload' })
+    const r = await fetch(`${window.location.pathname}?t=${Date.now()}`, { cache: 'no-store' })
+    if (!r.ok) return null
+    const m = (await r.text()).match(/<meta name="app-build" content="([^"]+)"/)
+    return m ? m[1] : null
   } catch {
-    // 못 받아도 아래 주소 바꾸기로 새로 받는다
+    return null
   }
+}
+function openLatest(id: string) {
   const u = new URL(window.location.href)
   u.searchParams.set('v', id)
+  u.searchParams.set('t', String(Date.now()))
   window.location.replace(u.toString())
 }
-// 새로고침으로 붙인 ?v=는 주소에서 지운다(북마크 · 공유 주소가 지저분해지지 않게)
+// 새로고침으로 붙인 ?v= · ?t=는 주소에서 지운다(북마크 · 공유 주소가 지저분해지지 않게)
 function dropVersionParam() {
   try {
     const u = new URL(window.location.href)
     if (!u.searchParams.has('v')) return
     u.searchParams.delete('v')
+    u.searchParams.delete('t')
     window.history.replaceState(window.history.state, '', u.toString())
   } catch {
     // 무시
   }
 }
+// 방금 ?v=새버전으로 열었는데도 옛 화면이면(캐시가 아직 안 바뀜) 바로 「반영 중」으로 시작한다
+const openedFor = (() => {
+  try {
+    return new URL(window.location.href).searchParams.get('v')
+  } catch {
+    return null
+  }
+})()
 
 export default function UpdateToast() {
   useEffect(dropVersionParam, [])
   const [next, setNext] = useState<Remote | null>(null)
+  // 새로고침을 눌렀는데 새 index.html이 아직 안 내려옴 → 15초마다 다시 확인하고, 내려오면 저절로 새로고침
+  const [waiting, setWaiting] = useState(() => !!openedFor && openedFor !== __APP_BUILD__)
+  const reload = async (id: string) => {
+    const got = await htmlBuildId()
+    // id를 못 읽으면(옛 빌드라 meta가 없는 등) 그냥 연다
+    if (got === null || got === id) return openLatest(id)
+    setWaiting(true)
+  }
+  useEffect(() => {
+    if (!waiting || !next) return
+    let tries = 0
+    const t = window.setInterval(async () => {
+      tries++
+      const got = await htmlBuildId()
+      if (got === next.id || tries >= 40) openLatest(next.id)
+    }, 15 * 1000)
+    return () => window.clearInterval(t)
+  }, [waiting, next])
   useEffect(() => {
     if (import.meta.env.DEV) return
     let last = 0
@@ -78,16 +112,18 @@ export default function UpdateToast() {
       >
         <Sparkles size={17} strokeWidth={1.9} className="shrink-0 text-[#C2410C]" />
         <div className="min-w-0">
-          <p className="font-semibold">새 버전이 나왔습니다. 새로고침해야 반영됩니다.</p>
+          <p className="font-semibold">
+            {waiting ? '새 버전을 내려받는 중입니다. 준비되면 저절로 새로고침합니다(1~10분).' : '새 버전이 나왔습니다. 새로고침해야 반영됩니다.'}
+          </p>
           {next.notes.length > 0 && <p className="mt-0.5 truncate text-[length:calc(13px*var(--ui-fs,1))] text-[#9A3412]/85">{next.notes.join(' · ')}</p>}
         </div>
         <button
-          onClick={() => void reloadToLatest(next.id)}
+          onClick={() => void (waiting ? openLatest(next.id) : reload(next.id))}
           className="flex h-8 shrink-0 items-center gap-1.5 rounded-[8px] bg-[#C2410C] px-3 font-semibold text-white hover:bg-[#9A3412]"
           title="저장 안 한 고친 내용은 이 브라우저에 남아 있어 사라지지 않습니다"
         >
-          <RefreshCw size={15} strokeWidth={2} />
-          새로고침
+          <RefreshCw size={15} strokeWidth={2} className={waiting ? 'animate-spin' : ''} />
+          {waiting ? '지금 다시 시도' : '새로고침'}
         </button>
       </div>
     </div>
