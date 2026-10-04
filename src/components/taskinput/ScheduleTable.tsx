@@ -1952,7 +1952,7 @@ export default function ScheduleTable({
   }
   useLayoutEffect(() => {
     const el = barAnchor()
-    if (!el || !editing) return setBarPos(null)
+    if (!el) return setBarPos(null)
     const r = el.getBoundingClientRect()
     const w = barRef.current?.offsetWidth ?? 420
     const h = barRef.current?.offsetHeight ?? 44
@@ -3005,10 +3005,9 @@ export default function ScheduleTable({
         />
       )}
 
-      {/* 서식 막대: 고른 것(칸 · 범위 · 행 · 열 · 구분 · 편집 중인 머리글) 바로 위에 뜬다 */}
+      {/* 서식 막대: 고른 것(칸 · 범위 · 행 · 열 · 구분 · 편집 중인 머리글) 바로 위에 뜬다. 입력하기를 켜지 않아도(더블클릭 편집 · 우클릭 서식과 같게) */}
       {onFmt &&
         !readOnly &&
-        editing &&
         (fmtTargets.length > 0 || !!headEdit) &&
         createPortal(
           <div ref={barRef} data-keep-sel className="fixed z-40" style={barPos ? { left: barPos.x, top: barPos.y } : { left: -9999, top: -9999 }}>
