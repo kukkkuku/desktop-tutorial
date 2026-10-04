@@ -813,6 +813,7 @@ export default function ScheduleTable({
   onWeekCells,
   onField,
   onFields,
+  onActiveRow,
   onDeleteRows,
   editNameKey,
   onDeleteRow,
@@ -872,6 +873,7 @@ export default function ScheduleTable({
   onWeekCells?: (list: { row: ProgressRow; key: string; cell: CellState }[]) => void // 주 칸 여러 개(붙여넣기 · 지우기 · 채우기)
   onField: (row: ProgressRow, id: string, value: string) => void
   onFields?: (list: { row: ProgressRow; id: string; value: string }[]) => void // 여러 칸 한 번에(범위 지우기 등)
+  onActiveRow?: (key: string | null) => void // 지금 고른 과제 행(칸 · 행 · 구분) -- 시트 링크를 그 행으로
   editNameKey?: string | null // 이 행의 L3 이름을 바로 입력 상태로(새 과제 추가 직후)
   onDeleteRows?: (rows: ProgressRow[]) => void // 여러 과제 한 번에 지우기
   onDeleteRow?: (row: ProgressRow) => void // 과제 지우기(새 과제는 바로 빼고, 시트 과제는 저장할 때 줄을 지움)
@@ -1397,6 +1399,12 @@ export default function ScheduleTable({
   const [l2Edit, setL2Edit] = useState<{ key: string; text: string } | null>(null)
   // 구분(L2) 칸: 누르면 칸 선택, 더블클릭 · Enter · F2로 이름 고치기
   const [l2Sel, setL2Sel] = useState<string | null>(null)
+  // 고른 과제 행을 알린다(칸 > 행 > 구분의 첫 과제)
+  const activeKey = sel?.row ?? rowSel ?? l2Sel
+  useEffect(() => {
+    onActiveRow?.(activeKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey])
   useEffect(() => {
     if (!l2Sel) return
     const out = (e: MouseEvent) =>

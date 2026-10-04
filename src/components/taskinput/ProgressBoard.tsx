@@ -1656,6 +1656,26 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
   const sheetName = sheetFileTitle ?? (protectedLink ? '운영 팀 시트' : sheetLink === TASK_INPUT_SHEET_URL ? '테스트 시트(운영 시트의 사본)' : '연결된 시트')
   const sheetOpenUrl = withGoogleAccount(data?.spreadsheetId && !data.local ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : sheetLink)
+  // 시트 링크를 그 행으로: 고른 과제가 있으면 그 행, 없으면 지금 그룹(L1)의 첫 행(불러온 때의 행 번호 기준)
+  const activeRowRef = useRef<string | null>(null)
+  const pickedRowRef = useRef<string | null>(null)
+  function sheetRowUrl(key: string | null): string {
+    if (!data?.spreadsheetId || data.local || data.sheetGid == null) return sheetOpenUrl
+    const hit = key ? data.rows.find((r) => r.key === key) : null
+    const inGroup = data.rows.filter((r) => r.l1 === l1).map((r) => r.row)
+    const n = hit ? hit.row : inGroup.length ? Math.min(...inGroup) : null
+    return n == null ? sheetOpenUrl : withGoogleAccount(`${sheetUrl(data.spreadsheetId, data.sheetGid)}&range=A${n + 1}`)
+  }
+  // 링크를 누르는 순간 표의 선택이 풀리므로 누르기 시작할 때의 선택을 잡아 둔다
+  const sheetLinkProps = {
+    onMouseDown: () => {
+      pickedRowRef.current = activeRowRef.current
+    },
+    onClick: (e: React.MouseEvent) => {
+      e.preventDefault()
+      window.open(sheetRowUrl(pickedRowRef.current), '_blank', 'noopener')
+    },
+  }
   // 연도 메뉴 = 무엇을 보나(연도 고르기 · 새 연도). 아래에는 숨긴 연도 되돌리기만.
   const yearMenuFooter =
     hiddenCount > 0 ? (
@@ -2114,8 +2134,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               href={sheetOpenUrl}
               target="_blank"
               rel="noreferrer"
+              {...sheetLinkProps}
               className="min-w-0 shrink truncate font-medium text-label hover:underline"
-              title={`${sheetName} › ${data.tabTitle} · 구글시트에서 열기 · ${fmt(data.fetchedAt)} 불러옴`}
+              title={`${sheetName} › ${data.tabTitle} · 구글시트에서 열기(고른 과제 행 · 없으면 지금 그룹의 첫 행으로) · ${fmt(data.fetchedAt)} 불러옴`}
             >
               {sheetName} › {data.tabTitle}
             </a>
@@ -2845,6 +2866,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onWeekCells={readOnly ? undefined : setWeekCells}
               onField={setField}
               onFields={setFields}
+              onActiveRow={(k) => {
+                activeRowRef.current = k
+              }}
               editNameKey={openKey}
               onDeleteRow={(row) => deleteRows([row])}
               onDeleteRows={deleteRows}
