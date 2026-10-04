@@ -449,6 +449,24 @@ export function writeActiveTab(title: string | null) {
   }
 }
 
+// 구글시트 업데이트 전에 묻기(기본 묻기). 끄면 입력 끝내기 · 저장 버튼에서 바로 업데이트한다(과제를 지울 때는 늘 묻는다).
+const askSaveKey = () => `progress-board:ask-save:${accountScope()}`
+export function readAskBeforeSave(): boolean {
+  try {
+    return localStorage.getItem(askSaveKey()) !== '0'
+  } catch {
+    return true
+  }
+}
+export function writeAskBeforeSave(ask: boolean) {
+  try {
+    if (ask) localStorage.removeItem(askSaveKey())
+    else localStorage.setItem(askSaveKey(), '0')
+  } catch {
+    // 기억 못 하면 다음에도 묻는다
+  }
+}
+
 export function readLinkedSheet(): string | null {
   try {
     return localStorage.getItem(sheetKey())

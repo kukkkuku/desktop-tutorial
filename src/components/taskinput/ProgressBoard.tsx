@@ -114,6 +114,8 @@ import {
   setNoteEdit,
   setFmtEdit,
   readActiveTab,
+  readAskBeforeSave,
+  writeAskBeforeSave,
   writeActiveTab,
   loadShelf,
   clearProgressData,
@@ -945,6 +947,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     return () => window.removeEventListener(ACCESS_EVENT, on)
   }, [])
   const [linkOpen, setLinkOpen] = useState(false)
+  // 업데이트 전에 묻기(저장 창의 「다음부터 묻지 않기」 · 파일 메뉴에서 다시 켬)
+  const [askSave, setAskSave] = useState(readAskBeforeSave)
+  const [noAskNext, setNoAskNext] = useState(false)
+  const setAskSavePref = (v: boolean) => {
+    setAskSave(v)
+    writeAskBeforeSave(v)
+  }
 
   // 다른 시트를 연결하면 그 시트에서 다시 불러온다. 고친 칸은 이전 시트 기준이라 비운다.
   async function connectSheet(url: string) {
@@ -1657,6 +1666,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <Settings2 {...icSm} className="shrink-0" />
         {canManage ? '시트 연결 설정…' : '공유받은 시트 링크로 열기…'}
       </button>
+      <button onClick={() => setAskSavePref(!askSave)} className="mac-menu-item" title="끄면 입력 끝내기 · 저장 때 묻지 않고 바로 구글시트에 업데이트합니다(과제를 지울 때는 늘 묻습니다)">
+        <Check {...icSm} className={`shrink-0 ${askSave ? '' : 'opacity-0'}`} />
+        업데이트 전에 묻기
+      </button>
     </>
   )
   function openSheetSettings() {
@@ -1929,8 +1942,13 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const fromXlsx = !data.local && !data.spreadsheetId
   // 입력을 끝낼 때 저장 안 한 변경이 있으면 바로 구글시트 저장을 권한다(저장해야 다른 팀원이 본다)
   function finishEditing() {
-    if (editCount > 0 && !data!.local && canSave) setConfirmSave(true)
+    if (editCount > 0 && !data!.local && canSave) requestSave()
     setEditing(false)
+  }
+  // 업데이트 요청: 묻기를 껐으면 바로(과제를 지울 때는 늘 묻는다)
+  function requestSave() {
+    if (askSave || (drafts.deleted?.length ?? 0) > 0) setConfirmSave(true)
+    else void saveToSheet()
   }
   async function acceptRemote() {
     if (!remote) return
@@ -2060,7 +2078,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   </button>
                   {state === 'unsaved' ? (
                     <button
-                      onClick={() => setConfirmSave(true)}
+                      onClick={requestSave}
                       disabled={saving}
                       className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#C2410C] px-3 font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
                     >
@@ -2660,7 +2678,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   <Button
                     variant="primary"
                     size="sm"
-                    onClick={() => setConfirmSave(true)}
+                    onClick={requestSave}
                     disabled={!canSave || saving}
                     title={
                       canSave
@@ -3027,8 +3045,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           confirmLabel="지금 업데이트"
           cancelLabel="나중에"
           tone="accent"
-          onConfirm={saveToSheet}
-          onCancel={() => setConfirmSave(false)}
+          onConfirm={() => {
+            if (noAskNext) setAskSavePref(false)
+            setNoAskNext(false)
+            void saveToSheet()
+          }}
+          onCancel={() => {
+            setNoAskNext(false)
+            setConfirmSave(false)
+          }}
         >
           {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
           <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
@@ -3042,6 +3067,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
             )}
           </div>
+          {/* 다음부터 묻지 않기: 파일 메뉴 › 업데이트 전에 묻기로 다시 켠다. 업데이트 때마다 시트를 새로 읽어 남이 바꾼 칸은 덮지 않는다 */}
+          {(drafts.deleted?.length ?? 0) === 0 && (
+            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+              <input type="checkbox" checked={noAskNext} onChange={(e) => setNoAskNext(e.target.checked)} />
+              다음부터 묻지 않고 바로 업데이트
+              <span className="text-label-3">(파일 메뉴에서 다시 켬)</span>
+            </label>
+          )}
         </ConfirmDialog>
       </div>
     </div>
