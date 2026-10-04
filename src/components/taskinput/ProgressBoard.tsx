@@ -1348,8 +1348,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       }, d),
     )
   }
-  // 열 전체 서식 · 칸 색: 시트의 그 열 전체(모든 그룹 · 거른 행 · 새 과제 포함, 지울 과제는 빼고)
-  const allRowsOf = () => (data ? orderWithNewRows(data.rows, drafts.newRows, drafts.moves) : [])
+  // 열 전체 서식 · 칸 색: 지금 탭(그룹 L1)의 그 열 전체(필터로 거른 행 · 새 과제 포함, 지울 과제는 빼고). 다른 탭은 건드리지 않는다
+  const allRowsOf = () =>
+    data
+      ? orderWithNewRows(
+          data.rows.filter((r) => r.l1 === l1),
+          drafts.newRows.filter((n) => n.l1 === l1),
+          drafts.moves,
+        )
+      : []
   function setScopeFmt(ids: string[], patch: CellFmt | null) {
     setFmt(
       allRowsOf().flatMap((row) => ids.map((id) => ({ row, id }))),

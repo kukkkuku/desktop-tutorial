@@ -1814,18 +1814,20 @@ export default function ScheduleTable({
   // 서식을 바꿀 칸: 범위가 있으면 범위 전체, 없으면 고른 칸 하나(지운 줄은 빼고)
   const fmtTargets = (() => {
     // 구분(L2) 칸을 골랐으면 그 칸(서식 막대로 굵게 · 색 · 크기 · 정렬)
-    if (!sel && l2Sel) {
-      const v = rows.find((x) => x.row.key === l2Sel)
-      return v ? [{ v, id: L2_KEY }] : []
-    }
-    // 행 머리로 고른 행: 그 행의 모든 칸(L3 ~ 마지막 입력 열)
+    // 행 머리로 고른 행(구분 칸을 눌러 고른 구분 행 전체 포함): 그 행의 모든 칸(L3 ~ 마지막 입력 열) + 구분 칸
     if (!sel && rowRange) {
       const out: { v: ScheduleRowView; id: string }[] = []
+      const l2v = l2Sel ? rows.find((x) => x.row.key === l2Sel) : undefined
+      if (l2v) out.push({ v: l2v, id: L2_KEY })
       for (let ri = rowRange.r1; ri <= rowRange.r2; ri++) {
         const v = rows[ri]
         if (v && !v.deleted) for (const id of editIds) out.push({ v, id })
       }
       return out
+    }
+    if (!sel && l2Sel) {
+      const v = rows.find((x) => x.row.key === l2Sel)
+      return v ? [{ v, id: L2_KEY }] : []
     }
     if (!sel) return []
     const out: { v: ScheduleRowView; id: string }[] = []
@@ -1988,6 +1990,8 @@ export default function ScheduleTable({
   }
   // 행을 고른 상태: ↑/↓로 행 선택 옮기기, Alt+↑/↓로 행 옮기기, →/Enter로 그 행의 과제 칸 선택, Esc로 선택 해제
   function rowHeadKey(e: React.KeyboardEvent, v: ScheduleRowView) {
+    // 구분 칸을 눌러 고른 경우: Enter · F2 · Tab은 구분 칸 쪽(이름 고치기 · 첫 과제로)이 맡는다
+    if (l2Sel && (e.key === 'Enter' || e.key === 'F2' || e.key === 'Tab')) return
     const i = rows.findIndex((x) => x.row.key === v.row.key)
     const focusHead = (key: string) =>
       requestAnimationFrame(() => (document.querySelector(`[data-rowhead="${CSS.escape(key)}"]`) as HTMLElement | null)?.focus({ preventScroll: false }))
@@ -2414,7 +2418,9 @@ export default function ScheduleTable({
                     data-row={v.row.key}
                     style={{ ...(rowH ? { height: rowH } : {}) }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
-                      isRowSel(v.row.key) ? 'pb-row-sel' : ''
+                      isRowSel(v.row.key)
+                        ? `pb-row-sel ${rowRange && ri2 === rowRange.r1 ? 'pb-row-top' : ''} ${rowRange && ri2 === rowRange.r2 ? 'pb-row-bottom' : ''}`
+                        : ''
                     }`}
                   >
                     {/* 행 머리: 시트 행 번호(새 과제는 +). 누르면 행 전체 선택 · 끌면 같은 구분 안에서 옮기기 · 아래 경계로 높이 조절 */}
@@ -2503,9 +2509,14 @@ export default function ScheduleTable({
                           e.preventDefault()
                           setSel(null)
                           setSelEnd(null)
-                          setRowSel(null)
                           setWeekSel(null)
+                          // 구분 칸을 누르면 그 구분의 행 전체 선택(행 번호로 고른 것과 같게 -- 서식 · 복사 · 삭제 · 복제)
+                          setRowSel(g.rows[0].row.key)
+                          if (g.rows.length > 1) setRowSelEnd(g.rows[g.rows.length - 1].row.key)
                           setL2Sel(g.rows[0].row.key)
+                          // ⌘C · ⌘V · Delete가 행 단위로 되게 첫 행 번호칸에 초점
+                          const first = g.rows[0].row.key
+                          window.setTimeout(() => (document.querySelector(`[data-rowhead="${CSS.escape(first)}"]`) as HTMLElement | null)?.focus({ preventScroll: true }))
                           const canEdit = !!onRenameGroup && !readOnly && !g.rows.every((x) => x.deleted)
                           startL2Edit.current = canEdit ? () => setL2Edit({ key: g.rows[0].row.key, text: g.tag ? `${g.l2} [${g.tag}]` : g.l2 }) : null
                         }}
