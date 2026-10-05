@@ -43,9 +43,34 @@ function Pop({ anchor, onClose, children, width }: { anchor: DOMRect; onClose: (
 }
 
 // 성과등급: 칩 하나 + 누르면 S · A · B · C · D (다시 누르면 지움)
-export function GradeCell({ value, onPick, muted }: { value: PerformanceGrade | null; onPick: (v: PerformanceGrade | null) => void; muted?: boolean }) {
+// autoOpen: 방금 평가 대상으로 넣은 줄 -- 고르기 목록을 바로 연다(한 번 열면 onAutoOpened로 끈다)
+export function GradeCell({
+  value,
+  onPick,
+  muted,
+  autoOpen,
+  onAutoOpened,
+}: {
+  value: PerformanceGrade | null
+  onPick: (v: PerformanceGrade | null) => void
+  muted?: boolean
+  autoOpen?: boolean
+  onAutoOpened?: () => void
+}) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!autoOpen) return
+    // 표가 새 줄을 그린 뒤에 자리를 잰다
+    const id = requestAnimationFrame(() => {
+      if (btnRef.current) {
+        btnRef.current.scrollIntoView({ block: 'nearest' })
+        setAnchor(btnRef.current.getBoundingClientRect())
+      }
+      onAutoOpened?.()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [autoOpen, onAutoOpened])
   return (
     <>
       <button

@@ -81,6 +81,8 @@ interface DataGridProps<R extends { id: string }> {
   onRedo: () => void
   // 선택 범위에 걸친 행 id -- 부모가 "선택한 행으로 무엇을 하기" 버튼을 띄울 때 쓴다.
   onSelectionChange?: (rowIds: string[]) => void
+  // 밖에서 칸 하나를 고르게 한다(예: 평가 대상으로 넣은 줄의 성과등급 칸). token이 바뀔 때마다 한 번.
+  selectCell?: { rowId: string; colId: string; token: number } | null
   // 우클릭 메뉴 맨 위에 붙일 부모 전용 동작(선택 범위에 걸친 행 id를 받는다). 빈 배열이면 안 붙임.
   rowActions?: (rowIds: string[]) => RowAction[]
   // 데이터 행 사이에 끼우는 머리 행(묶음 제목 등). anchor = 이 머리 행 바로 뒤에 올 데이터 행
@@ -347,6 +349,18 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     selAtRowsRef.current = nextSel
     activeAtRowsRef.current = nextActive
   }, [rows, sel, active])
+
+  useEffect(() => {
+    const req = props.selectCell
+    if (!req) return
+    const r = rows.findIndex((x) => x.id === req.rowId)
+    const c = columns.findIndex((x) => x.id === req.colId)
+    if (r < 0 || c < 0) return
+    setEditing(false)
+    setActive({ r, c })
+    setSel({ t: 'cells', r1: r, c1: c, r2: r, c2: c })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.selectCell?.token])
 
   useEffect(() => {
     // 위에서 같은 행으로 옮겼으면(이 effect는 옮기기 전 값을 본다) 당기지 않는다

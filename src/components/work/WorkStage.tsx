@@ -2,7 +2,7 @@
 // 모든 편집은 utils/workBoard.ts의 순수 함수로 새 보드를 만들어
 // SET_WORK_BOARD로 넣고, 되돌리기는 보드 스냅샷 스택으로 한다.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, Importance, Task, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
@@ -50,8 +50,8 @@ import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import { CalendarRange, ChevronDown, ChevronsDownUp, ChevronsUpDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
-import { ic, icSm } from '../ui/icon'
+import { CalendarRange, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
+import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
 import IconButton from '../IconButton'
@@ -263,20 +263,42 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }, [state.tasks])
   const gradeUsed = state.criteria.performanceGradeWeight > 0
   const targetTaskCount = state.tasks.filter((t) => t.workItemIds?.length).length
+  // 평가 대상이 늘면 「평가 대상만 보기」를 잠깐 강조한다(넣은 과제를 모아 볼 수 있는 곳)
+  const [evalFlash, setEvalFlash] = useState(false)
+  const prevTargetCount = useRef(targetTaskCount)
+  useEffect(() => {
+    const grew = targetTaskCount > prevTargetCount.current
+    prevTargetCount.current = targetTaskCount
+    if (!grew) return
+    setEvalFlash(true)
+    const t = window.setTimeout(() => setEvalFlash(false), 1600)
+    return () => window.clearTimeout(t)
+  }, [targetTaskCount])
+  // 방금 평가 대상으로 넣은 과제: 그 줄(낱개면 성과등급 칸)을 고르고 성과등급 목록을 바로 연다
+  const [openGradeTask, setOpenGradeTask] = useState<string | null>(null)
+  const clearOpenGrade = useCallback(() => setOpenGradeTask(null), [])
+  const [selectReq, setSelectReq] = useState<{ rowId: string; colId: string; token: number } | null>(null)
   function updateTask(t: Task) {
     dispatch({ type: 'UPDATE_TASK', payload: t })
   }
   // 평가 칸: 평가 대상인 줄(묶음은 머리 행)만. 대상이 아니면 "—"
   function gradeCell(t: Task | undefined) {
     if (!t) return <span className="text-label-3">—</span>
-    return <GradeCell value={t.performanceGrade} muted={!gradeUsed} onPick={(v) => updateTask({ ...t, performanceGrade: v })} />
+    return (
+      <GradeCell
+        value={t.performanceGrade}
+        muted={!gradeUsed}
+        onPick={(v) => updateTask({ ...t, performanceGrade: v })}
+        autoOpen={openGradeTask === t.id}
+        onAutoOpened={clearOpenGrade}
+      />
+    )
   }
   function goalCell(t: Task | undefined) {
     if (!t) return <span className="text-label-3">—</span>
     return <GoalCell objective={t.objective} achievement={t.achievement} onSave={(objective, achievement) => updateTask({ ...t, objective, achievement })} />
   }
   // 과제등급(분류)이 안 정해진 단위를 평가 대상으로 켤 때 등급을 묻는다
-  const [askGrade, setAskGrade] = useState<{ units: { key: string; name: string; items: WorkItem[] }[]; grade: Importance | '' } | null>(null)
   // 입력한 내용이 있는 평가과제를 평가 대상에서 뺄 때 확인
   const [untarget, setUntarget] = useState<{ taskIds: string[]; names: string[] } | null>(null)
 
@@ -291,19 +313,23 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     return keys.map((k) => all.get(k)).filter((u): u is NonNullable<typeof u> => !!u)
   }
 
-  function createTargets(list: { key: string; name: string; items: WorkItem[] }[], pick?: Importance) {
-    // 등급을 고른 단위는 분류 칸에도 넣어 둔다(과제등급은 분류를 따른다)
-    if (pick) {
-      const updates = new Map<string, WorkItem>()
-      for (const u of list) if (!gradeOfUnit(u)) for (const i of u.items) updates.set(i.id, setCellText(i, COL_CATEGORY, pick, members))
-      const grades = { ...(board.evalGroupGrades ?? {}) }
-      for (const u of list) if (u.key.startsWith('g:') && !gradeOfUnit(u)) grades[u.name] = pick
-      if (updates.size) apply({ ...updateItems(board, updates), evalGroupGrades: grades })
-    }
+  // 분류가 섞였거나 빈 단위의 과제등급: 하위 분류 중 가장 높은 것(과제 > 일반 > 일상), 하나도 없으면 「일반」.
+  // 예전에는 체크할 때마다 「과제등급 고르기」 창을 띄웠다 -- 이제 바로 넣고, 바꾸려면 분류 칸에서 고친다(L3 분류는 건드리지 않음).
+  function fallbackGrade(items: WorkItem[]): Importance {
+    const cats = new Set(items.map((i) => i.category))
+    return IMPORTANCE_OPTIONS.find((g) => cats.has(g as WorkItem['category'])) ?? '일반'
+  }
+
+  function createTargets(list: { key: string; name: string; items: WorkItem[] }[]) {
+    const guessed = list.filter((u) => !gradeOfUnit(u))
+    // 분류가 빈 낱개 L3는 분류 칸이 곧 과제등급이라 그 칸에도 넣어 보이게 한다(묶음은 머리 줄 분류가 과제등급을 보여 준다)
+    const updates = new Map<string, WorkItem>()
+    for (const u of guessed) if (!u.key.startsWith('g:')) for (const i of u.items) if (!i.category) updates.set(i.id, setCellText(i, COL_CATEGORY, fallbackGrade(u.items), members))
+    if (updates.size) apply(updateItems(board, updates))
     const tasks = list.map((u) => ({
       id: uuidv4(),
       name: u.name,
-      importance: (gradeOfUnit(u) ?? pick)!,
+      importance: gradeOfUnit(u) ?? fallbackGrade(u.items),
       performanceGrade: null,
       workload: '중' as const,
       objective: '',
@@ -312,10 +338,21 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     }))
     const participants = Object.fromEntries(tasks.map((t, k) => [t.id, Array.from(new Set(list[k].items.flatMap((i) => i.assigneeIds)))]))
     dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
-    showToast(
+    if (tasks.length === 1) {
+      setOpenGradeTask(tasks[0].id)
+      if (!list[0].key.startsWith('g:')) setSelectReq({ rowId: list[0].items[0].id, colId: V_GRADE, token: Date.now() })
+    }
+    const head =
       tasks.length === 1
-        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다. 이 줄에서 성과등급 · 목표 · 성과를 넣으세요.`
-        : `평가과제 ${tasks.length}개를 평가 대상으로 넣었습니다.`,
+        ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다.`
+        : `평가과제 ${tasks.length}개를 평가 대상으로 넣었습니다.`
+    const guessedGrades = Array.from(new Set(guessed.map((u) => fallbackGrade(u.items))))
+    showToast(
+      guessed.length > 0
+        ? `${head} 분류가 섞였거나 빈 ${guessed.length}개는 「${guessedGrades.join(' · ')}」(으)로 넣었습니다 -- 분류 칸에서 바꿀 수 있습니다.`
+        : tasks.length === 1
+          ? `${head} 이 줄에서 성과등급 · 목표 · 성과를 넣으세요.`
+          : head,
     )
   }
 
@@ -329,8 +366,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     if (on) {
       const fresh = units.filter((u) => !u.items.some((i) => targetIds.has(i.id)))
       if (!fresh.length) return
-      if (fresh.some((u) => !gradeOfUnit(u))) setAskGrade({ units: fresh, grade: '' })
-      else createTargets(fresh)
+      createTargets(fresh)
       return
     }
     const ids = new Set(units.flatMap((u) => u.items.map((i) => i.id)))
@@ -1145,23 +1181,26 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
             />
             <label
-              className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[length:calc(14px*var(--ui-fs,1))] ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : 'border-hairline text-label-2 hover:text-label'}`}
+              className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[length:calc(14px*var(--ui-fs,1))] transition-shadow duration-300 ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : targetTaskCount > 0 ? 'border-accent/40 text-label hover:bg-accent-soft' : 'border-hairline text-label-2 hover:text-label'} ${evalFlash ? 'shadow-[0_0_0_4px_rgba(37,99,235,0.25)]' : ''}`}
               title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
             >
               <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-              평가 대상만 보기{evalOnly ? ` · ${targetTaskCount}개` : ''}
+              평가 대상만 보기
+              {targetTaskCount > 0 && (
+                <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
+              )}
             </label>
-            {/* 묶음 일괄 접기 · 펴기(지금 보이는 묶음 전부) */}
-            {bundleNames.length > 0 && (
-              <span className="flex items-center">
-                <IconButton onClick={() => setCollapsed(new Set(bundleNames))} title="묶음 모두 접기" aria-label="묶음 모두 접기">
-                  <ChevronsDownUp {...ic} />
-                </IconButton>
-                <IconButton onClick={() => setCollapsed(new Set())} title="묶음 모두 펴기" aria-label="묶음 모두 펴기">
-                  <ChevronsUpDown {...ic} />
-                </IconButton>
-              </span>
-            )}
+            {/* 묶음 일괄 접기 · 펴기 토글(지금 보이는 묶음 전부): 펼친 게 있으면 모두 접기, 다 접혀 있으면 모두 펴기 */}
+            {bundleNames.length > 0 &&
+              (() => {
+                const allFolded = bundleNames.every((n) => collapsed.has(n))
+                const label = allFolded ? '묶음 모두 펴기' : '묶음 모두 접기'
+                return (
+                  <IconButton onClick={() => setCollapsed(allFolded ? new Set() : new Set(bundleNames))} title={label} aria-label={label}>
+                    {allFolded ? <ListChevronsUpDown {...ic} /> : <ListChevronsDownUp {...ic} />}
+                  </IconButton>
+                )
+              })()}
             {filtered && !evalOnly && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
             {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
             <div className="ml-auto flex items-center gap-1">
@@ -1216,6 +1255,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           </div>
 
           <DataGrid
+            selectCell={selectReq}
             rowActions={(ids) => {
               const free = board.items.filter((i) => ids.includes(i.id))
               const merging = new Set(free.filter((i) => targetIds.has(i.id)).map(unitKeyOf)).size
@@ -1348,41 +1388,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           )}
         </div>
       )}
-
-      <ConfirmDialog
-        open={askGrade !== null}
-        title="과제등급 고르기"
-        tone="accent"
-        confirmLabel="평가 대상으로 넣기"
-        message={
-          askGrade
-            ? `${askGrade.units
-                .map((u) => `「${u.name}」`)
-                .slice(0, 3)
-                .join(
-                  ', ',
-                )}${askGrade.units.length > 3 ? ` 외 ${askGrade.units.length - 3}개` : ''}의 분류가 비었거나 섞여 있습니다.\n과제등급을 고르면 분류 칸에도 같은 값이 들어갑니다.`
-            : ''
-        }
-        onConfirm={() => {
-          if (!askGrade?.grade) return
-          createTargets(askGrade.units, askGrade.grade)
-          setAskGrade(null)
-        }}
-        onCancel={() => setAskGrade(null)}
-      >
-        <div className="mt-3 flex flex-wrap gap-2">
-          {IMPORTANCE_OPTIONS.map((g) => (
-            <button
-              key={g}
-              onClick={() => setAskGrade((cur) => (cur ? { ...cur, grade: g } : cur))}
-              className={`rounded-full border px-3 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${askGrade?.grade === g ? 'border-accent bg-accent text-white' : 'border-hairline text-label hover:bg-black/[0.04]'}`}
-            >
-              {g}
-            </button>
-          ))}
-        </div>
-      </ConfirmDialog>
 
       <ConfirmDialog
         open={untarget !== null}
