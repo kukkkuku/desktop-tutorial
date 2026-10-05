@@ -243,7 +243,7 @@ export default function TeamManagement() {
     // 팀원 명단 · 초대: 이름 바로 뒤(Gmail 아이디만 보이고, 오른쪽 끝에 초대 상태 -- 초대 전 / ✓ ○.○)
     { id: 'email', label: 'Gmail', type: 'text', width: 132, system: true },
     { id: 'hireDate', label: '입사일', type: 'date', width: 100, system: true },
-    { id: 'service', label: '근속', type: 'text', width: 88, system: true },
+    { id: 'service', label: '근속', type: 'text', width: 100, system: true },
     { id: 'level', label: '직급', type: 'select', width: 66, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
     { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 100, system: true },
     { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true },
@@ -597,9 +597,10 @@ export default function TeamManagement() {
     if (col.id === 'service' || col.id === 'levelTenure') {
       const manual = col.id === 'service' ? !!m.serviceManual : m.levelYearsManual != null
       return (
-        <span className={`tabular-nums ${manual ? 'text-label' : 'text-label-2'}`} title={manual ? '직접 입력한 값 -- 지우면 다시 자동 계산' : '입사일 · 발령일로 자동 계산 -- 눌러서 직접 고칠 수 있음'}>
+        <span className={`whitespace-nowrap tabular-nums ${manual ? 'text-label' : 'text-label-2'}`} title={manual ? '직접 입력한 값 -- 지우면 다시 자동 계산' : '입사일 · 발령일로 자동 계산 -- 눌러서 직접 고칠 수 있음'}>
           {textOf(m, col.id)}
-          {manual && <span className="ml-1 align-super text-[length:calc(10px*var(--ui-fs,1))] text-accent">직접</span>}
+          {/* 직접 적은 값 = 작은 파란 점 */}
+          {manual && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-accent align-middle" />}
         </span>
       )
     }
