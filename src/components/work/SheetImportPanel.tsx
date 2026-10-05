@@ -733,12 +733,8 @@ export default function SheetImportPanel({
             {result.missing > 0 && ` · 시트에 없어진 행 ${result.missing}건 표시`}
             {result.skippedDeleted > 0 && ` · 앱에서 지운 행 ${result.skippedDeleted}건 건너뜀`}
           </p>
-          <div className="mt-3 flex gap-2">
-            {onDone && (
-              <Button variant="primary" onClick={onDone}>
-                과제관리에서 보기
-              </Button>
-            )}
+          {/* 앞 단계 「뒤로 · 가져오기」와 같은 오른쪽 자리 -- 누른 자리에서 바로 다음 버튼을 누르게 */}
+          <div className="mt-1 flex justify-end gap-2">
             <Button
               variant="secondary"
               onClick={() => {
@@ -748,6 +744,11 @@ export default function SheetImportPanel({
             >
               다시 고르기
             </Button>
+            {onDone && (
+              <Button variant="primary" onClick={onDone}>
+                과제관리에서 보기
+              </Button>
+            )}
           </div>
         </div>
       )}

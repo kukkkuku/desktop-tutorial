@@ -61,16 +61,23 @@ export default function TaskImportDialog({
     }
   }, [compact])
   const t = TITLE[source]
+  // 고르는 중의 넓은 창 크기. 가져오기를 마친 뒤에도 폭 · 위쪽 위치는 이대로 두고 아래만 줄인다 --
+  // 창이 가운데로 다시 모이면 「가져오기」를 누른 자리에서 「과제관리에서 보기」가 멀어진다.
+  const wideW = `min(${Math.max(1180, tabsWidth + 74)}px, calc(100vw - 2rem))`
+  const wideTop = Math.max(16, (window.innerHeight - Math.min(900, window.innerHeight * 0.92)) / 2)
+  const keepPlace = done && loaded
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
+    <div className={`fixed inset-0 z-50 flex justify-center bg-black/25 p-4 ${keepPlace ? 'items-start' : 'items-center'}`}>
       <div
         className="flex max-w-full flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
         style={
-          compact && fitH
-            ? { width: 'min(900px, calc(100vw - 2rem))', height: `min(${fitH}px, 86vh)` }
-            : loaded
-              ? { width: `min(${Math.max(1180, tabsWidth + 74)}px, calc(100vw - 2rem))`, height: 'min(900px, 92vh)' }
-              : { width: 'min(900px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
+          keepPlace && fitH
+            ? { width: wideW, height: `min(${fitH}px, 86vh)`, marginTop: wideTop - 16 }
+            : compact && fitH
+              ? { width: 'min(900px, calc(100vw - 2rem))', height: `min(${fitH}px, 86vh)` }
+              : loaded
+                ? { width: wideW, height: 'min(900px, 92vh)' }
+                : { width: 'min(900px, calc(100vw - 2rem))', height: 'min(760px, 86vh)' }
         }
       >
         {/* 제목 · 설명은 가져오기 화면(SheetImportPanel)이 그린다 -- 여기는 닫기만 */}
