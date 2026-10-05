@@ -2,7 +2,7 @@
 //   팀장은 자기가 추가한 사람만 보고 관리하고, 관리자는 모두(누가 추가했는지 함께) 본다.
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { ChevronDown, FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
@@ -16,6 +16,9 @@ import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
 import type { TeamMember } from '../../types'
 import { renameEvalTeam } from '../../utils/teamRename'
 import TeamInviteDialog from '../TeamInviteDialog'
+import Segmented from '../ui/Segmented'
+import Select from '../ui/Select'
+import AccessSheetStrip from './AccessSheetStrip'
 import { loadProgress } from '../../utils/progressBoard'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
@@ -120,8 +123,12 @@ export default function MembersPanel({
     [roleRows, scope],
   )
   const teamOn = teamPick && teamList.includes(teamPick) ? teamPick : ''
+  // 「시트 공유 대기」만 보기(초대했는데 실적관리 시트 권한을 아직 표시 안 한 사람)
+  const [waitOnly, setWaitOnly] = useState(false)
+  const isWaiting = (u: AccessUser) => !isPendingEmail(u.email) && u.email !== me && !u.sheetShare && !!u.invitedAt
   const shown = roleRows
     .filter((u) => !teamOn || (u.team.trim() || NO_TEAM) === teamOn)
+    .filter((u) => !waitOnly || isWaiting(u))
     .filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
   const picked = shown.filter((u) => sel.has(u.email))
@@ -331,32 +338,41 @@ export default function MembersPanel({
       // 기억 못 해도 지금은 반영
     }
   }
-  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin && !leaderView ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
+  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin && !leaderView && scope !== 'all' ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
   const cell = (u: AccessUser, k: ColKey) => {
     // 팀장: 보이는 우리 팀 팀원은 이름 · 팀(옮기기) · Gmail을 고칠 수 있다
     const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
     switch (k) {
       case 'name':
-        return mine ? <CellInput value={u.name} placeholder="이름" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${logWho(u)} → ${v}`)} /> : u.name || '-'
+        // 누가 추가했는지는 이름에 마우스를 올리면(따로 열을 두지 않음)
+        return (
+          <span title={u.addedBy ? `추가: ${nameOf(u.addedBy)}` : undefined} className="block">
+            {mine ? <CellInput value={u.name} placeholder="—" disabled={busy} onSave={(v) => saveField(u, { name: v }, `이름: ${logWho(u)} → ${v}`)} /> : u.name || '—'}
+          </span>
+        )
       case 'email':
         // Gmail을 아직 모르는 사람: 여기에 넣는다(아이디만 적으면 @gmail.com)
         if (isPendingEmail(u.email))
-          return mine ? <CellInput value="" placeholder="Gmail 아이디" disabled={busy} onSave={(v) => saveEmail(u, v)} /> : <span className="text-label-3">Gmail 없음</span>
+          return mine ? <CellInput value="" placeholder="Gmail 넣기" disabled={busy} onSave={(v) => saveEmail(u, v)} /> : <span className="text-label-3">Gmail 없음</span>
         // 아이디만(@gmail.com은 머리글 「계정(Gmail)」이 말해 준다). 다른 주소면 그대로
         return <span className="block truncate text-label" title={u.email}>{u.email.replace(/@gmail\.com$/i, '')}</span>
       case 'sendTo':
         return <SendToInput u={u} disabled={busy || !mine} onSave={(v) => saveSendTo(u, v)} />
       case 'team':
-        return mine ? <CellInput value={u.team} placeholder="팀" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} /> : u.team || '-'
+        return mine ? <CellInput value={u.team} placeholder="—" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} /> : u.team || '—'
       case 'role':
         // 역할은 관리자만 바꾼다(자기 자신은 못 바꿈 -- 관리자가 없어지지 않게)
         return isAdmin && u.email !== me ? (
+          <span className="relative block">
+          <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-label-3 opacity-0 group-hover/row:opacity-100" />
           <select
             value={u.role}
             disabled={busy}
             onChange={(e) => saveField(u, { role: e.target.value as AccessRole }, `역할: ${logWho(u)} ${ROLE_WORD[u.role]} → ${ROLE_WORD[e.target.value as AccessRole]}`)}
-            className={`h-8 w-full rounded-control border bg-white px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent ${
-              u.role === 'admin' ? 'border-accent/50 text-accent' : u.role === 'leader' ? 'border-hairline font-semibold text-label' : 'border-hairline text-label-2'
+            // 평소엔 글자만, 줄에 마우스를 올리면 고르기 상자(줄마다 테두리 상자가 늘어서지 않게)
+            style={{ backgroundImage: 'none' }}
+            className={`-mx-1.5 h-8 w-[calc(100%+12px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${
+              u.role === 'admin' ? 'font-semibold text-accent' : u.role === 'leader' ? 'font-semibold text-label' : 'text-label'
             }`}
           >
             {ROLES.map((r) => (
@@ -365,8 +381,9 @@ export default function MembersPanel({
               </option>
             ))}
           </select>
+          </span>
         ) : (
-          ROLE_WORD[u.role]
+          <span className={u.role === 'admin' ? 'font-semibold text-accent' : u.role === 'leader' ? 'font-semibold text-label' : 'text-label'}>{ROLE_WORD[u.role]}</span>
         )
       case 'addedBy':
         return (
@@ -376,23 +393,28 @@ export default function MembersPanel({
         )
       case 'share': {
         // 실적관리 시트 권한(관리자가 공유하고 표시). 초대했는데 아직 공유 안 했으면 주황 「공유 대기」
-        if (isPendingEmail(u.email)) return <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+        if (isPendingEmail(u.email)) return <span className="text-label-3">—</span>
         const v = u.sheetShare ?? ''
         const wait = !v && !!u.invitedAt
+        const tone = v === '편집자' ? 'text-success' : v === '뷰어' ? 'text-accent' : wait ? 'text-orange-600' : 'text-label-3'
+        const dot = v === '편집자' ? 'bg-success' : v === '뷰어' ? 'bg-accent' : wait ? 'bg-orange-500' : 'bg-black/[0.15]'
         return (
+          <span className="relative flex items-center">
+          <span className={`pointer-events-none absolute left-0 h-1.5 w-1.5 rounded-full ${dot}`} />
+          <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-label-3 opacity-0 group-hover/row:opacity-100" />
           <select
             value={v}
             disabled={busy}
             onChange={(e) => saveField(u, { sheetShare: e.target.value as SheetShare }, `시트 권한: ${logWho(u)} → ${e.target.value || '공유 전'}`)}
             title="실적관리 시트를 공유한 뒤 표시합니다(구글에서 직접 읽지는 않음)"
-            className={`h-8 w-full rounded-control border bg-white px-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] outline-none focus:border-accent ${
-              v === '편집자' ? 'border-success/40 text-success' : v === '뷰어' ? 'border-accent/40 text-accent' : wait ? 'border-orange-300 text-orange-600' : 'border-hairline text-label-3'
-            }`}
+            style={{ backgroundImage: 'none' }}
+            className={`-mr-1.5 h-8 w-[calc(100%+6px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent pl-3 pr-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${tone} ${wait ? 'font-medium' : ''}`}
           >
             <option value="">{wait ? '공유 대기' : '공유 전'}</option>
             <option value="편집자">편집자</option>
             <option value="뷰어">뷰어</option>
           </select>
+          </span>
         )
       }
       case 'invited':
@@ -404,19 +426,18 @@ export default function MembersPanel({
               disabled={busy || !mine || u.email === me}
               onClick={() => setInviteFor([u])}
               title="초대 메일을 보낸 시각 · 누르면 다시 보내기"
-              className="text-[length:calc(13px*var(--ui-fs,1))] tabular-nums text-label-2 hover:text-accent disabled:hover:text-label-2"
+              className="tabular-nums text-label-2 hover:text-accent disabled:hover:text-label-2"
             >
               {u.invitedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, '$1.$2')}
             </button>
           )
-        if (isPendingEmail(u.email) || u.email === me) return <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+        if (isPendingEmail(u.email) || u.email === me) return <span className="text-label-3">—</span>
         return mine ? (
-          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setInviteFor([u])} className="!h-7 !px-2.5">
-            <Send {...icSm} />
+          <button type="button" disabled={busy} onClick={() => setInviteFor([u])} className="font-medium text-accent hover:underline disabled:opacity-50">
             초대하기
-          </Button>
+          </button>
         ) : (
-          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+          <span className="text-label-3">—</span>
         )
     }
   }
@@ -447,6 +468,25 @@ export default function MembersPanel({
     )
     setSel(new Set())
   }
+
+  // 권한 설정: 관리자 → 팀마다(팀장 먼저) → 팀 없음 묶음. 다른 화면은 묶지 않는다
+  const grouped: { key: string; title: string; sub?: string; rows: AccessUser[] }[] = (() => {
+    if (scope !== 'all') return [{ key: 'all', title: '', rows: shown }]
+    const byName = (a: AccessUser, b: AccessUser) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || (a.name || a.email).localeCompare(b.name || b.email, 'ko')
+    const admins = shown.filter((u) => u.role === 'admin').sort(byName)
+    const rest = shown.filter((u) => u.role !== 'admin')
+    const teams = Array.from(new Set(rest.map((u) => u.team.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'))
+    const out: { key: string; title: string; sub?: string; rows: AccessUser[] }[] = []
+    if (admins.length) out.push({ key: 'admin', title: '관리자', rows: admins })
+    for (const t of teams) {
+      const r = rest.filter((u) => u.team.trim() === t).sort(byName)
+      const leads = r.filter((u) => u.role === 'leader').map(label)
+      out.push({ key: `t:${t}`, title: t, sub: leads.length ? `팀장 ${leads.join(', ')}` : '팀장 없음', rows: r })
+    }
+    const none = rest.filter((u) => !u.team.trim()).sort(byName)
+    if (none.length) out.push({ key: 'none', title: '팀 없음', sub: '팀을 정해 주세요', rows: none })
+    return out
+  })()
 
   const table =
     rows.length === 0 ? (
@@ -501,8 +541,19 @@ export default function MembersPanel({
               </tr>
             </thead>
             <tbody>
-              {shown.map((u) => (
-                <tr key={u.email} className={`border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : ''}`}>
+              {grouped.map((g) => (
+                <Fragment key={g.key}>
+                  {g.title && (
+                    <tr className="border-t border-separator bg-[#FAFAFB]">
+                      <td />
+                      <td colSpan={cols.length} className="px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                        <b className="mr-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.title}</b>
+                        {g.rows.length}명{g.sub && <span className="text-label-3"> · {g.sub}</span>}
+                      </td>
+                    </tr>
+                  )}
+              {g.rows.map((u) => (
+                <tr key={u.email} className={`group/row border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : 'hover:bg-black/[0.015]'}`}>
                   <td className="px-3 py-2">
                     <input
                       type="checkbox"
@@ -522,6 +573,8 @@ export default function MembersPanel({
                     </td>
                   ))}
                 </tr>
+              ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -557,7 +610,7 @@ export default function MembersPanel({
     <div className="space-y-4">
       <p className="max-w-4xl text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
         {scope === 'all'
-          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다. 위에서 역할 · 팀으로 골라 볼 수 있고, 바꾸면 바로 저장됩니다. 팀장을 새로 정하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요.'
+          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다. 바꾸면 바로 아래 권한 시트에 저장됩니다. 팀장을 새로 정하면 오른쪽 위 「편집자 공유」로 그 팀장에게 권한 시트를 공유해 주세요.'
           : scope === 'leaders'
           ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
           : isAdmin
@@ -630,37 +683,69 @@ export default function MembersPanel({
         )
       })()}
 
-      {/* 관리자: 팀장이 초대했는데 아직 실적관리 시트를 공유하지 않은 사람 */}
-      {waiting.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-card border border-orange-200 bg-orange-50 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-          <span>
-            <b className="font-semibold text-orange-700">시트 공유 대기 {waiting.length}명</b>
-            <span className="ml-2 text-label-2">{waiting.slice(0, 6).map(label).join(', ')}{waiting.length > 6 ? ` 외 ${waiting.length - 6}명` : ''} -- 초대 메일을 받았지만 실적관리 시트 권한이 아직 없습니다.</span>
-          </span>
-          <Button variant="primary" size="sm" className="ml-auto" onClick={() => setSel(new Set(waiting.map((u) => u.email)))}>
-            대기 {waiting.length}명 고르기
-          </Button>
-        </div>
-      )}
-      {/* 도구 줄 */}
+      {/* 권한 시트(예전 「권한 시트」 탭): 명단이 저장되는 곳 · 열기 · 관리자 · 팀장 편집자 공유 */}
+      {scope === 'all' && isAdmin && <AccessSheetStrip data={data} me={me} />}
+
+      {/* 도구 줄 한 줄: 추가 · 역할 · 팀 · 공유 대기 · 찾기 (일괄 버튼은 사람을 고르면 아래 검정 줄에) */}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
           <Plus {...icSm} />
           {scope === 'all' ? (rolePick === 'admin' ? '관리자 추가' : rolePick === 'leader' ? '팀장 추가' : rolePick === 'member' ? '팀원 추가' : '사람 추가') : scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
-        <Button variant="secondary" onClick={() => setInviteFor(targets)} disabled={!targets.some((u) => !isPendingEmail(u.email)) || busy}>
-          <Send {...icSm} />
-          초대 메일 보내기{targets.length ? ` (${targets.length})` : ''}
-        </Button>
-        <Button variant="secondary" onClick={() => setRemoveAsk(picked.filter(canRemove))} disabled={!picked.some(canRemove) || busy}>
-          <Trash2 {...icSm} />
-          목록에서 빼기
-        </Button>
-        {isAdmin && scope && (
-          <Button variant="secondary" onClick={() => void openShare()} disabled={!shareTargets.length || busy} title="고른 사람의 Gmail을 복사하고 실적관리 시트를 열어 공유합니다">
-            <FileSpreadsheet {...icSm} />
-            시트 공유{shareTargets.length ? ` (${shareTargets.length})` : ''}
-          </Button>
+        {scope === 'all' && (
+          <Segmented
+            items={(['', 'admin', 'leader', 'member'] as const).map((r) => ({
+              key: r,
+              label: (
+                <span className="flex items-center gap-1">
+                  {r ? ROLE_WORD[r] : '전체'}
+                  <span className="tabular-nums text-label-3">{r ? rows.filter((u) => u.role === r).length : rows.length}</span>
+                </span>
+              ),
+            }))}
+            value={rolePick}
+            onChange={(k) => {
+              setRolePick(k)
+              setTeamPick('')
+              setSel(new Set())
+            }}
+          />
+        )}
+        {teamList.length > 1 && (
+          <Select
+            aria-label="팀"
+            value={teamOn}
+            onChange={(e) => {
+              setTeamPick(e.target.value)
+              setSel(new Set())
+            }}
+            className="h-8 px-2.5 text-[13.5px]"
+          >
+            <option value="">팀: 전체</option>
+            {teamList.map((t) => (
+              <option key={t} value={t}>
+                {t === NO_TEAM ? '팀 없음' : t} ({roleRows.filter((u) => (u.team.trim() || NO_TEAM) === t).length})
+              </option>
+            ))}
+          </Select>
+        )}
+        {waiting.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setWaitOnly(!waitOnly)
+              setSel(new Set())
+            }}
+            aria-pressed={waitOnly}
+            title="초대 메일을 받았지만 실적관리 시트 권한을 아직 표시하지 않은 사람"
+            className={`flex h-8 items-center gap-2 rounded-control border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] ${
+              waitOnly ? 'border-orange-500 bg-orange-500 font-semibold text-white' : 'border-orange-200 bg-orange-50 font-semibold text-orange-700 hover:bg-orange-100'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${waitOnly ? 'bg-white' : 'bg-orange-500'}`} />
+            시트 공유 대기 {waiting.length}명
+            <span className={`border-l pl-2 font-normal ${waitOnly ? 'border-white/40' : 'border-orange-200'}`}>{waitOnly ? '모두 보기' : '대기만 보기'}</span>
+          </button>
         )}
         {busy && <Spinner className="h-4 w-4" />}
         <span className="relative ml-auto flex items-center gap-2">
@@ -669,7 +754,7 @@ export default function MembersPanel({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
             placeholder="이름 · Gmail · 팀 찾기"
-            className="h-9 w-56 rounded-control border border-hairline px-3 pr-8 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
+            className="h-8 w-56 rounded-control border border-hairline px-3 pr-8 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
           />
           {query && (
             <button
@@ -821,43 +906,33 @@ export default function MembersPanel({
       {note && <p className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
-      {/* 권한 설정: 역할 · 팀으로 골라 보기(칩 -- 고른 것은 검정) */}
-      {(scope === 'all' || teamList.length > 1) && (
-        <div className="space-y-1.5">
-          {scope === 'all' && (
-            <FilterChips
-              label="역할"
-              items={(['', 'admin', 'leader', 'member'] as const).map((r) => ({
-                key: r,
-                text: r ? ROLE_WORD[r] : '전체',
-                count: r ? rows.filter((u) => u.role === r).length : rows.length,
-              }))}
-              value={rolePick}
-              onPick={(k) => {
-                setRolePick(k as AccessRole | '')
-                setTeamPick('')
-                setSel(new Set())
-              }}
-            />
+      {table}
+
+      {/* 사람을 고르면 아래에 뜨는 일괄 작업 줄(마지막 줄을 가리지 않게 표 아래 여백) */}
+      {picked.length > 0 && <div className="h-10" />}
+      {picked.length > 0 && (
+        <div className="sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-1.5 rounded-[12px] bg-ink py-2 pl-4 pr-2 text-[length:calc(14px*var(--ui-fs,1))] text-white shadow-dialog">
+          <b className="mr-2 font-semibold">{picked.length}명 선택</b>
+          <button type="button" onClick={() => setInviteFor(targets)} disabled={!targets.length || busy} className="flex h-8 items-center gap-1.5 rounded-control bg-white/10 px-3 hover:bg-white/20 disabled:opacity-40">
+            <Send {...icSm} />
+            초대 메일
+          </button>
+          {isAdmin && scope && (
+            <button type="button" onClick={() => void openShare()} disabled={!shareTargets.length || busy} title="고른 사람의 Gmail을 복사하고 실적관리 시트를 열어 공유합니다" className="flex h-8 items-center gap-1.5 rounded-control bg-white/10 px-3 hover:bg-white/20 disabled:opacity-40">
+              <FileSpreadsheet {...icSm} />
+              시트 공유
+            </button>
           )}
-          {teamList.length > 1 && (
-            <FilterChips
-              label="팀"
-              items={['', ...teamList].map((t) => ({
-                key: t,
-                text: t === '' ? '전체' : t === NO_TEAM ? '팀 없음' : t,
-                count: t ? roleRows.filter((u) => (u.team.trim() || NO_TEAM) === t).length : roleRows.length,
-              }))}
-              value={teamOn}
-              onPick={(k) => {
-                setTeamPick(k)
-                setSel(new Set())
-              }}
-            />
-          )}
+          <button type="button" onClick={() => setRemoveAsk(picked.filter(canRemove))} disabled={!picked.some(canRemove) || busy} className="flex h-8 items-center gap-1.5 rounded-control bg-white/10 px-3 hover:bg-white/20 disabled:opacity-40">
+            <Trash2 {...icSm} />
+            목록에서 빼기
+          </button>
+          <button type="button" onClick={() => setSel(new Set())} className="flex h-8 items-center gap-1 rounded-control px-2.5 text-white/60 hover:text-white">
+            선택 해제
+            <X size={13} strokeWidth={2.2} />
+          </button>
         </div>
       )}
-      {table}
 
       {isSuper && (
         <dl className={`grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]`}>
@@ -1051,30 +1126,6 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
 }
 
 const ROLE_ORDER: Record<AccessRole, number> = { admin: 0, leader: 1, member: 2 }
-
-// 골라 보기 칩 한 줄: [이름] 전체 n · A n · B n (고른 것은 검정)
-function FilterChips({ label, items, value, onPick }: { label: string; items: { key: string; text: string; count: number }[]; value: string; onPick: (k: string) => void }) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="w-8 shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{label}</span>
-      {items.map((it) => {
-        const on = it.key === value
-        return (
-          <button
-            key={it.key || 'all'}
-            type="button"
-            onClick={() => onPick(it.key)}
-            disabled={it.count === 0 && !on}
-            className={`flex h-7 items-center gap-1 rounded-full px-3 text-[length:calc(13px*var(--ui-fs,1))] disabled:opacity-40 ${on ? 'bg-ink font-semibold text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08] hover:text-label'}`}
-          >
-            {it.text}
-            <span className={`tabular-nums ${on ? 'text-white/70' : 'text-label-3'}`}>{it.count}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 // 표 칸에서 바로 고치기(칸을 떠나거나 Enter면 저장)
 function CellInput({ value, placeholder, disabled, onSave }: { value: string; placeholder?: string; disabled?: boolean; onSave: (v: string) => void }) {
