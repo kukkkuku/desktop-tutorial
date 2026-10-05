@@ -41,7 +41,7 @@ function taskSummary() {
 }
 
 export default function HomePage() {
-  const { setMode } = useAppMode()
+  const { setMode, setTaskMenu } = useAppMode()
   const { workspaces, selectWorkspace, exitToLanding } = useWorkspaces()
   const { accountEmail, role, canPerf } = useGoogleAccount()
   const t = useMemo(taskSummary, [])
@@ -76,7 +76,14 @@ export default function HomePage() {
           {/* 과제 입력 */}
           <div className="relative flex">
             {manualBtn('tasks')}
-            <button onClick={() => setMode('tasks')} className={`${card} w-full`}>
+            {/* 「이어서 입력하기」 = 입력 화면(추진현황)으로 -- 마지막에 진척률을 봤어도 */}
+            <button
+              onClick={() => {
+                setTaskMenu('progress')
+                setMode('tasks')
+              }}
+              className={`${card} w-full`}
+            >
               <span className="flex items-center gap-2.5">
                 <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-accent-soft text-accent">
                   <ClipboardList size={21} strokeWidth={1.9} />
