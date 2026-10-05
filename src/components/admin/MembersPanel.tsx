@@ -3,7 +3,7 @@
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
+import { ChevronDown, FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -259,7 +259,7 @@ export default function MembersPanel({
       return {}
     }
   })
-  const DEF_W: Record<ColKey, number> = { name: 120, email: 250, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120, share: 120 }
+  const DEF_W: Record<ColKey, number> = { name: 96, email: 150, sendTo: 290, team: 130, role: 100, addedBy: 200, invited: 110, share: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
   const colW = (k: ColKey) => widths[k] ?? DEF_W[k]
   function resizeStart(e: React.MouseEvent, k: ColKey) {
@@ -311,8 +311,9 @@ export default function MembersPanel({
       case 'email':
         // Gmail을 아직 모르는 사람: 여기에 넣는다(아이디만 적으면 @gmail.com)
         if (isPendingEmail(u.email))
-          return mine ? <CellInput value="" placeholder="Gmail 입력" disabled={busy} onSave={(v) => saveEmail(u, v)} /> : <span className="text-label-3">Gmail 없음</span>
-        return <span className="block truncate text-label" title={u.email}>{u.email}</span>
+          return mine ? <CellInput value="" placeholder="Gmail 아이디" disabled={busy} onSave={(v) => saveEmail(u, v)} /> : <span className="text-label-3">Gmail 없음</span>
+        // 아이디만(@gmail.com은 머리글 「계정(Gmail)」이 말해 준다). 다른 주소면 그대로
+        return <span className="block truncate text-label" title={u.email}>{u.email.replace(/@gmail\.com$/i, '')}</span>
       case 'sendTo':
         return <SendToInput u={u} disabled={busy || !mine} onSave={(v) => saveSendTo(u, v)} />
       case 'team':
@@ -881,7 +882,8 @@ export default function MembersPanel({
 }
 
 // 받는 메일 칸: 아이디 + 도메인 고르기(@osstem.com · @gmail.com). 칸을 떠나거나 도메인을 고르면 저장. 비우면 로그인 Gmail로 보낸다.
-const MAIL_DOMAINS = ['@osstem.com', '@gmail.com']
+// 받는 메일 도메인: 기본 @gmail.com, 회사 메일로 받을 때 @osstem.com
+const MAIL_DOMAINS = ['@gmail.com', '@osstem.com']
 function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolean; onSave: (v: string) => void }) {
   const cur = (u.sendTo ?? '').trim()
   const at = cur.lastIndexOf('@')
@@ -894,8 +896,10 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
     const v = full(i, d)
     if (v !== cur && (!v || isEmail(v))) onSave(v)
   }
+  // 아이디 칸 · 도메인 고르기 칸을 나눠서(시안): [아이디] [@gmail.com ▾]
+  const box = `h-8 rounded-[8px] border bg-white text-[length:calc(13.5px*var(--ui-fs,1))] outline-none focus:border-accent ${disabled ? 'border-transparent bg-transparent' : 'border-[#C6C7CC]'}`
   return (
-    <div className={`flex h-8 w-full min-w-0 items-center overflow-hidden rounded-control border bg-white focus-within:border-accent ${disabled ? 'border-transparent bg-transparent' : 'border-hairline'}`}>
+    <div className="flex w-full min-w-0 items-center gap-1">
       <input
         value={id}
         disabled={disabled}
@@ -911,23 +915,28 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
         onBlur={() => save(id, domain)}
         onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         placeholder="아이디"
-        className="h-full min-w-0 flex-1 bg-transparent px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none disabled:text-label-2"
+        className={`${box} min-w-0 flex-1 px-2 text-label placeholder:text-[#8D8E94] disabled:text-label-2`}
       />
-      <select
-        value={domain}
-        disabled={disabled}
-        onChange={(e) => {
-          setDomain(e.target.value)
-          if (id.trim()) save(id, e.target.value)
-        }}
-        className="h-full shrink-0 border-l border-hairline bg-subtle px-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 outline-none"
-      >
-        {domains.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
+      <span className="relative w-[118px] shrink-0">
+        <select
+          value={domain}
+          disabled={disabled}
+          aria-label="받는 메일 도메인"
+          onChange={(e) => {
+            setDomain(e.target.value)
+            if (id.trim()) save(id, e.target.value)
+          }}
+          style={{ backgroundImage: 'none' }}
+          className={`${box} w-full appearance-none !pr-6 pl-1.5 text-[#545458]`}
+        >
+          {domains.map((d) => (
+            <option key={d} value={d}>
+              {d}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#545458]" />
+      </span>
     </div>
   )
 }

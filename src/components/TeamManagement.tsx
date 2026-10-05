@@ -211,22 +211,20 @@ export default function TeamManagement() {
   }, [state.peerReviews])
 
   const baseColumns: GridColumn[] = [
-    { id: 'name', label: '이름', type: 'text', width: 110, system: true },
-    // 팀원 명단 · 초대: 이름 바로 뒤(Gmail을 넣으면 명단에 저장되고 초대할 수 있다)
-    { id: 'email', label: 'Gmail', type: 'text', width: 190, system: true },
-    // 초대 메일 상태(팀원 명단 기준): Gmail 없음 / 초대 전 / ○.○ 보냄
-    { id: 'invite', label: '초대', type: 'text', width: 96, system: true, readOnly: true },
-    { id: 'hireDate', label: '입사일', type: 'date', width: 110, system: true },
-    { id: 'service', label: '근속년월(창립기념일 기준)', type: 'text', width: 170, system: true, readOnly: true },
-    { id: 'level', label: '직급', type: 'select', width: 80, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
-    { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 115, system: true },
-    { id: 'levelTenure', label: '직급 연차', type: 'text', width: 80, system: true, readOnly: true },
-    { id: 'role', label: '역할', type: 'text', width: 100, system: true },
+    { id: 'name', label: '이름', type: 'text', width: 80, system: true },
+    // 팀원 명단 · 초대: 이름 바로 뒤(Gmail 아이디만 보이고, 오른쪽 끝에 초대 상태 -- 초대 전 / ✓ ○.○)
+    { id: 'email', label: 'Gmail', type: 'text', width: 132, system: true },
+    { id: 'hireDate', label: '입사일', type: 'date', width: 88, system: true },
+    { id: 'service', label: '근속', type: 'text', width: 88, system: true, readOnly: true },
+    { id: 'level', label: '직급', type: 'select', width: 66, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
+    { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 88, system: true },
+    { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true, readOnly: true },
+    { id: 'role', label: '역할', type: 'text', width: 64, system: true },
     {
       id: 'team',
       label: '담당팀',
       type: 'select',
-      width: 125,
+      width: 112,
       system: true,
       picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' },
     },
@@ -234,14 +232,14 @@ export default function TeamManagement() {
       id: 'active',
       label: '상태',
       type: 'select',
-      width: 96,
+      width: 66,
       system: true,
       // 칸 안 토글로 켜고 끈다(목록에서 고르지 않음)
       readOnly: true,
     },
-    { id: 'work', label: '담당 L3', type: 'text', width: 75, system: true, readOnly: true },
-    { id: 'tasks', label: '평가과제', type: 'text', width: 80, system: true, readOnly: true },
-    { id: 'peer', label: '피어리뷰', type: 'text', width: 95, system: true, readOnly: true },
+    { id: 'work', label: '담당 L3', type: 'text', width: 64, system: true, readOnly: true },
+    { id: 'tasks', label: '평가과제', type: 'text', width: 66, system: true, readOnly: true },
+    { id: 'peer', label: '피어리뷰', type: 'text', width: 84, system: true, readOnly: true },
   ]
   // 열 설정(순서·숨김·폭·이름·추가 열)은 이 평가 프로젝트에 저장한다.
   const cfg: MemberTableConfig = state.memberTable ?? { order: [], hidden: [], widths: {}, labels: {}, custom: [] }
@@ -499,11 +497,18 @@ export default function TeamManagement() {
           </button>
         </div>
       )
-    if (col.id === 'invite') {
+    // Gmail: 아이디만(@gmail.com은 머리글이 말해 준다) + 오른쪽 끝 초대 상태
+    if (col.id === 'email') {
+      if (!m.email) return <span className="text-label-3/70">Gmail 아이디</span>
       const t = textOf(m, 'invite')
-      return <span className={`text-[length:calc(13px*var(--ui-fs,1))] ${t.endsWith('보냄') ? 'text-success' : 'text-label-3'}`}>{t}</span>
+      const sent = t.endsWith('보냄')
+      return (
+        <span className="flex min-w-0 items-center gap-2" title={m.email}>
+          <span className="min-w-0 flex-1 truncate">{m.email.replace(/@gmail\.com$/i, '')}</span>
+          <span className={`shrink-0 text-[length:calc(12px*var(--ui-fs,1))] ${sent ? 'text-success' : 'text-label-3'}`}>{sent ? `✓ ${t.replace(' 보냄', '')}` : '초대 전'}</span>
+        </span>
+      )
     }
-    if (col.id === 'email' && !m.email) return <span className="text-label-3/70">Gmail 입력</span>
     if (col.id === 'level') return m.level ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.level}</span> : null
     if (col.id === 'team') return m.team ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.team}</span> : null
     if (col.id === 'active')
@@ -530,7 +535,7 @@ export default function TeamManagement() {
         <button
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => setViewingPeerReviewsFor(m)}
-          className="rounded-full bg-black/[0.05] px-2.5 py-0.5 text-xs font-medium text-label-2 hover:bg-black/[0.08]"
+          className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-xs font-medium text-label-2 hover:bg-black/[0.08]"
         >
           {textOf(m, 'peer')} 확인
         </button>

@@ -56,6 +56,8 @@ import Select from '../ui/Select'
 
 interface Props {
   onDone?: () => void
+  // 가져오기를 마쳐 결과만 남았는지(창을 결과 크기로 줄이게)
+  onResultChange?: (done: boolean) => void
   onCancel?: () => void
   // 시트 목록을 불러와 L2 고르기 화면이 됐는지(창을 넓히는 데 씀)
   onLoadedChange?: (loaded: boolean) => void
@@ -81,6 +83,7 @@ interface TabOption {
 
 export default function SheetImportPanel({
   onDone,
+  onResultChange,
   onCancel,
   onLoadedChange,
   initialUrl,
@@ -304,6 +307,10 @@ export default function SheetImportPanel({
 
   const unmapped = SYSTEM_COLUMNS.filter((c) => c.id !== COL_NAME && (columnMap[c.id] === null || columnMap[c.id] === undefined))
   const loaded = !!header
+  useEffect(() => {
+    onResultChange?.(!!result)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result])
   useEffect(() => {
     onLoadedChange?.(loaded)
     // eslint-disable-next-line react-hooks/exhaustive-deps
