@@ -293,7 +293,61 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   }
 
   // 행/열 수가 줄면 선택을 안쪽으로 당긴다.
+  // 묶음을 접거나 펴서(또는 거르기로) 보이는 행이 바뀌면 선택을 같은 행(id)으로 옮긴다. 선택은 행 번호로 들고 있어서
+  // 그대로 두면 접힌 자리에 올라온 다른 행이 선택돼 보였다. 고른 행이 숨었거나 흩어지면 선택을 푼다.
+  // 행 이동처럼 선택을 같이 새로 정한 변경(sel · active가 함께 바뀜)은 건드리지 않는다.
+  const prevRowsRef = useRef(rows)
+  const selAtRowsRef = useRef(sel)
+  const activeAtRowsRef = useRef(active)
+  useLayoutEffect(() => {
+    const prev = prevRowsRef.current
+    prevRowsRef.current = rows
+    const untouched = selAtRowsRef.current === sel && activeAtRowsRef.current === active
+    selAtRowsRef.current = sel
+    activeAtRowsRef.current = active
+    if (prev === rows || !untouched || (!sel && !active)) return
+    if (prev.length === rows.length && prev.every((r, i) => r.id === rows[i].id)) return
+    const at = new Map(rows.map((r, i) => [r.id, i]))
+    const map = (i: number) => {
+      const id = prev[i]?.id
+      return id === undefined ? undefined : at.get(id)
+    }
+    // 행 범위 [x, y]가 새 목록에서도 빠짐없이 붙어 있으면 새 번호, 아니면 null
+    const span = (x: number, y: number): [number, number] | null => {
+      const lo = Math.min(x, y)
+      const hi = Math.max(x, y)
+      const got: number[] = []
+      for (let i = lo; i <= hi; i++) {
+        const n = map(i)
+        if (n === undefined) return null
+        got.push(n)
+      }
+      return Math.max(...got) - Math.min(...got) === got.length - 1 ? [map(x)!, map(y)!] : null
+    }
+    let nextSel: Sel | null = sel
+    if (sel?.t === 'cells') {
+      const sp = span(sel.r1, sel.r2)
+      nextSel = sp ? { ...sel, r1: sp[0], r2: sp[1] } : null
+    } else if (sel?.t === 'rows') {
+      const sp = span(sel.a, sel.b)
+      nextSel = sp ? { t: 'rows', a: sp[0], b: sp[1] } : null
+    }
+    let nextActive = active
+    if (active) {
+      const n = map(active.r)
+      nextActive = n === undefined || (sel && !nextSel) ? null : { r: n, c: active.c }
+    }
+    if (nextSel === sel && nextActive === active) return
+    if (!nextActive) setEditing(false)
+    setSel(nextSel)
+    setActive(nextActive)
+    selAtRowsRef.current = nextSel
+    activeAtRowsRef.current = nextActive
+  }, [rows, sel, active])
+
   useEffect(() => {
+    // 위에서 같은 행으로 옮겼으면(이 effect는 옮기기 전 값을 본다) 당기지 않는다
+    if (activeAtRowsRef.current !== active) return
     if (!active) return
     if (nR === 0 || nC === 0) {
       setActive(null)
