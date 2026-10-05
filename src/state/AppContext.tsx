@@ -84,6 +84,11 @@ export function AppProvider({ workspaceId, children }: { workspaceId: string; ch
   return <AppContext.Provider value={{ state, dispatch, workspaceId, recentlyAddedIds, markRecentlyAdded, localSave }}>{children}</AppContext.Provider>
 }
 
+// 평가 밖(평가 목록 · 홈 등)에서도 쓰는 화면용: 평가가 열려 있지 않으면 null
+export function useOptionalAppState() {
+  return useContext(AppContext) ?? null
+}
+
 export function useAppState() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useAppState must be used within AppProvider')

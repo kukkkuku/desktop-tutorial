@@ -4,6 +4,7 @@
 // 접으면 아이콘만(마우스를 올리면 이름). 한 번 더 접으면 사이드바 없이 머리 줄에 메뉴(TopNav).
 // 메뉴 모양 버튼과 고른 모양은 AppShell(화면 머리 맨 앞)에.
 import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
   BarChart3,
@@ -29,6 +30,7 @@ import { useAccessData } from '../../hooks/useAccessData'
 import { isPendingEmail } from '../../utils/accessSheet'
 import GoogleAccountMenu from '../GoogleAccountMenu'
 import DataResetDialog from '../DataResetDialog'
+import DataManagerDrawer from '../DataManagerDrawer'
 import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
@@ -94,10 +96,14 @@ function useShellNav() {
   const manualPanel = manual && <ManualPanel area={manual.area} chapter={manual.chapter} onClose={() => setManual(null)} />
   // 데이터 초기화(계정 메뉴): 평가를 열지 않아도 어디서나
   const [resetOpen, setResetOpen] = useState(false)
-  const resetDialog = resetOpen && <DataResetDialog onClose={() => setResetOpen(false)} />
+  // 창은 페이지 맨 위(body)에 띄운다 -- 사이드바 안에 두면 본문 버튼이 창 위로 비친다
+  const resetDialog = resetOpen && createPortal(<DataResetDialog onClose={() => setResetOpen(false)} />, document.body)
+  // 데이터 백업: 평가 안에서는 그 평가의 창(perf.onOpenDataManager), 밖(평가 목록 · 홈 · 과제 입력)에서는 여기서 연다
+  const [backupOpen, setBackupOpen] = useState(false)
+  const backupDrawer = backupOpen && createPortal(<DataManagerDrawer open onClose={() => setBackupOpen(false)} />, document.body)
   // 과제 입력 메뉴가 칠해지는 때(팀원은 홈 밖이면 늘 과제 입력)
   const inTasks = mode === 'tasks' || (!canPerf && mode !== 'home' && mode !== 'admin')
-  return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel, resetDialog, openReset: () => setResetOpen(true) }
+  return { ...app, ...ws, ...account, inPerf, inTasks, onAccountChange, openManual, manualPanel, resetDialog, openReset: () => setResetOpen(true), backupDrawer, openBackup: () => setBackupOpen(true) }
 }
 
 // 계정 메뉴의 글자 크기: 자동(창 너비) 스위치 + 5단계 슬라이더(아주 작게 · 작게 · 보통 · 크게 · 아주 크게). 슬라이더를 움직이면 자동은 꺼진다
@@ -281,7 +287,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
               </span>
             ),
           )}
-        {inPerf && perf?.onOpenDataManager && item('backup', '데이터 백업', Database, false, perf.onOpenDataManager, perf.saveBadge)}
+        {canPerf && item('backup', '데이터 백업', Database, false, inPerf && perf?.onOpenDataManager ? perf.onOpenDataManager : nav.openBackup, inPerf ? perf?.saveBadge : undefined)}
       </div>
       {accountEmail && (
         <GoogleAccountMenu
@@ -311,6 +317,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
       )}
       {nav.manualPanel}
       {nav.resetDialog}
+      {nav.backupDrawer}
     </aside>
   )
 }
@@ -415,12 +422,14 @@ export function TopNav({
       )}
       <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
         {actions}
-        {inPerf && perf?.onOpenDataManager && (
+        {inPerf && perf?.onOpenDataManager ? (
           // 저장 상태(저장됨 · 저장 중 · 실패)는 백업 버튼 바로 앞에
           <span className="flex items-center gap-1 pl-1">
             {perf.saveBadge}
             {iconBtn('데이터 백업', Database, perf.onOpenDataManager)}
           </span>
+        ) : (
+          canPerf && iconBtn('데이터 백업', Database, nav.openBackup)
         )}
         {iconBtn('사용 매뉴얼', BookOpen, openManual)}
         {isAdminUser && iconBtn('관리', ShieldCheck, () => mode !== 'admin' && setMode('admin'), mode === 'admin')}
@@ -447,6 +456,7 @@ export function TopNav({
       </div>
       {nav.manualPanel}
       {nav.resetDialog}
+      {nav.backupDrawer}
     </>
   )
 }

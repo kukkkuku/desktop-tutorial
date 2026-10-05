@@ -1,6 +1,6 @@
 import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
-import { useAppState } from '../state/AppContext'
+import { useOptionalAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllWorkspacesExcelZip } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries } from '../utils/backup'
@@ -46,8 +46,8 @@ type Tab = DataManagerTab
 // 결과 화면의 Google Drive 버튼, 이렇게 세 군데로 데이터 관리 진입점이
 // 흩어져 있었다. 여기 하나로 모으고, 화면 가운데 모달로 연다.
 export default function DataManagerDrawer({ open, onClose, onAccountChange, onSaveStatusChange, tabRequest, onGoToWork }: DataManagerDrawerProps) {
-  const { state, dispatch } = useAppState()
-  const { tasks, members, peerReviews, contributions, criteria } = state
+  // 평가 밖에서 열면(평가 목록 · 홈) 지금 평가가 없다 -- 로컬 백업만, Drive · 엑셀 양식 등록은 평가를 연 뒤
+  const app = useOptionalAppState()
   const { currentWorkspace, workspaces } = useWorkspaces()
   const [tab, setTab] = useState<Tab>('local')
   useEffect(() => {
@@ -238,12 +238,16 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               </div>
 
               <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                지금 데이터: 과제 {tasks.length}건 · 팀원 {members.length}명 · 피어리뷰 {peerReviews.length}건
+                {app ? `지금 평가: 과제 ${app.state.tasks.length}건 · 팀원 ${app.state.members.length}명 · 피어리뷰 ${app.state.peerReviews.length}건 · ` : ''}
+                전체 평가 {workspaces.length}개
               </div>
             </div>
           )}
 
-          {tab === 'bulk' && (
+          {tab === 'bulk' && !app && (
+            <p className="px-1 py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">엑셀 양식으로 등록은 평가를 연 뒤 그 평가에 넣습니다. 평가 목록에서 평가를 눌러 들어가 주세요.</p>
+          )}
+          {tab === 'bulk' && app && (
             <div>
               <BulkUploadPanel wide />
               <p className="mt-4 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">과제만 넣을 때는 과제관리 「가져오기」, 팀원은 팀원관리 「인사기록 불러오기」도 쓸 수 있습니다.</p>
@@ -252,18 +256,24 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
 
           {tab === 'drive' && (
             <div className="mx-auto max-w-lg">
-              {currentWorkspace ? (
+              {currentWorkspace && app ? (
                 <GoogleDrivePanel
                   workspace={currentWorkspace}
-                  state={state}
-                  dispatch={dispatch}
-                  buildReportWorkbook={() => buildResultsReportWorkbook(members, tasks, contributions, criteria, peerInputsOf(state), periodsForTeam).workbook}
-                  buildSheetWorkbook={() => buildGoogleSheetViewWorkbook(members, tasks, contributions, criteria, peerInputsOf(state), periodsForTeam)}
+                  state={app.state}
+                  dispatch={app.dispatch}
+                  buildReportWorkbook={() => {
+                    const st = app.state
+                    return buildResultsReportWorkbook(st.members, st.tasks, st.contributions, st.criteria, peerInputsOf(st), periodsForTeam).workbook
+                  }}
+                  buildSheetWorkbook={() => {
+                    const st = app.state
+                    return buildGoogleSheetViewWorkbook(st.members, st.tasks, st.contributions, st.criteria, peerInputsOf(st), periodsForTeam)
+                  }}
                   onConnected={handleDriveAccountSwitch}
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
-                <p className="px-1 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">평가를 먼저 선택해주세요.</p>
+                <p className="px-1 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">Google Drive 저장 · 불러오기는 평가 단위입니다. 평가 목록에서 평가를 눌러 들어간 뒤 열어 주세요.</p>
               )}
             </div>
           )}
