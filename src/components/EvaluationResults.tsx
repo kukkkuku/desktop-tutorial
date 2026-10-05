@@ -221,6 +221,10 @@ export default function EvaluationResults() {
   }, [selected, taskScores, contributions, criteria])
   const selSum = selRows.reduce((s, x) => s + x.pts, 0)
   const selMaxTaskId = selRows.length > 0 ? [...selRows].sort((a, b) => b.pts - a.pts)[0].task.id : null
+  // 고른 팀원의 색(칩 · 막대 · 반영점수 열을 같은 색으로)
+  const selIdx = selected ? idxOf(selected.member.id) : 0
+  const selInk = pastelTextForIndex(selIdx)
+  const selSoft = pastelForIndex(selIdx)
   const selPeer = selected ? calcPeerReviewFactor(peerInputs, selected.member.id, criteria) : 1
 
   // 확인 필요: 보고 전에 따져 볼 것만(없으면 단추를 숨긴다)
@@ -435,7 +439,8 @@ export default function EvaluationResults() {
                   key={r.member.id}
                   onClick={() => setHighlightId(on ? null : r.member.id)}
                   aria-pressed={on}
-                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'border-accent bg-accent-soft text-accent shadow-[inset_0_0_0_1px_var(--accent)]' : 'border-separator bg-white text-label hover:bg-black/[0.03]'}`}
+                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? '' : 'border-separator bg-white text-label hover:bg-black/[0.03]'}`}
+                  style={on ? { background: pastelForIndex(idxOf(r.member.id)), color: pastelTextForIndex(idxOf(r.member.id)), borderColor: pastelTextForIndex(idxOf(r.member.id)), boxShadow: `inset 0 0 0 1px ${pastelTextForIndex(idxOf(r.member.id))}` } : undefined}
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorForIndex(idxOf(r.member.id)) }} />
                   <span className="font-semibold">{r.member.name}</span>
@@ -499,7 +504,11 @@ export default function EvaluationResults() {
                       <th className="w-[112px] whitespace-nowrap px-3 py-2.5">과제 성과</th>
                       <th className="hidden w-[30%] px-3 py-2.5 xl:table-cell">목표 · 성과</th>
                       <th className="w-[30%] min-w-[200px] px-3 py-2.5 xl:w-[26%]">참여자별 기여도</th>
-                      {selected && <th className="w-[128px] whitespace-nowrap bg-accent-soft px-4 py-2.5 text-right text-accent">{selected.member.name} 반영점수</th>}
+                      {selected && (
+                        <th className="w-[128px] whitespace-nowrap px-4 py-2.5 text-right" style={{ background: selSoft, color: selInk }}>
+                          {selected.member.name} 반영점수
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -551,7 +560,7 @@ export default function EvaluationResults() {
                                 {participants.map(({ m, pct }) => {
                                   const idx = idxOf(m.id)
                                   const isSel = selected?.member.id === m.id
-                                  const bg = !selected ? pastelForIndex(idx) : isSel ? 'var(--accent)' : 'rgba(0,0,0,0.06)'
+                                  const bg = !selected ? pastelForIndex(idx) : isSel ? pastelTextForIndex(idx) : 'rgba(0,0,0,0.06)'
                                   const fg = !selected ? pastelTextForIndex(idx) : isSel ? '#fff' : 'rgba(0,0,0,0.45)'
                                   return (
                                     <div
@@ -575,11 +584,11 @@ export default function EvaluationResults() {
                             {note && <p className="mt-1 truncate text-xs text-label-2" title={note}>{note}</p>}
                           </td>
                           {selected && (
-                            <td className="whitespace-nowrap bg-accent-soft/60 px-4 py-3 text-right">
+                            <td className="whitespace-nowrap px-4 py-3 text-right" style={{ background: `${selSoft}99` }}>
                               {mine ? (
                                 <span className="inline-flex flex-col items-end">
-                                  <span className="tabular-nums text-[length:calc(16px*var(--ui-fs,1))] font-bold text-accent">{pts.toFixed(1)}점</span>
-                                  {task.id === selMaxTaskId && selRows.length > 1 && <span className="mt-0.5 rounded bg-accent/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold text-accent">최대</span>}
+                                  <span className="tabular-nums text-[length:calc(16px*var(--ui-fs,1))] font-bold" style={{ color: selInk }}>{pts.toFixed(1)}점</span>
+                                  {task.id === selMaxTaskId && selRows.length > 1 && <span className="mt-0.5 rounded bg-white/70 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold" style={{ color: selInk }}>최대</span>}
                                 </span>
                               ) : (
                                 <span className="text-label-3">—</span>
@@ -597,12 +606,12 @@ export default function EvaluationResults() {
                           <tr>
                             <td colSpan={3} className="px-5 py-2 text-label-2">반영점수 합계</td>
                             <td className="hidden xl:table-cell" />
-                            <td className="bg-accent-soft/60 px-4 py-2 text-right tabular-nums text-label-2">{selSum.toFixed(1)}점</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-label-2" style={{ background: `${selSoft}99` }}>{selSum.toFixed(1)}점</td>
                           </tr>
                           <tr>
                             <td colSpan={3} className="px-5 py-2 text-label-2">피어리뷰 반영</td>
                             <td className="hidden xl:table-cell" />
-                            <td className="bg-accent-soft/60 px-4 py-2 text-right tabular-nums text-label-2">× {selPeer.toFixed(2)}</td>
+                            <td className="px-4 py-2 text-right tabular-nums text-label-2" style={{ background: `${selSoft}99` }}>× {selPeer.toFixed(2)}</td>
                           </tr>
                         </>
                       )}
@@ -611,7 +620,7 @@ export default function EvaluationResults() {
                           {Math.abs(selPeer - 1) > 0.0001 ? `${selected.member.name} 성과점수` : `${selected.member.name} 반영점수 합계`}
                         </td>
                         <td className="hidden xl:table-cell" />
-                        <td className="bg-accent-soft px-4 py-3 text-right tabular-nums text-[length:calc(17px*var(--ui-fs,1))] font-bold text-accent">
+                        <td className="px-4 py-3 text-right tabular-nums text-[length:calc(17px*var(--ui-fs,1))] font-bold" style={{ background: selSoft, color: selInk }}>
                           {selected.cumulativeScore.toFixed(1)}점
                         </td>
                       </tr>
