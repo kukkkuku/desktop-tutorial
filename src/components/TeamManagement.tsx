@@ -65,6 +65,7 @@ export default function TeamManagement() {
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
   const [notice, setNotice] = useState('')
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
+  const [movedOpen, setMovedOpen] = useState(false)
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
   // ---- 팀원 명단(권한 시트)과 이 표를 뒤에서 맞춘다(teamRoster) -- 팀장은 이 표 하나로 추가 · Gmail · 초대까지
   const { data: access } = useAccessData()
@@ -668,13 +669,21 @@ export default function TeamManagement() {
         </p>
       )}
       {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
-      {moved.length > 0 && (
+      {/* 평소엔 한 줄로 접어 두고, 눌러야 펼친다(「과제 담당자 중 …」 줄과 같은 방식) */}
+      {moved.length > 0 && !movedOpen && (
+        <button onClick={() => setMovedOpen(true)} className="mt-3 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-amber-800 hover:text-amber-900">
+          <ChevronRight {...icSm} />
+          <ArrowRightLeft {...icSm} />
+          다른 팀으로 옮긴 팀원 <span className="font-semibold">{moved.length}명</span> · 눌러서 보기
+        </button>
+      )}
+      {moved.length > 0 && movedOpen && (
         <div className="mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))]">
-          <p className="flex items-center gap-1.5 font-semibold text-amber-900">
-            <ArrowRightLeft {...icSm} />
+          <button onClick={() => setMovedOpen(false)} title="접기" className="flex items-center gap-1.5 text-left font-semibold text-amber-900 hover:text-amber-950">
+            <ChevronDown {...icSm} />
             다른 팀으로 옮긴 팀원 {moved.length}명
             <span className="font-normal text-amber-800">· 평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</span>
-          </p>
+          </button>
           <div className="mt-2 flex flex-wrap gap-2">
             {moved.map(({ m, u }) => (
               <span key={m.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-label">
