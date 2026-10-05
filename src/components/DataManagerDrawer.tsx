@@ -1,7 +1,9 @@
 import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
 import { useOptionalAppState } from '../state/AppContext'
-import { useWorkspaces } from '../state/WorkspaceContext'
+import { useWorkspaces, mmdd } from '../state/WorkspaceContext'
+import { useAppMode } from '../state/AppMode'
+import { toast } from './ui/Toast'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllWorkspacesExcelZip } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries } from '../utils/backup'
 import {
@@ -48,7 +50,8 @@ type Tab = DataManagerTab
 export default function DataManagerDrawer({ open, onClose, onAccountChange, onSaveStatusChange, tabRequest, onGoToWork }: DataManagerDrawerProps) {
   // 평가 밖에서 열면(평가 목록 · 홈) 지금 평가가 없다 -- 로컬 백업만, Drive · 엑셀 양식 등록은 평가를 연 뒤
   const app = useOptionalAppState()
-  const { currentWorkspace, workspaces } = useWorkspaces()
+  const { currentWorkspace, workspaces, selectWorkspace } = useWorkspaces()
+  const { setMode } = useAppMode()
   const [tab, setTab] = useState<Tab>('local')
   useEffect(() => {
     if (tabRequest) setTab(tabRequest.tab)
@@ -102,6 +105,38 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   // 이 계정에 저장된 모든 팀·평가 데이터를 지운다(계정별로 저장 키가
   // 분리돼 있어 다른 Google 계정이나 다른 기기·브라우저의 데이터는 애초에
   // 영향받지 않는다). 되돌릴 수 없으므로 로컬 JSON/엑셀 백업을 먼저 권한다.
+
+  // 평가 밖(추진현황 · 홈 등)에서 연 경우: Drive · 엑셀 양식 등록은 평가 하나에 적용하니 어느 평가인지 고른다
+  function openEvaluation(id: string) {
+    selectWorkspace(id)
+    setMode('perf')
+    onClose()
+    toast('평가에 들어왔습니다. 왼쪽 「데이터 백업」을 다시 눌러 계속하세요.', 'info')
+  }
+  const evaluationPicker = (what: string) => (
+    <div className="mx-auto max-w-lg">
+      <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{what}은 평가 하나에 적용됩니다. 어느 평가인지 고르세요.</p>
+      {workspaces.length === 0 ? (
+        <p className="mt-3 rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 평가가 없습니다. 성과관리 › 평가 목록에서 먼저 만드세요.</p>
+      ) : (
+        <ul className="mt-3 space-y-1.5">
+          {[...workspaces]
+            .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+            .map((w) => (
+              <li key={w.id}>
+                <button onClick={() => openEvaluation(w.id)} className="flex w-full items-center justify-between rounded-card border border-separator px-4 py-2.5 text-left text-[length:calc(14px*var(--ui-fs,1))] hover:bg-black/[0.03]">
+                  <span>
+                    <b className="font-semibold text-label">{w.teamName}</b> <span className="text-label-2">{w.evaluationYear} {w.periodName}</span>
+                  </span>
+                  <span className="text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{mmdd(w.updatedAt, '/')}</span>
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
+    </div>
+  )
+
   async function handleLocalJsonBackup() {
     setLoadingLabel('로컬 백업 파일 생성 중...')
     downloadLocalJsonBackup()
@@ -244,9 +279,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             </div>
           )}
 
-          {tab === 'bulk' && !app && (
-            <p className="px-1 py-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">엑셀 양식으로 등록은 평가를 연 뒤 그 평가에 넣습니다. 평가 목록에서 평가를 눌러 들어가 주세요.</p>
-          )}
+          {tab === 'bulk' && !app && evaluationPicker('엑셀 양식 등록')}
           {tab === 'bulk' && app && (
             <div>
               <BulkUploadPanel wide />
@@ -273,7 +306,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                   onSaveStatusChange={onSaveStatusChange}
                 />
               ) : (
-                <p className="px-1 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">Google Drive 저장 · 불러오기는 평가 단위입니다. 평가 목록에서 평가를 눌러 들어간 뒤 열어 주세요.</p>
+                evaluationPicker('Google Drive 저장 · 불러오기')
               )}
             </div>
           )}
