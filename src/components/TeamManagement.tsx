@@ -21,7 +21,7 @@ import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/Data
 import IconButton from './IconButton'
 import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-import { isPendingEmail, readHandovers, updateUsers, writeHandover, type Handover } from '../utils/accessSheet'
+import { isPendingEmail, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
 import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
 import TeamInviteDialog from './TeamInviteDialog'
@@ -211,6 +211,17 @@ export default function TeamManagement() {
     setNotice('')
   }
 
+  // 권한 시트의 팀 이름들 · 이 팀원의 권한 시트 줄(Gmail, 없으면 같은 이름이 한 사람일 때)
+  const sheetTeamNames = useMemo(
+    () => (access ? Array.from(new Set(access.users.map((u) => u.team.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')) : []),
+    [access],
+  )
+  function accessUserFor(m: TeamMember): AccessUser | undefined {
+    if (!access) return undefined
+    if (m.email) return access.users.find((u) => u.email === m.email!.toLowerCase())
+    const hit = access.users.filter((u) => u.name.trim() === m.name.trim())
+    return hit.length === 1 ? hit[0] : undefined
+  }
   const boardTeams = useMemo(
     () => Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort(),
     [state.workBoard.items],
@@ -236,13 +247,14 @@ export default function TeamManagement() {
     { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 100, system: true },
     { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true, readOnly: true },
     { id: 'role', label: '역할', type: 'text', width: 64, system: true },
+    // 팀 = 관리(권한 시트)의 팀과 같은 값 -- 목록도 권한 시트 팀 이름(이름이 갈리지 않게). 바꾸면 권한 시트에도 저장
     {
       id: 'team',
-      label: '담당팀',
+      label: '팀',
       type: 'select',
       width: 112,
       system: true,
-      picker: { options: boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' },
+      picker: { options: sheetTeamNames.length ? sheetTeamNames : boardTeams, allowNew: true, tone: () => 'bg-black/[0.05] text-label' },
     },
     {
       id: 'active',
@@ -330,7 +342,8 @@ export default function TeamManagement() {
       case 'role':
         return m.role
       case 'team':
-        return m.team ?? ''
+        // 권한 시트에 있는 사람이면 그 팀(모두가 보는 값), 아니면 이 평가에 적힌 값
+        return accessUserFor(m)?.team || m.team || ''
       case 'email':
         return m.email ?? ''
       case 'invite': {
@@ -428,6 +441,23 @@ export default function TeamManagement() {
   function commit(edits: CellEdit[]) {
     const problems: string[] = []
     save(withEdits(state.members, edits, problems), problems)
+    // 팀을 직접 바꾼 칸만 권한 시트에도(관리 화면 · 그 팀장 명단에 반영). 옛 평가에 적혀 있던 값은 뒤에서 밀어 넣지 않는다
+    if (!access) return
+    const moves = edits
+      .filter((e) => e.colId === 'team')
+      .map((e) => {
+        const m = state.members.find((x) => x.id === e.rowId)
+        const u = m ? accessUserFor(m) : undefined
+        return u && u.team.trim() !== e.text.trim() ? { u, to: e.text.trim() } : null
+      })
+      .filter((x): x is { u: AccessUser; to: string } => !!x)
+    if (!moves.length) return
+    const to = new Map(moves.map((x) => [x.u.email, x.to]))
+    void updateUsers(access.id, (users) => users.map((x) => (to.has(x.email) ? { ...x, team: to.get(x.email)! } : x)), me, [
+      `팀(팀원관리에서): ${moves.map((x) => `${x.u.name || x.u.email} → ${x.to || '(없음)'}`).join(', ')}`,
+    ])
+      .then(() => setInfo(`${moves.map((x) => x.u.name || x.u.email).join(', ')}님의 팀을 바꿔 관리(권한 시트)에도 저장했습니다.`))
+      .catch((err) => setInfo(`팀을 권한 시트에 저장하지 못했습니다: ${errText(err)} 권한 시트 편집 권한이 없으면 관리자에게 요청해 주세요.`))
   }
 
   function insertRows(index: number, count: number) {
@@ -526,7 +556,10 @@ export default function TeamManagement() {
       )
     }
     if (col.id === 'level') return m.level ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.level}</span> : null
-    if (col.id === 'team') return m.team ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{m.team}</span> : null
+    if (col.id === 'team') {
+      const t = accessUserFor(m)?.team || m.team
+      return t ? <span className={`${CHIP_BASE} bg-black/[0.05] text-label`}>{t}</span> : null
+    }
     if (col.id === 'active')
       return (
         <button

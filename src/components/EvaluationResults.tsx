@@ -588,6 +588,14 @@ export default function EvaluationResults() {
                 <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {/* 전체 = 아무도 강조하지 않음(모든 팀원 기여도를 고르게) */}
+                <button
+                  onClick={() => setHighlightId(null)}
+                  aria-pressed={!highlightId}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${!highlightId ? 'border-ink bg-ink text-white' : 'border-separator bg-white text-label-2 hover:text-label'}`}
+                >
+                  전체
+                </button>
                 {results.map(({ member: m }) => {
                   const idx = idxOf(m.id)
                   const isHL = highlightId === m.id
