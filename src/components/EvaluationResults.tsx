@@ -8,6 +8,7 @@ import { useMemberDetail } from '../state/MemberDetailContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { EvaluationGrade, EvaluationStatus, Workload } from '../types'
 import {
+  blendByWeight,
   calcAllTaskScores,
   calcMemberResults,
   calcPeerReviewFactor,
@@ -16,7 +17,10 @@ import {
   getContributionPercent,
   getEffectiveContributionPercent,
   gradeText,
+  IMPORTANCE_SCORE,
+  PERFORMANCE_SCORE,
   UNGRADED_HINT,
+  WORKLOAD_FACTOR,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
 import { downloadCurrentTasksExcel, downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
@@ -35,7 +39,8 @@ import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
 import ScrollX from './ui/ScrollX'
 import Spinner from './Spinner'
-import { AlertCircle, ChevronDown, Download, Eye, Sparkles, UserRound, X } from 'lucide-react'
+import IconButton from './IconButton'
+import { AlertCircle, ChevronDown, Download, Eye, UserRound } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
 
@@ -199,7 +204,6 @@ export default function EvaluationResults() {
   }, [results])
   const idxOf = (memberId: string) => memberIndex.get(memberId) ?? 0
 
-  const avg = results.length > 0 ? results.reduce((s, r) => s + r.cumulativeScore, 0) / results.length : 0
   const confirmedCount = results.filter((r) => statusOf(r.member.id) === 'confirmed').length
   const gradeCounts = (['S', 'A', 'B', 'C', 'D'] as const).map((g) => ({ g, n: results.filter((r) => r.grade === g).length }))
 
@@ -208,6 +212,23 @@ export default function EvaluationResults() {
     const pct = getEffectiveContributionPercent(contributions, taskId, memberId, criteria.contributionWeight)
     if (pct <= 0) return 0
     return score * (pct / 100) * calcPersonalGradeFactor(getContribution(contributions, taskId, memberId), criteria)
+  }
+
+  // 계산식(숫자 아래 작은 글씨) -- 기준 설정의 반영 비율을 적용한 실제 값으로
+  const num = (v: number) => (Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2).replace(/0$/, ''))
+  // 배수는 늘 소수 한 자리 이상(1 → 1.0, 1.05 → 1.05)
+  const fac = (v: number) => (Math.abs(v * 10 - Math.round(v * 10)) < 0.0005 ? v.toFixed(1) : v.toFixed(2))
+  const taskFormula = (task: (typeof tasks)[number]) => {
+    if (task.performanceGrade === null) return '성과등급을 매기면 점수가 생깁니다'
+    const perf = blendByWeight(PERFORMANCE_SCORE.S, PERFORMANCE_SCORE[task.performanceGrade], criteria.performanceGradeWeight)
+    const imp = blendByWeight(100, IMPORTANCE_SCORE[task.importance], criteria.taskGradeWeight) / 100
+    const wl = blendByWeight(1.0, WORKLOAD_FACTOR[task.workload], criteria.workloadWeight)
+    return `${task.performanceGrade} ${num(perf)} × ${task.importance} ${fac(imp)}${Math.abs(wl - 1) > 0.0001 ? ` × 업무량 ${fac(wl)}` : ''}`
+  }
+  const reflectedFormula = (taskId: string, score: number, memberId: string) => {
+    const pct = getEffectiveContributionPercent(contributions, taskId, memberId, criteria.contributionWeight)
+    const pf = calcPersonalGradeFactor(getContribution(contributions, taskId, memberId), criteria)
+    return `${num(score)} × ${num(pct)}%${Math.abs(pf - 1) > 0.0001 ? ` × 개인 ${fac(pf)}` : ''}`
   }
 
   const selected = highlightId ? results.find((r) => r.member.id === highlightId) ?? null : null
@@ -262,51 +283,6 @@ export default function EvaluationResults() {
     })
     return list
   }, [tasks, activeMembers, contributions, results, prevGradeByMember])
-
-  // 인사이트 한 줄: 전체 = 팀 기준, 팀원을 고르면 그 사람 기준
-  const insight = useMemo((): { main: string; sub?: string } | null => {
-    if (selected) {
-      const name = selected.member.name
-      if (selRows.length === 0 || selSum <= 0) return { main: `${name}님은 이번 평가에서 점수가 들어간 과제가 없습니다.`, sub: '과제관리에서 기여도를 넣었는지 확인해 주세요.' }
-      const sorted = [...selRows].sort((a, b) => b.pts - a.pts)
-      // 점수의 절반 이상을 만드는 상위 과제(최대 2개)
-      const top: typeof sorted = []
-      let acc = 0
-      for (const r of sorted) {
-        top.push(r)
-        acc += r.pts
-        if (acc / selSum >= 0.5 || top.length === 2) break
-      }
-      const share = Math.round((acc / selSum) * 100)
-      const keyCount = selRows.filter((r) => KEY_IMPORTANCE.has(r.task.importance)).length
-      const prev = prevGradeByMember.get(selected.member.id) ?? null
-      const pcts = top.map((r) => getContributionPercent(contributions, r.task.id, selected.member.id))
-      const subParts = [
-        top.length === 1 ? `기여도 ${pcts[0]}%` : pcts.every((p) => p === pcts[0]) ? `두 과제 모두 기여도 ${pcts[0]}%` : `기여도 ${pcts.join('% · ')}%`,
-        `참여 ${selRows.length}건 중 과제 · 중점 ${keyCount}건`,
-      ]
-      if (prev && selected.grade) subParts.push(`지난 평가 ${prev} → 이번 ${selected.grade}`)
-      return {
-        main: `${name}님 점수의 ${share}%는 ${top.map((r) => quoted(r.task.name)).join(' · ')}에서 나왔습니다.`,
-        sub: subParts.join(' · '),
-      }
-    }
-    const scored = taskScores.filter((x) => x.score > 0)
-    if (scored.length === 0 || results.length === 0) return null
-    const topTask = [...scored].sort((a, b) => b.score - a.score)[0]
-    const lead = activeMembers
-      .map((m) => ({ m, pct: getContributionPercent(contributions, topTask.task.id, m.id) }))
-      .filter((x) => x.pct > 0)
-      .sort((a, b) => b.pct - a.pct)
-    const keyTasks = tasks.filter((t) => KEY_IMPORTANCE.has(t.importance))
-    const subParts = [`1위 ${results[0].member.name} ${results[0].cumulativeScore.toFixed(1)}점 · 팀 평균 ${avg.toFixed(1)}점`]
-    if (keyTasks.length > 0) subParts.push(`과제 · 중점 ${keyTasks.length}건 / 전체 ${tasks.length}건`)
-    return {
-      main: `가장 높은 과제는 ${quoted(topTask.task.name)} ${topTask.task.performanceGrade ?? ''} · ${topTask.score.toFixed(0)}점입니다${lead.length > 0 ? ` -- ${lead.slice(0, 3).map((x) => `${x.m.name} ${x.pct}%`).join(' · ')}` : ''}.`,
-      sub: subParts.join(' · '),
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, selRows, selSum, taskScores, results, activeMembers, contributions, tasks, avg, prevGradeByMember])
 
   const noData = results.length === 0
   const memberIds = highlightId ? [highlightId] : undefined
@@ -374,7 +350,27 @@ export default function EvaluationResults() {
             </p>
           )}
         </div>
-        <div className={noData ? 'pointer-events-none opacity-40' : ''}>
+        <div className={`flex items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
+          {checks.length > 0 && (
+            <div ref={checksRef} className="relative">
+              <Button variant="secondary" onClick={() => setChecksOpen((v) => !v)} aria-expanded={checksOpen}>
+                <AlertCircle {...ic} className="text-warning" /> 확인 필요 {checks.length}건
+              </Button>
+              {checksOpen && (
+                <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-[380px] max-w-[calc(100vw-32px)] p-3">
+                  <p className="mb-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보고 전에 확인할 것</p>
+                  <ul className="space-y-1.5">
+                    {checks.map((c, i) => (
+                      <li key={i} className="text-[length:calc(13.5px*var(--ui-fs,1))] leading-snug text-label">
+                        <b className="mr-1.5 text-warning">{c.title}</b>
+                        {c.desc}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
           <ReportMenu items={reportItems} />
         </div>
       </div>
@@ -385,46 +381,8 @@ export default function EvaluationResults() {
         </p>
       ) : (
         <>
-          {/* 인사이트 한 줄 + 확인 필요 */}
-          {(insight || checks.length > 0) && (
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-card border border-accent/20 bg-accent-soft px-5 py-3.5">
-              <span className="inline-flex shrink-0 items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-bold text-accent">
-                <Sparkles size={16} strokeWidth={2} /> 인사이트
-              </span>
-              <div className="min-w-0 flex-1">
-                {insight && (
-                  <>
-                    <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold leading-snug text-label">{insight.main}</p>
-                    {insight.sub && <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">{insight.sub}</p>}
-                  </>
-                )}
-              </div>
-              {checks.length > 0 && (
-                <div ref={checksRef} className="relative shrink-0">
-                  <Button variant="secondary" onClick={() => setChecksOpen((v) => !v)} aria-expanded={checksOpen}>
-                    <AlertCircle {...ic} className="text-warning" /> 확인 필요 {checks.length}건
-                  </Button>
-                  {checksOpen && (
-                    <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-[380px] max-w-[calc(100vw-32px)] p-3">
-                      <p className="mb-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보고 전에 확인할 것</p>
-                      <ul className="space-y-1.5">
-                        {checks.map((c, i) => (
-                          <li key={i} className="text-[length:calc(13.5px*var(--ui-fs,1))] leading-snug text-label">
-                            <b className="mr-1.5 text-warning">{c.title}</b>
-                            {c.desc}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* 전체 / 팀원 고르기 */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">개인 점수 확인</span>
             <button
               onClick={() => setHighlightId(null)}
               aria-pressed={!highlightId}
@@ -455,43 +413,32 @@ export default function EvaluationResults() {
             })}
           </div>
 
-          {/* 고른 팀원: 순위 · 지난 평가 · 상태 · 리포트 */}
-          {selected && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-separator bg-white px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))]">
-              <span className={`text-[length:calc(22px*var(--ui-fs,1))] font-extrabold leading-none ${selected.grade ? gradeTextColor(selected.grade) : 'text-label-3'}`}>{gradeText(selected.grade)}</span>
-              <span>
-                <b className="text-label">{selected.member.name}</b>
-                <span className="ml-2 text-label-2">
-                  {selRank}위 · 성과점수 {selected.cumulativeScore.toFixed(1)} · 지난 평가 {prevGradeByMember.get(selected.member.id) ?? '없음'}
-                </span>
-              </span>
-              <button onClick={() => cycleStatus(selected.member.id)} title="눌러서 상태 바꾸기(평가중 → 검토완료 → 확정)">
-                <Badge tone={STATUS_TONE[statusOf(selected.member.id)]}>{STATUS_LABEL[statusOf(selected.member.id)]}</Badge>
-              </button>
-              <span className="ml-auto flex items-center gap-0.5">
-                <Button variant="ghost" size="sm" onClick={() => openMemberDetail(selected.member.id)}>
-                  <UserRound {...icSm} /> 팀원 상세
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => previewMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}>
-                  <Eye {...icSm} /> 리포트 미리보기
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => downloadMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}>
-                  <Download {...icSm} /> PDF
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setHighlightId(null)} title="전체로" aria-label="선택 해제">
-                  <X {...icSm} />
-                </Button>
-              </span>
-            </div>
-          )}
-
           {/* 과제별 성과 -- 표 하나 */}
           <div className="overflow-hidden rounded-card border border-separator bg-white">
-            <div className="flex items-baseline gap-2 px-5 py-3.5">
+            {/* 머리줄 높이는 늘 같게 -- 팀원을 골라도 표가 밀려 내려가지 않는다 */}
+            <div className="flex h-[52px] items-center gap-2 px-5">
               <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">과제별 성과</h3>
               <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
                 {tasks.length}건{selected ? ` · ${selected.member.name} 참여 ${selRows.length}건` : ''}
               </span>
+              {selected && (
+                <span className="ml-auto flex min-w-0 items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+                  <b className={selected.grade ? gradeTextColor(selected.grade) : 'text-label-3'}>{gradeText(selected.grade)}</b>
+                  <b className="text-label">{selected.member.name}</b>
+                  <span className="truncate text-label-2">
+                    {selRank}위 · {selected.cumulativeScore.toFixed(1)}점{prevGradeByMember.get(selected.member.id) ? ` · 지난 평가 ${prevGradeByMember.get(selected.member.id)}` : ''}
+                  </span>
+                  <button onClick={() => cycleStatus(selected.member.id)} title="눌러서 상태 바꾸기(평가중 → 검토완료 → 확정)">
+                    <Badge tone={STATUS_TONE[statusOf(selected.member.id)]}>{STATUS_LABEL[statusOf(selected.member.id)]}</Badge>
+                  </button>
+                  <IconButton onClick={() => previewMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)} title="리포트 미리보기" aria-label="리포트 미리보기">
+                    <Eye {...ic} />
+                  </IconButton>
+                  <IconButton onClick={() => openMemberDetail(selected.member.id)} title="팀원 상세" aria-label="팀원 상세">
+                    <UserRound {...ic} />
+                  </IconButton>
+                </span>
+              )}
             </div>
             {taskScores.length === 0 ? (
               <p className="border-t border-separator px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">등록된 과제가 없습니다.</p>
@@ -501,11 +448,11 @@ export default function EvaluationResults() {
                   <thead>
                     <tr className="border-y border-separator bg-[#F7F7F9] text-left text-xs font-semibold text-label-2">
                       <th className="px-5 py-2.5">과제</th>
-                      <th className="w-[112px] whitespace-nowrap px-3 py-2.5">과제 성과</th>
+                      <th className="w-[150px] whitespace-nowrap px-3 py-2.5">과제 성과</th>
                       <th className="hidden w-[30%] px-3 py-2.5 xl:table-cell">목표 · 성과</th>
                       <th className="w-[30%] min-w-[200px] px-3 py-2.5 xl:w-[26%]">참여자별 기여도</th>
                       {selected && (
-                        <th className="w-[128px] whitespace-nowrap px-4 py-2.5 text-right" style={{ background: selSoft, color: selInk }}>
+                        <th className="w-[140px] whitespace-nowrap px-4 py-2.5 text-right" style={{ background: selSoft, color: selInk }}>
                           {selected.member.name} 반영점수
                         </th>
                       )}
@@ -542,6 +489,7 @@ export default function EvaluationResults() {
                           <td className={`whitespace-nowrap px-3 py-3 ${dim}`}>
                             <span className={`font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
                             <span className="text-label-2"> · {score.toFixed(0)}점</span>
+                            <span className="block text-[length:calc(12px*var(--ui-fs,1))] text-label-3">{taskFormula(task)}</span>
                           </td>
                           {/* 넓은 화면: 따로 칸 · 좁은 화면(1280 미만): 과제 이름 아래 */}
                           <td className={`hidden px-3 py-3 xl:table-cell ${dim}`}>
@@ -589,6 +537,7 @@ export default function EvaluationResults() {
                               {mine ? (
                                 <span className="inline-flex flex-col items-end">
                                   <span className="tabular-nums text-[length:calc(16px*var(--ui-fs,1))] font-bold" style={{ color: selInk }}>{pts.toFixed(1)}점</span>
+                                  <span className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">{reflectedFormula(task.id, score, selected.member.id)}</span>
                                   {task.id === selMaxTaskId && selRows.length > 1 && <span className="mt-0.5 rounded bg-white/70 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold" style={{ color: selInk }}>최대</span>}
                                 </span>
                               ) : (
@@ -602,23 +551,13 @@ export default function EvaluationResults() {
                   </tbody>
                   {selected && (
                     <tfoot className="border-t border-separator bg-[#F7F7F9]">
-                      {Math.abs(selPeer - 1) > 0.0001 && (
-                        <>
-                          <tr>
-                            <td colSpan={3} className="px-5 py-2 text-label-2">반영점수 합계</td>
-                            <td className="hidden xl:table-cell" />
-                            <td className="px-4 py-2 text-right tabular-nums text-label-2" style={{ background: `${selSoft}99` }}>{selSum.toFixed(1)}점</td>
-                          </tr>
-                          <tr>
-                            <td colSpan={3} className="px-5 py-2 text-label-2">피어리뷰 반영</td>
-                            <td className="hidden xl:table-cell" />
-                            <td className="px-4 py-2 text-right tabular-nums text-label-2" style={{ background: `${selSoft}99` }}>× {selPeer.toFixed(2)}</td>
-                          </tr>
-                        </>
-                      )}
                       <tr>
-                        <td colSpan={3} className="px-5 py-3 font-semibold text-label">
-                          {Math.abs(selPeer - 1) > 0.0001 ? `${selected.member.name} 성과점수` : `${selected.member.name} 반영점수 합계`}
+                        <td colSpan={3} className="px-5 py-3">
+                          <b className="font-semibold text-label">{selected.member.name} 성과점수</b>
+                          <span className="ml-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                            {selRows.map((r) => r.pts.toFixed(1)).join(' + ') || '0'}
+                            {Math.abs(selPeer - 1) > 0.0001 ? ` = ${selSum.toFixed(1)} × 피어리뷰 ${fac(selPeer)}` : ''}
+                          </span>
                         </td>
                         <td className="hidden xl:table-cell" />
                         <td className="px-4 py-3 text-right tabular-nums text-[length:calc(17px*var(--ui-fs,1))] font-bold" style={{ background: selSoft, color: selInk }}>
