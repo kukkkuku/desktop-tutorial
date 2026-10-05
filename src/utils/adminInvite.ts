@@ -226,6 +226,16 @@ function toBase64Url(input: string): string {
 //   제목 → 인사말 → 「시작하는 방법」 1 · 2 · 3(2 = 로그인할 계정, 3 = 확인하지 않은 앱 화면은 노란 상자로 강조) → 시작 버튼 → 문의하기 버튼.
 //   앱 주소는 버튼 뒤에만 둔다.
 export type InviteContact = { email: string; name?: string } | null
+// 받는 사람마다 앱 주소에 로그인할 계정을 붙인다 -- 링크로 열면 로그인 화면에 그 계정이 뜬다(?login=, googleDrive.ts)
+function withLoginHint(appUrl: string, email: string): string {
+  try {
+    const u = new URL(appUrl)
+    u.searchParams.set('login', email)
+    return u.toString()
+  } catch {
+    return appUrl
+  }
+}
 const escHtml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 // _from: 예전 맨 아래 「… 님이 보낸 초대」 줄(뺐음) -- 부르는 곳은 그대로 둔다. #invite-msg = 인사말(미리보기에서 그 자리 고치기)
 export function inviteHtml(message: string, r: { email: string; name?: string }, _from: string, appUrl: string, contact: InviteContact = null): string {
@@ -235,6 +245,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     .map((line) => escHtml(line))
     .join('<br>')
     .replace(/(<br>){3,}/g, '<br><br>')
+  appUrl = withLoginHint(appUrl, r.email)
   const font = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif"
   const who = r.name ? `${escHtml(r.name)}님, ` : ''
   const num = (n: number, color = '#2563EB') =>
@@ -289,6 +300,7 @@ ${
 }
 // 글만 보는 메일 앱용: 인사말 + 시작하는 방법 + 문의
 function inviteText(message: string, r: { email: string }, appUrl: string, contact: InviteContact): string {
+  appUrl = withLoginHint(appUrl, r.email)
   return `${message.trim()}
 
 [시작하는 방법]

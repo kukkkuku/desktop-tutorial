@@ -140,6 +140,36 @@ function readPersistedEmail(): string | null {
   }
 }
 
+// 초대 메일의 「페이스 시작하기」 링크(?login=초대받은 계정)로 들어오면 그 계정을 로그인 화면에 보여 주고
+// 구글 로그인 창에도 먼저 제안한다. 주소에서는 지우고, 로그인할 때까지 이 탭에 기억한다(새로고침해도 유지).
+const INVITED_EMAIL_KEY = 'google-invited-email'
+;(() => {
+  try {
+    const u = new URL(window.location.href)
+    const v = u.searchParams.get('login')?.trim().toLowerCase()
+    if (!u.searchParams.has('login')) return
+    u.searchParams.delete('login')
+    window.history.replaceState(window.history.state, '', u.toString())
+    if (v && v.includes('@')) sessionStorage.setItem(INVITED_EMAIL_KEY, v)
+  } catch {
+    // 못 읽으면 최근 로그인 계정으로
+  }
+})()
+export function readInvitedEmail(): string | null {
+  try {
+    return sessionStorage.getItem(INVITED_EMAIL_KEY)
+  } catch {
+    return null
+  }
+}
+export function clearInvitedEmail(): void {
+  try {
+    sessionStorage.removeItem(INVITED_EMAIL_KEY)
+  } catch {
+    // 무시
+  }
+}
+
 // 마지막으로 로그인한 계정 이메일. "로그인 유지" 여부와 상관없이 남겨두고,
 // 로그인 화면에서 "○○○으로 계속" 안내를 띄우는 데 쓴다.
 export function readRememberedEmail(): string | null {
@@ -267,7 +297,8 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
     // 브라우저에 구글 계정이 여러 개 로그인돼 있으면 구글이 계정을 알아서 골라(authuser=1 등)
     // 바로 동의 화면으로 넘기는데, 그 동의 화면이 "400 · malformed"로 깨지는 경우가 있었다.
     // 기억된 계정이 있으면 그 계정을 직접 지정한다. 계정 선택 화면을 띄울 때는 지정하지 않는다.
-    const hint = promptOverride ? undefined : (getConnectedEmail() ?? readRememberedEmail() ?? undefined)
+    // 초대 링크로 왔으면 초대받은 계정이 먼저.
+    const hint = promptOverride ? undefined : (readInvitedEmail() ?? getConnectedEmail() ?? readRememberedEmail() ?? undefined)
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: DRIVE_SCOPE,

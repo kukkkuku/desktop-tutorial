@@ -2,10 +2,12 @@ import { errText } from '../utils/googleError'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import {
+  clearInvitedEmail,
   connectDrive,
   getConnectedEmail,
   isGoogleDriveConfigured,
   isKeepLoginEnabled,
+  readInvitedEmail,
   readRememberedEmail,
   rememberLogin,
 } from '../utils/googleDrive'
@@ -39,7 +41,9 @@ interface GoogleSignInGateProps {
 // 연동 없이 넘어가는 길을 남긴다.
 export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const configured = isGoogleDriveConfigured()
-  const rememberedEmail = readRememberedEmail()
+  // 초대 메일 링크로 왔으면 최근 로그인 계정 대신 초대받은 계정을 보여 준다
+  const invitedEmail = readInvitedEmail()
+  const rememberedEmail = invitedEmail ?? readRememberedEmail()
 
   const [passed, setPassed] = useState(() => {
     if (!configured) return false
@@ -48,7 +52,9 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
     } catch {
       // 세션스토리지를 못 읽으면 아래 "로그인 유지"만 보고 판단한다.
     }
-    return isKeepLoginEnabled() && readRememberedEmail() !== null
+    // 「로그인 유지」라도 초대받은 계정이 기억된 계정과 다르면 이 화면에서 초대받은 계정으로 로그인하게 한다
+    const kept = readRememberedEmail()
+    return isKeepLoginEnabled() && kept !== null && (!invitedEmail || invitedEmail === kept.toLowerCase())
   })
   const [keepLogin, setKeepLogin] = useState(() => isKeepLoginEnabled())
   const [busy, setBusy] = useState<'same' | 'other' | null>(null)
@@ -78,6 +84,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
       // 최초 로드 시점에는 아직 계정을 몰랐을 수 있다(첫 로그인인 경우).
       reloadForAccount()
       rememberLogin(getConnectedEmail(), keepLogin)
+      clearInvitedEmail()
       try {
         sessionStorage.setItem(GATE_KEY, '1')
       } catch {
@@ -106,7 +113,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
         {configured && rememberedEmail ? (
           <>
             <p className="mt-8 truncate rounded-card bg-[#F7F7F9] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              최근 로그인 · <span className="font-medium text-label">{rememberedEmail}</span>
+              {invitedEmail ? '초대받은 계정' : '최근 로그인'} · <span className="font-medium text-label">{rememberedEmail}</span>
             </p>
             <Button
               variant="primary"
