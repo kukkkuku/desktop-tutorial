@@ -61,6 +61,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
   const [careerGoal, setCareerGoal] = useState('')
 
   const [detailsOpen, setDetailsOpen] = useState(false)
+  // 면담 내용 입력칸 접기(날짜 · 분위기 · 작성하기 줄만 남김)
+  const [writeOpen, setWriteOpen] = useState(true)
   const [pastOpen, setPastOpen] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
@@ -219,6 +221,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <CollapseToggleButton collapsed={!writeOpen} onClick={() => setWriteOpen((v) => !v)} label="면담 내용 입력칸" />
           <Button variant="secondary" onClick={() => setPaperOpen(true)} title="면담 전에 출력해 두고 손으로 적을 수 있는 면담용지">
             면담용지
           </Button>
@@ -235,6 +238,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         </p>
       )}
 
+      {writeOpen && (
+        <>
       <textarea
         ref={commentRef}
         value={comment}
@@ -297,6 +302,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
             />
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

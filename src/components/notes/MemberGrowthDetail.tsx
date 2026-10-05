@@ -308,6 +308,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
+  // 승진 점수 카드 접기(이름 · 승진심사만 남김)
+  const [scoreOpen, setScoreOpen] = useState(true)
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
   const noteStripRef = useRef<HTMLDivElement>(null)
 
@@ -631,10 +633,11 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
                 <span className="text-label-2">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
+                {promotionCriteria && <CollapseToggleButton collapsed={!scoreOpen} onClick={() => setScoreOpen((v) => !v)} label="승진 점수 카드" />}
               </div>
             </div>
 
-            {promotionCriteria &&
+            {promotionCriteria && scoreOpen &&
               (() => {
                 const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
                 const met = gap >= 0
