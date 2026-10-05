@@ -9,7 +9,7 @@ import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
 import { icSm } from '../ui/icon'
 import { isEmail, parseInviteText, parseInviteWorkbook, type InviteEntry } from '../../utils/adminInvite'
-import { PENDING_SUFFIX, type SheetShare, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { PENDING_SUFFIX, type SheetShare, isPendingEmail, pendingDuplicates, withoutPendingDuplicates, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
@@ -125,6 +125,8 @@ export default function MembersPanel({
   const teamOn = teamPick && teamList.includes(teamPick) ? teamPick : ''
   // 「시트 공유 대기」만 보기(초대했는데 실적관리 시트 권한을 아직 표시 안 한 사람)
   const [waitOnly, setWaitOnly] = useState(false)
+  // 같은 사람이 두 줄(Gmail 없는 자리표시 줄 중복) -- 저장할 때마다 걸러지지만, 이미 생긴 것은 「정리」로
+  const dups = useMemo(() => pendingDuplicates(data.users), [data.users])
   const isWaiting = (u: AccessUser) => !isPendingEmail(u.email) && u.email !== me && !u.sheetShare && !!u.invitedAt
   const shown = roleRows
     .filter((u) => !teamOn || (u.team.trim() || NO_TEAM) === teamOn)
@@ -745,6 +747,24 @@ export default function MembersPanel({
             <span className={`h-1.5 w-1.5 rounded-full ${waitOnly ? 'bg-white' : 'bg-orange-500'}`} />
             시트 공유 대기 {waiting.length}명
             <span className={`border-l pl-2 font-normal ${waitOnly ? 'border-white/40' : 'border-orange-200'}`}>{waitOnly ? '모두 보기' : '대기만 보기'}</span>
+          </button>
+        )}
+        {/* 같은 팀 · 같은 이름의 Gmail 없는 줄이 둘 이상(예전에 겹쳐 저장돼 생김) -- 한 번에 정리 */}
+        {isAdmin && dups.length > 0 && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              void run(
+                () => updateUsers(data.id, withoutPendingDuplicates, me, [`같은 이름 중복 정리: ${Array.from(new Set(dups.map(label))).join(', ')}`]),
+                `같은 이름으로 두 번 들어간 ${dups.length}줄을 정리했습니다.`,
+              )
+            }
+            title={`Gmail 없이 이름만 같은 줄: ${Array.from(new Set(dups.map(label))).join(', ')} -- 하나만 남깁니다(Gmail 있는 줄이 있으면 그 줄)`}
+            className="flex h-8 items-center gap-2 rounded-control border border-danger/25 bg-danger/[0.05] px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-danger hover:bg-danger/[0.09] disabled:opacity-50"
+          >
+            같은 이름 중복 {dups.length}명
+            <span className="border-l border-danger/25 pl-2 font-normal">정리</span>
           </button>
         )}
         {busy && <Spinner className="h-4 w-4" />}

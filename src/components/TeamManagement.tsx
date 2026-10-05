@@ -49,6 +49,9 @@ function formatTenureOnly(ordinal: number | null): string {
   return ordinal === null ? '-' : `${ordinal}년차`
 }
 
+// 팀원 명단 저장 중(이 탭 전체에서 하나만)
+let rosterSaving = false
+
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
@@ -93,6 +96,9 @@ export default function TeamManagement() {
   async function saveRoster() {
     const ch = access && me ? rosterChanges(access, state.members, teamName, me) : null
     if (!ch || !access) return
+    // 이 탭에서 명단 저장이 겹쳐 돌지 않게(둘 다 「아직 없음」을 보고 같은 사람을 두 번 넣지 않게)
+    if (rosterSaving) return
+    rosterSaving = true
     lastSent.current = ch.log.join()
     setRosterBusy(true)
     try {
@@ -101,6 +107,7 @@ export default function TeamManagement() {
       syncFailed.current = true
       setInfo(`팀원 명단에 저장하지 못했습니다: ${errText(e)} 권한 시트 편집 권한이 없으면 관리자에게 공유를 요청해 주세요.`)
     } finally {
+      rosterSaving = false
       setRosterBusy(false)
     }
   }

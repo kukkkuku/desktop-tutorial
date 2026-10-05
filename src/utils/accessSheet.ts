@@ -228,6 +228,28 @@ export async function updateUsers(id: string, change: (users: AccessUser[]) => A
   const fresh = await readSheet(id)
   return writeAccess(fresh, change(fresh.users), fresh.links, by, what)
 }
+// 같은 사람이 두 줄: Gmail 없는 자리표시 줄(이름만)은 같은 팀 · 같은 이름의 다른 줄이 있으면 뺀다.
+// 앱은 Gmail 없는 사람을 이름으로만 구분하므로(teamRoster), 둘을 남겨도 구분할 방법이 없다.
+// Gmail 있는 줄이 있으면 그 줄을 남기고, 자리표시 줄끼리면 먼저 적힌 줄을 남긴다.
+// (두 탭에서 거의 동시에 팀원 명단을 맞추면 둘 다 「아직 없음」을 보고 한 번씩 넣어 같은 이름이 두 줄이 됐다)
+const dupKey = (u: AccessUser) => `${u.role}|${u.team.trim()}|${u.name.trim()}`
+export function pendingDuplicates(users: AccessUser[]): AccessUser[] {
+  const real = new Set(users.filter((u) => !isPendingEmail(u.email) && u.name.trim()).map(dupKey))
+  const seen = new Set<string>()
+  const out: AccessUser[] = []
+  for (const u of users) {
+    if (!isPendingEmail(u.email) || !u.name.trim()) continue
+    const k = dupKey(u)
+    if (real.has(k) || seen.has(k)) out.push(u)
+    else seen.add(k)
+  }
+  return out
+}
+export function withoutPendingDuplicates(users: AccessUser[]): AccessUser[] {
+  const drop = new Set(pendingDuplicates(users).map((u) => u.email))
+  return drop.size ? users.filter((u) => !drop.has(u.email)) : users
+}
+
 async function writeAccess(
   fresh: AccessData & { userRows: number; linkRows: number },
   users: AccessUser[],
@@ -237,6 +259,7 @@ async function writeAccess(
   settings?: Record<string, string>,
 ): Promise<AccessData> {
   const base = fresh
+  users = withoutPendingDuplicates(users)
   const pad = (rows: string[][], n: number, w: number) => [...rows, ...Array.from({ length: Math.max(0, n - rows.length) }, () => Array(w).fill(''))]
   const uRows = pad(
     users.map(userRow),
