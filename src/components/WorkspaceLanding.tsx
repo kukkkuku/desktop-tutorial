@@ -1,5 +1,6 @@
 import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from './ui/Toast'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { Copy, Ellipsis, Pencil, Plus, Trash2, UserPlus, Users, X } from 'lucide-react'
@@ -290,7 +291,6 @@ export default function WorkspaceLanding() {
   // (예전엔 내가 추가한 사람만 바꿔서 관리자가 넣은 팀원은 옛 팀에 남았다)
   const accessHits = useMemo(() => (access && me ? access.users.filter((u) => u.team.trim() === teamName.trim()) : []), [access, me, teamName])
   const othersAdded = accessHits.filter((u) => u.email !== me && u.addedBy !== me).length
-  const [note, setNote] = useState('')
   // 팀 이름 맞추기 안내: 권한 시트의 내 팀이 이 평가 목록 팀 이름과 다르고,
   // 평가 목록 이름의 팀이 권한 시트에서 사라졌거나(관리자가 이름을 바꿈) 팀장이 없을 때(내가 다른 팀으로 옮겨짐).
   // 내가 여러 팀을 맡아 평가 목록에 팀이 여럿이어도, 그 팀이 권한 시트에 살아 있으면 묻지 않는다.
@@ -329,7 +329,7 @@ export default function WorkspaceLanding() {
         `팀 이름(성과관리에서 바꿈): ${from} → ${to}`,
       ])
     } catch (e) {
-      setNote(`팀원 명단의 팀 이름은 바꾸지 못했습니다: ${errText(e)}`)
+      toast(`팀원 명단의 팀 이름은 바꾸지 못했습니다: ${errText(e)}`, 'error')
     }
   }
 
@@ -358,10 +358,10 @@ export default function WorkspaceLanding() {
   return (
     <AppShell header={<PageHeader area="성과관리" title="평가 목록" />}>
       <main className="w-full max-w-6xl flex-1 px-6 pb-12 pt-5 lg:px-8">
-        {(note || dupError) && (
+        {dupError && (
           <p className={`mb-4 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2`}>
-            <span className="flex-1">{note || dupError}</span>
-            <button onClick={() => (setNote(''), setDupError(''))} className="text-label-3 hover:text-label" aria-label="닫기">
+            <span className="flex-1">{dupError}</span>
+            <button onClick={() => setDupError('')} className="text-label-3 hover:text-label" aria-label="닫기">
               <X {...icSm} />
             </button>
           </p>

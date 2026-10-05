@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { toast } from './ui/Toast'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
@@ -41,7 +42,6 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
   const history = useStateHistory()
   const [deleting, setDeleting] = useState<Task[] | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [notice, setNotice] = useState('')
   const [widths, setWidths] = useState<Record<string, number>>({})
 
   const isImportanceUsed = state.criteria.taskGradeWeight > 0
@@ -199,7 +199,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           break
       }
     }
-    setNotice(problems.length ? Array.from(new Set(problems)).join(' · ') : '')
+    if (problems.length) toast(Array.from(new Set(problems)).join(' · '), 'error')
     if (changed.size === 0) return
     history.record()
     for (const id of changed) dispatch({ type: 'UPDATE_TASK', payload: byId.get(id)! })
@@ -216,7 +216,7 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
       })
     })
     if (rowIndex + matrix.length > state.tasks.length)
-      setNotice('새 평가과제는 과제리스트의 평가 대상 체크나 과제 추가로 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다')
+      toast('새 평가과제는 과제리스트의 평가 대상 체크나 과제 추가로 만듭니다 -- 표 아래로 넘친 줄은 넣지 않았습니다', 'info')
     applyEdits(edits)
   }
 
@@ -240,7 +240,6 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
     history.record()
     const task: Task = { id: uuidv4(), name, importance: '일반', performanceGrade: null, workload: '중', objective: '', achievement: '' }
     dispatch({ type: 'ADD_TASK', payload: task })
-    setNotice('')
   }
 
   function confirmDelete() {
@@ -525,7 +524,6 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
         </div>
       ) : (
         <div className="mt-4">
-          {notice && <p className="mb-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{notice}</p>}
           <DataGrid
             columns={columns}
             rows={state.tasks}

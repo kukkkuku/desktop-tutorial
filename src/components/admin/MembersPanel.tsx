@@ -3,6 +3,7 @@
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { toast } from '../ui/Toast'
 import { ArrowRightLeft, ChevronDown, GripVertical, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import Button from '../Button'
@@ -150,12 +151,10 @@ export default function MembersPanel({
   const logWho = (u: AccessUser) => (isPendingEmail(u.email) ? label(u) : u.name ? `${u.name}(${u.email})` : u.email)
 
   const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
-  useEffect(() => {
-    if (!note?.ok) return
-    const t = window.setTimeout(() => setNote(null), 4000)
-    return () => window.clearTimeout(t)
-  }, [note])
+  // 알림은 화면 아래 토스트로(ui/Toast)
+  const setNote = (n: { ok: boolean; text: string } | null) => {
+    if (n) toast(n.text, n.ok ? 'ok' : 'error')
+  }
   async function run(fn: () => Promise<unknown>, okText: string) {
     setBusy(true)
     setNote(null)
@@ -1160,15 +1159,6 @@ export default function MembersPanel({
         </section>
       )}
 
-      {/* 알림: 됐으면 4초 뒤 저절로 사라지고(✕로 바로 닫기), 오류는 닫을 때까지 */}
-      {note && (
-        <p className={`flex items-start gap-2 rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>
-          <span className="min-w-0 flex-1">{note.text}</span>
-          <button type="button" onClick={() => setNote(null)} aria-label="알림 닫기" title="닫기" className="shrink-0 rounded p-0.5 opacity-60 hover:bg-black/[0.06] hover:opacity-100">
-            <X size={14} strokeWidth={2} />
-          </button>
-        </p>
-      )}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
       {table}

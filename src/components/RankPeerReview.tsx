@@ -4,6 +4,7 @@
 // 모든 순위에는 근거가 필요하다(없으면 저장하지 않음). 결과는 대상자별 평균.
 
 import { useMemo, useRef, useState } from 'react'
+import { toast } from './ui/Toast'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { RankReviewMode, TeamMember } from '../types'
@@ -35,7 +36,10 @@ export default function RankPeerReview() {
 
   // ---------- 내보내기·올리기 ----------
   const [busy, setBusy] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  // 알림은 화면 아래 토스트로(ui/Toast)
+  const setNotice = (t: string | null) => {
+    if (t) toast(t, t.startsWith('만들 양식이 없습니다') ? 'info' : 'ok')
+  }
   const [uploads, setUploads] = useState<(ParsedRankFile & { saved: boolean })[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -182,19 +186,6 @@ export default function RankPeerReview() {
           {expected.length === 0 && <p className="text-xs text-label-3">활성 팀원이 2명 이상 필요합니다.</p>}
         </div>
 
-        {notice && (
-          <p className="mt-3 flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-success">
-            <span className="flex-1">{notice}</span>
-            <button
-              onClick={() => setNotice(null)}
-              className="shrink-0 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
-              aria-label="알림 닫기"
-              title="닫기"
-            >
-              <X size={14} />
-            </button>
-          </p>
-        )}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-[length:calc(14px*var(--ui-fs,1))]">
             {uploads.length > 1 && (

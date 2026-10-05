@@ -3,6 +3,7 @@
 // 맨 아래 참고용으로만 보여 준다(점수 미반영). 점수 반영은 utils/peerScores.ts.
 
 import { useMemo, useRef, useState } from 'react'
+import { toast } from './ui/Toast'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
 import type { TeamMember } from '../types'
@@ -31,7 +32,10 @@ export default function TaskPeerPanel() {
   const periodLabel = currentWorkspace ? `${currentWorkspace.evaluationYear} ${currentWorkspace.periodName}` : ''
   const activeMembers = state.members.filter((m) => m.active)
   const [busy, setBusy] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
+  // 알림은 화면 아래 토스트로(ui/Toast)
+  const setNotice = (t: string | null) => {
+    if (t) toast(t, t.startsWith('만들 양식이 없습니다') ? 'info' : 'ok')
+  }
   const [uploads, setUploads] = useState<(ParsedTaskPeerFile & { saved: boolean })[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -187,19 +191,6 @@ export default function TaskPeerPanel() {
           })}
         </div>
 
-        {notice && (
-          <p className="mt-3 flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-success">
-            <span className="flex-1">{notice}</span>
-            <button
-              onClick={() => setNotice(null)}
-              className="shrink-0 rounded p-0.5 text-label-3 hover:bg-black/[0.06] hover:text-label"
-              aria-label="알림 닫기"
-              title="닫기"
-            >
-              <X size={14} />
-            </button>
-          </p>
-        )}
         {uploads.length > 0 && (
           <ul className="mt-3 space-y-2 text-[length:calc(14px*var(--ui-fs,1))]">
             {uploads.length > 1 && (

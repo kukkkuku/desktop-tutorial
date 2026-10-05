@@ -53,6 +53,8 @@ function migrateMember(raw: Record<string, unknown>): TeamMember | null {
     hireDate: typeof raw.hireDate === 'string' ? raw.hireDate : null,
     currentLevelSince: typeof raw.currentLevelSince === 'string' ? raw.currentLevelSince : null,
     promotionReviewDate: typeof raw.promotionReviewDate === 'string' ? raw.promotionReviewDate : null,
+    serviceManual: typeof raw.serviceManual === 'string' && raw.serviceManual ? raw.serviceManual : null,
+    levelYearsManual: typeof raw.levelYearsManual === 'number' ? raw.levelYearsManual : null,
     auxScores:
       raw.auxScores && typeof raw.auxScores === 'object'
         ? (raw.auxScores as TeamMember['auxScores'])

@@ -41,6 +41,9 @@ export interface TeamMember {
   // 승급심사 예정월("YYYY-MM") — 자동 계산값(목표 승진 연도)과 별개로 팀장이
   // 직접 지정하는 실제 심사 일정. 미지정이면 null.
   promotionReviewDate?: string | null
+  // 근속 · 직급 연차를 팀장이 직접 적은 값(자동 계산보다 먼저). 비우면 다시 자동.
+  serviceManual?: string | null
+  levelYearsManual?: number | null
   // 승진 보조지표 점수 — 승진서열화점수에 그대로 합산된다(직책/상벌/체류/교육).
   // 미지정 항목은 0으로 취급.
   auxScores?: {

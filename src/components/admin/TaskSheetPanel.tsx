@@ -3,6 +3,7 @@
 //   권한 시트 공유는 관리 › 권한 시트(관리자만)에서.
 import { errText } from '../../utils/googleError'
 import { useEffect, useState } from 'react'
+import { toast } from '../ui/Toast'
 import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
@@ -36,7 +37,10 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
   const [editing, setEditing] = useState(false)
   const [link, setLink] = useState('')
   const [busy, setBusy] = useState(false)
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+  // 알림은 화면 아래 토스트로(ui/Toast)
+  const setNote = (n: { ok: boolean; text: string } | null) => {
+    if (n) toast(n.text, n.ok ? 'ok' : 'error')
+  }
   async function save() {
     setBusy(true)
     setNote(null)
@@ -161,13 +165,6 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
         </section>
       </section>
 
-      {note && (
-        <p
-          className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}
-        >
-          {note.text}
-        </p>
-      )}
     </div>
   )
 }

@@ -3,7 +3,7 @@ import type { TeamMember } from '../../types'
 import type { MemberResultRow } from '../../utils/calculations'
 import { gradeColor, gradeText, UNGRADED_HINT } from '../../utils/calculations'
 import type { PromotionReadiness } from '../../utils/promotion'
-import { calcYearOrdinal, formatLevelTenureLabel } from '../../utils/tenure'
+import { levelOrdinalOf, formatLevelTenureLabel } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
 import Button from '../Button'
 import { icSm } from '../ui/icon'
@@ -78,7 +78,7 @@ export default function MemberOverviewPanel({
         <div className="rounded-card border border-separator px-3 py-2.5">
           <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">현 직급</p>
           <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-            {formatLevelTenureLabel(member.level, calcYearOrdinal(member.currentLevelSince))}
+            {formatLevelTenureLabel(member.level, levelOrdinalOf(member))}
           </p>
         </div>
         <div className="rounded-card border border-separator px-3 py-2.5">

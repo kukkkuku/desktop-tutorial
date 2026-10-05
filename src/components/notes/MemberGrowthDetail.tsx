@@ -7,7 +7,7 @@ import type { EvaluationGrade, Importance, Level, PersonalNoteColor } from '../.
 import { LEVEL_OPTIONS } from '../../types'
 import { calcAllTaskScores, calcMemberResults, getContribution, getEffectiveContributionPercent, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, calcProjectedPromotionScore, findPromotionCriteria, resolveReviewYear, reviewKindOf } from '../../utils/promotion'
-import { calcYearOrdinal, calcYearsSince } from '../../utils/tenure'
+import { levelOrdinalOf, calcYearsSince } from '../../utils/tenure'
 import { getMemberPerformanceHistory } from '../../utils/memberHistory'
 import { IMPORTANCE_COLORS } from '../../utils/badgeColors'
 import PromotionSimulationPanel from './PromotionSimulationPanel'
@@ -573,7 +573,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
     lastMeeting: memberNotes[0] ?? null,
     today: todayIso,
   })
-  const levelOrdinal = calcYearOrdinal(member.currentLevelSince)
+  const levelOrdinal = levelOrdinalOf(member)
   const paper = {
     basicInfo: [member.level, levelOrdinal !== null ? `${levelOrdinal}년차` : ''].filter(Boolean).join(' · '),
     perfLines: {
@@ -621,8 +621,8 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                     ))}
                   </Select>
                 </span>
-                {calcYearOrdinal(member.currentLevelSince) !== null && (
-                  <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{calcYearOrdinal(member.currentLevelSince)}년차</span>
+                {levelOrdinalOf(member) !== null && (
+                  <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{levelOrdinalOf(member)}년차</span>
                 )}
               </p>
 

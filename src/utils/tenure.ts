@@ -75,3 +75,8 @@ export function writeFoundingDay(v: string | null) {
     // 기억 못 해도 지금 화면에는 반영
   }
 }
+
+// 직급 연차: 팀장이 직접 적은 값이 있으면 그 값, 없으면 발령일로 자동
+export function levelOrdinalOf(m: { currentLevelSince?: string | null; levelYearsManual?: number | null }): number | null {
+  return m.levelYearsManual != null ? m.levelYearsManual : calcYearOrdinal(m.currentLevelSince)
+}

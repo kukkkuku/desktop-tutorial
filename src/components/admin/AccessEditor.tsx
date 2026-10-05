@@ -3,6 +3,7 @@
 // 막는 것: 이메일 모양 · 같은 이메일 두 번 · 관리자 0명 · 나 자신의 관리자 해제(잠겨서 못 돌아옴).
 import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
+import { toast } from '../ui/Toast'
 import { ClipboardPaste, Plus, RotateCcw, Save, Trash2, UserPlus } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
@@ -53,7 +54,10 @@ export default function AccessEditor({
   const [paste, setPaste] = useState<{ text: string; role: AccessRole } | null>(null)
   const [confirm, setConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+  // 알림은 화면 아래 토스트로(ui/Toast)
+  const setNote = (n: { ok: boolean; text: string } | null) => {
+    if (n) toast(n.text, n.ok ? 'ok' : 'error')
+  }
   const dirty = !readOnly && !sameAccess(data, { users, links })
 
   // 시트를 다시 읽으면(다시 읽기 · 저장 · 저장 충돌) 화면을 시트 내용으로
@@ -159,9 +163,6 @@ export default function AccessEditor({
             <li key={p}>{p}</li>
           ))}
         </ul>
-      )}
-      {note && (
-        <p className={`rounded-card px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>
       )}
 
       <section className="rounded-card border border-separator p-5">

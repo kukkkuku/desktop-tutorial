@@ -7,7 +7,7 @@ import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Level, MemberTableConfig, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
-import { calcServiceYearMonth, calcYearOrdinal, countFoundingAnniversaries, readFoundingDay, writeFoundingDay } from '../utils/tenure'
+import { calcServiceYearMonth, countFoundingAnniversaries, levelOrdinalOf, readFoundingDay, writeFoundingDay } from '../utils/tenure'
 import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
@@ -18,6 +18,7 @@ import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
+import { toast } from './ui/Toast'
 import IconButton from './IconButton'
 import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
@@ -32,6 +33,8 @@ import { getConnectedEmail } from '../utils/googleDrive'
 // yearsOfService(엑셀 업로드 등으로 채워질 수 있음)로 대체 표시한다.
 // 근속년월(창립기념일 기준): "1년 8개월(1년)" -- 앞은 입사일부터 만, 괄호는 지난 창립기념일 횟수.
 function displayServiceYears(member: TeamMember, foundingDay: string | null): string {
+  // 팀장이 직접 적은 값이 먼저(비우면 다시 자동)
+  if (member.serviceManual) return member.serviceManual
   const ym = calcServiceYearMonth(member.hireDate)
   if (ym) {
     const base = `${ym.years}년 ${ym.months}개월`
@@ -63,7 +66,6 @@ export default function TeamManagement() {
   const [viewingPeerReviewsFor, setViewingPeerReviewsFor] = useState<TeamMember | null>(null)
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
-  const [notice, setNotice] = useState('')
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
   const [movedOpen, setMovedOpen] = useState(false)
   const [unmatchedOpen, setUnmatchedOpen] = useState(false)
@@ -71,7 +73,6 @@ export default function TeamManagement() {
   const { data: access } = useAccessData()
   const me = (getConnectedEmail() ?? '').toLowerCase()
   const wsId = currentWorkspace?.id ?? null
-  const [info, setInfo] = useState('')
   // 명단 → 이 표: 우리 팀 명단에 있는데 이 평가에 없는 사람을 넣는다(이 평가에서 지운 사람은 빼고)
   useEffect(() => {
     if (!access || !me || !wsId) return
@@ -85,7 +86,7 @@ export default function TeamManagement() {
     if (!miss.length) return
     const added = miss.map((u) => ({ ...blankMember(u.name.trim() || u.email.split('@')[0]), email: isPendingEmail(u.email) ? undefined : u.email }))
     dispatch({ type: 'IMPORT_MEMBERS', payload: [...state.members, ...added] })
-    setInfo(`팀원 명단에 있는 ${added.map((m) => m.name).join(', ')}님을 이 평가에 넣었습니다. 평가하지 않을 사람은 행을 지우면 됩니다.`)
+    toast(`팀원 명단에 있는 ${added.map((m) => m.name).join(', ')}님을 이 평가에 넣었습니다. 평가하지 않을 사람은 행을 지우면 됩니다.`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access, wsId, teamName])
   // 이 표 → 명단: 이름 · Gmail을 고치면 잠시 뒤 명단에도(초대 메일 · 로그인에 쓰임).
@@ -106,7 +107,7 @@ export default function TeamManagement() {
       await updateUsers(access.id, ch.apply, me, ch.log)
     } catch (e) {
       syncFailed.current = true
-      setInfo(`팀원 명단에 저장하지 못했습니다: ${errText(e)} 권한 시트 편집 권한이 없으면 관리자에게 공유를 요청해 주세요.`)
+      toast(`팀원 명단에 저장하지 못했습니다: ${errText(e)} 권한 시트 편집 권한이 없으면 관리자에게 공유를 요청해 주세요.`, 'error')
     } finally {
       rosterSaving = false
       setRosterBusy(false)
@@ -196,9 +197,9 @@ export default function TeamManagement() {
       )
       setHandoverFor(null)
       setOpinion('')
-      setNotice(`${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`)
+      toast(`${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`)
     } catch (e) {
-      setNotice(`의견을 남기지 못했습니다: ${errText(e)}`)
+      toast(`의견을 남기지 못했습니다: ${errText(e)}`, 'error')
     } finally {
       setHandoverBusy(false)
     }
@@ -209,7 +210,6 @@ export default function TeamManagement() {
     for (const m of updates) dispatch({ type: 'UPDATE_MEMBER', payload: m })
     for (const m of adds) dispatch({ type: 'ADD_MEMBER', payload: m })
     setHrOpen(false)
-    setNotice('')
   }
 
   // 권한 시트의 팀 이름들 · 이 팀원의 권한 시트 줄(Gmail, 없으면 같은 이름이 한 사람일 때)
@@ -243,10 +243,10 @@ export default function TeamManagement() {
     // 팀원 명단 · 초대: 이름 바로 뒤(Gmail 아이디만 보이고, 오른쪽 끝에 초대 상태 -- 초대 전 / ✓ ○.○)
     { id: 'email', label: 'Gmail', type: 'text', width: 132, system: true },
     { id: 'hireDate', label: '입사일', type: 'date', width: 100, system: true },
-    { id: 'service', label: '근속', type: 'text', width: 88, system: true, readOnly: true },
+    { id: 'service', label: '근속', type: 'text', width: 88, system: true },
     { id: 'level', label: '직급', type: 'select', width: 66, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
     { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 100, system: true },
-    { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true, readOnly: true },
+    { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true },
     { id: 'role', label: '역할', type: 'text', width: 64, system: true },
     // 팀 = 관리(권한 시트)의 팀과 같은 값 -- 목록도 권한 시트 팀 이름(이름이 갈리지 않게). 바꾸면 권한 시트에도 저장
     {
@@ -298,12 +298,11 @@ export default function TeamManagement() {
     while (allCols.some((c) => c.label === `새 열 ${n}`)) n += 1
     const at = visIndex < columns.length ? orderIds.indexOf(columns[visIndex].id) : orderIds.length
     saveCfg({ custom: [...cfg.custom, { id, label: `새 열 ${n}` }], order: [...orderIds.slice(0, at), id, ...orderIds.slice(at)] })
-    setNotice('')
   }
   function deleteColumns(ids: string[]) {
     const custom = ids.filter((id) => cfg.custom.some((c) => c.id === id))
     if (custom.length === 0) {
-      setNotice('기본 열은 지울 수 없습니다. 대신 숨길 수 있습니다.')
+      toast('기본 열은 지울 수 없습니다. 대신 숨길 수 있습니다.', 'error')
       return
     }
     history.record()
@@ -339,7 +338,7 @@ export default function TeamManagement() {
       case 'currentLevelSince':
         return m.currentLevelSince ?? ''
       case 'levelTenure':
-        return formatTenureOnly(calcYearOrdinal(m.currentLevelSince))
+        return formatTenureOnly(levelOrdinalOf(m))
       case 'role':
         return m.role
       case 'team':
@@ -402,6 +401,23 @@ export default function TeamManagement() {
           if (!v || LEVEL_OPTIONS.includes(v as Level)) m.level = v as Level | ''
           else problems.push(`직급 '${v}'은(는) 없는 값입니다`)
           break
+        // 근속 · 직급 연차: 자동 값 그대로면 바꾸지 않고, 비우면 다시 자동
+        case 'service': {
+          const auto = displayServiceYears({ ...m, serviceManual: null }, foundingDay)
+          if (!v || v === '-') m.serviceManual = null
+          else if (v !== auto) m.serviceManual = /^\d+(\.\d+)?$/.test(v) ? `${v}년` : v
+          break
+        }
+        case 'levelTenure': {
+          const auto = formatTenureOnly(levelOrdinalOf({ ...m, levelYearsManual: null }))
+          if (!v || v === '-') m.levelYearsManual = null
+          else if (v !== auto) {
+            const n = Number(v.replace(/년차|년/g, '').trim())
+            if (Number.isInteger(n) && n >= 1 && n <= 60) m.levelYearsManual = n
+            else problems.push(`직급 연차 '${v}'은(는) 숫자로 적어 주세요 (예: 3)`)
+          }
+          break
+        }
         case 'role':
           m.role = v
           break
@@ -428,7 +444,7 @@ export default function TeamManagement() {
   }
 
   function save(next: TeamMember[], problems: string[]) {
-    setNotice(problems.length ? Array.from(new Set(problems)).join(' · ') : '')
+    if (problems.length) toast(Array.from(new Set(problems)).join(' · '), 'error')
     if (JSON.stringify(next) === JSON.stringify(state.members)) return
     history.record()
     // 활성 여부가 바뀐 팀원은 기여도 자동 배분을 다시 해야 해서 UPDATE_MEMBER로 보낸다.
@@ -457,8 +473,8 @@ export default function TeamManagement() {
     void updateUsers(access.id, (users) => users.map((x) => (to.has(x.email) ? { ...x, team: to.get(x.email)! } : x)), me, [
       `팀(팀원관리에서): ${moves.map((x) => `${x.u.name || x.u.email} → ${x.to || '(없음)'}`).join(', ')}`,
     ])
-      .then(() => setInfo(`${moves.map((x) => x.u.name || x.u.email).join(', ')}님의 팀을 바꿔 관리(권한 시트)에도 저장했습니다.`))
-      .catch((err) => setInfo(`팀을 권한 시트에 저장하지 못했습니다: ${errText(err)} 권한 시트 편집 권한이 없으면 관리자에게 요청해 주세요.`))
+      .then(() => toast(`${moves.map((x) => x.u.name || x.u.email).join(', ')}님의 팀을 바꿔 관리(권한 시트)에도 저장했습니다.`))
+      .catch((err) => toast(`팀을 권한 시트에 저장하지 못했습니다: ${errText(err)} 권한 시트 편집 권한이 없으면 관리자에게 요청해 주세요.`, 'error'))
   }
 
   function insertRows(index: number, count: number) {
@@ -510,7 +526,7 @@ export default function TeamManagement() {
       const gone = deleting.map((m) => rosterUserOf(access, m, teamName, me)).filter((u) => !!u && u.role === 'member' && u.email !== me)
       if (gone.length)
         void updateUsers(access.id, (users) => users.filter((u) => !gone.some((g) => g!.email === u.email)), me, [`팀원관리에서 팀 명단 빼기: ${gone.map((u) => u!.name || u!.email).join(', ')}`]).catch(
-          (e) => setInfo(`팀 명단에서 빼지 못했습니다: ${errText(e)}`),
+          (e) => toast(`팀 명단에서 빼지 못했습니다: ${errText(e)}`, 'error'),
         )
     }
     setAlsoRoster(false)
@@ -578,7 +594,16 @@ export default function TeamManagement() {
           {m.active ? '활성' : '비활성'}
         </button>
       )
-    if (col.id === 'service' || col.id === 'levelTenure' || col.id === 'work' || col.id === 'tasks')
+    if (col.id === 'service' || col.id === 'levelTenure') {
+      const manual = col.id === 'service' ? !!m.serviceManual : m.levelYearsManual != null
+      return (
+        <span className={`tabular-nums ${manual ? 'text-label' : 'text-label-2'}`} title={manual ? '직접 입력한 값 -- 지우면 다시 자동 계산' : '입사일 · 발령일로 자동 계산 -- 눌러서 직접 고칠 수 있음'}>
+          {textOf(m, col.id)}
+          {manual && <span className="ml-1 align-super text-[length:calc(10px*var(--ui-fs,1))] text-accent">직접</span>}
+        </span>
+      )
+    }
+    if (col.id === 'work' || col.id === 'tasks')
       return <span className="tabular-nums text-label-2">{textOf(m, col.id)}</span>
     if (col.id === 'peer')
       return (
@@ -732,14 +757,6 @@ export default function TeamManagement() {
           </Button>
         </p>
       )}
-      {info && (
-        <p className="mt-3 flex items-start gap-2 rounded-card bg-accent-soft px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-          <span className="flex-1">{info}</span>
-          <button onClick={() => setInfo('')} aria-label="닫기" className="text-label-3 hover:text-label">
-            <X {...icSm} />
-          </button>
-        </p>
-      )}
       {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
       {/* 평소엔 한 줄로 접어 두고, 눌러야 펼친다(「과제 담당자 중 …」 줄과 같은 방식) */}
       {moved.length > 0 && movedOpen && (
@@ -798,7 +815,6 @@ export default function TeamManagement() {
       )}
 
       <div className="mt-4">
-        {notice && <p className="mb-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{notice}</p>}
         <DataGrid
           columns={columns}
           rows={state.members}
@@ -913,7 +929,7 @@ export default function TeamManagement() {
           teamName={teamName.trim()}
           preset={invitePeople.filter((u) => !u.invitedAt).map((u) => ({ email: u.email, name: u.name || undefined, sendTo: u.sendTo || undefined }))}
           onClose={() => setInviteOpen(false)}
-          onSent={(sent) => setInfo(`${sent.length}명에게 초대 메일을 보냈습니다. 실적관리 시트 공유는 관리자가 합니다.`)}
+          onSent={(sent) => toast(`${sent.length}명에게 초대 메일을 보냈습니다. 실적관리 시트 공유는 관리자가 합니다.`)}
         />
       )}
 
