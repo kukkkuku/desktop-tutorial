@@ -1992,11 +1992,11 @@ export default function ScheduleTable({
     const r = el.getBoundingClientRect()
     const w = barRef.current?.offsetWidth ?? 420
     const h = barRef.current?.offsetHeight ?? 44
-    const y = r.top - h - 6 >= 8 ? r.top - h - 6 : r.bottom + 6
-    // 머리글 기준(열 · 전체 · 구분 열 · 제목 편집)이면 위 도구 줄 왼쪽 버튼(보기 · 입력하기)을 가리지 않게 표 오른쪽 끝 쪽으로
-    const head = !!el.closest('thead')
-    const tr = tableRef.current?.parentElement?.getBoundingClientRect()
-    const x = head && tr ? Math.max(8, Math.min(tr.right - w - 72, window.innerWidth - w - 8)) : Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
+    // 머리글 기준(열 전체 · 구분 열 · 제목 편집)이면 머리글 줄 바로 아래, 그 열 왼쪽 끝에 붙인다
+    // (예전엔 표 오른쪽 끝 위로 날아가 도구 줄을 가리고 열과 멀었다)
+    const thead = el.closest('thead')
+    const y = thead ? thead.getBoundingClientRect().bottom + 6 : r.top - h - 6 >= 8 ? r.top - h - 6 : r.bottom + 6
+    const x = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))
     setBarPos((cur) => (cur && cur.x === x && cur.y === y ? cur : { x, y }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })
