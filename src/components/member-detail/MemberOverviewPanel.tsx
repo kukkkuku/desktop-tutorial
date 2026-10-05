@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react'
 import type { TeamMember } from '../../types'
 import type { MemberResultRow } from '../../utils/calculations'
-import { GRADE_COLORS } from '../../utils/calculations'
+import { gradeColor, gradeText, UNGRADED_HINT } from '../../utils/calculations'
 import type { PromotionReadiness } from '../../utils/promotion'
 import { calcYearOrdinal, formatLevelTenureLabel } from '../../utils/tenure'
 import type { NotesSubTab } from '../notes/NotesStage'
@@ -45,8 +45,8 @@ export default function MemberOverviewPanel({
           <p className="mt-1 text-[length:calc(20px*var(--ui-fs,1))] font-semibold tabular-nums text-label">
             {rank ? `${rank}위 · ` : ''}
             {memberResult.cumulativeScore.toFixed(1)}점
-            <span className={`mac-badge ml-2 align-middle ${GRADE_COLORS[memberResult.grade]}`}>
-              {memberResult.grade}
+            <span className={`mac-badge ml-2 align-middle ${gradeColor(memberResult.grade)}`} title={memberResult.grade ? undefined : UNGRADED_HINT}>
+              {gradeText(memberResult.grade)}
             </span>
           </p>
         ) : (

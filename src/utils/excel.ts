@@ -954,7 +954,7 @@ function buildSummaryResultRows(
       row.member.name,
       row.member.level || '-',
       Number(row.cumulativeScore.toFixed(1)),
-      row.grade,
+      row.grade ?? '-',
       prevGrade ?? '-',
       delta === '' ? '-' : delta > 0 ? `+${delta}` : `${delta}`,
       row.member.comment || '',
@@ -1112,7 +1112,7 @@ function buildMemberResultWorkbook(
     ['참여 과제 수', row.participatedTaskCount],
     ['종합 점수(가중평균)', Number(row.weightedAverageScore.toFixed(1))],
     ['누적 점수', Number(row.cumulativeScore.toFixed(1))],
-    ['평가등급', row.grade],
+    ['평가등급', row.grade ?? '-'],
   ]
 
   const taskRows: (string | number)[][] = []

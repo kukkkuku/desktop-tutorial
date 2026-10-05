@@ -635,32 +635,42 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                       <p className="text-xs text-label-2">목표 점수</p>
                       <p className="mt-0.5 text-[length:calc(17px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{promotionCriteria.requiredScore.toFixed(0)}점</p>
                     </div>
-                    <div className="rounded-card border border-separator bg-white px-3.5 py-2">
-                      <p
-                        className="text-xs text-label-2"
-                        title="심사연도까지 아직 없는 해를 지금까지 받은 등급의 평균으로 채웠을 때 달라지는 점수. 최근 등급이 평균보다 좋으면 마이너스가 될 수 있습니다."
-                      >
-                        현재 점수 + 심사까지 예상 변화
-                      </p>
-                      <p className="mt-0.5 text-[length:calc(17px*var(--ui-fs,1))] font-semibold tabular-nums">
-                        <span className="text-label">{currentWeightedScore.toFixed(1)}점</span>
-                        <span className={`ml-1.5 ${simDelta >= 0 ? 'text-accent' : 'text-warning'}`}>
-                          {simDelta >= 0 ? '+' : '−'}
-                          {Math.abs(simDelta).toFixed(1)}
-                        </span>
-                      </p>
-                    </div>
-                    <div className={`rounded-card border bg-white px-3.5 py-2 ${met ? 'border-success' : 'border-warning'}`}>
-                      <p className="text-xs text-label-2">
-                        최종 기대 점수 <span className="text-label-3">({reviewYear}년)</span>
-                      </p>
-                      <p className="mt-0.5 flex items-baseline gap-1.5">
-                        <span className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{projectedTotal.toFixed(1)}점</span>
-                        <span className={`text-xs font-semibold ${met ? 'text-success' : 'text-warning'}`}>
-                          {met ? `+${gap.toFixed(1)}점 충족` : `-${Math.abs(gap).toFixed(1)}점 필요`}
-                        </span>
-                      </p>
-                    </div>
+                    {/* 지난 고과 기록이 하나도 없으면 0점 · 「-N점 필요」 경고 대신 아직 계산할 수 없다고만 알린다 */}
+                    {appraisals.length === 0 ? (
+                      <div className="flex max-w-[300px] flex-col justify-center rounded-card border border-dashed border-separator bg-white px-3.5 py-2">
+                        <p className="text-xs font-semibold text-label-2">현재 점수 · 기대 점수 계산 전</p>
+                        <p className="mt-0.5 text-xs text-label-3">지난 고과 기록이 없습니다. 오른쪽 위 「지난 성과 엑셀파일 불러오기」로 넣으면 계산됩니다.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="rounded-card border border-separator bg-white px-3.5 py-2">
+                          <p
+                            className="text-xs text-label-2"
+                            title="심사연도까지 아직 없는 해를 지금까지 받은 등급의 평균으로 채웠을 때 달라지는 점수. 최근 등급이 평균보다 좋으면 마이너스가 될 수 있습니다."
+                          >
+                            현재 점수 + 심사까지 예상 변화
+                          </p>
+                          <p className="mt-0.5 text-[length:calc(17px*var(--ui-fs,1))] font-semibold tabular-nums">
+                            <span className="text-label">{currentWeightedScore.toFixed(1)}점</span>
+                            <span className={`ml-1.5 ${simDelta >= 0 ? 'text-accent' : 'text-warning'}`}>
+                              {simDelta >= 0 ? '+' : '−'}
+                              {Math.abs(simDelta).toFixed(1)}
+                            </span>
+                          </p>
+                        </div>
+                        <div className={`rounded-card border bg-white px-3.5 py-2 ${met ? 'border-success' : 'border-warning'}`}>
+                          <p className="text-xs text-label-2">
+                            최종 기대 점수 <span className="text-label-3">({reviewYear}년)</span>
+                          </p>
+                          <p className="mt-0.5 flex items-baseline gap-1.5">
+                            <span className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{projectedTotal.toFixed(1)}점</span>
+                            <span className={`text-xs font-semibold ${met ? 'text-success' : 'text-warning'}`}>
+                              {met ? `+${gap.toFixed(1)}점 충족` : `-${Math.abs(gap).toFixed(1)}점 필요`}
+                            </span>
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )
               })()}

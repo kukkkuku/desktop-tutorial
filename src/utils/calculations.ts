@@ -162,7 +162,8 @@ export interface MemberResultRow {
   weightedAverageScore: number
   expectedScore: number
   ratio: number
-  grade: EvaluationGrade
+  // null = 등급을 매길 수 없음(맡은 과제가 없어 점수 0, 또는 상대평가인데 모두 같은 점수) -- 화면에는 「-」
+  grade: EvaluationGrade | null
 }
 
 // The evaluation ratio is peer-relative: "expected" means "what an average
@@ -336,8 +337,11 @@ export function calcMemberResults(
 
   const expectedScore = calcExpectedScore(withCumulativeScore.map((r) => r.cumulativeScore))
 
-  const allScores = withCumulativeScore.map((r) => r.cumulativeScore)
+  // 점수가 없는 사람(맡은 과제 없음)은 등급을 매기지 않고 상대평가 순위에서도 뺀다 -- 예전에는 아무도 점수가 없으면
+  // 「나보다 높은 사람 없음」이라 전원 S였다. 상대평가인데 모두 같은 점수면 나눌 수 없으니 전원 미산정.
+  const allScores = withCumulativeScore.map((r) => r.cumulativeScore).filter((x) => x > 0)
   const dist = criteria.gradeDistribution
+  const allTied = !!dist && allScores.length > 0 && Math.max(...allScores) === Math.min(...allScores)
   const rows = withCumulativeScore.map(({ member, cumulativeScore, participatedTaskCount, totalShare }) => {
     const weightedAverageScore = totalShare > 0 ? cumulativeScore / totalShare : 0
     const ratio = expectedScore > 0 ? cumulativeScore / expectedScore : 0
@@ -348,7 +352,7 @@ export function calcMemberResults(
       weightedAverageScore,
       expectedScore,
       ratio,
-      grade: dist ? gradeByDistribution(cumulativeScore, allScores, dist) : calcEvaluationGrade(ratio),
+      grade: cumulativeScore <= 0 || allTied ? null : dist ? gradeByDistribution(cumulativeScore, allScores, dist) : calcEvaluationGrade(ratio),
     }
   })
 
@@ -553,8 +557,8 @@ export function calcPeerFeedback(
 export interface PeerReviewImpactRow {
   member: TeamMember
   reviewCount: number
-  gradeWithout: EvaluationGrade
-  gradeWith: EvaluationGrade
+  gradeWithout: EvaluationGrade | null
+  gradeWith: EvaluationGrade | null
   ratioWithout: number
   ratioWith: number
   // 등급 경계를 넘지 않았더라도 팀 평균 대비 비율이 어느 방향으로 얼마나
@@ -613,3 +617,7 @@ export const GRADE_COLORS: Record<EvaluationGrade, string> = {
   C: 'text-orange-600 bg-orange-50',
   D: 'text-red-600 bg-red-50',
 }
+// 등급을 못 매긴 사람(grade null)은 「-」 · 회색
+export const gradeText = (g: EvaluationGrade | null) => g ?? '-'
+export const gradeColor = (g: EvaluationGrade | null) => (g ? GRADE_COLORS[g] : 'text-label-3 bg-black/[0.04]')
+export const UNGRADED_HINT = '등급 미산정: 맡은 과제(기여도)가 없거나, 모두 같은 점수라 상대평가로 나눌 수 없습니다'

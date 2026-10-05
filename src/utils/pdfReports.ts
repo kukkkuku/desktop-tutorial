@@ -199,7 +199,7 @@ function buildResultsPdfOptions(
       row.member.level || '-',
       `${row.participatedTaskCount}건`,
       row.cumulativeScore.toFixed(1),
-      row.grade,
+      row.grade ?? '-',
     ]),
     emptyLabel: '평가 결과가 없습니다.',
   }
@@ -306,7 +306,7 @@ function buildMemberResultPdfOptions(
     stats: [
       { label: '참여 과제 수', value: `${row.participatedTaskCount}건` },
       { label: '누적 점수', value: row.cumulativeScore.toFixed(1) },
-      { label: '평가등급', value: row.grade, emphasize: true },
+      { label: '평가등급', value: row.grade ?? '-', emphasize: true },
     ],
     sections: [taskSection, notesSection],
     fileName: `${member.name}_평가결과_${dateStr}.pdf`,

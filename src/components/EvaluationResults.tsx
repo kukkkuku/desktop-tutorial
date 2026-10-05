@@ -31,7 +31,7 @@ import IconButton from './IconButton'
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, Eye, Minus, X } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
-import { getEffectiveContributionPercent, peerSummaryOf } from '../utils/calculations'
+import { getEffectiveContributionPercent, gradeText, peerSummaryOf, UNGRADED_HINT } from '../utils/calculations'
 import PeerLine from './PeerLine'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
@@ -146,25 +146,27 @@ export default function EvaluationResults() {
       }
     })
 
-    // P2 단기 대응: 단일 의존(한 명이 70% 이상 담당)
-    tasks.forEach((t) => {
-      activeMembers.forEach((m) => {
-        const pct = getContributionPercent(contributions, t.id, m.id)
-        if (pct >= 70) {
-          list.push({ priority: 2, label: '단기 대응', title: '단일 의존', desc: `"${t.name}" ${pct}%를 ${m.name}이 담당 — 백업 역할 지정 검토` })
-        }
-      })
-    })
-
-    // P3 모니터링: 기여 공백(60% 이상 미참여)
+    // P1 즉시 조치: 기여도를 넣은 사람이 없는 과제 -- 과제 점수가 누구에게도 들어가지 않는다
     if (activeMembers.length > 0) {
       tasks.forEach((t) => {
-        const noContrib = activeMembers.filter((m) => getContributionPercent(contributions, t.id, m.id) === 0).length
-        if (noContrib >= Math.ceil(activeMembers.length * 0.6)) {
-          list.push({ priority: 3, label: '모니터링', title: '기여 공백', desc: `"${t.name}" — ${noContrib}명 미참여, 역할 분담 확인 권장` })
+        if (activeMembers.every((m) => getContributionPercent(contributions, t.id, m.id) === 0)) {
+          list.push({ priority: 1, label: '즉시 조치', title: '기여자 없음', desc: `"${t.name}" — 기여도를 넣은 팀원이 없어 이 과제 점수가 아무에게도 반영되지 않습니다` })
         }
       })
     }
+
+    // P2 단기 대응: 단일 의존(핵심 과제를 한 명이 70% 이상 담당). 혼자 하는 일반 · 일상 업무는 흔하니 짚지 않는다
+    // (예전 「기여 공백 -- N명 미참여」는 한두 명이 맡는 보통 과제마다 떠서 뺐다)
+    tasks
+      .filter((t) => t.importance === '과제' || t.importance === '중점' || t.importance === '핵심')
+      .forEach((t) => {
+        activeMembers.forEach((m) => {
+          const pct = getContributionPercent(contributions, t.id, m.id)
+          if (pct >= 70) {
+            list.push({ priority: 2, label: '단기 대응', title: '단일 의존', desc: `"${t.name}" ${pct}%를 ${m.name}님이 담당 — 백업 역할 지정 검토` })
+          }
+        })
+      })
 
     return list.sort((a, b) => a.priority - b.priority).slice(0, 5)
   }, [tasks, activeMembers, contributions, results])
@@ -206,7 +208,7 @@ export default function EvaluationResults() {
     if (!r) return null
     const mine = pairs.filter((x) => x.memberId === highlightId).sort((a, b) => b.pts - a.pts)
     const top = mine[0]
-    const parts = [`${idx + 1}위 · ${r.cumulativeScore.toFixed(1)}점 · 고과 ${r.grade}`, `참여 ${mine.length}건`]
+    const parts = [`${idx + 1}위 · ${r.cumulativeScore.toFixed(1)}점 · 고과 ${gradeText(r.grade)}`, `참여 ${mine.length}건`]
     if (top)
       parts.push(
         `가장 기여한 과제 "${top.task.name}" ${top.pct.toFixed(0)}% · 성과 ${top.task.performanceGrade ?? '미입력'}(${top.score.toFixed(0)}점) → +${top.pts.toFixed(1)}점`,
@@ -474,7 +476,7 @@ export default function EvaluationResults() {
                   const idx = idxOf(r.member.id)
                   const isHL = highlightId === r.member.id
                   const prevGrade = prevGradeByMember.get(r.member.id) ?? null
-                  const delta = prevGrade ? GRADE_RANK[r.grade] - GRADE_RANK[prevGrade] : null
+                  const delta = prevGrade && r.grade ? GRADE_RANK[r.grade] - GRADE_RANK[prevGrade] : null
                   const status = statusOf(r.member.id)
                   return (
                     <tr
@@ -527,7 +529,9 @@ export default function EvaluationResults() {
                         <PeerLine summary={peerSummaryOf(peerInputs, r.member.id, criteria)} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${gradeTextColor(r.grade)}`}>{r.grade}</span>
+                        <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${r.grade ? gradeTextColor(r.grade) : 'text-label-3'}`} title={r.grade ? undefined : UNGRADED_HINT}>
+                          {gradeText(r.grade)}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{prevGrade ?? '-'}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] font-semibold">

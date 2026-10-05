@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react'
-import { GRADE_COLORS, type PeerReviewImpact } from '../utils/calculations'
+import { gradeColor, gradeText, type PeerReviewImpact } from '../utils/calculations'
 import { icSm } from './ui/icon'
 
 // 이 화면 맨 위에 두는 요약 밴드. 리뷰 목록(로우데이터)을 읽기 전에 "그래서
@@ -50,12 +50,12 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
                   className="flex items-center gap-1.5 rounded-control border border-separator px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]"
                 >
                   <span className="font-medium text-label">{r.member.name}</span>
-                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWithout]}`}>
-                    {r.gradeWithout}
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${gradeColor(r.gradeWithout)}`}>
+                    {gradeText(r.gradeWithout)}
                   </span>
                   <ArrowRight {...icSm} className={up ? 'text-success' : 'text-danger'} />
-                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${GRADE_COLORS[r.gradeWith]}`}>
-                    {r.gradeWith}
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${gradeColor(r.gradeWith)}`}>
+                    {gradeText(r.gradeWith)}
                   </span>
                   <span className="text-xs text-label-3">
                     {r.ratioDeltaPercent >= 0 ? '+' : ''}
@@ -73,7 +73,7 @@ export default function PeerReviewImpactSummary({ impact }: { impact: PeerReview
             <span className="text-label-2">
               {' '}
               가장 많이 움직인 건 {biggestShift.member.name}({biggestShift.ratioDeltaPercent >= 0 ? '+' : ''}
-              {biggestShift.ratioDeltaPercent.toFixed(1)}%)이지만 {biggestShift.gradeWith} 등급 안에 머뭅니다.
+              {biggestShift.ratioDeltaPercent.toFixed(1)}%)이지만 {gradeText(biggestShift.gradeWith)} 등급 안에 머뭅니다.
             </span>
           )}
         </p>

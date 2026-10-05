@@ -11,7 +11,9 @@ import {
   getPersonalPerformanceGrade,
   getTaskContributionSum,
   isContributionSumValid,
-  GRADE_COLORS,
+  gradeColor,
+  gradeText,
+  UNGRADED_HINT,
 } from '../utils/calculations'
 import GradeNoteButton from './GradeNoteButton'
 import LiveRankingPopover from './LiveRankingPopover'
@@ -239,7 +241,7 @@ export default function EvaluationMatrix() {
                           <span className="text-label">{member.name}</span>
                           {result && hasScores ? (
                             <>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${GRADE_COLORS[result.grade]}`}>{result.grade}</span>
+                              <span className={`rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`} title={result.grade ? undefined : UNGRADED_HINT}>{gradeText(result.grade)}</span>
                               <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
                               <span
                                 className="cursor-help text-xs font-normal text-label-2 underline decoration-dotted underline-offset-2"

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MemberResultRow } from '../utils/calculations'
-import { GRADE_COLORS } from '../utils/calculations'
+import { gradeColor, gradeText, UNGRADED_HINT } from '../utils/calculations'
 import { GripVertical, X } from 'lucide-react'
 import IconButton from './IconButton'
 import { icSm } from './ui/icon'
@@ -90,7 +90,7 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
                 <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{r.member.name}</span>
                 <span className="text-center text-[length:calc(14px*var(--ui-fs,1))] tabular-nums text-label-2">{i + 1}위</span>
                 <span className="flex justify-center">
-                  <span className={`rounded-full px-2 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${GRADE_COLORS[r.grade]}`}>{r.grade}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(r.grade)}`} title={r.grade ? undefined : UNGRADED_HINT}>{gradeText(r.grade)}</span>
                 </span>
               </div>
             ))}

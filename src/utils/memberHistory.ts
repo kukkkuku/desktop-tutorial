@@ -60,7 +60,7 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
     const taskScores = calcAllTaskScores(state.tasks, state.criteria)
     const results = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))
     const idx = results.findIndex((r) => r.member.id === memberId)
-    let row: { cumulativeScore: number; grade: EvaluationGrade } | null = idx >= 0 ? results[idx] : null
+    let row: { cumulativeScore: number; grade: EvaluationGrade | null } | null = idx >= 0 ? results[idx] : null
 
     // calcMemberResults는 그 기간 스냅샷에서 비활성으로 저장된 팀원은 아예
     // 제외한다(순위표에는 맞는 동작). 하지만 고과 추이는 "그 기간에 실제로
@@ -75,7 +75,12 @@ export function getMemberPerformanceHistory(memberId: string, periods: Workspace
       const dist = state.criteria.gradeDistribution
       row = {
         cumulativeScore,
-        grade: dist ? gradeByDistribution(cumulativeScore, [...results.map((r) => r.cumulativeScore), cumulativeScore], dist) : calcEvaluationGrade(ratio),
+        grade:
+          cumulativeScore <= 0
+            ? null
+            : dist
+              ? gradeByDistribution(cumulativeScore, [...results.map((r) => r.cumulativeScore).filter((x) => x > 0), cumulativeScore], dist)
+              : calcEvaluationGrade(ratio),
       }
     }
 
