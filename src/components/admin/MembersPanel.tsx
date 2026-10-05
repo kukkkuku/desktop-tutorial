@@ -4,6 +4,7 @@
 import { errText } from '../../utils/googleError'
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { ArrowRightLeft, ChevronDown, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -150,6 +151,11 @@ export default function MembersPanel({
 
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+  useEffect(() => {
+    if (!note?.ok) return
+    const t = window.setTimeout(() => setNote(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [note])
   async function run(fn: () => Promise<unknown>, okText: string) {
     setBusy(true)
     setNote(null)
@@ -367,7 +373,16 @@ export default function MembersPanel({
       case 'team':
         // 권한 설정: 있는 팀에서 고르기 + 새 팀(글자로 치지 않아 「우리팀」/「우리 팀」 같은 오타 팀이 생기지 않게)
         if (mine && scope === 'all')
-          return <TeamCell value={u.team} teams={sheetTeams} disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} />
+          return (
+            <TeamCell
+              value={u.team}
+              teams={sheetTeams}
+              teamSize={(t) => data.users.filter((x) => x.team.trim() === t).length}
+              disabled={busy}
+              onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)}
+              onRenameTeam={isAdmin ? (from, to) => renameWholeTeam(from, to) : undefined}
+            />
+          )
         return mine ? <CellInput value={u.team} placeholder="—" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} /> : u.team || '—'
       case 'role':
         // 역할은 관리자만 바꾼다(자기 자신은 못 바꿈 -- 관리자가 없어지지 않게)
@@ -1062,7 +1077,15 @@ export default function MembersPanel({
         </section>
       )}
 
-      {note && <p className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>}
+      {/* 알림: 됐으면 4초 뒤 저절로 사라지고(✕로 바로 닫기), 오류는 닫을 때까지 */}
+      {note && (
+        <p className={`flex items-start gap-2 rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>
+          <span className="min-w-0 flex-1">{note.text}</span>
+          <button type="button" onClick={() => setNote(null)} aria-label="알림 닫기" title="닫기" className="shrink-0 rounded p-0.5 opacity-60 hover:bg-black/[0.06] hover:opacity-100">
+            <X size={14} strokeWidth={2} />
+          </button>
+        </p>
+      )}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
       {table}
@@ -1382,59 +1405,154 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
 
 const ROLE_ORDER: Record<AccessRole, number> = { admin: 0, leader: 1, member: 2 }
 
-// 팀 칸: 있는 팀에서 고르기 · 새 팀(이름을 넣어 만듦) · 팀 없음. 평소엔 글자만, 줄에 마우스를 올리면 상자
-const NEW_TEAM = '\u0001new'
-function TeamCell({ value, teams, disabled, onSave }: { value: string; teams: string[]; disabled?: boolean; onSave: (v: string) => void }) {
-  const [adding, setAdding] = useState(false)
-  const [draft, setDraft] = useState('')
+// 팀 칸: 누르면 지금 팀 이름을 바로 고치는 입력칸 + 아래 팀 목록(친 글자로 거름).
+//   있는 팀 이름 = 그 팀으로 옮기기. 새 이름 = 「팀 전체 이름 바꾸기」(이 팀 N명) 또는 「이 사람만 새 팀으로」를 고른다
+//   (「제품디자인팀」 → 「제품디자인」처럼 이름만 고치려고 새 팀을 따로 만들지 않게).
+//   표 칸은 넘친 부분을 자르므로 목록은 화면 맨 위층(portal)에 띄운다.
+function TeamCell({
+  value,
+  teams,
+  teamSize,
+  disabled,
+  onSave,
+  onRenameTeam,
+}: {
+  value: string
+  teams: string[]
+  teamSize: (t: string) => number
+  disabled?: boolean
+  onSave: (v: string) => void
+  onRenameTeam?: (from: string, to: string) => void
+}) {
   const cur = value.trim()
-  if (adding)
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(cur)
+  const [ask, setAsk] = useState<string | null>(null) // 새 이름을 쳤을 때: 팀 이름 바꾸기 / 이 사람만
+  const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const popRef = useRef<HTMLDivElement>(null)
+  const place = () => {
+    const r = inputRef.current?.getBoundingClientRect()
+    if (r) setBox({ left: r.left, top: r.bottom + 4, width: Math.max(r.width, 220) })
+  }
+  const start = () => {
+    if (disabled) return
+    setText(cur)
+    setAsk(null)
+    setOpen(true)
+    requestAnimationFrame(() => {
+      place()
+      inputRef.current?.select()
+    })
+  }
+  const close = () => {
+    setOpen(false)
+    setAsk(null)
+    setText(cur)
+  }
+  const pick = (t: string) => {
+    setOpen(false)
+    setAsk(null)
+    if (t !== cur) onSave(t)
+  }
+  const commit = () => {
+    const v = text.trim()
+    if (!v || v === cur) return close()
+    if (teams.includes(v)) return pick(v)
+    // 새 이름: 지금 팀이 있으면 팀 전체 이름 바꾸기인지 이 사람만인지 묻는다
+    if (cur && onRenameTeam) return setAsk(v)
+    pick(v)
+  }
+  // 바깥을 누르면 닫기(입력칸 · 목록 안은 제외)
+  useEffect(() => {
+    if (!open) return
+    const out = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!inputRef.current?.contains(t) && !popRef.current?.contains(t)) close()
+    }
+    window.addEventListener('mousedown', out)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('mousedown', out)
+      window.removeEventListener('scroll', place, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const q = text.trim()
+  const list = open && q && q !== cur ? teams.filter((t) => t.includes(q)) : teams
+  const quiet = `-mx-[7px] h-8 w-[calc(100%+14px)] rounded-control border px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none`
+  if (!open)
     return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={start}
+        title="팀 바꾸기 · 이름 고치기"
+        className={`${quiet} relative flex items-center border-transparent bg-transparent text-left group-hover/row:border-hairline group-hover/row:bg-white ${cur ? 'text-label' : 'text-label-3'}`}
+      >
+        <span className="min-w-0 flex-1 truncate">{cur || '—'}</span>
+        <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-label-3 opacity-0 group-hover/row:opacity-100" />
+      </button>
+    )
+  return (
+    <>
       <input
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          setAdding(false)
-          if (draft.trim() && draft.trim() !== cur) onSave(draft.trim())
+        ref={inputRef}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value)
+          setAsk(null)
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-          if (e.key === 'Escape') {
-            setDraft('')
-            setAdding(false)
-          }
+          if (e.key === 'Enter') commit()
+          if (e.key === 'Escape') close()
         }}
-        placeholder="새 팀 이름"
-        className="-mx-[7px] h-8 w-[calc(100%+14px)] rounded-control border border-accent bg-white px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none"
-      />
-    )
-  const list = cur && !teams.includes(cur) ? [cur, ...teams] : teams
-  return (
-    <span className="relative block">
-      <Select
-        value={cur}
-        disabled={disabled}
+        placeholder="팀 이름"
         aria-label="팀"
-        onChange={(e) => {
-          const v = e.target.value
-          if (v === NEW_TEAM) {
-            setDraft('')
-            setAdding(true)
-          } else if (v !== cur) onSave(v)
-        }}
-        className={`-mx-[7px] h-8 w-[calc(100%+14px)] !border-transparent !bg-transparent !bg-none px-1.5 text-[length:calc(14px*var(--ui-fs,1))] group-hover/row:!border-hairline group-hover/row:!bg-white ${cur ? 'text-label' : 'text-label-3'}`}
-      >
-        {list.map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-        <option value={NEW_TEAM}>＋ 새 팀…</option>
-        <option value="">{cur ? '팀 없음' : '—'}</option>
-      </Select>
-      <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-label-3 opacity-0 group-hover/row:opacity-100" />
-    </span>
+        className={`${quiet} border-accent bg-white`}
+      />
+      {box &&
+        createPortal(
+          <div ref={popRef} className="mac-pop fixed z-[60] py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label" style={{ left: box.left, top: box.top, width: box.width }}>
+            {ask !== null ? (
+              <div className="px-2 py-1.5">
+                <p className="px-1 pb-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                  「{cur}」 → <b className="text-label">「{ask}」</b>
+                </p>
+                <button type="button" onClick={() => (setOpen(false), setAsk(null), onRenameTeam?.(cur, ask))} className="mac-menu-item w-full rounded-control font-semibold">
+                  팀 전체 이름 바꾸기 <span className="font-normal text-label-3">({teamSize(cur)}명)</span>
+                </button>
+                <button type="button" onClick={() => pick(ask)} className="mac-menu-item w-full rounded-control">
+                  이 사람만 새 팀으로
+                </button>
+              </div>
+            ) : (
+              <>
+                {list.map((t) => (
+                  <button key={t} type="button" onClick={() => pick(t)} className="mac-menu-item flex w-full items-center justify-between gap-2">
+                    <span className={`flex items-center gap-1.5 ${t === cur ? 'font-semibold' : ''}`}>
+                      <span className="w-3 text-accent">{t === cur ? '✓' : ''}</span>
+                      {t}
+                    </span>
+                    <span className="text-xs text-label-3">{teamSize(t)}</span>
+                  </button>
+                ))}
+                {q && !teams.includes(q) && (
+                  <button type="button" onClick={commit} className="mac-menu-item w-full font-semibold text-accent">
+                    「{q}」 {cur ? '(으)로 바꾸기…' : '새 팀으로'} <span className="font-normal text-label-3">Enter</span>
+                  </button>
+                )}
+                <div className="mac-menu-sep" />
+                <button type="button" onClick={() => pick('')} className="mac-menu-item w-full text-label-2">
+                  팀 없음
+                </button>
+                <p className="px-3 pb-1 pt-1 text-[length:calc(12px*var(--ui-fs,1))] text-label-3">이름을 고쳐 Enter = 새 이름(팀 전체 바꾸기 · 이 사람만)</p>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 
