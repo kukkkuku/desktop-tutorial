@@ -421,23 +421,49 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   // 까지 곧바로 펼친다. 성장 시뮬레이션은 b0(첫 경계선)를, 성과는
   // b0는 그대로 두고 b1을, 면담은 반대로 b1을 옮겨 폭을 확보한다.
   function expandColumn(which: 'sim' | 'perf' | 'peer' | 'meeting') {
-    const containerWidth = rowRef.current?.getBoundingClientRect().width
-    if (!containerWidth) return
-    const minFrac = COL_MIN_WIDTH / containerWidth
-    const target = EXPAND_TARGET_WIDTH / containerWidth
-    setBounds((cur) => {
-      const next = [...cur]
-      const edgesNow = [0, ...cur, 1]
-      if (which === 'meeting') {
-        // 면담은 펼치자마자 전체의 절반을 차지해 곧바로 좌우 분할 레이아웃이 되게 한다.
-        next[2] = Math.min(1 - minFrac, Math.max(cur[1] + minFrac, 1 - MEETING_SPLIT_RATIO))
-        return next
+    const container = rowRef.current?.getBoundingClientRect().width
+    if (!container || !colWidths) return
+    const idx = which === 'sim' ? 0 : which === 'perf' ? 1 : which === 'peer' ? 2 : 3
+    const narrowNow = [simNarrow, perfNarrow, peerNarrow, meetingNarrow]
+    const avail = Math.max(1, container - SPLITTER_WIDTH * 3)
+    const w = [...colWidths]
+    // 다른 열린 칸이 접히지 않을 만큼(성장 시뮬레이션 · 성과 · 피어리뷰 200px, 면담 380px)은 남기고, 그 위의 여유에서만 폭을 가져온다.
+    // (예전엔 옆 칸을 밀어 붙여서 하나를 펼치면 다른 칸이 접혀 네 칸을 다 펼 수 없었다)
+    const keepMin = (j: number) => (j === 3 ? MEETING_NARROW_THRESHOLD + 80 : COL_NARROW_THRESHOLD + 80)
+    const wanted = which === 'meeting' ? Math.max(keepMin(3), avail * MEETING_SPLIT_RATIO) : EXPAND_TARGET_WIDTH
+    const donors = [0, 1, 2, 3].filter((j) => j !== idx && !narrowNow[j])
+    const spares = donors.map((j) => Math.max(0, w[j] - keepMin(j)))
+    const totalSpare = spares.reduce((x, y) => x + y, 0)
+    const deficit = Math.max(0, wanted - w[idx])
+    let take = Math.min(deficit, totalSpare)
+    // 여유가 모자라면, 펼칠 칸이 최소 열린 폭은 되도록 가장 넓은 칸에서 더 가져온다
+    const openMin = keepMin(idx)
+    if (w[idx] + take < openMin) {
+      const need = openMin - (w[idx] + take)
+      const widest = donors.slice().sort((x, y) => w[y] - w[x])[0]
+      if (widest !== undefined) {
+        const give = Math.min(need, Math.max(0, w[widest] - (widest === 3 ? MEETING_NARROW_THRESHOLD : COL_NARROW_THRESHOLD) - 20))
+        w[widest] -= give
+        take += give
       }
-      // 나머지는 오른쪽 경계를 밀어 최소 폭(EXPAND_TARGET_WIDTH)까지 연다.
-      const i = which === 'sim' ? 0 : which === 'perf' ? 1 : 2
-      next[i] = Math.max(edgesNow[i] + minFrac, Math.min(edgesNow[i + 2] - minFrac, edgesNow[i] + target))
-      return next
+    }
+    // 가져온 만큼 여유 비율대로 줄인다
+    let left = Math.min(take, totalSpare)
+    donors.forEach((j, k) => {
+      const share = totalSpare > 0 ? (spares[k] / totalSpare) * left : 0
+      w[j] -= share
     })
+    w[idx] += take
+    // 폭 → 경계(비율)
+    let acc = 0
+    const next: number[] = []
+    for (let k = 0; k < 3; k++) {
+      acc += w[k]
+      next.push(acc / avail)
+    }
+    const min = (COL_MIN_WIDTH + 1) / container
+    for (let k = 0; k < 3; k++) next[k] = Math.min(1 - min * (3 - k), Math.max(min * (k + 1), next[k]))
+    setBounds(next)
   }
 
   // 열린 칸의 「한 줄로 접기」: 그 칸을 곧바로 최소 폭(슬림 바)으로 줄인다. 남는 폭은 이웃 칸이 가져간다.

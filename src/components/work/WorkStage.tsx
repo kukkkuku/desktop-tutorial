@@ -1524,7 +1524,9 @@ const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'
 function personChip(m: TeamMember | undefined, teamName: string): { tone: string; title?: string } {
   if (!m) return { tone: UNKNOWN_TONE, title: '팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.' }
   if (!m.active) return { tone: UNKNOWN_TONE, title: '비활성 팀원(팀원관리에서 끔)' }
-  if (m.team && teamName && m.team !== teamName) return { tone: UNKNOWN_TONE, title: `다른 팀: ${m.team}` }
+  // 「One Platform」과 「One Platform팀」처럼 끝의 「팀」 · 띄어쓰기만 다른 이름은 같은 팀으로 본다
+  const norm = (t: string) => t.replace(/\s+/g, '').replace(/팀$/, '')
+  if (m.team && teamName && norm(m.team) !== norm(teamName)) return { tone: UNKNOWN_TONE, title: `다른 팀: ${m.team}` }
   return { tone: PERSON_TONE }
 }
 const DEFAULT_TONE = 'bg-black/[0.05] text-label'
