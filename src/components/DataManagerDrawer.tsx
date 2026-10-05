@@ -4,6 +4,7 @@ import { useOptionalAppState } from '../state/AppContext'
 import { useWorkspaces, mmdd } from '../state/WorkspaceContext'
 import { useAppMode } from '../state/AppMode'
 import { toast } from './ui/Toast'
+import DataResetDialog from './DataResetDialog'
 import { buildGoogleSheetViewWorkbook, buildResultsReportWorkbook, downloadAllWorkspacesExcelZip } from '../utils/excel'
 import { downloadLocalJsonBackup, loadAllWorkspaceEntries } from '../utils/backup'
 import {
@@ -52,6 +53,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   const app = useOptionalAppState()
   const { currentWorkspace, workspaces, selectWorkspace } = useWorkspaces()
   const { setMode } = useAppMode()
+  const [resetOpen, setResetOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('local')
   useEffect(() => {
     if (tabRequest) setTab(tabRequest.tab)
@@ -198,6 +200,14 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               },
             ]}
           />
+          {/* 오른쪽 끝: 데이터 초기화(계정 메뉴에도 있음) */}
+          <button
+            onClick={() => setResetOpen(true)}
+            className="shrink-0 rounded-control px-2.5 py-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-danger hover:bg-danger/[0.07]"
+            title="이 계정의 모든 팀 · 평가 데이터를 지웁니다(먼저 백업을 권합니다)"
+          >
+            데이터 초기화…
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -314,6 +324,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         </div>
       </div>
 
+      {resetOpen && <DataResetDialog onClose={() => setResetOpen(false)} />}
     </div>
   )
 }
