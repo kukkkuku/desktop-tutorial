@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationCycle, Task, WorkspaceMeta } from '../types'
 import { createEmptyState } from './appReducer'
@@ -6,10 +6,13 @@ import { migrateLegacyDataOnce } from '../utils/legacyMigration'
 import {
   cyclePreferenceKey,
   currentWorkspaceKey,
+  teamsKey,
   workspaceStateKey as workspaceStateKeyFor,
   workspacesKey,
 } from '../utils/storageKeys'
 import { findWorkspace, inferStructuredPeriod } from '../utils/period'
+import { readAccessCache } from '../utils/accessSheet'
+import { getConnectedEmail } from '../utils/googleDrive'
 
 // 다른 모듈들(backup.ts, memberHistory.ts, AppContext.tsx)이 계속 이 경로에서
 // workspaceStateKey를 가져오므로, 실제 구현(storageKeys.ts, 계정 스코프 포함)을
@@ -92,6 +95,22 @@ function loadWorkspaces(): WorkspaceMeta[] {
   }
 }
 
+// 저장한 팀 목록. 처음(아직 저장한 적 없음)에는 권한 시트의 내 팀을 넣어 둔다
+function loadTeams(): string[] {
+  try {
+    const raw = localStorage.getItem(teamsKey())
+    if (raw !== null) {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((t): t is string => typeof t === 'string' && !!t.trim()) : []
+    }
+    const me = (getConnectedEmail() ?? '').toLowerCase()
+    const mine = me ? readAccessCache()?.users.find((u) => u.email === me)?.team?.trim() : ''
+    return mine ? [mine] : []
+  } catch {
+    return []
+  }
+}
+
 function loadCyclePreferences(): Record<string, EvaluationCycle> {
   try {
     const raw = localStorage.getItem(cyclePreferenceKey())
@@ -116,10 +135,11 @@ function loadInitialWorkspaceState(): {
   workspaces: WorkspaceMeta[]
   currentId: string | null
   cyclePreferences: Record<string, EvaluationCycle>
+  teams: string[]
 } {
   migrateLegacyDataOnce()
   const workspaces = loadWorkspaces()
-  return { workspaces, currentId: null, cyclePreferences: loadCyclePreferences() }
+  return { workspaces, currentId: null, cyclePreferences: loadCyclePreferences(), teams: loadTeams() }
 }
 
 export interface NewPeriodInput {
@@ -136,6 +156,13 @@ export interface NewPeriodInput {
 
 interface WorkspaceContextValue {
   workspaces: WorkspaceMeta[]
+  // 팀 목록: 만든 팀(평가가 없어도) + 평가에 적힌 팀. 만든 순서
+  teamNames: string[]
+  addTeam: (name: string) => void
+  // 이름 바꾸기: 그 팀의 평가 · 팀원 담당팀 · 평가 주기 설정까지
+  renameTeam: (from: string, to: string) => void
+  // 팀 삭제: 그 팀의 평가를 모두 지운다
+  removeTeam: (name: string) => void
   currentWorkspaceId: string | null
   currentWorkspace: WorkspaceMeta | null
   teamCyclePreference: (teamName: string) => EvaluationCycle
@@ -163,6 +190,67 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>(init.workspaces)
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string | null>(init.currentId)
   const [cyclePreferences, setCyclePreferences] = useState<Record<string, EvaluationCycle>>(init.cyclePreferences)
+  const [teams, setTeams] = useState<string[]>(init.teams)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(teamsKey(), JSON.stringify(teams))
+    } catch {
+      // ignore
+    }
+  }, [teams])
+  const teamNames = useMemo(() => Array.from(new Set([...teams, ...workspaces.map((w) => w.teamName)].map((t) => t.trim()).filter(Boolean))), [teams, workspaces])
+
+  function addTeam(name: string) {
+    const t = name.trim()
+    if (t) setTeams((prev) => (prev.includes(t) ? prev : [...prev, t]))
+  }
+
+  function renameTeam(from: string, to: string) {
+    const t = to.trim()
+    if (!t || t === from) return
+    setTeams((prev) => {
+      const has = prev.includes(from)
+      const next = prev.map((x) => (x === from ? t : x))
+      return Array.from(new Set(has ? next : [...next, t]))
+    })
+    for (const ws of workspaces.filter((w) => w.teamName === from)) {
+      try {
+        const key = workspaceStateKey(ws.id)
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const st = JSON.parse(raw)
+          if (Array.isArray(st.members) && st.members.some((m: { team?: string }) => m.team === from)) {
+            st.members = st.members.map((m: { team?: string }) => (m.team === from ? { ...m, team: t } : m))
+            localStorage.setItem(key, JSON.stringify(st))
+          }
+        }
+      } catch {
+        // 팀원 담당팀을 못 고쳐도 팀 이름은 바뀐다
+      }
+    }
+    setWorkspaces((prev) => prev.map((w) => (w.teamName === from ? { ...w, teamName: t } : w)))
+    setCyclePreferences((prev) => {
+      if (!(from in prev)) return prev
+      const { [from]: cycle, ...rest } = prev
+      return { ...rest, [t]: cycle }
+    })
+  }
+
+  function removeTeam(name: string) {
+    const gone = workspaces.filter((w) => w.teamName === name)
+    gone.forEach((w) => {
+      try {
+        localStorage.removeItem(workspaceStateKey(w.id))
+      } catch {
+        // ignore
+      }
+    })
+    const ids = new Set(gone.map((w) => w.id))
+    setWorkspaces((prev) => prev.filter((w) => !ids.has(w.id)))
+    setCurrentWorkspaceId((prev) => (prev && ids.has(prev) ? null : prev))
+    setTeams((prev) => prev.filter((t) => t !== name))
+  }
 
   useEffect(() => {
     try {
@@ -200,6 +288,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setWorkspaces(next.workspaces)
     setCurrentWorkspaceId(next.currentId)
     setCyclePreferences(next.cyclePreferences)
+    setTeams(next.teams)
   }
 
   function teamCyclePreference(teamName: string): EvaluationCycle {
@@ -334,6 +423,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     <WorkspaceContext.Provider
       value={{
         workspaces,
+        teamNames,
+        addTeam,
+        renameTeam,
+        removeTeam,
         currentWorkspaceId,
         currentWorkspace,
         teamCyclePreference,

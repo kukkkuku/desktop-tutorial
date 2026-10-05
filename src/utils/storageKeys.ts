@@ -13,6 +13,11 @@ export function workspacesKey(scope: string = accountScope()): string {
   return `${LEGACY_WORKSPACES_KEY}:${scope}`
 }
 
+// 팀 목록(평가가 없어도 남는 팀). 평가에 적힌 팀 이름과 합쳐서 보여 준다
+export function teamsKey(scope: string = accountScope()): string {
+  return `ux-performance-evaluation-teams:${scope}`
+}
+
 export function currentWorkspaceKey(scope: string = accountScope()): string {
   return `${LEGACY_CURRENT_KEY}:${scope}`
 }

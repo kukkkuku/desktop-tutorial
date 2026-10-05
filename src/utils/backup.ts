@@ -1,7 +1,7 @@
 import type { AppState, WorkspaceMeta } from '../types'
 import { workspaceStateKey } from '../state/WorkspaceContext'
 import { saveBlobLocally } from './localSave'
-import { workspacesKey, currentWorkspaceKey, cyclePreferenceKey } from './storageKeys'
+import { workspacesKey, currentWorkspaceKey, cyclePreferenceKey, teamsKey } from './storageKeys'
 import { lastSaveKey } from './googleDrive'
 
 export function listAllWorkspaceMetas(): WorkspaceMeta[] {
@@ -23,7 +23,7 @@ export function listAllWorkspaceMetas(): WorkspaceMeta[] {
 // 이제는 다른 계정으로 로그인해 저장한 데이터나 다른 기기·브라우저의
 // 데이터에는 전혀 손대지 않는다.
 function collectCurrentAccountKeys(): string[] {
-  const keys = [workspacesKey(), currentWorkspaceKey(), cyclePreferenceKey()]
+  const keys = [workspacesKey(), currentWorkspaceKey(), cyclePreferenceKey(), teamsKey()]
   for (const meta of listAllWorkspaceMetas()) {
     keys.push(workspaceStateKey(meta.id))
     keys.push(lastSaveKey(meta.id))
