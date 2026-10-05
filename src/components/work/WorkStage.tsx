@@ -49,6 +49,9 @@ import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import { useAccessData } from '../../hooks/useAccessData'
+import type { AccessUser } from '../../utils/accessSheet'
+import { effectiveTeam, sameTeam } from '../../utils/memberTeam'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChartGantt, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
@@ -84,6 +87,8 @@ const isVirtual = (id: string) => id.startsWith('__')
 export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const { state, dispatch, workspaceId } = useAppState()
   const { currentWorkspace } = useWorkspaces()
+  const { data: accessData } = useAccessData(false)
+  const accessUsers = accessData?.users
   const board = state.workBoard
   const members = state.members
 
@@ -643,7 +648,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           return (
             <div className="flex flex-wrap gap-1 py-1">
               {people.map((n) => {
-                const c = personChip(memberByName.get(n), currentWorkspace?.teamName ?? '')
+                const c = personChip(memberByName.get(n), currentWorkspace?.teamName ?? '', accessUsers)
                 return (
                   <Chip key={n} tone={c.tone} title={c.title}>
                     {n}
@@ -718,7 +723,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         </div>
       )
     }
-    return renderWorkCell(row, col, members, currentWorkspace?.teamName ?? '')
+    return renderWorkCell(row, col, members, currentWorkspace?.teamName ?? '', accessUsers)
   }
 
 
@@ -762,7 +767,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 options: memberNames,
                 multi: true,
                 allowNew: true,
-                tone: (v: string) => personChip(members.find((m) => m.name === v), currentWorkspace?.teamName ?? '').tone,
+                tone: (v: string) => personChip(members.find((m) => m.name === v), currentWorkspace?.teamName ?? '', accessUsers).tone,
               }
             : c.type === 'select'
               ? { options: optionsForColumn(board, c), allowNew: true, tone: toneFor(c.id) }
@@ -1520,10 +1525,12 @@ const TONES: Record<string, Record<string, string>> = {
 }
 const PERSON_TONE = 'bg-sky-50 text-sky-800'
 const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'
-// 담당자 칩: 팀원 목록에 없는 사람 · 비활성 팀원만 점선(팀 이름이 달라 보이는 것만으로는 점선으로 하지 않는다 -- 팀원관리에 보이는 팀과 어긋나 전원이 점선이 되곤 했다)
-function personChip(m: TeamMember | undefined, _teamName?: string): { tone: string; title?: string } {
+// 담당자 칩: 목록에 없는 사람 · 비활성 · 우리 팀이 아닌 사람은 점선. 팀은 팀원관리에 보이는 값(권한 시트 팀 → 없으면 평가에 저장된 팀)으로 본다
+function personChip(m: TeamMember | undefined, teamName: string, users?: AccessUser[]): { tone: string; title?: string } {
   if (!m) return { tone: UNKNOWN_TONE, title: '팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.' }
   if (!m.active) return { tone: UNKNOWN_TONE, title: '비활성 팀원(팀원관리에서 끔)' }
+  const t = effectiveTeam(m, users)
+  if (t && teamName && !sameTeam(t, teamName)) return { tone: UNKNOWN_TONE, title: `우리 팀이 아님: ${t}` }
   return { tone: PERSON_TONE }
 }
 const DEFAULT_TONE = 'bg-black/[0.05] text-label'
@@ -1617,7 +1624,7 @@ function Chip({ tone, title, children }: { tone: string; title?: string; childre
   )
 }
 
-function renderWorkCell(row: WorkItem, col: GridColumn, members: TeamMember[], teamName = '') {
+function renderWorkCell(row: WorkItem, col: GridColumn, members: TeamMember[], teamName = '', users?: AccessUser[]) {
   if (col.id === COL_ASSIGNEES) {
     const byId = new Map(members.map((m) => [m.id, m]))
     const people = row.assigneeIds.map((id) => byId.get(id)).filter(Boolean) as TeamMember[]
@@ -1625,7 +1632,7 @@ function renderWorkCell(row: WorkItem, col: GridColumn, members: TeamMember[], t
     return (
       <div className="flex flex-wrap gap-1 py-1">
         {people.map((m) => {
-          const c = personChip(m, teamName)
+          const c = personChip(m, teamName, users)
           return (
             <Chip key={m.id} tone={c.tone} title={c.title}>
               {m.name}

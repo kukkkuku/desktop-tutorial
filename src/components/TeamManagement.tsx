@@ -19,6 +19,7 @@ import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import { toast } from './ui/Toast'
+import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
 import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
@@ -217,12 +218,7 @@ export default function TeamManagement() {
     () => (access ? Array.from(new Set(access.users.map((u) => u.team.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')) : []),
     [access],
   )
-  function accessUserFor(m: TeamMember): AccessUser | undefined {
-    if (!access) return undefined
-    if (m.email) return access.users.find((u) => u.email === m.email!.toLowerCase())
-    const hit = access.users.filter((u) => u.name.trim() === m.name.trim())
-    return hit.length === 1 ? hit[0] : undefined
-  }
+  const accessUserFor = (m: TeamMember): AccessUser | undefined => accessUserOf(m, access?.users)
   const boardTeams = useMemo(
     () => Array.from(new Set(state.workBoard.items.map((i) => i.fields.team).filter(Boolean) as string[])).sort(),
     [state.workBoard.items],
@@ -343,7 +339,7 @@ export default function TeamManagement() {
         return m.role
       case 'team':
         // 권한 시트에 있는 사람이면 그 팀(모두가 보는 값), 아니면 이 평가에 적힌 값
-        return accessUserFor(m)?.team || m.team || ''
+        return effectiveTeam(m, access?.users)
       case 'email':
         return m.email ?? ''
       case 'invite': {
