@@ -7,7 +7,8 @@ import { ChevronDown, FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucid
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
-import { icSm } from '../ui/icon'
+import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
+import IconButton from '../IconButton'
 import { isEmail, parseInviteText, parseInviteWorkbook, type InviteEntry } from '../../utils/adminInvite'
 import { PENDING_SUFFIX, type SheetShare, isPendingEmail, pendingDuplicates, withoutPendingDuplicates, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -108,10 +109,12 @@ export default function MembersPanel({
   }
   const [query, setQuery] = useState('')
   // 권한 설정: 역할로 골라 보기('' = 전체)
-  const [rolePick, setRolePick] = useState<AccessRole | ''>('')
-  const roleRows = scope === 'all' && rolePick ? rows.filter((u) => u.role === rolePick) : rows
+  // 권한 설정 보기: 팀별(관리자 + 팀마다 팀장 · 팀원) | 팀장만(관리자 · 팀장)
+  const [view, setView] = useState<'team' | 'leaders'>('team')
+  const rolePick: AccessRole | '' = scope === 'all' && view === 'leaders' ? 'leader' : ''
+  const roleRows = scope === 'all' && view === 'leaders' ? rows.filter((u) => u.role !== 'member') : rows
   // 관리자 · 팀장만 보는 중(예전 「팀장」 탭과 같음): 추가 기본 역할 팀장, 「추가한 사람」 칸 없음
-  const leaderView = scope === 'leaders' || (scope === 'all' && (rolePick === 'admin' || rolePick === 'leader'))
+  const leaderView = scope === 'leaders' || (scope === 'all' && view === 'leaders')
   // 팀별로 골라 보기('' = 전체, NO_TEAM = 팀 없음)
   const NO_TEAM = '\u0000'
   const [teamPick, setTeamPick] = useState('')
@@ -476,6 +479,14 @@ export default function MembersPanel({
     if (scope !== 'all') return [{ key: 'all', title: '', rows: shown }]
     const byName = (a: AccessUser, b: AccessUser) => ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || (a.name || a.email).localeCompare(b.name || b.email, 'ko')
     const admins = shown.filter((u) => u.role === 'admin').sort(byName)
+    if (view === 'leaders') {
+      // 팀장만: 관리자 · 팀장(팀 순)
+      const leads = shown.filter((u) => u.role === 'leader').sort((a, b) => (a.team || '\uffff').localeCompare(b.team || '\uffff', 'ko') || byName(a, b))
+      return [
+        ...(admins.length ? [{ key: 'admin', title: '관리자', rows: admins }] : []),
+        ...(leads.length ? [{ key: 'leader', title: '팀장', sub: `${new Set(leads.map((u) => u.team.trim()).filter(Boolean)).size}개 팀`, rows: leads }] : []),
+      ]
+    }
     const rest = shown.filter((u) => u.role !== 'admin')
     const teams = Array.from(new Set(rest.map((u) => u.team.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko'))
     const out: { key: string; title: string; sub?: string; rows: AccessUser[] }[] = []
@@ -489,6 +500,17 @@ export default function MembersPanel({
     if (none.length) out.push({ key: 'none', title: '팀 없음', sub: '팀을 정해 주세요', rows: none })
     return out
   })()
+
+  // 묶음 접기(권한 설정) · 묶음 전체 고르기
+  const [folded, setFolded] = useState<Set<string>>(new Set())
+  const allFolded = grouped.length > 0 && grouped.every((g) => folded.has(g.key))
+  const toggleFold = (k: string) =>
+    setFolded((cur) => {
+      const n = new Set(cur)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
 
   const table =
     rows.length === 0 ? (
@@ -545,16 +567,49 @@ export default function MembersPanel({
             <tbody>
               {grouped.map((g) => (
                 <Fragment key={g.key}>
-                  {g.title && (
-                    <tr className="border-t border-separator bg-[#FAFAFB]">
-                      <td />
-                      <td colSpan={cols.length} className="px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                        <b className="mr-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.title}</b>
-                        {g.rows.length}명{g.sub && <span className="text-label-3"> · {g.sub}</span>}
-                      </td>
-                    </tr>
-                  )}
-              {g.rows.map((u) => (
+                  {g.title &&
+                    (() => {
+                      const on = g.rows.filter((u) => sel.has(u.email)).length
+                      const isFolded = folded.has(g.key)
+                      return (
+                        <tr className="border-t border-separator bg-[#FAFAFB]">
+                          {/* 이 묶음(팀) 전체 고르기 */}
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={on > 0 && on === g.rows.length}
+                              ref={(el) => {
+                                if (el) el.indeterminate = on > 0 && on < g.rows.length
+                              }}
+                              onChange={() => {
+                                const n = new Set(sel)
+                                if (on === g.rows.length) g.rows.forEach((u) => n.delete(u.email))
+                                else g.rows.forEach((u) => n.add(u.email))
+                                setSel(n)
+                              }}
+                              aria-label={`${g.title} 전체 고르기`}
+                              title={`${g.title} 전체 고르기`}
+                            />
+                          </td>
+                          <td colSpan={cols.length} className="p-0">
+                            <button
+                              type="button"
+                              onClick={() => toggleFold(g.key)}
+                              aria-expanded={!isFolded}
+                              title={isFolded ? '펴기' : '접기'}
+                              className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.03]"
+                            >
+                              <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />
+                              <b className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.title}</b>
+                              <span>{g.rows.length}명</span>
+                              {g.sub && <span className="text-label-3">· {g.sub}</span>}
+                              {on > 0 && <span className="ml-1 rounded-full bg-accent-soft px-1.5 text-xs font-semibold text-accent">{on}명 고름</span>}
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })()}
+              {!folded.has(g.key) && g.rows.map((u) => (
                 <tr key={u.email} className={`group/row border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : 'hover:bg-black/[0.015]'}`}>
                   <td className="px-3 py-2">
                     <input
@@ -692,26 +747,34 @@ export default function MembersPanel({
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
           <Plus {...icSm} />
-          {scope === 'all' ? (rolePick === 'admin' ? '관리자 추가' : rolePick === 'leader' ? '팀장 추가' : rolePick === 'member' ? '팀원 추가' : '사람 추가') : scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
+          {scope === 'all' ? (view === 'leaders' ? '팀장 추가' : '사람 추가') : scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
         {scope === 'all' && (
           <Segmented
-            items={(['', 'admin', 'leader', 'member'] as const).map((r) => ({
-              key: r,
-              label: (
-                <span className="flex items-center gap-1">
-                  {r ? ROLE_WORD[r] : '전체'}
-                  <span className="tabular-nums text-label-3">{r ? rows.filter((u) => u.role === r).length : rows.length}</span>
-                </span>
-              ),
-            }))}
-            value={rolePick}
+            items={[
+              { key: 'team' as const, label: <span className="flex items-center gap-1">팀별 보기<span className="tabular-nums text-label-3">{rows.length}</span></span> },
+              {
+                key: 'leaders' as const,
+                label: <span className="flex items-center gap-1">팀장만 보기<span className="tabular-nums text-label-3">{rows.filter((u) => u.role !== 'member').length}</span></span>,
+              },
+            ]}
+            value={view}
             onChange={(k) => {
-              setRolePick(k)
+              setView(k)
               setTeamPick('')
               setSel(new Set())
             }}
           />
+        )}
+        {/* 묶음 모두 접기 · 펴기(펼친 게 있으면 접기, 다 접혀 있으면 펴기) */}
+        {scope === 'all' && grouped.length > 1 && (
+          <IconButton
+            onClick={() => setFolded(allFolded ? new Set() : new Set(grouped.map((g) => g.key)))}
+            title={allFolded ? '모두 펴기' : '모두 접기'}
+            aria-label={allFolded ? '모두 펴기' : '모두 접기'}
+          >
+            {allFolded ? <ListChevronsUpDown {...ic} /> : <ListChevronsDownUp {...ic} />}
+          </IconButton>
         )}
         {teamList.length > 1 && (
           <Select
