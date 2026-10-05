@@ -55,7 +55,10 @@ export function rosterChanges(
       // 이름만 있던 자리표시 줄에 Gmail을 잇는다
       const pend = roster.find((u) => isPendingEmail(u.email) && norm(u.name) === name)
       plan.push(pend ? { kind: 'link', name, email: e, prev: pend.email } : { kind: 'add', name, email: e })
-    } else if (!roster.some((u) => norm(u.name) === name) && !access.users.some((u) => norm(u.name) === name && u.role !== 'member')) {
+    } else if (!access.users.some((u) => norm(u.name) === name)) {
+      // Gmail 없는 팀원은 이름으로만 안다 -- 명단 어디에든(다른 팀 포함) 같은 이름이 있으면 넣지 않는다.
+      // 관리자가 다른 팀으로 옮긴 사람을 이전 팀장 화면이 「우리 팀 명단에 없음」으로 보고 옛 팀으로 다시 넣어
+      // 두 팀에 한 줄씩 생기던 문제. (이름이 같은 다른 사람은 Gmail을 넣으면 Gmail로 따로 들어간다)
       plan.push({ kind: 'add', name, email: '' })
     }
   })

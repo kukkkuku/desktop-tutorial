@@ -136,9 +136,14 @@ export default function TeamManagement() {
     const t = teamName.trim()
     if (!t || !access) return []
     const byEmail = new Map(access.users.map((u) => [u.email, u]))
+    // Gmail 없는 팀원은 이름으로(같은 이름이 한 사람일 때만 -- 둘 이상이면 누군지 몰라 건너뜀)
+    const byName = (name: string) => {
+      const hit = access.users.filter((u) => u.name.trim() === name.trim())
+      return hit.length === 1 ? hit[0] : undefined
+    }
     return state.members
-      .filter((m) => m.active && m.email)
-      .map((m) => ({ m, u: byEmail.get(m.email!.toLowerCase()) }))
+      .filter((m) => m.active && (m.email || m.name.trim()))
+      .map((m) => ({ m, u: m.email ? byEmail.get(m.email.toLowerCase()) : byName(m.name) }))
       .filter((x): x is { m: TeamMember; u: NonNullable<typeof x.u> } => !!x.u && !!x.u.team && x.u.team !== t)
   }, [access, state.members, teamName])
   const [handovers, setHandovers] = useState<Handover[]>([])
@@ -152,7 +157,9 @@ export default function TeamManagement() {
   }, [access?.id])
   // 이 팀원에 대한 가장 최근 인수인계(우리 팀으로 온 것)
   const handoverOf = (m: TeamMember) =>
-    m.email ? [...handovers].reverse().find((h) => h.email === m.email!.toLowerCase() && (!teamName.trim() || h.toTeam === teamName.trim())) : undefined
+    [...handovers]
+      .reverse()
+      .find((h) => (m.email ? h.email === m.email.toLowerCase() : h.name.trim() === m.name.trim()) && (!teamName.trim() || h.toTeam === teamName.trim()))
   const [handoverView, setHandoverView] = useState<Handover | null>(null)
   const [handoverFor, setHandoverFor] = useState<{ m: TeamMember; toTeam: string } | null>(null)
   const [opinion, setOpinion] = useState('')
@@ -172,7 +179,8 @@ export default function TeamManagement() {
     setHandoverBusy(true)
     try {
       await writeHandover(access.id, {
-        email: m.email!,
+        // Gmail 없는 팀원은 명단의 자리표시 계정(이름으로 찾음)
+        email: (m.email ?? access.users.find((u) => u.name.trim() === m.name.trim())?.email ?? '').toLowerCase(),
         name: m.name,
         fromTeam: teamName.trim(),
         toTeam,
