@@ -1,5 +1,5 @@
 import { errText } from '../utils/googleError'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
 import { Copy, Ellipsis, Pencil, Plus, Trash2, UserPlus, Users, X } from 'lucide-react'
@@ -18,6 +18,7 @@ import { ic, icSm } from './ui/icon'
 import { isPendingEmail, updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { isAdminEmail } from '../utils/roles'
+import { useAppMode, type PerfStage } from '../state/AppMode'
 
 const MAX_VISIBLE_AVATARS = 6
 
@@ -27,56 +28,21 @@ const MAX_VISIBLE_AVATARS = 6
 // "몇 번째로 나열됐는가"에 따라 색이 정해져서 실제로는 다른 사람인데
 // 같은 색으로 보이는 경우가 생기고, 카드가 여러 개면 화면 전체가 알록달록
 // 산만해진다.
-// 겹침 여부는 인원 수로 고정하지 않고, 실제 카드 폭에 다 나란히 들어갈
-// 여유가 있는지 측정해서 정한다 -- 여유가 있으면 그냥 나란히 두고,
-// 폭이 부족할 때만 메신저 아바타 스택처럼 1/4씩 겹쳐서 항상 한 줄에
-// 들어오게 한다. 겹칠 때는 뒤 아바타가 앞 아바타 위로 올라오는 게
-// 자연스럽도록 흰 테두리(2px)로 구분한다.
-const AVATAR_SIZE = 32
-const AVATAR_GAP = 6
-const AVATAR_OVERLAP = 8
-
+// 팀은 많아야 5~6명이라 겹치지 않고 나란히 둔다(카드보다 넓으면 다음 줄로).
 function AvatarRow({ names }: { names: string[] }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [overlapped, setOverlapped] = useState(false)
   const visible = names.slice(0, MAX_VISIBLE_AVATARS)
   const overflow = names.length - visible.length
-  const itemCount = visible.length + (overflow > 0 ? 1 : 0)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el || itemCount === 0) return
-    const spacedWidth = itemCount * AVATAR_SIZE + (itemCount - 1) * AVATAR_GAP
-    const update = () => setOverlapped(el.getBoundingClientRect().width < spacedWidth)
-    update()
-    const resizeObserver = new ResizeObserver(update)
-    resizeObserver.observe(el)
-    return () => resizeObserver.disconnect()
-  }, [itemCount])
-
-  const circleClass = `flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2 ${
-    overlapped ? 'border-2 border-white' : ''
-  }`
-  const overlapStyle = (i: number) => (overlapped && i > 0 ? { marginLeft: `-${AVATAR_OVERLAP}px` } : undefined)
-
+  const circleClass =
+    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[length:calc(12.5px*var(--ui-fs,1))] font-semibold text-label-2'
   return (
-    <div ref={containerRef} className={`flex flex-nowrap items-center ${overlapped ? '' : 'gap-1.5'}`}>
+    <span className="flex flex-wrap items-center gap-1">
       {visible.map((name, i) => (
-        <span key={`${name}-${i}`} className={circleClass} style={overlapStyle(i)} title={name}>
+        <span key={`${name}-${i}`} className={circleClass} title={name}>
           {name.slice(0, 2)}
         </span>
       ))}
-      {overflow > 0 && (
-        <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.05] text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2 ${
-            overlapped ? 'border-2 border-white' : ''
-          }`}
-          style={overlapStyle(visible.length)}
-        >
-          +{overflow}
-        </span>
-      )}
-    </div>
+      {overflow > 0 && <span className={circleClass}>+{overflow}</span>}
+    </span>
   )
 }
 
@@ -84,6 +50,8 @@ interface ProjectCardProps {
   workspace: WorkspaceMeta
   isCurrent: boolean
   onOpen: (id: string) => void
+  // 평가 안의 그 화면으로 바로(아바타 = 팀원관리, 「과제관리」 버튼)
+  onOpenAt: (id: string, stage: PerfStage) => void
   onRename: (workspace: WorkspaceMeta, periodName: string, year: number) => void
   onEdit: (workspace: WorkspaceMeta) => void
   onDuplicate: (workspace: WorkspaceMeta) => void
@@ -91,7 +59,7 @@ interface ProjectCardProps {
 }
 
 // 프로젝트 카드: 누르면 들어가기 · 마우스를 올리면 연필(이름 바꾸기) · 우클릭하면 복제 · 삭제
-function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
+function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   const [renaming, setRenaming] = useState(false)
   const [editYear, setEditYear] = useState(workspace.evaluationYear)
@@ -194,7 +162,31 @@ function ProjectCard({ workspace, isCurrent, onOpen, onRename, onEdit, onDuplica
         <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
         <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">팀원 {counts.memberCount}명</span>
       </div>
-      <AvatarRow names={counts.memberNames} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenAt(workspace.id, 'members')
+          }}
+          title="팀원관리로"
+          className="-m-1 min-w-0 rounded-control p-1 hover:bg-black/[0.04]"
+        >
+          {counts.memberNames.length ? <AvatarRow names={counts.memberNames} /> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">팀원 넣기</span>}
+        </button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenAt(workspace.id, 'work')
+          }}
+          title="과제관리로"
+          className="shrink-0 !px-2.5"
+        >
+          과제관리
+        </Button>
+      </div>
       {menu &&
         createPortal(
           <div
@@ -255,6 +247,7 @@ const LAST_TEAM = 'landing-last-team'
 
 export default function WorkspaceLanding() {
   const { workspaces, teamNames, addTeam, renameTeam, removeTeam, selectWorkspace, deleteWorkspace, renameWorkspace, duplicateWorkspace } = useWorkspaces()
+  const { setPerfStage } = useAppMode()
   const me = (getConnectedEmail() ?? '').toLowerCase()
   const { data: access } = useAccessData(false)
   const [dupError, setDupError] = useState('')
@@ -454,13 +447,17 @@ export default function WorkspaceLanding() {
                   <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
                     평가 {teamWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · 우클릭으로 복제 · 삭제</span>
                   </h2>
-                  <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {teamWorkspaces.map((w) => (
                       <ProjectCard
                         key={w.id}
                         workspace={w}
                         isCurrent={w.id === mostRecentWorkspaceId}
                         onOpen={selectWorkspace}
+                        onOpenAt={(id, stage) => {
+                          setPerfStage(stage)
+                          selectWorkspace(id)
+                        }}
                         onRename={(ws, periodName, year) => renameWorkspace(ws.id, ws.teamName, periodName, year)}
                         onEdit={openRename}
                         onDuplicate={(ws) => {
