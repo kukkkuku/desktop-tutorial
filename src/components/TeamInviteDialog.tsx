@@ -2,7 +2,7 @@
 // 제목 · 인사말은 미리보기 안 점선 칸을 눌러 바로 고친다. 확인하고 「N명에게 보내기」.
 // 보낸 사람은 팀원 명단(권한 시트)에 이 팀 · 초대한 날짜로 들어간다(이름은 평가의 팀원관리 표에서 채우면 명단에도 맞춰짐).
 // 실적관리 시트 공유는 관리자가 한다.
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Send, X } from 'lucide-react'
 import Button from './Button'
 import Spinner from './Spinner'
@@ -11,7 +11,7 @@ import { errText } from '../utils/googleError'
 import { normalizeGmail } from '../utils/teamRoster'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { useAccessData } from '../hooks/useAccessData'
-import { connectAdmin, getAdminEmail, isAdminConfigured, isAdminConnected, sendInviteEmails } from '../utils/adminInvite'
+import { connectAdmin, getAdminEmail, inviteHtml, isAdminConfigured, isAdminConnected, sendInviteEmails } from '../utils/adminInvite'
 import { contactFor, getAccessSheetId, appInviteUrl, refreshAccess, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../utils/accessSheet'
 
 const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
@@ -32,16 +32,72 @@ export function teamMembersOf(data: AccessData | null, teamName: string, me: str
   return data.users.filter((u) => u.role === 'member' && (u.team ? u.team === teamName : u.addedBy === me))
 }
 
-// 줄 수만큼 자라는 입력 칸(인사말)
-function AutoText({ value, onChange, className }: { value: string; onChange: (v: string) => void; className: string }) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    el.style.height = '0px'
-    el.style.height = `${el.scrollHeight}px`
-  }, [value])
-  return <textarea ref={ref} rows={1} value={value} onChange={(e) => onChange(e.target.value)} className={className} />
+// 실제 메일 미리보기: 메일 HTML을 그대로 띄우고 인사말(#invite-msg)만 그 자리에서 고친다.
+// 칸 너비 · 화면 높이에 맞춰 줄여서 안쪽 스크롤 없이 한눈에 보이게 한다.
+const MAIL_W = 580
+function MailPreview({ html, onBody }: { html: string; onBody: (v: string) => void }) {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  const [h, setH] = useState(900)
+  const [scale, setScale] = useState(0.8)
+  const onBodyRef = useRef(onBody)
+  onBodyRef.current = onBody
+  const fit = () => {
+    const doc = frameRef.current?.contentDocument
+    const w = wrapRef.current?.clientWidth ?? MAIL_W
+    if (!doc) return
+    const ch = doc.documentElement.scrollHeight
+    setH(ch)
+    // 화면 높이에 맞춰 줄이되 글자가 너무 작아지지 않게(0.78 아래로는 안 줄임 -- 그때는 창이 스크롤)
+    const room = window.innerHeight * 0.94 - 235
+    setScale(Math.min(1, w / MAIL_W, Math.max(0.78, room / ch)))
+  }
+  useEffect(() => {
+    const on = () => fit()
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  function onLoad() {
+    const doc = frameRef.current?.contentDocument
+    if (!doc) return
+    const msg = doc.getElementById('invite-msg')
+    if (msg) {
+      msg.contentEditable = 'true'
+      msg.spellcheck = false
+      Object.assign(msg.style, { outline: '2px dashed rgba(37,99,235,.55)', outlineOffset: '6px', borderRadius: '4px', cursor: 'text' })
+      msg.addEventListener('focus', () => (msg.style.outline = '2px solid #2563EB'))
+      msg.addEventListener('blur', () => (msg.style.outline = '2px dashed rgba(37,99,235,.55)'))
+      msg.addEventListener('input', () => {
+        onBodyRef.current(msg.innerText.replace(/\n{3,}/g, '\n\n'))
+        fit()
+      })
+      // 붙여넣기는 글자만
+      msg.addEventListener('paste', (e) => {
+        e.preventDefault()
+        doc.execCommand('insertText', false, e.clipboardData?.getData('text/plain') ?? '')
+      })
+    }
+    // 미리보기 안 버튼 · 링크는 누르지 않게
+    doc.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('a')) e.preventDefault()
+    })
+    fit()
+  }
+  return (
+    <div ref={wrapRef} className="mt-2 rounded-card border border-separator bg-[#F3F4F6]">
+      <div className="mx-auto overflow-hidden" style={{ width: MAIL_W * scale, height: h * scale }}>
+      <iframe
+        ref={frameRef}
+        title="초대 메일 미리보기"
+        srcDoc={html}
+        sandbox="allow-same-origin"
+        onLoad={onLoad}
+        scrolling="no"
+        style={{ width: MAIL_W, height: h, transform: `scale(${scale})`, transformOrigin: 'top left', border: 0 }}
+      />
+      </div>
+    </div>
+  )
 }
 
 export default function TeamInviteDialog({ teamName, onClose }: { teamName: string; onClose: () => void }) {
@@ -53,6 +109,8 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
   const [flash, setFlash] = useState('')
   const [subject, setSubject] = useState(DEFAULT_SUBJECT)
   const [body, setBody] = useState(DEFAULT_BODY)
+  // 미리보기 안에서 고치는 중에는 메일 틀을 다시 만들지 않도록(커서가 튐) 최신 인사말을 따로 들고 있는다
+  const bodyRef = useRef(DEFAULT_BODY)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState<string[] | null>(null)
@@ -81,6 +139,13 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
   const sample = targets.find(okMail) ?? 'hong@gmail.com'
   const from = getAdminEmail() ?? me
   const contact = data ? contactFor(data, userOf(data, sample, teamName), me) : null
+  const appUrl = appInviteUrl(undefined, taskSheetOf(data)?.url ?? null)
+  // 받는 사람(2번 칸 주소) · 문의 받는 사람이 바뀔 때만 다시 만든다 -- 인사말을 고칠 때마다 다시 만들면 입력이 끊긴다
+  const previewHtml = useMemo(
+    () => inviteHtml(bodyRef.current, { email: sample }, from, appUrl, contact),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sample, from, appUrl, contact?.email, contact?.name],
+  )
 
   async function send() {
     setBusy(true)
@@ -141,8 +206,7 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
   return (
     <Modal
       size="lg"
-      title="팀원 초대"
-      sub={teamName}
+      title={`팀원 초대 · ${teamName}`}
       onClose={onClose}
       busy={busy}
       footer={
@@ -161,13 +225,13 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
       }
     >
       <div className="grid gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        {/* 받는 사람 */}
-        <div>
+        {/* 받는 사람: 칸이 왼쪽 세로를 채우고, 사람이 많아지면 더 늘어난다 */}
+        <div className="flex flex-col">
           <label htmlFor="invite-to" className="text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-label">
             받는 사람 {targets.length > 0 && <span className="font-normal text-label-3">{targets.length}명</span>}
           </label>
           <div
-            className="mt-1.5 flex min-h-[120px] cursor-text flex-wrap content-start gap-1.5 rounded-control border border-hairline bg-white p-2 focus-within:border-accent"
+            className="mt-1.5 flex min-h-[160px] flex-1 cursor-text flex-wrap content-start gap-1.5 rounded-control border border-hairline bg-white p-2 focus-within:border-accent"
             onClick={() => inputRef.current?.focus()}
           >
             {emails.map((e) => (
@@ -234,55 +298,22 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
           {error && <p className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-danger">{error}</p>}
         </div>
 
-        {/* 보낼 메일: 받는 사람이 보게 될 모양 그대로, 점선 칸은 눌러서 고침 */}
+        {/* 보낼 메일: 실제로 가는 메일 그대로(관리 메뉴 초대와 같은 틀). 제목 · 인사말 점선 칸만 고친다 */}
         <div className="min-w-0">
           <p className="text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-label">
-            보낼 메일 <span className="font-normal text-label-3">점선 칸을 눌러 고칠 수 있습니다</span>
+            보낼 메일 <span className="font-normal text-label-3">점선 칸(제목 · 인사말)을 눌러 고칩니다</span>
           </p>
-          <div className="mt-1.5 rounded-card bg-[#F3F4F6] p-3">
-            <div className="flex items-center gap-2 rounded-[10px] bg-white px-3 py-2 text-[13px]">
-              <span className="shrink-0 text-label-3">제목</span>
-              <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="메일 제목" className={`min-w-0 flex-1 px-1.5 py-0.5 font-semibold text-label ${edit}`} />
-            </div>
-            <div className="mt-2 rounded-[12px] bg-white px-5 py-4 text-[13px] leading-relaxed text-[#3F434A]">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent">
-                  <span className="h-2 w-2 rounded-full border-2 border-white" />
-                </span>
-                <span className="text-[13px] font-bold text-label">페이스</span>
-              </div>
-              <p className="mt-3 text-[17px] font-extrabold text-label">페이스에 초대합니다</p>
-              <AutoText value={body} onChange={setBody} className={`mt-1.5 block w-full resize-none overflow-hidden px-1.5 py-1 text-[13px] leading-relaxed text-[#3F434A] ${edit}`} />
-              <p className="mt-3 text-[11.5px] font-bold text-label-3">시작하는 방법</p>
-              <ol className="mt-1.5 space-y-1.5">
-                <li className="flex gap-2">
-                  <span className="mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">1</span>
-                  <span>
-                    <b className="text-label">「페이스 시작하기」</b> 버튼을 누릅니다.
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">2</span>
-                  <span className="min-w-0">
-                    <b className="text-label">이 Google 계정으로 로그인</b>합니다.
-                    <span className="mt-1 block truncate rounded-[8px] bg-accent-soft px-2.5 py-1 font-bold text-accent">{sample}</span>
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#D97706] text-[11px] font-bold text-white">3</span>
-                  <span>
-                    <b className="text-label">「Google에서 확인하지 않은 앱」</b>이 나오면 고급 → 페이스(으)로 이동
-                  </span>
-                </li>
-              </ol>
-              <div className="mt-3 rounded-[10px] bg-accent py-2 text-center text-[14px] font-bold text-white">페이스 시작하기</div>
-              {contact && (
-                <p className="mt-2 text-center text-[11.5px] text-label-3">로그인 문의: {contact.name ? `${contact.name}(${contact.email})` : contact.email}</p>
-              )}
-              <p className="mt-3 border-t border-separator pt-2 text-[11.5px] text-label-3">{from || '보내는 사람'} 님이 보낸 페이스 초대입니다.</p>
-            </div>
+          <div className="mt-1.5 flex items-center gap-2 rounded-[10px] border border-separator bg-white px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))]">
+            <span className="shrink-0 text-label-3">제목</span>
+            <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="메일 제목" className={`min-w-0 flex-1 px-1.5 py-0.5 font-semibold text-label ${edit}`} />
           </div>
-          <p className="mt-1.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">받는 사람마다 2번 칸에 그 사람 주소가 들어갑니다.</p>
+          <MailPreview
+            html={previewHtml}
+            onBody={(v) => {
+              bodyRef.current = v
+              setBody(v)
+            }}
+          />
         </div>
       </div>
     </Modal>

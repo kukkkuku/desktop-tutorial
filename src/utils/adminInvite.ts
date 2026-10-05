@@ -227,7 +227,8 @@ function toBase64Url(input: string): string {
 //   앱 주소는 버튼 뒤에만 둔다.
 export type InviteContact = { email: string; name?: string } | null
 const escHtml = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-export function inviteHtml(message: string, r: { email: string; name?: string }, from: string, appUrl: string, contact: InviteContact = null): string {
+// _from: 예전 맨 아래 「… 님이 보낸 초대」 줄(뺐음) -- 부르는 곳은 그대로 둔다. #invite-msg = 인사말(미리보기에서 그 자리 고치기)
+export function inviteHtml(message: string, r: { email: string; name?: string }, _from: string, appUrl: string, contact: InviteContact = null): string {
   const msg = message
     .split(/\r?\n/)
     .filter((line) => !/^\s*https?:\/\/\S+\s*$/.test(line)) // 주소만 있는 줄은 버튼이 대신한다
@@ -255,7 +256,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   </tr></table>
 </td></tr>
 <tr><td style="padding:22px 32px 0;font-size:23px;line-height:1.4;font-weight:800;color:#18181B">${who}페이스에 초대합니다</td></tr>
-<tr><td style="padding:10px 32px 0;font-size:15px;line-height:1.75;color:#3F434A">${msg}</td></tr>
+<tr><td style="padding:10px 32px 0;font-size:15px;line-height:1.75;color:#3F434A"><div id="invite-msg">${msg}</div></td></tr>
 
 <tr><td style="padding:26px 32px 0;font-size:13px;font-weight:700;letter-spacing:.02em;color:#8A8F98">시작하는 방법</td></tr>
 <tr><td style="padding:10px 32px 0">
@@ -279,13 +280,10 @@ ${
   contact
     ? `<tr><td style="padding:10px 32px 0">
   <a href="${escHtml(mailto)}" style="display:block;padding:12px 0;border-radius:12px;background:#FFFFFF;border:1px solid #D9DCE1;color:#3F434A;text-align:center;font-size:15px;font-weight:600;text-decoration:none">로그인이 안 되거나 궁금한 점 문의하기</a>
-  <div style="margin-top:6px;text-align:center;font-size:12px;color:#9AA0A6">${escHtml(contact.name ? `${contact.name}(${contact.email})` : contact.email)}에게 메일이 갑니다</div>
 </td></tr>`
     : ''
 }
-<tr><td style="padding:22px 32px 28px">
-  <div style="border-top:1px solid #ECEDEF;padding-top:14px;font-size:12px;line-height:1.6;color:#9AA0A6">${escHtml(from)} 님이 보낸 페이스 초대입니다.</div>
-</td></tr>
+<tr><td style="padding:0 0 28px"></td></tr>
 </table>
 </td></tr></table></body></html>`
 }
