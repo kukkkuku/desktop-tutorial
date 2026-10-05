@@ -1,7 +1,7 @@
 import { errText } from '../../utils/googleError'
 import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { AlertTriangle, CalendarCheck, FileText, Pencil, Trash2, X } from 'lucide-react'
+import { AlertTriangle, CalendarCheck, FoldHorizontal, FileText, Pencil, Trash2, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote, TeamMember } from '../../types'
@@ -33,6 +33,8 @@ interface MeetingFormProps {
   // true로 넘긴다 -- 왼쪽에 인사이트+기록, 오른쪽에 작성 폼을 나란히 놓는다.
   // 좁으면 인사이트 -> 작성 폼 -> 기록 순으로 위아래로 쌓는다(기본값).
   splitLayout?: boolean
+  // 면담 칸 전체를 한 줄(슬림 바)로 접기
+  onCollapse?: () => void
 }
 
 // 면담일지 -- Figma 디자인(interview-log-card) 그대로: 사방이 닫힌 박스가
@@ -43,7 +45,7 @@ interface MeetingFormProps {
 // 없어 제거했다. 최근 면담 기록은 기본 접힘 -- 펼쳤을 때 각 기록은
 // 필드별로 줄바꿈해서 보여준다(한 줄로 합쳐 truncate하면 내용이 잘려서
 // 확인이 안 되는 문제가 있었다).
-export default function MeetingForm({ member, focusToken, insights, paper, insightsOpen, onToggleInsights, splitLayout }: MeetingFormProps) {
+export default function MeetingForm({ member, focusToken, insights, paper, insightsOpen, onToggleInsights, splitLayout, onCollapse }: MeetingFormProps) {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
@@ -61,8 +63,6 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
   const [careerGoal, setCareerGoal] = useState('')
 
   const [detailsOpen, setDetailsOpen] = useState(false)
-  // 면담 내용 입력칸 접기(날짜 · 분위기 · 작성하기 줄만 남김)
-  const [writeOpen, setWriteOpen] = useState(true)
   const [pastOpen, setPastOpen] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editDate, setEditDate] = useState('')
@@ -221,7 +221,11 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <CollapseToggleButton collapsed={!writeOpen} onClick={() => setWriteOpen((v) => !v)} label="면담 내용 입력칸" />
+          {onCollapse && (
+            <IconButton onClick={onCollapse} title="면담 칸을 한 줄로 접기" aria-label="면담 칸을 한 줄로 접기">
+              <FoldHorizontal {...icSm} />
+            </IconButton>
+          )}
           <Button variant="secondary" onClick={() => setPaperOpen(true)} title="면담 전에 출력해 두고 손으로 적을 수 있는 면담용지">
             면담용지
           </Button>
@@ -238,8 +242,6 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         </p>
       )}
 
-      {writeOpen && (
-        <>
       <textarea
         ref={commentRef}
         value={comment}
@@ -302,8 +304,6 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
             />
           </div>
         </div>
-      )}
-        </>
       )}
     </div>
   )

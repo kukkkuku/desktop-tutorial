@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { ChevronDown, Info, Plus, X } from 'lucide-react'
+import { ChevronDown, FoldHorizontal, Info, Plus, X } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
@@ -17,6 +17,7 @@ import GradeNoteButton from '../GradeNoteButton'
 import TrendSparkline from './TrendSparkline'
 import PromotionDatePicker from '../PromotionDatePicker'
 import CollapseToggleButton from '../CollapseToggleButton'
+import IconButton from '../IconButton'
 import { peerInputsOf } from '../../utils/peerScores'
 import { buildMeetingInsights } from '../../utils/meetingInsights'
 import MemberPeerPanel, { memberPeerSummary } from './MemberPeerPanel'
@@ -308,8 +309,6 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   const [criteriaManagerOpen, setCriteriaManagerOpen] = useState(false)
   const [noteInput, setNoteInput] = useState('')
   const [noteAddOpen, setNoteAddOpen] = useState(false)
-  // 승진 점수 카드 접기(이름 · 승진심사만 남김)
-  const [scoreOpen, setScoreOpen] = useState(true)
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null)
   const noteStripRef = useRef<HTMLDivElement>(null)
 
@@ -437,6 +436,24 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       // 나머지는 오른쪽 경계를 밀어 최소 폭(EXPAND_TARGET_WIDTH)까지 연다.
       const i = which === 'sim' ? 0 : which === 'perf' ? 1 : 2
       next[i] = Math.max(edgesNow[i] + minFrac, Math.min(edgesNow[i + 2] - minFrac, edgesNow[i] + target))
+      return next
+    })
+  }
+
+  // 열린 칸의 「한 줄로 접기」: 그 칸을 곧바로 최소 폭(슬림 바)으로 줄인다. 남는 폭은 이웃 칸이 가져간다.
+  function collapseColumn(which: 'sim' | 'perf' | 'peer' | 'meeting') {
+    const containerWidth = rowRef.current?.getBoundingClientRect().width
+    if (!containerWidth) return
+    const minFrac = (COL_MIN_WIDTH + 1) / containerWidth
+    setBounds((cur) => {
+      const next = [...cur]
+      const edgesNow = [0, ...cur, 1]
+      if (which === 'meeting') {
+        next[2] = 1 - minFrac
+        return next
+      }
+      const i = which === 'sim' ? 0 : which === 'perf' ? 1 : 2
+      next[i] = edgesNow[i] + minFrac
       return next
     })
   }
@@ -633,11 +650,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
                 <span className="text-label-2">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
-                {promotionCriteria && <CollapseToggleButton collapsed={!scoreOpen} onClick={() => setScoreOpen((v) => !v)} label="승진 점수 카드" />}
               </div>
             </div>
 
-            {promotionCriteria && scoreOpen &&
+            {promotionCriteria &&
               (() => {
                 const gap = Math.round((projectedTotal - promotionCriteria.requiredScore) * 10) / 10
                 const met = gap >= 0
@@ -817,14 +833,17 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               <SectionCard
                 title="성장 시뮬레이션"
                 headerBadge={
-                  promotionCriteria && (
-                    <button
-                      onClick={() => setCriteriaManagerOpen(true)}
-                      className="flex shrink-0 items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:text-accent"
-                    >
-                      <Info {...icSm} /> 기준 보기
-                    </button>
-                  )
+                  <span className="flex shrink-0 items-center gap-1">
+                    {promotionCriteria && (
+                      <button
+                        onClick={() => setCriteriaManagerOpen(true)}
+                        className="flex shrink-0 items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:text-accent"
+                      >
+                        <Info {...icSm} /> 기준 보기
+                      </button>
+                    )}
+                    <IconButton onClick={() => collapseColumn('sim')} title="성장 시뮬레이션 한 줄로 접기" aria-label="성장 시뮬레이션 한 줄로 접기"><FoldHorizontal {...icSm} /></IconButton>
+                  </span>
                 }
               >
                 <PromotionSimulationPanel member={member} />
@@ -848,6 +867,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               </div>
             ) : (
               <div className="space-y-3">
+                <span className="flex min-h-[28px] items-center justify-between gap-2 px-1">
+                  <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과</h3>
+                  <IconButton onClick={() => collapseColumn('perf')} title="성과 한 줄로 접기" aria-label="성과 한 줄로 접기"><FoldHorizontal {...icSm} /></IconButton>
+                </span>
                 <div className="flex flex-wrap gap-4 px-1">
                   <div>
                     <p className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">상하반기 성과 고과 추이</p>
@@ -947,7 +970,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                 </button>
               </div>
             ) : (
-              <SectionCard title="피어리뷰">
+              <SectionCard title="피어리뷰" headerBadge={<IconButton onClick={() => collapseColumn('peer')} title="피어리뷰 한 줄로 접기" aria-label="피어리뷰 한 줄로 접기"><FoldHorizontal {...icSm} /></IconButton>}>
                 <MemberPeerPanel state={state} memberId={memberId} />
               </SectionCard>
             )}
@@ -981,6 +1004,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
                   insightsOpen={insightsOpen}
                   onToggleInsights={() => setInsightsOpen((v) => !v)}
                   splitLayout={meetingSplit}
+                  onCollapse={() => collapseColumn('meeting')}
                 />
               </div>
             )}
