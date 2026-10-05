@@ -50,7 +50,7 @@ import { readProgressSource } from '../../utils/progressImport'
 import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { withGoogleAccount } from '../../utils/googleDrive'
-import { CalendarRange, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
+import { ChartGantt, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -1115,7 +1115,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <PopMenu label={<span className="flex items-center gap-1"><Download {...icSm} />가져오기</span>} title="과제 가져오기 -- 추진현황 · 구글시트 · 엑셀에서 그룹(L2)을 골라">
           <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">과제 가져오기</p>
           <button onClick={() => onOpenSheetImport(undefined, 'progress')} className="mac-menu-item">
-            <CalendarRange {...icSm} className="shrink-0" />추진현황에서
+            <ChartGantt {...icSm} className="shrink-0" />추진현황에서
             <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">과제 입력</span>
           </button>
           {canManageSheets && (

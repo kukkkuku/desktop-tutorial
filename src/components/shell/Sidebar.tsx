@@ -7,19 +7,19 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
-  BarChart3,
   BookOpen,
-  CalendarRange,
+  ChartGantt,
   Database,
-  LayoutGrid,
+  Folders,
   Gauge,
   House,
   LayoutList,
   LogOut,
   RotateCcw,
-  MessageCircle,
+  MessagesSquare,
   ShieldCheck,
-  SlidersHorizontal,
+  SquarePen,
+  Trophy,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -39,16 +39,16 @@ import { FONT_PREF_LABEL, currentScale, onFontPrefChange, readFontPref, setFontP
 import { getConnectedEmail } from '../../utils/googleDrive'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
-  { key: 'progress', label: '추진현황', Icon: CalendarRange },
+  { key: 'progress', label: '추진현황', Icon: ChartGantt },
   { key: 'rate', label: '진척률', Icon: Gauge },
 ]
 export const PERF_ITEMS: { key: PerfStage; label: string; Icon: LucideIcon; also?: PerfStage[] }[] = [
   { key: 'work', label: '과제관리', Icon: LayoutList },
   { key: 'members', label: '팀원관리', Icon: Users },
   // 평가하기 = 팀원마다 기여도 · 개인수행등급(성과등급 · 목표 · 성과는 과제관리 표에서). 예전 'tasks'(과제별)도 여기로
-  { key: 'evaluate', label: '평가하기', Icon: SlidersHorizontal, also: ['tasks'] },
-  { key: 'results', label: '평가결과', Icon: BarChart3 },
-  { key: 'notes', label: '면담', Icon: MessageCircle },
+  { key: 'evaluate', label: '평가하기', Icon: SquarePen, also: ['tasks'] },
+  { key: 'results', label: '평가결과', Icon: Trophy },
+  { key: 'notes', label: '면담', Icon: MessagesSquare },
 ]
 // 화면마다 여는 매뉴얼 장(public/manual/*.html의 section id)
 const PERF_MANUAL: Record<PerfStage, string> = { work: 'work', tasks: 'evaluate', members: 'peer', evaluate: 'evaluate', results: 'results', notes: 'meeting' }
@@ -247,7 +247,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
             {/* 평평한 메뉴: 어느 평가를 보는지는 페이지 머리 줄(성과관리 / 팀 · 기간 ▾)에서 고르고 바꾼다(과제 입력의 연도와 같은 방식).
                 펼쳐도 접어도 같은 모양. 평가를 아직 안 골랐으면 메뉴는 흐리게 */}
             <div className="space-y-0.5">
-              {item('projects', '평가 목록', LayoutGrid, mode === 'perf' && !currentWorkspaceId, () => {
+              {item('projects', '평가 목록', Folders, mode === 'perf' && !currentWorkspaceId, () => {
                 exitToLanding()
                 if (mode !== 'perf') setMode('perf')
               })}
