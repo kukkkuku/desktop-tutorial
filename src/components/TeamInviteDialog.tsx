@@ -1,12 +1,13 @@
-// 평가 목록 › 팀원 초대(팝업). 왼쪽: 받는 사람(Gmail 아이디). 오른쪽: 받는 사람이 보게 될 메일 그대로 --
-// 제목 · 인사말은 미리보기 안 점선 칸을 눌러 바로 고친다. 확인하고 「N명에게 보내기」.
-// 보낸 사람은 팀원 명단(권한 시트)에 이 팀 · 초대한 날짜로 들어간다(이름은 평가의 팀원관리 표에서 채우면 명단에도 맞춰짐).
-// 실적관리 시트 공유는 관리자가 한다.
-import { useEffect, useMemo, useRef, useState } from 'react'
+// 초대 메일 팝업(하나로 통일: 평가 목록 › 팀원 초대 · 팀원관리 · 관리 메뉴).
+//   왼쪽 「보낼 메일」: 실제로 가는 메일 그대로 -- 제목 · 인사말 점선 칸만 그 자리에서 고친다.
+//   오른쪽 「초대할 사람」: Gmail 아이디(쉼표 · Enter로 여러 명) 칩 · 보내기.
+// 보낸 사람은 팀원 명단(권한 시트)에 초대한 날짜가 적히고, 명단에 없던 사람은 이 팀 팀원으로 들어간다
+// (이름은 평가의 팀원관리 표에서 채우면 명단에도 맞춰짐). 실적관리 시트 공유는 관리자가 한다.
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Send, X } from 'lucide-react'
 import Button from './Button'
 import Spinner from './Spinner'
-import Modal from './ui/Modal'
 import { errText } from '../utils/googleError'
 import { normalizeGmail } from '../utils/teamRoster'
 import { getConnectedEmail } from '../utils/googleDrive'
@@ -34,39 +35,48 @@ export function teamMembersOf(data: AccessData | null, teamName: string, me: str
 
 // 실제 메일 미리보기: 메일 HTML을 그대로 띄우고 인사말(#invite-msg)만 그 자리에서 고친다.
 // 칸 너비 · 화면 높이에 맞춰 줄여서 안쪽 스크롤 없이 한눈에 보이게 한다.
-const MAIL_W = 580
-function MailPreview({ html, onBody }: { html: string; onBody: (v: string) => void }) {
+const MAIL_W = 560
+function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string) => void; maxH: number }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
-  const [h, setH] = useState(900)
+  const [h, setH] = useState(800)
   const [scale, setScale] = useState(0.8)
   const onBodyRef = useRef(onBody)
   onBodyRef.current = onBody
+  const maxHRef = useRef(maxH)
+  maxHRef.current = maxH
   const fit = () => {
     const doc = frameRef.current?.contentDocument
     const w = wrapRef.current?.clientWidth ?? MAIL_W
     if (!doc) return
-    const ch = doc.documentElement.scrollHeight
+    // 문서 높이는 틀 높이보다 작아지지 않으므로 메일 표의 실제 높이로 잰다
+    const first = doc.body.firstElementChild as HTMLElement | null
+    const ch = Math.ceil(first ? first.getBoundingClientRect().height : doc.documentElement.scrollHeight)
     setH(ch)
     // 화면 높이에 맞춰 줄이되 글자가 너무 작아지지 않게(0.78 아래로는 안 줄임 -- 그때는 창이 스크롤)
-    const room = window.innerHeight * 0.94 - 235
-    setScale(Math.min(1, w / MAIL_W, Math.max(0.78, room / ch)))
+    setScale(Math.min(1, w / MAIL_W, Math.max(0.78, maxHRef.current / ch)))
   }
   useEffect(() => {
     const on = () => fit()
     window.addEventListener('resize', on)
     return () => window.removeEventListener('resize', on)
   }, [])
+  useEffect(() => fit(), [maxH])
   function onLoad() {
     const doc = frameRef.current?.contentDocument
     if (!doc) return
+    // 메일 앱의 회색 바탕 · 바깥 여백은 빼고 흰 카드로(시안)
+    doc.body.style.background = '#FFFFFF'
+    const outer = doc.querySelector('table') as HTMLElement | null
+    if (outer) Object.assign(outer.style, { background: '#FFFFFF', padding: '0' })
     const msg = doc.getElementById('invite-msg')
     if (msg) {
       msg.contentEditable = 'true'
       msg.spellcheck = false
-      Object.assign(msg.style, { outline: '2px dashed rgba(37,99,235,.55)', outlineOffset: '6px', borderRadius: '4px', cursor: 'text' })
+      const idle = { outline: '1.5px dashed #66A1FF', outlineOffset: '6px', borderRadius: '8px', cursor: 'text' }
+      Object.assign(msg.style, idle)
       msg.addEventListener('focus', () => (msg.style.outline = '2px solid #2563EB'))
-      msg.addEventListener('blur', () => (msg.style.outline = '2px dashed rgba(37,99,235,.55)'))
+      msg.addEventListener('blur', () => (msg.style.outline = idle.outline))
       msg.addEventListener('input', () => {
         onBodyRef.current(msg.innerText.replace(/\n{3,}/g, '\n\n'))
         fit()
@@ -84,32 +94,49 @@ function MailPreview({ html, onBody }: { html: string; onBody: (v: string) => vo
     fit()
   }
   return (
-    <div ref={wrapRef} className="mt-2 rounded-card border border-separator bg-[#F3F4F6]">
+    <div ref={wrapRef} className="overflow-hidden rounded-[14px] border border-[#E7ECF0] bg-white">
       <div className="mx-auto overflow-hidden" style={{ width: MAIL_W * scale, height: h * scale }}>
-      <iframe
-        ref={frameRef}
-        title="초대 메일 미리보기"
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        onLoad={onLoad}
-        scrolling="no"
-        style={{ width: MAIL_W, height: h, transform: `scale(${scale})`, transformOrigin: 'top left', border: 0 }}
-      />
+        <iframe
+          ref={frameRef}
+          title="초대 메일 미리보기"
+          srcDoc={html}
+          sandbox="allow-same-origin"
+          onLoad={onLoad}
+          scrolling="no"
+          style={{ width: MAIL_W, height: h, transform: `scale(${scale})`, transformOrigin: 'top left', border: 0 }}
+        />
       </div>
     </div>
   )
 }
 
-export default function TeamInviteDialog({ teamName, onClose }: { teamName: string; onClose: () => void }) {
+// 미리 고른 받는 사람(관리 · 팀원관리 표에서 고른 사람): 받는 메일(sendTo) · 이름은 메일에 그대로 쓴다
+export type InvitePerson = { email: string; name?: string; sendTo?: string }
+
+export default function TeamInviteDialog({
+  teamName,
+  preset = [],
+  onClose,
+  onSent,
+  extra,
+}: {
+  teamName: string
+  preset?: InvitePerson[]
+  onClose: () => void
+  onSent?: (sent: string[]) => void
+  // 오른쪽 아래(보내기 위)에 덧붙일 것 -- 관리자: 로그인 문의 받는 사람 설정
+  extra?: ReactNode
+}) {
   const me = (getConnectedEmail() ?? '').toLowerCase()
   const { data } = useAccessData(false)
-  const [emails, setEmails] = useState<string[]>([])
+  const [emails, setEmails] = useState<string[]>(() => preset.map((p) => p.email))
+  const presetOf = useMemo(() => new Map(preset.map((p) => [p.email, p])), [preset])
   const [text, setText] = useState('')
   const [notice, setNotice] = useState('')
   const [flash, setFlash] = useState('')
   const [subject, setSubject] = useState(DEFAULT_SUBJECT)
+  // 미리보기 안에서 고치는 중에는 메일 틀을 다시 만들지 않도록(입력이 끊김) 최신 인사말을 따로 들고 있는다
   const [body, setBody] = useState(DEFAULT_BODY)
-  // 미리보기 안에서 고치는 중에는 메일 틀을 다시 만들지 않도록(커서가 튐) 최신 인사말을 따로 들고 있는다
   const bodyRef = useRef(DEFAULT_BODY)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -118,6 +145,17 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
   // 한글 입력(조합) 중에 쉼표 · Enter를 누르면 조합이 끝난 뒤에 넣는다(마지막 글자가 한 번 더 붙던 문제)
   const composing = useRef(false)
   const pendingAdd = useRef(false)
+  const [vh, setVh] = useState(() => window.innerHeight)
+  useEffect(() => {
+    const on = () => setVh(window.innerHeight)
+    window.addEventListener('resize', on)
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
+    document.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('resize', on)
+      document.removeEventListener('keydown', key)
+    }
+  }, [busy, onClose])
 
   // 쉼표 · 띄어쓰기 · 줄바꿈으로 여러 명. 아이디만 쓰면 @gmail.com. 이미 넣은 주소는 알려 준다
   function add(raw: string) {
@@ -142,7 +180,7 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
   const appUrl = appInviteUrl(undefined, taskSheetOf(data)?.url ?? null)
   // 받는 사람(2번 칸 주소) · 문의 받는 사람이 바뀔 때만 다시 만든다 -- 인사말을 고칠 때마다 다시 만들면 입력이 끊긴다
   const previewHtml = useMemo(
-    () => inviteHtml(bodyRef.current, { email: sample }, from, appUrl, contact),
+    () => inviteHtml(bodyRef.current, { email: sample, name: presetOf.get(sample)?.name }, from, appUrl, contact),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sample, from, appUrl, contact?.email, contact?.name],
   )
@@ -156,7 +194,11 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
       if (!access) throw new Error('팀원 명단(권한 시트)을 읽지 못했습니다. 관리자에게 권한 시트 편집자 공유를 요청하세요.')
       if (!isAdminConnected()) await connectAdmin()
       const res = await sendInviteEmails(
-        targets.map((email) => ({ email, addedAt: '', lastInvitedAt: null })),
+        targets.map((email) => {
+          const p = presetOf.get(email)
+          const u = access.users.find((x) => x.email === email)
+          return { email, sendTo: p?.sendTo || u?.sendTo || undefined, name: p?.name || u?.name || undefined, addedAt: '', lastInvitedAt: null }
+        }),
         subject,
         body,
         appInviteUrl(undefined, taskSheetOf(access)?.url ?? null),
@@ -175,8 +217,9 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
             return next
           },
           me,
-          [`초대 메일(${teamName}): ${res.sent.join(', ')}`],
+          [`초대 메일${teamName ? `(${teamName})` : ''}: ${res.sent.join(', ')}`],
         )
+        onSent?.(res.sent)
       }
       if (res.failed.length) {
         setEmails(res.failed.map((f) => f.email))
@@ -190,55 +233,89 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
     }
   }
 
+  const shell = (title: ReactNode, children: ReactNode, wide = true) =>
+    createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25 p-4 backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
+        <div role="dialog" aria-modal="true" className={`flex max-h-[96vh] w-full ${wide ? 'max-w-[1120px]' : 'max-w-md'} flex-col overflow-hidden rounded-[20px] border border-[#E7ECF0] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.08)]`}>
+          <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#DBDBDB] pl-6 pr-5">
+            {title}
+            <button onClick={onClose} disabled={busy} aria-label="닫기" title="닫기" className="flex h-8 w-8 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.05] disabled:opacity-40">
+              <X size={20} strokeWidth={1.8} />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>,
+      document.body,
+    )
+  const heading = (
+    <span className="flex min-w-0 items-baseline gap-2">
+      <span className="text-[length:calc(19px*var(--ui-fs,1))] font-bold text-[#111214]">팀원 초대</span>
+      {teamName && <span className="truncate text-[length:calc(15px*var(--ui-fs,1))] font-medium text-[#667085]">{teamName}</span>}
+    </span>
+  )
+
   if (done)
-    return (
-      <Modal title="초대 메일을 보냈습니다" onClose={onClose} footer={<Button variant="primary" onClick={onClose}>확인</Button>}>
+    return shell(
+      <span className="text-[length:calc(17px*var(--ui-fs,1))] font-bold text-[#111214]">초대 메일을 보냈습니다</span>,
+      <div className="px-6 py-5">
         <p className="text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
           {done.length}명에게 보냈습니다: <span className="text-label">{done.join(', ')}</span>
           <br />
-          팀원 명단에 「{teamName}」으로 들어갔습니다. 실적관리 시트 공유는 관리자가 합니다.
+          {teamName ? `팀원 명단에 「${teamName}」으로 들어갔습니다. 실적관리 시트 공유는 관리자가 합니다.` : '「실적관리 시트」 탭에서 시트 공유도 해 주세요.'}
         </p>
-      </Modal>
+        <div className="mt-5 flex justify-end">
+          <Button variant="primary" onClick={onClose}>
+            확인
+          </Button>
+        </div>
+      </div>,
+      false,
     )
 
-  const edit = 'rounded-[6px] border border-dashed border-accent/50 bg-accent-soft/40 outline-none transition-colors hover:border-accent focus:border-solid focus:border-accent focus:bg-white'
+  const edit = 'rounded-[10px] border border-dashed border-[#66A1FF] bg-white outline-none transition-colors focus:border-solid focus:border-accent'
 
-  return (
-    <Modal
-      size="lg"
-      title={`팀원 초대 · ${teamName}`}
-      onClose={onClose}
-      busy={busy}
-      footer={
-        <>
-          <span className="mr-auto truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-            {!isAdminConfigured() ? '이 배포에서는 메일 보내기를 쓸 수 없습니다' : isAdminConnected() ? `보내는 계정: ${getAdminEmail()}` : '보낼 때 Google 계정 연결 창이 한 번 뜹니다'}
-          </span>
-          <Button onClick={onClose} disabled={busy}>
-            취소
-          </Button>
-          <Button variant="primary" onClick={() => void send()} disabled={busy || !targets.length || bad.length > 0 || !subject.trim() || !isAdminConfigured()}>
-            {busy ? <Spinner className="h-4 w-4 text-white" /> : <Send size={15} strokeWidth={1.9} />}
-            {targets.length ? `${targets.length}명에게 보내기` : '보내기'}
-          </Button>
-        </>
-      }
-    >
-      <div className="grid gap-6 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        {/* 받는 사람: 칸이 왼쪽 세로를 채우고, 사람이 많아지면 더 늘어난다 */}
-        <div className="flex flex-col">
-          <label htmlFor="invite-to" className="text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-label">
-            받는 사람 {targets.length > 0 && <span className="font-normal text-label-3">{targets.length}명</span>}
-          </label>
+  return shell(
+    heading,
+    <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5 md:flex-row">
+      {/* 보낼 메일 */}
+      <section className="min-w-0 flex-1">
+        <h4 className="text-[length:calc(16px*var(--ui-fs,1))] font-bold text-[#111214]">보낼 메일</h4>
+        <div className="mt-2.5 flex items-center gap-3 pl-1">
+          <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-[#667085]">제목</span>
+          <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="메일 제목" className={`h-10 min-w-0 flex-1 px-3 text-[length:calc(14.5px*var(--ui-fs,1))] text-[#111214] ${edit}`} />
+        </div>
+        <div className="mt-3">
+          <MailPreview
+            html={previewHtml}
+            maxH={vh * 0.96 - 64 - 40 - 80}
+            onBody={(v) => {
+              bodyRef.current = v
+              setBody(v)
+            }}
+          />
+        </div>
+      </section>
+
+      {/* 초대할 사람 · 보내기 */}
+      <section className="flex w-full shrink-0 flex-col justify-between rounded-[16px] border border-[#E7ECF0] bg-[#F8FAFC] p-4 md:w-[400px]">
+        <div className="min-h-0">
+          <div className="flex items-center justify-between px-1 pt-1">
+            <label htmlFor="invite-to" className="text-[length:calc(15.5px*var(--ui-fs,1))] font-bold text-[#111214]">
+              초대할 사람
+            </label>
+            <span className="text-[length:calc(15.5px*var(--ui-fs,1))] font-bold text-accent">{targets.length}명</span>
+          </div>
           <div
-            className="mt-1.5 flex min-h-[160px] flex-1 cursor-text flex-wrap content-start gap-1.5 rounded-control border border-hairline bg-white p-2 focus-within:border-accent"
+            className="mt-2.5 flex min-h-[120px] cursor-text flex-wrap content-start gap-2 rounded-[12px] border border-[#E7ECF0] bg-white p-3 focus-within:border-accent"
             onClick={() => inputRef.current?.focus()}
           >
             {emails.map((e) => (
               <span
                 key={e}
-                className={`flex h-7 max-w-full items-center gap-1 rounded-full pl-2.5 pr-1 text-[length:calc(13.5px*var(--ui-fs,1))] transition-shadow ${
-                  okMail(e) ? 'bg-accent-soft text-accent' : 'bg-danger/10 text-danger'
+                title={presetOf.get(e)?.sendTo ? `받는 메일: ${presetOf.get(e)?.sendTo}` : undefined}
+                className={`flex h-8 max-w-full items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-shadow ${
+                  okMail(e) ? 'bg-[#EEF3FF] text-accent' : 'bg-danger/10 text-danger'
                 } ${flash === e ? 'ring-2 ring-orange-400' : ''}`}
               >
                 <span className="truncate">{e}</span>
@@ -283,39 +360,36 @@ export default function TeamInviteDialog({ teamName, onClose }: { teamName: stri
                 add(text + ' ' + e.clipboardData.getData('text'))
               }}
               placeholder={emails.length ? '' : 'Gmail 아이디 (예: hong)'}
-              className="h-7 min-w-[120px] flex-1 bg-transparent px-1 text-[length:calc(14px*var(--ui-fs,1))] text-label outline-none placeholder:text-label-3"
+              className="h-8 min-w-[120px] flex-1 !rounded-none !border-0 bg-transparent px-1 text-[length:calc(14px*var(--ui-fs,1))] text-label !shadow-none outline-none placeholder:text-label-3"
             />
           </div>
-          <div className="mt-1.5 space-y-1 text-[length:calc(12.5px*var(--ui-fs,1))]">
+          <div className="mt-2 space-y-1 px-1 text-[length:calc(13.5px*var(--ui-fs,1))]">
             {bad.length > 0 ? (
               <p className="text-danger">Gmail 아이디는 영문 · 숫자로 적어 주세요(한/영 전환 확인): {bad.join(', ')}</p>
             ) : (
-              <p className="text-label-3">아이디만 쓰면 @gmail.com이 붙습니다 · 여러 명은 쉼표나 Enter로</p>
+              <p className="text-[#98A2B3]">이메일 주소 입력 후 Enter 키를 누르세요 · 아이디만 쓰면 @gmail.com</p>
             )}
             {notice && <p className="text-orange-600">{notice}</p>}
             {invitedBefore.length > 0 && <p className="text-label-2">이미 초대한 적 있는 주소: {invitedBefore.join(', ')} -- 다시 보냅니다</p>}
           </div>
           {error && <p className="mt-3 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-danger">{error}</p>}
         </div>
-
-        {/* 보낼 메일: 실제로 가는 메일 그대로(관리 메뉴 초대와 같은 틀). 제목 · 인사말 점선 칸만 고친다 */}
-        <div className="min-w-0">
-          <p className="text-[length:calc(13.5px*var(--ui-fs,1))] font-semibold text-label">
-            보낼 메일 <span className="font-normal text-label-3">점선 칸(제목 · 인사말)을 눌러 고칩니다</span>
+        <div className="mt-4 border-t border-[#E7ECF0] pt-4">
+          {extra}
+          <p className="text-right text-[length:calc(13px*var(--ui-fs,1))] text-[#667085]">
+            {!isAdminConfigured() ? '이 배포에서는 메일 보내기를 쓸 수 없습니다' : isAdminConnected() ? `보내는 계정: ${getAdminEmail()}` : '보낼 때 Google 계정 연결 창이 한 번 뜹니다'}
           </p>
-          <div className="mt-1.5 flex items-center gap-2 rounded-[10px] border border-separator bg-white px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))]">
-            <span className="shrink-0 text-label-3">제목</span>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="메일 제목" className={`min-w-0 flex-1 px-1.5 py-0.5 font-semibold text-label ${edit}`} />
+          <div className="mt-3 flex justify-end gap-2">
+            <Button onClick={onClose} disabled={busy}>
+              취소
+            </Button>
+            <Button variant="primary" onClick={() => void send()} disabled={busy || !targets.length || bad.length > 0 || !subject.trim() || !isAdminConfigured()}>
+              {busy ? <Spinner className="h-4 w-4 text-white" /> : <Send size={15} strokeWidth={1.9} />}
+              {targets.length ? `${targets.length}명에게 보내기` : '보내기'}
+            </Button>
           </div>
-          <MailPreview
-            html={previewHtml}
-            onBody={(v) => {
-              bodyRef.current = v
-              setBody(v)
-            }}
-          />
         </div>
-      </div>
-    </Modal>
+      </section>
+    </div>,
   )
 }

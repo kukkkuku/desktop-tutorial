@@ -24,7 +24,7 @@ import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, readHandovers, updateUsers, writeHandover, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
 import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
-import InviteDialog from './InviteDialog'
+import TeamInviteDialog from './TeamInviteDialog'
 import { hasSheetsTokenNow } from '../utils/sheetSources'
 import { getConnectedEmail } from '../utils/googleDrive'
 
@@ -860,7 +860,15 @@ export default function TeamManagement() {
           </label>
         )}
       </ConfirmDialog>
-      {inviteOpen && access && <InviteDialog data={access} people={invitePeople} me={me} onClose={() => setInviteOpen(false)} onSent={setInfo} />}
+      {/* 초대 창(평가 목록 · 관리 메뉴와 같은 창): 아직 초대 안 한 팀원이 받는 사람으로 들어가 있다 */}
+      {inviteOpen && (
+        <TeamInviteDialog
+          teamName={teamName.trim()}
+          preset={invitePeople.filter((u) => !u.invitedAt).map((u) => ({ email: u.email, name: u.name || undefined, sendTo: u.sendTo || undefined }))}
+          onClose={() => setInviteOpen(false)}
+          onSent={(sent) => setInfo(`${sent.length}명에게 초대 메일을 보냈습니다. 실적관리 시트 공유는 관리자가 합니다.`)}
+        />
+      )}
 
       {viewingPeerReviewsFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">

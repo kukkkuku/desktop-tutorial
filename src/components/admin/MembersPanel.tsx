@@ -8,39 +8,17 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
 import { icSm } from '../ui/icon'
-import {
-  LOGIN_TOKEN,
-  NAME_TOKEN,
-  connectAdmin,
-  inviteHtml,
-  getAdminEmail,
-  isAdminConfigured,
-  isAdminConnected,
-  isEmail,
-  parseInviteText,
-  parseInviteWorkbook,
-  sendInviteEmails,
-  type InviteEntry,
-} from '../../utils/adminInvite'
-import { PENDING_SUFFIX, type SheetShare, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactFor, contactModeOf, setAccessSetting, accessSheetUrl, appInviteUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { isEmail, parseInviteText, parseInviteWorkbook, type InviteEntry } from '../../utils/adminInvite'
+import { PENDING_SUFFIX, type SheetShare, isPendingEmail, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import { ADMIN_EMAILS } from '../../utils/roles'
 import { useWorkspaces, workspaceStateKey } from '../../state/WorkspaceContext'
 import type { TeamMember } from '../../types'
 import { renameEvalTeam } from '../../utils/teamRename'
+import TeamInviteDialog from '../TeamInviteDialog'
 import { loadProgress } from '../../utils/progressBoard'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
-const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
-// 인사말만 고친다. 앱 버튼 · 로그인할 계정 · 처음 로그인 안내는 메일 틀(inviteHtml)이 자동으로 넣는다
-const defaultBody = () => `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
-아래 시작하는 방법대로 들어와 주세요.`
-
-const stamp = () => {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 // scope(관리자 화면의 탭): leaders = 관리자 · 팀장, members = 팀원. 없으면 팀장 화면(우리 팀 팀원)
 export default function MembersPanel({
@@ -266,53 +244,11 @@ export default function MembersPanel({
   const [removeAsk, setRemoveAsk] = useState<AccessUser[] | null>(null)
   const canRemove = (u: AccessUser) => u.email !== me && (isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam)))
 
-  // ---- 초대 메일
-  const [connected, setConnected] = useState(isAdminConnected())
-  const [subject, setSubject] = useState(DEFAULT_SUBJECT)
-  const [body, setBody] = useState(defaultBody)
-  const [sending, setSending] = useState(false)
-  async function send() {
-    setSending(true)
-    setNote(null)
-    try {
-      if (!connected) {
-        await connectAdmin()
-        setConnected(true)
-      }
-      const res = await sendInviteEmails(
-        targets.filter((u) => !isPendingEmail(u.email)).map((u) => ({ email: u.email, sendTo: u.sendTo || undefined, name: u.name || undefined, addedAt: '', lastInvitedAt: null })),
-        subject,
-        body,
-        appInviteUrl(undefined, taskUrl),
-        (r) => {
-          const u = data.users.find((x) => x.email === r.email)
-          return u ? contactFor(data, u, me) : null
-        },
-      )
-      if (res.sent.length) {
-        const at = stamp()
-        const sent = new Set(res.sent)
-        await updateUsers(data.id, (users) => users.map((x) => (sent.has(x.email) ? { ...x, invitedAt: at } : x)), me, [`초대 메일: ${res.sent.join(', ')}`])
-        onChanged()
-      }
-      setCompose(false)
-      setSel(new Set())
-      setNote(
-        res.failed.length
-          ? { ok: false, text: `${res.sent.length}명 보냄 · ${res.failed.length}명 실패: ${res.failed.map((f) => nameOf(f.email)).join(', ')} -- ${Array.from(new Set(res.failed.map((f) => f.error))).join(' / ')}` }
-          : { ok: true, text: `${res.sent.length}명에게 초대 메일을 보냈습니다.${targets.some((u) => isPendingEmail(u.email)) ? ' (Gmail이 없는 사람은 뺐습니다)' : ''}${isAdmin ? ' 「실적관리 시트」 탭에서 시트 공유도 해 주세요.' : ' 실적관리 시트 공유는 관리자가 합니다.'}` },
-      )
-    } catch (e) {
-      setNote({ ok: false, text: errText(e, '보내지 못했습니다.') })
-    } finally {
-      setSending(false)
-    }
-  }
-
   const taskUrl = taskSheetOf(data)?.url ?? null
   const allOn = shown.length > 0 && shown.every((u) => sel.has(u.email))
 
-  const [compose, setCompose] = useState(false)
+  // 초대 메일: 고른 사람을 받는 사람으로 채운 초대 창(평가 목록 · 팀원관리와 같은 창)
+  const [inviteOpen, setInviteOpen] = useState(false)
   // ---- 표 열: 끌어서 폭 조절(이 브라우저에 기억) · 받는 메일 열은 켜고 끔 · 메일 쓰는 동안은 이름 · 계정 · e-mail만
   type ColKey = 'name' | 'email' | 'sendTo' | 'team' | 'role' | 'addedBy' | 'invited' | 'share'
   const COL_LABEL: Record<ColKey, string> = { name: '이름', email: '계정(Gmail)', sendTo: 'e-mail', team: '팀', role: '역할', addedBy: '추가한 사람', invited: '초대', share: '시트 권한' }
@@ -325,7 +261,7 @@ export default function MembersPanel({
   })
   const DEF_W: Record<ColKey, number> = { name: 120, email: 250, sendTo: 270, team: 130, role: 100, addedBy: 200, invited: 120, share: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
-  const colW = (k: ColKey) => widths[k] ?? (compose ? ({ name: 110, email: 210, sendTo: 260 } as Partial<Record<ColKey, number>>)[k] ?? DEF_W[k] : DEF_W[k])
+  const colW = (k: ColKey) => widths[k] ?? DEF_W[k]
   function resizeStart(e: React.MouseEvent, k: ColKey) {
     e.preventDefault()
     const x0 = e.clientX
@@ -365,24 +301,7 @@ export default function MembersPanel({
       // 기억 못 해도 지금은 반영
     }
   }
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const cols: ColKey[] = compose
-    ? ['name', 'email', 'sendTo']
-    : (['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[])
-  const preview = targets[0]
-    ? inviteHtml(
-        body.split(LOGIN_TOKEN).join(targets[0].email).split(NAME_TOKEN).join(targets[0].name ?? ''),
-        targets[0],
-        getAdminEmail() ?? me,
-        appInviteUrl(undefined, taskUrl),
-        contactFor(data, targets[0], me),
-      )
-    : ''
-  const contactLine = (() => {
-    const c = targets[0] ? contactFor(data, targets[0], me) : null
-    return c ? (c.name ? `${c.name}(${c.email})` : c.email) : '없음'
-  })()
-  const canSend = !sending && isAdminConfigured() && targets.length > 0 && !targets.some((u) => !!u.sendTo && !isEmail(u.sendTo))
+  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
   const cell = (u: AccessUser, k: ColKey) => {
     // 팀장: 보이는 우리 팀 팀원은 이름 · 팀(옮기기) · Gmail을 고칠 수 있다
     const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
@@ -499,7 +418,7 @@ export default function MembersPanel({
                 </th>
                 {cols.map((k) => (
                   <th key={k} className="relative truncate px-3 py-2 font-medium">
-                    {k === 'email' && !compose ? (
+                    {k === 'email' ? (
                       <span className="flex items-center gap-1.5 pr-2">
                         <span className="truncate">{COL_LABEL[k]}</span>
                         {/* +✉ = 받는 메일 열 추가(초대 메일을 Gmail 대신 회사 메일 등으로 받을 때). 켜져 있으면 파랗게 · 다시 누르면 숨김 */}
@@ -558,89 +477,32 @@ export default function MembersPanel({
       </div>
     )
 
-  // 오른쪽 메일 쓰기(손그림 시안): 받는 사람 칩(✕로 빼기) · 제목 · 인사말 · 문의 받는 사람 · 미리보기 · 보내기 · 취소
-  const composer = (
-    <section className="flex min-h-[560px] flex-col rounded-card border border-accent/30 bg-white p-5 shadow-card">
-      <div className="flex items-center gap-2">
-        <Mail size={18} strokeWidth={1.8} className="text-accent" />
-        <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">초대 메일 쓰기</h3>
-        <button onClick={() => setCompose(false)} className="ml-auto flex items-center gap-1 rounded-control px-2 py-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05]">
-          <X size={15} />
-          취소
-        </button>
-      </div>
-      <label className="mt-4 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">받는 사람 {targets.length}명</label>
-      <div className="mt-1 flex min-h-[44px] flex-wrap items-center gap-1.5 rounded-control border border-hairline px-2 py-1.5">
-        {targets.length === 0 && <span className="px-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">왼쪽 표에서 받을 사람을 고르세요</span>}
-        {targets.map((u) => (
-          <span key={u.email} className="flex items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-2.5 pr-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-accent" title={u.sendTo || (isPendingEmail(u.email) ? undefined : u.email)}>
-            {label(u)}
-            <button
-              onClick={() => {
-                const n = new Set(sel)
-                n.delete(u.email)
-                setSel(n)
-              }}
-              aria-label={`${label(u)} 빼기`}
-              className="flex h-5 w-5 items-center justify-center rounded-full hover:bg-accent/15"
-            >
-              <X size={12} strokeWidth={2.4} />
-            </button>
-          </span>
-        ))}
-      </div>
-      <label className="mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">제목</label>
-      <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 h-10 w-full rounded-control border border-hairline px-3 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent" />
-      <label className="mt-3 block text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">인사말</label>
-      <textarea
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        className="mt-1 min-h-[180px] w-full flex-1 rounded-control border border-hairline px-3 py-2.5 text-[length:calc(14.5px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent"
-      />
-      <p className="mt-1.5 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-3">
-        인사말 아래에 <b className="text-label-2">시작하는 방법 1 · 2 · 3</b>, <b className="text-label-2">시작하기 버튼</b>, <b className="text-label-2">문의하기 버튼</b>이 자동으로 들어갑니다.{' '}
-        <code>{NAME_TOKEN}</code>은 사람마다 이름으로 바뀝니다.
-      </p>
-      <div className="mt-3 rounded-card bg-subtle px-3.5 py-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
-        <span className="font-semibold text-label">문의 받는 사람</span>
-        {isAdmin ? (
-          <span className="ml-3 inline-flex flex-wrap gap-4">
-            {(
-              [
-                ['leader', '초대한 팀장'],
-                ['admin', '관리자'],
-              ] as [ContactMode, string][]
-            ).map(([k, label]) => (
-              <label key={k} className="inline-flex cursor-pointer items-center gap-1.5">
-                <input
-                  type="radio"
-                  name="contact-mode"
-                  checked={contactModeOf(data) === k}
-                  disabled={busy}
-                  onChange={() => void run(() => setAccessSetting(data.id, 'contact', k, me, `로그인 문의 받는 사람: ${label}`), '문의 받는 사람을 바꿨습니다.')}
-                />
-                {label}
-              </label>
-            ))}
-          </span>
-        ) : null}
-        <span className="ml-2 text-label-3">→ {contactLine}</span>
-      </div>
-      <div className="mt-4 flex items-center justify-end gap-2">
-        <span className="mr-auto text-[length:calc(13px*var(--ui-fs,1))] text-label-3">보내는 계정: {connected ? getAdminEmail() : '보낼 때 Google 계정 연결'}</span>
-        <Button variant="secondary" onClick={() => setPreviewOpen(true)} disabled={!targets.length}>
-          미리보기
-        </Button>
-        <Button variant="primary" onClick={() => void send()} disabled={!canSend}>
-          {sending ? <Spinner className="h-4 w-4 text-white" /> : <Send size={15} strokeWidth={1.9} />}
-          {connected ? `${targets.length}명에게 보내기` : 'Google 연결하고 보내기'}
-        </Button>
-      </div>
-    </section>
-  )
+  // 초대 창 아래에 붙는 관리자 설정: 로그인 문의 받는 사람
+  const contactSetting = isAdmin ? (
+    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+      <span className="font-semibold text-label">로그인 문의 받는 사람</span>
+      {(
+        [
+          ['leader', '초대한 팀장'],
+          ['admin', '관리자'],
+        ] as [ContactMode, string][]
+      ).map(([k, label]) => (
+        <label key={k} className="inline-flex cursor-pointer items-center gap-1.5">
+          <input
+            type="radio"
+            name="contact-mode"
+            checked={contactModeOf(data) === k}
+            disabled={busy}
+            onChange={() => void run(() => setAccessSetting(data.id, 'contact', k, me, `로그인 문의 받는 사람: ${label}`), '문의 받는 사람을 바꿨습니다.')}
+          />
+          {label}
+        </label>
+      ))}
+    </div>
+  ) : null
 
   return (
-    <div className={`space-y-4 ${compose ? 'max-w-none' : 'max-w-6xl'}`}>
+    <div className="max-w-6xl space-y-4">
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
         {scope === 'leaders'
           ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
@@ -732,7 +594,7 @@ export default function MembersPanel({
           <Plus {...icSm} />
           {scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
-        <Button variant="secondary" onClick={() => setCompose(true)} disabled={!targets.length || busy || compose}>
+        <Button variant="secondary" onClick={() => setInviteOpen(true)} disabled={!targets.some((u) => !isPendingEmail(u.email)) || busy}>
           <Send {...icSm} />
           초대 메일 보내기{targets.length ? ` (${targets.length})` : ''}
         </Button>
@@ -905,16 +767,9 @@ export default function MembersPanel({
       {note && <p className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
-      {compose ? (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)]">
-          {table}
-          {composer}
-        </div>
-      ) : (
-        table
-      )}
+      {table}
 
-      {isSuper && !compose && (
+      {isSuper && (
         <dl className={`grid gap-x-4 gap-y-1 rounded-card bg-subtle px-4 py-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 sm:grid-cols-[auto_1fr]`}>
           <dt className="font-semibold text-label">관리자</dt>
           <dd>팀장이 하는 것 전부 + 관리 메뉴(팀장 지정 · 모든 팀원 · 역할 · 팀 바꾸기 · 시트 연결)</dd>
@@ -934,33 +789,21 @@ export default function MembersPanel({
         </dl>
       )}
 
-      {/* 미리보기 팝업: 닫기 · 보내기 */}
-      {previewOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onMouseDown={() => setPreviewOpen(false)}>
-          <div className="flex max-h-[94vh] w-full max-w-[640px] flex-col rounded-panel bg-white p-4 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 pb-2">
-              <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">미리보기 · {targets[0]?.name || targets[0]?.email}</h3>
-              {targets.length > 1 && <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">외 {targets.length - 1}명(이름 · 계정만 사람마다 바뀜)</span>}
-            </div>
-            <iframe title="초대 메일 미리보기" className="h-[70vh] w-full rounded-card border border-separator bg-[#F3F4F6]" srcDoc={preview} />
-            <div className="mt-3 flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setPreviewOpen(false)}>
-                닫기
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setPreviewOpen(false)
-                  void send()
-                }}
-                disabled={!canSend}
-              >
-                <Send size={15} strokeWidth={1.9} />
-                보내기
-              </Button>
-            </div>
-          </div>
-        </div>
+      {inviteOpen && (
+        <TeamInviteDialog
+          teamName=""
+          preset={targets.filter((u) => !isPendingEmail(u.email)).map((u) => ({ email: u.email, name: u.name || undefined, sendTo: u.sendTo || undefined }))}
+          extra={contactSetting}
+          onClose={() => setInviteOpen(false)}
+          onSent={(sent) => {
+            onChanged()
+            setSel(new Set())
+            setNote({
+              ok: true,
+              text: `${sent.length}명에게 초대 메일을 보냈습니다.${isAdmin ? ' 「실적관리 시트」 탭에서 시트 공유도 해 주세요.' : ' 실적관리 시트 공유는 관리자가 합니다.'}`,
+            })
+          }}
+        />
       )}
 
       {shareOpen && (
