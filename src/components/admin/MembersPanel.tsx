@@ -3,7 +3,7 @@
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { ArrowRightLeft, ChevronDown, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, GripVertical, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import Button from '../Button'
 import Spinner from '../Spinner'
@@ -553,8 +553,8 @@ export default function MembersPanel({
       window.removeEventListener('keydown', key)
     }
   }, [moveOpen])
-  function moveToTeam(to: string) {
-    const list = picked.filter((u) => u.team.trim() !== to)
+  function moveToTeam(to: string, who: AccessUser[] = picked) {
+    const list = who.filter((u) => u.team.trim() !== to)
     setMoveOpen(false)
     setMoveDraft(null)
     if (!list.length) return
@@ -566,6 +566,32 @@ export default function MembersPanel({
     )
   }
 
+  // 줄 고르기(표처럼): 줄을 누르면 그 줄만, Shift = 범위, ⌘/Ctrl = 하나씩 더하기 · 빼기
+  const lastPick = useRef<string | null>(null)
+  function clickRow(e: React.MouseEvent, u: AccessUser, flat: AccessUser[]) {
+    if ((e.target as HTMLElement).closest('input,button,select,textarea,a,[role="listbox"]')) return
+    const n = new Set(sel)
+    if (e.shiftKey && lastPick.current) {
+      const a = flat.findIndex((x) => x.email === lastPick.current)
+      const b = flat.findIndex((x) => x.email === u.email)
+      if (a >= 0 && b >= 0) for (const x of flat.slice(Math.min(a, b), Math.max(a, b) + 1)) n.add(x.email)
+      window.getSelection()?.removeAllRanges()
+    } else if (e.metaKey || e.ctrlKey) {
+      if (n.has(u.email)) n.delete(u.email)
+      else n.add(u.email)
+    } else {
+      setSel(n.size === 1 && n.has(u.email) ? new Set() : new Set([u.email]))
+      lastPick.current = u.email
+      return
+    }
+    lastPick.current = u.email
+    setSel(n)
+  }
+  // 끌어서 팀 옮기기: 고른 줄(손잡이 ⠿)을 다른 팀 묶음 머리에 놓는다
+  const [dragIds, setDragIds] = useState<string[] | null>(null)
+  const [dropKey, setDropKey] = useState<string | null>(null)
+  const teamOfKey = (k: string): string | null => (k.startsWith('t:') ? k.slice(2) : k === 'none' ? '' : null)
+
   // 묶음 접기(권한 설정) · 묶음 전체 고르기
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const allFolded = grouped.length > 0 && grouped.every((g) => folded.has(g.key))
@@ -576,6 +602,8 @@ export default function MembersPanel({
       else n.add(k)
       return n
     })
+  // 지금 보이는 줄 순서(Shift 범위 고르기)
+  const flatRows = grouped.flatMap((g) => (folded.has(g.key) ? [] : g.rows))
 
   const table =
     rows.length === 0 ? (
@@ -587,14 +615,14 @@ export default function MembersPanel({
         <div className="max-h-[560px] overflow-auto">
           <table className="table-fixed text-[length:calc(14px*var(--ui-fs,1))]" style={{ width: 40 + cols.reduce((n, k) => n + colW(k), 0), minWidth: '100%' }}>
             <colgroup>
-              <col style={{ width: 40 }} />
+              <col style={{ width: scope === 'all' && isAdmin ? 52 : 40 }} />
               {cols.map((k) => (
                 <col key={k} style={{ width: colW(k) }} />
               ))}
             </colgroup>
             <thead className="sticky top-0 z-10 bg-subtle text-left text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
               <tr>
-                <th className="px-3 py-2">
+                <th className={`py-2 ${scope === 'all' && isAdmin ? 'pl-7 pr-2' : 'px-3'}`}>
                   <input type="checkbox" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(shown.map((u) => u.email)))} aria-label="모두 고르기" />
                 </th>
                 {cols.map((k) => (
@@ -636,10 +664,31 @@ export default function MembersPanel({
                     (() => {
                       const on = g.rows.filter((u) => sel.has(u.email)).length
                       const isFolded = folded.has(g.key)
+                      const dropTeam = teamOfKey(g.key)
+                      const isDrop = !!dragIds && dropTeam !== null && dropKey === g.key
                       return (
-                        <tr className="border-t border-separator bg-[#FAFAFB]">
+                        <tr
+                          className={`border-t border-separator ${isDrop ? 'bg-accent-soft outline outline-2 -outline-offset-2 outline-accent' : 'bg-[#FAFAFB]'}`}
+                          onDragOver={(e) => {
+                            if (!dragIds || dropTeam === null) return
+                            e.preventDefault()
+                            e.dataTransfer.dropEffect = 'move'
+                            if (dropKey !== g.key) setDropKey(g.key)
+                          }}
+                          onDragLeave={(e) => {
+                            if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDropKey((k) => (k === g.key ? null : k))
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault()
+                            const ids = dragIds
+                            setDragIds(null)
+                            setDropKey(null)
+                            if (!ids || dropTeam === null) return
+                            moveToTeam(dropTeam, data.users.filter((x) => ids.includes(x.email)))
+                          }}
+                        >
                           {/* 이 묶음(팀) 전체 고르기 */}
-                          <td className="px-3 py-2">
+                          <td className={`py-2 ${scope === 'all' && isAdmin ? 'pl-7 pr-2' : 'px-3'}`}>
                             <input
                               type="checkbox"
                               checked={on > 0 && on === g.rows.length}
@@ -701,8 +750,42 @@ export default function MembersPanel({
                       )
                     })()}
               {!folded.has(g.key) && g.rows.map((u) => (
-                <tr key={u.email} className={`group/row border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : 'hover:bg-black/[0.015]'}`}>
-                  <td className="px-3 py-2">
+                <tr
+                  key={u.email}
+                  onClick={(e) => clickRow(e, u, flatRows)}
+                  className={`group/row border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : 'hover:bg-black/[0.015]'} ${dragIds?.includes(u.email) ? 'opacity-40' : ''}`}
+                >
+                  <td className={`relative py-2 ${scope === 'all' && isAdmin ? 'pl-7 pr-2' : 'px-3'}`}>
+                    {/* ⠿ 손잡이: 끌어서 다른 팀 묶음 머리에 놓으면 옮긴다(고른 줄이면 고른 줄 전부) */}
+                    {isAdmin && scope === 'all' && (
+                      <span
+                        draggable={!busy}
+                        onDragStart={(e) => {
+                          const ids = sel.has(u.email) ? [...sel] : [u.email]
+                          if (!sel.has(u.email)) setSel(new Set([u.email]))
+                          setDragIds(ids)
+                          // 마우스를 따라다니는 표시: 「N명 · 팀 묶음에 놓기」
+                          const ghost = document.createElement('div')
+                          ghost.textContent = `${ids.length}명 옮기기 · 팀 묶음 위에 놓기`
+                          ghost.style.cssText = 'position:fixed;top:-100px;left:0;padding:6px 12px;border-radius:999px;background:#18181B;color:#fff;font:600 13px Pretendard,sans-serif;white-space:nowrap'
+                          document.body.appendChild(ghost)
+                          e.dataTransfer.setDragImage(ghost, 12, 16)
+                          window.setTimeout(() => ghost.remove(), 0)
+                          e.dataTransfer.effectAllowed = 'move'
+                          e.dataTransfer.setData('text/plain', ids.join(','))
+                        }}
+                        onDragEnd={() => {
+                          setDragIds(null)
+                          setDropKey(null)
+                        }}
+                        title="끌어서 다른 팀 묶음에 놓기"
+                        className={`absolute left-1 top-1/2 flex h-7 w-5 -translate-y-1/2 cursor-grab items-center justify-center rounded-[6px] active:cursor-grabbing ${
+                          sel.has(u.email) ? 'bg-accent-soft text-accent opacity-100' : 'text-label-3 opacity-0 hover:bg-black/[0.06] hover:text-label group-hover/row:opacity-100'
+                        }`}
+                      >
+                        <GripVertical size={15} strokeWidth={2.2} />
+                      </span>
+                    )}
                     <input
                       type="checkbox"
                       checked={sel.has(u.email)}
