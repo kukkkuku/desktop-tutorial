@@ -3,7 +3,7 @@
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { ChevronDown, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -519,6 +519,38 @@ export default function MembersPanel({
     )
   }
 
+  // 고른 사람 팀 옮기기(아래 검정 줄)
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [moveDraft, setMoveDraft] = useState<string | null>(null)
+  // 고른 사람이 없어지면 · 바깥을 누르면 · Esc면 닫는다
+  const moveRef = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!picked.length) setMoveOpen(false)
+  }, [picked.length])
+  useEffect(() => {
+    if (!moveOpen) return
+    const out = (e: MouseEvent) => !moveRef.current?.contains(e.target as Node) && setMoveOpen(false)
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setMoveOpen(false)
+    window.addEventListener('mousedown', out)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('mousedown', out)
+      window.removeEventListener('keydown', key)
+    }
+  }, [moveOpen])
+  function moveToTeam(to: string) {
+    const list = picked.filter((u) => u.team.trim() !== to)
+    setMoveOpen(false)
+    setMoveDraft(null)
+    if (!list.length) return
+    const set = new Set(list.map((u) => u.email))
+    setSel(new Set())
+    void run(
+      () => updateUsers(data.id, (users) => users.map((x) => (set.has(x.email) ? { ...x, team: to } : x)), me, [`팀 옮김: ${list.map(logWho).join(', ')} → ${to || '(팀 없음)'}`]),
+      `${list.length}명을 ${to ? `「${to}」` : '팀 없음'}(으)로 옮겼습니다.`,
+    )
+  }
+
   // 묶음 접기(권한 설정) · 묶음 전체 고르기
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const allFolded = grouped.length > 0 && grouped.every((g) => folded.has(g.key))
@@ -1029,6 +1061,63 @@ export default function MembersPanel({
       {picked.length > 0 && (
         <div className="sticky bottom-4 z-20 mx-auto flex w-fit items-center gap-1.5 rounded-[12px] bg-ink py-2 pl-4 pr-2 text-[length:calc(14px*var(--ui-fs,1))] text-white shadow-dialog">
           <b className="mr-2 font-semibold">{picked.length}명 선택</b>
+          {/* 고른 사람을 다른 팀으로 한 번에 */}
+          {isAdmin && scope === 'all' && (
+            <span ref={moveRef} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setMoveDraft(null)
+                  setMoveOpen(!moveOpen)
+                }}
+                disabled={busy}
+                aria-expanded={moveOpen}
+                className={`flex h-8 items-center gap-1.5 rounded-control px-3 hover:bg-white/20 disabled:opacity-40 ${moveOpen ? 'bg-white/25' : 'bg-white/10'}`}
+              >
+                <ArrowRightLeft {...icSm} />
+                팀 옮기기
+              </button>
+              {moveOpen && (
+                <div className="mac-pop absolute bottom-[calc(100%+8px)] left-0 z-30 w-[220px] py-1 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+                  <p className="px-3 pb-1 pt-1.5 text-xs text-label-3">{picked.length}명을 어느 팀으로?</p>
+                  {moveDraft === null ? (
+                    <>
+                      {sheetTeams.map((t) => {
+                        const already = picked.every((u) => u.team.trim() === t)
+                        return (
+                          <button key={t} type="button" disabled={already} onClick={() => moveToTeam(t)} className="mac-menu-item flex w-full items-center justify-between disabled:opacity-40">
+                            {t}
+                            <span className="text-xs text-label-3">{data.users.filter((u) => u.team.trim() === t).length}</span>
+                          </button>
+                        )
+                      })}
+                      <div className="mac-menu-sep" />
+                      <button type="button" onClick={() => setMoveDraft('')} className="mac-menu-item w-full font-semibold text-accent">
+                        ＋ 새 팀…
+                      </button>
+                      <button type="button" onClick={() => moveToTeam('')} className="mac-menu-item w-full text-label-2">
+                        팀 없음
+                      </button>
+                    </>
+                  ) : (
+                    <div className="px-2 pb-2">
+                      <input
+                        autoFocus
+                        value={moveDraft}
+                        onChange={(e) => setMoveDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && moveDraft.trim()) moveToTeam(moveDraft.trim())
+                          if (e.key === 'Escape') setMoveDraft(null)
+                        }}
+                        placeholder="새 팀 이름 · Enter"
+                        className="h-8 w-full rounded-control border border-accent px-2 text-[length:calc(14px*var(--ui-fs,1))] outline-none"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </span>
+          )}
           <button type="button" onClick={() => setInviteFor(targets)} disabled={!targets.length || busy} className="flex h-8 items-center gap-1.5 rounded-control bg-white/10 px-3 hover:bg-white/20 disabled:opacity-40">
             <Send {...icSm} />
             초대 메일
