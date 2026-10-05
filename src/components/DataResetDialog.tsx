@@ -14,7 +14,8 @@ import IconButton from './IconButton'
 import Spinner from './Spinner'
 import { ic } from './ui/icon'
 
-export default function DataResetDialog({ onClose }: { onClose: () => void }) {
+// inline = 데이터 백업 창 안의 「데이터 초기화」 탭에 그대로 넣는다(별도 팝업 없이)
+export default function DataResetDialog({ onClose, inline = false }: { onClose: () => void; inline?: boolean }) {
   const { workspaces } = useWorkspaces()
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null)
   const [resetMode, setResetMode] = useState<'local' | 'drive' | null>(null)
@@ -57,17 +58,8 @@ export default function DataResetDialog({ onClose }: { onClose: () => void }) {
     else window.location.reload()
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/25" onClick={() => !isBusy && onClose()} />
-      <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
-        <div className="flex items-center justify-between px-5 pb-2 pt-4">
-          <h2 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">데이터 초기화</h2>
-          <IconButton onClick={onClose} aria-label="닫기" title="닫기">
-            <X {...ic} />
-          </IconButton>
-        </div>
-        <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2">
+  const body = (
+    <>
       <div className="space-y-3">
         <p className="text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label">
           <span className="font-semibold text-danger">전체 데이터 초기화</span> · 이 계정의 <b>모든 팀 · 평가 데이터</b>를 지웁니다. 먼저 백업하세요.
@@ -125,9 +117,9 @@ export default function DataResetDialog({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
-        </div>
-      </div>
-
+    </>
+  )
+  const confirm = (
     <ConfirmDialog
       open={resetMode !== null}
       title={resetMode === 'drive' ? 'Google Drive 포함 전체 초기화' : '이 브라우저 데이터만 초기화'}
@@ -140,6 +132,29 @@ export default function DataResetDialog({ onClose }: { onClose: () => void }) {
       onConfirm={handleResetConfirm}
       onCancel={() => setResetMode(null)}
     />
+  )
+
+  if (inline) {
+    return (
+      <div>
+        {body}
+        {confirm}
+      </div>
+    )
+  }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/25" onClick={() => !isBusy && onClose()} />
+      <div className="relative flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+        <div className="flex items-center justify-between px-5 pb-2 pt-4">
+          <h2 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">데이터 초기화</h2>
+          <IconButton onClick={onClose} aria-label="닫기" title="닫기">
+            <X {...ic} />
+          </IconButton>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 pb-5 pt-2">{body}</div>
+      </div>
+      {confirm}
     </div>
   )
 }

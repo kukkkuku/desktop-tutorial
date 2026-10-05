@@ -41,7 +41,7 @@ interface DataManagerDrawerProps {
   onGoToWork?: () => void
 }
 
-export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'bulk' | 'admin'
+export type DataManagerTab = 'sheet' | 'local' | 'drive' | 'bulk' | 'admin' | 'reset'
 type Tab = DataManagerTab
 
 // "데이터 관리" 진입점 하나로 로컬 엑셀 파일과 Google Drive를 함께 다룬다.
@@ -53,7 +53,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
   const app = useOptionalAppState()
   const { currentWorkspace, workspaces, selectWorkspace } = useWorkspaces()
   const { setMode } = useAppMode()
-  const [resetOpen, setResetOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('local')
   useEffect(() => {
     if (tabRequest) setTab(tabRequest.tab)
@@ -200,14 +199,15 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
               },
             ]}
           />
-          {/* 오른쪽 끝: 데이터 초기화(계정 메뉴에도 있음) */}
-          <button
-            onClick={() => setResetOpen(true)}
-            className="shrink-0 rounded-control px-2.5 py-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-danger hover:bg-danger/[0.07]"
-            title="이 계정의 모든 팀 · 평가 데이터를 지웁니다(먼저 백업을 권합니다)"
+          {/* 오른쪽 끝: 데이터 초기화 탭(예전 그대로 이 창 안에서) */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTab('reset')}
+            className={tab === 'reset' ? 'bg-danger/10 text-danger hover:bg-danger/15 hover:text-danger' : ''}
           >
-            데이터 초기화…
-          </button>
+            데이터 초기화
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -297,6 +297,8 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
             </div>
           )}
 
+          {tab === 'reset' && <DataResetDialog inline onClose={onClose} />}
+
           {tab === 'drive' && (
             <div className="mx-auto max-w-lg">
               {currentWorkspace && app ? (
@@ -324,7 +326,6 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
         </div>
       </div>
 
-      {resetOpen && <DataResetDialog onClose={() => setResetOpen(false)} />}
     </div>
   )
 }
