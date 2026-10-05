@@ -2,8 +2,8 @@ import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { ArrowRight, Check, ChevronDown, Copy, Pencil, Plus, Trash2, Users, X } from 'lucide-react'
-import TeamAccountsPanel from './TeamAccountsPanel'
+import { Copy, Pencil, Plus, Trash2, UserPlus, Users, X } from 'lucide-react'
+import QuickInvite from './QuickInvite'
 import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
@@ -286,6 +286,7 @@ export default function WorkspaceLanding() {
   const [addingTeam, setAddingTeam] = useState(false)
   const [newEvalOpen, setNewEvalOpen] = useState(false)
   const [rosterOpen, setRosterOpen] = useState(false)
+  const [rosterTick, setRosterTick] = useState(0)
   const startTeam = (prefill = '') => {
     setNewTeamInput(prefill)
     setAddingTeam(true)
@@ -373,7 +374,7 @@ export default function WorkspaceLanding() {
     const noMail = ms.filter((u) => isPendingEmail(u.email)).length
     return { n: ms.length, noMail, withMail: ms.length - noMail, notInv: ms.filter((u) => !isPendingEmail(u.email) && !u.invitedAt).length }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamName, rosterOpen])
+  }, [teamName, rosterOpen, rosterTick])
   // 권한 시트의 내 팀 · 내가 추가한 팀원의 팀도 팀 목록에(평가가 아직 없어도 보이게)
   const { myTeam, accessTeams } = useMemo(() => {
     const access = readAccessCache()
@@ -407,42 +408,8 @@ export default function WorkspaceLanding() {
     if (rosterOpen || newEvalOpen) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [rosterOpen, newEvalOpen])
   const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-  const openRoster = () => {
-    setNewEvalOpen(false)
-    setRosterOpen(!rosterOpen)
-  }
-  const steps = [
-    {
-      // 팀원 초대 = 명단(이름 · Gmail) + 초대 메일 -- 펼치면 같은 표에서 둘 다
-      title: '팀원 초대',
-      status: !roster
-        ? '팀원 이름과 Gmail을 넣고 초대 메일을 보냅니다'
-        : roster.n === 0
-          ? '아직 팀원이 없습니다. 이름과 Gmail을 넣고 초대 메일을 보내세요'
-          : [`팀원 ${roster.n}명`, roster.noMail ? `Gmail 없는 사람 ${roster.noMail}명` : '', roster.notInv ? `초대 안 보낸 사람 ${roster.notInv}명` : '', !roster.noMail && !roster.notInv ? '모두 초대함' : '']
-              .filter(Boolean)
-              .join(' · '),
-      done: !!roster && roster.n > 0 && roster.noMail === 0 && roster.notInv === 0,
-      action: !roster || roster.n === 0 ? '팀원 추가' : roster.noMail ? 'Gmail 채우기' : roster.notInv ? '초대 메일 보내기' : '명단 보기',
-      open: rosterOpen,
-      onClick: openRoster,
-    },
-    {
-      title: '평가 만들기',
-      status: teamWorkspaces.length
-        ? `평가 ${teamWorkspaces.length}개 · 최근 ${teamWorkspaces[0].evaluationYear} ${teamWorkspaces[0].periodName}`
-        : '연도와 기간(상반기 등)을 고르면 바로 만들어집니다',
-      done: teamWorkspaces.length > 0,
-      action: teamWorkspaces.length ? '새 평가 만들기' : '첫 평가 만들기',
-      open: newEvalOpen,
-      onClick: () => {
-        setRosterOpen(false)
-        setNewEvalOpen(!newEvalOpen)
-      },
-    },
-  ]
-  const firstOpen = steps.findIndex((s) => !s.done)
-  const nextStep = rosterOpen || newEvalOpen ? -1 : firstOpen
+  // 팀원 초대 버튼의 주황 숫자: Gmail은 있는데 초대 메일을 안 보낸 사람
+  const inviteBadge = roster?.notInv ?? 0
 
   function openRename(workspace: WorkspaceMeta) {
     setRenamingWorkspace(workspace)
@@ -532,7 +499,7 @@ export default function WorkspaceLanding() {
         {!teamName && !addingTeam && (
           <section className="mt-6 max-w-xl rounded-[14px] bg-white p-6 shadow-card">
             <h2 className="text-[length:calc(20px*var(--ui-fs,1))] font-semibold text-label">팀부터 만들어요</h2>
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀을 만들면 팀원 초대 → 평가 만들기 순서로 안내합니다.</p>
+            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀을 만든 뒤 「팀원 초대」로 Gmail 아이디만 넣어 초대하고, 「+ 새 평가」로 평가를 시작합니다.</p>
             <Button variant="primary" className="mt-4" onClick={() => startTeam(myTeam)}>
               <Plus {...icSm} /> 팀 만들기
             </Button>
@@ -572,55 +539,56 @@ export default function WorkspaceLanding() {
                   </IconButton>
                 </>
               )}
+              <span className="ml-auto flex items-center gap-2">
+                <Button
+                  variant={rosterOpen ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    setNewEvalOpen(false)
+                    setRosterOpen(!rosterOpen)
+                  }}
+                  aria-expanded={rosterOpen}
+                >
+                  <UserPlus {...icSm} />
+                  팀원 초대
+                  {inviteBadge > 0 && !rosterOpen && (
+                    <span className="rounded-full bg-orange-500 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold text-white" title={`초대 메일을 안 보낸 사람 ${inviteBadge}명`}>
+                      {inviteBadge}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  variant={newEvalOpen ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    setRosterOpen(false)
+                    setNewEvalOpen(!newEvalOpen)
+                  }}
+                  aria-expanded={newEvalOpen}
+                >
+                  <Plus {...icSm} />새 평가
+                </Button>
+              </span>
             </header>
 
-            {/* 할 일 순서: 팀원 초대 → 평가 만들기. 다음에 할 칸이 파랗게 */}
-            <ol className="mt-4 grid max-w-4xl gap-3 md:grid-cols-2">
-              {steps.map((s, i) => {
-                const now = i === nextStep
-                return (
-                  <li
-                    key={s.title}
-                    className={`flex flex-col rounded-[14px] bg-white p-5 shadow-card ${now ? 'ring-2 ring-accent/60' : ''} ${s.open ? 'ring-2 ring-ink/80' : ''}`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[length:calc(13px*var(--ui-fs,1))] font-semibold ${
-                          s.done ? 'bg-success text-white' : now ? 'bg-accent text-white' : 'bg-black/[0.06] text-label-2'
-                        }`}
-                      >
-                        {s.done ? <Check size={14} strokeWidth={2.6} /> : i + 1}
-                      </span>
-                      <span className="text-[length:calc(15.5px*var(--ui-fs,1))] font-semibold text-label">{s.title}</span>
-                    </div>
-                    <p className="mt-2 flex-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{s.status}</p>
-                    <div className="mt-4">
-                      <Button variant={now && !s.open ? 'primary' : 'secondary'} size="sm" onClick={s.onClick}>
-                        {s.open ? (
-                          <>
-                            접기 <ChevronDown size={14} strokeWidth={2} className="rotate-180" />
-                          </>
-                        ) : (
-                          <>
-                            {s.action} <ArrowRight size={14} strokeWidth={2} />
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-
-            {/* 펼친 칸: 팀원 초대(명단 추가 · Gmail · 초대 메일) 또는 새 평가(연도 · 기간) */}
+            {/* 펼친 칸: 팀원 초대(Gmail 아이디만 넣고 메일) 또는 새 평가(연도 · 기간) */}
             {rosterOpen && (
-              <section ref={panelRef} className="mt-3 rounded-[14px] bg-white p-5 shadow-card">
-                <TeamAccountsPanel />
+              <section ref={panelRef} className="mt-4 rounded-[14px] bg-white p-5 shadow-card">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[length:calc(15.5px*var(--ui-fs,1))] font-semibold text-label">팀원 초대 · {teamName}</p>
+                  <IconButton onClick={() => setRosterOpen(false)} aria-label="닫기" title="닫기">
+                    <X {...ic} />
+                  </IconButton>
+                </div>
+                <QuickInvite teamName={teamName} onSent={() => setRosterTick((t) => t + 1)} />
               </section>
             )}
             {newEvalOpen && (
-              <section ref={panelRef} className="mt-3 max-w-2xl rounded-[14px] bg-white p-5 shadow-card">
-                <p className="mb-3 text-[length:calc(15.5px*var(--ui-fs,1))] font-semibold text-label">새 평가 · {teamName}</p>
+              <section ref={panelRef} className="mt-4 max-w-2xl rounded-[14px] bg-white p-5 shadow-card">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-[length:calc(15.5px*var(--ui-fs,1))] font-semibold text-label">새 평가 · {teamName}</p>
+                  <IconButton onClick={() => setNewEvalOpen(false)} aria-label="닫기" title="닫기">
+                    <X {...ic} />
+                  </IconButton>
+                </div>
                 <EvaluationPeriodPicker
                   key={teamName}
                   teamName={teamName}
@@ -634,6 +602,9 @@ export default function WorkspaceLanding() {
             )}
 
             {/* 이 팀의 평가 */}
+            {teamWorkspaces.length === 0 && !newEvalOpen && (
+              <p className="mt-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">아직 평가가 없습니다. 오른쪽 위 「+ 새 평가」로 시작하세요.</p>
+            )}
             {teamWorkspaces.length > 0 && (
               <section className="mt-8">
                 <h2 className="mb-3 text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">
