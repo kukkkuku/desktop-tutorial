@@ -1520,13 +1520,10 @@ const TONES: Record<string, Record<string, string>> = {
 }
 const PERSON_TONE = 'bg-sky-50 text-sky-800'
 const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'
-// 담당자 칩: 비활성 팀원 · 다른 팀(담당팀이 이 평가의 팀 이름과 다름)은 점선으로
-function personChip(m: TeamMember | undefined, teamName: string): { tone: string; title?: string } {
+// 담당자 칩: 팀원 목록에 없는 사람 · 비활성 팀원만 점선(팀 이름이 달라 보이는 것만으로는 점선으로 하지 않는다 -- 팀원관리에 보이는 팀과 어긋나 전원이 점선이 되곤 했다)
+function personChip(m: TeamMember | undefined, _teamName?: string): { tone: string; title?: string } {
   if (!m) return { tone: UNKNOWN_TONE, title: '팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.' }
   if (!m.active) return { tone: UNKNOWN_TONE, title: '비활성 팀원(팀원관리에서 끔)' }
-  // 「One Platform」과 「One Platform팀」처럼 끝의 「팀」 · 띄어쓰기만 다른 이름은 같은 팀으로 본다
-  const norm = (t: string) => t.replace(/\s+/g, '').replace(/팀$/, '')
-  if (m.team && teamName && norm(m.team) !== norm(teamName)) return { tone: UNKNOWN_TONE, title: `다른 팀: ${m.team}` }
   return { tone: PERSON_TONE }
 }
 const DEFAULT_TONE = 'bg-black/[0.05] text-label'
