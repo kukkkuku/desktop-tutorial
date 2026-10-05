@@ -20,7 +20,7 @@ import { loadProgress } from '../../utils/progressBoard'
 
 const ROLES: AccessRole[] = ['admin', 'leader', 'member']
 
-// scope(관리자 화면의 탭): leaders = 관리자 · 팀장, members = 팀원. 없으면 팀장 화면(우리 팀 팀원)
+// scope(관리자 화면의 탭): all = 권한 설정(모든 사람, 역할 · 팀 필터), leaders = 관리자 · 팀장, members = 팀원. 없으면 팀장 화면(우리 팀 팀원)
 export default function MembersPanel({
   data,
   me,
@@ -32,7 +32,7 @@ export default function MembersPanel({
   me: string
   isAdmin: boolean
   onChanged: () => void
-  scope?: 'leaders' | 'members'
+  scope?: 'leaders' | 'members' | 'all'
 }) {
   const myTeam = data.users.find((u) => u.email === me)?.team ?? ''
   // 역할 설명은 처음 관리자 계정에만
@@ -45,7 +45,14 @@ export default function MembersPanel({
   const rows = useMemo(
     () =>
       isAdmin
-        ? data.users.filter((u) => !scope || (scope === 'leaders' ? u.role !== 'member' : u.role === 'member'))
+        ? data.users
+            .filter((u) => !scope || scope === 'all' || (scope === 'leaders' ? u.role !== 'member' : u.role === 'member'))
+            // 권한 설정: 관리자 → 팀장 → 팀원, 같은 역할은 팀 · 이름 순
+            .sort((a, b) =>
+              scope === 'all'
+                ? ROLE_ORDER[a.role] - ROLE_ORDER[b.role] || (a.team || '\uffff').localeCompare(b.team || '\uffff', 'ko') || (a.name || a.email).localeCompare(b.name || b.email, 'ko')
+                : 0,
+            )
         : // 팀 칸이 기준: 우리 팀(평가 목록 팀 이름 · 내 팀) 팀원. 팀이 비어 있으면 내가 추가한 사람만. 다른 팀으로 옮기면 빠진다
           data.users.filter((u) => u.email === me || (u.role === 'member' && (u.team ? u.team === evalTeam || u.team === myTeam : u.addedBy === me))),
     [data.users, isAdmin, me, evalTeam, myTeam, scope],
@@ -97,18 +104,23 @@ export default function MembersPanel({
     )
   }
   const [query, setQuery] = useState('')
-  // 팀원 탭: 팀별로 골라 보기('' = 전체, NO_TEAM = 팀 없음)
+  // 권한 설정: 역할로 골라 보기('' = 전체)
+  const [rolePick, setRolePick] = useState<AccessRole | ''>('')
+  const roleRows = scope === 'all' && rolePick ? rows.filter((u) => u.role === rolePick) : rows
+  // 관리자 · 팀장만 보는 중(예전 「팀장」 탭과 같음): 추가 기본 역할 팀장, 「추가한 사람」 칸 없음
+  const leaderView = scope === 'leaders' || (scope === 'all' && (rolePick === 'admin' || rolePick === 'leader'))
+  // 팀별로 골라 보기('' = 전체, NO_TEAM = 팀 없음)
   const NO_TEAM = '\u0000'
   const [teamPick, setTeamPick] = useState('')
   const teamList = useMemo(
     () =>
-      scope === 'members'
-        ? Array.from(new Set(rows.map((u) => u.team.trim() || NO_TEAM))).sort((a, b) => (a === NO_TEAM ? 1 : b === NO_TEAM ? -1 : a.localeCompare(b, 'ko')))
+      scope === 'members' || scope === 'all'
+        ? Array.from(new Set(roleRows.map((u) => u.team.trim() || NO_TEAM))).sort((a, b) => (a === NO_TEAM ? 1 : b === NO_TEAM ? -1 : a.localeCompare(b, 'ko')))
         : [],
-    [rows, scope],
+    [roleRows, scope],
   )
   const teamOn = teamPick && teamList.includes(teamPick) ? teamPick : ''
-  const shown = rows
+  const shown = roleRows
     .filter((u) => !teamOn || (u.team.trim() || NO_TEAM) === teamOn)
     .filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
@@ -161,6 +173,10 @@ export default function MembersPanel({
   const [pasteText, setPasteText] = useState('')
   const [team, setTeam] = useState(defaultTeam)
   const [addRole, setAddRole] = useState<AccessRole>(scope === 'leaders' ? 'leader' : 'member') // 관리자만 고름(팀장이 추가하면 늘 팀원)
+  // 권한 설정에서 역할을 골라 보는 중이면 추가할 사람의 역할도 그것으로
+  useEffect(() => {
+    if (scope === 'all') setAddRole(rolePick || 'member')
+  }, [scope, rolePick])
   const fileRef = useRef<HTMLInputElement>(null)
   // ---- 추진현황(실적관리 시트) 담당자에서 가져오기: 담당팀이 이 팀인 과제의 담당자 중 명단에 없는 사람(이름만 -- Gmail은 표에서)
   const [fromTasks, setFromTasks] = useState(false)
@@ -315,7 +331,7 @@ export default function MembersPanel({
       // 기억 못 해도 지금은 반영
     }
   }
-  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin && scope !== 'leaders' ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
+  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin && !leaderView ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
   const cell = (u: AccessUser, k: ColKey) => {
     // 팀장: 보이는 우리 팀 팀원은 이름 · 팀(옮기기) · Gmail을 고칠 수 있다
     const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
@@ -540,7 +556,9 @@ export default function MembersPanel({
   return (
     <div className="space-y-4">
       <p className="max-w-4xl text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {scope === 'leaders'
+        {scope === 'all'
+          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다. 위에서 역할 · 팀으로 골라 볼 수 있고, 바꾸면 바로 저장됩니다. 팀장을 새로 정하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요.'
+          : scope === 'leaders'
           ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
           : isAdmin
             ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장). 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
@@ -628,7 +646,7 @@ export default function MembersPanel({
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="primary" onClick={() => setAddOpen(!addOpen)} disabled={busy}>
           <Plus {...icSm} />
-          {scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
+          {scope === 'all' ? (rolePick === 'admin' ? '관리자 추가' : rolePick === 'leader' ? '팀장 추가' : rolePick === 'member' ? '팀원 추가' : '사람 추가') : scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
         <Button variant="secondary" onClick={() => setInviteFor(targets)} disabled={!targets.some((u) => !isPendingEmail(u.email)) || busy}>
           <Send {...icSm} />
@@ -803,27 +821,40 @@ export default function MembersPanel({
       {note && <p className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
-      {/* 팀원 탭: 팀별로 보기(밑줄 탭 대신 칩 -- 팀이 많아도 한 줄에 접혀 들어간다) */}
-      {teamList.length > 1 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {['', ...teamList].map((t) => {
-            const on = t === teamOn
-            const n = t ? rows.filter((u) => (u.team.trim() || NO_TEAM) === t).length : rows.length
-            return (
-              <button
-                key={t || 'all'}
-                type="button"
-                onClick={() => {
-                  setTeamPick(t)
-                  setSel(new Set())
-                }}
-                className={`flex h-7 items-center gap-1 rounded-full px-3 text-[length:calc(13px*var(--ui-fs,1))] ${on ? 'bg-ink font-semibold text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08] hover:text-label'}`}
-              >
-                {t === '' ? '전체' : t === NO_TEAM ? '팀 없음' : t}
-                <span className={`tabular-nums ${on ? 'text-white/70' : 'text-label-3'}`}>{n}</span>
-              </button>
-            )
-          })}
+      {/* 권한 설정: 역할 · 팀으로 골라 보기(칩 -- 고른 것은 검정) */}
+      {(scope === 'all' || teamList.length > 1) && (
+        <div className="space-y-1.5">
+          {scope === 'all' && (
+            <FilterChips
+              label="역할"
+              items={(['', 'admin', 'leader', 'member'] as const).map((r) => ({
+                key: r,
+                text: r ? ROLE_WORD[r] : '전체',
+                count: r ? rows.filter((u) => u.role === r).length : rows.length,
+              }))}
+              value={rolePick}
+              onPick={(k) => {
+                setRolePick(k as AccessRole | '')
+                setTeamPick('')
+                setSel(new Set())
+              }}
+            />
+          )}
+          {teamList.length > 1 && (
+            <FilterChips
+              label="팀"
+              items={['', ...teamList].map((t) => ({
+                key: t,
+                text: t === '' ? '전체' : t === NO_TEAM ? '팀 없음' : t,
+                count: t ? roleRows.filter((u) => (u.team.trim() || NO_TEAM) === t).length : roleRows.length,
+              }))}
+              value={teamOn}
+              onPick={(k) => {
+                setTeamPick(k)
+                setSel(new Set())
+              }}
+            />
+          )}
         </div>
       )}
       {table}
@@ -1015,6 +1046,32 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
         </select>
         <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[#545458]" />
       </span>
+    </div>
+  )
+}
+
+const ROLE_ORDER: Record<AccessRole, number> = { admin: 0, leader: 1, member: 2 }
+
+// 골라 보기 칩 한 줄: [이름] 전체 n · A n · B n (고른 것은 검정)
+function FilterChips({ label, items, value, onPick }: { label: string; items: { key: string; text: string; count: number }[]; value: string; onPick: (k: string) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="w-8 shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{label}</span>
+      {items.map((it) => {
+        const on = it.key === value
+        return (
+          <button
+            key={it.key || 'all'}
+            type="button"
+            onClick={() => onPick(it.key)}
+            disabled={it.count === 0 && !on}
+            className={`flex h-7 items-center gap-1 rounded-full px-3 text-[length:calc(13px*var(--ui-fs,1))] disabled:opacity-40 ${on ? 'bg-ink font-semibold text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08] hover:text-label'}`}
+          >
+            {it.text}
+            <span className={`tabular-nums ${on ? 'text-white/70' : 'text-label-3'}`}>{it.count}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
