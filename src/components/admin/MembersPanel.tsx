@@ -97,7 +97,20 @@ export default function MembersPanel({
     )
   }
   const [query, setQuery] = useState('')
-  const shown = rows.filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
+  // 팀원 탭: 팀별로 골라 보기('' = 전체, NO_TEAM = 팀 없음)
+  const NO_TEAM = '\u0000'
+  const [teamPick, setTeamPick] = useState('')
+  const teamList = useMemo(
+    () =>
+      scope === 'members'
+        ? Array.from(new Set(rows.map((u) => u.team.trim() || NO_TEAM))).sort((a, b) => (a === NO_TEAM ? 1 : b === NO_TEAM ? -1 : a.localeCompare(b, 'ko')))
+        : [],
+    [rows, scope],
+  )
+  const teamOn = teamPick && teamList.includes(teamPick) ? teamPick : ''
+  const shown = rows
+    .filter((u) => !teamOn || (u.team.trim() || NO_TEAM) === teamOn)
+    .filter((u) => !query.trim() || `${u.name} ${u.email} ${u.team} ${u.sendTo ?? ''}`.toLowerCase().includes(query.trim().toLowerCase()))
   const [sel, setSel] = useState<Set<string>>(new Set())
   const picked = shown.filter((u) => sel.has(u.email))
   // 초대 메일 대상: Gmail을 아직 모르는 사람은 뺀다(미리보기 · 칩에 자리표시 계정이 보이지 않게)
@@ -248,7 +261,8 @@ export default function MembersPanel({
   const allOn = shown.length > 0 && shown.every((u) => sel.has(u.email))
 
   // 초대 메일: 고른 사람을 받는 사람으로 채운 초대 창(평가 목록 · 팀원관리와 같은 창)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  // 초대 메일 창: 고른 사람들(도구 줄) 또는 한 사람(표의 「초대하기」)
+  const [inviteFor, setInviteFor] = useState<AccessUser[] | null>(null)
   // ---- 표 열: 끌어서 폭 조절(이 브라우저에 기억) · 받는 메일 열은 켜고 끔 · 메일 쓰는 동안은 이름 · 계정 · e-mail만
   type ColKey = 'name' | 'email' | 'sendTo' | 'team' | 'role' | 'addedBy' | 'invited' | 'share'
   const COL_LABEL: Record<ColKey, string> = { name: '이름', email: '계정(Gmail)', sendTo: 'e-mail', team: '팀', role: '역할', addedBy: '추가한 사람', invited: '초대', share: '시트 권한' }
@@ -259,7 +273,7 @@ export default function MembersPanel({
       return {}
     }
   })
-  const DEF_W: Record<ColKey, number> = { name: 96, email: 150, sendTo: 290, team: 130, role: 100, addedBy: 200, invited: 110, share: 120 }
+  const DEF_W: Record<ColKey, number> = { name: 96, email: 150, sendTo: 290, team: 130, role: 100, addedBy: 120, invited: 120, share: 120 }
   // 메일 쓰는 동안은 왼쪽이 좁아 세 열을 알맞게 줄인다(끌어 바꾼 폭은 그대로 우선)
   const colW = (k: ColKey) => widths[k] ?? DEF_W[k]
   function resizeStart(e: React.MouseEvent, k: ColKey) {
@@ -301,7 +315,7 @@ export default function MembersPanel({
       // 기억 못 해도 지금은 반영
     }
   }
-  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
+  const cols: ColKey[] = ['name', 'email', ...(mailCol ? ['sendTo'] : []), 'team', 'role', ...(isAdmin && scope !== 'leaders' ? ['addedBy'] : []), 'invited', ...(isAdmin && scope ? ['share'] : [])] as ColKey[]
   const cell = (u: AccessUser, k: ColKey) => {
     // 팀장: 보이는 우리 팀 팀원은 이름 · 팀(옮기기) · Gmail을 고칠 수 있다
     const mine = isAdmin || u.addedBy === me || (u.role === 'member' && !!u.team && (u.team === evalTeam || u.team === myTeam))
@@ -366,7 +380,28 @@ export default function MembersPanel({
         )
       }
       case 'invited':
-        return u.invitedAt ? <span className="text-[length:calc(13px*var(--ui-fs,1))] text-success">{u.invitedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, '$1.$2')} 보냄</span> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">안 보냄</span>
+        // 보낸 시각만(「보냄」 말 없이). 안 보냈으면 그 사람에게 바로 보내는 「초대하기」. 다시 보내려면 시각을 눌러도 된다
+        if (u.invitedAt)
+          return (
+            <button
+              type="button"
+              disabled={busy || !mine || u.email === me}
+              onClick={() => setInviteFor([u])}
+              title="초대 메일을 보낸 시각 · 누르면 다시 보내기"
+              className="text-[length:calc(13px*var(--ui-fs,1))] tabular-nums text-label-2 hover:text-accent disabled:hover:text-label-2"
+            >
+              {u.invitedAt.replace(/^\d{4}-(\d{2})-(\d{2})/, '$1.$2')}
+            </button>
+          )
+        if (isPendingEmail(u.email) || u.email === me) return <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+        return mine ? (
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setInviteFor([u])} className="!h-7 !px-2.5">
+            <Send {...icSm} />
+            초대하기
+          </Button>
+        ) : (
+          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">-</span>
+        )
     }
   }
 
@@ -503,8 +538,8 @@ export default function MembersPanel({
   ) : null
 
   return (
-    <div className="max-w-6xl space-y-4">
-      <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+    <div className="space-y-4">
+      <p className="max-w-4xl text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
         {scope === 'leaders'
           ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
           : isAdmin
@@ -595,7 +630,7 @@ export default function MembersPanel({
           <Plus {...icSm} />
           {scope === 'leaders' ? '팀장 추가' : '팀원 추가'}
         </Button>
-        <Button variant="secondary" onClick={() => setInviteOpen(true)} disabled={!targets.some((u) => !isPendingEmail(u.email)) || busy}>
+        <Button variant="secondary" onClick={() => setInviteFor(targets)} disabled={!targets.some((u) => !isPendingEmail(u.email)) || busy}>
           <Send {...icSm} />
           초대 메일 보내기{targets.length ? ` (${targets.length})` : ''}
         </Button>
@@ -768,6 +803,29 @@ export default function MembersPanel({
       {note && <p className={`rounded-card px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] ${note.ok ? 'bg-success/[0.08] text-success' : 'bg-danger/[0.06] text-danger'}`}>{note.text}</p>}
 
       {/* 목록 · 메일 쓰는 동안은 왼쪽 표(이름 · 계정 · e-mail) + 오른쪽 메일 쓰기 */}
+      {/* 팀원 탭: 팀별로 보기(밑줄 탭 대신 칩 -- 팀이 많아도 한 줄에 접혀 들어간다) */}
+      {teamList.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {['', ...teamList].map((t) => {
+            const on = t === teamOn
+            const n = t ? rows.filter((u) => (u.team.trim() || NO_TEAM) === t).length : rows.length
+            return (
+              <button
+                key={t || 'all'}
+                type="button"
+                onClick={() => {
+                  setTeamPick(t)
+                  setSel(new Set())
+                }}
+                className={`flex h-7 items-center gap-1 rounded-full px-3 text-[length:calc(13px*var(--ui-fs,1))] ${on ? 'bg-ink font-semibold text-white' : 'bg-black/[0.05] text-label-2 hover:bg-black/[0.08] hover:text-label'}`}
+              >
+                {t === '' ? '전체' : t === NO_TEAM ? '팀 없음' : t}
+                <span className={`tabular-nums ${on ? 'text-white/70' : 'text-label-3'}`}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
       {table}
 
       {isSuper && (
@@ -790,12 +848,12 @@ export default function MembersPanel({
         </dl>
       )}
 
-      {inviteOpen && (
+      {inviteFor && (
         <TeamInviteDialog
           teamName=""
-          preset={targets.filter((u) => !isPendingEmail(u.email)).map((u) => ({ email: u.email, name: u.name || undefined, sendTo: u.sendTo || undefined }))}
+          preset={inviteFor.filter((u) => !isPendingEmail(u.email)).map((u) => ({ email: u.email, name: u.name || undefined, sendTo: u.sendTo || undefined }))}
           extra={contactSetting}
-          onClose={() => setInviteOpen(false)}
+          onClose={() => setInviteFor(null)}
           onSent={(sent) => {
             onChanged()
             setSel(new Set())
@@ -886,14 +944,34 @@ export default function MembersPanel({
 const MAIL_DOMAINS = ['@gmail.com', '@osstem.com']
 function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolean; onSave: (v: string) => void }) {
   const cur = (u.sendTo ?? '').trim()
-  const at = cur.lastIndexOf('@')
-  const [id, setId] = useState(at > 0 ? cur.slice(0, at) : cur)
-  const [domain, setDomain] = useState(at > 0 ? cur.slice(at) : MAIL_DOMAINS[0])
+  // 받는 메일을 따로 안 정했으면 로그인 Gmail로 간다 -- 그 주소를 기본으로 채워 보여 주고, 고치면 그때 따로 저장한다
+  const gmail = isPendingEmail(u.email) ? '' : u.email
+  const shownMail = cur || gmail
+  const split = (m: string): [string, string] => {
+    const k = m.lastIndexOf('@')
+    return k > 0 ? [m.slice(0, k), m.slice(k)] : [m, MAIL_DOMAINS[0]]
+  }
+  const [id, setId] = useState(split(shownMail)[0])
+  const [domain, setDomain] = useState(split(shownMail)[1])
+  // 다른 곳에서 바뀌면(다시 읽기 · Gmail 넣기) 따라간다
+  useEffect(() => {
+    const [i, d] = split(shownMail)
+    setId(i)
+    setDomain(d)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownMail])
   // 예전에 적은 다른 도메인도 그대로 고를 수 있게
   const domains = MAIL_DOMAINS.includes(domain) ? MAIL_DOMAINS : [...MAIL_DOMAINS, domain]
   const full = (i: string, d: string) => (i.trim() ? `${i.trim().replace(/@.*$/, '')}${d}` : '')
   const save = (i: string, d: string) => {
-    const v = full(i, d)
+    // 로그인 Gmail과 같거나 비우면 따로 저장하지 않는다(= 로그인 Gmail로 보냄). 비웠으면 Gmail을 다시 채워 보여 준다
+    const typed = full(i, d)
+    const v = typed.toLowerCase() === gmail.toLowerCase() ? '' : typed
+    if (!typed && gmail) {
+      const [gi, gd] = split(gmail)
+      setId(gi)
+      setDomain(gd)
+    }
     if (v !== cur && (!v || isEmail(v))) onSave(v)
   }
   // 아이디 칸 · 도메인 고르기 칸을 나눠서(시안): [아이디] [@gmail.com ▾]
