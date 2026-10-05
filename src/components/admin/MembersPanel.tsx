@@ -642,33 +642,44 @@ export default function MembersPanel({
                             />
                           </td>
                           <td colSpan={cols.length} className="p-0">
-                            <div className="group/head flex items-center">
-                            <button
-                              type="button"
+                            {/* 묶음 머리: 빈 곳을 누르면 접기/펴기, 팀 이름 바로 옆 ✎ = 팀 이름 바꾸기 */}
+                            <div
+                              className="group/head flex cursor-pointer items-center gap-1.5 px-3 py-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.03]"
                               onClick={() => toggleFold(g.key)}
-                              aria-expanded={!isFolded}
-                              title={isFolded ? '펴기' : '접기'}
-                              className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-[length:calc(13px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.03]"
                             >
-                              <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />
-                              <b className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.title}</b>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  toggleFold(g.key)
+                                }}
+                                aria-expanded={!isFolded}
+                                title={isFolded ? '펴기' : '접기'}
+                                className="flex items-center gap-1.5 text-left"
+                              >
+                                <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${isFolded ? '-rotate-90' : ''}`} />
+                                <b className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.title}</b>
+                              </button>
+                              {isAdmin && g.key.startsWith('t:') && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setRenameTo(g.title)
+                                    setRenaming(g.title)
+                                  }}
+                                  title="팀 이름 바꾸기(이 팀 전원)"
+                                  aria-label={`${g.title} 팀 이름 바꾸기`}
+                                  className="flex h-6 shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3 hover:bg-black/[0.06] hover:text-label group-hover/head:text-label-2"
+                                >
+                                  <Pencil size={12} strokeWidth={2} />
+                                  <span className="hidden group-hover/head:inline">이름 바꾸기</span>
+                                </button>
+                              )}
                               <span>{g.rows.length}명</span>
                               {g.sub && <span className="text-label-3">· {g.sub}</span>}
                               {on > 0 && <span className="ml-1 rounded-full bg-accent-soft px-1.5 text-xs font-semibold text-accent">{on}명 고름</span>}
-                            </button>
-                            {isAdmin && g.key.startsWith('t:') && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => {
-                                  setRenameTo(g.title)
-                                  setRenaming(g.title)
-                                }}
-                                className="mr-3 flex h-7 shrink-0 items-center gap-1 rounded-control border border-hairline bg-white px-2.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2 opacity-0 transition-opacity hover:text-label focus-visible:opacity-100 group-hover/head:opacity-100"
-                              >
-                                <Pencil size={12} strokeWidth={2} />팀 이름 바꾸기
-                              </button>
-                            )}
                             </div>
                           </td>
                         </tr>
