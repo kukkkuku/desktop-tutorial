@@ -1,3 +1,7 @@
+// 평가결과 -- 다 정한 뒤 확인하고 보고하는 화면.
+//   맨 위: 인사이트 한 줄(전체 = 팀 기준, 팀원을 고르면 그 사람 기준) · 「확인 필요 N건」 · 고과 분포 · 확정
+//   「전체 / 팀원」 칩 → 과제별 성과 표 하나. 팀원을 고르면 표는 그대로 두고 그 사람 몫을 파랗게,
+//   맨 오른쪽에 「반영점수」 열과 합계(= 성과점수)를 붙인다. 참여하지 않은 과제는 흐리게.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useMemberDetail } from '../state/MemberDetailContext'
@@ -6,33 +10,34 @@ import type { EvaluationGrade, EvaluationStatus, Workload } from '../types'
 import {
   calcAllTaskScores,
   calcMemberResults,
+  calcPeerReviewFactor,
+  calcPersonalGradeFactor,
   getContribution,
   getContributionPercent,
+  getEffectiveContributionPercent,
+  gradeText,
+  UNGRADED_HINT,
 } from '../utils/calculations'
 import { getMemberPerformanceHistory } from '../utils/memberHistory'
 import { downloadCurrentTasksExcel, downloadIndividualResultReports, downloadResultsReport } from '../utils/excel'
-import { downloadTasksPdf } from '../utils/pdfReports'
 import {
   downloadIndividualResultsPdf,
-  downloadResultsPdf,
-  previewResultsPdf,
   downloadMemberResultPdf,
+  downloadResultsPdf,
+  downloadTasksPdf,
   previewMemberResultPdf,
+  previewResultsPdf,
 } from '../utils/pdfReports'
 import { colorForIndex, pastelForIndex, pastelTextForIndex } from '../utils/memberColors'
 import { IMPORTANCE_COLORS } from '../utils/badgeColors'
-import CurrentDataDownloadControls from './CurrentDataDownloadControls'
 import Badge, { type BadgeTone } from './Badge'
 import ConfirmDialog from './ConfirmDialog'
 import Button from './Button'
-import Segmented from './ui/Segmented'
-import UnderlineTabs from './ui/UnderlineTabs'
-import IconButton from './IconButton'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, Eye, Minus, X } from 'lucide-react'
+import ScrollX from './ui/ScrollX'
+import Spinner from './Spinner'
+import { AlertCircle, ChevronDown, Download, Eye, Sparkles, UserRound, X } from 'lucide-react'
 import { ic, icSm } from './ui/icon'
 import { peerInputsOf } from '../utils/peerScores'
-import { getEffectiveContributionPercent, gradeText, peerSummaryOf, UNGRADED_HINT } from '../utils/calculations'
-import PeerLine from './PeerLine'
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
   evaluating: '평가중',
@@ -46,7 +51,7 @@ const STATUS_TONE: Record<EvaluationStatus, BadgeTone> = {
 }
 const STATUS_ORDER: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
 
-// 등급을 색상 있는 글자로만 표시(배지 아님) -- 참고 디자인의 순위/과제 등급 표기.
+// 등급을 색상 있는 글자로만 표시(배지 아님)
 function gradeTextColor(grade: EvaluationGrade): string {
   if (grade === 'S') return 'text-accent'
   if (grade === 'A') return 'text-success'
@@ -54,9 +59,78 @@ function gradeTextColor(grade: EvaluationGrade): string {
   return 'text-danger'
 }
 
-// 업무량 등급을 과부하 인사이트 계산용 대략적인 수치로 환산.
+// 업무량 등급을 과부하 확인용 대략적인 수치로 환산.
 const WORKLOAD_NUM: Record<Workload, number> = { 대: 90, 중: 60, 소: 40 }
 const GRADE_RANK: Record<EvaluationGrade, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 }
+const KEY_IMPORTANCE = new Set(['과제', '중점', '핵심'])
+
+const quoted = (name: string) => `「${name.length > 22 ? `${name.slice(0, 22)}…` : name}」`
+
+// 리포트 세 가지를 한 단추에서 고른다(미리보기 · PDF · 엑셀).
+function ReportMenu({
+  items,
+}: {
+  items: { key: string; label: string; desc: string; disabled?: boolean; preview?: () => void | Promise<void>; pdf: () => void | Promise<void>; excel: () => void | Promise<void> }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+  async function run(id: string, fn: () => void | Promise<void>) {
+    setBusy(id)
+    try {
+      await fn()
+    } finally {
+      setBusy(null)
+    }
+  }
+  const small = 'inline-flex h-7 items-center gap-1 rounded-[7px] px-2 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.05] hover:text-label disabled:opacity-40'
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <Button variant="primary" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <Download {...ic} /> 리포트 다운로드 <ChevronDown size={14} />
+      </Button>
+      {open && (
+        <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-[330px] p-1.5">
+          {items.map((it) => (
+            <div key={it.key} className={`rounded-[8px] px-2.5 py-2 ${it.disabled ? 'opacity-40' : ''}`}>
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{it.label}</p>
+              <p className="text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{it.desc}</p>
+              <div className="mt-1 flex items-center gap-0.5">
+                {busy?.startsWith(it.key) ? (
+                  <span className="flex h-7 items-center gap-1.5 px-2 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                    <Spinner /> 만드는 중…
+                  </span>
+                ) : (
+                  <>
+                    {it.preview && (
+                      <button className={small} disabled={it.disabled} onClick={() => run(`${it.key}-v`, it.preview!)}>
+                        <Eye {...icSm} /> 미리보기
+                      </button>
+                    )}
+                    <button className={small} disabled={it.disabled} onClick={() => run(`${it.key}-p`, it.pdf)}>
+                      <Download {...icSm} /> PDF
+                    </button>
+                    <button className={small} disabled={it.disabled} onClick={() => run(`${it.key}-x`, it.excel)}>
+                      <Download {...icSm} /> 엑셀
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EvaluationResults() {
   const { state, dispatch } = useAppState()
@@ -73,8 +147,7 @@ export default function EvaluationResults() {
   const results = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
   const activeMembers = members.filter((m) => m.active)
 
-  // 전년도(직전 평가기간) 고과 — 같은 계산 로직을 다른 기간 스냅샷에 재실행해서
-  // 얻는 값이라 별도 입력이 필요 없다(팀원 관리 최근 5년 고과와 같은 소스).
+  // 지난 평가(직전 평가기간) 고과 -- 다른 기간 스냅샷에 같은 계산을 다시 돌린 값
   const prevGradeByMember = useMemo(() => {
     const map = new Map<string, EvaluationGrade | null>()
     if (periodsForTeam.length === 0) return map
@@ -86,8 +159,21 @@ export default function EvaluationResults() {
   }, [results, periodsForTeam])
 
   const [highlightId, setHighlightId] = useState<string | null>(null)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmAllOpen, setConfirmAllOpen] = useState(false)
+  const [checksOpen, setChecksOpen] = useState(false)
+  const checksRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!checksOpen) return
+    const onDown = (e: MouseEvent) => {
+      if (checksRef.current && !checksRef.current.contains(e.target as Node)) setChecksOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [checksOpen])
+  // 고른 팀원이 빠지면(비활성 등) 「전체」로
+  useEffect(() => {
+    if (highlightId && !results.some((r) => r.member.id === highlightId)) setHighlightId(null)
+  }, [highlightId, results])
 
   function statusOf(memberId: string): EvaluationStatus {
     return evaluationStatus[memberId] ?? 'evaluating'
@@ -97,14 +183,6 @@ export default function EvaluationResults() {
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(current) + 1) % STATUS_ORDER.length]
     dispatch({ type: 'SET_EVALUATION_STATUS', payload: { memberId, status: next } })
   }
-  function toggleSelect(memberId: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(memberId)) next.delete(memberId)
-      else next.add(memberId)
-      return next
-    })
-  }
   function confirmAll() {
     dispatch({
       type: 'SET_ALL_EVALUATION_STATUS',
@@ -113,8 +191,7 @@ export default function EvaluationResults() {
     setConfirmAllOpen(false)
   }
 
-  // 팀원 색상 인덱스는 성과 순위(results 정렬 순서) 기준 -- 등록 순서로
-  // 고정해두면 표/범례/기여도 막대의 색이 순위와 안 맞아 보인다.
+  // 팀원 색상 인덱스는 성과 순위 기준(표 · 칩 · 막대 색을 순위와 맞춘다)
   const memberIndex = useMemo(() => {
     const map = new Map<string, number>()
     results.forEach((r, i) => map.set(r.member.id, i))
@@ -123,249 +200,178 @@ export default function EvaluationResults() {
   const idxOf = (memberId: string) => memberIndex.get(memberId) ?? 0
 
   const avg = results.length > 0 ? results.reduce((s, r) => s + r.cumulativeScore, 0) / results.length : 0
-  const maxScore = Math.max(1, ...results.map((r) => r.cumulativeScore))
+  const confirmedCount = results.filter((r) => statusOf(r.member.id) === 'confirmed').length
+  const gradeCounts = (['S', 'A', 'B', 'C', 'D'] as const).map((g) => ({ g, n: results.filter((r) => r.grade === g).length }))
 
-  // 인사이트 자동 계산(중요도 순 정렬, 최대 5개)
-  const insights = useMemo(() => {
-    const list: { priority: 1 | 2 | 3; label: string; title: string; desc: string }[] = []
+  // 과제에서 가져간 점수(반영점수) = 과제점수 × 반영 기여도 × 개인 수행 배수. 피어 배수는 합계에 곱한다.
+  const reflected = (taskId: string, score: number, memberId: string) => {
+    const pct = getEffectiveContributionPercent(contributions, taskId, memberId, criteria.contributionWeight)
+    if (pct <= 0) return 0
+    return score * (pct / 100) * calcPersonalGradeFactor(getContribution(contributions, taskId, memberId), criteria)
+  }
 
-    // P1 즉시 조치: 과제(이전 기준 중점·핵심) 등급인데 성과등급이 C 이하
-    tasks
-      .filter((t) => (t.importance === '과제' || t.importance === '중점' || t.importance === '핵심') && (t.performanceGrade === 'C' || t.performanceGrade === 'D'))
-      .forEach((t) => {
-        list.push({ priority: 1, label: '즉시 조치', title: '핵심 과제 성과 미달', desc: `${t.importance} "${t.name}" ${t.performanceGrade} — 원인 파악 및 재발 방지 필요` })
+  const selected = highlightId ? results.find((r) => r.member.id === highlightId) ?? null : null
+  const selRank = selected ? results.indexOf(selected) + 1 : 0
+  const selRows = useMemo(() => {
+    if (!selected) return []
+    return taskScores
+      .map(({ task, score }) => ({ task, pts: reflected(task.id, score, selected.member.id) }))
+      .filter((x) => getContributionPercent(contributions, x.task.id, selected.member.id) > 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, taskScores, contributions, criteria])
+  const selSum = selRows.reduce((s, x) => s + x.pts, 0)
+  const selMaxTaskId = selRows.length > 0 ? [...selRows].sort((a, b) => b.pts - a.pts)[0].task.id : null
+  const selPeer = selected ? calcPeerReviewFactor(peerInputs, selected.member.id, criteria) : 1
+
+  // 확인 필요: 보고 전에 따져 볼 것만(없으면 단추를 숨긴다)
+  const checks = useMemo(() => {
+    const list: { title: string; desc: string }[] = []
+    const unrated = tasks.filter((t) => t.performanceGrade === null)
+    if (unrated.length > 0)
+      list.push({ title: '성과등급 미입력', desc: `${unrated.length}건(${unrated.slice(0, 2).map((t) => quoted(t.name)).join(' · ')}${unrated.length > 2 ? ' 외' : ''})은 점수에 들어가지 않았습니다 -- 과제관리 성과등급 칸에서 매겨 주세요` })
+    if (activeMembers.length > 0)
+      tasks.forEach((t) => {
+        if (activeMembers.every((m) => getContributionPercent(contributions, t.id, m.id) === 0))
+          list.push({ title: '기여자 없음', desc: `${quoted(t.name)} -- 기여도를 넣은 팀원이 없어 이 과제 점수가 아무에게도 반영되지 않습니다` })
       })
-
-    // P2 단기 대응: 과부하 위험(참여 과제 3개 이상 + 평균 업무량 높음)
+    results.forEach((r) => {
+      const prev = prevGradeByMember.get(r.member.id) ?? null
+      if (prev && r.grade && Math.abs(GRADE_RANK[r.grade] - GRADE_RANK[prev]) >= 2)
+        list.push({ title: '고과 큰 변화', desc: `${r.member.name} 지난 평가 ${prev} → 이번 ${r.grade}` })
+    })
+    tasks
+      .filter((t) => KEY_IMPORTANCE.has(t.importance) && (t.performanceGrade === 'C' || t.performanceGrade === 'D'))
+      .forEach((t) => list.push({ title: `${t.importance} 성과 미달`, desc: `${quoted(t.name)} ${t.performanceGrade}` }))
+    tasks
+      .filter((t) => KEY_IMPORTANCE.has(t.importance))
+      .forEach((t) => {
+        activeMembers.forEach((m) => {
+          const pct = getContributionPercent(contributions, t.id, m.id)
+          if (pct >= 70) list.push({ title: '한 사람에게 몰림', desc: `${quoted(t.name)} ${pct}%를 ${m.name}님이 담당 -- 백업 역할 검토` })
+        })
+      })
     results.forEach((r) => {
       const participated = tasks.filter((t) => getContributionPercent(contributions, t.id, r.member.id) > 0)
       if (participated.length < 3) return
       const avgWl = participated.reduce((s, t) => s + WORKLOAD_NUM[t.workload], 0) / participated.length
-      if (avgWl >= 72) {
-        list.push({ priority: 2, label: '단기 대응', title: '과부하 위험', desc: `${r.member.name} — 업무량 ${Math.round(avgWl)}/100, ${participated.length}개 과제 병행 중` })
-      }
+      if (avgWl >= 72) list.push({ title: '과부하 위험', desc: `${r.member.name} -- 업무량 ${Math.round(avgWl)}/100, ${participated.length}개 과제 병행` })
     })
-
-    // P1 즉시 조치: 기여도를 넣은 사람이 없는 과제 -- 과제 점수가 누구에게도 들어가지 않는다
-    if (activeMembers.length > 0) {
-      tasks.forEach((t) => {
-        if (activeMembers.every((m) => getContributionPercent(contributions, t.id, m.id) === 0)) {
-          list.push({ priority: 1, label: '즉시 조치', title: '기여자 없음', desc: `"${t.name}" — 기여도를 넣은 팀원이 없어 이 과제 점수가 아무에게도 반영되지 않습니다` })
-        }
-      })
-    }
-
-    // P2 단기 대응: 단일 의존(핵심 과제를 한 명이 70% 이상 담당). 혼자 하는 일반 · 일상 업무는 흔하니 짚지 않는다
-    // (예전 「기여 공백 -- N명 미참여」는 한두 명이 맡는 보통 과제마다 떠서 뺐다)
-    tasks
-      .filter((t) => t.importance === '과제' || t.importance === '중점' || t.importance === '핵심')
-      .forEach((t) => {
-        activeMembers.forEach((m) => {
-          const pct = getContributionPercent(contributions, t.id, m.id)
-          if (pct >= 70) {
-            list.push({ priority: 2, label: '단기 대응', title: '단일 의존', desc: `"${t.name}" ${pct}%를 ${m.name}님이 담당 — 백업 역할 지정 검토` })
-          }
-        })
-      })
-
-    return list.sort((a, b) => a.priority - b.priority).slice(0, 5)
-  }, [tasks, activeMembers, contributions, results])
-
-  // 핵심 요약: 누가 어떤 과제에서 얼마나 기여해 점수를 가장 많이 가져갔는지 등 결과를 읽는 첫 줄.
-  // 과제에서 가져간 점수 = 과제점수 × 반영 기여도(피어 배수 전).
-  const pairs = useMemo(() => {
-    const out: { task: (typeof tasks)[number]; score: number; memberId: string; name: string; pct: number; pts: number }[] = []
-    for (const { task, score } of taskScores) {
-      for (const m of activeMembers) {
-        const pct = getEffectiveContributionPercent(contributions, task.id, m.id, criteria.contributionWeight)
-        if (pct > 0) out.push({ task, score, memberId: m.id, name: m.name, pct, pts: (score * pct) / 100 })
-      }
-    }
-    return out
-  }, [taskScores, activeMembers, contributions, criteria.contributionWeight])
-  const highlights = useMemo(() => {
-    const list: { label: string; text: string }[] = []
-    const topPair = [...pairs].sort((a, b) => b.pts - a.pts)[0]
-    if (topPair && topPair.pts > 0)
-      list.push({ label: '최대 기여', text: `${topPair.name}님이 "${topPair.task.name}"에 ${topPair.pct.toFixed(0)}% 기여해 가장 큰 점수(+${topPair.pts.toFixed(1)}점)를 가져갔습니다.` })
-    const topTask = [...taskScores].sort((a, b) => b.score - a.score)[0]
-    if (topTask && topTask.score > 0) {
-      const lead = pairs.filter((x) => x.task.id === topTask.task.id).sort((a, b) => b.pct - a.pct)[0]
-      list.push({
-        label: '최고 과제',
-        text: `"${topTask.task.name}" ${topTask.task.performanceGrade} · ${topTask.score.toFixed(0)}점${lead ? ` — 주 기여 ${lead.name} ${lead.pct.toFixed(0)}%` : ''}`,
-      })
-    }
-    if (results[0] && results[0].cumulativeScore > 0)
-      list.push({ label: '팀 순위', text: `1위 ${results[0].member.name} ${results[0].cumulativeScore.toFixed(1)}점 · 팀 평균 ${avg.toFixed(1)}점` })
     return list
-  }, [pairs, taskScores, results, avg])
-  // 팀원을 고르면(표의 행이나 과제별 성과의 이름 칩) 그 팀원 한 줄 요약
-  const memberHighlight = useMemo(() => {
-    if (!highlightId) return null
-    const idx = results.findIndex((r) => r.member.id === highlightId)
-    const r = results[idx]
-    if (!r) return null
-    const mine = pairs.filter((x) => x.memberId === highlightId).sort((a, b) => b.pts - a.pts)
-    const top = mine[0]
-    const parts = [`${idx + 1}위 · ${r.cumulativeScore.toFixed(1)}점 · 고과 ${gradeText(r.grade)}`, `참여 ${mine.length}건`]
-    if (top)
-      parts.push(
-        `가장 기여한 과제 "${top.task.name}" ${top.pct.toFixed(0)}% · 성과 ${top.task.performanceGrade ?? '미입력'}(${top.score.toFixed(0)}점) → +${top.pts.toFixed(1)}점`,
-      )
-    return { name: r.member.name, text: parts.join(' · ') }
-  }, [highlightId, results, pairs])
-  const [insightOpen, setInsightOpen] = useState(() => {
-    try {
-      return localStorage.getItem('results.insightOpen') !== '0'
-    } catch {
-      return true
-    }
-  })
-  function toggleInsight() {
-    setInsightOpen((v) => {
-      try {
-        localStorage.setItem('results.insightOpen', v ? '0' : '1')
-      } catch {
-        // 기억 못 해도 화면에는 반영
-      }
-      return !v
-    })
-  }
+  }, [tasks, activeMembers, contributions, results, prevGradeByMember])
 
-  // 과제별 성과 3열 폭(과제/성과 · 목표·성과 · 기여도) — 드래그로 조절
-  const [colWidths, setColWidths] = useState([24, 46, 30])
-  const taskTableRef = useRef<HTMLDivElement>(null)
-
-  function startResize(handleIdx: 0 | 1, e: React.MouseEvent) {
-    e.preventDefault()
-    const startX = e.clientX
-    const startW = [...colWidths]
-    const containerW = taskTableRef.current?.clientWidth ?? 800
-    const onMove = (ev: MouseEvent) => {
-      const pct = ((ev.clientX - startX) / containerW) * 100
-      const next = [...startW]
-      if (handleIdx === 0) {
-        next[0] = Math.max(14, Math.min(48, startW[0] + pct))
-        next[1] = Math.max(22, startW[1] - pct)
-      } else {
-        next[1] = Math.max(22, Math.min(60, startW[1] + pct))
-        next[2] = Math.max(18, startW[2] - pct)
+  // 인사이트 한 줄: 전체 = 팀 기준, 팀원을 고르면 그 사람 기준
+  const insight = useMemo((): { main: string; sub?: string } | null => {
+    if (selected) {
+      const name = selected.member.name
+      if (selRows.length === 0 || selSum <= 0) return { main: `${name}님은 이번 평가에서 점수가 들어간 과제가 없습니다.`, sub: '과제관리에서 기여도를 넣었는지 확인해 주세요.' }
+      const sorted = [...selRows].sort((a, b) => b.pts - a.pts)
+      // 점수의 절반 이상을 만드는 상위 과제(최대 2개)
+      const top: typeof sorted = []
+      let acc = 0
+      for (const r of sorted) {
+        top.push(r)
+        acc += r.pts
+        if (acc / selSum >= 0.5 || top.length === 2) break
       }
-      setColWidths(next)
+      const share = Math.round((acc / selSum) * 100)
+      const keyCount = selRows.filter((r) => KEY_IMPORTANCE.has(r.task.importance)).length
+      const prev = prevGradeByMember.get(selected.member.id) ?? null
+      const pcts = top.map((r) => getContributionPercent(contributions, r.task.id, selected.member.id))
+      const subParts = [
+        top.length === 1 ? `기여도 ${pcts[0]}%` : pcts.every((p) => p === pcts[0]) ? `두 과제 모두 기여도 ${pcts[0]}%` : `기여도 ${pcts.join('% · ')}%`,
+        `참여 ${selRows.length}건 중 과제 · 중점 ${keyCount}건`,
+      ]
+      if (prev && selected.grade) subParts.push(`지난 평가 ${prev} → 이번 ${selected.grade}`)
+      return {
+        main: `${name}님 점수의 ${share}%는 ${top.map((r) => quoted(r.task.name)).join(' · ')}에서 나왔습니다.`,
+        sub: subParts.join(' · '),
+      }
     }
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseup', onUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
+    const scored = taskScores.filter((x) => x.score > 0)
+    if (scored.length === 0 || results.length === 0) return null
+    const topTask = [...scored].sort((a, b) => b.score - a.score)[0]
+    const lead = activeMembers
+      .map((m) => ({ m, pct: getContributionPercent(contributions, topTask.task.id, m.id) }))
+      .filter((x) => x.pct > 0)
+      .sort((a, b) => b.pct - a.pct)
+    const keyTasks = tasks.filter((t) => KEY_IMPORTANCE.has(t.importance))
+    const subParts = [`1위 ${results[0].member.name} ${results[0].cumulativeScore.toFixed(1)}점 · 팀 평균 ${avg.toFixed(1)}점`]
+    if (keyTasks.length > 0) subParts.push(`과제 · 중점 ${keyTasks.length}건 / 전체 ${tasks.length}건`)
+    return {
+      main: `가장 높은 과제는 ${quoted(topTask.task.name)} ${topTask.task.performanceGrade ?? ''} · ${topTask.score.toFixed(0)}점입니다${lead.length > 0 ? ` -- ${lead.slice(0, 3).map((x) => `${x.m.name} ${x.pct}%`).join(' · ')}` : ''}.`,
+      sub: subParts.join(' · '),
     }
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    document.addEventListener('mousemove', onMove)
-    document.addEventListener('mouseup', onUp)
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, selRows, selSum, taskScores, results, activeMembers, contributions, tasks, avg, prevGradeByMember])
 
   const noData = results.length === 0
+  const memberIds = highlightId ? [highlightId] : undefined
 
-  // 보기 방식: 상하(기본) / 좌우 / 탭. 브라우저에 기억한다.
-  type ResultView = 'stack' | 'side' | 'tabs'
-  const [view, setView] = useState<ResultView>(() => {
-    try {
-      const v = localStorage.getItem('results.view')
-      return v === 'side' || v === 'tabs' ? v : 'stack'
-    } catch {
-      return 'stack'
-    }
-  })
-  const [tab, setTab] = useState<'members' | 'tasks'>('members')
-  // "탭" 보기는 화면이 좁을 때(1280px 이하)만 고를 수 있다. 넓어지면 상하로 보여 준다.
-  const [narrow, setNarrow] = useState(() => window.innerWidth <= 1280)
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth <= 1280)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
-  const shownView: ResultView = view === 'tabs' && !narrow ? 'stack' : view
-  function changeView(v: ResultView) {
-    setView(v)
-    try {
-      localStorage.setItem('results.view', v)
-    } catch {
-      // 기억 못 해도 화면에는 반영
-    }
-  }
+  const reportItems = [
+    {
+      key: 'all',
+      label: '통합 결과 리포트',
+      desc: '팀 전체 고과 · 점수 · 과제',
+      preview: () => previewResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs),
+      pdf: () => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs),
+      excel: () => downloadResultsReport(members, tasks, contributions, criteria, peerInputs, periodsForTeam),
+    },
+    {
+      key: 'member',
+      label: selected ? `${selected.member.name} 리포트` : '전체 팀원별 리포트',
+      desc: selected ? '고른 팀원 한 명' : '팀원마다 한 장 -- 칩에서 팀원을 고르면 그 사람만',
+      preview: selected
+        ? () => previewMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)
+        : undefined,
+      pdf: () =>
+        selected
+          ? downloadMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)
+          : downloadIndividualResultsPdf(teamName, periodName, members, tasks, contributions, criteria, meetingNotes, peerInputs, memberIds),
+      excel: () => downloadIndividualResultReports(members, tasks, contributions, criteria, meetingNotes, peerInputs, memberIds),
+    },
+    {
+      key: 'tasks',
+      label: '과제 리포트',
+      desc: '과제 · 성과등급 · 목표 · 성과',
+      disabled: tasks.length === 0,
+      pdf: () => downloadTasksPdf(teamName, periodName, tasks, criteria),
+      excel: () => downloadCurrentTasksExcel(tasks, criteria),
+    },
+  ]
+
+  const fs = (px: number) => ({ fontSize: `calc(${px}px * var(--ui-fs, 1))` })
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
+    <div className="space-y-4">
+      {/* 머리: 제목 · 고과 분포 · 확정 · 리포트 */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h2 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">평가결과</h2>
-          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">기준설정 가중치가 실시간으로 반영됩니다.</p>
-          {tasks.some((t) => t.performanceGrade === null) && (
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-warning">
-              성과등급을 아직 매기지 않은 과제 {tasks.filter((t) => t.performanceGrade === null).length}건은 점수에 들어가지 않았습니다. 과제관리 표의 성과등급 칸에서 매겨 주세요.
+          {!noData && (
+            <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              <span className="inline-flex items-center gap-1.5">
+                고과
+                {gradeCounts
+                  .filter((x) => x.n > 0 || x.g !== 'D')
+                  .map((x) => (
+                    <span key={x.g} className={x.n === 0 ? 'text-label-3' : ''}>
+                      <b className={x.n === 0 ? '' : gradeTextColor(x.g)}>{x.g}</b> {x.n}
+                    </span>
+                  ))}
+              </span>
+              <span>
+                확정 <b className="text-label">{confirmedCount}</b>/{results.length}명
+                {confirmedCount < results.length && (
+                  <button onClick={() => setConfirmAllOpen(true)} className="ml-2 font-medium text-accent hover:underline" title="팀원 모두 「확정」으로 표시합니다. 점수 · 고과는 바뀌지 않습니다.">
+                    모두 확정
+                  </button>
+                )}
+              </span>
             </p>
           )}
         </div>
-        <div className={`flex flex-wrap items-center gap-2 ${noData ? 'pointer-events-none opacity-40' : ''}`}>
-          <Segmented
-            items={[
-              { key: 'stack', label: '상하', title: '팀원별 성과 위, 과제별 성과 아래' },
-              { key: 'side', label: '좌우', title: '팀원별 성과 왼쪽, 과제별 성과 오른쪽 (넓은 화면에서만, 좁으면 상하로)' },
-              ...(narrow ? [{ key: 'tabs' as const, label: '탭', title: '팀원별 성과 / 과제별 성과를 탭으로 전환' }] : []),
-            ]}
-            value={shownView}
-            onChange={changeView}
-          />
-          <Button
-            variant="secondary"
-            onClick={() => setConfirmAllOpen(true)}
-            title="표의 '상태'를 모두 확정으로 바꿉니다. 점수·고과는 바뀌지 않고, 확정 뒤에도 수정할 수 있습니다."
-          >
-            모두 확정으로 표시
-          </Button>
-          {/* 과제 리포트(예전 평가하기 · 과제별에 있던 것): 평가과제 · 성과등급 · 목표 · 성과 */}
-          <CurrentDataDownloadControls
-            label="과제 리포트"
-            disabled={tasks.length === 0}
-            onExcelDownload={() => downloadCurrentTasksExcel(tasks, criteria)}
-            onPdfDownload={() => downloadTasksPdf(teamName, periodName, tasks, criteria)}
-          />
-          <CurrentDataDownloadControls
-            label="통합 결과 리포트"
-            onExcelDownload={() => downloadResultsReport(members, tasks, contributions, criteria, peerInputs, periodsForTeam)}
-            onPdfDownload={() => downloadResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs)}
-            onPreview={() => previewResultsPdf(teamName, periodName, members, tasks, contributions, criteria, peerInputs)}
-          />
-          <CurrentDataDownloadControls
-            label={selectedIds.size > 0 ? `선택 팀원 리포트 (${selectedIds.size})` : '전체 팀원별 리포트'}
-            onExcelDownload={() =>
-              downloadIndividualResultReports(
-                members,
-                tasks,
-                contributions,
-                criteria,
-                meetingNotes,
-                peerInputs,
-                selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
-              )
-            }
-            onPdfDownload={() =>
-              downloadIndividualResultsPdf(
-                teamName,
-                periodName,
-                members,
-                tasks,
-                contributions,
-                criteria,
-                meetingNotes,
-                peerInputs,
-                selectedIds.size > 0 ? Array.from(selectedIds) : undefined,
-              )
-            }
-          />
+        <div className={noData ? 'pointer-events-none opacity-40' : ''}>
+          <ReportMenu items={reportItems} />
         </div>
       </div>
 
@@ -375,365 +381,244 @@ export default function EvaluationResults() {
         </p>
       ) : (
         <>
-          {(highlights.length > 0 || insights.length > 0 || memberHighlight) && (
-            <div className="rounded-card border border-separator bg-white">
-              <button onClick={toggleInsight} className="flex w-full items-center gap-1.5 px-5 py-3 text-left">
-                {insightOpen ? <ChevronDown size={16} className="text-label-3" /> : <ChevronRight size={16} className="text-label-3" />}
-                <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">인사이트</span>
-                {!insightOpen && (
-                  <span className="min-w-0 truncate text-xs text-label-2">{memberHighlight ? `${memberHighlight.name} — ${memberHighlight.text}` : highlights[0]?.text ?? insights[0]?.title}</span>
+          {/* 인사이트 한 줄 + 확인 필요 */}
+          {(insight || checks.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-card border border-accent/20 bg-accent-soft px-5 py-3.5">
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-bold text-accent">
+                <Sparkles size={16} strokeWidth={2} /> 인사이트
+              </span>
+              <div className="min-w-0 flex-1">
+                {insight && (
+                  <>
+                    <p className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold leading-snug text-label">{insight.main}</p>
+                    {insight.sub && <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">{insight.sub}</p>}
+                  </>
                 )}
-              </button>
-              {insightOpen && (
-                <div className="grid gap-x-8 gap-y-2 border-t border-separator px-5 py-3.5 lg:grid-cols-2">
-                  <div className="space-y-2">
-                    {memberHighlight && (
-                      <div className="flex items-baseline gap-2 rounded-control bg-accent-soft px-2.5 py-1.5">
-                        <span className="w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-accent">{memberHighlight.name}</span>
-                        <p className="min-w-0 flex-1 text-xs leading-relaxed text-label">{memberHighlight.text}</p>
-                        <button onClick={() => setHighlightId(null)} title="선택 해제" className="shrink-0 text-label-3 hover:text-label">
-                          <X size={13} />
-                        </button>
-                      </div>
-                    )}
-                    {highlights.map((h) => (
-                      <div key={h.label} className="flex items-baseline gap-2">
-                        <span className="w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-accent">{h.label}</span>
-                        <p className="min-w-0 text-xs leading-relaxed text-label-2">{h.text}</p>
-                      </div>
-                    ))}
-                    {!memberHighlight && highlights.length > 0 && <p className="text-[length:calc(12px*var(--ui-fs,1))] text-label-3">팀원을 누르면 그 팀원의 요약이 여기에 나옵니다.</p>}
-                  </div>
-                  <div className="space-y-2">
-                    {insights.map((ins, idx) => {
-                      const lc = ins.priority === 1 ? 'text-danger' : ins.priority === 2 ? 'text-accent' : 'text-label-3'
-                      return (
-                        <div key={idx} className="flex items-baseline gap-2">
-                          <span className={`w-14 shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${lc}`}>{ins.label}</span>
-                          <p className="min-w-0 text-xs leading-relaxed text-label-2">
-                            <span className="mr-1 font-semibold text-label">{ins.title}</span>
-                            {ins.desc}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
+              </div>
+              {checks.length > 0 && (
+                <div ref={checksRef} className="relative shrink-0">
+                  <Button variant="secondary" onClick={() => setChecksOpen((v) => !v)} aria-expanded={checksOpen}>
+                    <AlertCircle {...ic} className="text-warning" /> 확인 필요 {checks.length}건
+                  </Button>
+                  {checksOpen && (
+                    <div className="mac-pop absolute right-0 top-full z-30 mt-1.5 w-[380px] max-w-[calc(100vw-32px)] p-3">
+                      <p className="mb-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보고 전에 확인할 것</p>
+                      <ul className="space-y-1.5">
+                        {checks.map((c, i) => (
+                          <li key={i} className="text-[length:calc(13.5px*var(--ui-fs,1))] leading-snug text-label">
+                            <b className="mr-1.5 text-warning">{c.title}</b>
+                            {c.desc}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
-          {shownView === 'tabs' && (
-            <UnderlineTabs
-              items={[
-                { key: 'members', label: '팀원별 성과' },
-                { key: 'tasks', label: '과제별 성과' },
-              ]}
-              value={tab}
-              onChange={setTab}
-            />
-          )}
-          <div className={shownView === 'side' ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]' : 'space-y-6'}>
-            {(shownView !== 'tabs' || tab === 'members') && (
-              <div className="min-w-0 space-y-4">
-          <div>
-            <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">팀원별 성과</h3>
-            <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">행을 누르면 그 팀원의 요약과 과제별 기여가 강조됩니다.</p>
-          </div>
-          {/* 팀원 결과 테이블 — 이 화면의 중심. */}
-          <div className="overflow-x-auto rounded-card border border-separator bg-white">
-            <table className="w-full min-w-[860px] text-[length:calc(14px*var(--ui-fs,1))]">
-              <thead>
-                <tr className="border-b border-separator bg-[#F7F7F9]">
-                  <th className="w-8 px-3 py-2.5">
-                    <input
-                      type="checkbox"
-                      aria-label="전체 선택"
-                      checked={selectedIds.size > 0 && selectedIds.size === results.length}
-                      onChange={(e) =>
-                        setSelectedIds(e.target.checked ? new Set(results.map((r) => r.member.id)) : new Set())
-                      }
-                    />
-                  </th>
-                  <th className="w-8 px-2 py-2.5 text-center text-xs font-semibold text-label-3">#</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-label-2">팀원</th>
-                  <th className="w-16 px-4 py-2.5 text-left text-xs font-semibold text-label-2">직급</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-label-2">
-                    <span>성과점수</span>
-                    <span className="ml-2 font-normal text-label-3">평균 {avg.toFixed(1)}점</span>
-                  </th>
-                  <th className="w-28 px-4 py-2.5 text-center text-xs font-semibold text-label-2" title="받은 피어리뷰 평균 점수와 성과점수에 곱해진 배수">
-                    피어리뷰
-                  </th>
-                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">최종 고과</th>
-                  <th className="w-16 px-4 py-2.5 text-center text-xs font-semibold text-label-2">전년도</th>
-                  <th className="w-14 px-4 py-2.5 text-center text-xs font-semibold text-label-2">변화</th>
-                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-label-2">상태</th>
-                  <th className="w-20 px-4 py-2.5 text-center text-xs font-semibold text-label-2">리포트</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map((r, i) => {
-                  const idx = idxOf(r.member.id)
-                  const isHL = highlightId === r.member.id
-                  const prevGrade = prevGradeByMember.get(r.member.id) ?? null
-                  const delta = prevGrade && r.grade ? GRADE_RANK[r.grade] - GRADE_RANK[prevGrade] : null
-                  const status = statusOf(r.member.id)
-                  return (
-                    <tr
-                      key={r.member.id}
-                      onClick={() => setHighlightId(isHL ? null : r.member.id)}
-                      className="cursor-pointer border-b border-separator transition-colors last:border-0 hover:bg-black/[0.03]"
-                      style={isHL ? { outline: '1px solid var(--accent)', outlineOffset: '-1px' } : undefined}
-                    >
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(r.member.id)}
-                          onChange={() => toggleSelect(r.member.id)}
-                        />
-                      </td>
-                      <td className="px-2 py-3 text-center">
-                        <span className="tabular-nums text-xs text-label-3">{i + 1}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openMemberDetail(r.member.id)
-                          }}
-                          className="flex items-center gap-2 text-left"
-                        >
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                          <span className="font-semibold text-label hover:text-accent hover:underline">{r.member.name}</span>
-                          <span className="text-xs text-label-3">
-                            {r.member.role || '-'} · {r.participatedTaskCount}건
-                          </span>
-                        </button>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">{r.member.level || '-'}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative h-5 min-w-[80px] flex-1 overflow-hidden rounded bg-black/[0.08]">
-                            <div
-                              className="h-full rounded transition-all duration-500"
-                              style={{ width: `${(r.cumulativeScore / maxScore) * 100}%`, background: pastelForIndex(idx) }}
-                            />
-                            <div className="absolute bottom-0 top-0 z-10 w-px bg-label-3" style={{ left: `${(avg / maxScore) * 100}%` }} />
-                          </div>
-                          <span className="shrink-0 tabular-nums text-[length:calc(14px*var(--ui-fs,1))] font-semibold" style={{ color: pastelTextForIndex(idx) }}>
-                            {r.cumulativeScore.toFixed(1)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <PeerLine summary={peerSummaryOf(peerInputs, r.member.id, criteria)} />
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center">
-                        <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${r.grade ? gradeTextColor(r.grade) : 'text-label-3'}`} title={r.grade ? undefined : UNGRADED_HINT}>
-                          {gradeText(r.grade)}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">{prevGrade ?? '-'}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center text-[length:calc(14px*var(--ui-fs,1))] font-semibold">
-                        {delta === null ? (
-                          <span className="text-label-3">-</span>
-                        ) : delta > 0 ? (
-                          <ArrowUp {...icSm} className="inline text-accent" aria-label="상승" />
-                        ) : delta < 0 ? (
-                          <ArrowDown {...icSm} className="inline text-danger" aria-label="하락" />
-                        ) : (
-                          <Minus {...icSm} className="inline text-label-3" aria-label="유지" />
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => cycleStatus(r.member.id)} title="클릭해서 상태 변경">
-                          <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
-                        </button>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5">
-                          <IconButton
-                            onClick={() => previewMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
-                            title="미리보기"
-                            aria-label="미리보기"
-                          >
-                            <Eye {...ic} />
-                          </IconButton>
-                          <IconButton
-                            onClick={() => downloadMemberResultPdf(teamName, periodName, r.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}
-                            title="PDF 다운로드"
-                            aria-label="PDF 다운로드"
-                          >
-                            <Download {...ic} />
-                          </IconButton>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
 
-
-              </div>
-            )}
-            {(shownView !== 'tabs' || tab === 'tasks') && (
-              <div className="min-w-0">
-          {/* 과제별 성과 & 기여도 */}
-          <div>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">과제별 성과</h3>
-                <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">목표·성과 및 팀원 기여도를 함께 확인합니다.</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
-                {/* 전체 = 아무도 강조하지 않음(모든 팀원 기여도를 고르게) */}
+          {/* 전체 / 팀원 고르기 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">개인 점수 확인</span>
+            <button
+              onClick={() => setHighlightId(null)}
+              aria-pressed={!highlightId}
+              className={`inline-flex h-9 items-center rounded-full border px-4 text-[length:calc(14px*var(--ui-fs,1))] font-semibold transition-colors ${!highlightId ? 'border-ink bg-ink text-white' : 'border-separator bg-white text-label-2 hover:text-label'}`}
+            >
+              전체
+            </button>
+            {results.map((r) => {
+              const on = highlightId === r.member.id
+              return (
                 <button
-                  onClick={() => setHighlightId(null)}
-                  aria-pressed={!highlightId}
-                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${!highlightId ? 'border-ink bg-ink text-white' : 'border-separator bg-white text-label-2 hover:text-label'}`}
+                  key={r.member.id}
+                  onClick={() => setHighlightId(on ? null : r.member.id)}
+                  aria-pressed={on}
+                  className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'border-accent bg-accent-soft text-accent shadow-[inset_0_0_0_1px_var(--accent)]' : 'border-separator bg-white text-label hover:bg-black/[0.03]'}`}
                 >
-                  전체
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorForIndex(idxOf(r.member.id)) }} />
+                  <span className="font-semibold">{r.member.name}</span>
+                  <span className={`font-bold ${on ? '' : r.grade ? gradeTextColor(r.grade) : 'text-label-3'}`} title={r.grade ? undefined : UNGRADED_HINT}>
+                    {gradeText(r.grade)}
+                  </span>
+                  <span className={`tabular-nums ${on ? '' : 'text-label-3'}`} style={fs(13)}>
+                    {r.cumulativeScore.toFixed(1)}
+                  </span>
                 </button>
-                {results.map(({ member: m }) => {
-                  const idx = idxOf(m.id)
-                  const isHL = highlightId === m.id
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setHighlightId(isHL ? null : m.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${isHL ? '' : 'border-separator bg-white text-label-2 hover:text-label'}`}
-                      style={isHL ? { background: pastelForIndex(idx), color: pastelTextForIndex(idx), borderColor: pastelForIndex(idx) } : undefined}
-                    >
-                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colorForIndex(idx) }} />
-                      {m.name}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {taskScores.length === 0 ? (
-              <p className="rounded-control bg-black/[0.03] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">등록된 과제가 없습니다.</p>
-            ) : (
-              <div ref={taskTableRef} className="divide-y divide-separator overflow-hidden rounded-card border border-separator bg-white">
-                {/* 컬럼 헤더 */}
-                <div className="flex select-none items-stretch border-b border-separator bg-[#F7F7F9]">
-                  <div style={{ width: `${colWidths[0]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
-                    과제 / 성과
-                  </div>
-                  <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(0, e)}>
-                    <div className="h-full w-px bg-black/[0.08] transition-colors group-hover:bg-accent/40" />
-                  </div>
-                  <div style={{ width: `${colWidths[1]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
-                    목표 · 성과
-                  </div>
-                  <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(1, e)}>
-                    <div className="h-full w-px bg-black/[0.08] transition-colors group-hover:bg-accent/40" />
-                  </div>
-                  <div style={{ width: `${colWidths[2]}%` }} className="min-w-0 px-4 py-2 text-xs font-semibold text-label-2">
-                    기여도
-                  </div>
-                </div>
-
-                {taskScores.map(({ task, score }) => {
-                  const participants = activeMembers
-                    .map((m) => ({ m, pct: getContributionPercent(contributions, task.id, m.id) }))
-                    .filter((x) => x.pct > 0)
-                  const hlPct = highlightId ? getContributionPercent(contributions, task.id, highlightId) : 0
-                  const hlNote = highlightId ? getContribution(contributions, task.id, highlightId)?.personalGradeNote : undefined
-                  return (
-                    <div key={task.id} className="flex items-stretch transition-colors hover:bg-black/[0.03]">
-                      {/* 1열: 과제 정보 + 성과등급/점수 */}
-                      <div style={{ width: `${colWidths[0]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold leading-snug text-label">{task.name}</p>
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
-                            {task.importance}
-                          </span>
-                          {criteria.workloadWeight > 0 && <span className="shrink-0 text-xs text-label-3">{task.workload}</span>}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-[length:calc(14px*var(--ui-fs,1))] font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
-                          <span className="text-xs text-label-3">/</span>
-                          <span className="tabular-nums text-xs font-semibold text-label-2">{score.toFixed(0)}점</span>
-                        </div>
-                      </div>
-
-                      <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(0, e)}>
-                        <div className="h-full w-px bg-black/[0.05] transition-colors group-hover:bg-accent/30" />
-                      </div>
-
-                      {/* 2열: 목표 & 성과 */}
-                      <div style={{ width: `${colWidths[1]}%` }} className="flex min-w-0 flex-col justify-center gap-1 px-4 py-3.5">
-                        <p className="truncate text-xs text-label-2">
-                          <span className="mr-1 font-semibold text-label-3">목표 :</span>
-                          {task.objective || '-'}
-                        </p>
-                        <p className="truncate text-xs text-label">
-                          <span className="mr-1 font-semibold text-success">성과 :</span>
-                          {task.achievement || '-'}
-                        </p>
-                      </div>
-
-                      <div className="flex w-2 shrink-0 cursor-col-resize items-center justify-center group" onMouseDown={(e) => startResize(1, e)}>
-                        <div className="h-full w-px bg-black/[0.05] transition-colors group-hover:bg-accent/30" />
-                      </div>
-
-                      {/* 3열: 기여도 stacked bar -- 컬럼 헤더에 이미 "기여도"가 있으므로
-                          막대 위 라벨은 두지 않는다. 대신 팀원을 선택했을 때만 그 자리에
-                          "{팀원} {%}"를 표시한다(높이는 항상 예약해 행이 늘어나지 않게). */}
-                      <div style={{ width: `${colWidths[2]}%` }} className="flex min-w-0 flex-col justify-center gap-1.5 px-4 py-3.5">
-                        <p className="flex h-4 items-baseline whitespace-nowrap text-xs font-semibold leading-4" style={{ gap: '20px' }}>
-                          {highlightId !== null &&
-                            (hlPct > 0 ? (
-                              <>
-                                <span className="shrink-0" style={{ color: pastelTextForIndex(idxOf(highlightId)) }}>
-                                  {members.find((m) => m.id === highlightId)?.name} {hlPct}%
-                                </span>
-                                {hlNote?.trim() && <span className="min-w-0 truncate font-normal text-label">{hlNote.trim()}</span>}
-                              </>
-                            ) : (
-                              <span className="font-normal text-label-3">미참여</span>
-                            ))}
-                        </p>
-                        {participants.length > 0 ? (
-                          <div className="flex h-5 overflow-hidden rounded">
-                            {participants.map(({ m, pct }) => {
-                              const idx = idxOf(m.id)
-                              const isHL = highlightId === null || highlightId === m.id
-                              const bg = isHL ? pastelForIndex(idx) : 'rgba(0, 0, 0, 0.06)'
-                              const fg = isHL ? pastelTextForIndex(idx) : 'rgba(0, 0, 0, 0.3)'
-                              return (
-                                <div
-                                  key={m.id}
-                                  className="flex items-center justify-center overflow-hidden transition-all duration-300"
-                                  style={{ width: `${pct}%`, background: bg }}
-                                  title={`${m.name} ${pct}%`}
-                                >
-                                  {pct >= 16 && (
-                                    <span className="select-none tabular-nums text-[length:calc(12px*var(--ui-fs,1))]" style={{ color: fg, fontWeight: isHL && highlightId !== null ? 700 : 400 }}>
-                                      {pct}%
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
-                        ) : (
-                          <div className="flex h-5 items-center rounded bg-black/[0.05] px-2">
-                            <span className="text-xs text-label-3">미입력</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+              )
+            })}
           </div>
-              </div>
+
+          {/* 고른 팀원: 순위 · 지난 평가 · 상태 · 리포트 */}
+          {selected && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-separator bg-white px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))]">
+              <span className={`text-[length:calc(22px*var(--ui-fs,1))] font-extrabold leading-none ${selected.grade ? gradeTextColor(selected.grade) : 'text-label-3'}`}>{gradeText(selected.grade)}</span>
+              <span>
+                <b className="text-label">{selected.member.name}</b>
+                <span className="ml-2 text-label-2">
+                  {selRank}위 · 성과점수 {selected.cumulativeScore.toFixed(1)} · 지난 평가 {prevGradeByMember.get(selected.member.id) ?? '없음'}
+                </span>
+              </span>
+              <button onClick={() => cycleStatus(selected.member.id)} title="눌러서 상태 바꾸기(평가중 → 검토완료 → 확정)">
+                <Badge tone={STATUS_TONE[statusOf(selected.member.id)]}>{STATUS_LABEL[statusOf(selected.member.id)]}</Badge>
+              </button>
+              <span className="ml-auto flex items-center gap-0.5">
+                <Button variant="ghost" size="sm" onClick={() => openMemberDetail(selected.member.id)}>
+                  <UserRound {...icSm} /> 팀원 상세
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => previewMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}>
+                  <Eye {...icSm} /> 리포트 미리보기
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => downloadMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)}>
+                  <Download {...icSm} /> PDF
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setHighlightId(null)} title="전체로" aria-label="선택 해제">
+                  <X {...icSm} />
+                </Button>
+              </span>
+            </div>
+          )}
+
+          {/* 과제별 성과 -- 표 하나 */}
+          <div className="overflow-hidden rounded-card border border-separator bg-white">
+            <div className="flex items-baseline gap-2 px-5 py-3.5">
+              <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">과제별 성과</h3>
+              <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
+                {tasks.length}건{selected ? ` · ${selected.member.name} 참여 ${selRows.length}건` : ''}
+              </span>
+            </div>
+            {taskScores.length === 0 ? (
+              <p className="border-t border-separator px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">등록된 과제가 없습니다.</p>
+            ) : (
+              <ScrollX>
+                <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
+                  <thead>
+                    <tr className="border-y border-separator bg-[#F7F7F9] text-left text-xs font-semibold text-label-2">
+                      <th className="px-5 py-2.5">과제</th>
+                      <th className="w-[112px] whitespace-nowrap px-3 py-2.5">과제 성과</th>
+                      <th className="hidden w-[30%] px-3 py-2.5 xl:table-cell">목표 · 성과</th>
+                      <th className="w-[30%] min-w-[200px] px-3 py-2.5 xl:w-[26%]">참여자별 기여도</th>
+                      {selected && <th className="w-[128px] whitespace-nowrap bg-accent-soft px-4 py-2.5 text-right text-accent">{selected.member.name} 반영점수</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taskScores.map(({ task, score }) => {
+                      const participants = activeMembers
+                        .map((m) => ({ m, pct: getContributionPercent(contributions, task.id, m.id) }))
+                        .filter((x) => x.pct > 0)
+                      const mine = selected ? participants.some((x) => x.m.id === selected.member.id) : true
+                      const pts = selected && mine ? reflected(task.id, score, selected.member.id) : 0
+                      const note = selected && mine ? getContribution(contributions, task.id, selected.member.id)?.personalGradeNote?.trim() : undefined
+                      const dim = selected && !mine ? 'opacity-45' : ''
+                      return (
+                        <tr key={task.id} className="border-b border-separator last:border-0">
+                          <td className={`px-5 py-3 ${dim}`}>
+                            <span className="font-semibold leading-snug text-label">{task.name}</span>
+                            <span className={`ml-2 inline-block whitespace-nowrap rounded-full px-1.5 py-0.5 align-[1px] text-[length:calc(12px*var(--ui-fs,1))] font-medium ${IMPORTANCE_COLORS[task.importance]}`}>
+                              {task.importance}
+                            </span>
+                            {criteria.workloadWeight > 0 && <span className="ml-1.5 text-xs text-label-3">{task.workload}</span>}
+                            <div className="mt-1.5 xl:hidden">
+                              <p className="flex gap-2 text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2">
+                              <span className="shrink-0 font-semibold text-label-3">목표</span>
+                              <span className="min-w-0">{task.objective || '-'}</span>
+                            </p>
+                            <p className="mt-0.5 flex gap-2 text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label">
+                              <span className="shrink-0 font-semibold text-label-3">성과</span>
+                              <span className="min-w-0">{task.achievement || <span className="text-label-3">미입력</span>}</span>
+                            </p>
+                            </div>
+                          </td>
+                          <td className={`whitespace-nowrap px-3 py-3 ${dim}`}>
+                            <span className={`font-bold ${task.performanceGrade ? gradeTextColor(task.performanceGrade as EvaluationGrade) : 'text-label-3'}`}>{task.performanceGrade ?? '미입력'}</span>
+                            <span className="text-label-2"> · {score.toFixed(0)}점</span>
+                          </td>
+                          {/* 넓은 화면: 따로 칸 · 좁은 화면(1280 미만): 과제 이름 아래 */}
+                          <td className={`hidden px-3 py-3 xl:table-cell ${dim}`}>
+                            <p className="flex gap-2 text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2">
+                              <span className="shrink-0 font-semibold text-label-3">목표</span>
+                              <span className="min-w-0">{task.objective || '-'}</span>
+                            </p>
+                            <p className="mt-0.5 flex gap-2 text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label">
+                              <span className="shrink-0 font-semibold text-label-3">성과</span>
+                              <span className="min-w-0">{task.achievement || <span className="text-label-3">미입력</span>}</span>
+                            </p>
+                          </td>
+                          <td className="px-3 py-3">
+                            {participants.length > 0 ? (
+                              <div className={`flex h-6 overflow-hidden rounded-[6px] ${dim}`}>
+                                {participants.map(({ m, pct }) => {
+                                  const idx = idxOf(m.id)
+                                  const isSel = selected?.member.id === m.id
+                                  const bg = !selected ? pastelForIndex(idx) : isSel ? 'var(--accent)' : 'rgba(0,0,0,0.06)'
+                                  const fg = !selected ? pastelTextForIndex(idx) : isSel ? '#fff' : 'rgba(0,0,0,0.45)'
+                                  return (
+                                    <div
+                                      key={m.id}
+                                      className="flex min-w-0 items-center justify-center overflow-hidden border-r border-white/70 px-1 last:border-0"
+                                      style={{ width: `${pct}%`, background: bg }}
+                                      title={`${m.name} ${pct}%`}
+                                    >
+                                      {/* 좁으면 이름이 먼저 줄고 %는 늘 보이게 */}
+                                      <span className="flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] tabular-nums" style={{ color: fg, fontWeight: isSel ? 700 : 500 }}>
+                                        {pct >= 22 && <span className="min-w-0 truncate">{m.name}</span>}
+                                        <span className="shrink-0">{pct}%</span>
+                                      </span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className={`flex h-6 items-center justify-center rounded-[6px] bg-orange-50 text-[length:calc(12.5px*var(--ui-fs,1))] font-semibold text-warning ${dim}`}>기여자 미등록</div>
+                            )}
+                            {note && <p className="mt-1 truncate text-xs text-label-2" title={note}>{note}</p>}
+                          </td>
+                          {selected && (
+                            <td className="whitespace-nowrap bg-accent-soft/60 px-4 py-3 text-right">
+                              {mine ? (
+                                <span className="inline-flex flex-col items-end">
+                                  <span className="tabular-nums text-[length:calc(16px*var(--ui-fs,1))] font-bold text-accent">{pts.toFixed(1)}점</span>
+                                  {task.id === selMaxTaskId && selRows.length > 1 && <span className="mt-0.5 rounded bg-accent/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-semibold text-accent">최대</span>}
+                                </span>
+                              ) : (
+                                <span className="text-label-3">—</span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  {selected && (
+                    <tfoot className="border-t border-separator bg-[#F7F7F9]">
+                      {Math.abs(selPeer - 1) > 0.0001 && (
+                        <>
+                          <tr>
+                            <td colSpan={3} className="px-5 py-2 text-label-2">반영점수 합계</td>
+                            <td className="hidden xl:table-cell" />
+                            <td className="bg-accent-soft/60 px-4 py-2 text-right tabular-nums text-label-2">{selSum.toFixed(1)}점</td>
+                          </tr>
+                          <tr>
+                            <td colSpan={3} className="px-5 py-2 text-label-2">피어리뷰 반영</td>
+                            <td className="hidden xl:table-cell" />
+                            <td className="bg-accent-soft/60 px-4 py-2 text-right tabular-nums text-label-2">× {selPeer.toFixed(2)}</td>
+                          </tr>
+                        </>
+                      )}
+                      <tr>
+                        <td colSpan={3} className="px-5 py-3 font-semibold text-label">
+                          {Math.abs(selPeer - 1) > 0.0001 ? `${selected.member.name} 성과점수` : `${selected.member.name} 반영점수 합계`}
+                        </td>
+                        <td className="hidden xl:table-cell" />
+                        <td className="bg-accent-soft px-4 py-3 text-right tabular-nums text-[length:calc(17px*var(--ui-fs,1))] font-bold text-accent">
+                          {selected.cumulativeScore.toFixed(1)}점
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </ScrollX>
             )}
           </div>
         </>
@@ -742,7 +627,7 @@ export default function EvaluationResults() {
       <ConfirmDialog
         open={confirmAllOpen}
         title="모두 확정으로 표시"
-        message={'표의 상태 열(평가중 · 검토완료 · 확정)을 활성 팀원 모두 "확정"으로 바꿉니다.\n팀원별 평가를 다 마쳤다는 표시일 뿐, 점수·고과는 바뀌지 않고 잠기지도 않습니다.'}
+        message={'활성 팀원 모두 "확정"으로 표시합니다.\n팀원별 평가를 다 마쳤다는 표시일 뿐, 점수·고과는 바뀌지 않고 잠기지도 않습니다.'}
         confirmLabel="확정"
         tone="accent"
         onConfirm={confirmAll}
