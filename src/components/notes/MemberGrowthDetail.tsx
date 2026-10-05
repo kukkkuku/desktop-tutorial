@@ -169,10 +169,12 @@ function TaskRow({
 }
 
 const WORK_STATUS_TONE: Record<string, string> = {
-  대기: 'bg-black/[0.05] text-label-2',
-  진행중: 'bg-accent-soft text-accent',
-  완료: 'bg-emerald-100 text-emerald-800',
+  대기: 'bg-white text-label-2 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]',
+  진행중: 'bg-emerald-100 text-emerald-800',
+  완료: 'bg-black/[0.06] text-label-2',
   중단: 'bg-red-100 text-red-700',
+  보류: 'bg-red-100 text-red-700',
+  지연: 'bg-red-100 text-red-700',
 }
 
 // 좌우 폭 조절용 스플리터 손잡이 -- 기준설정(CriteriaPanel) 화면과 같은

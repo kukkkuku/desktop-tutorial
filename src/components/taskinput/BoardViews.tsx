@@ -114,9 +114,9 @@ export function ViewFilterBar({ list, value, onChange, weekCols, nowMonth }: { l
   const stages: [ViewFilter['stage'], string, string][] = [
     ['all', '전체', 'text-label'],
     ['대기', '대기', 'text-label-2'],
-    ['진행중', '진행 중', 'text-accent'],
-    ['보류중단', '보류 · 중단', 'text-[#8A6D3B]'],
-    ['완료', '완료', 'text-emerald-700'],
+    ['진행중', '진행 중', 'text-emerald-700'],
+    ['보류중단', '보류 · 중단', 'text-red-600'],
+    ['완료', '완료', 'text-label-2'],
   ]
   const risks: [NonNullable<ViewFilter['risk']>, string, string, string][] = [
     ['late', '지연', 'text-red-600', '계획이 끝났는데 완료가 없음'],

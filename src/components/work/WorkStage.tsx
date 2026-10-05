@@ -1516,7 +1516,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 // 뱃지는 모두 같은 모양(CHIP_BASE)이고 색만 다르다. 선택 팝업의 칩도 같은 색을 쓴다.
 const TONES: Record<string, Record<string, string>> = {
   [COL_CATEGORY]: { 과제: 'bg-violet-100 text-violet-800', 일반: 'bg-slate-100 text-slate-700', 일상: 'bg-stone-100 text-stone-600' },
-  status: { 대기: 'bg-black/[0.05] text-label-2', 진행중: 'bg-accent-soft text-accent', 완료: 'bg-emerald-100 text-emerald-800', 중단: 'bg-red-100 text-red-700' },
+  status: { 대기: 'bg-white text-label-2 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]', 진행중: 'bg-emerald-100 text-emerald-800', 완료: 'bg-black/[0.06] text-label-2', 중단: 'bg-red-100 text-red-700', 보류: 'bg-red-100 text-red-700', 지연: 'bg-red-100 text-red-700' },
 }
 const PERSON_TONE = 'bg-sky-50 text-sky-800'
 const UNKNOWN_TONE = 'border border-dashed border-label-3 bg-white text-label-2'

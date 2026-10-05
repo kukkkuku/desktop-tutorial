@@ -23,10 +23,12 @@ import { ic } from './ui/icon'
 
 const MUTED = 'bg-black/[0.05] text-label-3'
 const STATUS_TONE: Record<string, string> = {
-  대기: 'bg-black/[0.05] text-label-2',
-  진행중: 'bg-accent-soft text-accent',
-  완료: 'bg-emerald-100 text-emerald-800',
+  대기: 'bg-white text-label-2 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]',
+  진행중: 'bg-emerald-100 text-emerald-800',
+  완료: 'bg-black/[0.06] text-label-2',
   중단: 'bg-red-100 text-red-700',
+  보류: 'bg-red-100 text-red-700',
+  지연: 'bg-red-100 text-red-700',
 }
 
 // 평가하기 · 과제별: 한 줄이 평가과제 하나(성과등급 · 목표 · 성과 · 점수). 줄을 펼치면 참여자별 기여도 ·
