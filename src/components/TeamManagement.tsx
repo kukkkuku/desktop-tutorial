@@ -19,7 +19,7 @@ import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
 import IconButton from './IconButton'
-import { ArrowRightLeft, Check, ChevronDown, ChevronRight, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
+import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
@@ -626,138 +626,30 @@ export default function TeamManagement() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <CurrentDataDownloadControls
-            disabled={state.members.length === 0}
-            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
-            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
-          />
-          {access && (
-            <Button variant="primary" onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
-              <Send {...icSm} />
-              초대 메일 보내기
-            </Button>
-          )}
-          <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
-            <IdCard {...ic} />
-            인사기록 불러오기
-          </Button>
-        </div>
-      </div>
-      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        칸을 눌러 바로 입력하고, 표 아래 "팀원 추가"로 한 줄씩 늘립니다. 엑셀에서 여러 줄을 복사해 붙여넣어도 됩니다. 삭제하면 그 팀원의 평가 데이터도 함께
-        지워집니다.
-      </p>
-
-      {rosterCh && !hasSheetsTokenNow() && rosterCh.log.join() !== lastSent.current && (
-        <p className="mt-3 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-          <span className="flex-1">바꾼 팀원 · Gmail을 팀원 명단(초대 · 로그인용)에 아직 저장하지 않았습니다.</span>
-          <Button variant="secondary" size="sm" onClick={() => void saveRoster()} disabled={rosterBusy}>
-            팀원 명단 저장
-          </Button>
-        </p>
-      )}
-      {info && (
-        <p className="mt-3 flex items-start gap-2 rounded-card bg-accent-soft px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-          <span className="flex-1">{info}</span>
-          <button onClick={() => setInfo('')} aria-label="닫기" className="text-label-3 hover:text-label">
-            <X {...icSm} />
+      {/* 한 줄 도구: 왼쪽 = 알림 칩(눌러서 펼침) · 오른쪽 = 표 도구와 버튼. 설명 글은 매뉴얼로 */}
+      <div className="flex flex-wrap items-center gap-2">
+        {moved.length > 0 && (
+          <button
+            onClick={() => setMovedOpen((v) => !v)}
+            aria-expanded={movedOpen}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium ${movedOpen ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-amber-300/70 bg-amber-50 text-amber-800 hover:bg-amber-100'}`}
+            title="관리에서 다른 팀으로 옮긴 팀원 -- 의견을 남기고 비활성"
+          >
+            <ArrowRightLeft {...icSm} />
+            팀 이동 {moved.length}명
           </button>
-        </p>
-      )}
-      {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
-      {/* 평소엔 한 줄로 접어 두고, 눌러야 펼친다(「과제 담당자 중 …」 줄과 같은 방식) */}
-      {moved.length > 0 && !movedOpen && (
-        <button onClick={() => setMovedOpen(true)} className="mt-3 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-amber-800 hover:text-amber-900">
-          <ChevronRight {...icSm} />
-          <ArrowRightLeft {...icSm} />
-          다른 팀으로 옮긴 팀원 <span className="font-semibold">{moved.length}명</span> · 눌러서 보기
-        </button>
-      )}
-      {moved.length > 0 && movedOpen && (
-        <div className="mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))]">
-          <button onClick={() => setMovedOpen(false)} title="접기" className="flex items-center gap-1.5 text-left font-semibold text-amber-900 hover:text-amber-950">
-            <ChevronDown {...icSm} />
-            다른 팀으로 옮긴 팀원 {moved.length}명
-            <span className="font-normal text-amber-800">· 평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</span>
+        )}
+        {unmatched.length > 0 && (
+          <button
+            onClick={() => setUnmatchedOpen((v) => !v)}
+            aria-expanded={unmatchedOpen}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium ${unmatchedOpen ? 'border-black/25 bg-black/[0.05] text-label' : 'border-separator bg-white text-label-2 hover:text-label'}`}
+            title="시트에서 가져온 과제의 담당자 중 팀원 목록에 없는 사람"
+          >
+            목록에 없는 담당자 {unmatched.length}명
           </button>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {moved.map(({ m, u }) => (
-              <span key={m.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-label">
-                {m.name} → 「{u.team}」
-                <button
-                  onClick={() => {
-                    setOpinion('')
-                    setHandoverFor({ m, toTeam: u.team })
-                  }}
-                  className="rounded-full bg-amber-600 px-2.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-white hover:bg-amber-700"
-                >
-                  의견 남기고 비활성
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-      {unmatched.length > 0 && !unmatchedOpen && (
-        <button onClick={() => setUnmatchedOpen(true)} className="mt-3 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:text-accent">
-          <ChevronRight {...icSm} />
-          과제 담당자 중 팀원 목록에 없는 사람 <span className="font-semibold text-label">{unmatched.length}명</span> · 눌러서 추가
-        </button>
-      )}
-      {unmatched.length > 0 && unmatchedOpen && (
-        <div className="mt-4 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <button
-                onClick={() => setUnmatchedOpen(false)}
-                className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:text-accent"
-                title="접기"
-              >
-                <ChevronDown {...icSm} />
-                과제 담당자 중 팀원 목록에 없는 사람 {unmatched.length}명
-              </button>
-              <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                시트에서 가져온 과제의 담당자입니다. 추가하면 과제관리의 담당자와 자동으로 연결됩니다. 팀원은 평가하기의 기여도 배분에도 들어가니 우리 팀 사람만
-                추가하세요.
-              </p>
-            </div>
-            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
-              선택한 {pickedUnmatched.size}명 추가
-            </Button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {unmatched.map((u) => {
-              const on = pickedUnmatched.has(u.name)
-              return (
-                <button
-                  key={u.name}
-                  onClick={() => {
-                    const next = new Set(pickedUnmatched)
-                    if (on) next.delete(u.name)
-                    else next.add(u.name)
-                    setPickedUnmatched(next)
-                  }}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
-                >
-                  {on && <Check {...icSm} />}
-                  {u.name}{' '}
-                  <span className="text-label-3">
-                    {u.team ? `${u.team} · ` : ''}L3 {u.count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4">
-        {/* 과제관리처럼 표 도구(되돌리기·다시 하기·열 설정)는 표 오른쪽 위에 둔다. */}
-        <div className="mb-2 flex items-center justify-end gap-1">
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
             <Undo2 {...ic} />
           </IconButton>
@@ -813,7 +705,99 @@ export default function TeamManagement() {
               </div>
             )}
           </div>
+          <span className="mx-1.5 h-5 w-px bg-separator" />
+          <CurrentDataDownloadControls
+            disabled={state.members.length === 0}
+            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
+            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
+          />
+          {access && (
+            <Button variant="primary" onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
+              <Send {...icSm} />
+              초대 메일 보내기
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
+            <IdCard {...ic} />
+            인사기록 불러오기
+          </Button>
         </div>
+      </div>
+
+      {rosterCh && !hasSheetsTokenNow() && rosterCh.log.join() !== lastSent.current && (
+        <p className="mt-3 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+          <span className="flex-1">바꾼 팀원 · Gmail을 팀원 명단(초대 · 로그인용)에 아직 저장하지 않았습니다.</span>
+          <Button variant="secondary" size="sm" onClick={() => void saveRoster()} disabled={rosterBusy}>
+            팀원 명단 저장
+          </Button>
+        </p>
+      )}
+      {info && (
+        <p className="mt-3 flex items-start gap-2 rounded-card bg-accent-soft px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+          <span className="flex-1">{info}</span>
+          <button onClick={() => setInfo('')} aria-label="닫기" className="text-label-3 hover:text-label">
+            <X {...icSm} />
+          </button>
+        </p>
+      )}
+      {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
+      {/* 평소엔 한 줄로 접어 두고, 눌러야 펼친다(「과제 담당자 중 …」 줄과 같은 방식) */}
+      {moved.length > 0 && movedOpen && (
+        <div className="mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))]">
+          <p className="text-amber-900">평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {moved.map(({ m, u }) => (
+              <span key={m.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-label">
+                {m.name} → 「{u.team}」
+                <button
+                  onClick={() => {
+                    setOpinion('')
+                    setHandoverFor({ m, toTeam: u.team })
+                  }}
+                  className="rounded-full bg-amber-600 px-2.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-white hover:bg-amber-700"
+                >
+                  의견 남기고 비활성
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {unmatched.length > 0 && unmatchedOpen && (
+        <div className="mt-3 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">우리 팀 사람만 골라 추가하세요 -- 과제관리 담당자와 자동으로 연결됩니다.</p>
+            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
+              선택한 {pickedUnmatched.size}명 추가
+            </Button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {unmatched.map((u) => {
+              const on = pickedUnmatched.has(u.name)
+              return (
+                <button
+                  key={u.name}
+                  onClick={() => {
+                    const next = new Set(pickedUnmatched)
+                    if (on) next.delete(u.name)
+                    else next.add(u.name)
+                    setPickedUnmatched(next)
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                >
+                  {on && <Check {...icSm} />}
+                  {u.name}{' '}
+                  <span className="text-label-3">
+                    {u.team ? `${u.team} · ` : ''}L3 {u.count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
         {notice && <p className="mb-2 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{notice}</p>}
         <DataGrid
           columns={columns}
