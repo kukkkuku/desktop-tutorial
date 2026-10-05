@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom'
 import DatePopup from './DatePopup'
 import { Calendar, ChevronDown, GripVertical, Plus } from 'lucide-react'
 import { icSm } from '../ui/icon'
+import { ScrollEdgeShades, useScrollEdges } from '../ui/ScrollX'
 import type { ColumnType } from '../../types'
 
 export interface GridColumn {
@@ -238,6 +239,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const handleW = noNum ? 0 : numW
 
   const wrapRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollEdges = useScrollEdges(scrollRef)
   const sinkRef = useRef<HTMLTextAreaElement>(null)
   const cellRefs = useRef(new Map<string, HTMLTableCellElement>())
   const headRefs = useRef(new Map<number, HTMLTableCellElement>())
@@ -1197,461 +1200,465 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   return (
     <div className="relative">
       {/* 왼쪽 여백(-ml/pl)은 표 밖에 뜨는 행 이동 손잡이(⋮⋮) 자리 */}
-      <div className="-ml-7 overflow-x-auto pl-7">
-        {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
-        <div
-          ref={wrapRef}
-          className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-          style={{ width: '100%', minWidth: tableWidth }}
-        >
-          <table
-            className="table-fixed border-separate border-spacing-0 text-[length:calc(14.5px*var(--ui-fs,1))] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
+      <div className="relative">
+        <div ref={scrollRef} className="-ml-7 overflow-x-auto pl-7">
+          {/* 화면이 넓으면 표가 가로를 다 채우고(남는 폭은 열마다 비율대로), 좁으면 가로 스크롤 */}
+          <div
+            ref={wrapRef}
+            className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
             style={{ width: '100%', minWidth: tableWidth }}
           >
-            <colgroup>
-              {!noNum && <col style={{ width: handleW }} />}
-              {check && <col style={{ width: CHECK_W }} />}
-              {columns.map((c) => (
-                <col key={c.id} style={{ width: c.width }} />
-              ))}
-              <col style={{ width: 44 }} />
-            </colgroup>
-            <thead>
-              <tr className="bg-[#F7F7F9] text-label-2">
-                {!noNum && (
-                  <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
-                    #
-                    <span
-                      onMouseDown={onResizeNumberStart}
-                      title="끌어서 너비 조절"
-                      className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30"
-                    />
-                  </th>
-                )}
-                {check && (
-                  <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
-                    {check.headerTitle ? (
-                      <span className="text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-label-2" title={check.headerTitle}>
-                        {check.headerTitle.slice(0, 2)}
-                      </span>
-                    ) : (
-                      <input
-                        type="checkbox"
-                        aria-label="보이는 행 모두 선택"
-                        checked={allChecked}
-                        ref={(el) => {
-                          if (el) el.indeterminate = someChecked && !allChecked
-                        }}
-                        disabled={checkable.length === 0}
-                        onChange={() => check.onToggle(checkable, !allChecked)}
-                        className="h-4 w-4 cursor-pointer accent-accent align-middle"
+            <table
+              className="table-fixed border-separate border-spacing-0 text-[length:calc(14.5px*var(--ui-fs,1))] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
+              style={{ width: '100%', minWidth: tableWidth }}
+            >
+              <colgroup>
+                {!noNum && <col style={{ width: handleW }} />}
+                {check && <col style={{ width: CHECK_W }} />}
+                {columns.map((c) => (
+                  <col key={c.id} style={{ width: c.width }} />
+                ))}
+                <col style={{ width: 44 }} />
+              </colgroup>
+              <thead>
+                <tr className="bg-[#F7F7F9] text-label-2">
+                  {!noNum && (
+                    <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
+                      #
+                      <span
+                        onMouseDown={onResizeNumberStart}
+                        title="끌어서 너비 조절"
+                        className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30"
                       />
-                    )}
-                  </th>
-                )}
-                {columns.map((col, c) => {
-                  const colSelected = sel?.t === 'cols' && c >= lo(sel.a, sel.b) && c <= hi(sel.a, sel.b)
-                  return (
-                    <th
-                      key={col.id}
-                      ref={(el) => {
-                        if (el) headRefs.current.set(c, el)
-                        else headRefs.current.delete(c)
-                      }}
-                      onMouseDown={(e) => onHeadMouseDown(e, c)}
-                      onDoubleClick={() => !props.fixedColumns && setRenaming(col.id)}
-                      onContextMenu={(e) => (props.fixedColumns ? e.preventDefault() : openMenu(e, 'col', undefined, c))}
-                      style={{
-                        boxShadow: colSelected
-                          ? [
-                              `inset 0 2px 0 ${SEL_BLUE}`,
-                              c === lo(sel!.a, sel!.b) && `inset 2px 0 0 ${SEL_BLUE}`,
-                              c === hi(sel!.a, sel!.b) && `inset -2px 0 0 ${SEL_BLUE}`,
-                            ]
-                              .filter(Boolean)
-                              .join(', ')
-                          : undefined,
-                      }}
-                      className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
-                        colSelected ? 'bg-accent-soft text-accent' : ''
-                      } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
-                      title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
-                    >
-                      {renaming === col.id ? (
-                        <input
-                          autoFocus
-                          onFocus={(e) => e.target.select()}
-                          defaultValue={col.label}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onBlur={(e) => {
-                            const v = e.target.value.trim()
-                            if (v && v !== col.label) props.onRenameColumn?.(col.id, v)
-                            setRenaming(null)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                            if (e.key === 'Escape') setRenaming(null)
-                          }}
-                          className="w-full rounded bg-white px-1 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-black outline-none"
-                        />
-                      ) : (
-                        <span className="flex items-center gap-1 truncate">
-                          {col.sub ? (
-                            <span className="flex min-w-0 flex-col leading-tight">
-                              <span className="truncate">{col.label}</span>
-                              <span className="truncate text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{col.sub}</span>
-                            </span>
-                          ) : (
-                            <span className="truncate">{col.label}</span>
-                          )}
-                          {!col.system && <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">추가</span>}
-                        </span>
-                      )}
-                      <span onMouseDown={(e) => onResizeStart(e, col)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
                     </th>
-                  )
-                })}
-                <th className="h-9 border-b border-[#E3E3E8] p-0 text-center">
-                  {!props.fixedColumns && props.onInsertColumn && (
-                    <button
-                      onClick={() => props.onInsertColumn!(nC)}
-                      title="열 추가"
-                      className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
-                    >
-                      <Plus {...icSm} />
-                    </button>
                   )}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, r) => {
-                const rowSelected = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
-                return (
-                  <Fragment key={row.id}>
-                    {renderHeaders(r)}
-                    <tr
-                      ref={(el) => {
-                        if (el) rowRefs.current.set(r, el)
-                        else rowRefs.current.delete(r)
-                      }}
-                      className={`group/row ${props.rowClassName?.(row) ?? ''} ${
-                        dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
-                      }`}
-                    >
-                      {!noNum && (
-                        <td
-                          onMouseDown={(e) => onRowHandleMouseDown(e, r)}
-                          onMouseEnter={() => onCellMouseEnter(r, 0)}
-                          onContextMenu={(e) => openMenu(e, 'row', r)}
-                          style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
-                          className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
-                            rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
-                          }`}
-                          title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
-                        >
-                          <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
-                          <span className="inline-flex items-center gap-1">
-                            {props.rowNumber ? props.rowNumber(row, r) : r + 1}
-                            {props.rowMarker?.(row)}
-                          </span>
-                        </td>
+                  {check && (
+                    <th className="h-9 border-b border-r border-[#E3E3E8] text-center">
+                      {check.headerTitle ? (
+                        <span className="text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-label-2" title={check.headerTitle}>
+                          {check.headerTitle.slice(0, 2)}
+                        </span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          aria-label="보이는 행 모두 선택"
+                          checked={allChecked}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someChecked && !allChecked
+                          }}
+                          disabled={checkable.length === 0}
+                          onChange={() => check.onToggle(checkable, !allChecked)}
+                          className="h-4 w-4 cursor-pointer accent-accent align-middle"
+                        />
                       )}
-                      {check && (
-                        <td
-                          onMouseDown={(e) => (noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation())}
-                          onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
-                          onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
-                          style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
-                          className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
-                          title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
-                        >
-                          {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
-                          {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
-                          <input
-                            type="checkbox"
-                            checked={check.isChecked(row)}
-                            disabled={check.isDisabled?.(row)}
-                            onChange={(e) => check.onToggle([row], e.target.checked)}
-                            className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
-                          />
-                        </td>
-                      )}
-                      {columns.map((col, c) => {
-                        const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
-                        const isActive = active?.r === r && active?.c === c
-                        const custom = props.renderCell?.(row, col)
-                        const text = getText(row, col.id)
-                        return (
-                          <td
-                            key={col.id}
-                            ref={(el) => {
-                              const k = `${r}:${c}`
-                              if (el) cellRefs.current.set(k, el)
-                              else cellRefs.current.delete(k)
-                            }}
-                            onMouseDown={(e) => onCellMouseDown(e, r, c)}
-                            onMouseEnter={() => onCellMouseEnter(r, c)}
-                            onDoubleClick={() => startEdit()}
-                            onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                            style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
-                            className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
-                              inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
-                            } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
-                          >
-                            <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
-                              {custom !== undefined ? (
-                                custom
-                              ) : (
-                                <div
-                                  className={`whitespace-pre-line break-words py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[length:calc(14px*var(--ui-fs,1))]' : ''}`}
-                                  title={col.type === 'memo' && text.length > 20 ? text : undefined}
-                                >
-                                  {text}
-                                </div>
-                              )}
-                              {col.type === 'date' && !col.picker && !ro(row, col) && (
-                                <span
-                                  onMouseDown={(e) => {
-                                    // 달력 아이콘을 누르면 바로 달력을 연다.
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    if (editing) commitEdit()
-                                    select(r, c)
-                                    setSinkValue(text)
-                                    setEditing(true)
-                                    requestAnimationFrame(() => sinkRef.current?.focus())
-                                  }}
-                                  className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
-                                  title="달력에서 고르기"
-                                >
-                                  <Calendar {...icSm} />
-                                </span>
-                              )}
-                              {col.picker && !ro(row, col) && (
-                                <span
-                                  onMouseDown={(e) => {
-                                    // ▾를 누르면 바로 목록을 연다.
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    if (editing) commitEdit()
-                                    openPicker(r, c)
-                                  }}
-                                  className="ml-auto flex shrink-0 cursor-pointer items-center rounded p-0.5 text-label-3 hover:bg-black/[0.05] hover:text-label-2"
-                                  title="목록에서 고르기"
-                                >
-                                  <ChevronDown {...icSm} />
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                        )
-                      })}
-                      <td className="border-b border-[#EBEBEF]" />
-                    </tr>
-                    {(() => {
-                      const detail = props.rowDetail?.(row)
-                      if (detail == null) return null
-                      const span = nC + (noNum ? 0 : 1) + (check ? 1 : 0)
-                      if (Array.isArray(detail)) {
-                        const s = Math.max(
-                          1,
-                          columns.findIndex((c) => c.id === props.rowDetailSplit),
-                        )
-                        const lead = s + (check ? 1 : 0)
-                        return detail.map((line) => (
-                          <tr key={line.key} data-row-detail>
-                            <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
-                            <td colSpan={lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-4 py-[10px] align-middle">
-                              {line.lead}
-                            </td>
-                            <td colSpan={span - lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-3 py-[10px] align-middle">
-                              {line.rest}
-                            </td>
-                          </tr>
-                        ))
-                      }
-                      return (
-                        <tr data-row-detail>
-                          <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
-                          <td colSpan={span} className="bg-[#E7EAEE] p-0">
-                            {detail}
-                          </td>
-                        </tr>
-                      )
-                    })()}
-                  </Fragment>
-                )
-              })}
-              {renderHeaders(nR)}
-              {dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === nR && (
-                <tr>
-                  <td colSpan={nC + (noNum ? 1 : 2) + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {rows.length === 0 && !props.groupHeaders?.(0)?.length && (
-            <div className="px-4 py-10 text-center text-sm text-gray-400">{props.emptyText ?? '행이 없습니다.'}</div>
-          )}
-
-          {/* 활성 칸 위의 입력칸 -- 선택 상태에선 투명, 편집 상태에선 보인다 */}
-          {sinkBox && (
-            <textarea
-              ref={sinkRef}
-              value={editing ? sinkValue : ''}
-              onChange={onSinkChange}
-              onKeyDown={onSinkKeyDown}
-              onCompositionStart={() => {
-                composing.current = true
-                if (!editing && !ro(activeRow, activeCol)) setEditing(true)
-              }}
-              onCompositionEnd={() => {
-                composing.current = false
-              }}
-              onCopy={onCopy}
-              onCut={onCut}
-              onPaste={onPasteEvent}
-              onBlur={() => {
-                if (editing && !menu) commitEdit()
-              }}
-              spellCheck={false}
-              className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[length:calc(14.5px*var(--ui-fs,1))] leading-snug outline-none ${
-                editing && !plainPick
-                  ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
-                  : 'pointer-events-none bg-transparent text-transparent caret-transparent shadow-none'
-              }`}
-              style={{
-                left: sinkBox.left,
-                top: sinkBox.top,
-                width: editing && activeCol?.type === 'memo' ? Math.max(sinkBox.width, 280) : sinkBox.width,
-                height: editing && activeCol?.type === 'memo' ? Math.max(sinkBox.height, 120) : sinkBox.height,
-                minHeight: sinkBox.height,
-              }}
-              aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
-              placeholder={editing && activeCol?.picker && !plainPick ? (activeCol.picker.allowNew ? '찾기 · 없으면 입력 후 Enter' : '찾기') : undefined}
-            />
-          )}
-
-          {dateEditing &&
-            popPos &&
-            activeRow &&
-            createPortal(
-              <div
-                data-grid-popup
-                onMouseDown={(e) => e.preventDefault()}
-                className="mac-pop fixed z-[60]"
-                style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom }}
-              >
-                <DatePopup
-                  typingHint
-                  value={sinkValue}
-                  onPick={(iso) => {
-                    if (iso !== getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: iso }])
-                    setEditing(false)
-                    setSinkValue('')
-                    requestAnimationFrame(focusSink)
-                  }}
-                  onClear={() => {
-                    if (getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: '' }])
-                    setEditing(false)
-                    setSinkValue('')
-                    requestAnimationFrame(focusSink)
-                  }}
-                />
-              </div>,
-              document.body,
-            )}
-
-          {editing &&
-            activeCol?.picker &&
-            popPos &&
-            createPortal(
-              <div
-                data-grid-popup
-                role="listbox"
-                aria-multiselectable={activeCol.picker.multi ? 'true' : undefined}
-                onMouseDown={(e) => e.preventDefault()}
-                className="mac-pop fixed z-[60] text-sm"
-                style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: plainPick ? undefined : popPos.width }}
-              >
-                <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto p-2.5">
-                  {filteredOptions.map((n, i) => {
-                    const pk = activeCol.picker!
-                    const on = picked.includes(n)
-                    const known = pk.options.includes(n)
-                    const tone = pk.tone?.(n, known) ?? 'bg-blue-50 text-blue-800'
+                    </th>
+                  )}
+                  {columns.map((col, c) => {
+                    const colSelected = sel?.t === 'cols' && c >= lo(sel.a, sel.b) && c <= hi(sel.a, sel.b)
                     return (
-                      <button
-                        key={n}
-                        role="option"
-                        aria-selected={on}
-                        onMouseEnter={() => {
-                          setChoiceIndex(i)
-                          setKbNav(false)
+                      <th
+                        key={col.id}
+                        ref={(el) => {
+                          if (el) headRefs.current.set(c, el)
+                          else headRefs.current.delete(c)
                         }}
-                        onMouseDown={(e) => {
-                          e.preventDefault()
-                          if (!pk.multi) {
-                            choose(n)
-                            return
-                          }
-                          setPicked((cur) => (on ? cur.filter((x) => x !== n) : [...cur, n]))
-                          setSinkValue('')
+                        onMouseDown={(e) => onHeadMouseDown(e, c)}
+                        onDoubleClick={() => !props.fixedColumns && setRenaming(col.id)}
+                        onContextMenu={(e) => (props.fixedColumns ? e.preventDefault() : openMenu(e, 'col', undefined, c))}
+                        style={{
+                          boxShadow: colSelected
+                            ? [
+                                `inset 0 2px 0 ${SEL_BLUE}`,
+                                c === lo(sel!.a, sel!.b) && `inset 2px 0 0 ${SEL_BLUE}`,
+                                c === hi(sel!.a, sel!.b) && `inset -2px 0 0 ${SEL_BLUE}`,
+                              ]
+                                .filter(Boolean)
+                                .join(', ')
+                            : undefined,
                         }}
-                        title={pk.multi ? (on ? '누르면 빼기' : '누르면 넣기') : undefined}
-                        className={`${CHIP_BASE} cursor-pointer transition-colors ${on ? tone : CHIP_IDLE} ${
-                          i === choiceIndex && (kbNav || sinkValue.trim()) ? 'outline outline-2 outline-offset-1 outline-accent/60' : ''
-                        }`}
+                        className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
+                          colSelected ? 'bg-accent-soft text-accent' : ''
+                        } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
+                        title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
                       >
-                        {n}
-                        {on && pk.multi && <span className="ml-1 opacity-60">×</span>}
-                      </button>
+                        {renaming === col.id ? (
+                          <input
+                            autoFocus
+                            onFocus={(e) => e.target.select()}
+                            defaultValue={col.label}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onBlur={(e) => {
+                              const v = e.target.value.trim()
+                              if (v && v !== col.label) props.onRenameColumn?.(col.id, v)
+                              setRenaming(null)
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                              if (e.key === 'Escape') setRenaming(null)
+                            }}
+                            className="w-full rounded bg-white px-1 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-black outline-none"
+                          />
+                        ) : (
+                          <span className="flex items-center gap-1 truncate">
+                            {col.sub ? (
+                              <span className="flex min-w-0 flex-col leading-tight">
+                                <span className="truncate">{col.label}</span>
+                                <span className="truncate text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{col.sub}</span>
+                              </span>
+                            ) : (
+                              <span className="truncate">{col.label}</span>
+                            )}
+                            {!col.system && <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">추가</span>}
+                          </span>
+                        )}
+                        <span onMouseDown={(e) => onResizeStart(e, col)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />
+                      </th>
                     )
                   })}
-                  {activeCol.picker.allowNew && sinkValue.trim() && !filteredOptions.includes(sinkValue.trim()) && (
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        const q = sinkValue.trim()
-                        if (!activeCol.picker!.multi) {
-                          choose(q)
-                          return
+                  <th className="h-9 border-b border-[#E3E3E8] p-0 text-center">
+                    {!props.fixedColumns && props.onInsertColumn && (
+                      <button
+                        onClick={() => props.onInsertColumn!(nC)}
+                        title="열 추가"
+                        className="flex h-9 w-full items-center justify-center border-b border-[#E3E3E8] text-label-3 hover:bg-black/[0.05] hover:text-label"
+                      >
+                        <Plus {...icSm} />
+                      </button>
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, r) => {
+                  const rowSelected = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
+                  return (
+                    <Fragment key={row.id}>
+                      {renderHeaders(r)}
+                      <tr
+                        ref={(el) => {
+                          if (el) rowRefs.current.set(r, el)
+                          else rowRefs.current.delete(r)
+                        }}
+                        className={`group/row ${props.rowClassName?.(row) ?? ''} ${
+                          dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === r ? 'shadow-[inset_0_3px_0_#F97316]' : ''
+                        }`}
+                      >
+                        {!noNum && (
+                          <td
+                            onMouseDown={(e) => onRowHandleMouseDown(e, r)}
+                            onMouseEnter={() => onCellMouseEnter(r, 0)}
+                            onContextMenu={(e) => openMenu(e, 'row', r)}
+                            style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
+                            className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
+                              rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
+                            }`}
+                            title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
+                          >
+                            <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
+                            <span className="inline-flex items-center gap-1">
+                              {props.rowNumber ? props.rowNumber(row, r) : r + 1}
+                              {props.rowMarker?.(row)}
+                            </span>
+                          </td>
+                        )}
+                        {check && (
+                          <td
+                            onMouseDown={(e) => (noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation())}
+                            onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
+                            onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
+                            style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
+                            className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
+                            title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
+                          >
+                            {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
+                            {noNum && props.rowMarker && <span className="absolute left-1 top-1/2 -translate-y-1/2">{props.rowMarker(row)}</span>}
+                            <input
+                              type="checkbox"
+                              checked={check.isChecked(row)}
+                              disabled={check.isDisabled?.(row)}
+                              onChange={(e) => check.onToggle([row], e.target.checked)}
+                              className="h-4 w-4 cursor-pointer accent-accent align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                            />
+                          </td>
+                        )}
+                        {columns.map((col, c) => {
+                          const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
+                          const isActive = active?.r === r && active?.c === c
+                          const custom = props.renderCell?.(row, col)
+                          const text = getText(row, col.id)
+                          return (
+                            <td
+                              key={col.id}
+                              ref={(el) => {
+                                const k = `${r}:${c}`
+                                if (el) cellRefs.current.set(k, el)
+                                else cellRefs.current.delete(k)
+                              }}
+                              onMouseDown={(e) => onCellMouseDown(e, r, c)}
+                              onMouseEnter={() => onCellMouseEnter(r, c)}
+                              onDoubleClick={() => startEdit()}
+                              onContextMenu={(e) => openMenu(e, 'cell', r, c)}
+                              style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
+                              className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
+                                inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
+                              } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
+                            >
+                              <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
+                                {custom !== undefined ? (
+                                  custom
+                                ) : (
+                                  <div
+                                    className={`${col.type === 'date' ? 'whitespace-nowrap' : 'whitespace-pre-line break-words'} py-1.5 leading-snug ${col.type === 'memo' ? 'line-clamp-3 text-[length:calc(14px*var(--ui-fs,1))]' : ''}`}
+                                    title={col.type === 'memo' && text.length > 20 ? text : undefined}
+                                  >
+                                    {text}
+                                  </div>
+                                )}
+                                {col.type === 'date' && !col.picker && !ro(row, col) && (
+                                  <span
+                                    onMouseDown={(e) => {
+                                      // 달력 아이콘을 누르면 바로 달력을 연다.
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      if (editing) commitEdit()
+                                      select(r, c)
+                                      setSinkValue(text)
+                                      setEditing(true)
+                                      requestAnimationFrame(() => sinkRef.current?.focus())
+                                    }}
+                                    className="ml-auto shrink-0 cursor-pointer rounded p-0.5 text-gray-300 opacity-0 hover:bg-gray-100 hover:text-gray-700 group-hover/row:opacity-100"
+                                    title="달력에서 고르기"
+                                  >
+                                    <Calendar {...icSm} />
+                                  </span>
+                                )}
+                                {col.picker && !ro(row, col) && (
+                                  <span
+                                    onMouseDown={(e) => {
+                                      // ▾를 누르면 바로 목록을 연다.
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      if (editing) commitEdit()
+                                      openPicker(r, c)
+                                    }}
+                                    className="ml-auto flex shrink-0 cursor-pointer items-center rounded p-0.5 text-label-3 hover:bg-black/[0.05] hover:text-label-2"
+                                    title="목록에서 고르기"
+                                  >
+                                    <ChevronDown {...icSm} />
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )
+                        })}
+                        <td className="border-b border-[#EBEBEF]" />
+                      </tr>
+                      {(() => {
+                        const detail = props.rowDetail?.(row)
+                        if (detail == null) return null
+                        const span = nC + (noNum ? 0 : 1) + (check ? 1 : 0)
+                        if (Array.isArray(detail)) {
+                          const s = Math.max(
+                            1,
+                            columns.findIndex((c) => c.id === props.rowDetailSplit),
+                          )
+                          const lead = s + (check ? 1 : 0)
+                          return detail.map((line) => (
+                            <tr key={line.key} data-row-detail>
+                              <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
+                              <td colSpan={lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-4 py-[10px] align-middle">
+                                {line.lead}
+                              </td>
+                              <td colSpan={span - lead} className="border-b border-[#DBDBDB] bg-[#E7EAEE] px-3 py-[10px] align-middle">
+                                {line.rest}
+                              </td>
+                            </tr>
+                          ))
                         }
-                        setPicked((cur) => (cur.includes(q) ? cur : [...cur, q]))
-                        setSinkValue('')
-                      }}
-                      className={`${CHIP_BASE} border border-dashed border-accent bg-white text-accent`}
-                    >
-                      ＋ {sinkValue.trim()}
-                    </button>
-                  )}
-                  {filteredOptions.length === 0 && !(activeCol.picker.allowNew && sinkValue.trim()) && (
-                    <p className="text-xs text-gray-400">
-                      {activeCol.picker.options.length ? '맞는 값이 없습니다' : '고를 값이 없습니다. 입력해서 추가하세요.'}
-                    </p>
-                  )}
-                </div>
-                {activeCol.picker.multi && (
-                  <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
-                    {
+                        return (
+                          <tr data-row-detail>
+                            <td className="border-b border-[#DBDBDB] bg-[#E7EAEE]" />
+                            <td colSpan={span} className="bg-[#E7EAEE] p-0">
+                              {detail}
+                            </td>
+                          </tr>
+                        )
+                      })()}
+                    </Fragment>
+                  )
+                })}
+                {renderHeaders(nR)}
+                {dragInsert?.kind === 'row' && !dragInsert.headKey && dragInsert.index === nR && (
+                  <tr>
+                    <td colSpan={nC + (noNum ? 1 : 2) + (check ? 1 : 0)} className="h-0 p-0 shadow-[inset_0_3px_0_#F97316]" />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+
+            {rows.length === 0 && !props.groupHeaders?.(0)?.length && (
+              <div className="px-4 py-10 text-center text-sm text-gray-400">{props.emptyText ?? '행이 없습니다.'}</div>
+            )}
+
+            {/* 활성 칸 위의 입력칸 -- 선택 상태에선 투명, 편집 상태에선 보인다 */}
+            {sinkBox && (
+              <textarea
+                ref={sinkRef}
+                value={editing ? sinkValue : ''}
+                onChange={onSinkChange}
+                onKeyDown={onSinkKeyDown}
+                onCompositionStart={() => {
+                  composing.current = true
+                  if (!editing && !ro(activeRow, activeCol)) setEditing(true)
+                }}
+                onCompositionEnd={() => {
+                  composing.current = false
+                }}
+                onCopy={onCopy}
+                onCut={onCut}
+                onPaste={onPasteEvent}
+                onBlur={() => {
+                  if (editing && !menu) commitEdit()
+                }}
+                spellCheck={false}
+                className={`absolute z-10 resize-none rounded-none border-0 px-2 py-[7px] text-[length:calc(14.5px*var(--ui-fs,1))] leading-snug outline-none ${
+                  editing && !plainPick
+                    ? 'bg-white text-black shadow-[0_0_0_2px_#007AFF,0_8px_24px_rgba(0,0,0,.12)]'
+                    : 'pointer-events-none bg-transparent text-transparent caret-transparent shadow-none'
+                }`}
+                style={{
+                  left: sinkBox.left,
+                  top: sinkBox.top,
+                  width: editing && activeCol?.type === 'memo' ? Math.max(sinkBox.width, 280) : sinkBox.width,
+                  height: editing && activeCol?.type === 'memo' ? Math.max(sinkBox.height, 120) : sinkBox.height,
+                  minHeight: sinkBox.height,
+                }}
+                aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
+                placeholder={editing && activeCol?.picker && !plainPick ? (activeCol.picker.allowNew ? '찾기 · 없으면 입력 후 Enter' : '찾기') : undefined}
+              />
+            )}
+
+            {dateEditing &&
+              popPos &&
+              activeRow &&
+              createPortal(
+                <div
+                  data-grid-popup
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="mac-pop fixed z-[60]"
+                  style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom }}
+                >
+                  <DatePopup
+                    typingHint
+                    value={sinkValue}
+                    onPick={(iso) => {
+                      if (iso !== getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: iso }])
+                      setEditing(false)
+                      setSinkValue('')
+                      requestAnimationFrame(focusSink)
+                    }}
+                    onClear={() => {
+                      if (getText(activeRow, activeCol!.id)) props.onCommit([{ rowId: activeRow.id, colId: activeCol!.id, text: '' }])
+                      setEditing(false)
+                      setSinkValue('')
+                      requestAnimationFrame(focusSink)
+                    }}
+                  />
+                </div>,
+                document.body,
+              )}
+
+            {editing &&
+              activeCol?.picker &&
+              popPos &&
+              createPortal(
+                <div
+                  data-grid-popup
+                  role="listbox"
+                  aria-multiselectable={activeCol.picker.multi ? 'true' : undefined}
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="mac-pop fixed z-[60] text-sm"
+                  style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: plainPick ? undefined : popPos.width }}
+                >
+                  <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto p-2.5">
+                    {filteredOptions.map((n, i) => {
+                      const pk = activeCol.picker!
+                      const on = picked.includes(n)
+                      const known = pk.options.includes(n)
+                      const tone = pk.tone?.(n, known) ?? 'bg-blue-50 text-blue-800'
+                      return (
+                        <button
+                          key={n}
+                          role="option"
+                          aria-selected={on}
+                          onMouseEnter={() => {
+                            setChoiceIndex(i)
+                            setKbNav(false)
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            if (!pk.multi) {
+                              choose(n)
+                              return
+                            }
+                            setPicked((cur) => (on ? cur.filter((x) => x !== n) : [...cur, n]))
+                            setSinkValue('')
+                          }}
+                          title={pk.multi ? (on ? '누르면 빼기' : '누르면 넣기') : undefined}
+                          className={`${CHIP_BASE} cursor-pointer transition-colors ${on ? tone : CHIP_IDLE} ${
+                            i === choiceIndex && (kbNav || sinkValue.trim()) ? 'outline outline-2 outline-offset-1 outline-accent/60' : ''
+                          }`}
+                        >
+                          {n}
+                          {on && pk.multi && <span className="ml-1 opacity-60">×</span>}
+                        </button>
+                      )
+                    })}
+                    {activeCol.picker.allowNew && sinkValue.trim() && !filteredOptions.includes(sinkValue.trim()) && (
                       <button
                         onMouseDown={(e) => {
                           e.preventDefault()
-                          commitEdit()
+                          const q = sinkValue.trim()
+                          if (!activeCol.picker!.multi) {
+                            choose(q)
+                            return
+                          }
+                          setPicked((cur) => (cur.includes(q) ? cur : [...cur, q]))
+                          setSinkValue('')
                         }}
-                        className="font-semibold text-accent"
+                        className={`${CHIP_BASE} border border-dashed border-accent bg-white text-accent`}
                       >
-                        완료
+                        ＋ {sinkValue.trim()}
                       </button>
-                    }
+                    )}
+                    {filteredOptions.length === 0 && !(activeCol.picker.allowNew && sinkValue.trim()) && (
+                      <p className="text-xs text-gray-400">
+                        {activeCol.picker.options.length ? '맞는 값이 없습니다' : '고를 값이 없습니다. 입력해서 추가하세요.'}
+                      </p>
+                    )}
                   </div>
-                )}
-              </div>,
-              document.body,
-            )}
+                  {activeCol.picker.multi && (
+                    <div className="flex items-center justify-end border-t border-separator px-3 py-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
+                      {
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            commitEdit()
+                          }}
+                          className="font-semibold text-accent"
+                        >
+                          완료
+                        </button>
+                      }
+                    </div>
+                  )}
+                </div>,
+                document.body,
+              )}
+          </div>
         </div>
+        {/* 옆으로 넘치면 오른쪽 끝 그림자(「밀면 더 있다」) */}
+        <ScrollEdgeShades {...scrollEdges} />
       </div>
 
       {props.onInsertRows && (

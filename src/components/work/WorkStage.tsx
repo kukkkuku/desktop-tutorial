@@ -753,7 +753,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const mergedDates = visibleCols.some((c) => c.id === 'startDate') && visibleCols.some((c) => c.id === 'doneDate')
   const gridColumns: GridColumn[] = (() => {
     const out: GridColumn[] = []
-    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 100, system: true, readOnly: true }
+    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 88, system: true, readOnly: true }
     for (const g of baseColumns) {
       if (mergedDates && g.id === 'doneDate') continue
       if (mergedDates && g.id === 'startDate') {
@@ -765,7 +765,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     }
     if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)
     if (evalOnly) out.unshift({ id: V_L2, label: '그룹(L2)', type: 'text', width: vWidths[V_L2] ?? 150, system: true, readOnly: true })
-    out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 300, system: true, readOnly: true })
+    out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 260, system: true, readOnly: true })
     return out
   })()
   // 표의 열 자리(가상 열 포함) → 보이는 보드 열 자리. 시작일/완료일 칸은 실제 열 두 개.

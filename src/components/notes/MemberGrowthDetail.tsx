@@ -121,8 +121,9 @@ function TaskRow({
   const hasSub = !!subItems && subItems.length > 0
   return (
     <div className="py-2">
-      <div className="flex items-center gap-3">
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+      {/* 칸이 좁으면 과제명이 「예…」로 잘리지 않게 숫자 묶음이 다음 줄 오른쪽으로 내려간다 */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex min-w-[160px] flex-1 items-center gap-1.5">
           <span className={`mac-badge shrink-0 rounded-[4px] px-1.5 ${IMPORTANCE_COLORS[importance]}`}>{importance}</span>
           {hasSub ? (
             <button
@@ -130,17 +131,23 @@ function TaskRow({
               className="flex min-w-0 items-center gap-1 text-left hover:text-accent"
               title={open ? 'L3 접기' : 'L3 펼치기'}
             >
-              <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{name}</span>
+              <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label" title={name}>
+                {name}
+              </span>
               <span className="shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{subItems!.length}</span>
               <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${open ? '' : '-rotate-90'}`} />
             </button>
           ) : (
-            <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{name}</span>
+            <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label" title={name}>
+              {name}
+            </span>
           )}
         </span>
-        <span className="w-10 shrink-0 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{percent}%</span>
-        <span className="w-14 shrink-0 text-right text-[length:calc(14px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
-        <span className="flex shrink-0 items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-3">
+          <span className="w-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{percent}%</span>
+          <span className="w-14 text-right text-[length:calc(14px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
+          <span className="flex items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
+        </span>
       </div>
       {open && hasSub && (
         <ul className="mt-1.5 space-y-1 rounded-control bg-[#F7F7F9] px-3 py-2">

@@ -28,6 +28,7 @@ import { Trophy } from 'lucide-react'
 import { icSm } from './ui/icon'
 import { tasksOutOfSync } from '../utils/assigneeSync'
 import Select from './ui/Select'
+import ScrollX from './ui/ScrollX'
 
 const MIN_COL_WIDTH = 56
 
@@ -36,7 +37,7 @@ const MIN_COL_WIDTH = 56
 const DEFAULT_TASK_COL_WIDTH = 320
 // "기여도" 타이틀 한 줄에 딱 맞는 고정 폭 -- 조절 불가.
 const SUM_COL_WIDTH = 72
-const PCT_COL_WIDTH = 104
+const PCT_COL_WIDTH = 120
 const GRADE_COL_WIDTH = 120
 
 function ResizeHandle({
@@ -203,7 +204,7 @@ export default function EvaluationMatrix() {
         </p>
       ) : (
         <>
-          <div className="mt-4 overflow-x-auto rounded-card border border-separator bg-white">
+          <ScrollX className="mt-4 rounded-card border border-separator bg-white">
             <table className="table-fixed border-collapse text-left text-[length:calc(14px*var(--ui-fs,1))]" style={{ width: '100%', minWidth: tableWidth }}>
               <colgroup>
                 <col style={{ width: taskWidth }} />
@@ -236,22 +237,32 @@ export default function EvaluationMatrix() {
                     const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
                     const result = resultIdx >= 0 ? memberResults[resultIdx] : undefined
                     return (
-                      <th key={member.id} colSpan={showGrade ? 2 : 1} className="border-b border-l border-separator px-3 py-2 text-center font-semibold">
+                      <th key={member.id} colSpan={showGrade ? 2 : 1} className="whitespace-nowrap border-b border-l border-separator px-2 py-2 text-center font-semibold">
+                        {/* 이름 · 등급 / 순위 · 점수 / 피어 -- 칸이 좁아도 글자가 꺾이지 않게 줄을 나눈다(넘치면 표를 옆으로 민다) */}
                         <div className="flex items-center justify-center gap-1.5">
-                          <span className="text-label">{member.name}</span>
-                          {result && hasScores ? (
-                            <>
-                              <span className={`rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`} title={result.grade ? undefined : UNGRADED_HINT}>{gradeText(result.grade)}</span>
-                              <span className="text-xs font-normal text-label-2">{resultIdx + 1}위</span>
-                              <span
-                                className="cursor-help text-xs font-normal text-label-2 underline decoration-dotted underline-offset-2"
-                                title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
-                              >
-                                {result.cumulativeScore.toFixed(1)}점
-                              </span>
-                            </>
-                          ) : null}
+                          <span className="truncate text-label" title={member.name}>
+                            {member.name}
+                          </span>
+                          {result && hasScores && (
+                            <span
+                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`}
+                              title={result.grade ? undefined : UNGRADED_HINT}
+                            >
+                              {gradeText(result.grade)}
+                            </span>
+                          )}
                         </div>
+                        {result && hasScores && (
+                          <div className="mt-0.5 text-xs font-normal text-label-2">
+                            {resultIdx + 1}위 ·{' '}
+                            <span
+                              className="cursor-help tabular-nums underline decoration-dotted underline-offset-2"
+                              title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
+                            >
+                              {result.cumulativeScore.toFixed(1)}점
+                            </span>
+                          </div>
+                        )}
                         <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
                       </th>
                     )
@@ -372,7 +383,7 @@ export default function EvaluationMatrix() {
                 })}
               </tbody>
             </table>
-          </div>
+          </ScrollX>
 
           {invalidTasks.length > 0 && (
             <div className="mt-3 space-y-1 rounded-control border border-danger/30 bg-danger/10 px-4 py-3">

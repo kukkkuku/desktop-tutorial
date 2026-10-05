@@ -36,7 +36,8 @@ function displayServiceYears(member: TeamMember, foundingDay: string | null): st
   if (ym) {
     const base = `${ym.years}년 ${ym.months}개월`
     const f = countFoundingAnniversaries(member.hireDate, foundingDay)
-    return f === null ? `${base}(-)` : `${base}(${f}년)`
+    // 창립기념일을 안 정했으면 괄호 없이
+    return f === null ? base : `${base}(${f}년)`
   }
   return member.yearsOfService != null ? `${member.yearsOfService}년` : '-'
 }
@@ -214,10 +215,10 @@ export default function TeamManagement() {
     { id: 'name', label: '이름', type: 'text', width: 80, system: true },
     // 팀원 명단 · 초대: 이름 바로 뒤(Gmail 아이디만 보이고, 오른쪽 끝에 초대 상태 -- 초대 전 / ✓ ○.○)
     { id: 'email', label: 'Gmail', type: 'text', width: 132, system: true },
-    { id: 'hireDate', label: '입사일', type: 'date', width: 88, system: true },
+    { id: 'hireDate', label: '입사일', type: 'date', width: 100, system: true },
     { id: 'service', label: '근속', type: 'text', width: 88, system: true, readOnly: true },
     { id: 'level', label: '직급', type: 'select', width: 66, system: true, picker: { options: LEVEL_OPTIONS, tone: () => 'bg-black/[0.05] text-label' } },
-    { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 88, system: true },
+    { id: 'currentLevelSince', label: '직급 발령일', type: 'date', width: 100, system: true },
     { id: 'levelTenure', label: '직급 연차', type: 'text', width: 74, system: true, readOnly: true },
     { id: 'role', label: '역할', type: 'text', width: 64, system: true },
     {
