@@ -17,11 +17,12 @@ export function normalizeGmail(v: string): string {
   return t.includes('@') ? t : `${t}@gmail.com`
 }
 
-// 우리 팀 명단: 팀 칸이 우리 팀 · 내 팀이거나, 팀이 비었으면 내가 추가한 팀원
+// 우리 팀 명단: 팀 칸이 이 평가의 팀 이름이거나, 팀이 비었으면 내가 추가한 팀원.
+// (예전엔 권한 시트의 「내 팀」도 우리 팀으로 쳤다 -- 관리자가 팀 이름을 바꾸거나 팀장을 옮기면 두 팀 팀원이 섞여
+//  평가에 자동으로 들어갔다. 이름이 다르면 평가 목록 위 「팀 이름 맞추기」 안내로 맞춘다)
 export function teamRosterOf(access: AccessData, teamName: string, me: string): AccessUser[] {
-  const myTeam = access.users.find((u) => u.email === me)?.team ?? ''
   const t = norm(teamName)
-  return access.users.filter((u) => u.role === 'member' && (u.team ? u.team === t || (!!myTeam && u.team === myTeam) : u.addedBy === me))
+  return access.users.filter((u) => u.role === 'member' && (u.team ? norm(u.team) === t : u.addedBy === me))
 }
 
 // 이 평가 팀원에 해당하는 명단 줄

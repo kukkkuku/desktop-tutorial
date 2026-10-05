@@ -6,6 +6,7 @@ import { migrateLegacyDataOnce } from '../utils/legacyMigration'
 import {
   cyclePreferenceKey,
   currentWorkspaceKey,
+  teamProfileKey,
   teamsKey,
   workspaceStateKey as workspaceStateKeyFor,
   workspacesKey,
@@ -228,6 +229,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       } catch {
         // 팀원 담당팀을 못 고쳐도 팀 이름은 바뀐다
       }
+    }
+    // 팀 단위 기록(인사평가 이력 · 승진 기준)도 새 이름으로 옮긴다 -- 안 옮기면 옛 이름에 남아 면담 화면에서 안 보였다.
+    // 새 이름에 이미 기록이 있으면(같은 팀으로 합치는 경우) 그쪽을 둔다.
+    try {
+      const oldKey = teamProfileKey(from)
+      const newKey = teamProfileKey(t)
+      const raw = localStorage.getItem(oldKey)
+      if (raw && !localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, raw)
+        localStorage.removeItem(oldKey)
+      }
+    } catch {
+      // 못 옮겨도 이름은 바뀐다(옛 기록은 옛 이름에 그대로)
     }
     setWorkspaces((prev) => prev.map((w) => (w.teamName === from ? { ...w, teamName: t } : w)))
     setCyclePreferences((prev) => {

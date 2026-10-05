@@ -17,7 +17,6 @@ import YearPicker from './YearPicker'
 import { ic, icSm } from './ui/icon'
 import { isPendingEmail, updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
-import { isAdminEmail } from '../utils/roles'
 import { useAppMode, type PerfStage } from '../state/AppMode'
 
 const MAX_VISIBLE_AVATARS = 6
@@ -287,21 +286,46 @@ export default function WorkspaceLanding() {
   const members = useMemo(() => teamMembersOf(access, teamName, me), [access, teamName, me])
   const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 
-  // 팀 이름 바꾸기: 팀원 명단(권한 시트)에 이 팀으로 적힌 사람도 같이 바꿀지
-  const accessHits = useMemo(
-    () => (access && me ? access.users.filter((u) => u.team === teamName && (isAdminEmail(me) || u.email === me || u.addedBy === me)) : []),
-    [access, me, teamName],
-  )
+  // 팀 이름 바꾸기: 팀원 명단(권한 시트)에 이 팀으로 적힌 사람도 같이 바꿀지 -- 관리자가 추가한 팀원까지 모두
+  // (예전엔 내가 추가한 사람만 바꿔서 관리자가 넣은 팀원은 옛 팀에 남았다)
+  const accessHits = useMemo(() => (access && me ? access.users.filter((u) => u.team.trim() === teamName.trim()) : []), [access, me, teamName])
+  const othersAdded = accessHits.filter((u) => u.email !== me && u.addedBy !== me).length
   const [note, setNote] = useState('')
+  // 팀 이름 맞추기 안내: 권한 시트의 내 팀이 이 평가 목록 팀 이름과 다르고,
+  // 평가 목록 이름의 팀이 권한 시트에서 사라졌거나(관리자가 이름을 바꿈) 팀장이 없을 때(내가 다른 팀으로 옮겨짐).
+  // 내가 여러 팀을 맡아 평가 목록에 팀이 여럿이어도, 그 팀이 권한 시트에 살아 있으면 묻지 않는다.
+  const alignTo = useMemo(() => {
+    const mine = myTeam.trim()
+    const t = teamName.trim()
+    if (!access || !mine || !t || mine === t) return ''
+    const inSheet = access.users.filter((u) => u.team.trim() === t)
+    const gone = inSheet.length === 0
+    const leaderless = !inSheet.some((u) => u.role !== 'member')
+    return gone || leaderless ? mine : ''
+  }, [access, myTeam, teamName])
+  const alignKey = `team-align-later:${teamName}->${alignTo}`
+  const [alignLater, setAlignLater] = useState(() => {
+    try {
+      return sessionStorage.getItem(alignKey) === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      setAlignLater(sessionStorage.getItem(alignKey) === '1')
+    } catch {
+      setAlignLater(false)
+    }
+  }, [alignKey])
   async function doRenameTeam(to: string, alsoAccess: boolean) {
     const from = teamName
     renameTeam(from, to)
     setTeamName(to)
     close()
     if (!alsoAccess || !access || !accessHits.length) return
-    const admin = isAdminEmail(me)
     try {
-      await updateUsers(access.id, (users) => users.map((u) => (u.team === from && (admin || u.email === me || u.addedBy === me) ? { ...u, team: to } : u)), me, [
+      await updateUsers(access.id, (users) => users.map((u) => (u.team.trim() === from.trim() ? { ...u, team: to } : u)), me, [
         `팀 이름(성과관리에서 바꿈): ${from} → ${to}`,
       ])
     } catch (e) {
@@ -343,6 +367,36 @@ export default function WorkspaceLanding() {
           </p>
         )}
 
+        {/* 팀 이름 맞추기: 권한 시트의 내 팀과 평가 목록 팀 이름이 다를 때(관리자가 이름을 바꿨거나 팀을 옮김) */}
+        {alignTo && !alignLater && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-accent/30 bg-accent-soft px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+            <span className="min-w-0 flex-1">
+              관리에서 내 팀이 <b className="text-accent">「{alignTo}」</b>(으)로 되어 있습니다(평가 목록은 「{teamName}」). 평가 목록 팀 이름도 맞출까요?
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              <Button variant="primary" size="sm" onClick={() => void doRenameTeam(alignTo, false)}>
+                「{alignTo}」(으)로 맞추기
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(alignKey, '1')
+                  } catch {
+                    // 기억 못 해도 지금은 닫는다
+                  }
+                  setAlignLater(true)
+                }}
+              >
+                나중에
+              </Button>
+            </span>
+            <span className="basis-full text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
+              이 팀의 평가{teamWorkspaces.length ? ` ${teamWorkspaces.length}개` : ''} · 인사평가 이력 · 승진 기준이 새 이름으로 함께 옮겨집니다. 드라이브 백업 폴더 · 면담 캘린더는 새 이름으로 새로
+              만들어집니다(이전 것은 그대로). 맞추기 전에는 「{alignTo}」 팀원이 이 팀 평가에 자동으로 들어오지 않습니다.
+            </span>
+          </div>
+        )}
         {teamNames.length === 0 ? (
           // 팀이 하나도 없을 때: 가운데 카드 하나
           <section className="mx-auto mt-16 max-w-md rounded-[16px] bg-white px-8 py-10 text-center shadow-card">
@@ -494,8 +548,9 @@ export default function WorkspaceLanding() {
           initial={teamName}
           taken={teamNames.filter((x) => x !== teamName)}
           confirmLabel="바꾸기"
-          note={teamWorkspaces.length ? `이 팀의 평가 ${teamWorkspaces.length}개와 그 안 팀원의 담당팀도 함께 바뀝니다.` : undefined}
+          note={`${teamWorkspaces.length ? `이 팀의 평가 ${teamWorkspaces.length}개 · ` : ''}인사평가 이력 · 승진 기준이 새 이름으로 함께 옮겨집니다.`}
           accessCount={accessHits.length}
+          accessNote={othersAdded ? `관리자 등이 추가한 ${othersAdded}명 포함 · 끄면 내 평가 목록 이름만 바뀝니다` : '끄면 내 평가 목록 이름만 바뀝니다'}
           mustChange
           onClose={close}
           onSave={(name, alsoAccess) => void doRenameTeam(name, alsoAccess)}
@@ -585,6 +640,7 @@ function TeamNameDialog({
   confirmLabel,
   note,
   accessCount = 0,
+  accessNote,
   mustChange,
   onClose,
   onSave,
@@ -595,6 +651,7 @@ function TeamNameDialog({
   confirmLabel: string
   note?: string
   accessCount?: number
+  accessNote?: string
   mustChange?: boolean
   onClose: () => void
   onSave: (name: string, alsoAccess: boolean) => void
@@ -633,7 +690,10 @@ function TeamNameDialog({
       {accessCount > 0 && (
         <label className="mt-2 flex items-start gap-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
           <input type="checkbox" className="mt-[3px]" checked={alsoAccess} onChange={(e) => setAlsoAccess(e.target.checked)} />
-          팀원 명단(권한 시트)에서 이 팀으로 적힌 {accessCount}명의 팀 이름도 바꾸기
+          <span>
+            권한 시트에서 이 팀으로 적힌 {accessCount}명의 팀 이름도 함께 바꾸기
+            {accessNote && <span className="block text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">{accessNote}</span>}
+          </span>
         </label>
       )}
     </Modal>

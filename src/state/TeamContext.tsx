@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import type { EvaluationGrade, HRAppraisalRecord, PersonalNote, PersonalNoteColor, PromotionCriteriaRow, TeamProfile } from '../types'
 import { DEFAULT_GRADE_SCORES, DEFAULT_PROMOTION_CRITERIA } from '../utils/promotion'
@@ -54,18 +54,23 @@ const TeamContext = createContext<TeamContextValue | undefined>(undefined)
 // 바뀌어도 유지되어야 하는 데이터라 워크스페이스 상태(AppState)와 분리해 보관한다.
 export function TeamProvider({ teamName, children }: { teamName: string; children: ReactNode }) {
   const [profile, setProfile] = useState<TeamProfile>(() => loadProfile(teamName))
+  // 지금 들고 있는 기록이 어느 팀 것인지 -- 팀 이름이 바뀐 직후 옛 팀 기록을 새 팀 이름에 써 버리지 않게
+  const loadedFor = useRef(teamName)
 
   useEffect(() => {
+    if (loadedFor.current === teamName) return
+    loadedFor.current = teamName
     setProfile(loadProfile(teamName))
   }, [teamName])
 
+  // 기록이 바뀔 때만 저장하고, 저장 칸은 그 기록을 읽어 온 팀(팀 이름이 바뀐 그 순간에는 돌지 않는다)
   useEffect(() => {
     try {
-      localStorage.setItem(teamProfileKey(teamName), JSON.stringify(profile))
+      localStorage.setItem(teamProfileKey(loadedFor.current), JSON.stringify(profile))
     } catch {
       // Storage may be unavailable; keep running in-memory.
     }
-  }, [profile, teamName])
+  }, [profile])
 
   function upsertAppraisal(record: HRAppraisalRecord) {
     setProfile((p) => {

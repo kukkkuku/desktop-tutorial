@@ -3,7 +3,7 @@
 //   추가하면 권한 시트 「사용자」 탭에 팀원으로 바로 적힌다(역할을 바꾸는 것은 관리자의 「권한」 탭에서).
 import { errText } from '../../utils/googleError'
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { ChevronDown, FileSpreadsheet, Mail, Plus, Send, Trash2, X } from 'lucide-react'
+import { ChevronDown, FileSpreadsheet, Mail, Pencil, Plus, Send, Trash2, X } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
@@ -19,6 +19,7 @@ import { renameEvalTeam } from '../../utils/teamRename'
 import TeamInviteDialog from '../TeamInviteDialog'
 import Segmented from '../ui/Segmented'
 import Select from '../ui/Select'
+import Modal from '../ui/Modal'
 import AccessSheetStrip from './AccessSheetStrip'
 import { loadProgress } from '../../utils/progressBoard'
 
@@ -364,6 +365,9 @@ export default function MembersPanel({
       case 'sendTo':
         return <SendToInput u={u} disabled={busy || !mine} onSave={(v) => saveSendTo(u, v)} />
       case 'team':
+        // 권한 설정: 있는 팀에서 고르기 + 새 팀(글자로 치지 않아 「우리팀」/「우리 팀」 같은 오타 팀이 생기지 않게)
+        if (mine && scope === 'all')
+          return <TeamCell value={u.team} teams={sheetTeams} disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} />
         return mine ? <CellInput value={u.team} placeholder="—" disabled={busy} onSave={(v) => saveField(u, { team: v }, `팀: ${logWho(u)} → ${v || '(없음)'}`)} /> : u.team || '—'
       case 'role':
         // 역할은 관리자만 바꾼다(자기 자신은 못 바꿈 -- 관리자가 없어지지 않게)
@@ -501,6 +505,20 @@ export default function MembersPanel({
     return out
   })()
 
+  // 권한 시트에 있는 팀 이름 전부(팀 칸 고르기 목록)
+  const sheetTeams = useMemo(() => Array.from(new Set(data.users.map((u) => u.team.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ko')), [data.users])
+  // 팀 이름 바꾸기(묶음 머리): 그 팀 전원(팀장 포함)을 한 번에
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameTo, setRenameTo] = useState('')
+  function renameWholeTeam(from: string, to: string) {
+    const n = data.users.filter((u) => u.team.trim() === from).length
+    setRenaming(null)
+    void run(
+      () => updateUsers(data.id, (users) => users.map((u) => (u.team.trim() === from ? { ...u, team: to } : u)), me, [`팀 이름 바꿈: ${from} → ${to} (${n}명)`]),
+      `「${from}」 ${n}명의 팀 이름을 「${to}」(으)로 바꿨습니다. 팀장의 평가 목록에는 다음에 열 때 「팀 이름 맞추기」 안내가 뜹니다.`,
+    )
+  }
+
   // 묶음 접기(권한 설정) · 묶음 전체 고르기
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const allFolded = grouped.length > 0 && grouped.every((g) => folded.has(g.key))
@@ -592,6 +610,7 @@ export default function MembersPanel({
                             />
                           </td>
                           <td colSpan={cols.length} className="p-0">
+                            <div className="group/head flex items-center">
                             <button
                               type="button"
                               onClick={() => toggleFold(g.key)}
@@ -605,6 +624,20 @@ export default function MembersPanel({
                               {g.sub && <span className="text-label-3">· {g.sub}</span>}
                               {on > 0 && <span className="ml-1 rounded-full bg-accent-soft px-1.5 text-xs font-semibold text-accent">{on}명 고름</span>}
                             </button>
+                            {isAdmin && g.key.startsWith('t:') && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setRenameTo(g.title)
+                                  setRenaming(g.title)
+                                }}
+                                className="mr-3 flex h-7 shrink-0 items-center gap-1 rounded-control border border-hairline bg-white px-2.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2 opacity-0 transition-opacity hover:text-label focus-visible:opacity-100 group-hover/head:opacity-100"
+                              >
+                                <Pencil size={12} strokeWidth={2} />팀 이름 바꾸기
+                              </button>
+                            )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -1037,6 +1070,45 @@ export default function MembersPanel({
         </dl>
       )}
 
+      {renaming !== null &&
+        (() => {
+          const from = renaming
+          const to = renameTo.trim()
+          const n = data.users.filter((u) => u.team.trim() === from).length
+          const lead = data.users.filter((u) => u.team.trim() === from && u.role === 'leader').map(label)
+          const exists = to !== from && sheetTeams.includes(to)
+          const ok = !!to && to !== from
+          return (
+            <Modal
+              title={`「${from}」 팀 이름 바꾸기`}
+              sub={`이 팀 ${n}명${lead.length ? `(팀장 ${lead.join(', ')} 포함)` : ''}의 팀이 함께 바뀝니다.`}
+              onClose={() => setRenaming(null)}
+              footer={
+                <>
+                  <Button onClick={() => setRenaming(null)}>취소</Button>
+                  <Button variant="primary" disabled={!ok} onClick={() => renameWholeTeam(from, to)}>
+                    {n}명 팀 이름 바꾸기
+                  </Button>
+                </>
+              }
+            >
+              <input
+                autoFocus
+                value={renameTo}
+                onChange={(e) => setRenameTo(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => e.key === 'Enter' && ok && renameWholeTeam(from, to)}
+                aria-label="새 팀 이름"
+                className="h-10 w-full rounded-control border border-hairline px-3 text-[length:calc(15px*var(--ui-fs,1))] outline-none focus:border-accent"
+              />
+              <p className={`mt-2 rounded-control px-3 py-2 text-[length:calc(12.5px*var(--ui-fs,1))] ${exists ? 'bg-warning-soft text-warning' : 'bg-subtle text-label-2'}`}>
+                {exists
+                  ? `「${to}」 팀이 이미 있습니다. 바꾸면 두 팀이 하나로 합쳐집니다.`
+                  : '팀장의 평가 목록 이름은 팀장이 다음에 앱을 열 때 「팀 이름 맞추기」 안내로 바꿉니다. 바꾼 내용은 권한 시트 「변경 기록」에 남습니다.'}
+              </p>
+            </Modal>
+          )
+        })()}
       {inviteFor && (
         <TeamInviteDialog
           teamName=""
@@ -1209,6 +1281,62 @@ function SendToInput({ u, disabled, onSave }: { u: AccessUser; disabled?: boolea
 }
 
 const ROLE_ORDER: Record<AccessRole, number> = { admin: 0, leader: 1, member: 2 }
+
+// 팀 칸: 있는 팀에서 고르기 · 새 팀(이름을 넣어 만듦) · 팀 없음. 평소엔 글자만, 줄에 마우스를 올리면 상자
+const NEW_TEAM = '\u0001new'
+function TeamCell({ value, teams, disabled, onSave }: { value: string; teams: string[]; disabled?: boolean; onSave: (v: string) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [draft, setDraft] = useState('')
+  const cur = value.trim()
+  if (adding)
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setAdding(false)
+          if (draft.trim() && draft.trim() !== cur) onSave(draft.trim())
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') {
+            setDraft('')
+            setAdding(false)
+          }
+        }}
+        placeholder="새 팀 이름"
+        className="-mx-[7px] h-8 w-[calc(100%+14px)] rounded-control border border-accent bg-white px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none"
+      />
+    )
+  const list = cur && !teams.includes(cur) ? [cur, ...teams] : teams
+  return (
+    <span className="relative block">
+      <Select
+        value={cur}
+        disabled={disabled}
+        aria-label="팀"
+        onChange={(e) => {
+          const v = e.target.value
+          if (v === NEW_TEAM) {
+            setDraft('')
+            setAdding(true)
+          } else if (v !== cur) onSave(v)
+        }}
+        className={`-mx-[7px] h-8 w-[calc(100%+14px)] !border-transparent !bg-transparent !bg-none px-1.5 text-[length:calc(14px*var(--ui-fs,1))] group-hover/row:!border-hairline group-hover/row:!bg-white ${cur ? 'text-label' : 'text-label-3'}`}
+      >
+        {list.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+        <option value={NEW_TEAM}>＋ 새 팀…</option>
+        <option value="">{cur ? '팀 없음' : '—'}</option>
+      </Select>
+      <ChevronDown size={13} strokeWidth={2} className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-label-3 opacity-0 group-hover/row:opacity-100" />
+    </span>
+  )
+}
 
 // 표 칸에서 바로 고치기(칸을 떠나거나 Enter면 저장)
 function CellInput({ value, placeholder, disabled, onSave }: { value: string; placeholder?: string; disabled?: boolean; onSave: (v: string) => void }) {
