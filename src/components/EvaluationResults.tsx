@@ -560,8 +560,9 @@ export default function EvaluationResults() {
                                 {participants.map(({ m, pct }) => {
                                   const idx = idxOf(m.id)
                                   const isSel = selected?.member.id === m.id
-                                  const bg = !selected ? pastelForIndex(idx) : isSel ? pastelTextForIndex(idx) : 'rgba(0,0,0,0.06)'
-                                  const fg = !selected ? pastelTextForIndex(idx) : isSel ? '#fff' : 'rgba(0,0,0,0.45)'
+                                  // 고른 사람은 「전체」 때와 같은 연한 색 그대로, 나머지는 회색
+                                  const bg = !selected || isSel ? pastelForIndex(idx) : 'rgba(0,0,0,0.05)'
+                                  const fg = !selected || isSel ? pastelTextForIndex(idx) : 'rgba(0,0,0,0.4)'
                                   return (
                                     <div
                                       key={m.id}
