@@ -794,14 +794,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const mergedDates = visibleCols.some((c) => c.id === 'startDate') && visibleCols.some((c) => c.id === 'doneDate')
   const gridColumns: GridColumn[] = (() => {
     const out: GridColumn[] = []
-    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 88, system: true, readOnly: true }
+    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 88, system: true, readOnly: true, emphasis: evalOnly }
     for (const g of baseColumns) {
       if (mergedDates && g.id === 'doneDate') continue
       if (mergedDates && g.id === 'startDate') {
         out.push({ id: V_PERIOD, label: '시작일', sub: '완료일', type: 'text', width: vWidths[V_PERIOD] ?? 112, system: true, readOnly: true })
         continue
       }
-      out.push(g)
+      out.push(g.id === COL_CATEGORY && evalOnly ? { ...g, emphasis: true } : g)
       if (g.id === COL_CATEGORY) out.push(grade)
     }
     if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)

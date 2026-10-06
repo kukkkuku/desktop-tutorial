@@ -27,6 +27,8 @@ export interface GridColumn {
   system: boolean
   // 읽기 전용 칸(점수처럼 계산된 값). 선택·복사는 되지만 편집은 안 된다.
   readOnly?: boolean
+  // 놓치지 않게 파란 선으로 강조하는 열(칸마다 안쪽 선, 머리글은 파란 밑줄)
+  emphasis?: boolean
   // 머리글 둘째 줄(작게) -- 한 칸에 두 값을 두 줄로 보여 주는 열(예: 시작일/완료일)
   sub?: string
   // 목록에서 고르는 칸(상태·분류·담당자 등). 칸을 누르면 표 바깥에 칩 목록이 뜬다.
@@ -1291,7 +1293,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             : undefined,
                         }}
                         className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
-                          colSelected ? 'bg-accent-soft text-accent' : ''
+                          colSelected ? 'bg-accent-soft text-accent' : col.emphasis ? 'bg-accent-soft/60 text-accent shadow-[inset_0_-2px_0_var(--accent)]' : ''
                         } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
                         title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
                       >
@@ -1415,7 +1417,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
                               className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
                                 inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
-                              } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
+                              } ${col.id === 'name' ? 'font-medium text-label' : ''} ${col.emphasis ? 'outline outline-[1.5px] -outline-offset-[3px] outline-accent/70' : ''}`}
                             >
                               <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
                                 {custom !== undefined ? (

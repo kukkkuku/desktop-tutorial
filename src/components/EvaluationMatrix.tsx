@@ -1,8 +1,8 @@
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import { useWorkspaces } from '../state/WorkspaceContext'
-import type { PerformanceGrade } from '../types'
-import { PERFORMANCE_GRADE_OPTIONS } from '../types'
+import type { Importance, PerformanceGrade } from '../types'
+import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
 import {
   calcMemberResults,
   calcTaskScore,
@@ -194,7 +194,7 @@ export default function EvaluationMatrix() {
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 성과등급 · 목표 · 성과는 과제관리 표에서 입력합니다.
+        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 목표 · 성과는 과제관리 표에서, 분류 · 성과등급은 과제 이름 아래에서 바로 고칠 수 있습니다.
       </p>
       <OutOfSyncBanner />
 
@@ -291,17 +291,36 @@ export default function EvaluationMatrix() {
                       <td className="sticky left-0 z-10 truncate bg-white px-4 py-3">
                         <div className="truncate font-medium">{task.name}</div>
                         <div className="mt-1 flex items-center gap-1.5 text-xs text-label-2">
-                          <span>{task.importance}</span>
+                          {/* 분류 · 성과등급: 과제관리에서 못 넣었으면 여기서 바로 고친다 */}
+                          <Select
+                            value={task.importance}
+                            title="분류(과제 · 일반 · 일상) -- 여기서 바꿀 수 있습니다"
+                            onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, importance: e.target.value as Importance } })}
+                            className="h-6 rounded-full border border-hairline px-2 text-xs font-medium text-label"
+                          >
+                            {Array.from(new Set<string>([...IMPORTANCE_OPTIONS, task.importance])).map((o) => (
+                              <option key={o} value={o}>
+                                {o}
+                              </option>
+                            ))}
+                          </Select>
                           {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
                           <span>·</span>
-                          <span
-                            title={`성과등급은 과제관리 표에서 입력 · 과제 점수 ${taskScore.toFixed(1)}`}
-                            className={`inline-flex h-6 items-center rounded-full px-2 text-xs font-medium ${
-                              task.performanceGrade ? 'bg-black/[0.05] text-label' : 'bg-warning/10 text-warning'
+                          <Select
+                            value={task.performanceGrade ?? ''}
+                            title={`성과등급 -- 여기서 입력 · 수정할 수 있습니다 · 과제 점수 ${taskScore.toFixed(1)}`}
+                            onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })}
+                            className={`h-6 rounded-full border px-2 text-xs font-medium ${
+                              task.performanceGrade ? 'border-hairline text-label' : 'border-warning/50 bg-warning/10 text-warning'
                             }`}
                           >
-                            {task.performanceGrade ? `성과 ${task.performanceGrade}` : '성과등급 미입력'}
-                          </span>
+                            <option value="">성과등급 미입력</option>
+                            {PERFORMANCE_GRADE_OPTIONS.map((o) => (
+                              <option key={o} value={o}>
+                                성과 {o}
+                              </option>
+                            ))}
+                          </Select>
                         </div>
                       </td>
                       <td
