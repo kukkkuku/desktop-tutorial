@@ -4,6 +4,8 @@
 import { chromium } from 'playwright-core'
 import { existsSync } from 'node:fs'
 import { createInterface } from 'node:readline'
+import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
 const PRESETS = {
   mobile: [390, 844],
@@ -47,6 +49,15 @@ const findChrome = () => {
   return candidates.find(existsSync)
 }
 
+const isUp = () => fetch(url).then(() => true, () => false)
+let devServer
+if (!(await isUp()) && /^https?:\/\/(localhost|127\.0\.0\.1)/.test(url)) {
+  console.log('개발 서버를 시작합니다...')
+  devServer = spawn(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'dev'], { cwd: fileURLToPath(new URL('..', import.meta.url)), stdio: 'ignore', shell: process.platform === 'win32' })
+  for (let i = 0; i < 60 && !(await isUp()); i++) await new Promise((r) => setTimeout(r, 500))
+}
+process.on('exit', () => devServer?.kill())
+
 const browser = await chromium.launch({
   headless,
   executablePath: findChrome(),
@@ -71,6 +82,24 @@ if (shotPath) {
   await shot(shotPath)
   await browser.close()
   process.exit(0)
+}
+
+if (!headless && !args.includes('--no-panel')) {
+  const panel = await (await browser.newContext({ viewport: { width: 340, height: 360 } })).newPage()
+  await panel.exposeFunction('setSize', (w, h) => resize(w, h))
+  await panel.exposeFunction('takeShot', () => shot())
+  await panel.setContent(`<!doctype html><meta charset="utf-8"><title>해상도 조절</title>
+<style>body{font:14px system-ui;margin:16px}button{margin:3px;padding:6px 10px;cursor:pointer}input{width:60px;padding:5px}#cur{font-weight:700;margin:8px 0}</style>
+<div id="cur">${width} x ${height}</div>
+<div id="p"></div><hr>
+<input id="w" type="number" value="${width}"> x <input id="h" type="number" value="${height}">
+<button onclick="go(+w.value,+h.value)">적용</button><br>
+<button onclick="takeShot()">스크린샷 저장</button>
+<script>
+const P=${JSON.stringify(PRESETS)};
+function go(a,b){setSize(a,b);cur.textContent=a+' x '+b;w.value=a;h.value=b}
+for(const [k,[a,b]] of Object.entries(P)){const e=document.createElement('button');e.textContent=k+' '+a+'x'+b;e.onclick=()=>go(a,b);p.append(e)}
+</script>`)
 }
 
 console.log(`입력: WxH | ${Object.keys(PRESETS).join(' | ')} | shot | q`)
