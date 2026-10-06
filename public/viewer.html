@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>해상도 미리보기</title>
+<style>
+  * { box-sizing: border-box }
+  body { margin: 0; font: 14px system-ui, 'Pretendard', sans-serif; background: #e5e7eb; color: #111; display: flex; flex-direction: column; height: 100vh }
+  header { background: #fff; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-bottom: 1px solid #d1d5db }
+  button { padding: 6px 10px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; cursor: pointer }
+  button.on { background: #2563eb; color: #fff; border-color: #2563eb }
+  input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px }
+  input.n { width: 66px }
+  #url { width: 260px }
+  #info { margin-left: auto; color: #555 }
+  main { flex: 1; overflow: auto; padding: 16px }
+  #stage { transform-origin: top left }
+  iframe { border: 0; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.25); display: block }
+</style>
+</head>
+<body>
+<header>
+  <span id="presets"></span>
+  <input id="w" class="n" type="number" min="200"> ×
+  <input id="h" class="n" type="number" min="200">
+  <button id="apply">적용</button>
+  <button id="rotate">↻ 가로/세로</button>
+  <label><input id="fit" type="checkbox" checked> 화면에 맞춤</label>
+  <input id="url" placeholder="주소 (비우면 이 사이트)">
+  <button id="go">열기</button>
+  <span id="info"></span>
+</header>
+<main><div id="stage"><iframe id="f"></iframe></div></main>
+<script>
+const P = [['모바일',390,844],['작은 모바일',360,640],['태블릿',768,1024],['태블릿 가로',1024,768],['노트북',1366,768],['데스크톱',1440,900],['FHD',1920,1080]];
+const $ = id => document.getElementById(id);
+const store = { get(k, d) { try { return localStorage.getItem(k) ?? d } catch { return d } }, set(k, v) { try { localStorage.setItem(k, v) } catch {} } };
+let W = +store.get('w', 1440), H = +store.get('h', 900);
+
+function render() {
+  const f = $('f'); f.style.width = W + 'px'; f.style.height = H + 'px';
+  const main = document.querySelector('main');
+  const s = $('fit').checked ? Math.min(1, (main.clientWidth - 32) / W, (main.clientHeight - 32) / H) : 1;
+  $('stage').style.transform = `scale(${s})`;
+  $('stage').style.width = W + 'px'; $('stage').style.height = H + 'px';
+  $('w').value = W; $('h').value = H;
+  $('info').textContent = `${W} × ${H}` + (s < 1 ? ` (${Math.round(s * 100)}%로 축소 표시)` : '');
+  document.querySelectorAll('#presets button').forEach(b => b.classList.toggle('on', +b.dataset.w === W && +b.dataset.h === H));
+  store.set('w', W); store.set('h', H);
+}
+function set(w, h) { W = Math.max(200, w || W); H = Math.max(200, h || H); render(); }
+function open() {
+  const u = $('url').value.trim();
+  $('f').src = u || new URL('./', location.href).href;
+  store.set('url', u);
+}
+for (const [n, w, h] of P) {
+  const b = document.createElement('button');
+  b.textContent = `${n} ${w}×${h}`; b.dataset.w = w; b.dataset.h = h;
+  b.onclick = () => set(w, h); $('presets').append(b);
+}
+$('apply').onclick = () => set(+$('w').value, +$('h').value);
+$('rotate').onclick = () => set(H, W);
+$('fit').onchange = render; $('go').onclick = open;
+$('url').onkeydown = $('w').onkeydown = $('h').onkeydown = e => { if (e.key === 'Enter') { open(); $('apply').click() } };
+addEventListener('resize', render);
+$('url').value = store.get('url', '');
+open(); render();
+</script>
+</body>
+</html>
