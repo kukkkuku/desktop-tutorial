@@ -274,9 +274,9 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <tr><td style="padding:16px 36px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:44px;line-height:1.1;color:#FFFFFF;text-shadow:0 2px 14px rgba(70,60,180,0.35)">Invitation</td></tr>
 <tr><td style="height:30px;font-size:0;line-height:0">&nbsp;</td></tr>
 <tr><td style="padding:0 16px 16px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#D9D5FB;background-color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.7);border-radius:18px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#C9C8FA;background-color:rgba(255,255,255,0.26);border:2px solid rgba(255,255,255,0.75);border-radius:18px;box-shadow:0 10px 30px rgba(60,50,170,0.25),inset 0 1px 0 rgba(255,255,255,0.8)">
   <tr><td style="padding:10px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.8);border-radius:12px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.55);border-radius:12px">
     <tr><td style="padding:34px 28px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#5560C8">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
     <tr><td style="padding:14px 28px 0;font-size:26px;line-height:1.5;font-weight:300;color:#1F2350;letter-spacing:-.02em"><b style="color:#4338CA;font-weight:700">페이스</b>에 초대합니다</td></tr>
     <tr><td style="padding:18px 28px 0;font-size:15px;line-height:2;color:#3B4170"><div id="invite-msg">${msg}</div></td></tr>
