@@ -271,18 +271,24 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border-radius:22px;overflow:hidden;background-color:#FFFFFF;${bannerBg}">
 <tr><td style="padding:34px 36px 0;font-size:15px;font-weight:700;color:#1D5FC7">페이스 <span style="font-weight:400;color:#6C8FCB">· 과제관리</span></td></tr>
-<tr><td style="height:96px;font-size:0;line-height:0">&nbsp;</td></tr>
+<tr><td align="center" style="padding:16px 0 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:44px;line-height:1.1;color:#3B72E0;text-shadow:0 2px 10px rgba(255,255,255,0.9)">Invitation</td></tr>
+<tr><td style="height:30px;font-size:0;line-height:0">&nbsp;</td></tr>
 <tr><td style="padding:0 16px 16px">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF;background-color:rgba(255,255,255,0.8);border-radius:18px">
-  <tr><td style="padding:30px 28px 0;font-size:28px;line-height:1.35;font-weight:300;color:#18181B;letter-spacing:-.02em"><b style="color:#2563EB;font-weight:700">${who}</b>${who ? '<br>' : ''}페이스에 초대합니다</td></tr>
-  <tr><td style="padding:12px 28px 0;font-size:14.5px;line-height:1.8;color:#6B7079"><div id="invite-msg">${msg}</div></td></tr>
-  <tr><td style="padding:22px 28px 0"><div style="padding:12px 18px;border-radius:12px;background:#F2F6FD;font-size:15px;font-weight:600;color:#1D4ED8">${escHtml(r.email)}</div></td></tr>
-  <tr><td style="padding:12px 28px 0">
-    <a href="${escHtml(appUrl)}" style="display:block;padding:16px 0;border-radius:999px;background:#2563EB;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+  <tr><td style="padding:10px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #C9D7F0;border-radius:12px">
+    <tr><td align="center" style="padding:26px 24px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#6C8FCB">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
+    <tr><td align="center" style="padding:8px 24px 0;font-size:25px;line-height:1.4;font-weight:300;color:#18181B;letter-spacing:-.02em"><b style="color:#2563EB;font-weight:700">페이스</b>에 초대합니다</td></tr>
+    <tr><td align="center" style="padding:12px 24px 0;font-size:14.5px;line-height:1.8;color:#6B7079"><div id="invite-msg">${msg}</div></td></tr>
+    <tr><td align="center" style="padding:20px 24px 0"><div style="display:inline-block;padding:10px 20px;border-radius:999px;background:#EAF1FD;font-size:14.5px;font-weight:600;color:#1D4ED8">${escHtml(r.email)}</div></td></tr>
+    <tr><td style="padding:14px 24px 0">
+      <a href="${escHtml(appUrl)}" style="display:block;padding:16px 0;border-radius:999px;background:#2563EB;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+    </td></tr>
+    <tr><td align="center" style="padding:20px 24px 0;font-size:12.5px;line-height:1.7;color:#8A8F98">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="color:#2563EB">고급 → 페이스(으)로 이동</b>을 눌러 주세요. 처음 한 번만 나와요.</td></tr>
+    ${contact ? `<tr><td align="center" style="padding:14px 24px 0;font-size:12.5px;color:#8A8F98">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#8A8F98;text-decoration:underline">문의하기</a></td></tr>` : ''}
+    <tr><td style="height:24px;font-size:0;line-height:0">&nbsp;</td></tr>
+    </table>
   </td></tr>
-  <tr><td style="padding:20px 28px 0;font-size:12.5px;line-height:1.7;color:#8A8F98;text-align:center">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="color:#2563EB">고급 → 페이스(으)로 이동</b>을 눌러 주세요. 처음 한 번만 나와요.</td></tr>
-  ${contact ? `<tr><td style="padding:16px 28px 0;font-size:12.5px;color:#8A8F98;text-align:center">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#8A8F98;text-decoration:underline">문의하기</a></td></tr>` : ''}
-  <tr><td style="height:26px;font-size:0;line-height:0">&nbsp;</td></tr>
   </table>
 </td></tr>
 </table>
