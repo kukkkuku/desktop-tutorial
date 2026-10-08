@@ -181,10 +181,10 @@ function fmt(iso: string) {
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-const ROW_PAD_KEY = 'progress-board:row-pad-v2'
+const ROW_PAD_KEY = 'progress-board:row-pad-v3'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
-const ROW_PAD_DEFAULT = 3
+const ROW_PAD_DEFAULT = 1
 const ROW_PAD_MAX = 12
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
@@ -264,6 +264,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [tableBoxRef, tableBoxH] = useFitHeight(44)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
+  // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
+  useEffect(() => {
+    if (data && !data.spreadsheetId && localStorage.getItem('progress-board-view') === 'sheet') {
+      try {
+        localStorage.setItem('progress-board-view', 'table')
+      } catch {
+        // 기억 못 해도 아래 줄이 바로 바꾼다
+      }
+      setBoardView('table')
+    }
+  }, [data])
   const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
   const edits = drafts.edits
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -355,15 +366,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
   // 추진현황 보기 모양(이 브라우저에 기억)
-  const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline'>(() => {
+  const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline' | 'sheet'>(() => {
     try {
       const v = localStorage.getItem('progress-board-view')
-      return v === 'board' || v === 'timeline' ? v : 'table'
+      return v === 'board' || v === 'timeline' || v === 'sheet' ? v : 'table'
     } catch {
       return 'table'
     }
   })
-  function changeBoardView(v: 'table' | 'board' | 'timeline') {
+  function changeBoardView(v: 'table' | 'board' | 'timeline' | 'sheet') {
     setBoardView(v)
     try {
       localStorage.setItem('progress-board-view', v)
@@ -2518,6 +2529,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 ['table', '표', Table2],
                 ['board', '보드', SquareKanban],
                 ['timeline', '타임라인', ChartGantt],
+                ...(data.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
               ] as const
             ).map(([k, label, Icon]) => (
               <button
@@ -2535,7 +2547,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </span>
           )}
           {/* 보드 · 타임라인 거르기(단계 + 지연 · 이번 달 마감): 보기 버튼 바로 옆 */}
-          {boardView !== 'table' &&
+          {boardView !== 'table' && boardView !== 'sheet' &&
             (() => {
               const { list, nowMonth } = scheduleListOf(views, weekCols, currentKey)
               return <ViewFilterBar list={list} value={viewFilter} onChange={setViewFilter} weekCols={weekCols} nowMonth={nowMonth} />
@@ -2842,7 +2854,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           }`}
           style={{ maxHeight: tableBoxH }}
         >
-          {boardView === 'board' ? (
+          {boardView === 'sheet' && data.spreadsheetId ? (
+            <div className="flex flex-col gap-2">
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                <span>구글시트 화면 그대로입니다. 여기서 고치면 바로 시트에 저장됩니다(편집 권한이 있는 구글 계정으로 로그인).</span>
+                <a
+                  href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-accent hover:underline"
+                >
+                  화면이 안 보이면 새 창에서 열기 ↗
+                </a>
+              </p>
+              <iframe
+                key={`${data.spreadsheetId}:${data.sheetGid}`}
+                title="구글시트"
+                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit?rm=minimal${data.sheetGid !== null ? `&gid=${data.sheetGid}` : ''}`}
+                className="w-full rounded-[8px] border border-hairline bg-white"
+                style={{ height: Math.max(420, (tableBoxH ?? 640) - 40) }}
+              />
+            </div>
+          ) : boardView === 'board' ? (
             <KanbanBoard
               views={views}
               weekCols={weekCols}
