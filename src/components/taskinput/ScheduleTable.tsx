@@ -17,8 +17,8 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
+  CalendarRange,
   ChevronsLeft,
-  ChevronsLeftRight,
   ChevronsRight,
   ClipboardPaste,
   Copy,
@@ -2455,7 +2455,7 @@ export default function ScheduleTable({
                   aria-label="숨긴 일정 열기"
                   className="absolute right-0 top-1 z-30 flex h-5 w-6 translate-x-1/2 items-center justify-center rounded-[6px] border border-hairline bg-white text-label-2 shadow-sm hover:text-accent"
                 >
-                  <ChevronsLeftRight size={14} strokeWidth={2} />
+                  <CalendarRange size={14} strokeWidth={2} />
                 </button>
               )}
             </th>
