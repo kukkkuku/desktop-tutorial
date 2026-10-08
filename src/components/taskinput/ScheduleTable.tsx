@@ -2358,7 +2358,7 @@ export default function ScheduleTable({
 
   return (
     <>
-      <table ref={tableRef} className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${rowPad}px` }}>
+      <table ref={tableRef} className="table-fixed border-collapse select-none" style={{ width: tableWidth, fontSize, ['--row-pad' as string]: `${Math.max(0, rowPad)}px` }}>
         <colgroup>
           <col style={{ width: WH }} />
           <col style={{ width: wL2 }} />
@@ -2596,7 +2596,8 @@ export default function ScheduleTable({
               {g.rows.map((v, ri) => {
                 const rowBg = zebra && rowIndex++ % 2 === 1 ? 'bg-[#F7F8FA]' : 'bg-white'
                 const l3Bg = v.bg.name
-                const rowH = rowHeights[v.row.key]
+                // 행간이 마이너스면 모든 행을 그 높이로 고정(내용은 잘림). 끌어서 정한 행 높이가 있으면 그게 우선
+                const rowH = rowHeights[v.row.key] ?? (rowPad < 0 ? Math.max(12, Math.round(fontSize * 1.6 + 2 * rowPad)) : undefined)
                 const ri2 = rowIndexOf.get(v.row.key) ?? -1
                 const l3Note = v.notes.name
                 const nameMg = mergeOf(v.row.key, 'name')
@@ -2727,6 +2728,8 @@ export default function ScheduleTable({
                         } ${l2Sel === g.rows[0].row.key && !l2Col && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
+                        {/* 구분 칸 내용이 행 높이를 키우지 않게 칸 안에 가둔다(과제가 적은 구분의 행만 높아지던 것 방지). 이름 고치는 중에는 넘쳐도 보이게 */}
+                        <div className={`absolute inset-0 px-2 py-2 ${l2Edit?.key === g.rows[0].row.key ? 'z-10 overflow-visible' : 'overflow-clip'}`}>
                         <div className="sticky top-[64px] py-1">
                           {g.rows.every((x) => x.row.isNew) && (
                             <span className="mb-1 inline-block rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white no-underline">새 구분</span>
@@ -2762,14 +2765,16 @@ export default function ScheduleTable({
                             />
                           ) : (
                             <>
-                              <span className="block cursor-default whitespace-pre-line break-words">{g.l2}</span>
+                              <span className={`block cursor-default whitespace-pre-line break-words ${g.rows.length <= 2 ? 'line-clamp-1' : ''}`}>{g.l2}</span>
                               {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                             </>
                           )}
-                          <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>
-                          {/* 마우스를 올리면: 아래에 구분 추가 · 구분 삭제(취소) */}
+                          {g.rows.length > 2 && <span className="mt-1 block text-[0.85em] font-medium text-label-3">{g.rows.length}건</span>}
+                          {/* 마우스를 올리면: 아래에 구분 추가 · 구분 삭제(취소). 줄이 적은 구분은 이름 위에 겹쳐 띄운다 */}
                           <span
-                            className={`mt-1 flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/l2:opacity-100 ${readOnly ? 'hidden' : ''}`}
+                            className={`flex justify-center gap-0.5 opacity-0 transition-opacity group-hover/l2:opacity-100 ${
+                              g.rows.length <= 2 ? 'absolute right-1 top-1/2 -translate-y-1/2 rounded bg-white/95 px-0.5' : 'mt-1'
+                            } ${readOnly ? 'hidden' : ''}`}
                           >
                             {onAddGroup && (
                               <RowIcon
@@ -2794,6 +2799,7 @@ export default function ScheduleTable({
                                   </RowIcon>
                                 )}
                           </span>
+                        </div>
                         </div>
                       </td>
                     )}

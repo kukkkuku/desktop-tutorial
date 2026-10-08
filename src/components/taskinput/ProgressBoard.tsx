@@ -185,7 +185,8 @@ const ROW_PAD_KEY = 'progress-board:row-pad-v3'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 1
-const ROW_PAD_MAX = 12
+const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
+const ROW_PAD_MIN = -3 // 마이너스 = 기본보다 얇게(글자가 온전히 보이는 한계, 내용은 그 높이에서 잘림)
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
   return sheetToData(parsed, raw, meta)
@@ -566,24 +567,33 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setFillMenu({ which, x: Math.max(8, Math.min(r.left - 8, window.innerWidth - 290)), y: r.bottom + 6 })
   }
 
-  // 행간(칸 위아래 여백 0~12px, 기본 ROW_PAD_DEFAULT) -- 이 브라우저에 기억
+  // 행간(칸 위아래 여백 -3~40px, 기본 ROW_PAD_DEFAULT) -- 이 브라우저에 기억
   const [rowPad, setRowPadState] = useState<number>(() => {
     try {
       const raw = localStorage.getItem(ROW_PAD_KEY)
       const v = Number(raw)
-      return raw !== null && v >= 0 && v <= ROW_PAD_MAX ? v : ROW_PAD_DEFAULT
+      return raw !== null && v >= ROW_PAD_MIN && v <= ROW_PAD_MAX ? v : ROW_PAD_DEFAULT
     } catch {
       return ROW_PAD_DEFAULT
     }
   })
   // 모두 기본 높이로: 행간을 기본으로, 끌어서 정한 행 높이는 모두 지운다
   function setRowPad(v: number) {
-    const n = Math.max(0, Math.min(ROW_PAD_MAX, v))
+    const n = Math.max(ROW_PAD_MIN, Math.min(ROW_PAD_MAX, v))
     setRowPadState(n)
     try {
       localStorage.setItem(ROW_PAD_KEY, String(n))
     } catch {
       // 기억 못 해도 지금 화면에는 반영
+    }
+  }
+
+  // 행간을 한 단계 바꾸면 끌어서 정한 행 높이는 지워 모든 행이 같은 높이를 따르게 한다(한 행만 따로 높거나 낮지 않게)
+  function stepRowPad(d: number) {
+    setRowPad(rowPad + d)
+    if (Object.keys(heightsRef.current).length) {
+      pushHistory('')
+      setView(widthsRef.current, {})
     }
   }
 
@@ -2604,7 +2614,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </span>
           <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
             <button
-              onClick={() => setRowPad(rowPad + 2)}
+              onClick={() => stepRowPad(2)}
               disabled={rowPad >= ROW_PAD_MAX}
               className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
               aria-label="행간 넓게"
@@ -2613,8 +2623,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <UnfoldVertical {...icSm} />
             </button>
             <button
-              onClick={() => setRowPad(rowPad - 2)}
-              disabled={rowPad <= 0}
+              onClick={() => stepRowPad(-2)}
+              disabled={rowPad <= ROW_PAD_MIN}
               className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04] disabled:opacity-30"
               aria-label="행간 좁게"
               title={`행간 좁게 (지금 ${rowPad}px)`}
