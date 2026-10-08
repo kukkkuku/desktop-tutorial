@@ -2821,7 +2821,7 @@ export default function ScheduleTable({
                         style={{
                           left: WH + wL2,
                           ...(l3Bg ? { background: `#${l3Bg}` } : {}),
-                          ...(rowH ? {} : { height: `calc(2.5em + ${2 * rowPad}px)` }),
+                          ...(rowH ? {} : { height: `calc(1.6em + ${2 * rowPad}px)` }),
                           ...(inRange(ri2, 'name') ? { boxShadow: rangeShadow(ri2, 'name') } : {}),
                         }}
                         className={`sticky z-[5] cursor-cell border-b border-r border-b-[#DADDE2] border-r-[#C9CDD3] px-2 py-[var(--row-pad)] ${l3Bg ? '' : rowBg} ${

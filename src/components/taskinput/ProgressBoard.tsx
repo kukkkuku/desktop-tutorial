@@ -184,7 +184,7 @@ function fmt(iso: string) {
 const ROW_PAD_KEY = 'progress-board:row-pad-v2'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
-const ROW_PAD_DEFAULT = 4
+const ROW_PAD_DEFAULT = 3
 const ROW_PAD_MAX = 12
 
 function toData(parsed: ParsedSheet, raw: RawSheet, meta: Pick<ProgressData, 'spreadsheetId' | 'source' | 'tabTitle' | 'sheetGid'>): ProgressData {
