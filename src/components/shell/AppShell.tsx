@@ -43,7 +43,7 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
         {!top && <Sidebar perf={perf} collapsed={layout === 'rail'} />}
         <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top ? 'pl-3' : ''}`}>
           {header}
-          <div className="flex min-w-0 flex-1 flex-col rounded-panel border border-white/80 bg-white/70 shadow-[0_24px_60px_-24px_rgba(40,60,100,0.28),0_2px_6px_rgba(40,60,100,0.05)] backdrop-blur-xl">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
         </div>
       </div>
     </ShellCtx.Provider>
