@@ -769,7 +769,7 @@ export default function TeamManagement() {
         </div>
       )}
       {unmatched.length > 0 && unmatchedOpen && (
-        <div className="mt-3 rounded-card border border-dashed border-separator bg-[#F7F7F9] p-4">
+        <div className="mt-3 rounded-card border border-dashed border-separator bg-white/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">우리 팀 사람만 골라 추가하세요 -- 과제관리 담당자와 자동으로 연결됩니다.</p>
             <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">

@@ -228,7 +228,7 @@ export default function TaskPeerPanel() {
           </ul>
         )}
         {reviewer && (
-          <div className="mt-4 rounded-card bg-[#F7F7F9] p-4">
+          <div className="mt-4 rounded-card bg-white/60 p-4">
             <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">평가자: {reviewer.name}</p>
             <div className="mt-3 space-y-4">
               {groups.map((g) => {
@@ -257,7 +257,7 @@ export default function TaskPeerPanel() {
                     </p>
                     <div className="overflow-x-auto rounded-control border border-separator bg-white">
                       <table className="w-full text-[length:calc(14px*var(--ui-fs,1))]">
-                        <thead className="bg-[#F7F7F9] text-left text-label-2">
+                        <thead className="bg-white/60 text-left text-label-2">
                           <tr>
                             <th className="w-36 px-3 py-2 font-semibold">평가 대상</th>
                             <th className="w-32 px-3 py-2 font-semibold">{isRank ? '순위' : '기여도(%)'}</th>
@@ -315,7 +315,7 @@ export default function TaskPeerPanel() {
                               </tr>
                             )
                           })}
-                          <tr className="border-t border-separator bg-[#F7F7F9] font-semibold">
+                          <tr className="border-t border-separator bg-white/60 font-semibold">
                             <td className="px-3 py-2">{isRank ? '순위 검증' : '기여도 합계'}</td>
                             <td className="px-3 py-2 tabular-nums">{isRank ? `${filled.length}/${n}명` : `${sum}%`}</td>
                             <td className={`px-3 py-2 ${check.ok ? 'text-success' : 'text-danger'}`}>{check.text}</td>
@@ -361,7 +361,7 @@ export default function TaskPeerPanel() {
               </p>
               <div className="mt-1.5 overflow-x-auto rounded-card border border-separator bg-white">
                 <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
-                  <thead className="bg-[#F7F7F9] text-left">
+                  <thead className="bg-white/60 text-left">
                     <tr>
                       <th className="w-32 px-4 py-2.5 font-semibold">대상</th>
                       <th className="w-28 px-4 py-2.5 font-semibold">{isRank ? '평균 순위' : '평균 기여도'}</th>

@@ -82,7 +82,7 @@ export default function PromotionCriteriaManager({
           <h4 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">직급별 승진자격기준</h4>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
             <table className="table-fixed text-left text-[length:calc(14px*var(--ui-fs,1))]" style={{ width: '100%', minWidth: cols.totalWidth - cols.widths.requiredScore }}>
-              <thead className="bg-[#F7F7F9] text-label-2">
+              <thead className="bg-white/60 text-label-2">
                 <tr>
                   {(
                     [
@@ -175,7 +175,7 @@ export default function PromotionCriteriaManager({
           ) : (
             <div className="mt-2 overflow-x-auto rounded-card border border-separator">
               <table className="w-full text-left text-[length:calc(14px*var(--ui-fs,1))]">
-                <thead className="bg-[#F7F7F9] text-label-2">
+                <thead className="bg-white/60 text-label-2">
                   <tr>
                     <th className="px-3 py-2 font-semibold">구분</th>
                     {PERFORMANCE_GRADE_OPTIONS.map((grade) => (
@@ -215,7 +215,7 @@ export default function PromotionCriteriaManager({
           </p>
           <div className="mt-2 overflow-x-auto rounded-card border border-separator">
             <table className="w-full text-left text-[length:calc(14px*var(--ui-fs,1))]">
-              <thead className="bg-[#F7F7F9] text-label-2">
+              <thead className="bg-white/60 text-label-2">
                 <tr>
                   <th className="px-3 py-2 font-semibold">체류년수</th>
                   {['최근 1년차', '2년차', '3년차', '4년차', '5년차'].map((label) => (

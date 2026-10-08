@@ -64,7 +64,7 @@ export default function EmptyStateDropzone({ title, addHint, busyLabel, onDownlo
         onDrop={onDrop}
         onClick={() => !busy && inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card border-2 border-dashed px-6 py-10 text-center transition-colors ${
-          isDragOver ? 'border-accent bg-accent-soft' : 'border-separator bg-[#F7F7F9] hover:bg-accent-soft/40'
+          isDragOver ? 'border-accent bg-accent-soft' : 'border-separator bg-white/60 hover:bg-accent-soft/40'
         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
       >
         {busy ? <Spinner className="h-6 w-6 text-accent" /> : <Upload size={24} strokeWidth={1.5} className="text-label-3" />}

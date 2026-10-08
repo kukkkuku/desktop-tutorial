@@ -41,9 +41,9 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
     <ShellCtx.Provider value={{ layout, cycle, perf }}>
       <div className="flex min-h-screen bg-canvas">
         {!top && <Sidebar perf={perf} collapsed={layout === 'rail'} />}
-        <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-2 pr-2 ${top ? 'pl-2' : ''}`}>
+        <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top ? 'pl-3' : ''}`}>
           {header}
-          <div className="flex min-w-0 flex-1 flex-col rounded-panel bg-white shadow-card">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col rounded-panel border border-white/80 bg-white/70 shadow-[0_24px_60px_-24px_rgba(40,60,100,0.28),0_2px_6px_rgba(40,60,100,0.05)] backdrop-blur-xl">{children}</div>
         </div>
       </div>
     </ShellCtx.Provider>
@@ -62,7 +62,7 @@ function LayoutToggle() {
       onClick={ctx.cycle}
       title={t}
       aria-label={t}
-      className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
+      className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-white/70 hover:text-label"
     >
       <Icon size={17} strokeWidth={1.8} />
     </button>

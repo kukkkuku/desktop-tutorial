@@ -268,7 +268,7 @@ function RankForm({
 }) {
   const get = (taskId: string | undefined, targetId: string) => draft.find((e) => e.targetMemberId === targetId && (e.taskId ?? '') === (taskId ?? ''))
   return (
-    <div className="mt-4 rounded-card bg-[#F7F7F9] p-4">
+    <div className="mt-4 rounded-card bg-white/60 p-4">
       <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">평가자: {reviewer.name}</p>
       <p className="mt-0.5 text-xs text-label-2">1위부터 중복 없이 매기고, 모든 순위에 근거를 적어 주세요.</p>
       <div className="mt-3 space-y-4">
@@ -277,7 +277,7 @@ function RankForm({
             {g.taskName && <p className="mb-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{g.taskName}</p>}
             <div className="overflow-x-auto rounded-control border border-separator bg-white">
               <table className="w-full text-[length:calc(14px*var(--ui-fs,1))]">
-                <thead className="bg-[#F7F7F9] text-left text-label-2">
+                <thead className="bg-white/60 text-left text-label-2">
                   <tr>
                     <th className="w-32 px-3 py-2 font-semibold">대상팀원</th>
                     <th className="w-24 px-3 py-2 font-semibold">순위</th>
@@ -350,7 +350,7 @@ function SummaryTable({ rows, mode, compact }: { rows: RankSummaryRow[]; mode: R
   return (
     <div className={`${compact ? 'mt-1.5' : 'mt-3'} overflow-x-auto rounded-card border border-separator bg-white`}>
       <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
-        <thead className="bg-[#F7F7F9] text-left">
+        <thead className="bg-white/60 text-left">
           <tr>
             <th className="w-24 whitespace-nowrap px-4 py-2.5 font-semibold">종합순위</th>
             <th className="w-32 px-4 py-2.5 font-semibold">팀원</th>

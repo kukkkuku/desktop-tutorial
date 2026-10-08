@@ -118,7 +118,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     <div className="mx-auto max-w-lg">
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{what}은 평가 하나에 적용됩니다. 어느 평가인지 고르세요.</p>
       {workspaces.length === 0 ? (
-        <p className="mt-3 rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 평가가 없습니다. 과제관리 › 평가 목록에서 먼저 만드세요.</p>
+        <p className="mt-3 rounded-card bg-white/60 px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 평가가 없습니다. 과제관리 › 평가 목록에서 먼저 만드세요.</p>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {[...workspaces]
@@ -230,7 +230,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
           {tab === 'local' && (
             <div className="mx-auto max-w-lg space-y-4">
               {isDirectoryPickerSupported() && (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-separator bg-[#F7F7F9] px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-separator bg-white/60 px-4 py-3">
                   <div>
                     <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">저장 위치</p>
                     <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
@@ -282,7 +282,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
                 </p>
               </div>
 
-              <div className="rounded-card bg-[#F7F7F9] px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              <div className="rounded-card bg-white/60 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 {app ? `지금 평가: 과제 ${app.state.tasks.length}건 · 팀원 ${app.state.members.length}명 · 피어리뷰 ${app.state.peerReviews.length}건 · ` : ''}
                 전체 평가 {workspaces.length}개
               </div>

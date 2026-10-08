@@ -535,7 +535,7 @@ export default function SheetImportPanel({
       {/* L1 탭 + L2 목록 */}
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
-          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-[#F7F7F9]">
+          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-white/60">
             {/* 한 줄로 늘어놓았을 때의 폭을 재는 보이지 않는 복사본 */}
             <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 overflow-hidden">
               <div ref={measureRef} className="mac-seg w-max">
@@ -680,7 +680,7 @@ export default function SheetImportPanel({
           </ul>
 
           {warnings.unknownAssignees.length > 0 && (
-            <div className="mt-3 rounded-card bg-[#F7F7F9] p-3">
+            <div className="mt-3 rounded-card bg-white/60 p-3">
               <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                 팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요
               </p>

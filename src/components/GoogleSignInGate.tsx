@@ -112,7 +112,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             넘기지 않고, 아래에 다른 계정으로 가는 길을 같이 둔다. */}
         {configured && rememberedEmail ? (
           <>
-            <p className="mt-8 truncate rounded-card bg-[#F7F7F9] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+            <p className="mt-8 truncate rounded-card bg-white/60 px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               {invitedEmail ? '초대받은 계정' : '최근 로그인'} · <span className="font-medium text-label">{rememberedEmail}</span>
             </p>
             <Button

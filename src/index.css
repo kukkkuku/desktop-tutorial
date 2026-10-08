@@ -12,16 +12,16 @@
 /* ---------- 디자인 시스템 v2 ----------
    토큰은 tailwind.config.js, 규칙은 docs/DESIGN-SYSTEM.md. */
 :root {
-  --accent: #2563eb;
-  --label: #18181b;
-  --label-2: #5f5f68;
-  --hairline: rgba(24, 24, 27, 0.14);
-  --canvas: #f4f4f5;
+  --accent: #0a72f5;
+  --label: #1b2238;
+  --label-2: #5e667c;
+  --hairline: rgba(40, 60, 100, 0.16);
+  --canvas: #e8eef5;
 }
 
 html {
   color-scheme: light;
-  background-color: #ffffff;
+  background-color: #e8eef5;
   color: var(--label);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -34,7 +34,11 @@ html {
    줄어들어 레이아웃 전체가 틀어진다. */
 body {
   color-scheme: light;
-  background-color: #ffffff;
+  /* 부드러운 푸른 회색 바탕 + 왼쪽 위에서 번지는 빛(시안의 유리 질감) */
+  background-color: #e8eef5;
+  background-image: radial-gradient(1100px 620px at 8% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(900px 600px at 100% 100%, rgba(190, 210, 238, 0.55), rgba(190, 210, 238, 0) 65%);
+  background-attachment: fixed;
   color: var(--label);
   font-size: calc(14px * var(--ui-fs, 1));
   letter-spacing: -0.01em;
@@ -96,16 +100,16 @@ body {
    :where()로 우선순위를 0으로 둬서, 화면마다 붙인 Tailwind 클래스가 항상 이긴다. */
 @layer base {
   :where(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']), select, textarea) {
-    border-radius: 8px;
+    border-radius: 12px;
     border-color: var(--hairline);
-    background-color: #fff;
+    background-color: rgba(255, 255, 255, 0.85);
     color: var(--label);
     transition: box-shadow 0.12s ease, border-color 0.12s ease;
   }
   :where(input:not([type='checkbox']):not([type='radio']):not([type='range']), select, textarea):focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 3px rgba(10, 114, 245, 0.2);
   }
   :where(input, select, textarea)::placeholder {
     color: #a1a1aa;
@@ -129,9 +133,10 @@ body {
     display: inline-flex;
     align-items: center;
     border-width: 1px;
-    border-radius: 8px;
+    border-radius: 12px;
     border-color: var(--hairline);
-    background-color: #fff;
+    background-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 1px 2px rgba(40, 60, 100, 0.06);
     color: var(--label);
     text-align: left;
     white-space: nowrap;
@@ -146,7 +151,7 @@ body {
   .mac-select[aria-expanded='true'] {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 0 0 3px rgba(10, 114, 245, 0.2);
   }
   .mac-select:disabled {
     cursor: not-allowed;
@@ -160,7 +165,7 @@ body {
   button:focus-visible,
   a:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 0 0 3px rgba(10, 114, 245, 0.3);
   }
   /* 얇은 스크롤바 */
   * {
@@ -173,11 +178,11 @@ body {
 @layer components {
   /* 팝오버·메뉴·달력·목록 팝업 */
   .mac-pop {
-    @apply rounded-pop bg-white shadow-pop;
+    @apply rounded-pop bg-white/90 shadow-pop backdrop-blur-xl;
   }
   /* 메뉴 한 줄: 마우스를 올리면 옅은 회색 */
   .mac-menu-item {
-    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[7px] px-2.5 py-[6px] text-left text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-[#F1F1F3] disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
+    @apply mx-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-[7px] px-2.5 py-[6px] text-left text-[length:calc(14px*var(--ui-fs,1))] text-label hover:bg-accent-soft disabled:cursor-not-allowed disabled:text-label-3 disabled:hover:bg-transparent;
   }
   .mac-menu-item-danger {
     @apply text-danger hover:bg-danger-soft;
@@ -188,56 +193,56 @@ body {
   /* 추진현황 표: 행 전체 선택(행 머리를 눌렀을 때) -- 위아래 파란 선 + 옅은 파랑. 행 머리 · 병합된 구분 칸은 빼고 */
   /* 여러 행이면 맨 위 행에만 위 선, 맨 아래 행에만 아래 선(행마다 줄무늬가 생기지 않게) */
   .pb-row-sel > td:not(:first-child):not(.pb-l2) {
-    box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel > td:last-child {
-    box-shadow: inset -2px 0 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset -2px 0 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-top > td:not(:first-child):not(.pb-l2) {
-    box-shadow: inset 0 2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset 0 2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-top > td:last-child {
-    box-shadow: inset -2px 0 0 #2563eb, inset 0 2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset -2px 0 0 #0a72f5, inset 0 2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-bottom > td:not(:first-child):not(.pb-l2) {
-    box-shadow: inset 0 -2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset 0 -2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-bottom > td:last-child {
-    box-shadow: inset -2px 0 0 #2563eb, inset 0 -2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset -2px 0 0 #0a72f5, inset 0 -2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-top.pb-row-bottom > td:not(:first-child):not(.pb-l2) {
-    box-shadow: inset 0 2px 0 #2563eb, inset 0 -2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset 0 2px 0 #0a72f5, inset 0 -2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   .pb-row-sel.pb-row-top.pb-row-bottom > td:last-child {
-    box-shadow: inset -2px 0 0 #2563eb, inset 0 2px 0 #2563eb, inset 0 -2px 0 #2563eb, inset 0 0 0 9999px rgba(37, 99, 235, 0.1) !important;
+    box-shadow: inset -2px 0 0 #0a72f5, inset 0 2px 0 #0a72f5, inset 0 -2px 0 #0a72f5, inset 0 0 0 9999px rgba(10, 114, 245, 0.1) !important;
   }
   /* 세그먼트 컨트롤(보기 전환 · 방식 고르기): 회색 트랙 + 흰 알약 */
   .mac-seg {
-    @apply inline-flex items-center gap-0.5 rounded-[10px] bg-[#EFEFF1] p-[3px];
+    @apply inline-flex items-center gap-0.5 rounded-full bg-[#DEE6F0]/80 p-[3px] shadow-[inset_0_1px_3px_rgba(40,60,100,0.14)];
   }
   .mac-seg-item {
-    @apply rounded-[7px] px-3 py-[5px] text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 transition-colors hover:text-label;
+    @apply rounded-full px-3.5 py-[5px] text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 transition-colors hover:text-label;
   }
   .mac-seg-item-on {
     @apply bg-white text-label shadow-pill;
   }
   /* 카드(구역 묶음) */
   .mac-card {
-    @apply rounded-card bg-white shadow-card;
+    @apply rounded-card bg-white/80 shadow-card;
   }
   /* 묶음 칸: 회색 틀 + 머리 줄 + 안쪽 흰 카드(설정 · 목록 화면) */
   .ds-group {
-    @apply rounded-[14px] bg-subtle p-1.5 shadow-[0_0_0_1px_rgba(24,24,27,0.05)];
+    @apply rounded-[22px] bg-[#E9EFF6]/70 p-1.5 shadow-[inset_0_1px_3px_rgba(40,60,100,0.10)];
   }
   .ds-group-head {
     @apply flex items-center gap-2 px-2.5 pb-2 pt-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2;
   }
   .ds-group-body {
-    @apply rounded-[10px] bg-white shadow-card;
+    @apply rounded-[18px] bg-white shadow-card;
   }
   /* 작은 라벨 · 배지: 옅은 바탕 + 같은 색 옅은 테두리 */
   .mac-badge {
-    @apply inline-flex items-center rounded-[6px] px-1.5 py-[1px] text-[length:calc(12.5px*var(--ui-fs,1))] font-medium ring-1 ring-inset ring-black/[0.06];
+    @apply inline-flex items-center rounded-full px-2 py-[1px] text-[length:calc(12.5px*var(--ui-fs,1))] font-medium ring-1 ring-inset ring-black/[0.06];
   }
   /* 단축키 표시 */
   .ds-kbd {
@@ -245,10 +250,10 @@ body {
   }
   /* 사이드바 항목 */
   .ds-nav-item {
-    @apply flex h-8 w-full items-center gap-2.5 rounded-[9px] px-2.5 text-left text-[length:calc(14.5px*var(--ui-fs,1))] text-label-2 transition-colors hover:bg-black/[0.04] hover:text-label;
+    @apply flex h-9 w-full items-center gap-2.5 rounded-[14px] px-3 text-left text-[length:calc(14.5px*var(--ui-fs,1))] text-label-2 transition-colors hover:bg-white/60 hover:text-label;
   }
   .ds-nav-item-on {
-    @apply bg-white font-medium text-label shadow-pill hover:bg-white;
+    @apply bg-ink font-medium text-white shadow-[0_8px_18px_-8px_rgba(20,27,52,0.65)] hover:bg-ink hover:text-white;
   }
   .ds-nav-label {
     @apply px-2.5 pb-1 pt-4 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3;

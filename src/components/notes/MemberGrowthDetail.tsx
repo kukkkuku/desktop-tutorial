@@ -151,7 +151,7 @@ function TaskRow({
         </span>
       </div>
       {open && hasSub && (
-        <ul className="mt-1.5 space-y-1 rounded-control bg-[#F7F7F9] px-3 py-2">
+        <ul className="mt-1.5 space-y-1 rounded-control bg-white/60 px-3 py-2">
           {subItems!.map((w) => (
             <li key={w.id} className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
               <span className="min-w-0 flex-1 truncate text-label" title={w.name}>
@@ -497,7 +497,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
   }, [colorPickerFor])
 
   if (!member) {
-    return <p className="rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀원을 찾을 수 없습니다.</p>
+    return <p className="rounded-card bg-white/60 px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">팀원을 찾을 수 없습니다.</p>
   }
 
   const memberResults = calcMemberResults(state.members, state.tasks, state.contributions, state.criteria, peerInputsOf(state))

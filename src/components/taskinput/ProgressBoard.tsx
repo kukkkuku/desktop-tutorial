@@ -3244,7 +3244,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           }}
         >
           {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
-          <div className="mt-3 rounded-card border border-separator bg-[#F7F7F9] px-3 py-2.5">
+          <div className="mt-3 rounded-card border border-separator bg-white/60 px-3 py-2.5">
             <p className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">업데이트할 곳</p>
             <p className="mt-0.5 break-all text-[length:calc(14px*var(--ui-fs,1))] font-bold text-label">
               {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}

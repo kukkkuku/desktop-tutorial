@@ -371,7 +371,7 @@ export default function AccessEditor({
         onConfirm={() => void save()}
         onCancel={() => setConfirm(false)}
       >
-        <ul className="mt-3 max-h-[240px] list-disc space-y-0.5 overflow-auto rounded-card border border-separator bg-[#F7F7F9] py-2 pl-7 pr-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
+        <ul className="mt-3 max-h-[240px] list-disc space-y-0.5 overflow-auto rounded-card border border-separator bg-white/60 py-2 pl-7 pr-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
           {changes.map((c) => (
             <li key={c}>{c}</li>
           ))}

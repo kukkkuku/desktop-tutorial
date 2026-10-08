@@ -1,14 +1,16 @@
 name: Deploy to GitHub Pages
 
-# 배포는 main 하나만 한다. 예전에는 main(기존 버전)을 루트에, 개선 버전을
-# /preview-v2/에, 그 이전 버전을 /preview/에 함께 올려 세 벌을 나란히 놓고
-# 비교했는데, 개선 버전이 그대로 본 버전이 되면서 비교 대상이 없어졌다.
-# 여러 브랜치를 동시에 빌드하면 어느 주소가 최신인지 헷갈리고("배포가 안
-# 됐다"의 실제 원인이 대부분 이것이었다) 빌드 시간도 세 배로 든다.
+# 이 파일은 feature/face_v1 브랜치 전용이다(main의 워크플로는 바꾸지 않는다).
+# feature/face_v1에서 실행하면 세 주소를 한 번에 올린다:
+#   /                  = main(지금 쓰는 버전)
+#   /preview-design/   = feature/redesign-2026-09-27(이전 디자인 미리보기, 그대로)
+#   /preview-face/     = feature/face_v1(새 디자인 v3 미리보기)
+# 미리보기 빌드는 저장 키를 따로(preview-next) 써서 운영 데이터를 건드리지 않는다.
+# main에 푸시하면 main의 워크플로가 돌아 /preview-face/는 사라진다 -- 이 브랜치에서 다시 실행하면 돌아온다.
 on:
   push:
     branches:
-      - main
+      - feature/face_v1
   workflow_dispatch:
 
 permissions:
@@ -25,25 +27,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Build
+      - name: Build main into dist
         run: |
           npm ci
           npm run build
         env:
-          # 구글 드라이브 저장·로그인용 OAuth 클라이언트 ID. 반드시 저장소
-          # Settings → Secrets and variables → Actions(repository secret)에
-          # GOOGLE_CLIENT_ID로 등록해야 이 job(build, environment 미지정)에서
-          # 읽힌다 -- Settings → Environments → github-pages 아래(environment
-          # secret)에 등록하면 deploy job에서만 보이고 여기서는 빈 값이 된다.
-          # 값이 비어 있으면 로그인 화면이 그 사실을 알려주고, Google 연동
-          # 없이 쓰는 모드로만 들어갈 수 있다(GoogleSignInGate).
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+
+      - name: Checkout design preview branch
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: feature/redesign-2026-09-27
+          path: design-src
+          fetch-depth: 0
+
+      - name: Build into dist/preview-design
+        continue-on-error: true
+        working-directory: design-src
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/preview-design
+          cp -r dist/. ../dist/preview-design/
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          VITE_BASE_PATH: /desktop-tutorial/preview-design/
+          VITE_PREVIEW_NAMESPACE: preview-next
+
+      - name: Checkout face branch
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: feature/face_v1
+          path: face-src
+          fetch-depth: 0
+
+      - name: Build into dist/preview-face
+        continue-on-error: true
+        working-directory: face-src
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/preview-face
+          cp -r dist/. ../dist/preview-face/
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          VITE_BASE_PATH: /desktop-tutorial/preview-face/
+          VITE_PREVIEW_NAMESPACE: preview-next
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

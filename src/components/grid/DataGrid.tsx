@@ -1237,7 +1237,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                 <col style={{ width: 44 }} />
               </colgroup>
               <thead>
-                <tr className="bg-[#F7F7F9] text-label-2">
+                <tr className="bg-white/60 text-label-2">
                   {!noNum && (
                     <th className="relative h-9 border-b border-r border-[#E3E3E8] text-center text-xs font-medium text-label-3">
                       #

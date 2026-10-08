@@ -446,7 +446,7 @@ export default function EvaluationResults() {
               <ScrollX>
                 <table className="w-full min-w-[640px] text-[length:calc(14px*var(--ui-fs,1))]">
                   <thead>
-                    <tr className="border-y border-separator bg-[#F7F7F9] text-left text-xs font-semibold text-label-2">
+                    <tr className="border-y border-separator bg-white/60 text-left text-xs font-semibold text-label-2">
                       <th className="px-5 py-2.5">과제</th>
                       <th className="w-[150px] whitespace-nowrap px-3 py-2.5">과제 성과</th>
                       <th className="hidden w-[30%] px-3 py-2.5 xl:table-cell">목표 · 성과</th>
@@ -550,7 +550,7 @@ export default function EvaluationResults() {
                     })}
                   </tbody>
                   {selected && (
-                    <tfoot className="border-t border-separator bg-[#F7F7F9]">
+                    <tfoot className="border-t border-separator bg-white/60">
                       <tr>
                         <td colSpan={3} className="px-5 py-3">
                           <b className="font-semibold text-label">{selected.member.name} 성과점수</b>
