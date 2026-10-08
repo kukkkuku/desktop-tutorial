@@ -15,8 +15,8 @@ import { useAccessData } from '../hooks/useAccessData'
 import { connectAdmin, getAdminEmail, inviteHtml, isAdminConfigured, isAdminConnected, sendInviteEmails } from '../utils/adminInvite'
 import { contactFor, getAccessSheetId, appInviteUrl, refreshAccess, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../utils/accessSheet'
 
-const DEFAULT_SUBJECT = '페이스(과제 · 성과관리) 앱 초대'
-const DEFAULT_BODY = `안녕하세요, 팀 과제 · 성과관리 앱 「페이스」에 초대합니다.
+const DEFAULT_SUBJECT = '페이스(과제관리) 앱 초대'
+const DEFAULT_BODY = `안녕하세요, 팀 과제관리 앱 「페이스」에 초대합니다.
 아래 시작하는 방법대로 들어와 주세요.`
 const stamp = () => {
   const d = new Date()

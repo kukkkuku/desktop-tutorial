@@ -223,7 +223,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
             <span className="block truncate text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">페이스</span>
-            <span className="block truncate text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">과제 · 성과관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
+            <span className="block truncate text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">과제관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
           </span>
         )}
       </div>
@@ -243,7 +243,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
 
         {canPerf && (
           <>
-            {label('성과관리')}
+            {label('과제관리')}
             {/* 평평한 메뉴: 어느 평가를 보는지는 페이지 머리 줄(성과관리 / 팀 · 기간 ▾)에서 고르고 바꾼다(과제 입력의 연도와 같은 방식).
                 펼쳐도 접어도 같은 모양. 평가를 아직 안 골랐으면 메뉴는 흐리게 */}
             <div className="space-y-0.5">
@@ -398,7 +398,7 @@ export function TopNav({
           if (mode !== 'tasks') setMode('tasks')
         })}
         {canPerf &&
-          seg(mode === 'perf', '성과관리', () => {
+          seg(mode === 'perf', '과제관리', () => {
             // 이미 성과관리면 프로젝트 목록으로
             if (mode === 'perf') {
               if (currentWorkspaceId) exitToLanding()

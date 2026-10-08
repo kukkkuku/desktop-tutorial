@@ -356,7 +356,7 @@ export default function WorkspaceLanding() {
   }
 
   return (
-    <AppShell header={<PageHeader area="성과관리" title="평가 목록" />}>
+    <AppShell header={<PageHeader area="과제관리" title="평가 목록" />}>
       <main className="w-full max-w-6xl flex-1 px-6 pb-12 pt-5 lg:px-8">
         {dupError && (
           <p className={`mb-4 flex items-center gap-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2`}>

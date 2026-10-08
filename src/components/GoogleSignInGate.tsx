@@ -105,7 +105,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
       <div className="w-full max-w-md rounded-[12px] bg-white px-10 py-12 text-center shadow-dialog">
         <AppLogo size={48} className="mx-auto" />
         <h1 className="mt-3 text-[length:calc(26px*var(--ui-fs,1))] font-semibold tracking-tight text-label">페이스</h1>
-        <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제 입력과 성과관리. 일의 과정이 쌓여, 사람의 성장을 만듭니다.</p>
+        <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제 입력과 과제관리. 일의 과정이 쌓여, 사람의 성장을 만듭니다.</p>
 
         {/* 이 브라우저에 마지막 로그인 계정이 남아 있으면 그 계정으로 바로
             들어갈지 먼저 물어본다 -- 계정을 바꿔야 할 때도 있으니 자동으로

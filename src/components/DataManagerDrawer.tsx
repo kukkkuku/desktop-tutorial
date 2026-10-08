@@ -118,7 +118,7 @@ export default function DataManagerDrawer({ open, onClose, onAccountChange, onSa
     <div className="mx-auto max-w-lg">
       <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{what}은 평가 하나에 적용됩니다. 어느 평가인지 고르세요.</p>
       {workspaces.length === 0 ? (
-        <p className="mt-3 rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 평가가 없습니다. 성과관리 › 평가 목록에서 먼저 만드세요.</p>
+        <p className="mt-3 rounded-card bg-[#F7F7F9] px-4 py-6 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 평가가 없습니다. 과제관리 › 평가 목록에서 먼저 만드세요.</p>
       ) : (
         <ul className="mt-3 space-y-1.5">
           {[...workspaces]

@@ -53,7 +53,7 @@ export default function HomePage() {
         e.stopPropagation()
         setManual(area)
       }}
-      title={area === 'tasks' ? '과제 입력 매뉴얼 -- 구글시트 연결부터' : '성과관리 매뉴얼 -- 준비할 데이터부터'}
+      title={area === 'tasks' ? '과제 입력 매뉴얼 -- 구글시트 연결부터' : '과제관리 매뉴얼 -- 준비할 데이터부터'}
       className="absolute right-4 top-4 z-10 flex h-7 items-center gap-1 rounded-[8px] bg-white px-2.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 shadow-control hover:text-label"
     >
       <BookOpen size={13} strokeWidth={1.9} />
@@ -134,7 +134,7 @@ export default function HomePage() {
                   <ChartColumn size={21} strokeWidth={1.9} />
                 </span>
                 <span>
-                  <span className="block text-[length:calc(17px*var(--ui-fs,1))] font-bold text-label">성과관리</span>
+                  <span className="block text-[length:calc(17px*var(--ui-fs,1))] font-bold text-label">과제관리</span>
                   <span className="block text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">팀 · 평가기간 · 피어리뷰 · 면담 (팀장)</span>
                 </span>
               </button>

@@ -246,6 +246,20 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     .join('<br>')
     .replace(/(<br>){3,}/g, '<br><br>')
   appUrl = withLoginHint(appUrl, r.email)
+  // 로고: 앱 아이콘 그림(icon-192.png)을 앱 주소 옆에서 가져온다(메일에는 SVG가 안 보이므로 PNG). 주소를 못 읽으면 단순한 파란 원
+  let logoSrc = ''
+  try {
+    const u = new URL(appUrl)
+    u.search = ''
+    u.hash = ''
+    if (!u.pathname.endsWith('/')) u.pathname = u.pathname.replace(/[^/]*$/, '')
+    logoSrc = new URL('icon-192.png', u.toString()).toString()
+  } catch {
+    logoSrc = ''
+  }
+  const logoCell = logoSrc
+    ? `<td style="width:38px;vertical-align:middle"><img src="${escHtml(logoSrc)}" width="38" height="38" alt="페이스" style="display:block;width:38px;height:38px;border-radius:9px;border:0"></td>`
+    : `<td style="width:34px;height:34px;border-radius:17px;background:#2563EB;text-align:center;vertical-align:middle"><div style="width:12px;height:12px;margin:0 auto;border-radius:9px;border:3px solid #FFFFFF"></div></td>`
   const font = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif"
   const who = r.name ? `${escHtml(r.name)}님, ` : ''
   const num = (n: number, color = '#2563EB') =>
@@ -262,8 +276,8 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FFFFFF;border-radius:16px;overflow:hidden">
 <tr><td style="padding:28px 32px 0">
   <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-    <td style="width:34px;height:34px;border-radius:17px;background:#2563EB;text-align:center;vertical-align:middle"><div style="width:12px;height:12px;margin:0 auto;border-radius:9px;border:3px solid #FFFFFF"></div></td>
-    <td style="padding-left:10px;font-size:17px;font-weight:700;color:#18181B">페이스<div style="font-size:12px;font-weight:400;color:#8A8F98">과제 · 성과관리</div></td>
+    ${logoCell}
+    <td style="padding-left:10px;font-size:17px;font-weight:700;color:#18181B">페이스<div style="font-size:12px;font-weight:400;color:#8A8F98">과제관리</div></td>
   </tr></table>
 </td></tr>
 <tr><td style="padding:22px 32px 0;font-size:23px;line-height:1.4;font-weight:800;color:#18181B">${who}페이스에 초대합니다</td></tr>

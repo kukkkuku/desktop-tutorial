@@ -32,7 +32,7 @@ export function ManualPanel({ area, chapter, onClose }: { area?: ManualArea; cha
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-separator px-3">
           <BookOpen size={16} strokeWidth={1.9} className="text-label-2" />
           <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-            {area === 'tasks' ? '과제 입력 매뉴얼' : area === 'perf' ? '성과관리 매뉴얼' : '사용 매뉴얼'}
+            {area === 'tasks' ? '과제 입력 매뉴얼' : area === 'perf' ? '과제관리 매뉴얼' : '사용 매뉴얼'}
           </span>
           <a
             href={url}
@@ -64,7 +64,7 @@ export default function ManualLink({ area, chapter }: { area?: ManualArea; chapt
     <>
       <button
         onClick={() => setOpen(true)}
-        title={area === 'tasks' ? '과제 입력 매뉴얼(지금 화면)' : area === 'perf' ? '성과관리 매뉴얼(지금 화면)' : '사용 매뉴얼'}
+        title={area === 'tasks' ? '과제 입력 매뉴얼(지금 화면)' : area === 'perf' ? '과제관리 매뉴얼(지금 화면)' : '사용 매뉴얼'}
         aria-label="사용 매뉴얼"
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
       >
