@@ -80,6 +80,7 @@ import {
   CHANGE_LOG_TAB,
   CHANGE_LOG_HEADER,
   isProtectedSheet,
+  isOperatingSheet,
   readHiddenTabs,
   writeHiddenTabs,
   TASK_INPUT_SHEET_URL,
@@ -1652,7 +1653,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const hiddenCount = allSheetTabs.length - sheetTabs.length
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
-  const sheetName = sheetFileTitle ?? (protectedLink ? '운영 팀 시트' : sheetLink === TASK_INPUT_SHEET_URL ? '테스트 시트(운영 시트의 사본)' : '연결된 시트')
+  const sheetName = sheetFileTitle ?? (isOperatingSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '디자인연구소 실적관리(운영 시트)' : '연결된 시트')
   const sheetOpenUrl = withGoogleAccount(data?.spreadsheetId && !data.local ? sheetUrl(data.spreadsheetId, data.sheetGid ?? undefined) : sheetLink)
   // 시트 링크를 그 행으로: 고른 과제가 있으면 그 행, 없으면 지금 그룹(L1)의 첫 행(불러온 때의 행 번호 기준)
   const activeRowRef = useRef<string | null>(null)
@@ -2045,7 +2046,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
   // 업데이트 요청: 묻기를 껐으면 바로(과제를 지울 때는 늘 묻는다)
   function requestSave() {
-    if (askSave || (drafts.deleted?.length ?? 0) > 0) setConfirmSave(true)
+    // 운영 시트(디자인연구소 실적관리)는 늘 확인을 거친다
+    if (askSave || (drafts.deleted?.length ?? 0) > 0 || isOperatingSheet(data?.spreadsheetId)) setConfirmSave(true)
     else void saveToSheet()
   }
   async function acceptRemote() {
@@ -2915,6 +2917,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               headerStyle={eff.headerStyle}
               scheduleMode={scheduleMode}
               onToggleSchedule={() => setScheduleMode(scheduleMode === 'full' ? 'compact' : 'full')}
+              onShowSchedule={() => setScheduleMode(lastShownMode.current)}
               onScheduleMenu={(e) => setSchMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 380) })}
               allWeekCols={data.weekCols}
               onBg={setBg}
@@ -3220,7 +3223,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             )}
           </div>
           {/* 다음부터 묻지 않기: 파일 메뉴 › 업데이트 전에 묻기로 다시 켠다. 업데이트 때마다 시트를 새로 읽어 남이 바꾼 칸은 덮지 않는다 */}
-          {(drafts.deleted?.length ?? 0) === 0 && (
+          {isOperatingSheet(data.spreadsheetId) && (
+            <p className="mt-2 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-danger">
+              연구소 모두가 쓰는 운영 시트입니다. 업데이트하면 바로 반영됩니다(바꾼 칸만 덮어씁니다).
+            </p>
+          )}
+          {(drafts.deleted?.length ?? 0) === 0 && !isOperatingSheet(data.spreadsheetId) && (
             <label className="mt-3 flex cursor-pointer items-center gap-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
               <input type="checkbox" checked={noAskNext} onChange={(e) => setNoAskNext(e.target.checked)} />
               다음부터 묻지 않고 바로 업데이트

@@ -424,15 +424,19 @@ export function toProgressRows(
 
 // ---------- 연결 시트 ----------
 
-// 운영 중인 팀 구글시트 -- 과제 입력은 여기서 읽기만 하고 절대 쓰지 않는다(테스트 시트를 따로 연결해 저장).
-// 운영 시트에 저장을 허용하려면 이 목록에서 빼야 한다.
-export const PROTECTED_SHEET_IDS = ['1wnE6O8uIdCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o']
+// 읽기 전용으로 잠가 둘 시트(저장 막음). 지금은 없음 -- 운영 시트도 연구소가 앱에서 고쳐 쓴다.
+export const PROTECTED_SHEET_IDS: string[] = []
 export function isProtectedSheet(id: string | null | undefined): boolean {
   return !!id && PROTECTED_SHEET_IDS.includes(id)
 }
+// 디자인연구소 「실적관리」 운영 시트: 저장은 되지만 늘 확인 창을 거친다(「다음부터 묻지 않기」 없음) -- 실제 데이터라 실수를 막는다.
+export const OPERATING_SHEET_IDS = ['1wnE6O8uIdCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o']
+export function isOperatingSheet(id: string | null | undefined): boolean {
+  return !!id && OPERATING_SHEET_IDS.includes(id)
+}
 
-// 과제 입력 기본 시트 -- 운영 시트의 사본(테스트용, jjy.osstem 소유). 읽기·저장 모두 여기로.
-export const TASK_INPUT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1JK925VPx_t5HwPzKN0hWdu5zw0SqJHLQiyZTMLUA0AQ/edit'
+// 과제 입력 기본 시트 -- 디자인연구소 실적관리(운영 시트). 읽기·저장 모두 여기로(저장 전 확인 창).
+export const TASK_INPUT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1wnE6O8uIdCPPPHPYvQj5SBCSN9LlunkNT8dncA7NL2o/edit'
 
 // 과제 입력이 연결한 시트(링크). 없으면 위 기본 시트.
 const sheetKey = () => `progress-board:sheet:${accountScope()}`

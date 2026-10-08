@@ -18,6 +18,7 @@ import {
   ArrowUpToLine,
   Bold,
   ChevronsLeft,
+  ChevronsLeftRight,
   ChevronsRight,
   ClipboardPaste,
   Copy,
@@ -862,6 +863,7 @@ export default function ScheduleTable({
   headerStyle: hs,
   scheduleMode = 'compact',
   onToggleSchedule,
+  onShowSchedule,
   onScheduleMenu,
   allWeekCols = weekCols,
   zebra = false,
@@ -931,6 +933,8 @@ export default function ScheduleTable({
   headerStyle?: HeaderStyle // 시트 머리글 색 · 묶음 머리글
   scheduleMode?: ScheduleMode // 일정: 전체 펴기 / 줄여보기 / 숨기기
   onToggleSchedule?: () => void
+  // 일정을 숨긴 상태에서 다시 열기(숨기기 전 보기로) -- 과제(L3) 열 오른쪽 끝의 작은 단추
+  onShowSchedule?: () => void
   onScheduleMenu?: (e: React.MouseEvent) => void // 일정 머리글 우클릭(보기 단계·기간 고르기)
   allWeekCols?: WeekColumn[] // 접었을 때 요약에 쓰는 전체 주차
   zebra?: boolean
@@ -2439,6 +2443,21 @@ export default function ScheduleTable({
             >
               {headEdit?.key === 'l3' ? headEditor('l3', false) : '과제(L3)'}
               {onResize && <ResizeHandle width={wL3} onResize={(v) => resizeTo('l3', v)} lineH={tableH} />}
+              {/* 일정을 숨겼으면 L3 열 오른쪽 끝(머리글 경계)에 열기 단추 -- 열 추가 단추와 같은 방식으로 경계에 걸쳐 뜬다 */}
+              {scheduleMode === 'hidden' && onShowSchedule && (
+                <button
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onShowSchedule()
+                  }}
+                  title="숨긴 일정 열기"
+                  aria-label="숨긴 일정 열기"
+                  className="absolute right-0 top-1 z-30 flex h-5 w-6 translate-x-1/2 items-center justify-center rounded-[6px] border border-hairline bg-white text-label-2 shadow-sm hover:text-accent"
+                >
+                  <ChevronsLeftRight size={14} strokeWidth={2} />
+                </button>
+              )}
             </th>
             {scheduleOpen ? (
               months.map((m, i) => (
