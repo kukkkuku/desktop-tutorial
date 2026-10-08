@@ -834,10 +834,10 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           위아래로 쌓고 스플리터는 숨긴다(이 경우 모든 컬럼이 항상 폭이 넓어
           슬림 바가 되지 않는다). */}
       <div className="flex-1 bg-white py-5">
-        <div ref={rowRef} className="flex flex-col gap-5 xl:flex-row xl:gap-0">
-          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[0], flex: '0 0 auto' } : undefined}>
+        <div ref={rowRef} className="flex flex-col gap-5 xl:min-h-[calc(100vh-16rem)] xl:flex-row xl:gap-0">
+          <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[0], flex: '0 0 auto' } : undefined}>
             {simNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center justify-between rounded-card border border-separator bg-white py-6">
+              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center justify-between rounded-card border border-separator bg-white py-6">
                 <button
                   onClick={() => expandColumn('sim')}
                   title="성장 시뮬레이션 펼치기"
@@ -879,9 +879,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter0} />
 
-          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[1], flex: '0 0 auto' } : undefined}>
+          <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[1], flex: '0 0 auto' } : undefined}>
             {perfNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
+              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
                 <button
                   onClick={() => expandColumn('perf')}
@@ -983,9 +983,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter1} />
 
-          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
+          <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
             {peerNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
+              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('peer')} label="피어리뷰" />
                 <button
                   onClick={() => expandColumn('peer')}
@@ -1004,9 +1004,9 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <ColumnSplitter {...splitter2} />
 
-          <div className="w-full min-w-0 xl:shrink-0" style={colWidths ? { width: colWidths[3], flex: '0 0 auto' } : undefined}>
+          <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[3], flex: '0 0 auto' } : undefined}>
             {meetingNarrow ? (
-              <div className="flex h-full min-h-[200px] w-full flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
+              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
                 <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
                 <button
                   onClick={() => expandColumn('meeting')}
