@@ -1,6 +1,5 @@
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
-import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade } from '../types'
 import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
 import {
@@ -17,9 +16,6 @@ import {
 } from '../utils/calculations'
 import GradeNoteButton from './GradeNoteButton'
 import LiveRankingPopover from './LiveRankingPopover'
-import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import { downloadCurrentMatrixExcel } from '../utils/excel'
-import { downloadMatrixPdf } from '../utils/pdfReports'
 import { peerInputsOf } from '../utils/peerScores'
 import { explainMemberScore, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
@@ -94,9 +90,6 @@ export function OutOfSyncBanner() {
 export default function EvaluationMatrix() {
   const { state, dispatch } = useAppState()
   const { tasks, members, contributions, criteria } = state
-  const { currentWorkspace } = useWorkspaces()
-  const teamName = currentWorkspace?.teamName ?? ''
-  const periodName = currentWorkspace?.periodName ?? ''
   const peerInputs = peerInputsOf(state)
   const memberResults = calcMemberResults(members, tasks, contributions, criteria, peerInputs)
   // 과제별 피어리뷰(순위)의 평균 -- 기여도 칸 아래 참고로 보여 준다. 본인 평가 제외.
@@ -185,10 +178,6 @@ export default function EvaluationMatrix() {
               실시간 순위 보기
             </Button>
           )}
-          <CurrentDataDownloadControls
-            onExcelDownload={() => downloadCurrentMatrixExcel(tasks, members, contributions, criteria)}
-            onPdfDownload={() => downloadMatrixPdf(teamName, periodName, tasks, members, contributions, criteria)}
-          />
         </div>
       </div>
 

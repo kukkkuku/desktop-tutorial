@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { toast } from './ui/Toast'
 import { useAppState } from '../state/AppContext'
-import { useWorkspaces } from '../state/WorkspaceContext'
 import type { Importance, PerformanceGrade, Task, Workload } from '../types'
 import { ALL_IMPORTANCE_OPTIONS, IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS, WORKLOAD_OPTIONS } from '../types'
 import ConfirmDialog from './ConfirmDialog'
@@ -10,9 +9,6 @@ import { GRADE_COLORS, calcAllTaskScores, getContribution, getTaskContributionSu
 import GradeNoteButton from './GradeNoteButton'
 import Select from './ui/Select'
 import { OutOfSyncBanner } from './EvaluationMatrix'
-import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import { downloadCurrentTasksExcel } from '../utils/excel'
-import { downloadTasksPdf } from '../utils/pdfReports'
 import Button from './Button'
 import IconButton from './IconButton'
 import DataGrid, { CHIP_BASE, type CellEdit, type DetailLine, type GridColumn } from './grid/DataGrid'
@@ -38,9 +34,6 @@ const STATUS_TONE: Record<string, string> = {
 // 표는 과제관리와 같은 DataGrid: 칸을 눌러 바로 입력, 붙여넣기, 행 삭제·이동, ⌘Z.
 export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void }) {
   const { state, dispatch, recentlyAddedIds } = useAppState()
-  const { currentWorkspace } = useWorkspaces()
-  const teamName = currentWorkspace?.teamName ?? ''
-  const periodName = currentWorkspace?.periodName ?? ''
   const history = useStateHistory()
   const [deleting, setDeleting] = useState<Task[] | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -499,11 +492,6 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
             <Plus {...ic} />
             과제 추가
           </Button>
-          <CurrentDataDownloadControls
-            disabled={state.tasks.length === 0}
-            onExcelDownload={() => downloadCurrentTasksExcel(state.tasks, state.criteria)}
-            onPdfDownload={() => downloadTasksPdf(teamName, periodName, state.tasks, state.criteria)}
-          />
         </div>
       </div>
       <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">

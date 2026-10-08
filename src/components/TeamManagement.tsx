@@ -12,9 +12,6 @@ import { unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
 import ConfirmDialog from './ConfirmDialog'
-import CurrentDataDownloadControls from './CurrentDataDownloadControls'
-import { downloadCurrentMembersExcel } from '../utils/excel'
-import { downloadMembersPdf } from '../utils/pdfReports'
 import Button from './Button'
 import HRCardImportModal from './HRCardImportModal'
 import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/DataGrid'
@@ -60,7 +57,6 @@ export default function TeamManagement() {
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
   const teamName = currentWorkspace?.teamName ?? ''
-  const periodName = currentWorkspace?.periodName ?? ''
   const { openMemberDetail } = useMemberDetail()
   const history = useStateHistory()
   const [deleting, setDeleting] = useState<TeamMember[] | null>(null)
@@ -728,11 +724,6 @@ export default function TeamManagement() {
             )}
           </div>
           <span className="mx-1.5 h-5 w-px bg-separator" />
-          <CurrentDataDownloadControls
-            disabled={state.members.length === 0}
-            onExcelDownload={() => downloadCurrentMembersExcel(state.members, state.tasks, state.contributions, state.peerReviews)}
-            onPdfDownload={() => downloadMembersPdf(teamName, periodName, state.members, state.tasks, state.contributions, state.peerReviews)}
-          />
           {access && (
             <Button variant="primary" onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
               <Send {...icSm} />
