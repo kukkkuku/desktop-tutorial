@@ -309,6 +309,7 @@ body {
 }
 
 /* 구글시트 보기에서 앱 맨 위 줄을 접었을 때(시트가 화면을 꽉 채움) -- 추진현황 화면이 html에 data-sheet-focus를 건다 */
+html[data-head-folded='1'] .shell-header,
 html[data-sheet-focus='1'] .shell-header {
   display: none;
 }
@@ -328,4 +329,9 @@ html[data-sheet-focus='1'] .shell-header {
   width: 1px;
   margin-top: -7px;
   background: rgb(0 0 0 / 0.14);
+}
+
+/* 앱 위쪽을 접었을 때 구글시트 보기의 자체 손잡이와 겹치지 않게 */
+html[data-sheet-focus='1'] .head-fold-handle {
+  display: none;
 }

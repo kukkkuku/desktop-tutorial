@@ -3,7 +3,7 @@
 // 메뉴 모양 3단계(머리 맨 앞 버튼으로 차례로): 펼침 → 아이콘만(좁은 사이드바) → 위 메뉴(사이드바 없이 머리 한 줄에).
 // 고른 모양은 이 브라우저에 기억한다.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
+import { ChevronDown, ChevronUp, PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
 import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
 
 // 메뉴 모양: open(펼침) · rail(아이콘만) · top(위 메뉴) · hidden(사이드바 숨김). 사이드바 경계를 끌면 폭 조절, 누르거나 ⌘B면 숨김/펼침
@@ -34,11 +34,37 @@ function readLayout(): ShellLayout {
 }
 // 모양을 바꾼 뒤(새 머리가 그려진 뒤) 알린다 -- 머리 빈 칸에 그리는 화면(추진현황 연도 고르기 · ⋯)이 다시 찾도록
 export const SHELL_LAYOUT_EVENT = 'shell-layout'
-const ShellCtx = createContext<{ layout: ShellLayout; cycle: () => void; perf?: SidebarPerfExtras } | null>(null)
+const FOLD_KEY = 'shell-head-folded'
+function readFolded(): boolean {
+  try {
+    return localStorage.getItem(FOLD_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+const ShellCtx = createContext<{ layout: ShellLayout; cycle: () => void; perf?: SidebarPerfExtras; folded: boolean; toggleFold: () => void } | null>(null)
 
 export default function AppShell({ perf, header, children }: { perf?: SidebarPerfExtras; header?: ReactNode; children: ReactNode }) {
   const [layout, setLayout] = useState(readLayout)
   const [width, setWidth] = useState(readWidth)
+  // 위 머리 줄 접기: 접으면 머리 줄이 사라지고 맨 위 가운데 손잡이로 다시 편다(이 브라우저에 기억)
+  const [folded, setFolded] = useState(readFolded)
+  function toggleFold() {
+    setFolded((v) => {
+      try {
+        localStorage.setItem(FOLD_KEY, v ? '0' : '1')
+      } catch {
+        // 기억 못 해도 지금은 바뀐다
+      }
+      return !v
+    })
+  }
+  useEffect(() => {
+    const root = document.documentElement
+    if (folded) root.setAttribute('data-head-folded', '1')
+    else root.removeAttribute('data-head-folded')
+    return () => root.removeAttribute('data-head-folded')
+  }, [folded])
   function chooseLayout(v: ShellLayout) {
     setLayout(v)
     try {
@@ -70,8 +96,18 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   }, [layout])
   const top = layout === 'top'
   return (
-    <ShellCtx.Provider value={{ layout, cycle, perf }}>
+    <ShellCtx.Provider value={{ layout, cycle, perf, folded, toggleFold }}>
       <div className="flex min-h-screen bg-canvas">
+        {folded && (
+          <button
+            onClick={toggleFold}
+            title="위쪽 펴기"
+            aria-label="위쪽 펴기"
+            className="head-fold-handle fixed left-1/2 top-0 z-40 flex h-5 w-14 -translate-x-1/2 items-center justify-center rounded-b-[10px] bg-white text-label-2 shadow-pop hover:text-label"
+          >
+            <ChevronDown size={14} strokeWidth={2} />
+          </button>
+        )}
         {!top && layout !== 'hidden' && (
           <div className="relative flex shrink-0">
             <Sidebar perf={perf} collapsed={layout === 'rail'} width={layout === 'rail' ? RAIL_W : width} animate={!dragging} />
@@ -109,14 +145,24 @@ function LayoutToggle() {
   const t = layout === 'open' ? '메뉴 접기(아이콘만) · ⌘B 숨기기' : layout === 'rail' ? '메뉴를 위로 올리기' : layout === 'hidden' ? '사이드바 펼치기 (⌘B)' : '메뉴 펼치기'
   const Icon = layout === 'open' ? PanelLeftClose : layout === 'rail' ? PanelTop : PanelLeftOpen
   return (
-    <button
-      onClick={ctx.cycle}
-      title={t}
-      aria-label={t}
-      className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
-    >
-      <Icon size={17} strokeWidth={1.8} />
-    </button>
+    <>
+      <button
+        onClick={ctx.cycle}
+        title={t}
+        aria-label={t}
+        className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
+      >
+        <Icon size={17} strokeWidth={1.8} />
+      </button>
+      <button
+        onClick={ctx.toggleFold}
+        title="위쪽 접기(맨 위 가운데 손잡이로 다시 펴기)"
+        aria-label="위쪽 접기"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-3 hover:bg-black/[0.05] hover:text-label"
+      >
+        <ChevronUp size={16} strokeWidth={1.9} />
+      </button>
+    </>
   )
 }
 
