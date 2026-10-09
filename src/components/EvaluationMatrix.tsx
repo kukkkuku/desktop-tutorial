@@ -199,6 +199,8 @@ export default function EvaluationMatrix() {
       return 'task'
     }
   })
+  const [taskBlockW, setTaskBlockW] = useState(260)
+  const [memberColW, setMemberColW] = useState(300)
   function setView(v: 'task' | 'member') {
     setViewState(v)
     try {
@@ -354,10 +356,37 @@ export default function EvaluationMatrix() {
     )
   }
 
-  const TASK_BLOCK_W = 260 // 팀원이 세로인 보기: 과제 하나가 쓰는 폭(개인수행등급을 켜도 같다)
-  const TASK_PCT_W = showGrade ? 100 : TASK_BLOCK_W
-  const TASK_GRADE_W = showGrade ? TASK_BLOCK_W - 100 : 0
-  const MEMBER_ROW_COL_W = 300 // 팀원 기준 보기: 팀원(첫 열) 폭
+  // 팀원이 세로인 보기: 과제 하나가 쓰는 폭(개인수행등급을 켜도 같다)과 첫 열(팀원) 폭 -- 둘 다 머리 경계를 끌어서 조절
+  const TASK_BLOCK_W = taskBlockW
+  const TASK_PCT_W = showGrade ? Math.min(100, Math.round(taskBlockW / 2)) : TASK_BLOCK_W
+  const TASK_GRADE_W = showGrade ? TASK_BLOCK_W - TASK_PCT_W : 0
+  const swapButton = (
+    <button
+      type="button"
+      onClick={() => setView(view === 'task' ? 'member' : 'task')}
+      title={view === 'member' ? '가로 · 세로 바꾸기 (지금: 세로 = 팀원 · 가로 = 과제)' : '가로 · 세로 바꾸기 (지금: 세로 = 과제 · 가로 = 팀원)'}
+      aria-label="가로 · 세로 바꾸기"
+      className="absolute left-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-control text-label-2 transition-colors hover:bg-black/[0.07] hover:text-label"
+    >
+      <TableSwap {...icSm} />
+    </button>
+  )
+  // 열 너비 끌기(과제명 · 팀원 · 과제 칸 공용)
+  const resizeOf = (width: number, set: (n: number) => void, min = MIN_COL_WIDTH) => ({
+    onStart: (e: React.PointerEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      dragRef.current = { startX: e.clientX, startWidth: width }
+      e.currentTarget.setPointerCapture(e.pointerId)
+    },
+    onMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = dragRef.current
+      if (d) set(Math.max(min, d.startWidth + (e.clientX - d.startX)))
+    },
+    onEnd: () => {
+      dragRef.current = null
+    },
+  })
+  const MEMBER_ROW_COL_W = memberColW
 
   const memberCount = activeMembers.length
   const gradeW = showGrade ? GRADE_COL_WIDTH : 0
@@ -371,20 +400,7 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => setView(view === 'task' ? 'member' : 'task')}
-            title="표의 가로 · 세로를 서로 바꿉니다. 팀원이 많으면 팀원을 세로로 보면 편합니다"
-          >
-            <TableSwap {...icSm} />
-            가로 · 세로 바꾸기
-          </Button>
-          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-            {view === 'member' ? '지금: 세로 = 팀원 · 가로 = 과제' : '지금: 세로 = 과제 · 가로 = 팀원'}
-          </span>
-        </div>
+        <span />
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
             <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>
@@ -429,7 +445,9 @@ export default function EvaluationMatrix() {
                       className="sticky left-0 z-20 border-b border-separator bg-subtle px-4 py-3 align-bottom font-semibold"
                       style={{ position: 'sticky', left: 0 }}
                     >
+                      {swapButton}
                       팀원
+                      <ResizeHandle {...resizeOf(memberColW, setMemberColW, 120)} />
                     </th>
                     {tasks.map((task) => {
                       const sum = getTaskContributionSum(contributions, task.id, activeMemberIds)
@@ -437,7 +455,7 @@ export default function EvaluationMatrix() {
                       const delta = sum - 100
                       const sumLabel = sum === 0 ? '0%' : valid ? '100%' : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`
                       return (
-                        <th key={task.id} colSpan={showGrade ? 2 : 1} className="border-b border-l border-separator px-3 py-2 align-top font-semibold">
+                        <th key={task.id} colSpan={showGrade ? 2 : 1} className="relative border-b border-l border-separator px-3 py-2 align-top font-semibold">
                           <div className="min-w-0 truncate" title={task.name}>
                             {task.name}
                           </div>
@@ -450,6 +468,7 @@ export default function EvaluationMatrix() {
                               {sumLabel}
                             </span>,
                           )}
+                          <ResizeHandle {...resizeOf(taskBlockW, setTaskBlockW, 200)} />
                         </th>
                       )
                     })}
@@ -500,6 +519,7 @@ export default function EvaluationMatrix() {
                     className="sticky left-0 z-20 border-b border-separator bg-subtle px-4 py-3 align-bottom font-semibold"
                     style={{ position: 'sticky', left: 0 }}
                   >
+                    {swapButton}
                     과제명
                     <ResizeHandle onStart={startTaskResize} onMove={onTaskResizeMove} onEnd={onTaskResizeEnd} />
                   </th>
