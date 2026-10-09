@@ -57,6 +57,8 @@ export interface RawSheet {
   notes?: (string | null)[][]
   // 칸 글자 서식(굵게·글자색·크기·정렬, fmtString 모양). 없으면 null.
   fmts?: (string | null)[][]
+  // 줄 높이(px, 0부터 센 줄 번호). 모르면 null
+  heights?: (number | null)[]
 }
 
 export interface ParsedHeader {
@@ -291,6 +293,13 @@ export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: 
         prevL2 = l2
         prevH = h ?? prevH
         prevL1 = l1 ?? prevL1
+      } else {
+        // 과제도 구분(L2)도 없는 줄(그룹 사이 여백)에 적힌 대분류(H) · L1 이름은 아래 줄들이 이어받는다
+        // (이걸 버리면 새 그룹의 과제들이 바로 앞 그룹 이름으로 묶인다)
+        if (h && h !== prevH) {
+          prevH = h
+          prevL1 = l1 ?? null
+        } else if (l1) prevL1 = l1
       }
       continue
     }

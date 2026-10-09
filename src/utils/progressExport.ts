@@ -269,7 +269,16 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   // 줄 높이(pt): 첫 머리글 15 · 둘째 20.25 · 본문 19.5
   ws.getRow(1).height = 15
   ws.getRow(2).height = 20.25
+  // 줄 높이: 원본(시트 · 엑셀) 높이를 그대로, 모르면 19.5. 앞 빈 줄도 원본 높이(보통 얇게)
   for (let r = 3; r <= (yAt[rows.length - 1] ?? 2); r++) ws.getRow(r).height = 19.5
+  rows.forEach((row, ri) => {
+    if (row.height) ws.getRow(yAt[ri]).height = Math.round(row.height * 0.75 * 100) / 100
+    const gap = ri > 0 ? row.gapBefore ?? 0 : 0
+    for (let g = 0; g < gap; g++) {
+      const h = row.gapHeights?.[g]
+      if (h) ws.getRow(yAt[ri] - gap + g).height = Math.round(h * 0.75 * 100) / 100
+    }
+  })
   const nameIdx = all.findIndex((c) => c.kind === 'name')
   ws.views = [{ state: 'frozen', xSplit: at(nameIdx), ySplit: 2, showGridLines: false }]
   return wb

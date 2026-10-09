@@ -857,6 +857,7 @@ export default function ScheduleTable({
   onRenameColumn,
   fontSize = 13,
   rowPad = 0,
+  srcHeights = false,
   readOnly = false,
   fields = [],
   optionsOf,
@@ -925,6 +926,7 @@ export default function ScheduleTable({
   onRenameColumn?: (id: string, label: string) => void // 새 열 이름 고치기
   fontSize?: number
   rowPad?: number // 행간: 칸 위아래 여백(px)
+  srcHeights?: boolean // 시트 · 엑셀의 줄 높이(row.height)를 최소 높이로 쓴다(끌어서 정한 높이가 우선)
   rowHeights?: Record<string, number> // 끌어서 정한 행 높이(행 키 → px)
   onRowHeights?: (changes: Record<string, number | null>, kind?: string) => void // null = 자동 높이로
   readOnly?: boolean // 지난 연도 보기: 입력·칠하기·우클릭 메뉴·행 아이콘 없음
@@ -2605,7 +2607,7 @@ export default function ScheduleTable({
                   <tr
                     key={v.row.key}
                     data-row={v.row.key}
-                    style={{ ...(rowH ? { height: rowH } : {}) }}
+                    style={{ ...(rowH ? { height: rowH } : srcHeights && v.row.height ? { height: v.row.height } : {}) }}
                     className={`group/row ${rowBg} leading-snug ${v.deleted ? 'opacity-40' : ''} ${drag?.key === v.row.key ? 'opacity-50' : ''} ${
                       isRowSel(v.row.key)
                         ? `pb-row-sel ${(allSelected ? ri2 === 0 : rowRange && ri2 === rowRange.r1) ? 'pb-row-top' : ''} ${(allSelected ? ri2 === rows.length - 1 : rowRange && ri2 === rowRange.r2) ? 'pb-row-bottom' : ''}`

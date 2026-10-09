@@ -28,6 +28,7 @@ import {
   RotateCcw,
   PanelTop,
   RotateCw,
+  Ruler,
   Rows3,
   AlignVerticalSpaceAround,
   Search,
@@ -257,6 +258,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
   raw.fills = fmt.fills
   raw.notes = fmt.notes
   raw.fmts = fmt.fmts
+  raw.heights = fmt.heights
   const parsed = parseSheet(raw)
   if ('error' in parsed) throw new Error(parsed.error)
   return {
@@ -399,6 +401,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   })
   const [sheetReload, setSheetReload] = useState(0)
+  // 줄 높이: 시트 · 엑셀 원본 높이를 쓸지(켜 두면 원본 그대로, 행간 버튼으로 바꾸면 모두 같은 높이) -- 이 브라우저에 기억
+  const [srcHeights, setSrcHeightsState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('progress-board:src-heights') !== '0'
+    } catch {
+      return true
+    }
+  })
+  function setSrcHeights(v: boolean) {
+    setSrcHeightsState(v)
+    try {
+      localStorage.setItem('progress-board:src-heights', v ? '1' : '0')
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
   const [viewMenu, setViewMenu] = useState(false) // 보기 전환(아래 줄)이 펼쳐져 있는지
   const [sheetJump, setSheetJump] = useState<number | null>(null) // 그룹 탭으로 옮겨 갈 시트 행(1-based)
   const [sheetBoxRef, sheetBoxH] = useFitHeight(12, 360)
@@ -616,6 +634,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
   // 행간을 한 단계 바꾸면 끌어서 정한 행 높이는 지워 모든 행이 같은 높이를 따르게 한다(한 행만 따로 높거나 낮지 않게)
   function stepRowPad(d: number) {
+    setSrcHeights(false)
     setRowPad(rowPad + d)
     if (Object.keys(heightsRef.current).length) {
       pushHistory('')
@@ -2779,6 +2798,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             </button>
             <button
               onClick={() => {
+                setSrcHeights(false)
                 setRowPad(ROW_PAD_DEFAULT)
                 if (Object.keys(heightsRef.current).length) {
                   pushHistory('')
@@ -2790,6 +2810,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               title="모든 행을 기본 높이로 통일(행간 기본값 · 끌어서 바꾼 행 높이 모두 되돌림)"
             >
               <AlignVerticalSpaceAround {...icSm} />
+            </button>
+            <button
+              onClick={() => {
+                setSrcHeights(true)
+                setRowPad(ROW_PAD_DEFAULT)
+                if (Object.keys(heightsRef.current).length) {
+                  pushHistory('')
+                  setView(widthsRef.current, {})
+                }
+              }}
+              aria-pressed={srcHeights}
+              className={`flex h-8 w-8 items-center justify-center border-l border-hairline hover:bg-black/[0.04] ${srcHeights ? 'bg-accent-soft text-accent-hover' : 'text-label'}`}
+              aria-label="원본 줄 높이로"
+              title="시트 · 엑셀 원본의 줄 높이로 보기(끌어서 바꾼 높이는 되돌림)"
+            >
+              <Ruler {...icSm} />
             </button>
           </span>
           <span className="h-5 w-px shrink-0 bg-separator" />
@@ -3080,6 +3116,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onMoveRow={readOnly ? undefined : moveRow}
               fontSize={fontSize}
               rowPad={rowPad}
+              srcHeights={srcHeights && rowPad >= 0}
               rowHeights={rowHeights}
               onRowHeights={changeRowHeights}
               readOnly={readOnly}

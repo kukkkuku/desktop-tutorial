@@ -22,7 +22,8 @@ export function sheetToData(parsed: ParsedSheet, raw: RawSheet, meta: Meta): Pro
   const stray: number[] = []
   for (let r = parsed.header.dataStartRow; r < raw.rows.length; r++) {
     if (used.has(r)) continue
-    const has = (raw.rows[r] ?? []).some((c) => c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
+    const lvCols = new Set([parsed.header.hCol, parsed.header.l1Col, parsed.header.l2Col])
+    const has = (raw.rows[r] ?? []).some((c, ci) => !lvCols.has(ci) && c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
     if (has) stray.push(r + 1)
   }
   return {
@@ -93,8 +94,11 @@ function worksheetToRaw(ws: ExcelJS.Worksheet, title: string): RawSheet {
   const fills: (string | null)[][] = []
   const notes: (string | null)[][] = []
   const nCols = ws.columnCount
+  const heights: (number | null)[] = []
   for (let r = 1; r <= ws.rowCount; r++) {
     const row: unknown[] = []
+    const ht = ws.getRow(r).height
+    heights[r - 1] = ht ? Math.round((ht * 4) / 3) : null
     fills[r - 1] = []
     notes[r - 1] = []
     for (let c = 1; c <= nCols; c++) {
@@ -118,7 +122,7 @@ function worksheetToRaw(ws: ExcelJS.Worksheet, title: string): RawSheet {
     const pb = decodeRef(b ?? a)
     merges.push({ r1: pa.r, c1: pa.c, r2: pb.r, c2: pb.c })
   }
-  return { title, rows, merges, fills, notes }
+  return { title, rows, merges, fills, notes, heights }
 }
 function decodeRef(ref: string): { r: number; c: number } {
   const m = ref.match(/^([A-Z]+)(\d+)$/)!

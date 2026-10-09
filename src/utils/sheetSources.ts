@@ -335,11 +335,12 @@ export async function fetchSheetFormats(
   r2: number,
   c1: number,
   c2: number,
-): Promise<{ fills: (string | null)[][]; notes: (string | null)[][]; fmts: (string | null)[][] }> {
+): Promise<{ fills: (string | null)[][]; notes: (string | null)[][]; fmts: (string | null)[][]; heights: (number | null)[] }> {
   const range = `${quoteTab(title)}!${colLetter(c1)}${r1 + 1}:${colLetter(c2)}${r2 + 1}`
   const data = await sheetsFetch<{
     sheets: {
       data?: {
+        rowMetadata?: { pixelSize?: number }[]
         rowData?: {
           values?: {
             note?: string
@@ -359,7 +360,7 @@ export async function fetchSheetFormats(
       }[]
     }[]
   }>(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,italic,strikethrough,fontSize,foregroundColor))))`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowMetadata.pixelSize,rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,italic,strikethrough,fontSize,foregroundColor))))`,
   )
   const grid = data.sheets[0]?.data?.[0]
   const fills: (string | null)[][] = []
@@ -388,7 +389,9 @@ export async function fetchSheetFormats(
       fmts[r][c1 + j] = s || null
     })
   })
-  return { fills, notes, fmts }
+  const heights: (number | null)[] = []
+  ;(grid?.rowMetadata ?? []).forEach((m, i) => (heights[r1 + i] = m.pixelSize ?? null))
+  return { fills, notes, fmts, heights }
 }
 
 export interface SheetCellWrite {
@@ -773,6 +776,14 @@ async function attachXlsxFmts(book: XlsxBook, buffer: ArrayBuffer): Promise<void
       for (let c = 0; c < w; c++) fmts[r][c] = fmts[r][c] || null
     }
     sheet.fmts = fmts
+    // 줄 높이(pt → px)
+    const heights: (number | null)[] = []
+    for (const rm of xml.matchAll(/<(?:\w+:)?row\b([^>]*)>/g)) {
+      const rn = Number(xmlAttr(rm[1], 'r') ?? 0)
+      const ht = Number(xmlAttr(rm[1], 'ht') ?? 0)
+      if (rn > 0 && ht > 0 && rn <= sheet.rows.length) heights[rn - 1] = Math.round((ht * 4) / 3)
+    }
+    sheet.heights = heights
   }
 }
 async function fixHancomXlsx(buffer: ArrayBuffer): Promise<ArrayBuffer> {

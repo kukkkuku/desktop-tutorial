@@ -36,6 +36,9 @@ export interface ProgressRow {
   isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
   // 읽어 올 때 이 줄 바로 앞에 있던 빈 줄 수(그룹 사이 여백 등). 시트로 올리거나 내보낼 때 같은 자리에 다시 넣어 줄 번호가 원본과 맞게 한다
   gapBefore?: number
+  // 줄 높이(px, 시트 · 엑셀 그대로)와, 앞 빈 줄들의 높이. 올리거나 내보낼 때, 화면에서 원본 높이를 쓸 때 쓴다
+  height?: number
+  gapHeights?: number[]
 }
 
 export type Level = 'h' | 'l1' | 'l2'
@@ -412,6 +415,8 @@ export function toProgressRows(
       key: rowKeyOf(r.l2, r.l3, n),
       row: r.row,
       ...(gap > 0 ? { gapBefore: gap } : {}),
+      ...(raw?.heights?.[r.row] ? { height: raw.heights[r.row] as number } : {}),
+      ...(gap > 0 && raw?.heights ? { gapHeights: Array.from({ length: gap }, (_, g) => (raw.heights?.[rows[idx - 1].row + 1 + g] as number | null) ?? 0) } : {}),
       h: r.h,
       l1: r.l1 ?? NO_L1,
       l2: r.l2,
