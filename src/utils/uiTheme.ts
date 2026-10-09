@@ -1,8 +1,9 @@
 // 화면 테마(색 · 모서리 · 그림자 묶음). 값은 src/theme.css, 고른 것은 이 브라우저에 기억하고 <html data-theme>에 건다.
 // 새 테마 = theme.css에 블록 하나 + 아래 목록에 한 줄.
-export type ThemeKey = 'classic' | 'orange' | 'black' | 'blue'
+export type ThemeKey = 'figma' | 'classic' | 'orange' | 'black' | 'blue'
 
 export const THEMES: { key: ThemeKey; label: string; desc: string; dots: [string, string] }[] = [
+  { key: 'figma', label: '피그마 디자인', desc: '푸른 회색 · 파란 포인트', dots: ['#EDF0F4', '#3978FF'] },
   { key: 'classic', label: '원래 디자인', desc: '회색 바탕 · 파란 포인트', dots: ['#F4F4F5', '#2563EB'] },
   { key: 'orange', label: '오렌지 포인트', desc: '심플 · 오렌지', dots: ['#F6F6F7', '#F26B1D'] },
   { key: 'black', label: '블랙 포인트', desc: '유리 카드 · 검정', dots: ['#EEEEF1', '#18181B'] },
@@ -11,7 +12,7 @@ export const THEMES: { key: ThemeKey; label: string; desc: string; dots: [string
 
 const KEY = 'ui-theme'
 const EVENT = 'ui-theme-change'
-export const DEFAULT_THEME: ThemeKey = 'orange'
+export const DEFAULT_THEME: ThemeKey = 'figma'
 
 export function readTheme(): ThemeKey {
   try {

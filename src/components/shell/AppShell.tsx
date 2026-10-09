@@ -13,7 +13,7 @@ const NEXT: Record<ShellLayout, ShellLayout> = { open: 'rail', rail: 'top', top:
 const WIDTH_KEY = 'sidebar-width'
 const W_MIN = 200
 const W_MAX = 380
-const W_DEFAULT = 236
+const W_DEFAULT = 200
 const RAIL_W = 60
 function readWidth(): number {
   try {

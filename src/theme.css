@@ -213,3 +213,62 @@ html[data-theme='blue'] {
   --logo-1: #5b8cf5;
   --logo-2: #2553d6;
 }
+
+html[data-theme='figma'] {
+  /* 피그마 디자인(추진현황 시안): 푸른 회색 바탕 + 같은 색 판에 흰 1px 선, 파란 포인트, 흰 알약 메뉴.
+     탭 줄은 한 단계 진한 회색 띠, 고른 탭은 옅은 회색 + 가는 선 */
+  --c-accent: 57 120 255;
+  --c-accent-hover: 40 98 224;
+  --c-accent-soft: 234 240 255;
+  --c-ink: 32 40 63;
+  --c-label: 32 40 63;
+  --c-label-2: 100 109 132;
+  --c-label-3: 148 159 182;
+  --c-canvas: 237 240 244;
+  --c-subtle: 247 248 250;
+  --c-sep: 60 80 120;
+  --c-hair: 60 80 120;
+
+  --r-control: 11px;
+  --r-card: 12px;
+  --r-pop: 12px;
+  --r-panel: 16px;
+  --r-dialog: 14px;
+  --r-btn: 10px;
+  --r-nav: 10px;
+  --r-group: 14px;
+  --r-group-body: 10px;
+
+  --sh-control: 0 0 0 1px rgba(60, 80, 120, 0.14), 0 1px 2px rgba(36, 55, 83, 0.05);
+  --sh-card: 0 0 0 1px rgba(60, 80, 120, 0.1), 0 1px 2px rgba(36, 55, 83, 0.04);
+  --sh-pill: 0 3px 6px rgba(36, 55, 83, 0.05), 0 0 0 1px rgba(60, 80, 120, 0.06);
+  --sh-pop: 0 0 0 1px rgba(60, 80, 120, 0.08), 0 16px 40px -12px rgba(36, 55, 83, 0.22), 0 4px 10px -4px rgba(36, 55, 83, 0.08);
+  --sh-dialog: 0 0 0 1px rgba(60, 80, 120, 0.08), 0 24px 64px -16px rgba(36, 55, 83, 0.35);
+
+  --body-bg: #edf0f4;
+  --panel-bg: #edf0f4;
+  --panel-border: #ffffff;
+  --panel-shadow: none;
+
+  --btn-primary-bg: #3978ff;
+  --btn-primary-hover: #2a68ee;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-shadow: 0 1px 2px rgba(41, 90, 200, 0.3);
+
+  --nav-on-bg: #ffffff;
+  --nav-on-fg: rgb(var(--c-label));
+  --nav-on-shadow: var(--sh-pill);
+  --nav-on-icon: rgb(var(--c-accent));
+
+  --seg-track: #e3e7ee;
+  --group-bg: rgb(var(--c-subtle));
+  --group-shadow: 0 0 0 1px rgba(60, 80, 120, 0.08);
+
+  --tabbar-bg: #d9dde4;
+  --tab-on-bg: #f6f7f9;
+  --tab-on-border: #d8dbe3;
+  --tab-sep: #cfd2d9;
+
+  --logo-1: #6a9bff;
+  --logo-2: #2f63e0;
+}

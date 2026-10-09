@@ -316,9 +316,9 @@ html[data-sheet-focus='1'] .shell-header {
 
 /* 과제 입력 그룹(L1) 탭: 사파리 탭처럼. 고른 탭은 본문 판 색과 같은 둥근 알약, 나머지는 사이에 가는 구분선 */
 .l1-tab-on {
-  background: var(--panel-bg);
+  background: var(--tab-on-bg, var(--panel-bg));
   position: relative;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.06);
+  box-shadow: 0 0 0 1px var(--tab-on-border, rgb(0 0 0 / 0.06)), 0 1px 2px rgb(0 0 0 / 0.04);
 }
 .l1-tab-sep::after {
   content: '';
@@ -328,7 +328,7 @@ html[data-sheet-focus='1'] .shell-header {
   height: 14px;
   width: 1px;
   margin-top: -7px;
-  background: rgb(0 0 0 / 0.14);
+  background: var(--tab-sep, rgb(0 0 0 / 0.14));
 }
 
 /* 앱 위쪽을 접었을 때 구글시트 보기의 자체 손잡이와 겹치지 않게 */

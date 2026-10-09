@@ -2317,7 +2317,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (Number.isFinite(first)) setSheetJump(first)
   }
   const dockBar = (
-    <div className="-mx-6 -mt-5 flex h-9 items-center gap-2 rounded-t-panel bg-black/[0.04] px-2 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
+    <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-2 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
       {!(editing && boardView === 'table') && viewSwitchEl}
       {!(editing && boardView === 'table') && <span className="h-5 w-px shrink-0 bg-separator" />}
       <div className="flex min-w-0 flex-1 items-center gap-1 self-stretch">
@@ -2343,8 +2343,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
                 }}
                 data-l1-tab={name}
-                className={`group flex h-7 cursor-pointer select-none items-center rounded-[8px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
-                  tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-3'
+                className={`group flex h-[26px] cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                  tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'
                 } ${
                   on
                     ? 'l1-tab-on flex-none font-semibold text-label'
@@ -2755,7 +2755,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
 
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div
-          className={`-mx-2 mt-2 flex min-h-[52px] flex-wrap items-center gap-2 rounded-[12px] px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
+          className={`-mx-6 flex min-h-[58px] flex-wrap items-center gap-2 px-5 py-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors lg:-mx-8 ${
             editing && boardView === 'table' && !readOnly ? 'bg-accent-soft/70' : ''
           } ${boardView === 'sheet' ? 'hidden' : ''}`}
         >
@@ -3109,7 +3109,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : '-mx-6 -mb-8 mt-2 overflow-auto rounded-b-panel lg:-mx-8'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : '-mx-6 -mb-8 mt-0 overflow-auto rounded-b-panel lg:-mx-8'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
           style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
