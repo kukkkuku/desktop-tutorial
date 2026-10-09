@@ -18,7 +18,7 @@ function yearLabel(tab: string): string {
     ?.replace(/^[\s_\-·]+/, '')
     .trim()
   if (!rest) return `${y} 실적관리`
-  return /^[(（].*[)）]$/.test(rest) ? `${y} 실적관리 ${rest}` : `${y} 실적관리 (${rest})`
+  return /[(（]/.test(rest) ? `${y} 실적관리 ${rest}` : `${y} 실적관리 (${rest})`
 }
 
 export default function YearSwitcher({
