@@ -321,7 +321,9 @@ export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: 
     const weeks: Record<string, WeekMark> = {}
     const fills: Record<string, WeekFill> = {}
     for (const w of header.weekCols) {
-      const v = cellText(row[w.col])
+      // 소문자 s · f로 적은 칸도 같은 표시로 읽는다(그대로 두면 값이 사라지고 색만 남는다)
+      const raw = cellText(row[w.col])
+      const v = raw === 's' ? 'S' : raw === 'f' ? 'F' : raw
       if (isWeekMark(v)) weeks[w.key] = v
       const f = classifyFill(cellFills?.[r]?.[w.col])
       if (f) fills[w.key] = f
