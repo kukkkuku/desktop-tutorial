@@ -23,6 +23,7 @@ import Button from './Button'
 import { Trophy } from 'lucide-react'
 import { icSm, TableSwap } from './ui/icon'
 import { outOfSyncDetails } from '../utils/assigneeSync'
+import { useDismissedNotices } from '../utils/dismissedNotices'
 import Select from './ui/Select'
 import ScrollX from './ui/ScrollX'
 
@@ -61,34 +62,14 @@ function ResizeHandle({
   )
 }
 
-// 「이대로 두기」로 넘긴 알림 -- 담당자나 기여도가 다시 바뀌면(sig가 달라지면) 다시 뜬다
-const DISMISS_KEY = 'out-of-sync-dismissed'
-function loadDismissed(): Set<string> {
-  try {
-    return new Set<string>(JSON.parse(localStorage.getItem(DISMISS_KEY) ?? '[]'))
-  } catch {
-    return new Set()
-  }
-}
-
 // 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 알림 -- 과제별 · 팀원별 보기 둘 다 위에 띄운다
 export function OutOfSyncBanner() {
   const { state, dispatch } = useAppState()
-  const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed)
+  const { dismissed, dismiss } = useDismissedNotices()
   const [open, setOpen] = useState(false)
   const all = useMemo(() => outOfSyncDetails(state), [state])
   const list = all.filter((d) => !dismissed.has(d.sig))
   if (list.length === 0) return null
-
-  function dismiss(sigs: string[]) {
-    const next = new Set([...dismissed, ...sigs])
-    setDismissed(next)
-    try {
-      localStorage.setItem(DISMISS_KEY, JSON.stringify([...next].slice(-300)))
-    } catch {
-      /* 저장 실패는 무시 */
-    }
-  }
 
   return (
     <div className="mt-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-orange-800">
@@ -100,7 +81,7 @@ export function OutOfSyncBanner() {
           {open ? '접기' : '누가 다른지 보기'}
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
+          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(위쪽 종에 모아 둡니다. 담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
             모두 이대로 두기
           </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: list.map((d) => d.task.id) } })}>

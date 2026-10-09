@@ -18,6 +18,7 @@ import Button from './components/Button'
 import { SlidersHorizontal } from 'lucide-react'
 import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
+import NoticeBell from './components/NoticeBell'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import GoogleSignInGate from './components/GoogleSignInGate'
@@ -121,12 +122,15 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 }
                 title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}
                 actions={
-                  stage !== 'notes' && (
-                    <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
-                      <SlidersHorizontal size={15} strokeWidth={1.8} />
-                      기준 설정
-                    </Button>
-                  )
+                  <>
+                    <NoticeBell />
+                    {stage !== 'notes' && (
+                      <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
+                        <SlidersHorizontal size={15} strokeWidth={1.8} />
+                        기준 설정
+                      </Button>
+                    )}
+                  </>
                 }
               />
             }
