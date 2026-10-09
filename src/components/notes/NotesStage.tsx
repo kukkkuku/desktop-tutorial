@@ -71,7 +71,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
       </div>
 
       <div className="flex flex-1 items-stretch">
-        <div className="min-w-0 flex-1 bg-white">
+        <div className="-ml-6 min-w-0 flex-1 bg-white pl-5 lg:-ml-8">
           {selectedMemberId ? (
             <MemberGrowthDetail
               memberId={selectedMemberId}
