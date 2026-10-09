@@ -60,7 +60,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
 
   return (
     // 다른 화면과 같은 본문 여백 안에 둔다(예전엔 화면 끝까지 붙어 있었다).
-    <div className="flex min-h-full flex-col">
+    <div className="flex min-h-full flex-1 flex-col">
       <div className="shrink-0">
         <MemberGrowthRail
           selectedMemberId={selectedMemberId}
@@ -71,7 +71,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
       </div>
 
       <div className="flex flex-1 items-stretch">
-        <div className="-ml-6 min-w-0 flex-1 bg-white pl-5 lg:-ml-8">
+        <div className="-ml-6 min-w-0 flex-1 bg-white px-5 lg:-ml-8">
           {selectedMemberId ? (
             <MemberGrowthDetail
               memberId={selectedMemberId}
@@ -93,7 +93,7 @@ export default function NotesStage({ notesRequest, onManageTeam }: NotesStagePro
           )}
         </div>
 
-        <div className="shrink-0 py-4 pl-5">
+        <div className={`shrink-0 ${scheduleOpen ? 'py-4 pl-5' : 'pt-3'}`}>
           <MeetingSchedulePanel open={scheduleOpen} onToggle={() => setScheduleOpen((v) => !v)} onSelectMember={setSelectedMemberId} />
         </div>
       </div>

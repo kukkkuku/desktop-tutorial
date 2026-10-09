@@ -652,7 +652,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           놓고, 메모는 화면 가장 우측 끝으로 보낸다(justify-between). 가장
           중요한 숫자(승진자격/현재/가산/최종 점수)를 요약카드로 여기서
           바로 보여준다. */}
-      <div className="border-b border-[#f1f1f4] bg-white py-4">
+      <div className="border-b border-[#f1f1f4] bg-white pb-4 pt-[14px]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-5">
             <div className="shrink-0">

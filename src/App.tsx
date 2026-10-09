@@ -131,7 +131,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
               />
             }
           >
-            <main className="w-full min-w-0 flex-1 px-6 pb-10 pt-5 lg:px-8">
+            <main className={`w-full min-w-0 flex-1 px-6 pt-5 lg:px-8 ${stage === 'notes' ? 'flex flex-col pb-0' : 'pb-10'}`}>
               {stage === 'work' && <WorkStage onOpenSheetImport={(url, source) => setTaskImport({ source: source ?? 'sheet', url })} />}
               {stage === 'members' && <TeamStage subTabRequest={teamSubTabRequest} />}
               {/* 평가하기(예전 과제별 'tasks'도 여기로) -- 성과등급 · 목표 · 성과는 과제관리 표에서 */}
