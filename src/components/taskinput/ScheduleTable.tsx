@@ -468,7 +468,7 @@ function FieldCell({
   let display: React.ReactNode = f.kind === 'memo' ? value.trim() : value.replace(/\s*\n\s*/g, ' · ')
   if (f.id === 'status' && value) display = <span className={`${chip} ${STATUS_TONE[value] ?? 'bg-black/[0.05] text-label-2'}`}>{value}</span>
   else if (f.id === 'category' && value) display = <span className={`${chip} ${categoryTone(value)}`}>{value}</span>
-  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = value.slice(5).replace('-', '.') // 연도 없이 월.일만
+  else if (f.kind === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(value)) display = `${Number(value.slice(5, 7))}/${Number(value.slice(8, 10))}` // 연도 없이 월/일만(구글시트처럼 4/7)
   return (
     <td
       ref={tdRef}

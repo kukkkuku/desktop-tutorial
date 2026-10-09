@@ -670,9 +670,9 @@ export interface XlsxBook {
 //   · 글자 서식을 mc:AlternateContent(한컴 전용 hs: 태그 + 표준 Fallback)로 감쌈 → 공용 글자 목록을 못 읽어 모든 칸이 깨짐
 //   · 메모 위치가 "D159:D159" → 없는 칸이 생기고 표 범위가 터무니없이 커짐
 // 한컴 파일이 아니면 그대로 돌려준다.
-export async function readXlsxBookAsync(buffer: ArrayBuffer, fileName: string): Promise<XlsxBook> {
+export async function readXlsxBookAsync(buffer: ArrayBuffer, fileName: string, opts: { displayNumbers?: boolean } = {}): Promise<XlsxBook> {
   const fixed = await fixHancomXlsx(buffer)
-  const book = readXlsxBook(fixed, fileName)
+  const book = readXlsxBook(fixed, fileName, opts)
   try {
     await attachXlsxFmts(book, fixed)
   } catch (e) {
@@ -839,7 +839,8 @@ function usedRange(ws: XLSX.WorkSheet): { rows: number; cols: number } {
   return { rows, cols }
 }
 
-export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
+// displayNumbers: 숫자 서식이 있는 소수는 엑셀에 보이는 모양 그대로(글자)로 읽는다(추진현황: 엑셀 화면과 같게). 꺼 두면 원래 숫자
+export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { displayNumbers?: boolean } = {}): XlsxBook {
   // cellNF: 칸 서식을 같이 읽어 날짜 서식 칸을 알아본다.
   const wb = XLSX.read(buffer, { type: 'array', cellDates: false, cellNF: true, cellStyles: true })
   const sheets: RawSheet[] = wb.SheetNames.map((name, idx) => {
@@ -867,6 +868,8 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string): XlsxBook {
           fills[r][c] = cellFill(cell)
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
             row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
+          } else if (opts.displayNumbers && cell && cell.t === 'n' && cell.w !== undefined && cell.z && cell.z !== 'General' && !Number.isInteger(cell.v as number)) {
+            row.push(cell.w.trim())
           } else row.push(cell ? cell.v : null)
         }
         rows.push(row)

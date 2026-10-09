@@ -1257,7 +1257,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setError('')
     setMessage('')
     try {
-      const book = await readXlsxBookAsync(await file.arrayBuffer(), file.name)
+      const book = await readXlsxBookAsync(await file.arrayBuffer(), file.name, { displayNumbers: true })
       bookRef.current = book
       const title = pickDefaultTab(
         book.sheets.map((s) => ({ title: s.title, hidden: !!s.hidden })),
