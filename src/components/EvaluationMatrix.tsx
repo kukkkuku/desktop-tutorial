@@ -65,10 +65,10 @@ function ResizeHandle({
 // 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 알림 -- 과제별 · 팀원별 보기 둘 다 위에 띄운다
 export function OutOfSyncBanner() {
   const { state, dispatch } = useAppState()
-  const { dismissed, dismiss } = useDismissedNotices()
+  const { dismissed, deleted, dismiss } = useDismissedNotices()
   const [open, setOpen] = useState(false)
   const all = useMemo(() => outOfSyncDetails(state), [state])
-  const list = all.filter((d) => !dismissed.has(d.sig))
+  const list = all.filter((d) => !dismissed.has(d.sig) && !deleted.has(d.sig))
   if (list.length === 0) return null
 
   return (
@@ -81,7 +81,7 @@ export function OutOfSyncBanner() {
           {open ? '접기' : '누가 다른지 보기'}
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(위쪽 종에 모아 둡니다. 담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
+          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(위쪽 종에서 다시 볼 수 있습니다. 담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
             모두 이대로 두기
           </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: list.map((d) => d.task.id) } })}>

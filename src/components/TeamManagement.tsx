@@ -9,6 +9,7 @@ import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcServiceYearMonth, countFoundingAnniversaries, levelOrdinalOf, readFoundingDay, writeFoundingDay } from '../utils/tenure'
 import { removeUnmatchedAssignees, unmatchedAssigneeSummary } from '../utils/workBoard'
+import { OPEN_TEAM_NOTICE_KEY, useDismissedNotices } from '../utils/dismissedNotices'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
 import ConfirmDialog from './ConfirmDialog'
@@ -22,7 +23,7 @@ import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, parseHandoverTasks, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
-import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
+import { addRosterSkip, movedMembersOf, movedSig, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf, unmatchedSig } from '../utils/teamRoster'
 import TeamInviteDialog from './TeamInviteDialog'
 import { hasSheetsTokenNow } from '../utils/sheetSources'
 import { getConnectedEmail } from '../utils/googleDrive'
@@ -79,8 +80,19 @@ export default function TeamManagement() {
   const [deletingPeerReview, setDeletingPeerReview] = useState<PeerReview | null>(null)
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
-  const [movedOpen, setMovedOpen] = useState(false)
-  const [unmatchedOpen, setUnmatchedOpen] = useState(false)
+  // 위쪽 종에서 「보기」로 들어오면 그 상자를 펼쳐 둔다
+  const openNotice = (() => {
+    try {
+      const v = sessionStorage.getItem(OPEN_TEAM_NOTICE_KEY)
+      if (v) sessionStorage.removeItem(OPEN_TEAM_NOTICE_KEY)
+      return v
+    } catch {
+      return null
+    }
+  })()
+  const [movedOpen, setMovedOpen] = useState(openNotice === 'moved')
+  const [unmatchedOpen, setUnmatchedOpen] = useState(openNotice === 'unmatched')
+  const { dismissed: dismissedNotices, deleted: deletedNotices, dismiss: dismissNotice } = useDismissedNotices()
   // ---- 팀원 명단(권한 시트)과 이 표를 뒤에서 맞춘다(teamRoster) -- 팀장은 이 표 하나로 추가 · Gmail · 초대까지
   const { data: access } = useAccessData()
   const me = (getConnectedEmail() ?? '').toLowerCase()
@@ -146,20 +158,7 @@ export default function TeamManagement() {
     : []
   const [alsoRoster, setAlsoRoster] = useState(false)
   // ---- 팀 이동: 관리 명단에서 다른 팀으로 옮긴 팀원(이전 팀장 쪽) · 이전 팀장 의견(새 팀장 쪽)
-  const moved = useMemo(() => {
-    const t = teamName.trim()
-    if (!t || !access) return []
-    const byEmail = new Map(access.users.map((u) => [u.email, u]))
-    // Gmail 없는 팀원은 이름으로(같은 이름이 한 사람일 때만 -- 둘 이상이면 누군지 몰라 건너뜀)
-    const byName = (name: string) => {
-      const hit = access.users.filter((u) => u.name.trim() === name.trim())
-      return hit.length === 1 ? hit[0] : undefined
-    }
-    return state.members
-      .filter((m) => m.active && (m.email || m.name.trim()))
-      .map((m) => ({ m, u: m.email ? byEmail.get(m.email.toLowerCase()) : byName(m.name) }))
-      .filter((x): x is { m: TeamMember; u: NonNullable<typeof x.u> } => !!x.u && !!x.u.team && x.u.team !== t)
-  }, [access, state.members, teamName])
+  const moved = useMemo(() => movedMembersOf(access, state.members, teamName), [access, state.members, teamName])
   const [handovers, setHandovers] = useState<Handover[]>([])
   useEffect(() => {
     if (!access?.id) return
@@ -637,6 +636,11 @@ export default function TeamManagement() {
 
   // 과제관리(시트)에 담당자로 나오지만 팀원 목록에 없는 사람들
   const unmatched = unmatchedAssigneeSummary(state.workBoard)
+  // ✕로 닫거나 종에서 지운 알림은 여기서 감춘다(종에서 「보기」로 열면 펼쳐서 보여 줌)
+  const movedKey = movedSig(moved)
+  const unmatchedKey = unmatchedSig(unmatched.map((u) => u.name))
+  const movedHidden = (dismissedNotices.has(movedKey) || deletedNotices.has(movedKey)) && !movedOpen
+  const unmatchedHidden = (dismissedNotices.has(unmatchedKey) || deletedNotices.has(unmatchedKey)) && !unmatchedOpen
   function addFromWork(names: string[]) {
     const existingNames = new Set(state.members.map((m) => m.name))
     const added: TeamMember[] = unmatched
@@ -667,7 +671,7 @@ export default function TeamManagement() {
     <div>
       {/* 한 줄 도구: 왼쪽 = 알림 칩(눌러서 펼침) · 오른쪽 = 표 도구와 버튼. 설명 글은 매뉴얼로 */}
       <div className="flex flex-wrap items-center gap-2">
-        {moved.length > 0 && (
+        {moved.length > 0 && !movedHidden && (
           <button
             onClick={() => setMovedOpen((v) => !v)}
             aria-expanded={movedOpen}
@@ -678,7 +682,7 @@ export default function TeamManagement() {
             팀 이동 {moved.length}명
           </button>
         )}
-        {unmatched.length > 0 && (
+        {unmatched.length > 0 && !unmatchedHidden && (
           <button
             onClick={() => setUnmatchedOpen((v) => !v)}
             aria-expanded={unmatchedOpen}
@@ -772,9 +776,12 @@ export default function TeamManagement() {
         <div className="relative mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 pr-11 text-[length:calc(14px*var(--ui-fs,1))]">
           <button
             type="button"
-            onClick={() => setMovedOpen(false)}
+            onClick={() => {
+              setMovedOpen(false)
+              dismissNotice([movedKey])
+            }}
             className="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-amber-800 hover:bg-amber-200/60"
-            title="닫기(위의 「팀 이동」 버튼으로 다시 열 수 있습니다)"
+            title="닫기(위쪽 종에서 다시 볼 수 있습니다)"
             aria-label="팀 이동 알림 닫기"
           >
             <X {...ic} />
@@ -809,9 +816,12 @@ export default function TeamManagement() {
         <div className="relative mt-3 rounded-card border border-dashed border-separator bg-subtle p-4">
           <button
             type="button"
-            onClick={() => setUnmatchedOpen(false)}
+            onClick={() => {
+              setUnmatchedOpen(false)
+              dismissNotice([unmatchedKey])
+            }}
             className="absolute right-2.5 top-2.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.06] hover:text-label"
-            title="닫기(위의 「목록에 없는 담당자」 버튼으로 다시 열 수 있습니다)"
+            title="닫기(위쪽 종에서 다시 볼 수 있습니다)"
             aria-label="목록에 없는 담당자 닫기"
           >
             <X {...ic} />

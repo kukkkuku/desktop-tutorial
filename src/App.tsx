@@ -123,7 +123,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}
                 actions={
                   <>
-                    <NoticeBell />
+                    <NoticeBell teamName={teamName} onOpenTeam={goToTeamManagement} />
                     {stage !== 'notes' && (
                       <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
                         <SlidersHorizontal size={15} strokeWidth={1.8} />

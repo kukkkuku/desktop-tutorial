@@ -112,3 +112,23 @@ export function addRosterSkip(wsId: string | null | undefined, keys: string[]) {
     // 못 남기면 다음에 다시 들어올 수 있다
   }
 }
+
+// 팀 이동: 권한 시트에서 다른 팀으로 옮겨진 우리 팀(평가) 활성 팀원 -- 이전 팀장이 의견을 남기거나 삭제할 대상.
+// Gmail 없는 팀원은 이름으로(같은 이름이 한 사람일 때만 -- 둘 이상이면 누군지 몰라 건너뜀)
+export function movedMembersOf(access: AccessData | null, members: TeamMember[], teamName: string): { m: TeamMember; u: AccessUser }[] {
+  const t = teamName.trim()
+  if (!t || !access) return []
+  const byEmail = new Map(access.users.map((u) => [u.email, u]))
+  const byName = (name: string) => {
+    const hit = access.users.filter((u) => u.name.trim() === name.trim())
+    return hit.length === 1 ? hit[0] : undefined
+  }
+  return members
+    .filter((m) => m.active && (m.email || m.name.trim()))
+    .map((m) => ({ m, u: m.email ? byEmail.get(m.email.toLowerCase()) : byName(m.name) }))
+    .filter((x): x is { m: TeamMember; u: AccessUser } => !!x.u && !!x.u.team && x.u.team !== t)
+}
+
+// 팀원관리 알림의 「표시」 -- 사람이나 이름이 바뀌면 달라져서 닫아 둔 알림이 다시 뜬다
+export const movedSig = (moved: { m: TeamMember; u: AccessUser }[]) => 'moved|' + moved.map((x) => `${x.m.id}>${x.u.team}`).sort().join(',')
+export const unmatchedSig = (names: string[]) => 'unmatched|' + [...names].sort().join(',')
