@@ -20,7 +20,7 @@ import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
 import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
-import { isPendingEmail, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
+import { isPendingEmail, parseHandoverTasks, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
 import { addRosterSkip, normalizeGmail, readRosterSkip, rosterChanges, rosterMissing, rosterUserOf } from '../utils/teamRoster'
 import TeamInviteDialog from './TeamInviteDialog'
@@ -52,6 +52,21 @@ function formatTenureOnly(ordinal: number | null): string {
 
 // 팀원 명단 저장 중(이 탭 전체에서 하나만)
 let rosterSaving = false
+
+function HandoverTaskList({ text, empty }: { text: string; empty: string }) {
+  const items = parseHandoverTasks(text)
+  if (items.length === 0) return <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">{empty}</p>
+  return (
+    <ul className="mt-1 max-h-56 divide-y divide-separator overflow-y-auto rounded-control bg-subtle text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
+      {items.map((it, i) => (
+        <li key={i} className="flex items-start gap-3 px-3 py-1.5">
+          <span className="min-w-0 flex-1 break-words">{it.name}</span>
+          {it.percent && <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-label-2">기여도 {it.percent}%</span>}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 export default function TeamManagement() {
   const { state, dispatch } = useAppState()
@@ -895,9 +910,9 @@ export default function TeamManagement() {
             <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
               {handoverFor.m.name} → 「{handoverFor.toTeam}」 · 이전 팀장 의견
             </h3>
-            <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">새 팀장이 평가할 때 참고합니다. 팀원 본인에게는 보이지 않습니다.</p>
+            <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">새 팀장(「{handoverFor.toTeam}」 팀장)이 팀원관리에서 이 팀원 이름 옆 말풍선을 눌러 볼 수 있고, 평가할 때 참고합니다. 팀원 본인에게는 보이지 않습니다.</p>
             <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">우리 팀에서 맡았던 과제(이번 평가 · 기여도)</p>
-            <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{tasksOf(handoverFor.m) || '(기여도를 입력한 과제가 없습니다)'}</p>
+            <HandoverTaskList text={tasksOf(handoverFor.m)} empty="(기여도를 입력한 과제가 없습니다)" />
             <textarea
               autoFocus
               value={opinion}
@@ -926,7 +941,7 @@ export default function TeamManagement() {
               「{handoverView.fromTeam}」 → 「{handoverView.toTeam}」 · {access?.users.find((u) => u.email === handoverView.by)?.name || handoverView.by} · {handoverView.at.replace(/^(\d{4})-(\d{2})-(\d{2})/, '$1.$2.$3')}
             </p>
             <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">이전 팀에서 맡았던 과제</p>
-            <p className="mt-1 rounded-control bg-subtle px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{handoverView.tasks || '(없음)'}</p>
+            <HandoverTaskList text={handoverView.tasks} empty="(없음)" />
             <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">의견</p>
             <p className="mt-1 whitespace-pre-line text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label">{handoverView.opinion || '(의견 없음)'}</p>
             <div className="mt-4 flex justify-end">

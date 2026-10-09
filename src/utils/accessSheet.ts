@@ -383,6 +383,18 @@ export async function writeHandover(id: string, h: Omit<Handover, 'at'>): Promis
   const at = new Date().toLocaleString('sv-SE', { hour12: false }).slice(0, 16)
   await appendRows(id, HANDOVER_TAB, HANDOVER_HEADER, [[at, norm(h.email), h.name, h.fromTeam, h.toTeam, norm(h.by), h.opinion, h.tasks]], { hidden: true })
 }
+// 시트에는 「과제 이름 10% / 과제 이름 20%」 한 칸 글로 저장돼 있다 -- 화면에서는 줄마다 나눠 보여 주려고 되돌린다.
+// 과제 이름 안에 「 / 」가 있어도 「%」 바로 뒤의 「 / 」에서만 자른다. 기여도 형식이 아니면 한 줄 그대로.
+export function parseHandoverTasks(text: string): { name: string; percent: string | null }[] {
+  return text
+    .split(/(?<=%) \/ /)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const m = part.match(/^(.*\S)\s+(\d+(?:\.\d+)?)%$/)
+      return m ? { name: m[1], percent: m[2] } : { name: part, percent: null }
+    })
+}
 // 없으면(탭이 아직 없음 · 못 읽음) 빈 목록
 export async function readHandovers(id = getAccessSheetId()): Promise<Handover[]> {
   if (!id) return []
