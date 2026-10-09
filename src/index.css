@@ -313,27 +313,11 @@ html[data-sheet-focus='1'] .shell-header {
   display: none;
 }
 
-/* 과제 입력 그룹(L1) 탭: 브라우저 탭처럼. 고른 탭은 본문 판 색과 같고 아래 양옆이 안쪽으로 둥글게 이어진다 */
+/* 과제 입력 그룹(L1) 탭: 사파리 탭처럼. 고른 탭은 본문 판 색과 같은 둥근 알약, 나머지는 사이에 가는 구분선 */
 .l1-tab-on {
   background: var(--panel-bg);
   position: relative;
-}
-.l1-tab-on::before,
-.l1-tab-on::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  width: 9px;
-  height: 9px;
-  pointer-events: none;
-}
-.l1-tab-on::before {
-  left: -9px;
-  background: radial-gradient(circle at 0 0, transparent 8.5px, var(--panel-bg) 9px);
-}
-.l1-tab-on::after {
-  right: -9px;
-  background: radial-gradient(circle at 100% 0, transparent 8.5px, var(--panel-bg) 9px);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.06);
 }
 .l1-tab-sep::after {
   content: '';
