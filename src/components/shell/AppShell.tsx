@@ -126,13 +126,13 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
   const ctx = useContext(ShellCtx)
   if (ctx?.layout === 'top')
     return (
-      <header className="flex min-h-[48px] flex-wrap items-center gap-x-1.5 gap-y-1 px-1 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
+      <header className="shell-header flex min-h-[48px] flex-wrap items-center gap-x-1.5 gap-y-1 px-1 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
         {/* 위 메뉴: 로고가 맨 앞, 메뉴 모양 버튼은 그 뒤 */}
         <TopNav toggle={<LayoutToggle />} chooser={chooser} title={title} actions={actions} perf={ctx.perf} />
       </header>
     )
   return (
-    <header className="flex min-h-[48px] flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
+    <header className="shell-header flex min-h-[48px] flex-wrap items-center gap-x-2.5 gap-y-1 px-2 py-2 text-[length:calc(14px*var(--ui-fs,1))]">
       <LayoutToggle />
       {(area || chooser) && (
         <>

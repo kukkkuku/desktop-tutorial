@@ -307,3 +307,8 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
+
+/* 구글시트 보기에서 앱 맨 위 줄을 접었을 때(시트가 화면을 꽉 채움) -- 추진현황 화면이 html에 data-sheet-focus를 건다 */
+html[data-sheet-focus='1'] .shell-header {
+  display: none;
+}

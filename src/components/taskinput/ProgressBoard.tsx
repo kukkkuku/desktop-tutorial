@@ -31,6 +31,8 @@ import {
   Ruler,
   Rows3,
   AlignVerticalSpaceAround,
+  ChevronDown,
+  ChevronUp,
   Search,
   Send,
   SquareKanban,
@@ -188,8 +190,6 @@ const ROW_PAD_KEY = 'progress-board:row-pad-v3'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 1
-// 구글시트 보기에서 구글 머리 줄(제목 · 메뉴 · 공유 · 로그인) 높이(px) -- 도구 모음을 켠 때 이만큼 위로 밀어 가린다
-const SHEET_HEAD_H = 64
 // 구글 화면 아래 시트 탭 줄 높이(px) -- 시트 아래쪽을 이만큼 잘라 안 보이게 한다(과제 입력에서는 앱이 고른 탭 하나만 쓰므로)
 const SHEET_TABS_H = 40
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
@@ -395,12 +395,28 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 구글시트 그대로 보기: 구글의 메뉴 · 서식 도구 모음을 보일지(끄면 칸만 보이는 최소 화면) -- 이 브라우저에 기억. 새로고침 = iframe을 다시 그린다
   const [sheetFull, setSheetFullState] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('progress-board:sheet-toolbar') === '1'
+      return localStorage.getItem('progress-board:sheet-toolbar') !== '0'
+    } catch {
+      return true
+    }
+  })
+  const [sheetReload, setSheetReload] = useState(0)
+  // 구글시트 보기에서 앱 맨 위 줄(머리 · 그룹 탭 줄)을 접어 시트가 화면을 꽉 채우게 -- 이 브라우저에 기억
+  const [sheetFocus, setSheetFocusState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('progress-board:sheet-focus') === '1'
     } catch {
       return false
     }
   })
-  const [sheetReload, setSheetReload] = useState(0)
+  function setSheetFocus(v: boolean) {
+    setSheetFocusState(v)
+    try {
+      localStorage.setItem('progress-board:sheet-focus', v ? '1' : '0')
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
   // 줄 높이: 시트 · 엑셀 원본 높이를 쓸지(켜 두면 원본 그대로, 행간 버튼으로 바꾸면 모두 같은 높이) -- 이 브라우저에 기억
   const [srcHeights, setSrcHeightsState] = useState<boolean>(() => {
     try {
@@ -2175,6 +2191,18 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     </Button>
   )
   // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
+  // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
+  const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
+  useEffect(() => {
+    const root = document.documentElement
+    if (sheetFocused) root.setAttribute('data-sheet-focus', '1')
+    else root.removeAttribute('data-sheet-focus')
+    const t = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+    return () => {
+      cancelAnimationFrame(t)
+      root.removeAttribute('data-sheet-focus')
+    }
+  }, [sheetFocused])
   const viewItems = [
     ['table', '표', Table2],
     ['board', '보드', SquareKanban],
@@ -2423,15 +2451,24 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <>
           <span className="h-5 w-px shrink-0 bg-separator" />
           <button
-            role="switch"
-            aria-checked={sheetFull}
-            onClick={() => setSheetFull(!sheetFull)}
-            title={sheetFull ? '구글 도구 모음 숨기기' : '구글 도구 모음 보기(서식 · 수식)'}
-            aria-label="구글 도구 모음"
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control ${sheetFull ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+            onClick={() => setSheetFocus(true)}
+            title="위쪽 접기 · 시트를 화면 가득(다시 펴려면 맨 위 가운데 손잡이)"
+            aria-label="위쪽 접기"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
           >
-            <PanelTop {...icSm} />
+            <ChevronUp {...icSm} />
           </button>
+          {/* 구글 도구 모음(메뉴 · 서식)은 숨겨져 있을 때만 「열기」 버튼을 보인다. 열린 뒤에는 구글 화면 안의 접기(^)로 숨긴다 */}
+          {!sheetFull && (
+            <button
+              onClick={() => setSheetFull(true)}
+              title="구글 도구 모음 열기(서식 · 수식)"
+              aria-label="구글 도구 모음 열기"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
+            >
+              <PanelTop {...icSm} />
+            </button>
+          )}
           <button
             onClick={() => setSheetReload((n) => n + 1)}
             title="구글시트 화면을 다시 불러옵니다"
@@ -2675,7 +2712,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         {/* 위 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기) 구글 도구 모음 · 새로고침 · 새 창 */}
-        {dockBar}
+        {!(boardView === 'sheet' && sheetFocus) && dockBar}
 
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div
@@ -3033,7 +3070,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? '-mx-4 -mb-6 mt-1 lg:-mx-6' : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? `-mx-4 -mb-6 lg:-mx-6 ${sheetFocus ? '-mt-5' : 'mt-1'}` : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
           style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
@@ -3041,12 +3078,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {boardView === 'sheet' && data.spreadsheetId ? (
             // 구글시트가 본문을 꽉 채운다(위 줄 아래부터). 구글의 아래 시트 탭 줄은 시트 아래쪽을 잘라 가린다
             <div ref={sheetBoxRef} className="relative overflow-hidden rounded-[12px] border border-hairline bg-white" style={{ height: sheetBoxH ?? 640 }}>
+              {sheetFocused && (
+                <button
+                  onClick={() => setSheetFocus(false)}
+                  title="위쪽 펴기(머리 줄 · 그룹 탭)"
+                  aria-label="위쪽 펴기"
+                  className="fixed left-1/2 top-0 z-40 flex h-5 w-14 -translate-x-1/2 items-center justify-center rounded-b-[10px] bg-white text-label-2 shadow-pop hover:text-label"
+                >
+                  <ChevronDown size={14} strokeWidth={2} />
+                </button>
+              )}
               <iframe
                 key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}:${sheetJump ?? ''}`}
                 title="구글시트"
                 src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}${sheetJump ? `#gid=${data.sheetGid ?? 0}&range=A${sheetJump}` : ''}`}
                 className="absolute inset-x-0 w-full border-0"
-                style={{ top: sheetFull ? -SHEET_HEAD_H : 0, height: `calc(100% + ${(sheetFull ? SHEET_HEAD_H : 0) + SHEET_TABS_H}px)` }}
+                style={{ top: 0, height: `calc(100% + ${SHEET_TABS_H}px)` }}
               />
             </div>
           ) : boardView === 'board' ? (
