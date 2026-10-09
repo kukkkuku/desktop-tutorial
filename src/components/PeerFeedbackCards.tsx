@@ -214,7 +214,7 @@ function EvidenceDialog({
             const summary = summarizeTaskReviews(reviews)
             return (
               <div key={t.task.id} className="mb-4 rounded-card border border-separator">
-                <div className="flex flex-wrap items-center gap-2 border-b border-separator bg-white/60 px-4 py-2.5">
+                <div className="flex flex-wrap items-center gap-2 border-b border-separator bg-subtle px-4 py-2.5">
                   <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">{t.task.name}</span>
                   <span className="ml-auto flex items-center gap-1 text-xs text-label-2">
                     {t.grades.map((g, i) => (
@@ -268,7 +268,7 @@ function EvidenceDialog({
 
           {orphans.length > 0 && (
             <div className="rounded-card border border-separator">
-              <p className="border-b border-separator bg-white/60 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+              <p className="border-b border-separator bg-subtle px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                 과제 미상 (예전 데이터)
               </p>
               <ul className="divide-y divide-separator">

@@ -393,7 +393,7 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
                 </div>
               ))
             )}
-            <div className="mt-1 flex items-center gap-1.5 rounded-card bg-white/60 px-2 py-1.5">
+            <div className="mt-1 flex items-center gap-1.5 rounded-card bg-subtle px-2 py-1.5">
               <Select
                 value={addMemberId ?? ''}
                 onChange={(e) => setAddMemberId(e.target.value)}

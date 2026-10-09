@@ -118,7 +118,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
             <col />
             <col style={{ width: 58 }} />
           </colgroup>
-          <thead className="bg-white/60 text-xs font-semibold text-label-2">
+          <thead className="bg-subtle text-xs font-semibold text-label-2">
             <tr>
               <th className="px-2 py-2 text-left">연도</th>
               <th className="px-1 py-2 text-center">업적(상)</th>
@@ -190,7 +190,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       </div>
 
       {/* 보조지표: 제목 · 합계 한 줄, 그 아래 칸 네 개(판이 넓으면 1×4, 좁으면 2×2) */}
-      <div className="aux-box mt-3 rounded-card border border-separator bg-white/60 px-3 py-2.5">
+      <div className="aux-box mt-3 rounded-card border border-separator bg-subtle px-3 py-2.5">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">보조지표</p>
           <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
@@ -221,7 +221,7 @@ export default function HRAppraisalHistoryPanel({ member }: { member: TeamMember
       )}
 
       {records.length > 0 && (
-        <div className="mt-2 rounded-card bg-white/60 px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+        <div className="mt-2 rounded-card bg-subtle px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
           <span className="text-label-2">업적</span> {achievementTrend} &nbsp;&nbsp;
           <span className="text-label-2">역량</span> {competencyTrend}
         </div>

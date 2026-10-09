@@ -205,11 +205,11 @@ export default function EvaluationMatrix() {
                   </Fragment>
                 ))}
               </colgroup>
-              <thead className="bg-white/60 text-label">
+              <thead className="bg-subtle text-label">
                 <tr>
                   <th
                     rowSpan={showGrade ? 2 : 1}
-                    className="sticky left-0 z-20 border-b border-separator bg-white/60 px-4 py-3 align-bottom font-semibold"
+                    className="sticky left-0 z-20 border-b border-separator bg-subtle px-4 py-3 align-bottom font-semibold"
                     style={{ position: 'sticky', left: 0 }}
                   >
                     과제명
@@ -217,7 +217,7 @@ export default function EvaluationMatrix() {
                   </th>
                   <th
                     rowSpan={showGrade ? 2 : 1}
-                    className="sticky z-20 border-b border-l border-separator bg-white/60 px-3 py-3 align-bottom font-semibold"
+                    className="sticky z-20 border-b border-l border-separator bg-subtle px-3 py-3 align-bottom font-semibold"
                     style={{ left: taskWidth }}
                   >
                     기여도

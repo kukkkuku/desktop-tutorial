@@ -22,7 +22,7 @@ export default function PromotionSimulationPanel({ member }: { member: TeamMembe
   if (!criteria) {
     const levels = profile.promotionCriteria.map((c) => c.fromLevel)
     return (
-      <div className="rounded-card bg-white/60 p-4">
+      <div className="rounded-card bg-subtle p-4">
         <p className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">
           {member.level ? `${member.level}의 다음 승진 기준이 없습니다.` : '직급이 없어 승진 시뮬레이션을 할 수 없습니다.'}
         </p>

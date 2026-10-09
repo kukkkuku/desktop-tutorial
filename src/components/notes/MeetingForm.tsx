@@ -331,7 +331,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                   {note.mood ? (
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/60 ring-1 ring-separator">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-subtle ring-1 ring-separator">
                       <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
                     </span>
                   )}
@@ -399,7 +399,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
                   {note.mood ? (
                     <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
                   ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/60 ring-1 ring-separator">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-subtle ring-1 ring-separator">
                       <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
                     </span>
                   )}

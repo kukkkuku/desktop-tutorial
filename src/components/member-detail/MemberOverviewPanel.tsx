@@ -58,7 +58,7 @@ export default function MemberOverviewPanel({
       {/* 승진 준비 — 남색, 성과점수와 완전히 다른 카드/색/단위로 분리 */}
       <button
         onClick={() => onNavigateToNotes('promotion')}
-        className="w-full rounded-card border border-separator bg-white/60 px-4 py-3 text-left transition-colors hover:bg-black/[0.05]"
+        className="w-full rounded-card border border-separator bg-subtle px-4 py-3 text-left transition-colors hover:bg-black/[0.05]"
       >
         <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-promo">승진 준비 (승진제도 기준)</p>
         {readiness ? (

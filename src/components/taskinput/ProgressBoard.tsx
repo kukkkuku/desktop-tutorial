@@ -2311,7 +2311,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <div className={view === 'rate' ? 'hidden' : ''}>
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
-        <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+        <div className="flex items-end gap-2 border-b border-separator">
           {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
           <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
             {shownL1s.map((name) => {
@@ -2330,12 +2330,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
                   }}
                   data-l1-tab={name}
-                  className={`group flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold transition-colors ${
+                  className={`group -mb-px flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden border-b-2 py-2 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
                     tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
                   } ${
                     on
-                      ? 'border-[#E3E3E8] border-b-white bg-white text-label'
-                      : 'border-transparent bg-black/[0.04] text-label-2 hover:bg-black/[0.07] hover:text-label'
+                      ? 'border-accent font-semibold text-label'
+                      : 'border-transparent font-medium text-label-3 hover:border-black/[0.12] hover:text-label-2'
                   }`}
                   title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
                 >
@@ -2378,7 +2378,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
                 }}
                 title="그룹(L1) 추가"
-                className="flex shrink-0 items-center gap-1 rounded-t-[9px] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+                className="flex shrink-0 items-center gap-1 rounded-[8px] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-3 hover:bg-black/[0.04] hover:text-label"
               >
                 <Plus {...icSm} />
                 그룹 추가
@@ -3254,7 +3254,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           }}
         >
           {/* 어느 파일·탭에 쓰는지 크게 보여 줘 다른 시트에 쓰는 실수를 막는다 */}
-          <div className="mt-3 rounded-card border border-separator bg-white/60 px-3 py-2.5">
+          <div className="mt-3 rounded-card border border-separator bg-subtle px-3 py-2.5">
             <p className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">업데이트할 곳</p>
             <p className="mt-0.5 break-all text-[length:calc(14px*var(--ui-fs,1))] font-bold text-label">
               {data.fileTitle || '(시트 이름 없음)'} <span className="text-label-3">›</span> {data.tabTitle}

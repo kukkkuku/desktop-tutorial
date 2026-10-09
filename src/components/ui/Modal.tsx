@@ -29,8 +29,8 @@ export default function Modal({
     return () => document.removeEventListener('keydown', key)
   }, [busy, onClose])
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1B2238]/25 p-4 backdrop-blur-md" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div role="dialog" aria-modal="true" className={`flex max-h-[94vh] w-full ${WIDTH[size]} flex-col rounded-[28px] border border-white/80 bg-white/95 shadow-dialog`}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div role="dialog" aria-modal="true" className={`flex max-h-[94vh] w-full ${WIDTH[size]} flex-col rounded-[16px] bg-white shadow-dialog`}>
         <div className="flex items-start gap-3 px-5 pb-1 pt-4">
           <div className="min-w-0 flex-1">
             <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{title}</h3>

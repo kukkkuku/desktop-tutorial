@@ -1,4 +1,4 @@
-// 앱 로고(public/favicon.svg와 같은 그림): 밝은 둥근 판 + 파란 원 + 진척 링.
+// 앱 로고(public/favicon.svg와 같은 그림): 밝은 둥근 판 + 오렌지 원 + 진척 링.
 // 한 화면에 여러 개 그려도 그라데이션 id가 겹치지 않게 useId를 쓴다.
 import { useId } from 'react'
 
@@ -8,12 +8,12 @@ export default function AppLogo({ size = 28, className = '' }: { size?: number; 
     <svg width={size} height={size} viewBox="0 0 512 512" className={`shrink-0 ${className}`} aria-hidden="true">
       <defs>
         <linearGradient id={`t${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#FBFAF8" />
-          <stop offset="1" stopColor="#EFEDEA" />
+          <stop offset="0" stopColor="#FFFBF7" />
+          <stop offset="1" stopColor="#F7EADF" />
         </linearGradient>
         <linearGradient id={`d${id}`} x1="0.15" y1="0.1" x2="0.85" y2="0.95">
-          <stop offset="0" stopColor="#5B8CF5" />
-          <stop offset="1" stopColor="#2553D6" />
+          <stop offset="0" stopColor="#FF9A5C" />
+          <stop offset="1" stopColor="#E85A0C" />
         </linearGradient>
       </defs>
       <rect width="512" height="512" rx="112" fill={`url(#t${id})`} />

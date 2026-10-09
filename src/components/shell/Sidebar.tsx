@@ -294,7 +294,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           placement="up"
           onAccountChange={onAccountChange}
           title={accountEmail}
-          className={`mt-2 flex w-full items-center gap-2.5 rounded-[16px] p-1.5 text-left hover:bg-white/60 ${collapsed ? 'justify-center' : ''}`}
+          className={`mt-2 flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
           footer={
             <>
               <FontSizeItem />
@@ -344,7 +344,7 @@ export function TopNav({
     <button
       onClick={onClick}
       aria-current={on ? 'page' : undefined}
-      className={`rounded-full px-3 py-1 font-medium ${on ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+      className={`rounded-[7px] px-2.5 py-1 font-medium ${on ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
     >
       {label}
     </button>
