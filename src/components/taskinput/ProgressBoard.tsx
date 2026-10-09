@@ -11,6 +11,7 @@ import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
 import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
+import { setAppYear, useAppYear } from '../../utils/appYear'
 import SheetsIcon from '../SheetsIcon'
 import FileMenu from '../ui/PopMenu'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
@@ -1757,6 +1758,19 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   ]
   const allSheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
   const allYears = [...localTabs, ...allSheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
+  // 보는 연도(앱 공통 · 성과관리 평가 목록과 같이 바뀜)가 다른 연도로 바뀌면 그 해 탭으로 옮긴다
+  const appYear = useAppYear()
+  const shownTab = curProject?.data.tabTitle ?? null
+  useEffect(() => {
+    if (!data || loading || saving || yearLoading || !shownTab) return
+    if (yearOf(shownTab) === appYear) return
+    const active = readActiveTab()
+    const group = allSheetTabs.filter((t) => yearOf(t) === appYear)
+    const target = (active && group.includes(active) ? active : [...group].sort((a, b) => a.length - b.length)[0]) ?? localTabs.find((t) => yearOf(t) === appYear)
+    if (target) pickYear(target)
+    else setMessage(`${appYear}년 추진현황은 아직 없습니다. 지금은 ${yearOf(shownTab)}년을 보고 있습니다.`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appYear, shownTab, !!data])
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
   const sheetTabs = allSheetTabs
@@ -1949,7 +1963,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             tabs={sheetTabs}
             editableTitle={`${now.getFullYear()} 추진현황`}
             localTabs={localTabs}
-            onPick={pickYear}
+            onPick={(t) => (setAppYear(yearOf(t) || appYear), pickYear(t))}
             onCreate={canManage ? () => setNewYearOpen(true) : undefined}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
@@ -2662,7 +2676,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           editableTitle={data.local ? (parkedSheet?.data.tabTitle ?? data.tabTitle) : (archive?.data.tabTitle ?? data.tabTitle)}
           loading={yearLoading}
           disabled={loading || saving}
-          onPick={pickYear}
+          onPick={(t) => (setAppYear(yearOf(t) || appYear), pickYear(t))}
           editableFrom={now.getFullYear()}
           connectedTitle={connectedTitle}
           onDeleteLocal={(id) => void deleteLocal(id)}
