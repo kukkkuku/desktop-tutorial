@@ -21,7 +21,7 @@ import { explainMemberScore, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
 import Button from './Button'
 import { Trophy } from 'lucide-react'
-import { icSm } from './ui/icon'
+import { icSm, TableSwap } from './ui/icon'
 import { tasksOutOfSync } from '../utils/assigneeSync'
 import Select from './ui/Select'
 import ScrollX from './ui/ScrollX'
@@ -321,7 +321,9 @@ export default function EvaluationMatrix() {
     )
   }
 
-  const TASK_COL_W = 240 // 팀원 기준 보기: 과제 열 폭
+  const TASK_BLOCK_W = 260 // 팀원이 세로인 보기: 과제 하나가 쓰는 폭(개인수행등급을 켜도 같다)
+  const TASK_PCT_W = showGrade ? 100 : TASK_BLOCK_W
+  const TASK_GRADE_W = showGrade ? TASK_BLOCK_W - 100 : 0
   const MEMBER_ROW_COL_W = 300 // 팀원 기준 보기: 팀원(첫 열) 폭
 
   const memberCount = activeMembers.length
@@ -336,26 +338,19 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-[9px] bg-black/[0.05] p-0.5" role="group" aria-label="표 보기">
-          {(
-            [
-              ['task', '과제가 행'],
-              ['member', '팀원이 행'],
-            ] as const
-          ).map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setView(v)}
-              aria-pressed={view === v}
-              title={v === 'member' ? '팀원이 많을 때: 팀원은 아래로, 과제는 옆으로' : '과제는 아래로, 팀원은 옆으로'}
-              className={`h-7 rounded-[7px] px-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium transition-colors ${
-                view === v ? 'bg-white text-label shadow-sm' : 'text-label-2 hover:text-label'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setView(view === 'task' ? 'member' : 'task')}
+            title="표의 가로 · 세로를 서로 바꿉니다. 팀원이 많으면 팀원을 세로로 보면 편합니다"
+          >
+            <TableSwap {...icSm} />
+            가로 · 세로 바꾸기
+          </Button>
+          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+            {view === 'member' ? '지금: 세로 = 팀원 · 가로 = 과제' : '지금: 세로 = 과제 · 가로 = 팀원'}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
@@ -369,7 +364,7 @@ export default function EvaluationMatrix() {
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
       <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        팀원마다 합계 · 순위를 보며 기여도와 개인수행등급을 고칩니다. 기여도는 과제리스트 담당자끼리 똑같이 나눠 미리 채워 둡니다. 목표 · 성과는 과제관리 표에서, 분류 · 성과등급은 과제 이름 아래에서 바로 고칠 수 있습니다.
+        칸마다 그 팀원이 과제에 기여한 비율(%)을 적습니다. 과제 하나의 합이 100%가 되어야 하고, 처음에는 과제 담당자끼리 똑같이 나눠 채워 둡니다. 팀원 이름 옆에서 합계 점수 · 순위를 볼 수 있습니다. 분류 · 성과등급은 과제 이름 아래에서, 목표 · 성과는 과제관리 표에서 고칩니다.
       </p>
       <OutOfSyncBanner />
 
@@ -383,14 +378,14 @@ export default function EvaluationMatrix() {
             <ScrollX className="mt-4 rounded-card border border-separator bg-white">
               <table
                 className="table-fixed border-collapse text-left text-[length:calc(14px*var(--ui-fs,1))]"
-                style={{ width: '100%', minWidth: MEMBER_ROW_COL_W + tasks.length * (TASK_COL_W + (showGrade ? 110 : 0)) }}
+                style={{ width: '100%', minWidth: MEMBER_ROW_COL_W + tasks.length * TASK_BLOCK_W }}
               >
                 <colgroup>
                   <col style={{ width: MEMBER_ROW_COL_W }} />
                   {tasks.map((task) => (
                     <Fragment key={task.id}>
-                      <col style={{ width: TASK_COL_W }} />
-                      {showGrade && <col style={{ width: 110 }} />}
+                      <col style={{ width: TASK_PCT_W }} />
+                      {showGrade && <col style={{ width: TASK_GRADE_W }} />}
                     </Fragment>
                   ))}
                 </colgroup>

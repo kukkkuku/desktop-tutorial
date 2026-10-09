@@ -22,3 +22,12 @@ export const ListChevronsUpDown = createLucideIcon('list-chevrons-up-down', [
   ['path', { d: 'm15 8 3-3 3 3', key: 'd' }],
   ['path', { d: 'm15 16 3 3 3-3', key: 'e' }],
 ])
+
+// 행과 열을 맞바꾸는 아이콘(표 + 가로세로 교차 화살표) -- 표의 가로 · 세로를 뒤집는 버튼용
+export const TableSwap = createLucideIcon('table-swap', [
+  ['rect', { x: '3', y: '3', width: '18', height: '18', rx: '2', key: 'a' }],
+  ['path', { d: 'M3 9h18', key: 'b' }],
+  ['path', { d: 'M9 9v12', key: 'c' }],
+  ['path', { d: 'm13 13 3-3 3 3', key: 'd' }],
+  ['path', { d: 'm13 17 3 3 3-3', key: 'e' }],
+])
