@@ -1,5 +1,5 @@
 // 왼쪽 사이드바(디자인 시스템 v2): 앱의 모든 이동이 여기 한 곳에 있다.
-//   위: 로고 · 접기  →  홈  →  과제 입력(추진현황 · 진척률)  →  성과관리(프로젝트 · 메뉴, 팀장만)
+//   위: 홈  →  과제 입력(추진현황 · 진척률)  →  성과관리(프로젝트 · 메뉴, 팀장만)
 //   아래: 매뉴얼 · 데이터 백업(성과관리) · 계정(메뉴 안에 로그아웃)
 // 접으면 아이콘만(마우스를 올리면 이름). 한 번 더 접으면 사이드바 없이 머리 줄에 메뉴(TopNav).
 // 메뉴 모양 버튼과 고른 모양은 AppShell(화면 머리 맨 앞)에.
@@ -33,10 +33,8 @@ import { isPendingEmail } from '../../utils/accessSheet'
 import GoogleAccountMenu from '../GoogleAccountMenu'
 import DataResetDialog from '../DataResetDialog'
 import DataManagerDrawer from '../DataManagerDrawer'
-import AppLogo from './AppLogo'
 import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
-import { IS_PREVIEW } from '../../utils/previewMode'
 import { FONT_PREF_LABEL, currentScale, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
 import { getConnectedEmail } from '../../utils/googleDrive'
 import { THEMES, onThemeChange, readTheme, setTheme, type ThemeKey } from '../../utils/uiTheme'
@@ -249,21 +247,7 @@ export default function Sidebar({ perf, collapsed, width, animate = true }: { pe
       className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 ${animate ? 'transition-[width] duration-200' : ''}`}
       aria-label="메뉴"
     >
-      {/* 로고 · 이름(접으면 로고만, 누르면 홈). 접기 버튼은 화면 머리 맨 앞에 */}
-      <div className={`flex h-9 items-center gap-2.5 ${collapsed ? 'justify-center' : 'pl-1.5'}`}>
-        {/* 로고는 표시만(홈으로 가는 일은 아래 「홈」 메뉴가 맡는다) */}
-        <span className="shrink-0" aria-hidden="true">
-          <AppLogo size={28} />
-        </span>
-        {!collapsed && (
-          <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">페이스</span>
-            <span className="block truncate text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">과제관리{IS_PREVIEW ? ' · 미리보기' : ''}</span>
-          </span>
-        )}
-      </div>
-
-      <nav className="mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <nav className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="space-y-0.5">{item('home', '홈', House, mode === 'home', () => mode !== 'home' && setMode('home'))}</div>
 
         {label('과제 입력')}
