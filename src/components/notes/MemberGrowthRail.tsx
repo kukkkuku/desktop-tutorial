@@ -5,7 +5,6 @@ import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
 import { auxScoreSum, calcPromotionReadiness, findPromotionCriteria } from '../../utils/promotion'
 import { calcYearsSince } from '../../utils/tenure'
 import Badge from '../Badge'
-import Button from '../Button'
 import { ic } from '../ui/icon'
 import type { TeamMember } from '../../types'
 import { peerInputsOf } from '../../utils/peerScores'
@@ -49,10 +48,19 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
     return currentWeightedScore >= criteria.requiredScore
   }
 
+  // 등급 배지(피그마): S 파랑 · B 노랑 · 없음 회색 점. 그 밖의 등급은 기존 등급 색
+  const badgeTone = (grade: string | null) =>
+    grade === 'S' ? 'bg-[#f0f6ff] text-[#3968ff]' : grade === 'B' ? 'bg-[#fffce8] text-[#be953c]' : grade ? GRADE_COLORS[grade as keyof typeof GRADE_COLORS] : 'bg-[#dadadd] text-[#be953c]'
+
   return (
-    <div className="-mx-6 -mt-5 flex items-center gap-2 rounded-t-panel bg-black/[0.04] px-2 lg:-mx-8">
+    <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-3 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-mx-8">
+      {/* 팀원 관리: 탭 줄 맨 앞 글자 링크 */}
+      <button onClick={onManageTeam} className="shrink-0 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] text-label-2 hover:text-label">
+        팀원 관리
+      </button>
+      <span className="h-3.5 w-px shrink-0 bg-[#d0d0d7]" />
       {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 py-1">
+      <div className="flex min-w-0 flex-[0_1_auto] items-center gap-0.5 py-1">
         {activeMembers.length === 0 ? (
           <p className="px-2 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">등록된 팀원이 없습니다.</p>
         ) : (
@@ -65,15 +73,13 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
                 title={member.name}
-                className={`flex h-7 min-w-[48px] max-w-[180px] select-none items-center gap-1.5 rounded-[8px] px-3 text-left text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                className={`flex h-[26px] min-w-[48px] max-w-[180px] select-none items-center gap-1.5 rounded-[10px] px-[11px] text-left text-[length:calc(12px*var(--ui-fs,1))] transition-colors ${
                   isSelected
-                    ? 'l1-tab-on flex-none font-semibold text-label'
-                    : `relative flex-[0_1_180px] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
+                    ? 'l1-tab-on flex-none font-bold text-label'
+                    : `relative flex-[0_1_180px] font-normal text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
                 }`}
               >
-                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
-                  {grade ?? '-'}
-                </span>
+                <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${badgeTone(grade)}`}>{grade ?? '·'}</span>
                 <span className="min-w-0 truncate">{member.name}</span>
                 {eligible && (
                   <Badge tone="accent" className="min-w-0 shrink truncate">
@@ -85,15 +91,15 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
           })
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2 py-0.5">
-        <Button variant="ghost" size="sm" onClick={onManageTeam}>
-          팀원 관리
-        </Button>
-        {/* 승진 시뮬레이션 엑셀 가져오기 -- 이름으로 매칭해 여러 팀원에게 한 번에 적용 */}
-        <Button variant="secondary" onClick={onImportHistory} className="whitespace-nowrap">
-          <Upload {...ic} /> 지난 성과 엑셀파일 불러오기
-        </Button>
-      </div>
+      {/* 승진 시뮬레이션 엑셀 가져오기(이름으로 매칭해 여러 팀원에게 한 번에 적용) -- 탭 바로 뒤 아이콘 */}
+      <button
+        onClick={onImportHistory}
+        title="지난 성과 엑셀파일 불러오기"
+        aria-label="지난 성과 엑셀파일 불러오기"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#ececef] bg-white text-label shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:text-accent"
+      >
+        <Upload {...ic} />
+      </button>
     </div>
   )
 }
