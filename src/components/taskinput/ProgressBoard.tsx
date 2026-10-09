@@ -189,6 +189,8 @@ const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 1
 // 구글시트 보기에서 구글 머리 줄(제목 · 메뉴 · 공유 · 로그인) 높이(px) -- 도구 모음을 켠 때 이만큼 위로 밀어 가린다
 const SHEET_HEAD_H = 64
+// 구글 화면 아래 시트 탭 줄 높이(px) -- 시트 아래쪽을 이만큼 잘라 안 보이게 한다(과제 입력에서는 앱이 고른 탭 하나만 쓰므로)
+const SHEET_TABS_H = 40
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
 const ROW_PAD_MIN = -3 // 마이너스 = 기본보다 얇게(글자가 온전히 보이는 한계, 내용은 그 높이에서 잘림)
 
@@ -266,7 +268,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
 
 export default function ProgressBoard({ view = 'progress' }: { view?: 'progress' | 'rate' }) {
   // 표 틀 높이 = 창 높이에 맞춤(아래 여백 = 본문 아래 32px + 판 바깥 8px + 4px). 가로 스크롤 막대가 늘 화면 안에 보이게
-  const [tableBoxRef, tableBoxH] = useFitHeight(96)
+  const [tableBoxRef, tableBoxH] = useFitHeight(44)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
   // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
@@ -397,6 +399,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   })
   const [sheetReload, setSheetReload] = useState(0)
+  const [viewMenu, setViewMenu] = useState(false) // 보기 전환(아래 줄)이 펼쳐져 있는지
   const [sheetJump, setSheetJump] = useState<number | null>(null) // 그룹 탭으로 옮겨 갈 시트 행(1-based)
   const [sheetBoxRef, sheetBoxH] = useFitHeight(12, 360)
   function setSheetFull(v: boolean) {
@@ -2153,40 +2156,69 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     </Button>
   )
   // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
+  const viewItems = [
+    ['table', '표', Table2],
+    ['board', '보드', SquareKanban],
+    ['timeline', '타임라인', ChartGantt],
+    ...(data?.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
+  ] as const
+  const CurViewIcon = (viewItems.find((v) => v[0] === boardView) ?? viewItems[0])[2]
+  // 평소에는 고른 보기 아이콘 하나만 보이고, 마우스를 올리면(또는 누르면) 옆으로 펼쳐져 바꿀 수 있다(옆 그룹 탭이 잘리지 않게)
   const viewSwitchEl = (
-    <span className="flex shrink-0 items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
-            {(
-              [
-                ['table', '표', Table2],
-                ['board', '보드', SquareKanban],
-                ['timeline', '타임라인', ChartGantt],
-                ...(data.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
-              ] as const
-            ).map(([k, label, Icon]) => (
-              <button
-                key={k}
-                role="tab"
-                aria-selected={boardView === k}
-                onClick={() => changeBoardView(k)}
-                title={label}
-                aria-label={label}
-                className={`flex h-7 w-8 items-center justify-center rounded-[7px] ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-              </button>
-            ))}
-          </span>
+    <div
+      className="relative shrink-0"
+      onMouseEnter={() => setViewMenu(true)}
+      onMouseLeave={() => setViewMenu(false)}
+      onFocus={() => setViewMenu(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setViewMenu(false)
+      }}
+    >
+      <button
+        onClick={() => setViewMenu((v) => !v)}
+        title="보기 바꾸기"
+        aria-label="보기 바꾸기"
+        aria-haspopup="true"
+        aria-expanded={viewMenu}
+        className="flex h-8 w-9 items-center justify-center rounded-[9px] bg-black/[0.05] text-label"
+      >
+        <CurViewIcon size={16} strokeWidth={1.8} />
+      </button>
+      {viewMenu && (
+        <div
+          className="absolute left-0 top-1/2 z-30 flex -translate-y-1/2 items-center gap-0.5 rounded-[10px] bg-white p-0.5 shadow-pop ring-1 ring-black/[0.06]"
+          role="tablist"
+          aria-label="보기"
+        >
+          {viewItems.map(([k, label, Icon]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={boardView === k}
+              onClick={() => {
+                changeBoardView(k)
+                setViewMenu(false)
+              }}
+              title={label}
+              aria-label={label}
+              className={`flex h-7 w-8 items-center justify-center rounded-[7px] ${boardView === k ? 'bg-black/[0.07] text-label' : 'text-label-2 hover:bg-black/[0.04] hover:text-label'}`}
+            >
+              <Icon size={16} strokeWidth={1.8} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 
-  // 아래 얇은 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기일 때) 구글 도구 모음 · 새로고침 · 새 창
-  // 구글시트 보기에서는 구글의 아래 시트 탭 자리를 덮고, 다른 보기에서는 본문 바로 아래에 같은 모양으로 놓인다
+  // 위 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기일 때) 구글 도구 모음 · 새로고침 · 새 창
   function jumpToGroup(name: string) {
     if (!data) return
     const first = Math.min(...data.rows.filter((r) => r.l1 === name).map((r) => r.row + 1))
     if (Number.isFinite(first)) setSheetJump(first)
   }
   const dockBar = (
-    <div className="flex h-10 items-center gap-2 border-t border-separator bg-white px-2 text-[length:calc(13px*var(--ui-fs,1))]">
+    <div className="flex h-11 items-center gap-2 border-b border-separator px-1 text-[length:calc(13px*var(--ui-fs,1))]">
       {!(editing && boardView === 'table') && viewSwitchEl}
       {!(editing && boardView === 'table') && <span className="h-5 w-px shrink-0 bg-separator" />}
       <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -2623,6 +2655,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <div className={view === 'rate' ? 'hidden' : ''}>
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
+        {/* 위 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기) 구글 도구 모음 · 새로고침 · 새 창 */}
+        {dockBar}
+
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div
           className={`-mx-2 mt-2 flex min-h-[52px] flex-wrap items-center gap-2 rounded-[12px] px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
@@ -2962,23 +2997,21 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? '-mx-4 -mb-6 -mt-3 lg:-mx-6' : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? '-mx-4 -mb-6 mt-1 lg:-mx-6' : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
           style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
         >
           {boardView === 'sheet' && data.spreadsheetId ? (
-            // 구글시트가 본문을 꽉 채운다. 앱 도구는 한 줄을 차지하지 않고, 구글의 아래 시트 탭 자리를 덮는 얇은 줄 하나로 떠 있다
-            // (보기 전환 · 그룹 이동 · 구글 도구 모음 켜기/끄기 · 새로고침 · 새 창)
+            // 구글시트가 본문을 꽉 채운다(위 줄 아래부터). 구글의 아래 시트 탭 줄은 시트 아래쪽을 잘라 가린다
             <div ref={sheetBoxRef} className="relative overflow-hidden rounded-[12px] border border-hairline bg-white" style={{ height: sheetBoxH ?? 640 }}>
               <iframe
                 key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}:${sheetJump ?? ''}`}
                 title="구글시트"
                 src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}${sheetJump ? `#gid=${data.sheetGid ?? 0}&range=A${sheetJump}` : ''}`}
                 className="absolute inset-x-0 w-full border-0"
-                style={sheetFull ? { top: -SHEET_HEAD_H, height: `calc(100% + ${SHEET_HEAD_H}px)` } : { top: 0, height: '100%' }}
+                style={{ top: sheetFull ? -SHEET_HEAD_H : 0, height: `calc(100% + ${(sheetFull ? SHEET_HEAD_H : 0) + SHEET_TABS_H}px)` }}
               />
-              <div className="absolute inset-x-0 bottom-0 z-10">{dockBar}</div>
             </div>
           ) : boardView === 'board' ? (
             <KanbanBoard
@@ -3100,8 +3133,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             />
           )}
         </div>
-        {/* 아래 얇은 줄: 구글시트 보기에서는 시트 위에 떠 있고, 다른 보기에서는 본문 바로 아래 */}
-        {boardView !== 'sheet' && <div className="-mx-2 mt-1 overflow-hidden rounded-[12px] border border-separator">{dockBar}</div>}
         {exportOpen && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">

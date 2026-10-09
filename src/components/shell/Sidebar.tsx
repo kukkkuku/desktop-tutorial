@@ -251,9 +251,10 @@ export default function Sidebar({ perf, collapsed, width, animate = true }: { pe
     >
       {/* 로고 · 이름(접으면 로고만, 누르면 홈). 접기 버튼은 화면 머리 맨 앞에 */}
       <div className={`flex h-9 items-center gap-2.5 ${collapsed ? 'justify-center' : 'pl-1.5'}`}>
-        <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="shrink-0 rounded-[8px]">
+        {/* 로고는 표시만(홈으로 가는 일은 아래 「홈」 메뉴가 맡는다) */}
+        <span className="shrink-0" aria-hidden="true">
           <AppLogo size={28} />
-        </button>
+        </span>
         {!collapsed && (
           <span className="min-w-0 flex-1 leading-tight">
             <span className="block truncate text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">페이스</span>
@@ -425,9 +426,6 @@ export function TopNav({
 
   return (
     <>
-      <button onClick={() => mode !== 'home' && setMode('home')} title="홈" aria-label="홈" className="ml-1 shrink-0 rounded-[8px]">
-        <AppLogo size={28} />
-      </button>
       {toggle}
       {/* 영역 전환: 사이드바와 같은 순서(홈 · 과제 입력 · 성과관리) */}
       <span className="ml-1 flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5">
