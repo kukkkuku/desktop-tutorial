@@ -198,42 +198,55 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
     // 이 블록이 카드의 남은 세로를 다 차지하고, 그 안에서 입력칸 줄이 flex-1로
     // 늘어난다 -- 2단(splitLayout)이든 위아래로 쌓이는 좁은 레이아웃이든 같다.
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* 한 줄: 면담일 · 분위기 이모지 · (오른쪽) 면담용지 · 작성하기. 그 아래 입력칸이 남는 높이를 채운다. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h3 className="sr-only">면담일지</h3>
-        <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
-        <div className="flex items-center gap-1" role="radiogroup" aria-label="면담 분위기">
-          {MOOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={mood === opt.value}
-              onClick={() => setMood((v) => (v === opt.value ? null : opt.value))}
-              title={opt.label}
-              aria-label={opt.label}
-              className={`flex items-center justify-center rounded-full p-0.5 transition ${
-                mood === opt.value ? 'bg-accent-soft ring-2 ring-accent' : mood ? 'opacity-40 hover:opacity-100' : 'hover:bg-black/[0.04]'
-              }`}
-            >
-              <MoodIcon mood={opt.value} className="h-6 w-6" />
-            </button>
-          ))}
+      {/* 피그마 시안 순서: ① 면담일 · 분위기 이모지(오른쪽 끝 접기 아이콘) ② 면담용지 · 작성하기(오른쪽 정렬) ③ 인사이트 ④ 입력칸 */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-x-[17px] gap-y-2">
+          <h3 className="sr-only">면담일지</h3>
+          <DatePicker value={date} onChange={setDate} ariaLabel="면담 일자" clearable={false} />
+          <div className="flex items-center gap-1" role="radiogroup" aria-label="면담 분위기">
+            {MOOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="radio"
+                aria-checked={mood === opt.value}
+                onClick={() => setMood((v) => (v === opt.value ? null : opt.value))}
+                title={opt.label}
+                aria-label={opt.label}
+                className={`flex items-center justify-center rounded-full p-0.5 transition ${
+                  mood === opt.value ? 'bg-accent-soft ring-2 ring-accent' : mood ? 'opacity-40 hover:opacity-100' : 'hover:bg-black/[0.04]'
+                }`}
+              >
+                <MoodIcon mood={opt.value} className="h-6 w-6" />
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {onCollapse && (
-            <IconButton onClick={onCollapse} title="면담 칸을 한 줄로 접기" aria-label="면담 칸을 한 줄로 접기">
-              <FoldHorizontal {...icSm} />
-            </IconButton>
-          )}
-          <Button variant="secondary" onClick={() => setPaperOpen(true)} title="면담 전에 출력해 두고 손으로 적을 수 있는 면담용지">
-            면담용지
-          </Button>
-          <Button variant="primary" onClick={handleSave} disabled={!comment.trim()}>
-            작성하기
-          </Button>
-        </div>
+        {onCollapse && (
+          <IconButton onClick={onCollapse} title="면담 칸을 한 줄로 접기" aria-label="면담 칸을 한 줄로 접기">
+            <FoldHorizontal {...icSm} />
+          </IconButton>
+        )}
       </div>
+      <div className="mt-[9px] flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setPaperOpen(true)}
+          title="면담 전에 출력해 두고 손으로 적을 수 있는 면담용지"
+          className="flex h-8 items-center justify-center rounded-[18px] border border-[#ececef] bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] text-label shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:text-accent"
+        >
+          면담용지
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!comment.trim()}
+          className="flex h-8 min-w-[76px] items-center justify-center rounded-[18px] bg-accent px-3 text-[length:calc(13px*var(--ui-fs,1))] text-white shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-[#adadad]"
+        >
+          작성하기
+        </button>
+      </div>
+      {insightsBlock && <div className="mt-[9px] shrink-0">{insightsBlock}</div>}
 
       {calendarError && (
         <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-danger">
@@ -460,7 +473,6 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
               많아지면 이 칸 안에서만 스크롤한다 -- 카드 전체가 늘어나 오른쪽
               입력칸까지 같이 길어지지 않도록. */}
           <div className="min-h-0 space-y-4 overflow-y-auto">
-            {insightsBlock}
             {historyBlock}
           </div>
           <div className="flex min-h-0 flex-col">{logFormBlock}</div>
@@ -470,7 +482,6 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         // 인사이트/기록은 접혀 있으면 한 줄짜리 헤더뿐이라 자리를 거의 안 쓰고,
         // 펼치면 그만큼만 가져가고 나머지는 그대로 입력칸 몫이다.
         <div className="flex min-h-0 flex-1 flex-col gap-4">
-          <div className="shrink-0">{insightsBlock}</div>
           {logFormBlock}
           <div className="shrink-0">{historyBlock}</div>
         </div>
