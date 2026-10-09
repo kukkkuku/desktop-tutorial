@@ -75,7 +75,7 @@ function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string)
       msg.spellcheck = false
       const idle = { outline: '1.5px dashed #66A1FF', outlineOffset: '6px', borderRadius: '8px', cursor: 'text' }
       Object.assign(msg.style, idle)
-      msg.addEventListener('focus', () => (msg.style.outline = '2px solid #2563EB'))
+      msg.addEventListener('focus', () => (msg.style.outline = '2px solid #F26B1D'))
       msg.addEventListener('blur', () => (msg.style.outline = idle.outline))
       msg.addEventListener('input', () => {
         onBodyRef.current(msg.innerText.replace(/\n{3,}/g, '\n\n'))

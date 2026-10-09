@@ -154,14 +154,14 @@ export function CellSwatch({ cell, size = 18 }: { cell: CellState; size?: number
 }
 
 // 고른 범위: 옅은 파랑 + 범위 바깥 테두리만 파란 선(칸마다 선이 생기지 않게 가장자리 칸에만)
-const SEL_LINE = '#2563eb'
+const SEL_LINE = '#f26b1d'
 function selShadow(tint: number, top: boolean, right: boolean, bottom: boolean, left: boolean): string {
   const s: string[] = []
   if (top) s.push(`inset 0 2px 0 ${SEL_LINE}`)
   if (bottom) s.push(`inset 0 -2px 0 ${SEL_LINE}`)
   if (left) s.push(`inset 2px 0 0 ${SEL_LINE}`)
   if (right) s.push(`inset -2px 0 0 ${SEL_LINE}`)
-  s.push(`inset 0 0 0 9999px rgba(37,99,235,${tint})`)
+  s.push(`inset 0 0 0 9999px rgba(242,107,29,${tint})`)
   return s.join(', ')
 }
 

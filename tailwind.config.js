@@ -7,16 +7,16 @@ export default {
     extend: {
       colors: {
         // v2: 중성 회색 캔버스 + 흰 카드 + 검정 기본 버튼, 선택 · 링크만 파랑(docs/DESIGN-SYSTEM.md)
-        accent: '#0A72F5',
-        'accent-hover': '#0A5FD0',
-        'accent-soft': '#E6F0FE',
+        accent: '#F26B1D',
+        'accent-hover': '#D95A10',
+        'accent-soft': '#FFF0E4',
         ink: '#141B34', // 선택된 메뉴 · 탭 바탕(짙은 남색)
         success: '#16A34A',
         'success-soft': '#ECFDF3',
         danger: '#DC2626',
         'danger-soft': '#FEF2F2',
-        warning: '#EA580C',
-        'warning-soft': '#FFF4EC',
+        warning: '#C98A00',
+        'warning-soft': '#FFF8DB',
         info: '#0891B2',
         'info-soft': '#ECFEFF',
         promo: '#2F3B63',
@@ -61,8 +61,8 @@ export default {
         pill: '0 0 0 1px rgba(255,255,255,0.9) inset, 0 1px 2px rgba(40,60,100,0.08), 0 6px 14px -6px rgba(40,60,100,0.22)',
         pop: '0 0 0 1px rgba(255,255,255,0.8) inset, 0 20px 48px -14px rgba(40,60,100,0.30), 0 4px 12px -4px rgba(40,60,100,0.10)',
         dialog: '0 0 0 1px rgba(255,255,255,0.8) inset, 0 32px 80px -20px rgba(30,45,80,0.42)',
-        focus: '0 0 0 3px rgba(10,114,245,0.22)',
-        glow: '0 8px 20px -6px rgba(10,114,245,0.55), 0 0 0 1px rgba(255,255,255,0.28) inset',
+        focus: '0 0 0 3px rgba(242,107,29,0.25)',
+        glow: '0 8px 20px -6px rgba(242,107,29,0.55), 0 0 0 1px rgba(255,255,255,0.28) inset',
       },
     },
   },

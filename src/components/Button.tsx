@@ -7,8 +7,8 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md'
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  // 주요 액션 = 파란 그라데이션 알약 + 번지는 빛(디자인 시스템 v3)
-  primary: 'bg-gradient-to-b from-[#2E8BFF] to-[#0A66F0] text-white shadow-glow hover:brightness-105 active:brightness-95',
+  // 주요 액션 = 오렌지 그라데이션 알약 + 번지는 빛(디자인 시스템 v3)
+  primary: 'bg-gradient-to-b from-[#FF9455] to-[#F2600E] text-white shadow-glow hover:brightness-105 active:brightness-95',
   secondary: 'bg-white/90 text-label shadow-control hover:bg-white active:bg-[#F1F5FA]',
   ghost: 'text-label-2 hover:bg-white/70 hover:text-label active:bg-white',
   danger: 'bg-danger text-white shadow-[0_8px_18px_-8px_rgba(220,38,38,0.6)] hover:brightness-95',

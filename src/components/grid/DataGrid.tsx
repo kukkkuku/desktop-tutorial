@@ -1147,7 +1147,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             if (el) headRowRefs.current.set(h.key, { el, anchor, firstId: h.rowIds[0] })
             else headRowRefs.current.delete(h.key)
           }}
-          className={`group/row select-none ${inside ? 'bg-blue-50' : 'bg-white'} ${
+          className={`group/row select-none ${inside ? 'bg-accent-soft' : 'bg-white'} ${
             dragInsert?.kind === 'row' && dragInsert.headKey === h.key ? 'shadow-[inset_0_3px_0_#F97316]' : ''
           }`}
         >
@@ -1197,7 +1197,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               <td
                 key={col.id}
                 style={{ boxShadow: [edge(false, c === nC - 1), colEdge].filter(Boolean).join(', ') || undefined }}
-                className={`h-9 overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${colIn ? 'bg-blue-50' : ''}`}
+                className={`h-9 overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${colIn ? 'bg-accent-soft' : ''}`}
               >
                 {h.cell(col.id)}
               </td>
@@ -1293,7 +1293,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             : undefined,
                         }}
                         className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
-                          colSelected ? 'bg-accent-soft text-accent' : col.emphasis ? '!bg-blue-500/[0.12]' : ''
+                          colSelected ? 'bg-accent-soft text-accent' : col.emphasis ? '!bg-accent/[0.12]' : ''
                         } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
                         title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
                       >
@@ -1366,7 +1366,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             onContextMenu={(e) => openMenu(e, 'row', r)}
                             style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
                             className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
-                              rowSelected ? 'bg-blue-50 font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
+                              rowSelected ? 'bg-accent-soft font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                             }`}
                             title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                           >
@@ -1383,7 +1383,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
                             onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
                             style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
-                            className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-blue-50' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
+                            className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-accent-soft' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
                             title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
                           >
                             {noNum && <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />}
@@ -1416,8 +1416,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               onContextMenu={(e) => openMenu(e, 'cell', r, c)}
                               style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
                               className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
-                                inRange && (!isActive || sel?.t !== 'cells') ? 'bg-blue-50' : ''
-                              } ${col.id === 'name' ? 'font-medium text-label' : ''} ${col.emphasis && !(inRange && (!isActive || sel?.t !== 'cells')) ? 'bg-blue-500/[0.12]' : ''}`}
+                                inRange && (!isActive || sel?.t !== 'cells') ? 'bg-accent-soft' : ''
+                              } ${col.id === 'name' ? 'font-medium text-label' : ''} ${col.emphasis && !(inRange && (!isActive || sel?.t !== 'cells')) ? 'bg-accent/[0.12]' : ''}`}
                             >
                               <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
                                 {custom !== undefined ? (
@@ -1601,7 +1601,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                       const pk = activeCol.picker!
                       const on = picked.includes(n)
                       const known = pk.options.includes(n)
-                      const tone = pk.tone?.(n, known) ?? 'bg-blue-50 text-blue-800'
+                      const tone = pk.tone?.(n, known) ?? 'bg-accent-soft text-accent-hover'
                       return (
                         <button
                           key={n}
