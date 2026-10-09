@@ -245,10 +245,7 @@ export function KanbanBoard({
                     {people.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1">
                         {people.slice(0, 4).map((p) => (
-                          <span key={p} className="flex items-center gap-1 rounded-full bg-[#F2F4F7] py-[1px] pl-[1px] pr-2 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white text-[9.5px] font-bold text-label shadow-sm">
-                              {p.slice(0, 1)}
-                            </span>
+                          <span key={p} className="rounded-full bg-[#F2F4F7] px-2 py-[1px] text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                             {p}
                           </span>
                         ))}
