@@ -15,7 +15,6 @@ import FileMenu from '../ui/PopMenu'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
 import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
 import {
-  CalendarRange,
   CloudUpload,
   ChartGantt,
   Eraser,
@@ -27,6 +26,7 @@ import {
   FilePlus2,
   Save,
   RotateCcw,
+  RotateCw,
   Rows3,
   AlignVerticalSpaceAround,
   Search,
@@ -384,6 +384,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
   const [searchFocus, setSearchFocus] = useState(false)
+  // 구글시트 그대로 보기: 구글의 메뉴 · 서식 도구 모음을 보일지(끄면 칸만 보이는 최소 화면) -- 이 브라우저에 기억. 새로고침 = iframe을 다시 그린다
+  const [sheetFull, setSheetFullState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('progress-board:sheet-toolbar') === '1'
+    } catch {
+      return false
+    }
+  })
+  const [sheetReload, setSheetReload] = useState(0)
+  function setSheetFull(v: boolean) {
+    setSheetFullState(v)
+    try {
+      localStorage.setItem('progress-board:sheet-toolbar', v ? '1' : '0')
+    } catch {
+      // 기억 못 해도 지금 화면에는 반영
+    }
+  }
   const searchRef = useRef<HTMLInputElement>(null)
   const searchOpen = searchFocus || query.trim() !== ''
   const [editing, setEditing] = useState(false)
@@ -2495,7 +2512,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           }`}
         >
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
-          <label className="relative" title="L2 · L3 · 담당자 찾기">
+          <label className={`relative ${boardView === 'sheet' ? 'hidden' : ''}`} title="L2 · L3 · 담당자 찾기">
             <Search {...icSm} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${searchOpen ? 'left-2 text-label-3' : 'left-1/2 -translate-x-1/2 text-label-2'}`} />
             <input
               ref={searchRef}
@@ -2793,14 +2810,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           )}
             </>
           )}
-          <span className="flex items-center gap-1">
-            {scheduleMode === 'hidden' && (
-              <Button variant="secondary" size="sm" onClick={() => setScheduleMode('full')} title="숨긴 일정 열기(전체 펴기)">
-                <CalendarRange {...icSm} />
-                일정 열기
-              </Button>
-            )}
-          </span>
           <span className="ml-auto flex items-center gap-2">
             <span className={`flex items-center ${readOnly ? 'hidden' : ''}`}>
               <IconButton onClick={undo} disabled={past.current.length === 0} title="되돌리기 (⌘Z)" aria-label="되돌리기">
@@ -2866,21 +2875,39 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         >
           {boardView === 'sheet' && data.spreadsheetId ? (
             <div className="flex flex-col gap-2">
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                <span>구글시트 화면 그대로입니다. 여기서 고치면 바로 시트에 저장됩니다(편집 권한이 있는 구글 계정으로 로그인).</span>
+              {/* 얇은 도구 줄: 이 모드에서 쓸 수 있는 것만(검색 · 칠하기 같은 표 도구는 숨김) */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                <span className="mr-auto min-w-0">구글시트 화면 그대로입니다. 여기서 고치면 바로 시트에 저장됩니다(편집 권한이 있는 구글 계정으로 로그인).</span>
+                <label className="flex cursor-pointer items-center gap-1.5" title="구글의 메뉴 · 서식 도구 모음을 보입니다(꺼 두면 칸만 보이는 최소 화면)">
+                  구글 도구 모음
+                  <button
+                    role="switch"
+                    aria-checked={sheetFull}
+                    onClick={() => setSheetFull(!sheetFull)}
+                    className={`relative h-[18px] w-8 rounded-full transition-colors ${sheetFull ? 'bg-accent' : 'bg-black/[0.15]'}`}
+                  >
+                    <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-[left] ${sheetFull ? 'left-[16px]' : 'left-[2px]'}`} />
+                  </button>
+                </label>
+                <Button size="sm" variant="ghost" onClick={() => setSheetReload((n) => n + 1)} title="구글시트 화면을 다시 불러옵니다">
+                  <RotateCw {...icSm} />
+                  새로고침
+                </Button>
                 <a
                   href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-accent hover:underline"
+                  className="inline-flex h-7 items-center gap-1 rounded-control px-2.5 font-medium text-accent hover:bg-accent-soft"
+                  title="화면이 안 보이면 새 창에서 엽니다"
                 >
-                  화면이 안 보이면 새 창에서 열기 ↗
+                  <ExternalLink {...icSm} />
+                  새 창에서 열기
                 </a>
-              </p>
+              </div>
               <iframe
-                key={`${data.spreadsheetId}:${data.sheetGid}`}
+                key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}`}
                 title="구글시트"
-                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit?rm=minimal${data.sheetGid !== null ? `&gid=${data.sheetGid}` : ''}`}
+                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}`}
                 className="w-full rounded-[8px] border border-hairline bg-white"
                 style={{ height: Math.max(420, (tableBoxH ?? 640) - 40) }}
               />
