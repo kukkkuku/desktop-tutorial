@@ -356,8 +356,14 @@ export default function WorkspaceLanding() {
   }
   function handleDeleteConfirm() {
     if (deletingWorkspace) {
-      deleteWorkspace(deletingWorkspace.id)
+      const gone = deletingWorkspace
+      deleteWorkspace(gone.id)
       setDeletingWorkspace(null)
+      // 보던 연도의 마지막 평가를 지웠으면 빈 화면 대신 이 팀에 평가가 남은 가장 최근 연도로(없으면 올해)
+      const left = teamWorkspaces.filter((w) => w.id !== gone.id)
+      if (gone.evaluationYear === appYear && !left.some((w) => w.evaluationYear === appYear)) {
+        setAppYear(left.length ? Math.max(...left.map((w) => w.evaluationYear)) : new Date().getFullYear())
+      }
     }
   }
 

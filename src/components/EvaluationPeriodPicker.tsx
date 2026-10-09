@@ -25,6 +25,8 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
   )
   const mostRecent = teamWorkspaces[teamWorkspaces.length - 1] as WorkspaceMeta | undefined
 
+  const sourceCounts = useMemo(() => (mostRecent ? readWorkspaceCounts(mostRecent.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[] }), [mostRecent])
+
   const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
   const [year, setYear] = useState<number>(defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear())
   const [periodCode, setPeriodCode] = useState<string>(mostRecent?.evaluationPeriodCode ?? periodOptionsForCycle(cycle)[0]?.code ?? '')
@@ -165,14 +167,27 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
             </p>
             {mostRecent && (
               <div className="mt-3 space-y-1.5 border-t border-separator pt-3">
-                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">'{mostRecent.periodName}'에서 가져오기</p>
-                <label className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                  <input type="checkbox" checked={copyMembers} onChange={(e) => setCopyMembers(e.target.checked)} />
-                  팀원 정보 복사
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">
+                  새 평가에 가져올 것 <span className="font-normal">-- 이 팀의 가장 최근 평가 「{mostRecent.evaluationYear} {mostRecent.periodName}」에서</span>
+                </p>
+                <label className="flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+                  <input type="checkbox" className="mt-1" checked={copyMembers} onChange={(e) => setCopyMembers(e.target.checked)} />
+                  <span>
+                    팀원 {sourceCounts.memberCount}명 그대로 가져오기
+                    {sourceCounts.memberNames.length > 0 && (
+                      <span className="block text-xs text-label-3">
+                        {sourceCounts.memberNames.slice(0, 6).join(', ')}
+                        {sourceCounts.memberNames.length > 6 ? ` 외 ${sourceCounts.memberNames.length - 6}명` : ''}
+                      </span>
+                    )}
+                  </span>
                 </label>
-                <label className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                  <input type="checkbox" checked={copyTaskNames} onChange={(e) => setCopyTaskNames(e.target.checked)} />
-                  과제명 복사 (등급·목표·성과는 새로 입력)
+                <label className="flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+                  <input type="checkbox" className="mt-1" checked={copyTaskNames} onChange={(e) => setCopyTaskNames(e.target.checked)} />
+                  <span>
+                    과제 {sourceCounts.taskCount}개의 이름만 가져오기
+                    <span className="block text-xs text-label-3">분류 · 성과등급 · 목표 · 성과는 비워 두고 새로 입력합니다</span>
+                  </span>
                 </label>
               </div>
             )}
