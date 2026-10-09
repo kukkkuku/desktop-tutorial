@@ -179,33 +179,49 @@ export default function EvaluationMatrix() {
     const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
     const result = resultIdx >= 0 ? memberResults[resultIdx] : undefined
     const row = align === 'left'
+    const name = (
+      <span className="truncate text-label" title={member.name}>
+        {member.name}
+      </span>
+    )
+    const pill = result && hasScores && (
+      <span
+        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`}
+        title={result.grade ? undefined : UNGRADED_HINT}
+      >
+        {gradeText(result.grade)}
+      </span>
+    )
+    const rankScore = result && hasScores && (
+      <span className="shrink-0 whitespace-nowrap text-xs font-normal text-label-2">
+        {resultIdx + 1}위 ·{' '}
+        <span
+          className="cursor-help tabular-nums underline decoration-dotted underline-offset-2"
+          title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
+        >
+          {result.cumulativeScore.toFixed(1)}점
+        </span>
+      </span>
+    )
+    // 팀원이 행: 이름 · 등급 · 순위 · 점수 · 피어를 한 줄로
+    if (row) {
+      return (
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          {name}
+          {pill}
+          {rankScore}
+          <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
+        </div>
+      )
+    }
     return (
       <>
         {/* 이름 · 등급 / 순위 · 점수 / 피어 -- 칸이 좁아도 글자가 꺾이지 않게 줄을 나눈다(넘치면 표를 옆으로 민다) */}
-        <div className={`flex items-center gap-1.5 ${row ? '' : 'justify-center'}`}>
-          <span className="truncate text-label" title={member.name}>
-            {member.name}
-          </span>
-          {result && hasScores && (
-            <span
-              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`}
-              title={result.grade ? undefined : UNGRADED_HINT}
-            >
-              {gradeText(result.grade)}
-            </span>
-          )}
+        <div className="flex items-center justify-center gap-1.5">
+          {name}
+          {pill}
         </div>
-        {result && hasScores && (
-          <div className="mt-0.5 text-xs font-normal text-label-2">
-            {resultIdx + 1}위 ·{' '}
-            <span
-              className="cursor-help tabular-nums underline decoration-dotted underline-offset-2"
-              title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
-            >
-              {result.cumulativeScore.toFixed(1)}점
-            </span>
-          </div>
-        )}
+        {rankScore && <div className="mt-0.5">{rankScore}</div>}
         <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
       </>
     )
@@ -305,7 +321,7 @@ export default function EvaluationMatrix() {
   }
 
   const TASK_COL_W = 240 // 팀원 기준 보기: 과제 열 폭
-  const MEMBER_ROW_COL_W = 190 // 팀원 기준 보기: 팀원(첫 열) 폭
+  const MEMBER_ROW_COL_W = 300 // 팀원 기준 보기: 팀원(첫 열) 폭
 
   const memberCount = activeMembers.length
   const gradeW = showGrade ? GRADE_COL_WIDTH : 0
@@ -423,7 +439,7 @@ export default function EvaluationMatrix() {
                 <tbody>
                   {activeMembers.map((member) => (
                     <tr key={member.id} className="border-t border-separator text-label">
-                      <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold">{memberHead(member, 'left')}</td>
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2 font-semibold">{memberHead(member, 'left')}</td>
                       {tasks.map((task) => (
                         <Fragment key={task.id}>
                           <td className="border-l border-separator px-3 py-2">{percentCell(task, member.id)}</td>
