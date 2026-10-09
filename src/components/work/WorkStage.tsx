@@ -39,17 +39,14 @@ import {
 } from '../../utils/workBoard'
 import { evalUnits, unitGrade, unitKeyOf } from '../../utils/evalReconcile'
 import { v4 as uuidv4 } from 'uuid'
-import SheetsIcon from '../SheetsIcon'
-import PopMenu from '../ui/PopMenu'
 import { GoalCell, GradeCell, PeriodCell } from './EvalCells'
 import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
-import { useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { useAccessData } from '../../hooks/useAccessData'
 import type { AccessUser } from '../../utils/accessSheet'
 import { effectiveTeam, sameTeam } from '../../utils/memberTeam'
-import { ChartGantt, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -187,7 +184,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       dispatch({ type: 'SET_WORK_BOARD', payload: { ...board, sheetLink: { ...board.sheetLink, fileTitle: linkFileTitle } } })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [linkFileTitle])
-  const canManageSheets = useCanManageSheets() // 시트 연결을 바꾸는 것은 팀장 · 관리자만(팀원은 새로고침만)
   const tabStripRef = useRef<HTMLDivElement>(null)
   const tabsCompact = useTabFit(tabStripRef, board.groups.length + 1, 130)
   const [deletingGroup, setDeletingGroup] = useState<TaskGroup | null>(null)
@@ -951,7 +947,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       <div className="mx-auto max-w-2xl py-16 text-center">
         <h2 className="text-xl font-bold text-label">과제관리</h2>
         <p className="mt-2 text-sm leading-relaxed text-label-2">
-          과제 입력의 추진현황이나 회사 과제관리 구글시트에서 필요한 L2만 골라 가져오거나, L2를 직접 만들어 시작하세요.
+          과제 입력의 추진현황에서 필요한 L2만 골라 가져오거나, L2를 직접 만들어 시작하세요.
           <br />
           L2는 탭으로, 그 아래 L3 과제는 표로 편집합니다.
         </p>
@@ -959,16 +955,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           <Button variant="primary" onClick={() => onOpenSheetImport(undefined, 'progress')}>
             추진현황에서 가져오기
           </Button>
-          {canManageSheets && (
-            <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'sheet')}>
-              구글시트에서 가져오기
-            </Button>
-          )}
-          {canManageSheets && (
-            <Button variant="secondary" onClick={() => onOpenSheetImport(undefined, 'xlsx')}>
-              엑셀 파일에서 가져오기
-            </Button>
-          )}
           <Button variant="secondary" onClick={handleAddGroup}>
             L2 직접 만들기
           </Button>
@@ -1077,26 +1063,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           <Plus {...icSm} />
         </button>
       </div>
-      {/* 가져오기(예전 빠른 시작의 가져오기 탭들): 추진현황에서 · 구글시트 · 엑셀(관리자) */}
+      {/* 가져오기: 추진현황에서만(구글시트 · 엑셀 가져오기는 없앴다) */}
       <div className="shrink-0 pl-2">
-        <PopMenu label={<span className="flex items-center gap-1"><Download {...icSm} />가져오기</span>} title="과제 가져오기 -- 추진현황 · 구글시트 · 엑셀에서 그룹(L2)을 골라">
-          <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">과제 가져오기</p>
-          <button onClick={() => onOpenSheetImport(undefined, 'progress')} className="mac-menu-item">
-            <ChartGantt {...icSm} className="shrink-0" />추진현황에서
-            <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">과제 입력</span>
-          </button>
-          {canManageSheets && (
-            <button onClick={() => onOpenSheetImport(undefined, 'sheet')} className="mac-menu-item">
-              <SheetsIcon className="h-3.5 w-3.5 shrink-0" />구글시트에서
-            </button>
-          )}
-          {canManageSheets && (
-            <button onClick={() => onOpenSheetImport(undefined, 'xlsx')} className="mac-menu-item">
-              <Upload {...icSm} className="shrink-0" />엑셀 파일에서
-              <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">xlsx</span>
-            </button>
-          )}
-        </PopMenu>
+        <button
+          onClick={() => onOpenSheetImport(undefined, 'progress')}
+          title="과제 입력의 추진현황에서 그룹(L2)을 골라 가져옵니다"
+          className="flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-[8px] px-2.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label"
+        >
+          <Download {...icSm} />
+          추진현황에서 가져오기
+        </button>
       </div>
       </div>
 
