@@ -50,7 +50,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-[10px] bg-black/[0.04] px-1">
+    <div className="-mx-6 -mt-5 flex items-center gap-2 rounded-t-panel bg-black/[0.04] px-2 lg:-mx-8">
       {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
       <div className="flex min-w-0 flex-1 items-center gap-0.5 py-1">
         {activeMembers.length === 0 ? (

@@ -1019,7 +1019,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   return (
     <div className="space-y-3">
       {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
-      <div className="flex items-center rounded-[10px] bg-black/[0.04] px-1">
+      <div className="-mx-6 -mt-5 flex items-center rounded-t-panel bg-black/[0.04] px-2 lg:-mx-8">
       {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
       <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden py-1">
         {board.groups.map((g, idx) => {
