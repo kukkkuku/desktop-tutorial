@@ -2,17 +2,31 @@
 // 화면은 <AppShell header={<PageHeader .../>}>{내용}</AppShell> 모양으로 쓴다. 하위 탭은 판 안 맨 위에 <PageTabs>로.
 // 메뉴 모양 3단계(머리 맨 앞 버튼으로 차례로): 펼침 → 아이콘만(좁은 사이드바) → 위 메뉴(사이드바 없이 머리 한 줄에).
 // 고른 모양은 이 브라우저에 기억한다.
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
 import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
 
-export type ShellLayout = 'open' | 'rail' | 'top'
+// 메뉴 모양: open(펼침) · rail(아이콘만) · top(위 메뉴) · hidden(사이드바 숨김). 사이드바 경계를 끌면 폭 조절, 누르거나 ⌘B면 숨김/펼침
+export type ShellLayout = 'open' | 'rail' | 'top' | 'hidden'
 const LAYOUT_KEY = 'sidebar-layout'
-const NEXT: Record<ShellLayout, ShellLayout> = { open: 'rail', rail: 'top', top: 'open' }
+const NEXT: Record<ShellLayout, ShellLayout> = { open: 'rail', rail: 'top', top: 'open', hidden: 'open' }
+const WIDTH_KEY = 'sidebar-width'
+const W_MIN = 200
+const W_MAX = 380
+const W_DEFAULT = 236
+const RAIL_W = 60
+function readWidth(): number {
+  try {
+    const v = Number(localStorage.getItem(WIDTH_KEY))
+    return v >= W_MIN && v <= W_MAX ? v : W_DEFAULT
+  } catch {
+    return W_DEFAULT
+  }
+}
 function readLayout(): ShellLayout {
   try {
     const v = localStorage.getItem(LAYOUT_KEY)
-    if (v === 'open' || v === 'rail' || v === 'top') return v
+    if (v === 'open' || v === 'rail' || v === 'top' || v === 'hidden') return v
     return localStorage.getItem('sidebar-collapsed') === '1' ? 'rail' : 'open' // 예전(접기 한 단계) 기억
   } catch {
     return 'open'
@@ -24,8 +38,8 @@ const ShellCtx = createContext<{ layout: ShellLayout; cycle: () => void; perf?: 
 
 export default function AppShell({ perf, header, children }: { perf?: SidebarPerfExtras; header?: ReactNode; children: ReactNode }) {
   const [layout, setLayout] = useState(readLayout)
-  function cycle() {
-    const v = NEXT[layout]
+  const [width, setWidth] = useState(readWidth)
+  function chooseLayout(v: ShellLayout) {
     setLayout(v)
     try {
       localStorage.setItem(LAYOUT_KEY, v)
@@ -33,6 +47,24 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
       // 기억 못 해도 지금은 바뀐다
     }
   }
+  function cycle() {
+    chooseLayout(NEXT[layout])
+  }
+  // ⌘B(Ctrl+B): 사이드바 숨기기/펼치기. 글자를 입력하는 중(굵게 단축키 등)에는 건드리지 않는다
+  const layoutRef = useRef(layout)
+  layoutRef.current = layout
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'b') return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      chooseLayout(layoutRef.current === 'hidden' ? 'open' : 'hidden')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  const [dragging, setDragging] = useState(false)
   useEffect(() => {
     window.dispatchEvent(new Event(SHELL_LAYOUT_EVENT))
   }, [layout])
@@ -40,8 +72,26 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   return (
     <ShellCtx.Provider value={{ layout, cycle, perf }}>
       <div className="flex min-h-screen bg-canvas">
-        {!top && <Sidebar perf={perf} collapsed={layout === 'rail'} />}
-        <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top ? 'pl-3' : ''}`}>
+        {!top && layout !== 'hidden' && (
+          <div className="relative flex shrink-0">
+            <Sidebar perf={perf} collapsed={layout === 'rail'} width={layout === 'rail' ? RAIL_W : width} animate={!dragging} />
+            <SidebarEdge
+              layout={layout}
+              width={width}
+              onDragState={setDragging}
+              onLayout={chooseLayout}
+              onWidth={(w) => {
+                setWidth(w)
+                try {
+                  localStorage.setItem(WIDTH_KEY, String(w))
+                } catch {
+                  // 기억 못 해도 지금 화면에는 반영
+                }
+              }}
+            />
+          </div>
+        )}
+        <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top || layout === 'hidden' ? 'pl-3' : ''}`}>
           {header}
           {/* 본문 판: 흰 판 + 얇은 테두리로 위 줄 · 사이드바와 구분. backdrop-blur 같은 filter는 쓰지 않는다(쓰면 팝업 어둠이 이 판 안에만 깔림) */}
           <div className="flex min-w-0 flex-1 flex-col rounded-panel border border-[color:var(--panel-border)] [background:var(--panel-bg)] [box-shadow:var(--panel-shadow)]">{children}</div>
@@ -56,7 +106,7 @@ function LayoutToggle() {
   const ctx = useContext(ShellCtx)
   if (!ctx) return null
   const { layout } = ctx
-  const t = layout === 'open' ? '메뉴 접기(아이콘만)' : layout === 'rail' ? '메뉴를 위로 올리기' : '메뉴 펼치기'
+  const t = layout === 'open' ? '메뉴 접기(아이콘만) · ⌘B 숨기기' : layout === 'rail' ? '메뉴를 위로 올리기' : layout === 'hidden' ? '사이드바 펼치기 (⌘B)' : '메뉴 펼치기'
   const Icon = layout === 'open' ? PanelLeftClose : layout === 'rail' ? PanelTop : PanelLeftOpen
   return (
     <button
@@ -108,4 +158,92 @@ export function PageTabs({ children }: { children: ReactNode }) {
 // 위치 줄의 구분 기호
 export function CrumbSep() {
   return <span className="text-label-3/70">/</span>
+}
+
+// 사이드바 오른쪽 경계: 끌면 폭 조절(좁게 끌면 아이콘만, 다시 넓히면 펼침), 한 번 누르면 숨기기. 마우스를 올리면 안내(Claude처럼)
+function SidebarEdge({
+  layout,
+  width,
+  onDragState,
+  onLayout,
+  onWidth,
+}: {
+  layout: ShellLayout
+  width: number
+  onDragState: (d: boolean) => void
+  onLayout: (v: ShellLayout) => void
+  onWidth: (w: number) => void
+}) {
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
+  const [active, setActive] = useState(false)
+  function down(e: React.MouseEvent) {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const x0 = e.clientX
+    const w0 = layout === 'rail' ? RAIL_W : width
+    let moved = false
+    let mode: ShellLayout = layout
+    let last = width
+    setTip(null)
+    setActive(true)
+    onDragState(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const move = (ev: MouseEvent) => {
+      const dx = ev.clientX - x0
+      if (Math.abs(dx) > 3) moved = true
+      if (!moved) return
+      const nw = w0 + dx
+      if (nw < 150) {
+        if (mode !== 'rail') {
+          mode = 'rail'
+          onLayout('rail')
+        }
+      } else {
+        const w = Math.max(W_MIN, Math.min(W_MAX, nw))
+        if (mode !== 'open') {
+          mode = 'open'
+          onLayout('open')
+        }
+        last = w
+        onWidth(w)
+      }
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      setActive(false)
+      onDragState(false)
+      if (!moved) onLayout('hidden')
+      else if (mode === 'open') onWidth(last)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+  }
+  return (
+    <>
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="사이드바 크기 조절 · 누르면 숨기기"
+        onMouseDown={down}
+        onMouseMove={(e) => !active && setTip({ x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setTip(null)}
+        className="group/edge absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize"
+      >
+        <span className={`absolute inset-y-0 left-[3px] w-[2px] rounded-full transition-colors ${active ? 'bg-accent' : 'bg-transparent group-hover/edge:bg-black/[0.12]'}`} />
+      </div>
+      {tip && !active && (
+        <div className="ds-tip fixed z-[70]" style={{ left: tip.x + 14, top: tip.y + 12 }}>
+          <div className="flex items-center gap-3">
+            <span>사이드바 숨기기</span>
+            <span className="ds-kbd !bg-transparent !text-white/60 !shadow-none">⌘ B</span>
+          </div>
+          <div className="mt-0.5 text-white/60">드래그하여 크기 조절</div>
+        </div>
+      )}
+    </>
+  )
 }

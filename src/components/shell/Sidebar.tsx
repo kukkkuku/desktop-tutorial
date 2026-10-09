@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
+  ChevronsUpDown,
   Palette,
   BookOpen,
   ChartGantt,
@@ -217,7 +218,7 @@ function LogoutItem({ onClick }: { onClick: () => void }) {
   )
 }
 
-export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras; collapsed: boolean }) {
+export default function Sidebar({ perf, collapsed, width, animate = true }: { perf?: SidebarPerfExtras; collapsed: boolean; width: number; animate?: boolean }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
   const { accountEmail, role, canPerf, isAdminUser, handleLogout, inPerf, inTasks, onAccountChange, openManual } = nav
@@ -244,7 +245,8 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
 
   return (
     <aside
-      className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 transition-[width] duration-200 ${collapsed ? 'w-[60px]' : 'w-[236px]'}`}
+      style={{ width }}
+      className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 ${animate ? 'transition-[width] duration-200' : ''}`}
       aria-label="메뉴"
     >
       {/* 로고 · 이름(접으면 로고만, 누르면 홈). 접기 버튼은 화면 머리 맨 앞에 */}
@@ -326,7 +328,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           placement="up"
           onAccountChange={onAccountChange}
           title={accountEmail}
-          className={`mt-2 flex w-full items-center gap-2.5 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
+          className={`mt-1 flex w-full items-center gap-2 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : ''}`}
           footer={
             <>
               <FontSizeItem />
@@ -340,11 +342,14 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
             {accountEmail.slice(0, 1).toUpperCase()}
           </span>
+          {/* 구글 계정은 이름 한 줄만(이메일 앞부분). 전체 이메일 · 역할은 마우스를 올리면 */}
           {!collapsed && (
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{accountEmail}</span>
-              <span className="block truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{ROLE_LABEL[role]}</span>
-            </span>
+            <>
+              <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label" title={`${accountEmail} · ${ROLE_LABEL[role]}`}>
+                {accountEmail.split('@')[0]}
+              </span>
+              <ChevronsUpDown size={14} strokeWidth={1.8} className="shrink-0 text-label-3" />
+            </>
           )}
         </GoogleAccountMenu>
       )}
