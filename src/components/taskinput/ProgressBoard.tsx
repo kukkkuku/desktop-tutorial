@@ -2315,12 +2315,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (Number.isFinite(first)) setSheetJump(first)
   }
   const dockBar = (
-    <div className="flex h-11 items-center gap-2 border-b border-separator px-1 text-[length:calc(13px*var(--ui-fs,1))]">
+    <div className="-mx-6 -mt-5 flex h-10 items-center gap-2 bg-black/[0.035] px-2 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
       {!(editing && boardView === 'table') && viewSwitchEl}
       {!(editing && boardView === 'table') && <span className="h-5 w-px shrink-0 bg-separator" />}
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1 self-stretch">
         {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
-        <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+        <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-0.5 self-stretch overflow-hidden pt-1">
           {shownL1s.map((name) => {
             const dirty = dirtyL1.has(name)
             const rowsOf = data.rows.filter((r) => r.l1 === name)
@@ -2340,12 +2340,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
                 }}
                 data-l1-tab={name}
-                className={`group flex h-7 min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-control text-[length:calc(13.5px*var(--ui-fs,1))] transition-colors ${
+                className={`group flex h-[34px] min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] text-[length:calc(13.5px*var(--ui-fs,1))] transition-colors ${
                   tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-2.5'
                 } ${
                   on
-                    ? 'bg-black/[0.07] font-semibold text-label'
-                    : 'font-medium text-label-2 hover:bg-black/[0.04] hover:text-label'
+                    ? 'bg-white font-semibold text-label shadow-[0_0_0_1px_rgba(0,0,0,0.06)]'
+                    : 'font-medium text-label-2 hover:bg-black/[0.05] hover:text-label'
                 }`}
                 title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
               >
@@ -2388,7 +2388,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
               }}
               title="그룹(L1) 추가"
-              className="flex h-7 shrink-0 items-center gap-1 rounded-control px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label-3 hover:bg-black/[0.04] hover:text-label"
+              className="mb-0.5 flex h-7 shrink-0 items-center gap-1 self-center rounded-control px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label-3 hover:bg-black/[0.05] hover:text-label"
             >
               <Plus {...icSm} />
               그룹 추가
