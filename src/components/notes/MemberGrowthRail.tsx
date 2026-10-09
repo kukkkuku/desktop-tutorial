@@ -53,7 +53,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
     grade === 'S' ? 'bg-[#f0f6ff] text-[#3968ff]' : grade === 'B' ? 'bg-[#fffce8] text-[#be953c]' : grade ? GRADE_COLORS[grade as keyof typeof GRADE_COLORS] : 'bg-[#dadadd] text-[#be953c]'
 
   return (
-    <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-3 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-mx-8">
+    <div className="-ml-6 -mt-5 flex h-[38px] items-center gap-3 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-ml-8">
       {/* 팀원 관리: 왼쪽 메뉴의 팀원관리와 같은 사람 겹침 아이콘만 */}
       <button
         onClick={onManageTeam}
