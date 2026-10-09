@@ -158,10 +158,10 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
   }
 
   const insightsBlock = insights.length > 0 && (
-    <div className="rounded-card border border-separator bg-white">
+    <div className="rounded-[8px] border border-[#ececef] bg-white">
       <div className="flex items-center justify-between gap-2 px-4 py-3">
-        <span className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-          면담 인사이트 <span className="ml-1 text-[length:calc(13px*var(--ui-fs,1))] font-normal text-label-3">{insights.length}</span>
+        <span className="text-[length:calc(13px*var(--ui-fs,1))] font-bold text-label">
+          면담 인사이트 <span className="ml-1 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-[#a4a4b2]">{insights.length}</span>
         </span>
         <CollapseToggleButton collapsed={!insightsOpen} onClick={onToggleInsights} label="면담 인사이트" />
       </div>
@@ -248,7 +248,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         onChange={(e) => setComment(e.target.value)}
         rows={4}
         placeholder="면담 내용을 입력하세요."
-        className="mt-3 min-h-[120px] w-full flex-1 resize-y rounded-control border border-hairline px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] text-label"
+        className="mt-3 min-h-[120px] w-full flex-1 resize-y rounded-[8px] border border-[#e1e1e5] p-3 text-[length:calc(12px*var(--ui-fs,1))] text-label placeholder:text-[#a1a7b7]"
       />
 
       {/* 강점/보완/다음도전/Career Goal은 매번 다 채우는 칸이 아니라 필요할
@@ -256,7 +256,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           있게 한다. */}
       <div className="mt-3 flex items-center gap-1.5">
         <CollapseToggleButton collapsed={!detailsOpen} onClick={() => setDetailsOpen((v) => !v)} label="육성 포인트" />
-        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:text-accent">
+        <button onClick={() => setDetailsOpen((v) => !v)} className="text-[length:calc(12px*var(--ui-fs,1))] text-[#72727e] hover:text-accent">
           육성 포인트 (강점·보완·다음 경험·Career Goal)
         </button>
       </div>
@@ -314,8 +314,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
       <div className="flex flex-wrap items-center gap-1.5">
         <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
-        <h4 className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">면담 기록</h4>
-        <span className="mac-badge bg-black/[0.05] text-label-2">최근 {notes.length}건</span>
+        <h4 className="text-[length:calc(12px*var(--ui-fs,1))] font-bold text-label">면담 기록</h4>
+        <span className="rounded-[12px] border border-[#dedee2] bg-[#f3f3f4] px-[5px] py-[2px] text-[length:calc(10px*var(--ui-fs,1))] text-[#72727e]">최근 {notes.length}건</span>
       </div>
 
       {pastOpen && (

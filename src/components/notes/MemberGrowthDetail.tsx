@@ -81,10 +81,10 @@ function PeriodCard({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-card border border-separator bg-white p-5">
+    <div className="rounded-[21px] border border-[#ececef] bg-white px-5 pb-4 pt-[19px]">
       <div className="flex w-full items-center justify-between gap-2">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-bold text-label">
             {title}
             {score !== null ? ` ${score.toFixed(1)}` : ''}
           </span>
@@ -132,21 +132,21 @@ function TaskRow({
               className="flex min-w-0 items-center gap-1 text-left hover:text-accent"
               title={open ? 'L3 접기' : 'L3 펼치기'}
             >
-              <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label" title={name}>
+              <span className="truncate text-[length:calc(12px*var(--ui-fs,1))] font-bold text-label" title={name}>
                 {name}
               </span>
               <span className="shrink-0 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">{subItems!.length}</span>
               <ChevronDown size={14} strokeWidth={2} className={`shrink-0 text-label-3 transition-transform ${open ? '' : '-rotate-90'}`} />
             </button>
           ) : (
-            <span className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label" title={name}>
+            <span className="truncate text-[length:calc(12px*var(--ui-fs,1))] font-bold text-label" title={name}>
               {name}
             </span>
           )}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-3">
-          <span className="w-10 text-center text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{percent}%</span>
-          <span className="w-14 text-right text-[length:calc(14px*var(--ui-fs,1))] font-semibold tabular-nums text-label">{score.toFixed(1)}</span>
+          <span className="w-10 text-center text-[length:calc(13px*var(--ui-fs,1))] text-[#72727e]">{percent}%</span>
+          <span className="w-14 text-right text-[length:calc(13px*var(--ui-fs,1))] font-bold tabular-nums text-label">{score.toFixed(1)}</span>
           <span className="flex items-center justify-end gap-1 whitespace-nowrap">{gradeSlot}</span>
         </span>
       </div>
@@ -203,8 +203,8 @@ function ColumnSplitter({
       aria-orientation="vertical"
       className="group relative hidden shrink-0 cursor-col-resize self-stretch xl:block xl:w-3"
     >
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/[0.08]" />
-      <span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/[0.15] transition-colors group-hover:bg-accent group-active:bg-accent" />
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[#ececef]" />
+      <span className="absolute left-1/2 top-1/2 h-10 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-[2px] bg-[#d4d4d5] transition-colors group-hover:bg-accent group-active:bg-accent" />
     </div>
   )
 }
@@ -240,6 +240,8 @@ const DEFAULT_SHARES = [0.4, 0.22, 0.38]
 // 성장 시뮬레이션 컬럼의 기본(마운트 시) 슬림 폭(px) -- 버튼으로 접는 게
 // 아니라 스플리터로 이 폭 근처까지 줄이면 자동으로 슬림 바 모습이 된다.
 const SIM_COLLAPSED_WIDTH = 64
+// 피그마 시안의 세 열 폭(px): 성장 시뮬레이션 · 성과 · 피어리뷰
+const DESIGN_COL_PX = [308, 212, 212]
 // 세 컬럼 모두가 가질 수 있는 최소 폭(px) -- 스플리터로 어느 컬럼이든
 // 완전히 사라지지 않게 막아둔다(접힌 슬림 바의 폭과 같다).
 const COL_MIN_WIDTH = 64
@@ -337,9 +339,18 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
       setContainerWidth(width)
       if (!boundsInitialized.current && width > 0) {
         boundsInitialized.current = true
-        const b0 = SIM_COLLAPSED_WIDTH / width
-        const rest = 1 - b0
-        setBounds([b0, b0 + rest * DEFAULT_SHARES[0], b0 + rest * (DEFAULT_SHARES[0] + DEFAULT_SHARES[1])])
+        // 피그마 시안 폭: 성장 시뮬레이션 308 · 성과 212 · 피어리뷰 212 · 나머지는 면담(좁은 화면이면 예전 비율)
+        const avail = Math.max(1, width - SPLITTER_WIDTH * 3)
+        if (avail - (DESIGN_COL_PX[0] + DESIGN_COL_PX[1] + DESIGN_COL_PX[2]) >= 360) {
+          const e1 = DESIGN_COL_PX[0] / avail
+          const e2 = (DESIGN_COL_PX[0] + DESIGN_COL_PX[1]) / avail
+          const e3 = (DESIGN_COL_PX[0] + DESIGN_COL_PX[1] + DESIGN_COL_PX[2]) / avail
+          setBounds([e1, e2, e3])
+        } else {
+          const b0 = SIM_COLLAPSED_WIDTH / width
+          const rest = 1 - b0
+          setBounds([b0, b0 + rest * DEFAULT_SHARES[0], b0 + rest * (DEFAULT_SHARES[0] + DEFAULT_SHARES[1])])
+        }
       }
     }
     update()
@@ -894,7 +905,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
             ) : (
               <div className="space-y-3">
                 <span className="flex min-h-[28px] items-center justify-between gap-2 px-1">
-                  <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과</h3>
+                  <h3 className="text-[length:calc(13px*var(--ui-fs,1))] font-bold text-label">성과</h3>
                   <IconButton onClick={() => collapseColumn('perf')} title="성과 한 줄로 접기" aria-label="성과 한 줄로 접기"><FoldHorizontal {...icSm} /></IconButton>
                 </span>
                 <div className="flex flex-wrap gap-4 px-1">

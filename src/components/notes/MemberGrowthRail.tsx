@@ -1,4 +1,4 @@
-import { Upload } from 'lucide-react'
+import { Upload, Users } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useTeamProfile } from '../../state/TeamContext'
 import { calcMemberResults, GRADE_COLORS } from '../../utils/calculations'
@@ -54,13 +54,18 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
 
   return (
     <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-3 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-mx-8">
-      {/* 팀원 관리: 탭 줄 맨 앞 글자 링크 */}
-      <button onClick={onManageTeam} className="shrink-0 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] text-label-2 hover:text-label">
-        팀원 관리
+      {/* 팀원 관리: 왼쪽 메뉴의 팀원관리와 같은 사람 겹침 아이콘만 */}
+      <button
+        onClick={onManageTeam}
+        title="팀원 관리"
+        aria-label="팀원 관리"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.06] hover:text-label"
+      >
+        <Users size={16} strokeWidth={1.8} />
       </button>
       <span className="h-3.5 w-px shrink-0 bg-[#d0d0d7]" />
-      {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
-      <div className="flex min-w-0 flex-[0_1_auto] items-center gap-0.5 py-1">
+      {/* 팀원 탭: 이름 길이만큼, 칸이 모자랄 때만 안 고른 탭이 줄어들며 … 처리(고른 탭은 이름 전체) */}
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 py-1">
         {activeMembers.length === 0 ? (
           <p className="px-2 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">등록된 팀원이 없습니다.</p>
         ) : (
@@ -73,10 +78,10 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
                 title={member.name}
-                className={`flex h-[26px] min-w-[48px] max-w-[180px] select-none items-center gap-1.5 rounded-[10px] px-[11px] text-left text-[length:calc(12px*var(--ui-fs,1))] transition-colors ${
+                className={`flex h-[26px] min-w-[48px] max-w-[220px] select-none items-center gap-1.5 rounded-[10px] px-[11px] text-left text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                   isSelected
-                    ? 'l1-tab-on flex-none font-bold text-label'
-                    : `relative flex-[0_1_180px] font-normal text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
+                    ? 'l1-tab-on flex-none font-semibold text-label'
+                    : `relative flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
                 }`}
               >
                 <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[11px] font-semibold ${badgeTone(grade)}`}>{grade ?? '·'}</span>
@@ -91,12 +96,12 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
           })
         )}
       </div>
-      {/* 승진 시뮬레이션 엑셀 가져오기(이름으로 매칭해 여러 팀원에게 한 번에 적용) -- 탭 바로 뒤 아이콘 */}
+      {/* 승진 시뮬레이션 엑셀 가져오기(이름으로 매칭해 여러 팀원에게 한 번에 적용) -- 탭 줄 오른쪽 끝 아이콘 */}
       <button
         onClick={onImportHistory}
         title="지난 성과 엑셀파일 불러오기"
         aria-label="지난 성과 엑셀파일 불러오기"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#ececef] bg-white text-label shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:text-accent"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-label-2 hover:bg-black/[0.06] hover:text-label"
       >
         <Upload {...ic} />
       </button>

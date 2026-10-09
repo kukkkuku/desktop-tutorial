@@ -965,7 +965,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   return (
     <div className="space-y-3">
       {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
-      <div className="-mx-6 -mt-5 flex items-center rounded-t-panel bg-black/[0.04] px-2 lg:-mx-8">
+      <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-2 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-mx-8">
       {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
       <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden py-1">
         {board.groups.map((g, idx) => {
@@ -1000,8 +1000,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative flex h-7 min-w-[44px] max-w-[280px] cursor-pointer select-none items-center rounded-[8px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
-                tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-3'
+              className={`group relative flex h-[26px] min-w-[44px] max-w-[280px] cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'
               } ${
                 on
                   ? 'l1-tab-on flex-none font-semibold text-label'

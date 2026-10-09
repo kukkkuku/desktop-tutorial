@@ -175,31 +175,31 @@ export default function MeetingSchedulePanel({ open, onToggle, onSelectMember }:
   if (!open) {
     return (
       <>
-        <div className="flex w-fit shrink-0 flex-col items-stretch gap-2">
+        <div className="flex w-[121px] shrink-0 flex-col items-center gap-2">
           {isCalendarConfigured() && (
-            <div className="mac-card px-2 py-1.5">
+            <div>
               <button
                 type="button"
                 onClick={handleSyncCalendar}
                 disabled={syncing}
                 title={`Google 캘린더의 "{팀원} 면담" 일정을 이 팀의 면담 기록과 맞춥니다.`}
-                className="flex items-center gap-1 whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2 hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-[18px] border border-[#ececef] bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] text-label shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {syncButtonContent}
               </button>
             </div>
           )}
-          <div className="mac-card p-3">
+          <div className="w-[95px] rounded-[23px] bg-white p-3 shadow-[0_3px_7px_rgba(0,0,0,0.05)]">
             <button
               onClick={onToggle}
               title="면담 일정 펼치기"
-              className="mb-2 flex items-center gap-1.5 whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label hover:text-accent"
+              className="mb-2 flex items-center gap-[5px] whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] font-bold text-label hover:text-accent"
             >
-              <Calendar {...icSm} className="shrink-0 text-label-2" />
+              <Calendar size={13} strokeWidth={1.8} className="shrink-0 text-label-2" />
               면담
             </button>
             {collapsedEntries.length === 0 ? (
-              <p className="whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] text-label-3">예정 없음</p>
+              <p className="whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] text-[#a4a4b2]">예정 없음</p>
             ) : (
               <div className="space-y-2">
                 {collapsedEntries.map(({ date, entries }) => (
