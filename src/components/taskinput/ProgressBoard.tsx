@@ -1750,7 +1750,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     ...(curProject?.data.local ? [`local:${curProject.data.tabTitle}`] : []),
   ]
   const allSheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
-  // 연도 메뉴에서 숨긴 탭(목록에서만 뺌). 지금 연결된 탭 · 보고 있는 탭은 숨기지 않는다.
+  // 연도 메뉴에서 지운 탭(목록에서만 안 보임 · 구글시트 탭은 그대로). 지금 연결된 탭 · 보고 있는 탭은 숨기지 않는다.
   const sheetFileId = (data && !data.local ? data.spreadsheetId : parkedSheet?.data.spreadsheetId) ?? null
   const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => readHiddenTabs(sheetFileId))
   useEffect(() => setHiddenTabs(readHiddenTabs(sheetFileId)), [sheetFileId])
@@ -1760,16 +1760,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setHiddenTabs(next)
     writeHiddenTabs(sheetFileId, next)
   }
-  const showHiddenTabs = () => {
-    if (!sheetFileId) return
-    setHiddenTabs([])
-    writeHiddenTabs(sheetFileId, [])
-  }
   const allYears = [...localTabs, ...allSheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
   const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
-  const hiddenCount = allSheetTabs.length - sheetTabs.length
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
   const sheetName = sheetFileTitle ?? (isOperatingSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '디자인연구소 실적관리(운영 시트)' : '연결된 시트')
@@ -1797,14 +1791,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       window.open(sheetRowUrl(pickedRowRef.current), '_blank', 'noopener')
     },
   }
-  // 연도 메뉴 = 무엇을 보나(연도 고르기 · 새 연도). 아래에는 숨긴 연도 되돌리기만.
-  const yearMenuFooter =
-    hiddenCount > 0 ? (
-      <button onClick={showHiddenTabs} className="mac-menu-item text-label-2" title="목록에서 숨긴 연도를 다시 보입니다">
-        <Eye {...icSm} className="shrink-0" />
-        숨긴 연도 {hiddenCount}개 다시 보이기
-      </button>
-    ) : undefined
   // 파일 메뉴(머리 오른쪽 「파일」) = 불러오기 · 내보내기 · 시트 연결. 오랜만에 와서 불러오기를 찾을 때 맨 위에 보이게.
   const fileMenuItems = (
     <>
@@ -1954,7 +1940,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             localTabs={localTabs}
             onPick={pickYear}
             onCreate={canManage ? () => setNewYearOpen(true) : undefined}
-            footer={yearMenuFooter}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
             onHide={hideTab}
@@ -2670,7 +2655,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           editableFrom={now.getFullYear()}
           connectedTitle={connectedTitle}
           onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
-          footer={yearMenuFooter}
           onDeleteLocal={(id) => void deleteLocal(id)}
           onOpenMenu={() => void refreshYearTabs()}
           onHide={hideTab}

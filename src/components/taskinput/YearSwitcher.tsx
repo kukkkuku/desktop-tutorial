@@ -17,7 +17,8 @@ function yearLabel(tab: string): string {
     .split('추진현황')[1]
     ?.replace(/^[\s_\-·]+/, '')
     .trim()
-  return rest ? `${y} 실적관리 (${rest})` : `${y} 실적관리`
+  if (!rest) return `${y} 실적관리`
+  return /^[(（].*[)）]$/.test(rest) ? `${y} 실적관리 ${rest}` : `${y} 실적관리 (${rest})`
 }
 
 export default function YearSwitcher({
@@ -51,7 +52,7 @@ export default function YearSwitcher({
   footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
   onDeleteLocal?: (id: string) => void // 이 브라우저에서 만든 연도 지우기
   onOpenMenu?: () => void // 메뉴를 열 때(시트 탭 목록 다시 읽기)
-  onHide?: (title: string) => void // 목록에서만 숨기기(구글시트 탭은 그대로)
+  onHide?: (title: string) => void // 목록에서 지우기(안 보이게만 · 구글시트 탭은 그대로)
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
@@ -120,7 +121,7 @@ export default function YearSwitcher({
       {open &&
         pos &&
         createPortal(
-          <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-[300px] overflow-hidden py-1">
+          <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-max min-w-[300px] max-w-[440px] overflow-hidden py-1">
             <p className="px-3.5 pb-1 pt-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">실적관리 연도</p>
             {all.map(({ t, local }) => {
               const selected = t === title
@@ -133,12 +134,12 @@ export default function YearSwitcher({
                     if (!selected) onPick(t)
                     setOpen(false)
                   }}
-                  className={`mac-menu-item group/yr ${selected ? 'font-semibold' : ''}`}
+                  className={`mac-menu-item group/yr whitespace-nowrap ${selected ? 'font-semibold' : ''}`}
                 >
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
-                  {yearLabel(t)}
+                  <span className="min-w-0 truncate">{yearLabel(t)}</span>
                   {local ? (
-                    <span className="ml-auto flex items-center gap-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-accent">
+                    <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-accent">
                       이 브라우저
                       {onDeleteLocal && (
                         <button
@@ -158,12 +159,12 @@ export default function YearSwitcher({
                     </span>
                   ) : connectedTitle !== undefined ? (
                     t === connectedTitle ? (
-                      <span className="ml-auto flex items-center gap-1 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-success">
+                      <span className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-success">
                         <span className="h-1.5 w-1.5 rounded-full bg-success" />
                         연결됨 · 편집
                       </span>
                     ) : (
-                      <span className="ml-auto flex items-center gap-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">
+                      <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">
                         보기 전용
                         {onConnect && (
                           <button
@@ -174,7 +175,7 @@ export default function YearSwitcher({
                               onConnect(t)
                             }}
                             title={`「${t}」 탭을 연결해 입력합니다(지금 입력하던 연도는 그대로 남아 다시 고를 수 있음)`}
-                            className="rounded-full border border-accent/40 px-2 py-[1px] font-semibold text-accent hover:bg-accent hover:text-white"
+                            className="shrink-0 whitespace-nowrap rounded-full border border-accent/40 px-2 py-[1px] font-semibold text-accent hover:bg-accent hover:text-white"
                           >
                             연결하기
                           </button>
@@ -186,9 +187,9 @@ export default function YearSwitcher({
                               e.stopPropagation()
                               onHide(t)
                             }}
-                            title="목록에서만 지웁니다(구글시트 탭은 그대로 · 아래 '숨긴 연도 다시 보이기'로 되돌림)"
+                            title="목록에서 지우기(구글시트 탭은 그대로)"
                             aria-label={`${yearLabel(t)} 목록에서 지우기`}
-                            className="flex h-5 w-5 items-center justify-center rounded text-label-3 opacity-0 hover:bg-danger/10 hover:text-danger group-hover/yr:opacity-100"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-danger/10 hover:text-danger"
                           >
                             <X size={13} strokeWidth={2} />
                           </button>
