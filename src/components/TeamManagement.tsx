@@ -769,6 +769,13 @@ export default function TeamManagement() {
                 >
                   의견 남기고 비활성
                 </button>
+                <button
+                  onClick={() => setDeleting([m])}
+                  className="rounded-full border border-danger/40 px-2.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-danger hover:bg-danger/10"
+                  title="이 팀원을 우리 팀에서 삭제합니다(확인 창이 뜨고, ⌘Z로 되돌릴 수 있음)"
+                >
+                  팀원 삭제
+                </button>
               </span>
             ))}
           </div>
