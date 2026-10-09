@@ -185,10 +185,10 @@ function fmt(iso: string) {
   return `${d.getFullYear()}.${p(d.getMonth() + 1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-const ROW_PAD_KEY = 'progress-board:row-pad-v3'
+const ROW_PAD_KEY = 'progress-board:row-pad-v4'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
-const ROW_PAD_DEFAULT = 1
+const ROW_PAD_DEFAULT = 0
 // 구글 화면 아래 시트 탭 줄 높이(px) -- 시트 아래쪽을 이만큼 잘라 안 보이게 한다(과제 입력에서는 앱이 고른 탭 하나만 쓰므로)
 const SHEET_TABS_H = 40
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
@@ -2840,22 +2840,22 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               가<span className="text-[9px] text-accent">▼</span>
             </button>
           </span>
-          <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px`}>
+          <span className="flex overflow-hidden rounded-control border border-hairline" title={`행간(칸 위아래 여백) ${rowPad}px · 기본 0`}>
             <button
-              onClick={() => stepRowPad(2)}
+              onClick={() => stepRowPad(1)}
               disabled={rowPad >= ROW_PAD_MAX}
               className="flex h-8 w-8 items-center justify-center text-label hover:bg-black/[0.04] disabled:opacity-30"
               aria-label="행간 넓게"
-              title={`행간 넓게 (지금 ${rowPad}px)`}
+              title={`행간 넓게 (지금 ${rowPad})`}
             >
               <UnfoldVertical {...icSm} />
             </button>
             <button
-              onClick={() => stepRowPad(-2)}
+              onClick={() => stepRowPad(-1)}
               disabled={rowPad <= ROW_PAD_MIN}
               className="flex h-8 w-8 items-center justify-center border-l border-hairline text-label hover:bg-black/[0.04] disabled:opacity-30"
               aria-label="행간 좁게"
-              title={`행간 좁게 (지금 ${rowPad}px)`}
+              title={`행간 좁게 (지금 ${rowPad})`}
             >
               <FoldVertical {...icSm} />
             </button>
