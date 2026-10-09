@@ -2,7 +2,7 @@
 // 모든 편집은 utils/workBoard.ts의 순수 함수로 새 보드를 만들어
 // SET_WORK_BOARD로 넣고, 되돌리기는 보드 스냅샷 스택으로 한다.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, Importance, Task, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
@@ -63,7 +63,7 @@ interface WorkStageProps {
 const V_GRADE = '__grade'
 const V_PERIOD = '__period'
 const V_GOAL = '__goal'
-const V_L2 = '__l2' // 평가 대상만 보기에서 그 줄의 그룹(L2)
+const V_L2 = '__l2' // 과제평가하기에서 그 줄의 그룹(L2)
 const isVirtual = (id: string) => id.startsWith('__')
 
 export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
@@ -224,7 +224,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   }, [state.tasks])
   const gradeUsed = state.criteria.performanceGradeWeight > 0
   const targetTaskCount = state.tasks.filter((t) => t.workItemIds?.length).length
-  // 평가 대상이 늘면 「평가 대상만 보기」를 잠깐 강조한다(넣은 과제를 모아 볼 수 있는 곳)
+  // 평가 대상이 늘면 「과제평가하기」 버튼과 성과등급 · 목표/성과 열을 잠깐 강조한다(성과등급 목록을 억지로 열지 않고, 입력할 자리만 알려 줌)
   const [evalFlash, setEvalFlash] = useState(false)
   const prevTargetCount = useRef(targetTaskCount)
   useEffect(() => {
@@ -235,10 +235,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const t = window.setTimeout(() => setEvalFlash(false), 1600)
     return () => window.clearTimeout(t)
   }, [targetTaskCount])
-  // 방금 평가 대상으로 넣은 과제: 그 줄(낱개면 성과등급 칸)을 고르고 성과등급 목록을 바로 연다
-  const [openGradeTask, setOpenGradeTask] = useState<string | null>(null)
-  const clearOpenGrade = useCallback(() => setOpenGradeTask(null), [])
-  const [selectReq, setSelectReq] = useState<{ rowId: string; colId: string; token: number } | null>(null)
   function updateTask(t: Task) {
     dispatch({ type: 'UPDATE_TASK', payload: t })
   }
@@ -250,8 +246,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         value={t.performanceGrade}
         muted={!gradeUsed}
         onPick={(v) => updateTask({ ...t, performanceGrade: v })}
-        autoOpen={openGradeTask === t.id}
-        onAutoOpened={clearOpenGrade}
       />
     )
   }
@@ -299,10 +293,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     }))
     const participants = Object.fromEntries(tasks.map((t, k) => [t.id, Array.from(new Set(list[k].items.flatMap((i) => i.assigneeIds)))]))
     dispatch({ type: 'ADD_TASKS_FROM_WORK', payload: { tasks, participants } })
-    if (tasks.length === 1) {
-      setOpenGradeTask(tasks[0].id)
-      if (!list[0].key.startsWith('g:')) setSelectReq({ rowId: list[0].items[0].id, colId: V_GRADE, token: Date.now() })
-    }
     const head =
       tasks.length === 1
         ? `「${tasks[0].name}」을(를) 평가 대상으로 넣었습니다.`
@@ -442,7 +432,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     },
   }
 
-  // 평가 대상만 보기: 모든 그룹(L2) 탭의 평가 대상(묶음은 통째로)을 한 표에 모은다 -- 성과등급 · 목표/성과를 한꺼번에 매길 때.
+  // 과제평가하기: 모든 그룹(L2) 탭의 평가 대상(묶음은 통째로)을 한 표에 모은다 -- 성과등급 · 목표/성과를 한꺼번에 매길 때.
   // 켜 있는 동안 행 추가 · 옮기기는 끈다(그룹 탭 안에서만 하는 일).
   // 처음에는 꺼져 있다(과제관리는 그룹 탭 보기부터)
   const [evalOnly, setEvalOnly] = useState(false)
@@ -750,7 +740,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   const mergedDates = visibleCols.some((c) => c.id === 'startDate') && visibleCols.some((c) => c.id === 'doneDate')
   const gridColumns: GridColumn[] = (() => {
     const out: GridColumn[] = []
-    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 88, system: true, readOnly: true, emphasis: evalOnly }
+    const grade: GridColumn = { id: V_GRADE, label: '성과등급', type: 'text', width: vWidths[V_GRADE] ?? 88, system: true, readOnly: true, emphasis: evalOnly || evalFlash }
     for (const g of baseColumns) {
       if (mergedDates && g.id === 'doneDate') continue
       if (mergedDates && g.id === 'startDate') {
@@ -762,7 +752,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     }
     if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)
     if (evalOnly) out.unshift({ id: V_L2, label: '그룹(L2)', type: 'text', width: vWidths[V_L2] ?? 150, system: true, readOnly: true })
-    out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 260, system: true, readOnly: true })
+    out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 260, system: true, readOnly: true, emphasis: evalFlash })
     return out
   })()
   // 표의 열 자리(가상 열 포함) → 보이는 보드 열 자리. 시작일/완료일 칸은 실제 열 두 개.
@@ -823,7 +813,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const created: WorkItem[] = []
     matrix.forEach((line, i) => {
       const existing = viewRows[rowIndex + i]
-      if (!existing && evalOnly) return // 평가 대상만 보기에서는 새 줄을 만들지 않는다
+      if (!existing && evalOnly) return // 과제평가하기에서는 새 줄을 만들지 않는다
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const gcol = gridColumns[colIndex + j]
@@ -1112,7 +1102,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
             >
               <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-              평가 대상만 보기
+              과제평가하기
               {targetTaskCount > 0 && (
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
               )}
@@ -1187,8 +1177,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </button>
               )
             }}
-            selectCell={selectReq}
-            rowActions={(ids) => {
+                        rowActions={(ids) => {
               const free = board.items.filter((i) => ids.includes(i.id))
               const merging = new Set(free.filter((i) => targetIds.has(i.id)).map(unitKeyOf)).size
               const grouped = board.items.filter((i) => ids.includes(i.id) && evalGroupOf(i))
@@ -1261,10 +1250,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onRedo={redo}
             storageKey="work"
             addRowLabel="과제 추가"
-            emptyText={evalOnly && !search.trim() ? '평가 대상이 없습니다. "평가 대상만 보기"를 끄고 그룹 탭에서 왼쪽 체크로 넣으세요.' : filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
+            emptyText={evalOnly && !search.trim() ? '평가 대상이 없습니다. "과제평가하기"를 끄고 그룹 탭에서 왼쪽 체크로 넣으세요.' : filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
           />
           <p className="text-xs text-label-3">
-            왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김 · 그 줄에서 성과등급 · 목표/성과 입력) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
+            왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김 · 성과등급 · 목표/성과 열이 잠깐 강조됨) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
           </p>
         </>
       )}
