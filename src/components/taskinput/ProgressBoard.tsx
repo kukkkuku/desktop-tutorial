@@ -29,7 +29,6 @@ import {
   Save,
   RotateCcw,
   PanelTop,
-  RotateCw,
   Ruler,
   Rows3,
   AlignVerticalSpaceAround,
@@ -409,7 +408,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       return true
     }
   })
-  const [sheetReload, setSheetReload] = useState(0)
+  const sheetReload = 0
   // 구글시트 보기에서 앱 맨 위 줄(머리 · 그룹 탭 줄)을 접어 시트가 화면을 꽉 채우게 -- 이 브라우저에 기억
   const [sheetFocus, setSheetFocusState] = useState<boolean>(() => {
     try {
@@ -1880,15 +1879,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const sheetMenuItems = (
     <>
       {tabPickItems}
-      {isSheetsApiConfigured() && (
+      {/* 다시 불러오기는 상태 줄(최신 · 확인 시각 옆 아이콘) 한 곳에서만. 아직 시트에서 받지 않았을 때만 여기서 */}
+      {isSheetsApiConfigured() && !(data && !data.local && data.spreadsheetId) && (
         <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
           <RefreshCw {...icSm} className="shrink-0" />
-          {data && !data.local && data.spreadsheetId ? '구글시트에서 다시 불러오기' : '구글시트에서 불러오기'}
-          {data && !data.local && data.spreadsheetId && (
-            <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
-              {timeAgo(data.fetchedAt)}
-            </span>
-          )}
+          구글시트에서 불러오기
         </button>
       )}
       {((data?.local && canManage) || (data && !data.local && !data.spreadsheetId)) && (
@@ -2005,7 +2000,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           />
         </MenuSlot>
         <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-          <FileMenu label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 다시 불러오기 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
+          <FileMenu label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
           <FileMenu label={FILE_LABEL} title="엑셀 파일 열기 · 받기">{fileMenuItems}</FileMenu>
         </MenuSlot>
         {newYearDialog}
@@ -2514,14 +2509,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <PanelTop {...icSm} />
             </button>
           )}
-          <button
-            onClick={() => setSheetReload((n) => n + 1)}
-            title="구글시트 화면을 다시 불러옵니다"
-            aria-label="새로고침"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-          >
-            <RotateCw {...icSm} />
-          </button>
           <a
             href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
             target="_blank"
@@ -2740,7 +2727,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <span className="hidden xl:inline">과제 내보내기</span>
             </Button>
           )}
-          <FileMenu disabled={yearLoading} label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 다시 불러오기 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
+          <FileMenu disabled={yearLoading} label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
           <FileMenu disabled={yearLoading} label={FILE_LABEL} title="엑셀 파일 열기 · 받기">{fileMenuItems}</FileMenu>
         </span>
       </MenuSlot>
