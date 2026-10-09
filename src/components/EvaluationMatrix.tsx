@@ -20,8 +20,8 @@ import { peerInputsOf } from '../utils/peerScores'
 import { explainMemberScore, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
 import Button from './Button'
-import { Trophy } from 'lucide-react'
-import { icSm, TableSwap } from './ui/icon'
+import { Trophy, X } from 'lucide-react'
+import { ic, icSm, TableSwap } from './ui/icon'
 import { outOfSyncDetails } from '../utils/assigneeSync'
 import { useDismissedNotices } from '../utils/dismissedNotices'
 import Select from './ui/Select'
@@ -78,15 +78,21 @@ export function OutOfSyncBanner() {
           과제리스트의 담당자와 기여도를 입력한 사람이 다른 평가과제가 <b>{list.length}개</b> 있습니다
         </span>
         <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="underline underline-offset-2 hover:text-orange-900">
-          {open ? '접기' : '누가 다른지 보기'}
+          {open ? '접기' : '상세보기'}
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(위쪽 종에서 다시 볼 수 있습니다. 담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
-            모두 이대로 두기
-          </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: list.map((d) => d.task.id) } })}>
             모두 담당자대로 맞추기
           </Button>
+          <button
+            type="button"
+            onClick={() => dismiss(list.map((d) => d.sig))}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-orange-800 hover:bg-orange-200/60"
+            title="알림 닫기(접기와 다릅니다. 닫으면 여기서 사라지고 위쪽 종에서 볼 수 있습니다)"
+            aria-label="알림 닫기"
+          >
+            <X {...ic} />
+          </button>
         </div>
       </div>
       {open && (
@@ -106,9 +112,6 @@ export function OutOfSyncBanner() {
                   {d.extra.length > 0 && <span>담당자가 아닌데 기여도 있음: <b>{d.extra.join(', ')}</b></span>}
                 </div>
               </div>
-              <Button type="button" size="sm" variant="secondary" onClick={() => dismiss([d.sig])} title="이 과제는 지금 기여도를 그대로 둡니다">
-                이대로 두기
-              </Button>
               <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: [d.task.id] } })}>
                 담당자대로 맞추기
               </Button>
