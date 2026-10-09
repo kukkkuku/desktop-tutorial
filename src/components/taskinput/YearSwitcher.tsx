@@ -74,7 +74,7 @@ export default function YearSwitcher({
   }
   const repOf = (tabs: string[]) =>
     tabs.includes(title) ? title : connectedTitle && tabs.includes(connectedTitle) ? connectedTitle : [...tabs].sort((a, b) => a.length - b.length)[0]
-  const canPick = (rows.length > 1 || !!onCreate) && !disabled
+  const canPick = (rows.length > 1 || !!onCreate || !!footer) && !disabled
 
   useEffect(() => {
     if (!open) return
