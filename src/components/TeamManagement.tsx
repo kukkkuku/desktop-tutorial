@@ -754,7 +754,16 @@ export default function TeamManagement() {
       {/* 다른 팀으로 옮긴 팀원(관리 명단 기준): 의견을 남기고 비활성 -- 평가는 새 팀장이 */}
       {/* 평소엔 한 줄로 접어 두고, 눌러야 펼친다(「과제 담당자 중 …」 줄과 같은 방식) */}
       {moved.length > 0 && movedOpen && (
-        <div className="mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 text-[length:calc(14px*var(--ui-fs,1))]">
+        <div className="relative mt-3 rounded-card border border-amber-300/60 bg-amber-50 px-4 py-3 pr-11 text-[length:calc(14px*var(--ui-fs,1))]">
+          <button
+            type="button"
+            onClick={() => setMovedOpen(false)}
+            className="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-amber-800 hover:bg-amber-200/60"
+            title="닫기(위의 「팀 이동」 버튼으로 다시 열 수 있습니다)"
+            aria-label="팀 이동 알림 닫기"
+          >
+            <X {...ic} />
+          </button>
           <p className="text-amber-900">평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {moved.map(({ m, u }) => (
@@ -782,8 +791,17 @@ export default function TeamManagement() {
         </div>
       )}
       {unmatched.length > 0 && unmatchedOpen && (
-        <div className="mt-3 rounded-card border border-dashed border-separator bg-subtle p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative mt-3 rounded-card border border-dashed border-separator bg-subtle p-4">
+          <button
+            type="button"
+            onClick={() => setUnmatchedOpen(false)}
+            className="absolute right-2.5 top-2.5 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.06] hover:text-label"
+            title="닫기(위의 「목록에 없는 담당자」 버튼으로 다시 열 수 있습니다)"
+            aria-label="목록에 없는 담당자 닫기"
+          >
+            <X {...ic} />
+          </button>
+          <div className="flex flex-wrap items-center justify-between gap-2 pr-9">
             <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">우리 팀 사람만 골라 추가하세요 -- 과제관리 담당자와 자동으로 연결됩니다.</p>
             <div className="flex items-center gap-1.5">
               <Button
