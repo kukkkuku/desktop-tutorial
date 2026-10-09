@@ -36,11 +36,13 @@ function readLayout(): ShellLayout {
 export const SHELL_LAYOUT_EVENT = 'shell-layout'
 const FOLD_KEY = 'shell-head-folded'
 function readFolded(): boolean {
+  // 위쪽 접기 기능은 없앴다 -- 예전에 접어 둔 기억이 있으면 지우고 펼친 채로 둔다
   try {
-    return localStorage.getItem(FOLD_KEY) === '1'
+    localStorage.removeItem(FOLD_KEY)
   } catch {
-    return false
+    // 못 지워도 펼친 채로
   }
+  return false
 }
 const ShellCtx = createContext<{ layout: ShellLayout; cycle: () => void; perf?: SidebarPerfExtras; folded: boolean; toggleFold: () => void } | null>(null)
 

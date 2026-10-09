@@ -11,7 +11,6 @@ import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
 import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
-import { useHeadFold } from '../shell/AppShell'
 import { setAppYear, useAppYear } from '../../utils/appYear'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
 import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
@@ -33,7 +32,6 @@ import {
   Rows3,
   AlignVerticalSpaceAround,
   ChevronDown,
-  ChevronUp,
   Search,
   Send,
   SquareKanban,
@@ -416,21 +414,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
   const cropHead = sheetFull && sheetCrop
-  // 구글시트 보기에서 앱 맨 위 줄(머리 · 그룹 탭 줄)을 접어 시트가 화면을 꽉 채우게 -- 이 브라우저에 기억
-  const [sheetFocus, setSheetFocusState] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('progress-board:sheet-focus') === '1'
-    } catch {
-      return false
-    }
-  })
-  function setSheetFocus(v: boolean) {
-    setSheetFocusState(v)
-    try {
-      localStorage.setItem('progress-board:sheet-focus', v ? '1' : '0')
-    } catch {
-      // 기억 못 해도 지금 화면에는 반영
-    }
+  // (위쪽 접기 기능은 없앴다 -- 예전에 접어 둔 기억이 있어도 늘 펼친 채로)
+  const sheetFocus = false
+  const setSheetFocus = (v: boolean) => {
+    void v
   }
   // 줄 높이: 시트 · 엑셀 원본 높이를 쓸지(켜 두면 원본 그대로, 행간 버튼으로 바꾸면 모두 같은 높이) -- 이 브라우저에 기억
   const [srcHeights, setSrcHeightsState] = useState<boolean>(() => {
@@ -2266,7 +2253,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   )
   // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
   // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
-  const headFold = useHeadFold()
   const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
   useEffect(() => {
     const root = document.documentElement
@@ -2523,28 +2509,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
         </div>
       </div>
-      {/* 구글시트 보기가 아닌 보기: 위 머리 줄 접기(다시 펴려면 맨 위 가운데 손잡이) */}
-      {!(boardView === 'sheet' && data.spreadsheetId) && (
-        <button
-          onClick={headFold.toggleFold}
-          title={headFold.folded ? '위쪽 펴기' : '위쪽 접기 · 화면을 넓게(다시 펴려면 맨 위 가운데 손잡이)'}
-          aria-label={headFold.folded ? '위쪽 펴기' : '위쪽 접기'}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-        >
-          {headFold.folded ? <ChevronDown {...icSm} /> : <ChevronUp {...icSm} />}
-        </button>
-      )}
       {boardView === 'sheet' && data.spreadsheetId && (
         <>
           <span className="h-5 w-px shrink-0 bg-separator" />
-          <button
-            onClick={() => setSheetFocus(true)}
-            title="위쪽 접기 · 시트를 화면 가득(다시 펴려면 맨 위 가운데 손잡이)"
-            aria-label="위쪽 접기"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-          >
-            <ChevronUp {...icSm} />
-          </button>
           {/* 구글 위 줄 가리기: 켜면 제목 · 로그인 줄이 가려지고, 구글이 위 줄을 접어 둔 상태에서 도구 모음이 잘리면 끈다 */}
           {sheetFull && (
             <button
