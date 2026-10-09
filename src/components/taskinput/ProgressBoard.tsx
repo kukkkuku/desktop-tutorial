@@ -430,7 +430,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
   const [viewMenu, setViewMenu] = useState(false) // 보기 전환(아래 줄)이 펼쳐져 있는지
   const [sheetJump, setSheetJump] = useState<number | null>(null) // 그룹 탭으로 옮겨 갈 시트 행(1-based)
-  const [sheetBoxRef, sheetBoxH] = useFitHeight(12, 360)
+  const [sheetBoxRef, sheetBoxH] = useFitHeight(13, 360)
   function setSheetFull(v: boolean) {
     setSheetFullState(v)
     try {
@@ -3100,14 +3100,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? `-mx-4 -mb-6 lg:-mx-6 ${sheetFocus ? '-mt-5' : 'mt-1'}` : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
           style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
         >
           {boardView === 'sheet' && data.spreadsheetId ? (
             // 구글시트가 본문을 꽉 채운다(위 줄 아래부터). 구글의 아래 시트 탭 줄은 시트 아래쪽을 잘라 가린다
-            <div ref={sheetBoxRef} className="relative overflow-hidden rounded-[12px] border border-hairline bg-white" style={{ height: sheetBoxH ?? 640 }}>
+            <div ref={sheetBoxRef} className="relative overflow-hidden rounded-b-panel bg-white" style={{ height: sheetBoxH ?? 640 }}>
               {sheetFocused && (
                 <button
                   onClick={() => setSheetFocus(false)}
