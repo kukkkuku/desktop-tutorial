@@ -372,7 +372,7 @@ export function TopNav({
 }: {
   toggle?: ReactNode
   chooser?: ReactNode
-  title: ReactNode
+  title?: ReactNode
   actions?: ReactNode
   perf?: SidebarPerfExtras
 }) {

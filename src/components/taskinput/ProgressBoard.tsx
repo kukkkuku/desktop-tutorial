@@ -1899,7 +1899,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </button>
       )}
       <div className="mac-menu-sep" />
-      <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="mac-menu-item" title={sheetLink}>
+      <a href={sheetOpenUrl} target="_blank" rel="noreferrer" {...sheetLinkProps} className="mac-menu-item" title={`${sheetLink}\n고른 과제 행 · 없으면 지금 그룹의 첫 행으로 엽니다`}>
         <ExternalLink {...icSm} className="shrink-0" />
         <span className="min-w-0 truncate">{sheetName} 열기</span>
         {protectedLink && <span className="mac-badge ml-auto shrink-0 bg-black/[0.06] text-label-2">읽기 전용</span>}
@@ -2585,20 +2585,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <div
             className={`flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap rounded-[10px] border px-3 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2 ${tone}`}
           >
-            <FileSpreadsheet size={15} strokeWidth={1.9} className="shrink-0 text-emerald-700" />
-            <a
-              href={sheetOpenUrl}
-              target="_blank"
-              rel="noreferrer"
-              {...sheetLinkProps}
-              className="min-w-0 shrink truncate font-medium text-label hover:underline"
-              title={`${sheetName} › ${data.tabTitle} · 구글시트에서 열기(고른 과제 행 · 없으면 지금 그룹의 첫 행으로) · ${fmt(data.fetchedAt)} 불러옴`}
-            >
-              {sheetName} › {data.tabTitle}
-            </a>
-            <span className="hidden shrink-0 text-label-3 2xl:inline">·</span>
-            <span className="hidden shrink-0 2xl:inline">{fmt(data.fetchedAt)} 불러옴</span>
-            {state !== 'stale' && <span className="shrink-0 text-label-3">·</span>}
             {state === 'loading' ? (
               <span className="flex shrink-0 items-center gap-1.5 text-accent">
                 <Spinner className="h-3.5 w-3.5" />
@@ -2694,6 +2680,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <MenuSlot>
         <YearSwitcher
           title={data.local ? `local:${data.tabTitle}` : data.tabTitle}
+          sheetLabel={!fromXlsx && curProject && !curProject.data.local && data.spreadsheetId ? `${sheetName} › ${curProject.data.tabTitle}` : undefined}
           tabs={sheetTabs}
           editableTitle={data.local ? (parkedSheet?.data.tabTitle ?? data.tabTitle) : (archive?.data.tabTitle ?? data.tabTitle)}
           loading={yearLoading}

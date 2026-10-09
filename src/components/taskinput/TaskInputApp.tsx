@@ -12,7 +12,7 @@ export default function TaskInputApp() {
           area="과제 입력"
           // 추진현황 연도 고르기 -- 추진현황 화면이 채운다
           chooser={<span id={PROGRESS_MENU_SLOT} className="flex" />}
-          title={taskMenu === 'rate' ? '진척률' : '추진현황'}
+          title={taskMenu === 'rate' ? '진척률' : undefined}
           // 파일 메뉴(⋯) -- 추진현황 화면이 채운다
           actions={<span id={PROGRESS_ACTIONS_SLOT} className="flex min-w-0 flex-1" />}
         />

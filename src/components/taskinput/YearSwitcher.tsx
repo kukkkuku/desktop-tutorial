@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown, Folder, Plus, Trash2 } from 'lucide-react'
 import Spinner from '../Spinner'
+import SheetsIcon from '../SheetsIcon'
 import { ic, icSm } from '../ui/icon'
 
 // 「2026 추진현황」 → 「2026 실적관리」(연도를 못 찾으면 탭 이름 그대로)
@@ -35,6 +36,7 @@ export default function YearSwitcher({
   footer,
   onDeleteLocal,
   onOpenMenu,
+  sheetLabel,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -49,6 +51,7 @@ export default function YearSwitcher({
   footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
   onDeleteLocal?: (id: string) => void // 이 브라우저에서 만든 연도 지우기
   onOpenMenu?: () => void // 메뉴를 열 때(시트 탭 목록 다시 읽기)
+  sheetLabel?: string // 버튼에 보일 이름(연결된 시트 › 탭). 없으면 「2026 실적관리」식 연도 이름
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
@@ -108,8 +111,12 @@ export default function YearSwitcher({
           canPick ? 'hover:bg-black/[0.05]' : 'cursor-default'
         } ${open ? 'bg-black/[0.05]' : ''}`}
       >
-        <Folder size={14} strokeWidth={1.8} className={`shrink-0 ${readOnly ? 'text-warning' : 'text-accent'}`} />
-        <span className="whitespace-nowrap">{yearLabel(title)}</span>
+        {sheetLabel ? (
+          <SheetsIcon className="h-4 w-3.5 shrink-0" />
+        ) : (
+          <Folder size={14} strokeWidth={1.8} className={`shrink-0 ${readOnly ? 'text-warning' : 'text-accent'}`} />
+        )}
+        <span className="whitespace-nowrap">{sheetLabel ?? yearLabel(title)}</span>
         {readOnly && <span className="mac-badge bg-warning-soft text-warning">보기 전용</span>}
         {isLocal && (
           <span

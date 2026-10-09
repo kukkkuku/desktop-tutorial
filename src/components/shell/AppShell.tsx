@@ -122,7 +122,7 @@ function LayoutToggle() {
 
 // 화면 머리(회색 바탕 위 한 줄): 메뉴 모양 버튼 · 영역 / 고르기(연도 · 평가기간) / 제목(굵게) · 오른쪽 동작
 // 위 메뉴 모양이면 같은 자리에 로고 · 영역 전환 · 고르기 · 메뉴가 한 줄로 들어간다(제목 대신 지금 메뉴가 칠해짐).
-export function PageHeader({ area, chooser, title, actions }: { area?: string; chooser?: ReactNode; title: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ area, chooser, title, actions }: { area?: string; chooser?: ReactNode; title?: ReactNode; actions?: ReactNode }) {
   const ctx = useContext(ShellCtx)
   if (ctx?.layout === 'top')
     return (
@@ -141,10 +141,10 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
             {area && chooser && <CrumbSep />}
             {chooser}
           </span>
-          <CrumbSep />
+          {title && <CrumbSep />}
         </>
       )}
-      <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>
+      {title && <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>}
       {actions && <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{actions}</div>}
     </header>
   )
