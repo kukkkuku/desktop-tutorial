@@ -2315,7 +2315,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     if (Number.isFinite(first)) setSheetJump(first)
   }
   const dockBar = (
-    <div className="-mx-6 -mt-5 flex h-9 items-center gap-2 bg-black/[0.04] px-2 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
+    <div className="-mx-6 -mt-5 flex h-9 items-center gap-2 rounded-t-panel bg-black/[0.04] px-2 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
       {!(editing && boardView === 'table') && viewSwitchEl}
       {!(editing && boardView === 'table') && <span className="h-5 w-px shrink-0 bg-separator" />}
       <div className="flex min-w-0 flex-1 items-center gap-1 self-stretch">
