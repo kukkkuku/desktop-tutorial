@@ -43,7 +43,8 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
         {!top && <Sidebar perf={perf} collapsed={layout === 'rail'} />}
         <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top ? 'pl-3' : ''}`}>
           {header}
-          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+          {/* 본문 판: 옅은 반투명 유리 + 흰 테두리 + 부드러운 그림자로 위 줄 · 사이드바와 구분. backdrop-blur는 쓰지 않는다(쓰면 팝업 어둠이 이 판 안에만 깔림) */}
+          <div className="flex min-w-0 flex-1 flex-col rounded-panel border border-white/90 bg-white/45 shadow-[0_24px_60px_-28px_rgba(40,60,100,0.30),0_2px_6px_rgba(40,60,100,0.05)]">{children}</div>
         </div>
       </div>
     </ShellCtx.Provider>
