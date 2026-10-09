@@ -52,7 +52,7 @@ function SectionCard({
   return (
     <div className="h-full">
       <span className="flex min-h-[28px] items-center justify-between gap-2 px-1">
-        <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{title}</h3>
+        <h3 className="text-[length:calc(13px*var(--ui-fs,1))] font-bold text-label">{title}</h3>
         {headerBadge}
       </span>
       <div ref={bodyRef} className="mt-3">
@@ -641,15 +641,15 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
           놓고, 메모는 화면 가장 우측 끝으로 보낸다(justify-between). 가장
           중요한 숫자(승진자격/현재/가산/최종 점수)를 요약카드로 여기서
           바로 보여준다. */}
-      <div className="border-b border-separator bg-white py-4">
+      <div className="border-b border-[#f1f1f4] bg-white py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-wrap items-center gap-5">
             <div className="shrink-0">
               <p className="flex items-baseline gap-2">
-                <span className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{member.name}</span>
+                <span className="text-[length:calc(16px*var(--ui-fs,1))] font-bold text-label">{member.name}</span>
                 {/* 직급은 여기서 바로 바꾼다(잘못 고른 직급도 고칠 수 있게). 팀원관리 표와 같은 값. */}
                 <span className="relative inline-flex items-center self-center">
-                  <span className={`${CHIP_BASE} gap-1 ${member.level ? 'bg-black/[0.05] text-label' : 'bg-black/[0.03] text-label-3'}`}>
+                  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-[15px] px-[11px] py-[3px] text-[length:calc(12px*var(--ui-fs,1))] ${member.level ? 'bg-[#f7f7f8] text-label' : 'bg-[#f7f7f8] text-[#a4a4b2]'}`}>
                     {member.level || '직급 없음'}
                     <ChevronDown size={12} strokeWidth={2} className="text-label-3" />
                   </span>
@@ -674,7 +674,7 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
               </p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                <span className="text-label-2">승진심사</span>
+                <span className="text-[length:calc(13px*var(--ui-fs,1))] text-[#72727e]">승진심사</span>
                 <PromotionDatePicker year={reviewYear} month={reviewMonth} onChange={updatePromotionReviewDate} />
               </div>
             </div>
