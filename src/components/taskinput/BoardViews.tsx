@@ -4,7 +4,8 @@
 //   타임라인: 구분(L2)별 간트. 과제마다 두 줄 -- 위 회색 = 계획(회색 칸), 아래 색 = 실적(분홍 칸). 파란 세로 띠 = 이번 주.
 // 계획 · 실적 · 완료는 진척률과 같은 규칙으로 센다(planRange: 회색/분홍 칸, S · F · 완 표시).
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, CornerDownRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight } from 'lucide-react'
+import { ic, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import type { ScheduleRowView } from './ScheduleTable'
 import { STATUS_TONE } from './ScheduleTable'
 import { planRange, type ProgressData, type ProgressRow } from '../../utils/progressBoard'
@@ -418,9 +419,9 @@ export function TimelineView({
                   className="flex h-6 w-6 items-center justify-center rounded-[6px] text-label-2 hover:bg-black/[0.05] hover:text-label"
                 >
                   {groups.length && groups.every((g) => collapsed.includes(g.label)) ? (
-                    <ChevronsUpDown size={15} strokeWidth={2} />
+                    <ListChevronsUpDown {...ic} />
                   ) : (
-                    <ChevronsDownUp size={15} strokeWidth={2} />
+                    <ListChevronsDownUp {...ic} />
                   )}
                 </button>
                 <span className="flex items-center gap-1.5">
