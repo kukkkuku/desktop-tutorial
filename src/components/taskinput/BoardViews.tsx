@@ -406,33 +406,29 @@ export function TimelineView({
           {/* 머리글: 범례 · 달 · 주 */}
           <div className="sticky top-0 z-10 flex border-b border-[#ECECF0] bg-white">
             <div className="flex shrink-0 flex-col justify-end gap-1 px-4 pb-2" style={{ width: leftW }}>
-              <button
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
+                <button
                   onClick={() => {
                     const next = groups.every((g) => collapsed.includes(g.label)) ? [] : groups.map((g) => g.label)
                     setCollapsed(next)
                     writeJson(COLLAPSE_KEY, next)
                   }}
-                  className="flex items-center gap-1 self-start whitespace-nowrap rounded-[6px] px-1 py-0.5 text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.05] hover:text-label"
+                  title={groups.length && groups.every((g) => collapsed.includes(g.label)) ? '모두 펼치기' : '모두 접기'}
+                  aria-label={groups.length && groups.every((g) => collapsed.includes(g.label)) ? '모두 펼치기' : '모두 접기'}
+                  className="flex h-6 w-6 items-center justify-center rounded-[6px] text-label-2 hover:bg-black/[0.05] hover:text-label"
                 >
                   {groups.length && groups.every((g) => collapsed.includes(g.label)) ? (
-                    <>
-                      <ChevronsUpDown size={14} strokeWidth={2} />
-                      모두 펼치기
-                    </>
+                    <ChevronsUpDown size={15} strokeWidth={2} />
                   ) : (
-                    <>
-                      <ChevronsDownUp size={14} strokeWidth={2} />
-                      모두 접기
-                    </>
+                    <ChevronsDownUp size={15} strokeWidth={2} />
                   )}
                 </button>
-              <span className="flex flex-wrap items-center gap-x-3 gap-y-1 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
                 <span className="flex items-center gap-1.5">
-                  <i className="inline-block h-3 w-6 rounded-full border border-[#3BA9D3]/50 bg-[#3BA9D3]/10" />
+                  <i className="inline-block h-3 w-6 rounded-full border border-[#8C8C99]/60 bg-[#8C8C99]/10" />
                   계획
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <i className="inline-block h-3 w-6 rounded-full bg-[#3BA9D3]/40" />
+                  <i className="inline-block h-3 w-6 rounded-full bg-[#8C8C99]/45" />
                   실적
                 </span>
                 <span className="flex items-center gap-1.5">
