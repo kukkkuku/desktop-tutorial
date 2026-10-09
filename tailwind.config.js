@@ -7,10 +7,11 @@ export default {
     extend: {
       colors: {
         // v2: 중성 회색 캔버스 + 흰 카드 + 검정 기본 버튼, 선택 · 링크만 파랑(docs/DESIGN-SYSTEM.md)
-        accent: '#F26B1D',
-        'accent-hover': '#D95A10',
-        'accent-soft': '#FFF0E4',
-        ink: '#18181B', // 짙은 글자 · 말풍선 바탕
+        // 테마 변수(src/theme.css)를 쓴다 -- <html data-theme>로 갈아 끼움
+        accent: 'rgb(var(--c-accent) / <alpha-value>)',
+        'accent-hover': 'rgb(var(--c-accent-hover) / <alpha-value>)',
+        'accent-soft': 'rgb(var(--c-accent-soft) / <alpha-value>)',
+        ink: 'rgb(var(--c-ink) / <alpha-value>)', // 짙은 글자 · 말풍선 바탕
         success: '#16A34A',
         'success-soft': '#ECFDF3',
         danger: '#DC2626',
@@ -21,14 +22,14 @@ export default {
         'info-soft': '#ECFEFF',
         promo: '#2F3B63',
         // 글자 3단계
-        label: { DEFAULT: '#18181B', 2: '#5F5F68', 3: '#A1A1AA' },
+        label: { DEFAULT: 'rgb(var(--c-label) / <alpha-value>)', 2: 'rgb(var(--c-label-2) / <alpha-value>)', 3: 'rgb(var(--c-label-3) / <alpha-value>)' },
         // 캔버스(사이드바 · 앱 바탕) · 카드 · 묶음 칸 바탕 · 선
-        window: '#F6F6F7',
-        canvas: '#F6F6F7',
+        window: 'rgb(var(--c-canvas) / <alpha-value>)',
+        canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
         surface: '#FFFFFF',
-        subtle: '#FAFAFA',
-        separator: 'rgba(24, 24, 27, 0.08)',
-        hairline: 'rgba(24, 24, 27, 0.13)',
+        subtle: 'rgb(var(--c-subtle) / <alpha-value>)',
+        separator: 'rgb(var(--c-sep) / 0.08)',
+        hairline: 'rgb(var(--c-hair) / 0.14)',
       },
       fontFamily: {
         sans: [
@@ -49,20 +50,19 @@ export default {
         xs: ['calc(14px * var(--ui-fs, 1))', { lineHeight: '1.43' }],
       },
       borderRadius: {
-        control: '10px',
-        card: '14px',
-        pop: '14px',
-        panel: '20px', // 콘텐츠 판(사이드바 옆 흰 판) · 옆 패널
+        control: 'var(--r-control)',
+        card: 'var(--r-card)',
+        pop: 'var(--r-pop)',
+        panel: 'var(--r-panel)', // 콘텐츠 판(사이드바 옆 흰 판) · 옆 패널
       },
       boxShadow: {
-        // 심플: 얇은 테두리 + 아주 옅은 그림자
-        control: '0 0 0 1px rgba(24,24,27,0.10), 0 1px 2px rgba(24,24,27,0.04)',
-        card: '0 0 0 1px rgba(24,24,27,0.06), 0 1px 2px rgba(24,24,27,0.03)',
-        pill: '0 0 0 1px rgba(24,24,27,0.06), 0 1px 3px rgba(24,24,27,0.08)',
-        pop: '0 0 0 1px rgba(24,24,27,0.07), 0 12px 32px -10px rgba(24,24,27,0.20), 0 3px 8px -3px rgba(24,24,27,0.08)',
-        dialog: '0 0 0 1px rgba(24,24,27,0.08), 0 24px 64px -16px rgba(24,24,27,0.32)',
-        focus: '0 0 0 3px rgba(242,107,29,0.25)',
-        glow: '0 1px 2px rgba(217,90,16,0.35)',
+        control: 'var(--sh-control)',
+        card: 'var(--sh-card)',
+        pill: 'var(--sh-pill)',
+        pop: 'var(--sh-pop)',
+        dialog: 'var(--sh-dialog)',
+        focus: '0 0 0 3px rgb(var(--c-accent) / 0.25)',
+        glow: 'var(--btn-primary-shadow)',
       },
     },
   },

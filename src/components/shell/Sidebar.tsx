@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
+  Palette,
   BookOpen,
   ChartGantt,
   Database,
@@ -37,6 +38,7 @@ import { ROLE_LABEL } from '../../utils/roles'
 import { IS_PREVIEW } from '../../utils/previewMode'
 import { FONT_PREF_LABEL, currentScale, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
 import { getConnectedEmail } from '../../utils/googleDrive'
+import { THEMES, onThemeChange, readTheme, setTheme, type ThemeKey } from '../../utils/uiTheme'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
   { key: 'progress', label: '추진현황', Icon: ChartGantt },
@@ -162,6 +164,36 @@ function FontSizeItem() {
           />
         </div>
         <span className="text-[18px] font-semibold text-label-2">가</span>
+      </div>
+    </div>
+  )
+}
+
+// 계정 메뉴의 테마: 색 · 모서리 · 그림자 묶음을 고른다(이 브라우저에 기억). 값은 src/theme.css
+function ThemeItem() {
+  const [cur, setCur] = useState<ThemeKey>(readTheme)
+  useEffect(() => onThemeChange(() => setCur(readTheme())), [])
+  return (
+    <div className="px-3.5 pb-2 pt-1.5" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label">
+        <Palette size={15} strokeWidth={1.8} className="text-label-2" />
+        테마
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-1.5">
+        {THEMES.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTheme(t.key)}
+            title={t.desc}
+            aria-pressed={cur === t.key}
+            className={`flex items-center gap-2 rounded-[10px] px-2 py-1.5 text-left text-[length:calc(13px*var(--ui-fs,1))] ${cur === t.key ? 'bg-accent-soft font-medium text-label ring-1 ring-accent/40' : 'text-label-2 hover:bg-black/[0.04]'}`}
+          >
+            <span className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full ring-1 ring-black/10" style={{ background: t.dots[0] }}>
+              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-tl-full" style={{ background: t.dots[1] }} />
+            </span>
+            <span className="min-w-0 truncate">{t.label}</span>
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -298,6 +330,7 @@ export default function Sidebar({ perf, collapsed }: { perf?: SidebarPerfExtras;
           footer={
             <>
               <FontSizeItem />
+              <ThemeItem />
               <div className="mac-menu-sep" />
               <ResetItem onClick={nav.openReset} />
               <LogoutItem onClick={handleLogout} />
@@ -442,6 +475,7 @@ export function TopNav({
             footer={
             <>
               <FontSizeItem />
+              <ThemeItem />
               <div className="mac-menu-sep" />
               <ResetItem onClick={nav.openReset} />
               <LogoutItem onClick={handleLogout} />

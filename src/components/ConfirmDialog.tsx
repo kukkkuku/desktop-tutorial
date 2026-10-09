@@ -30,7 +30,7 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-[16px] bg-white p-5 shadow-dialog`}>
+      <div className={`w-full ${children ? 'max-w-md' : 'max-w-sm'} rounded-[var(--r-dialog)] bg-white p-5 shadow-dialog`}>
         <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{title}</h3>
         <p className="mt-2 whitespace-pre-line text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">{message}</p>
         {children}

@@ -2,9 +2,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
+import './theme.css'
 import './index.css'
 import { startUiFontScale } from './utils/uiFontScale'
+import { startUiTheme } from './utils/uiTheme'
 
+startUiTheme()
 startUiFontScale()
 
 if ('serviceWorker' in navigator) {

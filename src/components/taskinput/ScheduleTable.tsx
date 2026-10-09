@@ -154,14 +154,14 @@ export function CellSwatch({ cell, size = 18 }: { cell: CellState; size?: number
 }
 
 // 고른 범위: 옅은 파랑 + 범위 바깥 테두리만 파란 선(칸마다 선이 생기지 않게 가장자리 칸에만)
-const SEL_LINE = '#f26b1d'
+const SEL_LINE = 'rgb(var(--c-accent))'
 function selShadow(tint: number, top: boolean, right: boolean, bottom: boolean, left: boolean): string {
   const s: string[] = []
   if (top) s.push(`inset 0 2px 0 ${SEL_LINE}`)
   if (bottom) s.push(`inset 0 -2px 0 ${SEL_LINE}`)
   if (left) s.push(`inset 2px 0 0 ${SEL_LINE}`)
   if (right) s.push(`inset -2px 0 0 ${SEL_LINE}`)
-  s.push(`inset 0 0 0 9999px rgba(242,107,29,${tint})`)
+  s.push(`inset 0 0 0 9999px rgb(var(--c-accent) / ${tint})`)
   return s.join(', ')
 }
 
@@ -2729,10 +2729,10 @@ export default function ScheduleTable({
                       >
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         {/* 구분 칸 내용이 행 높이를 키우지 않게 칸 안에 가둔다(과제가 적은 구분의 행만 높아지던 것 방지). 이름 고치는 중에는 넘쳐도 보이게 */}
-                        <div className={`absolute inset-0 px-2 py-2 ${l2Edit?.key === g.rows[0].row.key ? 'z-10 overflow-visible' : 'overflow-clip'}`}>
-                        <div className="sticky top-[64px] py-1">
+                        <div className={`absolute inset-0 px-2 ${g.rows.length <= 2 ? 'flex items-center justify-center' : 'py-2'} ${l2Edit?.key === g.rows[0].row.key ? 'z-10 overflow-visible' : 'overflow-clip'}`}>
+                        <div className={g.rows.length <= 2 ? 'relative min-w-0 max-w-full' : 'sticky top-[64px] py-1'}>
                           {g.rows.every((x) => x.row.isNew) && (
-                            <span className="mb-1 inline-block rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white no-underline">새 구분</span>
+                            <span className={`${g.rows.length <= 2 ? 'mr-1 align-middle' : 'mb-1'} inline-block rounded-[3px] bg-accent px-1 text-[0.77em] font-bold text-white no-underline`}>새 구분</span>
                           )}
                           {l2Edit?.key === g.rows[0].row.key ? (
                             <textarea
@@ -2765,7 +2765,7 @@ export default function ScheduleTable({
                             />
                           ) : (
                             <>
-                              <span className={`block cursor-default whitespace-pre-line break-words ${g.rows.length <= 2 ? 'line-clamp-1' : ''}`}>{g.l2}</span>
+                              <span className={`cursor-default whitespace-pre-line break-words ${g.rows.length <= 2 ? 'inline-block max-w-full truncate align-middle' : 'block'}`}>{g.l2}</span>
                               {g.tag && <span className="mt-1 block text-[0.85em] font-semibold text-[#E8342A]">[{g.tag}]</span>}
                             </>
                           )}

@@ -12,8 +12,8 @@ export default function AppLogo({ size = 28, className = '' }: { size?: number; 
           <stop offset="1" stopColor="#F7EADF" />
         </linearGradient>
         <linearGradient id={`d${id}`} x1="0.15" y1="0.1" x2="0.85" y2="0.95">
-          <stop offset="0" stopColor="#FF9A5C" />
-          <stop offset="1" stopColor="#E85A0C" />
+          <stop offset="0" style={{ stopColor: 'var(--logo-1)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--logo-2)' }} />
         </linearGradient>
       </defs>
       <rect width="512" height="512" rx="112" fill={`url(#t${id})`} />

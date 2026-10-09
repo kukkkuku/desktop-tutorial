@@ -30,7 +30,7 @@ export default function Modal({
   }, [busy, onClose])
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div role="dialog" aria-modal="true" className={`flex max-h-[94vh] w-full ${WIDTH[size]} flex-col rounded-[16px] bg-white shadow-dialog`}>
+      <div role="dialog" aria-modal="true" className={`flex max-h-[94vh] w-full ${WIDTH[size]} flex-col rounded-[var(--r-dialog)] bg-white shadow-dialog`}>
         <div className="flex items-start gap-3 px-5 pb-1 pt-4">
           <div className="min-w-0 flex-1">
             <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{title}</h3>

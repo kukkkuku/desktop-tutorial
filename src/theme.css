@@ -1,0 +1,215 @@
+/* ---------- 테마 ----------
+   앱 전체의 색 · 모서리 · 그림자를 CSS 변수로 두고, <html data-theme="이름">으로 갈아 끼운다.
+   기능 코드는 그대로, 이 파일의 값만 다르다. 새 테마 = 아래 블록 하나 더 + src/utils/uiTheme.ts 목록에 한 줄.
+   색(--c-*)은 "R G B" 세 숫자(Tailwind가 투명도를 붙일 수 있게). 기본(data-theme 없음) = 오렌지 포인트.
+   화면 코드에서는 #색상코드를 직접 쓰지 않고 이 변수(또는 tailwind 토큰)만 쓴다. */
+
+:root,
+html[data-theme='orange'] {
+  /* 오렌지 포인트: 옅은 회색 바탕 + 흰 판 + 얇은 선, 주요 버튼 오렌지 */
+  --c-accent: 242 107 29;
+  --c-accent-hover: 217 90 16;
+  --c-accent-soft: 255 240 228;
+  --c-ink: 24 24 27;
+  --c-label: 24 24 27;
+  --c-label-2: 95 95 104;
+  --c-label-3: 161 161 170;
+  --c-canvas: 246 246 247;
+  --c-subtle: 250 250 250;
+  --c-sep: 24 24 27;
+  --c-hair: 24 24 27;
+
+  --r-control: 10px;
+  --r-card: 14px;
+  --r-pop: 14px;
+  --r-panel: 20px;
+  --r-dialog: 16px;
+  --r-btn: 10px;
+  --r-nav: 10px;
+  --r-seg: 10px;
+  --r-seg-item: 7px;
+  --r-group: 16px;
+  --r-group-body: 12px;
+  --r-badge: 6px;
+
+  --sh-control: 0 0 0 1px rgba(24, 24, 27, 0.1), 0 1px 2px rgba(24, 24, 27, 0.04);
+  --sh-card: 0 0 0 1px rgba(24, 24, 27, 0.06), 0 1px 2px rgba(24, 24, 27, 0.03);
+  --sh-pill: 0 0 0 1px rgba(24, 24, 27, 0.06), 0 1px 3px rgba(24, 24, 27, 0.08);
+  --sh-pop: 0 0 0 1px rgba(24, 24, 27, 0.07), 0 12px 32px -10px rgba(24, 24, 27, 0.2), 0 3px 8px -3px rgba(24, 24, 27, 0.08);
+  --sh-dialog: 0 0 0 1px rgba(24, 24, 27, 0.08), 0 24px 64px -16px rgba(24, 24, 27, 0.32);
+
+  --body-bg: #f6f6f7;
+  --panel-bg: #ffffff;
+  --panel-border: transparent;
+  --panel-shadow: var(--sh-card);
+
+  --btn-primary-bg: rgb(var(--c-accent));
+  --btn-primary-hover: rgb(var(--c-accent-hover));
+  --btn-primary-fg: #ffffff;
+  --btn-primary-shadow: 0 1px 2px rgba(217, 90, 16, 0.35);
+
+  --nav-on-bg: rgb(var(--c-accent-soft));
+  --nav-on-fg: rgb(var(--c-accent-hover));
+  --nav-on-shadow: none;
+  --nav-on-icon: rgb(var(--c-accent-hover));
+
+  --seg-track: rgba(24, 24, 27, 0.05);
+  --seg-track-shadow: none;
+  --group-bg: rgb(var(--c-subtle));
+  --group-shadow: 0 0 0 1px rgba(24, 24, 27, 0.05);
+
+  --logo-1: #ff9a5c;
+  --logo-2: #e85a0c;
+}
+
+html[data-theme='classic'] {
+  /* 원래 디자인: 회색 바탕 + 흰 판, 파란 포인트, 검정 주요 버튼, 흰 알약 메뉴 */
+  --c-accent: 37 99 235;
+  --c-accent-hover: 29 78 216;
+  --c-accent-soft: 238 243 254;
+  --c-subtle: 248 248 249;
+  --c-canvas: 244 244 245;
+
+  --r-control: 8px;
+  --r-card: 12px;
+  --r-pop: 12px;
+  --r-panel: 16px;
+  --r-dialog: 14px;
+  --r-btn: 8px;
+  --r-nav: 9px;
+  --r-group: 14px;
+  --r-group-body: 10px;
+
+  --sh-control: 0 0 0 1px rgba(24, 24, 27, 0.1), 0 1px 2px rgba(24, 24, 27, 0.05);
+  --sh-card: 0 0 0 1px rgba(24, 24, 27, 0.06), 0 1px 2px rgba(24, 24, 27, 0.04);
+  --sh-pop: 0 0 0 1px rgba(24, 24, 27, 0.07), 0 16px 40px -12px rgba(24, 24, 27, 0.22), 0 4px 10px -4px rgba(24, 24, 27, 0.08);
+  --sh-dialog: 0 0 0 1px rgba(24, 24, 27, 0.08), 0 24px 64px -16px rgba(24, 24, 27, 0.35);
+
+  --body-bg: #f4f4f5;
+  --btn-primary-bg: #18181b;
+  --btn-primary-hover: #27272a;
+  --btn-primary-shadow: 0 1px 2px rgba(24, 24, 27, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --nav-on-bg: #ffffff;
+  --nav-on-fg: rgb(var(--c-label));
+  --nav-on-shadow: var(--sh-pill);
+  --nav-on-icon: rgb(var(--c-accent));
+
+  --seg-track: #efeff1;
+
+  --logo-1: #5b8cf5;
+  --logo-2: #2553d6;
+}
+
+html[data-theme='black'] {
+  /* 블랙 포인트: 밝은 바탕 + 반투명 유리 카드 + 큰 모서리, 포인트는 검정(알약 버튼) */
+  --c-accent: 24 24 27;
+  --c-accent-hover: 63 63 70;
+  --c-accent-soft: 236 236 240;
+  --c-ink: 24 24 27;
+  --c-label-2: 98 98 108;
+  --c-label-3: 166 166 176;
+  --c-canvas: 238 238 241;
+  --c-subtle: 245 245 248;
+  --c-sep: 60 60 75;
+  --c-hair: 60 60 75;
+
+  --r-control: 14px;
+  --r-card: 20px;
+  --r-pop: 18px;
+  --r-panel: 28px;
+  --r-dialog: 24px;
+  --r-btn: 9999px;
+  --r-nav: 14px;
+  --r-seg: 9999px;
+  --r-seg-item: 9999px;
+  --r-group: 22px;
+  --r-group-body: 18px;
+  --r-badge: 9999px;
+
+  --sh-control: 0 0 0 1px rgba(255, 255, 255, 0.95) inset, 0 1px 2px rgba(60, 60, 75, 0.08), 0 4px 12px -4px rgba(60, 60, 75, 0.16);
+  --sh-card: 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 1px 2px rgba(60, 60, 75, 0.05), 0 10px 28px -12px rgba(60, 60, 75, 0.2);
+  --sh-pill: 0 0 0 1px rgba(255, 255, 255, 0.95) inset, 0 1px 2px rgba(60, 60, 75, 0.08), 0 6px 14px -6px rgba(60, 60, 75, 0.25);
+  --sh-pop: 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 20px 48px -14px rgba(60, 60, 75, 0.3), 0 4px 12px -4px rgba(60, 60, 75, 0.1);
+  --sh-dialog: 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 32px 80px -20px rgba(40, 40, 55, 0.42);
+
+  --body-bg: radial-gradient(1100px 620px at 8% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(900px 600px at 100% 100%, rgba(205, 205, 215, 0.5), rgba(205, 205, 215, 0) 65%), #eeeef1;
+  --panel-bg: rgba(255, 255, 255, 0.55);
+  --panel-border: rgba(255, 255, 255, 0.95);
+  --panel-shadow: 0 24px 60px -28px rgba(60, 60, 75, 0.3), 0 2px 6px rgba(60, 60, 75, 0.05);
+
+  --btn-primary-bg: linear-gradient(180deg, #3f3f46, #18181b);
+  --btn-primary-hover: linear-gradient(180deg, #52525b, #27272a);
+  --btn-primary-shadow: 0 8px 18px -8px rgba(24, 24, 27, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+
+  --nav-on-bg: #ffffff;
+  --nav-on-fg: rgb(var(--c-label));
+  --nav-on-shadow: var(--sh-pill);
+  --nav-on-icon: rgb(var(--c-ink));
+
+  --seg-track: rgba(130, 130, 148, 0.14);
+  --seg-track-shadow: inset 0 1px 3px rgba(60, 60, 75, 0.14);
+  --group-bg: rgba(228, 228, 236, 0.6);
+  --group-shadow: inset 0 1px 3px rgba(60, 60, 75, 0.1);
+
+  --logo-1: #6b6b76;
+  --logo-2: #18181b;
+}
+
+html[data-theme='blue'] {
+  /* 블루 포인트: 푸른 회색 유리 + 파란 그라데이션 버튼 + 짙은 남색 선택 메뉴 */
+  --c-accent: 10 114 245;
+  --c-accent-hover: 10 95 208;
+  --c-accent-soft: 230 240 254;
+  --c-ink: 20 27 52;
+  --c-label: 27 34 56;
+  --c-label-2: 94 102 124;
+  --c-label-3: 155 163 181;
+  --c-canvas: 232 238 245;
+  --c-subtle: 243 246 250;
+  --c-sep: 40 60 100;
+  --c-hair: 40 60 100;
+
+  --r-control: 12px;
+  --r-card: 20px;
+  --r-pop: 18px;
+  --r-panel: 28px;
+  --r-dialog: 28px;
+  --r-btn: 9999px;
+  --r-nav: 14px;
+  --r-seg: 9999px;
+  --r-seg-item: 9999px;
+  --r-group: 22px;
+  --r-group-body: 18px;
+  --r-badge: 9999px;
+
+  --sh-control: 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 1px 2px rgba(40, 60, 100, 0.08), 0 4px 12px -4px rgba(40, 60, 100, 0.14);
+  --sh-card: 0 0 0 1px rgba(255, 255, 255, 0.85) inset, 0 1px 2px rgba(40, 60, 100, 0.05), 0 10px 28px -12px rgba(40, 60, 100, 0.18);
+  --sh-pill: 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 1px 2px rgba(40, 60, 100, 0.08), 0 6px 14px -6px rgba(40, 60, 100, 0.22);
+  --sh-pop: 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 20px 48px -14px rgba(40, 60, 100, 0.3), 0 4px 12px -4px rgba(40, 60, 100, 0.1);
+  --sh-dialog: 0 0 0 1px rgba(255, 255, 255, 0.8) inset, 0 32px 80px -20px rgba(30, 45, 80, 0.42);
+
+  --body-bg: radial-gradient(1100px 620px at 8% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 60%),
+    radial-gradient(900px 600px at 100% 100%, rgba(190, 210, 238, 0.55), rgba(190, 210, 238, 0) 65%), #e8eef5;
+  --panel-bg: rgba(255, 255, 255, 0.55);
+  --panel-border: rgba(255, 255, 255, 0.9);
+  --panel-shadow: 0 24px 60px -28px rgba(40, 60, 100, 0.28), 0 2px 6px rgba(40, 60, 100, 0.05);
+
+  --btn-primary-bg: linear-gradient(180deg, #2e8bff, #0a66f0);
+  --btn-primary-hover: linear-gradient(180deg, #4a9bff, #1a73f5);
+  --btn-primary-shadow: 0 8px 20px -6px rgba(10, 114, 245, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.28) inset;
+
+  --nav-on-bg: rgb(var(--c-ink));
+  --nav-on-fg: #ffffff;
+  --nav-on-shadow: 0 8px 18px -8px rgba(20, 27, 52, 0.65);
+  --nav-on-icon: #ffffff;
+
+  --seg-track: rgba(215, 226, 240, 0.8);
+  --seg-track-shadow: inset 0 1px 3px rgba(40, 60, 100, 0.14);
+  --group-bg: rgba(222, 230, 242, 0.6);
+  --group-shadow: inset 0 1px 3px rgba(40, 60, 100, 0.1);
+
+  --logo-1: #5b8cf5;
+  --logo-2: #2553d6;
+}

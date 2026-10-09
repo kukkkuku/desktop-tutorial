@@ -7,6 +7,13 @@
 선택된 메뉴 아이콘 · 링크 · 포커스만 파랑, 상태는 옅은 바탕 배지로. 주요 버튼은 검정.
 큰 페이지 제목 + 위치(브레드크럼) + 밑줄 탭, 목록은 회색 틀 안의 흰 카드 줄로 묶는다.
 
+## 0. 테마 (`src/theme.css`, `src/utils/uiTheme.ts`)
+
+색 · 모서리 · 그림자는 CSS 변수(`--c-*`, `--r-*`, `--sh-*` 등)로 두고 `<html data-theme>`로 갈아 끼운다.
+테마: `classic`(원래 디자인) · `orange`(기본) · `black` · `blue`. 새 테마 = `theme.css`에 블록 하나 + `uiTheme.ts` 목록에 한 줄.
+고르는 곳: 사이드바 계정 메뉴 › 테마(이 브라우저에 기억). 아래 표의 값은 `orange` 기준 설명이고, 테마마다 값이 다르다.
+화면 코드에서는 #색상코드 대신 tailwind 토큰(`bg-accent`, `rounded-card` …)이나 이 변수만 쓴다.
+
 ## 1. 토큰 (`tailwind.config.js`, `src/index.css`)
 
 | 종류 | 이름 | 값 / 용도 |

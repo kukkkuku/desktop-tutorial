@@ -7,8 +7,8 @@ export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md'
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  // 주요 액션 = 오렌지 단색(심플, 디자인 시스템 v3)
-  primary: 'bg-accent text-white shadow-glow hover:bg-accent-hover active:bg-accent-hover',
+  // 주요 액션: 모양은 테마(src/theme.css --btn-primary-*)가 정한다(검정 · 오렌지 단색 · 파란 그라데이션 등)
+  primary: '[background:var(--btn-primary-bg)] text-[color:var(--btn-primary-fg)] shadow-glow hover:[background:var(--btn-primary-hover)]',
   secondary: 'bg-white text-label shadow-control hover:bg-[#FAFAFA] active:bg-[#F4F4F5]',
   ghost: 'text-label-2 hover:bg-black/[0.045] hover:text-label active:bg-black/[0.07]',
   danger: 'bg-danger text-white shadow-[0_1px_2px_rgba(220,38,38,0.3)] hover:brightness-95',
@@ -27,7 +27,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export default function Button({ variant = 'secondary', size = 'md', className = '', ...rest }: ButtonProps) {
   return (
     <button
-      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-control font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--r-btn)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${className}`}
       {...rest}
     />
   )

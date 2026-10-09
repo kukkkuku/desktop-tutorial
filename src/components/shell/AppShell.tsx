@@ -44,7 +44,7 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
         <div className={`flex min-h-screen min-w-0 flex-1 flex-col pb-3 pr-3 ${top ? 'pl-3' : ''}`}>
           {header}
           {/* 본문 판: 흰 판 + 얇은 테두리로 위 줄 · 사이드바와 구분. backdrop-blur 같은 filter는 쓰지 않는다(쓰면 팝업 어둠이 이 판 안에만 깔림) */}
-          <div className="flex min-w-0 flex-1 flex-col rounded-panel bg-white shadow-card">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col rounded-panel border border-[color:var(--panel-border)] [background:var(--panel-bg)] [box-shadow:var(--panel-shadow)]">{children}</div>
         </div>
       </div>
     </ShellCtx.Provider>
