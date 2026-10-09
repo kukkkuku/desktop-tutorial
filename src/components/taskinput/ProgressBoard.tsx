@@ -193,8 +193,6 @@ const ROW_PAD_DEFAULT = 1
 const SHEET_TABS_H = 40
 // 구글 맨 위 줄(제목 · 메뉴 · 공유 · 로그인 버튼)을 위로 밀어 가린다. 구글 화면 안은 읽을 수 없어 눈으로 맞춘 값(어긋나면 이 값만 조정)
 const SHEET_HEAD_H = 64
-// 도구 모음 오른쪽 끝의 접기 버튼(^ / ⌄)을 덮는 조각 자리: 접으면 구글이 위 줄을 되살리거나 도구 모음을 움직이므로 누를 수 없게 한다
-const SHEET_FOLD_PATCH = { right: 30, top: 8, w: 52, h: 44 }
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
 const ROW_PAD_MIN = -3 // 마이너스 = 기본보다 얇게(글자가 온전히 보이는 한계, 내용은 그 높이에서 잘림)
 
@@ -3125,13 +3123,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 className="absolute inset-x-0 w-full border-0"
                 style={{ top: sheetFull ? -SHEET_HEAD_H : 0, height: `calc(100% + ${(sheetFull ? SHEET_HEAD_H : 0) + SHEET_TABS_H}px)` }}
               />
-              {sheetFull && (
-                <div
-                  aria-hidden="true"
-                  className="absolute rounded-full bg-[#edf2fa]"
-                  style={{ right: SHEET_FOLD_PATCH.right, top: SHEET_FOLD_PATCH.top, width: SHEET_FOLD_PATCH.w, height: SHEET_FOLD_PATCH.h }}
-                />
-              )}
             </div>
           ) : boardView === 'board' ? (
             <KanbanBoard
