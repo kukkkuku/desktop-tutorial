@@ -11,6 +11,7 @@ import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
 import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
+import SheetsIcon from '../SheetsIcon'
 import FileMenu from '../ui/PopMenu'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
 import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
@@ -86,8 +87,6 @@ import {
   CHANGE_LOG_HEADER,
   isProtectedSheet,
   isOperatingSheet,
-  readHiddenTabs,
-  writeHiddenTabs,
   TASK_INPUT_SHEET_URL,
   readLinkedSheet,
   writeLinkedSheet,
@@ -232,6 +231,13 @@ const FILE_LABEL = (
     <FolderOpen size={15} strokeWidth={1.8} />
     {/* 머리 줄이 좁으면 아이콘만 */}
     <span className="hidden xl:inline">파일</span>
+  </>
+)
+
+const SHEET_LABEL = (
+  <>
+    <SheetsIcon className="h-4 w-3.5 shrink-0" />
+    <span className="hidden xl:inline">구글시트</span>
   </>
 )
 
@@ -895,7 +901,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (o.target === 'sheet') return void createInSheet(project) // 이어서 연결된 시트에 탭을 만든다(실패하면 이 브라우저 연도로 남음)
       if (made.left[0]) setOpenKey(NEW_PREFIX + made.left[0].id) // 첫 과제 이름부터 입력
       setMessage(
-        `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 오른쪽 위 ⋯ 파일 메뉴의 "구글시트로 만들기"로 시트에 탭을 만들 수 있습니다' : ''}.`,
+        `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 오른쪽 위 「구글시트」 메뉴의 "구글시트로 만들기"로 시트에 탭을 만들 수 있습니다' : ''}.`,
       )
     } catch (e) {
       setError(errText(e, '새 연도를 만들지 못했습니다.'))
@@ -927,7 +933,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     const fromXlsx = !!d && !d.local && !d.spreadsheetId
     if (!d || !(d.local || fromXlsx)) return
     const link = parseSheetUrl(sheetLink)
-    if (!link) return setError('연결된 구글시트가 없습니다. ⋯ 파일 메뉴 › "시트 연결 설정"에서 먼저 연결해 주세요.')
+    if (!link) return setError('연결된 구글시트가 없습니다. 오른쪽 위 「구글시트」 메뉴 › "시트 연결 설정"에서 먼저 연결해 주세요.')
     if (isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
     // 이름이 빈 과제는 시트에 올라가지 않는다(시트는 L3 이름이 있는 줄만 과제로 읽음) -- 미리 알리고, 만든 뒤에는 화면에서도 뺀다
     const nameless = dr.newRows.filter((n) => !n.fields.name?.trim()).length
@@ -1750,20 +1756,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     ...(curProject?.data.local ? [`local:${curProject.data.tabTitle}`] : []),
   ]
   const allSheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
-  // 연도 메뉴에서 지운 탭(목록에서만 안 보임 · 구글시트 탭은 그대로). 지금 연결된 탭 · 보고 있는 탭은 숨기지 않는다.
-  const sheetFileId = (data && !data.local ? data.spreadsheetId : parkedSheet?.data.spreadsheetId) ?? null
-  const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => readHiddenTabs(sheetFileId))
-  useEffect(() => setHiddenTabs(readHiddenTabs(sheetFileId)), [sheetFileId])
-  const hideTab = (t: string) => {
-    if (!sheetFileId) return
-    const next = Array.from(new Set([...hiddenTabs, t]))
-    setHiddenTabs(next)
-    writeHiddenTabs(sheetFileId, next)
-  }
   const allYears = [...localTabs, ...allSheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
-  const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
+  const sheetTabs = allSheetTabs
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
   const sheetName = sheetFileTitle ?? (isOperatingSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '디자인연구소 실적관리(운영 시트)' : '연결된 시트')
@@ -1791,21 +1787,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       window.open(sheetRowUrl(pickedRowRef.current), '_blank', 'noopener')
     },
   }
-  // 파일 메뉴(머리 오른쪽 「파일」) = 불러오기 · 내보내기 · 시트 연결. 오랜만에 와서 불러오기를 찾을 때 맨 위에 보이게.
+  // 파일 메뉴(머리 오른쪽 「파일」) = 엑셀 파일만(열기 · 받기). 구글시트 관련은 옆의 「구글시트」 메뉴.
   const fileMenuItems = (
     <>
-      <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">불러오기</p>
-      {isSheetsApiConfigured() && (
-        <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
-          <RefreshCw {...icSm} className="shrink-0" />
-          {data && !data.local && data.spreadsheetId ? '구글시트에서 다시 불러오기' : '구글시트에서 불러오기'}
-          {data && !data.local && data.spreadsheetId && (
-            <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
-              {timeAgo(data.fetchedAt)}
-            </span>
-          )}
-        </button>
-      )}
       {canManage && (
         <button
           onClick={() => fileRef.current?.click()}
@@ -1818,8 +1802,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">보기 전용</span>
         </button>
       )}
-      <div className="mac-menu-sep" />
-      <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">내보내기</p>
       {data && (
         <button
           onClick={() => void downloadProgressExcel(data, drafts, l1s)}
@@ -1828,6 +1810,36 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         >
           <FileDown {...icSm} className="shrink-0" />
           엑셀로 받기
+        </button>
+      )}
+    </>
+  )
+  // 구글시트 메뉴 = 연결한 시트에 관한 일 전부(입력할 탭 · 다시 불러오기 · 올리기 · 열기 · 연결 바꾸기)
+  const tabPickItems =
+    canManage && isSheetsApiConfigured() && allSheetTabs.length > 1 ? (
+      <>
+      <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">입력할 탭</p>
+        {allSheetTabs.map((t) => (
+          <button key={t} onClick={() => void openSheetYear(t)} disabled={loading || saving} className="mac-menu-item disabled:opacity-40" title={t}>
+            <Check {...icSm} className={`shrink-0 ${t === connectedTitle ? '' : 'invisible'}`} />
+            <span className="min-w-0 truncate">{t}</span>
+          </button>
+        ))}
+        <div className="mac-menu-sep" />
+      </>
+    ) : null
+  const sheetMenuItems = (
+    <>
+      {tabPickItems}
+      {isSheetsApiConfigured() && (
+        <button onClick={() => loadFromSheet()} disabled={loading || saving} className="mac-menu-item disabled:opacity-40">
+          <RefreshCw {...icSm} className="shrink-0" />
+          {data && !data.local && data.spreadsheetId ? '구글시트에서 다시 불러오기' : '구글시트에서 불러오기'}
+          {data && !data.local && data.spreadsheetId && (
+            <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3" title={`${fmt(data.fetchedAt)} 불러옴`}>
+              {timeAgo(data.fetchedAt)}
+            </span>
+          )}
         </button>
       )}
       {((data?.local && canManage) || (data && !data.local && !data.spreadsheetId)) && (
@@ -1843,7 +1855,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         </button>
       )}
       <div className="mac-menu-sep" />
-      <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">구글시트</p>
       <a href={sheetOpenUrl} target="_blank" rel="noreferrer" className="mac-menu-item" title={sheetLink}>
         <ExternalLink {...icSm} className="shrink-0" />
         <span className="min-w-0 truncate">{sheetName} 열기</span>
@@ -1942,11 +1953,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             onCreate={canManage ? () => setNewYearOpen(true) : undefined}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
-            onHide={hideTab}
           />
         </MenuSlot>
         <MenuSlot id={PROGRESS_ACTIONS_SLOT}>
-          <FileMenu label={FILE_LABEL} title="불러오기 · 내보내기 · 시트 연결">{fileMenuItems}</FileMenu>
+          <FileMenu label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 다시 불러오기 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
+          <FileMenu label={FILE_LABEL} title="엑셀 파일 열기 · 받기">{fileMenuItems}</FileMenu>
         </MenuSlot>
         {newYearDialog}
         {confirmDialog}
@@ -1954,7 +1965,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <div className="mx-auto mt-10 max-w-[940px] text-center">
           <h2 className="text-[length:calc(20px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
           <p className="mt-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-            그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 「파일」 메뉴에서 다시 불러오거나 엑셀로 받습니다.
+            그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 「구글시트」 메뉴에서 다시 불러오고 「파일」 메뉴에서 엑셀로 받습니다.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
@@ -2654,10 +2665,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onPick={pickYear}
           editableFrom={now.getFullYear()}
           connectedTitle={connectedTitle}
-          onConnect={canManage && isSheetsApiConfigured() ? (t) => void openSheetYear(t) : undefined}
           onDeleteLocal={(id) => void deleteLocal(id)}
           onOpenMenu={() => void refreshYearTabs()}
-          onHide={hideTab}
           localTabs={localTabs}
           onCreate={canManage ? () => setNewYearOpen(true) : undefined}
         />
@@ -2682,7 +2691,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <span className="hidden xl:inline">과제 내보내기</span>
             </Button>
           )}
-          <FileMenu disabled={yearLoading} label={FILE_LABEL} title="불러오기 · 내보내기 · 시트 연결">{fileMenuItems}</FileMenu>
+          <FileMenu disabled={yearLoading} label={SHEET_LABEL} title="구글시트 -- 입력할 탭 · 다시 불러오기 · 올리기 · 연결">{sheetMenuItems}</FileMenu>
+          <FileMenu disabled={yearLoading} label={FILE_LABEL} title="엑셀 파일 열기 · 받기">{fileMenuItems}</FileMenu>
         </span>
       </MenuSlot>
       {newYearDialog}
@@ -3038,7 +3048,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       canSave
                         ? '고친 칸을 연결된 시트에 씁니다'
                         : protectedSheet
-                          ? '운영 중인 팀 시트에는 저장하지 않습니다. ⋯ 파일 메뉴 › "시트 연결 설정"에서 테스트 시트를 연결하세요.'
+                          ? '운영 중인 팀 시트에는 저장하지 않습니다. 「구글시트」 메뉴 › "시트 연결 설정"에서 테스트 시트를 연결하세요.'
                           : 'xlsx로 불러온 경우에는 시트에 저장할 수 없습니다. 구글시트에서 불러오세요.'
                     }
                   >
@@ -3461,7 +3471,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <p className="mt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-danger">삭제로 표시한 과제 {drafts.deleted!.length}건은 시트에서 그 줄을 지웁니다.</p>
             )}
           </div>
-          {/* 다음부터 묻지 않기: 파일 메뉴 › 업데이트 전에 묻기로 다시 켠다. 업데이트 때마다 시트를 새로 읽어 남이 바꾼 칸은 덮지 않는다 */}
+          {/* 다음부터 묻지 않기: 구글시트 메뉴 › 업데이트 전에 묻기로 다시 켠다. 업데이트 때마다 시트를 새로 읽어 남이 바꾼 칸은 덮지 않는다 */}
           {isOperatingSheet(data.spreadsheetId) && (
             <p className="mt-2 rounded-card bg-danger/[0.06] px-3 py-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-danger">
               연구소 모두가 쓰는 운영 시트입니다. 업데이트하면 바로 반영됩니다(바꾼 칸만 덮어씁니다).
@@ -3471,7 +3481,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <label className="mt-3 flex cursor-pointer items-center gap-2 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
               <input type="checkbox" checked={noAskNext} onChange={(e) => setNoAskNext(e.target.checked)} />
               다음부터 묻지 않고 바로 업데이트
-              <span className="text-label-3">(파일 메뉴에서 다시 켬)</span>
+              <span className="text-label-3">(구글시트 메뉴에서 다시 켬)</span>
             </label>
           )}
         </ConfirmDialog>

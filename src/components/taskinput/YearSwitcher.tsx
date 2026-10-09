@@ -3,7 +3,7 @@
 // 올해는 입력, 지난 연도는 보기 전용.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, Folder, Plus, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, Folder, Plus, Trash2 } from 'lucide-react'
 import Spinner from '../Spinner'
 import { ic, icSm } from '../ui/icon'
 
@@ -32,11 +32,9 @@ export default function YearSwitcher({
   onCreate,
   editableFrom,
   connectedTitle,
-  onConnect,
   footer,
   onDeleteLocal,
   onOpenMenu,
-  onHide,
 }: {
   title: string // 지금 보는 탭
   tabs: string[] // 같은 파일의 추진현황 탭들(최근 연도부터)
@@ -48,11 +46,9 @@ export default function YearSwitcher({
   onCreate?: () => void // + 새 연도 만들기
   editableFrom?: number // 이 연도부터는 입력 가능(지난 연도만 보기 전용)
   connectedTitle?: string // 구글시트와 연결된(입력하는) 연도 탭
-  onConnect?: (title: string) => void // 이 연도 탭을 연결(입력)하기 -- 관리자
   footer?: React.ReactNode // 메뉴 아래: 연결된 시트 열기 · 바꾸기 등
   onDeleteLocal?: (id: string) => void // 이 브라우저에서 만든 연도 지우기
   onOpenMenu?: () => void // 메뉴를 열 때(시트 탭 목록 다시 읽기)
-  onHide?: (title: string) => void // 목록에서 지우기(안 보이게만 · 구글시트 탭은 그대로)
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
@@ -64,7 +60,18 @@ export default function YearSwitcher({
   const all = [...localTabs.map((t) => ({ t, local: true })), ...tabs.filter((t) => !localTabs.includes(t)).map((t) => ({ t, local: false }))].sort(
     (a, b) => Number(b.t.match(/(20\d{2})/)?.[1] ?? 0) - Number(a.t.match(/(20\d{2})/)?.[1] ?? 0),
   )
-  const canPick = (all.length > 1 || !!onCreate) && !disabled
+  // 같은 연도의 탭(원본 · 엑셀 복사본)은 한 줄로 묶는다. 어느 탭을 입력할지는 「구글시트」 메뉴에서 고른다.
+  const yearKey = (t: string) => t.match(/(20\d{2})/)?.[1] ?? t
+  const rows: { key: string; label: string; tabs: string[]; local: boolean }[] = []
+  for (const { t, local } of all) {
+    const k = `${local ? 'L' : 'S'}${yearKey(t)}`
+    const hit = rows.find((r) => r.key === k)
+    if (hit) hit.tabs.push(t)
+    else rows.push({ key: k, label: yearLabel(t).replace(/ \(.*$/, ''), tabs: [t], local })
+  }
+  const repOf = (tabs: string[]) =>
+    tabs.includes(title) ? title : connectedTitle && tabs.includes(connectedTitle) ? connectedTitle : [...tabs].sort((a, b) => a.length - b.length)[0]
+  const canPick = (rows.length > 1 || !!onCreate) && !disabled
 
   useEffect(() => {
     if (!open) return
@@ -123,88 +130,58 @@ export default function YearSwitcher({
         createPortal(
           <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-max min-w-[300px] max-w-[440px] overflow-hidden py-1">
             <p className="px-3.5 pb-1 pt-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">실적관리 연도</p>
-            {all.map(({ t, local }) => {
-              const selected = t === title
+            {rows.map((r) => {
+              const rep = repOf(r.tabs)
+              const selected = r.tabs.includes(title)
+              const edit = connectedTitle !== undefined && !r.local && r.tabs.includes(connectedTitle)
               return (
                 <div
-                  key={`${local}-${t}`}
+                  key={r.key}
                   role="button"
                   tabIndex={0}
                   onClick={() => {
-                    if (!selected) onPick(t)
+                    if (!selected) onPick(rep)
                     setOpen(false)
                   }}
                   className={`mac-menu-item group/yr whitespace-nowrap ${selected ? 'font-semibold' : ''}`}
                 >
                   <Check {...icSm} className={`shrink-0 ${selected ? '' : 'invisible'}`} />
-                  <span className="min-w-0 truncate">{yearLabel(t)}</span>
-                  {local ? (
-                    <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-accent">
-                      이 브라우저
-                      {onDeleteLocal && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpen(false)
-                            onDeleteLocal(t)
-                          }}
-                          title="이 브라우저에서 만든 연도 지우기"
-                          aria-label={`${yearLabel(t)} 지우기`}
-                          className="flex h-5 w-5 items-center justify-center rounded text-label-3 hover:bg-danger/10 hover:text-danger"
-                        >
-                          <Trash2 size={13} strokeWidth={2} />
-                        </button>
-                      )}
-                    </span>
-                  ) : connectedTitle !== undefined ? (
-                    t === connectedTitle ? (
-                      <span className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-success">
-                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                        연결됨 · 편집
-                      </span>
-                    ) : (
-                      <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">
-                        보기 전용
-                        {onConnect && (
+                  <span className="min-w-0 truncate">{r.label}</span>
+                  <span className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap pl-3 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">
+                    {r.local ? (
+                      <>
+                        <span className="text-accent">이 브라우저</span>
+                        {onDeleteLocal && (
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
                               setOpen(false)
-                              onConnect(t)
+                              onDeleteLocal(rep)
                             }}
-                            title={`「${t}」 탭을 연결해 입력합니다(지금 입력하던 연도는 그대로 남아 다시 고를 수 있음)`}
-                            className="shrink-0 whitespace-nowrap rounded-full border border-accent/40 px-2 py-[1px] font-semibold text-accent hover:bg-accent hover:text-white"
+                            title="이 브라우저에서 만든 연도 지우기"
+                            aria-label={`${r.label} 지우기`}
+                            className="flex h-5 w-5 items-center justify-center rounded text-label-3 hover:bg-danger/10 hover:text-danger"
                           >
-                            연결하기
+                            <Trash2 size={13} strokeWidth={2} />
                           </button>
                         )}
-                        {onHide && !selected && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onHide(t)
-                            }}
-                            title="목록에서 지우기(구글시트 탭은 그대로)"
-                            aria-label={`${yearLabel(t)} 목록에서 지우기`}
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-danger/10 hover:text-danger"
-                          >
-                            <X size={13} strokeWidth={2} />
-                          </button>
-                        )}
+                      </>
+                    ) : edit ? (
+                      <span className="flex items-center gap-1 font-semibold text-success">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                        입력 중
                       </span>
-                    )
-                  ) : (
-                    t !== editableTitle && pastYear(t) && <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] text-label-3">보기 전용</span>
-                  )}
+                    ) : pastYear(rep) ? (
+                      '보기 전용'
+                    ) : null}
+                  </span>
                 </div>
               )
             })}
             {onCreate && (
               <>
-                {all.length > 0 && <div className="mac-menu-sep" />}
+                {rows.length > 0 && <div className="mac-menu-sep" />}
                 <button
                   type="button"
                   onClick={() => {
