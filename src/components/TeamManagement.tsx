@@ -8,7 +8,7 @@ import type { Level, MemberTableConfig, PeerReview, TeamMember } from '../types'
 import { LEVEL_OPTIONS } from '../types'
 import { calcMemberParticipation, GRADE_COLORS } from '../utils/calculations'
 import { calcServiceYearMonth, countFoundingAnniversaries, levelOrdinalOf, readFoundingDay, writeFoundingDay } from '../utils/tenure'
-import { unmatchedAssigneeSummary } from '../utils/workBoard'
+import { removeUnmatchedAssignees, unmatchedAssigneeSummary } from '../utils/workBoard'
 import { useStateHistory } from '../hooks/useStateHistory'
 import { normalizeDateText } from '../utils/sheetImport'
 import ConfirmDialog from './ConfirmDialog'
@@ -642,6 +642,12 @@ export default function TeamManagement() {
     setPickedUnmatched(new Set())
   }
 
+  function removeFromUnmatched(names: string[]) {
+    if (names.length === 0) return
+    dispatch({ type: 'SET_WORK_BOARD', payload: removeUnmatchedAssignees(state.workBoard, names) })
+    setPickedUnmatched(new Set())
+  }
+
   return (
     <div>
       {/* 한 줄 도구: 왼쪽 = 알림 칩(눌러서 펼침) · 오른쪽 = 표 도구와 버튼. 설명 글은 매뉴얼로 */}
@@ -772,30 +778,53 @@ export default function TeamManagement() {
         <div className="mt-3 rounded-card border border-dashed border-separator bg-subtle p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">우리 팀 사람만 골라 추가하세요 -- 과제관리 담당자와 자동으로 연결됩니다.</p>
-            <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
-              선택한 {pickedUnmatched.size}명 추가
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="secondary"
+                onClick={() => removeFromUnmatched(Array.from(pickedUnmatched))}
+                disabled={pickedUnmatched.size === 0}
+                size="sm"
+                title="팀원으로 넣지 않고 이 목록에서만 지웁니다(과제는 그대로)"
+              >
+                선택한 {pickedUnmatched.size}명 목록에서 지우기
+              </Button>
+              <Button variant="primary" onClick={() => addFromWork(Array.from(pickedUnmatched))} disabled={pickedUnmatched.size === 0} size="sm">
+                선택한 {pickedUnmatched.size}명 추가
+              </Button>
+            </div>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {unmatched.map((u) => {
               const on = pickedUnmatched.has(u.name)
               return (
-                <button
+                <span
                   key={u.name}
-                  onClick={() => {
-                    const next = new Set(pickedUnmatched)
-                    if (on) next.delete(u.name)
-                    else next.add(u.name)
-                    setPickedUnmatched(next)
-                  }}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
+                  className={`inline-flex items-center rounded-full border text-xs ${on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-separator bg-white text-label-2 hover:border-black/25'}`}
                 >
-                  {on && <Check {...icSm} />}
-                  {u.name}{' '}
-                  <span className="text-label-3">
-                    {u.team ? `${u.team} · ` : ''}L3 {u.count}
-                  </span>
-                </button>
+                  <button
+                    onClick={() => {
+                      const next = new Set(pickedUnmatched)
+                      if (on) next.delete(u.name)
+                      else next.add(u.name)
+                      setPickedUnmatched(next)
+                    }}
+                    className="inline-flex items-center gap-1 py-1 pl-2.5 pr-1"
+                  >
+                    {on && <Check {...icSm} />}
+                    {u.name}{' '}
+                    <span className="text-label-3">
+                      {u.team ? `${u.team} · ` : ''}L3 {u.count}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => removeFromUnmatched([u.name])}
+                    className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-label-3 hover:bg-black/[0.08] hover:text-label"
+                    title={`${u.name} 목록에서 지우기(팀원으로 넣지 않음)`}
+                    aria-label={`${u.name} 목록에서 지우기`}
+                  >
+                    <X {...icSm} />
+                  </button>
+                </span>
               )
             })}
           </div>

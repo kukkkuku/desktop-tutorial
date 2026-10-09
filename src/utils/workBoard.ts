@@ -372,6 +372,19 @@ export function rematchAssignees(board: WorkBoard, members: TeamMember[]): WorkB
   return changed ? { ...board, items } : board
 }
 
+// 「목록에 없는 담당자」에서 이름을 지운다 -- 과제의 미등록 담당자 이름만 빼고 과제는 그대로 둔다.
+// (시트를 다시 가져오면 시트에 이름이 남아 있는 한 다시 나타난다)
+export function removeUnmatchedAssignees(board: WorkBoard, names: string[]): WorkBoard {
+  const drop = new Set(names)
+  let changed = false
+  const items = board.items.map((i) => {
+    if (!i.unmatchedAssignees.some((n) => drop.has(n))) return i
+    changed = true
+    return { ...i, unmatchedAssignees: i.unmatchedAssignees.filter((n) => !drop.has(n)) }
+  })
+  return changed ? { ...board, items } : board
+}
+
 // 과제관리에 담당자로 나오지만 팀원 목록에 없는 이름(건수 많은 순).
 export function unmatchedAssigneeSummary(board: WorkBoard): { name: string; count: number; team: string | null }[] {
   const counts = new Map<string, { count: number; teams: Map<string, number> }>()
