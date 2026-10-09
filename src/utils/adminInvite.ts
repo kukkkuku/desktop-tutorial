@@ -269,23 +269,23 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   return `<!doctype html><html><body style="margin:0;padding:0;background:#EEF3FB">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEF3FB;padding:32px 12px;font-family:${font}">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border-radius:22px;overflow:hidden;background-color:#A99BFA;${bannerBg}">
-<tr><td style="padding:34px 36px 0;font-size:15px;font-weight:700;color:#FFFFFF">페이스 <span style="font-weight:400;color:rgba(255,255,255,0.8)">· 과제관리</span></td></tr>
-<tr><td style="padding:16px 36px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:44px;line-height:1.1;color:#FFFFFF;text-shadow:0 2px 14px rgba(70,60,180,0.35)">Invitation</td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border-radius:22px;overflow:hidden;background-color:#DCEBFB;${bannerBg}">
+<tr><td style="padding:34px 36px 0;font-size:15px;font-weight:700;color:#1E3A8A">페이스 <span style="font-weight:400;color:rgba(30,58,138,0.7)">· 과제관리</span></td></tr>
+<tr><td style="padding:16px 36px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:44px;line-height:1.1;color:#2563EB;text-shadow:0 2px 14px rgba(255,255,255,0.8)">Invitation</td></tr>
 <tr><td style="height:30px;font-size:0;line-height:0">&nbsp;</td></tr>
 <tr><td style="padding:0 16px 16px">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#C9C8FA;background-color:rgba(255,255,255,0.26);border:2px solid rgba(255,255,255,0.75);border-radius:18px;box-shadow:0 10px 30px rgba(60,50,170,0.25),inset 0 1px 0 rgba(255,255,255,0.8)">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#EAF2FD;background-color:rgba(255,255,255,0.5);border:2px solid rgba(255,255,255,0.75);border-radius:18px;box-shadow:0 10px 30px rgba(37,99,235,0.18),inset 0 1px 0 rgba(255,255,255,0.8)">
   <tr><td style="padding:10px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.55);border-radius:12px">
-    <tr><td style="padding:34px 28px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#5560C8">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
-    <tr><td style="padding:14px 28px 0;font-size:26px;line-height:1.5;font-weight:300;color:#1F2350;letter-spacing:-.02em"><b style="color:#4338CA;font-weight:700">페이스</b>에 초대합니다</td></tr>
-    <tr><td style="padding:18px 28px 0;font-size:15px;line-height:2;color:#3B4170"><div id="invite-msg">${msg}</div></td></tr>
-    <tr><td align="center" style="padding:30px 28px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#3730A3;word-break:break-all">“ ${escHtml(r.email)} ”</div></td></tr>
+    <tr><td style="padding:34px 28px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#3B6FD8">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
+    <tr><td style="padding:14px 28px 0;font-size:26px;line-height:1.5;font-weight:300;color:#14284F;letter-spacing:-.02em"><b style="color:#1D4ED8;font-weight:700">페이스</b>에 초대합니다</td></tr>
+    <tr><td style="padding:18px 28px 0;font-size:15px;line-height:2;color:#334E7A"><div id="invite-msg">${msg}</div></td></tr>
+    <tr><td align="center" style="padding:30px 28px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#1E40AF;word-break:break-all">“ ${escHtml(r.email)} ”</div></td></tr>
     <tr><td style="padding:20px 28px 0">
       <a href="${escHtml(appUrl)}" style="display:block;padding:17px 0;border-radius:8px;background:#2563EB;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
     </td></tr>
-    <tr><td style="padding:28px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.8);border-radius:8px"><tr><td style="padding:18px 20px;font-size:14px;line-height:1.9;color:#2B2F78">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="font-size:15px;color:#3730A3">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b><br><span style="font-size:12.5px;color:#5560C8">처음 한 번만 나오는 화면이에요.</span></td></tr></table></td></tr>
-    ${contact ? `<tr><td style="padding:24px 28px 0;font-size:12.5px;color:#4B5099">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#4B5099;text-decoration:underline">문의하기</a></td></tr>` : ''}
+    <tr><td style="padding:28px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.8);border-radius:8px"><tr><td style="padding:18px 20px;font-size:14px;line-height:1.9;color:#1E3A6E">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="font-size:15px;color:#1E40AF">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b><br><span style="font-size:12.5px;color:#3B6FD8">처음 한 번만 나오는 화면이에요.</span></td></tr></table></td></tr>
+    ${contact ? `<tr><td style="padding:24px 28px 0;font-size:12.5px;color:#3B5A8F">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#3B5A8F;text-decoration:underline">문의하기</a></td></tr>` : ''}
     <tr><td style="height:34px;font-size:0;line-height:0">&nbsp;</td></tr>
     </table>
   </td></tr>
