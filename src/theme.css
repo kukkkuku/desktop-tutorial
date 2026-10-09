@@ -232,10 +232,10 @@ html[data-theme='figma'] {
   --r-control: 11px;
   --r-card: 12px;
   --r-pop: 12px;
-  --r-panel: 16px;
+  --r-panel: 12px;
   --r-dialog: 14px;
   --r-btn: 10px;
-  --r-nav: 10px;
+  --r-nav: 14px;
   --r-group: 14px;
   --r-group-body: 10px;
 
@@ -246,7 +246,7 @@ html[data-theme='figma'] {
   --sh-dialog: 0 0 0 1px rgba(60, 80, 120, 0.08), 0 24px 64px -16px rgba(36, 55, 83, 0.35);
 
   --body-bg: #edf0f4;
-  --panel-bg: #edf0f4;
+  --panel-bg: #f7f7f9;
   --panel-border: #ffffff;
   --panel-shadow: none;
 
@@ -256,13 +256,20 @@ html[data-theme='figma'] {
   --btn-primary-shadow: 0 1px 2px rgba(41, 90, 200, 0.3);
 
   --nav-on-bg: #ffffff;
-  --nav-on-fg: rgb(var(--c-label));
-  --nav-on-shadow: var(--sh-pill);
-  --nav-on-icon: rgb(var(--c-accent));
+  --nav-on-fg: #242427;
+  --nav-on-shadow: 0 3px 7px rgba(0, 0, 0, 0.05);
+  --nav-on-icon: #242427;
 
   --seg-track: #e3e7ee;
   --group-bg: rgb(var(--c-subtle));
   --group-shadow: 0 0 0 1px rgba(60, 80, 120, 0.08);
+
+  --nav-h: 38px;
+  --nav-fs: 13px;
+  --nav-fg: #72727e;
+  --nav-bg: #eeeef1;
+  --nav-label-fs: 11px;
+  --nav-label-fg: #a4a4b2;
 
   --tabbar-bg: #d9dde4;
   --tab-on-bg: #f6f7f9;

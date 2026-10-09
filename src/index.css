@@ -256,7 +256,11 @@ body {
   }
   /* 사이드바 항목 */
   .ds-nav-item {
-    @apply flex h-9 w-full items-center gap-2.5 px-3 text-left text-[length:calc(14.5px*var(--ui-fs,1))] text-label-2 transition-colors hover:bg-black/[0.04] hover:text-label;
+    @apply flex w-full items-center gap-2.5 px-3 text-left transition-colors hover:bg-black/[0.04] hover:text-label;
+    height: var(--nav-h, 2.25rem);
+    font-size: calc(var(--nav-fs, 14.5px) * var(--ui-fs, 1));
+    color: var(--nav-fg, rgb(var(--c-label-2)));
+    background: var(--nav-bg, transparent);
     border-radius: var(--r-nav);
   }
   .ds-nav-item-on {
@@ -273,7 +277,9 @@ body {
     color: var(--nav-on-icon);
   }
   .ds-nav-label {
-    @apply px-2.5 pb-1 pt-4 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3;
+    @apply px-2.5 pb-1 pt-4 font-medium;
+    font-size: calc(var(--nav-label-fs, 13px) * var(--ui-fs, 1));
+    color: var(--nav-label-fg, rgb(var(--c-label-3)));
   }
   /* 까만 말풍선(툴팁) */
   .ds-tip {
