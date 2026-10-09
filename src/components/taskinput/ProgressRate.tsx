@@ -355,13 +355,13 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
       </ConfirmDialog>
 
       {/* 탭: 합산 · 실별 */}
-      <div className="mt-4 flex items-end gap-1 shadow-[inset_0_-1px_0_#E3E3E8]">
+      <div className="mt-4 flex w-fit items-center gap-0.5 rounded-[10px] bg-black/[0.04] p-1">
         {tables.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`rounded-t-[10px] border px-4 py-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
-              cur.key === t.key ? 'border-separator border-b-white bg-white text-label' : 'border-transparent text-label-2 hover:bg-black/[0.04]'
+            className={`h-7 rounded-[8px] px-4 text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+              cur.key === t.key ? 'l1-tab-on font-semibold text-label' : 'font-medium text-label-2 hover:bg-black/[0.06] hover:text-label'
             }`}
           >
             {t.title}

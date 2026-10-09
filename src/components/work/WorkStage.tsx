@@ -1019,9 +1019,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   return (
     <div className="space-y-3">
       {/* L2 탭 + 오른쪽 끝 시트 연결. 아래 선은 inset 그림자라 활성 탭(흰 배경)이 덮는다. */}
-      <div className="flex items-end shadow-[inset_0_-1px_0_#E3E3E8]">
+      <div className="flex items-center rounded-[10px] bg-black/[0.04] px-1">
       {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
-      <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
+      <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden py-1">
         {board.groups.map((g, idx) => {
           const on = !evalOnly && g.id === activeGroup?.id
           const count = itemsOfGroup(board, g.id).length
@@ -1054,14 +1054,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative flex min-w-[44px] max-w-[280px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-t-[9px] border py-2 text-sm transition-colors ${
-                tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
+              className={`group relative flex h-7 min-w-[44px] max-w-[280px] cursor-pointer select-none items-center rounded-[8px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-3'
               } ${
                 on
-                  ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
-                  : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
+                  ? 'l1-tab-on flex-none font-semibold text-label'
+                  : `flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${!evalOnly && board.groups[idx + 1]?.id === activeGroup?.id ? '' : 'l1-tab-sep'}`
               } ${dragTab?.over === idx && dragTab.id !== g.id ? 'shadow-[inset_3px_0_0_#F97316]' : ''} ${
-                rowDropTab === g.id ? '!border-orange-400 !bg-orange-50 ring-2 ring-orange-300' : ''
+                rowDropTab === g.id ? '!bg-orange-50 ring-2 ring-orange-300' : ''
               }`}
               title={[g.h, g.l1, g.name].filter(Boolean).join(' › ')}
             >
@@ -1110,13 +1110,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <button
           onClick={handleAddGroup}
           title="그룹(L2) 추가"
-          className="shrink-0 rounded-t-[9px] px-3 py-2 text-sm font-semibold text-label-3 hover:bg-black/[0.05] hover:text-label"
+          className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-label-3 hover:bg-black/[0.06] hover:text-label"
+          aria-label="그룹 추가"
         >
-          <span className="flex items-center gap-1"><Plus {...icSm} />그룹 추가</span>
+          <Plus {...icSm} />
         </button>
       </div>
       {/* 가져오기(예전 빠른 시작의 가져오기 탭들): 추진현황에서 · 구글시트 · 엑셀(관리자) */}
-      <div className="shrink-0 pb-1.5 pl-2">
+      <div className="shrink-0 pl-2">
         <PopMenu label={<span className="flex items-center gap-1"><Download {...icSm} />가져오기</span>} title="과제 가져오기 -- 추진현황 · 구글시트 · 엑셀에서 그룹(L2)을 골라">
           <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">과제 가져오기</p>
           <button onClick={() => onOpenSheetImport(undefined, 'progress')} className="mac-menu-item">

@@ -50,13 +50,13 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
   }
 
   return (
-    <div className="flex items-end gap-2 shadow-[inset_0_-1px_0_#E3E3E8]">
+    <div className="flex items-center gap-2 rounded-[10px] bg-black/[0.04] px-1">
       {/* 팀원 탭: 기본 180px, 팀원이 많거나 화면이 좁으면 브라우저 탭처럼 함께 줄어들고 이름은 … 처리 */}
-      <div className="flex min-w-0 flex-1 items-end gap-1 pt-1">
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 py-1">
         {activeMembers.length === 0 ? (
           <p className="px-2 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">등록된 팀원이 없습니다.</p>
         ) : (
-          activeMembers.map((member) => {
+          activeMembers.map((member, mi) => {
             const isSelected = selectedMemberId === member.id
             const grade = currentGrade(member.id)
             const eligible = isPromotionEligible(member)
@@ -65,10 +65,10 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
                 title={member.name}
-                className={`flex min-w-[48px] max-w-[180px] flex-[0_1_180px] select-none items-center gap-1.5 overflow-hidden rounded-t-[9px] border px-3 py-2 text-left text-sm transition-colors ${
+                className={`flex h-7 min-w-[48px] max-w-[180px] select-none items-center gap-1.5 rounded-[8px] px-3 text-left text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                   isSelected
-                    ? 'border-[#E3E3E8] border-b-white bg-white font-semibold text-label'
-                    : 'border-transparent bg-black/[0.04] font-medium text-label-2 hover:bg-black/[0.07] hover:text-label'
+                    ? 'l1-tab-on flex-none font-semibold text-label'
+                    : `relative flex-[0_1_180px] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
                 }`}
               >
                 <span className={`flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-[4px] px-1 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${grade ? GRADE_COLORS[grade] : 'bg-black/[0.08] text-label-3'}`}>
@@ -85,7 +85,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
           })
         )}
       </div>
-      <div className="mb-1.5 flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2 py-0.5">
         <Button variant="ghost" size="sm" onClick={onManageTeam}>
           팀원 관리
         </Button>
