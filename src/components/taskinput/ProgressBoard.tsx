@@ -70,6 +70,7 @@ import {
   writeSheetCells,
   appendRows,
   createSheetTab,
+  replaceSheetTab,
   parseFmt,
   fmtString,
   type CellFmt,
@@ -910,27 +911,64 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       const { tabs } = await fetchSpreadsheetTabs(link.spreadsheetId)
       const taken = (t: string) => tabs.some((x) => x.title.replace(/\s/g, '') === t.replace(/\s/g, ''))
       // 엑셀에서 올릴 때 같은 이름 탭이 이미 있으면 덮어쓰지 않고 「… (엑셀 10.03)」 탭으로 따로 만든다
+      // 이전에 엑셀로 올린 탭(「… (엑셀 10.09)」 · 「… (엑셀 10.09) 2」)이 있으면 새로 만들지 않고 가장 최근 것을 이번 내용으로 갱신한다.
+      // 팀이 쓰는 원래 탭은 건드리지 않는다.
       let tabTitle = d.tabTitle
+      let updateExisting = false
       if (fromXlsx && taken(tabTitle)) {
-        const t = new Date()
-        const base = `${d.tabTitle} (엑셀 ${t.getMonth() + 1}.${String(t.getDate()).padStart(2, '0')})`
-        tabTitle = base
-        for (let i = 2; taken(tabTitle); i++) tabTitle = `${base} ${i}`
+        const esc = d.tabTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const re = new RegExp(`^${esc}\\s*\\(엑셀 (\\d+)\\.(\\d+)\\)(?:\\s+(\\d+))?$`)
+        const prev = tabs
+          .map((x) => ({ title: x.title, m: re.exec(x.title.trim()) }))
+          .filter((x): x is { title: string; m: RegExpExecArray } => !!x.m)
+          .map((x) => ({ title: x.title, k: Number(x.m[1]) * 10000 + Number(x.m[2]) * 100 + Number(x.m[3] ?? 1) }))
+          .sort((a, b) => a.k - b.k)
+        if (prev.length) {
+          tabTitle = prev[prev.length - 1].title
+          updateExisting = true
+        } else {
+          const t = new Date()
+          tabTitle = `${d.tabTitle} (엑셀 ${t.getMonth() + 1}.${String(t.getDate()).padStart(2, '0')})`
+        }
       }
-      if (taken(tabTitle))
+      // 올라가지 않는 줄 · 기존 탭 갱신은 올리기 전에 알리고 확인받는다
+      const sk = d.skipped
+      const skippedMsg = sk && (sk.blank || sk.stray.length)
+        ? `엑셀의 ${[sk.blank ? `빈 줄 ${sk.blank}개` : '', sk.stray.length ? `과제 이름이 없고 값만 있는 줄 ${sk.stray.length}개(${sk.stray.slice(0, 6).join(' · ')}${sk.stray.length > 6 ? ' …' : ''}행)` : ''].filter(Boolean).join(', ')}은 올라가지 않습니다.`
+        : ''
+      if (
+        (updateExisting || skippedMsg) &&
+        !(await askConfirm({
+          title: updateExisting ? `「${tabTitle}」 탭 갱신` : '구글시트로 올리기',
+          message: [
+            updateExisting ? `이미 엑셀로 올린 「${tabTitle}」 탭을 이번 엑셀 내용으로 갱신합니다.\n그 탭의 기존 내용(거기서 고친 것 포함)은 바뀌고, 원래 「${d.tabTitle}」 탭은 그대로입니다.` : '',
+            skippedMsg,
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
+          confirmLabel: updateExisting ? '갱신하기' : '올리기',
+          tone: 'accent',
+        }))
+      )
+        return
+      if (!updateExisting && taken(tabTitle))
         throw new Error(`연결된 시트에 이미 「${d.tabTitle}」 탭이 있습니다. 시트에서 탭 이름을 바꾸거나 지운 뒤 다시 해 주세요.`)
       const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order)
       const ws = wb.worksheets[0]
       const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
-      await createSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
-        worksheetRequests(ws, id),
-      )
+      if (updateExisting) await replaceSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => worksheetRequests(ws, id))
+      else
+        await createSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
+          worksheetRequests(ws, id),
+        )
       const fresh = await readFromSheet(link.spreadsheetId, d.year ?? now.getFullYear(), tabTitle)
       // 시트 연도가 됐으니 이 브라우저 연도와 예전에 내려 둔 시트 연도는 정리한다
       const rest = Object.fromEntries(Object.entries(shelfRef.current).filter(([, x]) => x.data.local))
       activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
       setMessage(
-        fromXlsx && tabTitle !== d.tabTitle
+        fromXlsx && updateExisting
+          ? `엑셀 내용으로 「${tabTitle}」 탭을 갱신했습니다. 이 탭과 연결됩니다(원래 「${d.tabTitle}」 탭은 그대로).`
+          : fromXlsx && tabTitle !== d.tabTitle
           ? `시트에 이미 「${d.tabTitle}」 탭이 있어 엑셀 내용을 「${tabTitle}」 탭으로 올렸습니다. 이제 이 탭과 연결됩니다(원래 탭은 그대로).`
           : `구글시트에 「${tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`,
       )

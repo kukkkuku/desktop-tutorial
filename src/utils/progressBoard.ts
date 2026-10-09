@@ -68,6 +68,8 @@ export interface HeaderStyle {
 }
 
 export interface ProgressData {
+  // 엑셀 · 시트를 읽을 때 표로 옮기지 않은 줄: blank = 값이 하나도 없는 빈 줄 수, stray = 값은 있는데 과제 이름(L3)이 없는 줄의 시트 행 번호(1부터)
+  skipped?: { blank: number; stray: number[] }
   spreadsheetId: string | null
   source: string // 탭 이름 또는 파일 이름
   fileTitle?: string // 구글시트 파일 이름

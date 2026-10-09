@@ -15,8 +15,19 @@ export function sheetToData(parsed: ParsedSheet, raw: RawSheet, meta: Meta): Pro
   const { hCol, l1Col, l2Col } = parsed.header
   const levelCols: ProgressData['levelCols'] = { l2: l2Col, ...(l1Col !== null ? { l1: l1Col } : {}), ...(hCol !== null ? { h: hCol } : {}) }
   const lc = Object.values(levelCols)
+  // 표로 옮기지 않은 줄(빈 줄 · 이름 없는 값 줄)을 세어 둔다 -- 구글시트로 올리기 전에 알리려고
+  const used = new Set(parsed.rows.map((r) => r.row))
+  let blank = 0
+  const stray: number[] = []
+  for (let r = parsed.header.dataStartRow; r < raw.rows.length; r++) {
+    if (used.has(r)) continue
+    const has = (raw.rows[r] ?? []).some((c) => c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
+    if (has) stray.push(r + 1)
+    else blank++
+  }
   return {
     ...meta,
+    ...(blank || stray.length ? { skipped: { blank, stray } } : {}),
     year: Number(meta.tabTitle.match(/(20\d{2})/)?.[1]) || null,
     fetchedAt: new Date().toISOString(),
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),
