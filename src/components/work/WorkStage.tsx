@@ -39,20 +39,16 @@ import {
 } from '../../utils/workBoard'
 import { evalUnits, unitGrade, unitKeyOf } from '../../utils/evalReconcile'
 import { v4 as uuidv4 } from 'uuid'
-import { fetchSheetTab, fetchSpreadsheetTabs, sheetUrl } from '../../utils/sheetSources'
-import { applySheetImport, columnMapFromNames, fillMerges, filterRows, parseHeader, parseRows, yearFromTitle } from '../../utils/sheetImport'
-import SheetLinkChip from '../SheetLinkChip'
 import SheetsIcon from '../SheetsIcon'
 import PopMenu from '../ui/PopMenu'
 import { GoalCell, GradeCell, PeriodCell } from './EvalCells'
 import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
-import { SHEET_ADMIN_ONLY, useCanManageSheets } from '../../hooks/useSheetManager'
+import { useCanManageSheets } from '../../hooks/useSheetManager'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { useAccessData } from '../../hooks/useAccessData'
 import type { AccessUser } from '../../utils/accessSheet'
 import { effectiveTeam, sameTeam } from '../../utils/memberTeam'
-import { withGoogleAccount } from '../../utils/googleDrive'
 import { ChartGantt, ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, Upload, X } from 'lucide-react'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
@@ -66,16 +62,6 @@ interface WorkStageProps {
   onOpenSheetImport: (url?: string, source?: 'sheet' | 'progress' | 'xlsx') => void
 }
 
-function timeAgo(iso: string | undefined): string {
-  if (!iso) return ''
-  const diff = Date.now() - new Date(iso).getTime()
-  const min = Math.round(diff / 60000)
-  if (min < 1) return '방금'
-  if (min < 60) return `${min}분 전`
-  const h = Math.round(min / 60)
-  if (h < 24) return `${h}시간 전`
-  return `${Math.round(h / 24)}일 전`
-}
 
 // 과제관리 표에만 있는 가상 열(보드 열이 아님): 성과등급 · 시작일/완료일(두 줄) · 목표/성과(두 줄)
 const V_GRADE = '__grade'
@@ -159,31 +145,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // 새로고침: 지난번 가져오기 설정(탭·열 매칭·고른 L2) 그대로 시트를 다시 읽어 합친다.
-  // 엑셀로 가져온 경우나 읽다 막히면 가져오기 화면을 연다.
-  const [reloading, setReloading] = useState(false)
-  async function reloadFromSheet() {
-    const link = board.sheetLink
-    if (!link?.spreadsheetId) {
-      onOpenSheetImport()
-      return
-    }
-    setReloading(true)
-    try {
-      const [info, raw] = await Promise.all([fetchSpreadsheetTabs(link.spreadsheetId), fetchSheetTab(link.spreadsheetId, link.tabName)])
-      const filled = fillMerges(raw.rows, raw.merges)
-      const header = parseHeader(filled)
-      if (!header) throw new Error('헤더를 찾지 못했습니다')
-      const rows = filterRows(parseRows(filled, header, columnMapFromNames(header, link.columnMap)), link.selectedGroups, link.teamFilter)
-      const res = applySheetImport(board, rows, header, state.members, { ...link, fileTitle: info.title, lastFetchedAt: new Date().toISOString() }, yearFromTitle(raw.title) ?? currentWorkspace?.evaluationYear ?? null)
-      dispatch({ type: 'SET_WORK_BOARD', payload: res.board })
-      showToast(`시트에서 다시 불러왔습니다 · 추가 ${res.added} · 갱신 ${res.updated}${res.missing ? ` · 시트에 없음 ${res.missing}` : ''}`)
-    } catch {
-      onOpenSheetImport()
-    } finally {
-      setReloading(false)
-    }
-  }
 
   function showToast(text: string, withUndo = false) {
     setToast({ text, undo: withUndo })
@@ -1137,21 +1098,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           )}
         </PopMenu>
       </div>
-      {board.sheetLink && (
-        <div className="pb-1.5 pl-3">
-          <SheetLinkChip
-            label={linkFileTitle || board.sheetLink.tabName}
-            sub={linkFileTitle ? board.sheetLink.tabName : undefined}
-            meta={<span className="whitespace-nowrap rounded-full bg-black/[0.05] px-2 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] text-label-2">{timeAgo(board.sheetLink.lastFetchedAt)}</span>}
-            currentUrl={board.sheetLink.spreadsheetId ? sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid) : null}
-            openUrl={board.sheetLink.spreadsheetId ? withGoogleAccount(sheetUrl(board.sheetLink.spreadsheetId, board.sheetLink.gid)) : null}
-            note={!canManageSheets ? SHEET_ADMIN_ONLY : board.sheetLink.spreadsheetId ? '다른 시트 링크를 넣고 연결하면 가져오기 화면에서 그 시트를 바로 읽습니다.' : '엑셀 파일에서 가져왔습니다. 구글시트 링크를 넣으면 시트와 연결합니다.'}
-            onConnect={canManageSheets ? (url) => onOpenSheetImport(url) : undefined}
-            onReload={() => void reloadFromSheet()}
-            reloading={reloading}
-          />
-        </div>
-      )}
       </div>
 
       {activeGroup && (
