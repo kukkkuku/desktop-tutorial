@@ -22,7 +22,7 @@ import PeerLine from './PeerLine'
 import Button from './Button'
 import { Trophy } from 'lucide-react'
 import { icSm, TableSwap } from './ui/icon'
-import { tasksOutOfSync } from '../utils/assigneeSync'
+import { outOfSyncDetails } from '../utils/assigneeSync'
 import Select from './ui/Select'
 import ScrollX from './ui/ScrollX'
 
@@ -61,28 +61,80 @@ function ResizeHandle({
   )
 }
 
+// 「이대로 두기」로 넘긴 알림 -- 담당자나 기여도가 다시 바뀌면(sig가 달라지면) 다시 뜬다
+const DISMISS_KEY = 'out-of-sync-dismissed'
+function loadDismissed(): Set<string> {
+  try {
+    return new Set<string>(JSON.parse(localStorage.getItem(DISMISS_KEY) ?? '[]'))
+  } catch {
+    return new Set()
+  }
+}
+
 // 과제리스트 담당자와 참여자(기여도 > 0)가 다른 평가과제 알림 -- 과제별 · 팀원별 보기 둘 다 위에 띄운다
 export function OutOfSyncBanner() {
   const { state, dispatch } = useAppState()
-  const outOfSync = useMemo(() => tasksOutOfSync(state), [state])
-  if (outOfSync.length === 0) return null
+  const [dismissed, setDismissed] = useState<Set<string>>(loadDismissed)
+  const [open, setOpen] = useState(false)
+  const all = useMemo(() => outOfSyncDetails(state), [state])
+  const list = all.filter((d) => !dismissed.has(d.sig))
+  if (list.length === 0) return null
+
+  function dismiss(sigs: string[]) {
+    const next = new Set([...dismissed, ...sigs])
+    setDismissed(next)
+    try {
+      localStorage.setItem(DISMISS_KEY, JSON.stringify([...next].slice(-300)))
+    } catch {
+      /* 저장 실패는 무시 */
+    }
+  }
+
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-orange-800">
-      <span>
-        과제리스트의 담당자와 기여도(참여자)가 다른 평가과제가 <b>{outOfSync.length}개</b> 있습니다
-        <span className="text-orange-700/80">
-          {' '}
-          ·{' '}
-          {outOfSync
-            .slice(0, 3)
-            .map((t) => t.name)
-            .join(', ')}
-          {outOfSync.length > 3 ? ` 외 ${outOfSync.length - 3}개` : ''}
+    <div className="mt-3 rounded-[10px] bg-orange-50 px-4 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-orange-800">
+      <div className="flex flex-wrap items-center gap-3">
+        <span>
+          과제리스트의 담당자와 기여도를 입력한 사람이 다른 평가과제가 <b>{list.length}개</b> 있습니다
         </span>
-      </span>
-      <Button type="button" size="sm" variant="secondary" className="ml-auto" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' })}>
-        담당자대로 맞추기
-      </Button>
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="underline underline-offset-2 hover:text-orange-900">
+          {open ? '접기' : '누가 다른지 보기'}
+        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button type="button" size="sm" variant="secondary" onClick={() => dismiss(list.map((d) => d.sig))} title="지금 기여도를 그대로 쓰고 이 알림을 닫습니다(담당자나 기여도가 또 바뀌면 다시 알려 줍니다)">
+            모두 이대로 두기
+          </Button>
+          <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: list.map((d) => d.task.id) } })}>
+            모두 담당자대로 맞추기
+          </Button>
+        </div>
+      </div>
+      {open && (
+        <ul className="mt-2 space-y-2">
+          {list.map((d) => (
+            <li key={d.task.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control bg-white/70 px-3 py-2 text-label">
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium" title={d.task.name}>
+                  {d.task.name}
+                </div>
+                <div className="text-xs text-label-2">
+                  과제리스트 담당자: {d.assignees.join(', ') || '없음'} · 기여도 입력: {d.participants.join(', ') || '없음'}
+                </div>
+                <div className="text-xs text-orange-800">
+                  {d.missing.length > 0 && <span>담당자인데 기여도 0: <b>{d.missing.join(', ')}</b></span>}
+                  {d.missing.length > 0 && d.extra.length > 0 && ' · '}
+                  {d.extra.length > 0 && <span>담당자가 아닌데 기여도 있음: <b>{d.extra.join(', ')}</b></span>}
+                </div>
+              </div>
+              <Button type="button" size="sm" variant="secondary" onClick={() => dismiss([d.sig])} title="이 과제는 지금 기여도를 그대로 둡니다">
+                이대로 두기
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => dispatch({ type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES', payload: { taskIds: [d.task.id] } })}>
+                담당자대로 맞추기
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

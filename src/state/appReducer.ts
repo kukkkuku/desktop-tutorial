@@ -25,7 +25,7 @@ export type AppAction =
   | { type: 'LOAD_STATE'; payload: AppState }
   // 과제관리(L2/L3) 보드는 통째로 교체한다 -- 되돌리기가 스냅샷 방식이라서(utils/workBoard.ts).
   | { type: 'SET_WORK_BOARD'; payload: WorkBoard }
-  | { type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES' }
+  | { type: 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES'; payload?: { taskIds?: string[] } }
   // 한 평가자의 한 방식 순위 리뷰를 통째로 바꾼다(다시 올리거나 다시 입력하면 덮어씀).
   | { type: 'SET_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode; reviews: RankReview[] } }
   | { type: 'DELETE_RANK_REVIEWS'; payload: { reviewerMemberId: string; mode: RankReviewMode } }
@@ -229,7 +229,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       })
 
     case 'SYNC_CONTRIBUTIONS_TO_ASSIGNEES':
-      return { ...state, contributions: syncContributionsToAssignees(state, state.workBoard.items) }
+      return { ...state, contributions: syncContributionsToAssignees(state, state.workBoard.items, undefined, action.payload?.taskIds) }
 
     case 'SET_RANK_REVIEWS': {
       const { reviewerMemberId, mode, reviews } = action.payload

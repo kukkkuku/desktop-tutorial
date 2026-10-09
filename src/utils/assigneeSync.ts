@@ -65,11 +65,13 @@ export function syncContributionsToAssignees(
   state: Pick<AppState, 'tasks' | 'members' | 'contributions'>,
   items: WorkItem[],
   prevItems?: WorkItem[],
+  onlyTaskIds?: string[], // 주면 이 과제들만 맞춘다
 ): Contribution[] {
   const activeIds = new Set(state.members.filter((m) => m.active).map((m) => m.id))
   let contributions = state.contributions
   for (const task of state.tasks) {
     if (!task.workItemIds?.length) continue
+    if (onlyTaskIds && !onlyTaskIds.includes(task.id)) continue
     const want = assigneesOf(task, items, activeIds)
     if (prevItems && sameSet(assigneesOf(task, prevItems, activeIds), want)) continue
     contributions = syncTask(task, want, contributions, activeIds)
@@ -84,5 +86,35 @@ export function tasksOutOfSync(state: Pick<AppState, 'tasks' | 'members' | 'cont
     if (!t.workItemIds?.length) return false
     const want = assigneesOf(t, state.workBoard.items, activeIds)
     return want.length > 0 && !sameSet(participantsOf(t.id, state.contributions), want)
+  })
+}
+
+// 어느 과제가 누구 때문에 다른지 -- 알림에 이름으로 보여 준다.
+//   missing = 과제리스트 담당자인데 기여도가 0, extra = 기여도는 있는데 담당자가 아님
+//   sig = 「이대로 두기」를 기억하는 표시(담당자나 기여도가 다시 바뀌면 달라져서 알림이 다시 뜬다)
+export interface OutOfSyncDetail {
+  task: Task
+  assignees: string[]
+  participants: string[]
+  missing: string[]
+  extra: string[]
+  sig: string
+}
+
+export function outOfSyncDetails(state: Pick<AppState, 'tasks' | 'members' | 'contributions' | 'workBoard'>): OutOfSyncDetail[] {
+  const nameOf = new Map(state.members.map((m) => [m.id, m.name]))
+  const activeIds = new Set(state.members.filter((m) => m.active).map((m) => m.id))
+  const names = (ids: string[]) => ids.map((id) => nameOf.get(id) ?? '(알 수 없음)')
+  return tasksOutOfSync(state).map((task) => {
+    const want = assigneesOf(task, state.workBoard.items, activeIds)
+    const have = participantsOf(task.id, state.contributions)
+    return {
+      task,
+      assignees: names(want),
+      participants: names(have),
+      missing: names(want.filter((id) => !have.includes(id))),
+      extra: names(have.filter((id) => !want.includes(id))),
+      sig: `${task.id}|${[...want].sort().join(',')}|${[...have].sort().join(',')}`,
+    }
   })
 }
