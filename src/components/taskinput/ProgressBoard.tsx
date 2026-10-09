@@ -11,6 +11,7 @@ import { fillHex, setFillHex } from '../../utils/fillColors'
 import type { WeekFill } from '../../utils/sheetImport'
 import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
+import { useHeadFold } from '../shell/AppShell'
 import { setAppYear, useAppYear } from '../../utils/appYear'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
 import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
@@ -2242,6 +2243,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   )
   // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
   // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
+  const headFold = useHeadFold()
   const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
   useEffect(() => {
     const root = document.documentElement
@@ -2498,6 +2500,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
         </div>
       </div>
+      {/* 구글시트 보기가 아닌 보기: 위 머리 줄 접기(다시 펴려면 맨 위 가운데 손잡이) */}
+      {!(boardView === 'sheet' && data.spreadsheetId) && (
+        <button
+          onClick={headFold.toggleFold}
+          title={headFold.folded ? '위쪽 펴기' : '위쪽 접기 · 화면을 넓게(다시 펴려면 맨 위 가운데 손잡이)'}
+          aria-label={headFold.folded ? '위쪽 펴기' : '위쪽 접기'}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
+        >
+          {headFold.folded ? <ChevronDown {...icSm} /> : <ChevronUp {...icSm} />}
+        </button>
+      )}
       {boardView === 'sheet' && data.spreadsheetId && (
         <>
           <span className="h-5 w-px shrink-0 bg-separator" />

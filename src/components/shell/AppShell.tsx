@@ -3,7 +3,7 @@
 // 메뉴 모양 3단계(머리 맨 앞 버튼으로 차례로): 펼침 → 아이콘만(좁은 사이드바) → 위 메뉴(사이드바 없이 머리 한 줄에).
 // 고른 모양은 이 브라우저에 기억한다.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronUp, PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
 import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
 
 // 메뉴 모양: open(펼침) · rail(아이콘만) · top(위 메뉴) · hidden(사이드바 숨김). 사이드바 경계를 끌면 폭 조절, 누르거나 ⌘B면 숨김/펼침
@@ -137,6 +137,12 @@ export default function AppShell({ perf, header, children }: { perf?: SidebarPer
   )
 }
 
+// 위 머리 줄 접기 · 펴기(화면 안의 「위쪽 접기」 버튼이 쓴다)
+export function useHeadFold() {
+  const ctx = useContext(ShellCtx)
+  return { folded: ctx?.folded ?? false, toggleFold: ctx?.toggleFold ?? (() => {}) }
+}
+
 // 메뉴 모양 버튼(머리 맨 앞, 언제나 같은 자리): 누를 때마다 펼침 → 아이콘만 → 위 메뉴 → 펼침
 function LayoutToggle() {
   const ctx = useContext(ShellCtx)
@@ -153,14 +159,6 @@ function LayoutToggle() {
         className="-ml-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-2 hover:bg-black/[0.05] hover:text-label"
       >
         <Icon size={17} strokeWidth={1.8} />
-      </button>
-      <button
-        onClick={ctx.toggleFold}
-        title="위쪽 접기(맨 위 가운데 손잡이로 다시 펴기)"
-        aria-label="위쪽 접기"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-label-3 hover:bg-black/[0.05] hover:text-label"
-      >
-        <ChevronUp size={16} strokeWidth={1.9} />
       </button>
     </>
   )
