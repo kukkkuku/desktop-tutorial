@@ -228,7 +228,7 @@ export default function EvaluationMatrix() {
   }
 
   // 분류 · 성과등급: 과제관리에서 못 넣었으면 여기서 바로 고친다
-  function taskMeta(task: (typeof tasks)[number]) {
+  function taskMeta(task: (typeof tasks)[number], extra?: React.ReactNode) {
     const taskScore = calcTaskScore(task, criteria)
     return (
       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-normal text-label-2">
@@ -259,6 +259,7 @@ export default function EvaluationMatrix() {
             </option>
           ))}
         </Select>
+        {extra}
       </div>
     )
   }
@@ -409,18 +410,18 @@ export default function EvaluationMatrix() {
                       const sumLabel = sum === 0 ? '0%' : valid ? '100%' : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`
                       return (
                         <th key={task.id} colSpan={showGrade ? 2 : 1} className="border-b border-l border-separator px-3 py-2 align-top font-semibold">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 truncate" title={task.name}>
-                              {task.name}
-                            </div>
+                          <div className="min-w-0 truncate" title={task.name}>
+                            {task.name}
+                          </div>
+                          {taskMeta(
+                            task,
                             <span
-                              className={`shrink-0 text-xs font-semibold ${valid ? 'text-success' : 'text-danger'}`}
+                              className={`ml-auto shrink-0 text-xs font-semibold ${valid ? 'text-success' : 'text-danger'}`}
                               title={valid ? '기여도 합계 100%' : `100% 기준 ${sumLabel} (${delta > 0 ? '초과' : '부족'})`}
                             >
                               {sumLabel}
-                            </span>
-                          </div>
-                          {taskMeta(task)}
+                            </span>,
+                          )}
                         </th>
                       )
                     })}
