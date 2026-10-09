@@ -13,7 +13,7 @@ export interface NewYearOptions {
   mode: 'blank' | 'inherit'
   carry: Carry
   l1: string
-  target: 'sheet' | 'local'
+  target: 'sheet' | 'file' | 'local'
 }
 
 export default function NewYearDialog({
@@ -23,22 +23,25 @@ export default function NewYearDialog({
   onCreate,
   onClose,
   sheetName,
+  canCreateFile,
 }: {
   defaultYear: number
   taken: string[] // 이미 있는 탭 이름(「YYYY 추진현황」)
   inheritFrom: string | null // 이어받을 수 있는 연도(지금 보는 표) 이름
   onCreate: (o: NewYearOptions) => void
   onClose: () => void
-  sheetName?: string // 있으면(관리자 · 시트 연결됨) 저장 위치로 구글시트를 고를 수 있다
+  sheetName?: string // 있으면(관리자 · 시트 연결됨) 저장 위치로 연결된 시트의 탭을 고를 수 있다
+  canCreateFile?: boolean // 관리자: 새 구글시트 파일을 만들 수 있다
 }) {
   const [year, setYear] = useState(defaultYear)
   const [mode, setMode] = useState<'blank' | 'inherit'>(inheritFrom ? 'inherit' : 'blank')
   const [carry, setCarry] = useState<Carry>('open')
   const [l1, setL1] = useState('')
-  const [target, setTarget] = useState<'sheet' | 'local'>(sheetName ? 'sheet' : 'local')
+  const [target, setTarget] = useState<'sheet' | 'file' | 'local'>(sheetName ? 'sheet' : canCreateFile ? 'file' : 'local')
   // 시트는 이름(L3)이 있는 줄만 과제로 읽으니, 과제 없이 시작(빈 표 · 구분만)은 이 브라우저에 먼저 만든다
   const sheetBlocked = mode === 'blank' || carry === 'structure'
-  const to = sheetName && !sheetBlocked ? target : 'local'
+  const canSheet = !!sheetName || !!canCreateFile
+  const to: 'sheet' | 'file' | 'local' = canSheet && !sheetBlocked && !(target === 'sheet' && !sheetName) && !(target === 'file' && !canCreateFile) ? target : 'local'
   const title = `${year} 추진현황`
   const clash = taken.some((t) => t.replace(/\s/g, '') === title.replace(/\s/g, ''))
   const opt = (on: boolean) =>
@@ -62,8 +65,8 @@ export default function NewYearDialog({
             </h2>
             <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] leading-relaxed text-label-2">
               한 해의 추진현황 표를 시작합니다.{' '}
-              {sheetName
-                ? '연결된 구글시트에 탭으로 바로 만들거나, 이 브라우저에 먼저 만들 수 있습니다.'
+              {canSheet
+                ? '연결된 구글시트에 탭으로 만들거나, 새 구글시트를 만들거나, 이 브라우저에 먼저 만들 수 있습니다.'
                 : '이 브라우저에 저장되고, 관리자가 나중에 구글시트에 탭으로 만들 수 있습니다.'}
             </p>
           </div>
@@ -130,29 +133,42 @@ export default function NewYearDialog({
           </button>
         </div>
 
-        {sheetName && (
+        {canSheet && (
           <>
             <p className="mb-2 mt-5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">저장 위치</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" disabled={sheetBlocked} onClick={() => setTarget('sheet')} className={`${opt(to === 'sheet')} disabled:opacity-50`}>
-                <span className={radio(to === 'sheet')} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">구글시트</span>
-                  <span className="block text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2" title={sheetName}>
-                    연결된 시트에 「{title}」 탭
+            <div className="space-y-2">
+              {sheetName && (
+                <button type="button" disabled={sheetBlocked} onClick={() => setTarget('sheet')} className={`${opt(to === 'sheet')} disabled:opacity-50`}>
+                  <span className={radio(to === 'sheet')} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">연결된 시트에 탭 추가</span>
+                    <span className="block text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2" title={sheetName}>
+                      「{sheetName}」에 「{title}」 탭을 만듭니다
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+              )}
+              {canCreateFile && (
+                <button type="button" disabled={sheetBlocked} onClick={() => setTarget('file')} className={`${opt(to === 'file')} disabled:opacity-50`}>
+                  <span className={radio(to === 'file')} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">새 시트 만들기</span>
+                    <span className="block text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2">
+                      「{year} 실적관리」 구글시트 파일을 새로 만들고 연결합니다. 팀원 공유와 권한 시트의 시트 주소 변경은 직접 해야 합니다.
+                    </span>
+                  </span>
+                </button>
+              )}
               <button type="button" onClick={() => setTarget('local')} className={opt(to === 'local')}>
                 <span className={radio(to === 'local')} />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">이 브라우저</span>
-                  <span className="block text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2">나중에 ⋯ › 구글시트로 만들기</span>
+                  <span className="block text-[length:calc(14.5px*var(--ui-fs,1))] font-semibold text-label">이 브라우저에 저장</span>
+                  <span className="block text-[length:calc(13px*var(--ui-fs,1))] leading-snug text-label-2">나중에 구글시트로 만들기</span>
                 </span>
               </button>
             </div>
             {sheetBlocked && (
-              <p className="mt-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">과제 없이 시작하면 이 브라우저에 먼저 만듭니다. 과제 이름을 넣은 뒤 ⋯ › 구글시트로 만들기.</p>
+              <p className="mt-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">과제 없이 시작하면 이 브라우저에 먼저 만듭니다. 과제 이름을 넣은 뒤 「시트 › 탭 ⌄」 메뉴의 구글시트로 만들기.</p>
             )}
           </>
         )}
@@ -162,7 +178,7 @@ export default function NewYearDialog({
             취소
           </Button>
           <Button type="submit" variant="primary" disabled={clash}>
-            {to === 'sheet' ? '구글시트에 만들기' : '만들기'}
+            {to === 'sheet' ? '시트에 탭 만들기' : to === 'file' ? '새 시트 만들기' : '만들기'}
           </Button>
         </div>
       </form>

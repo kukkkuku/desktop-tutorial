@@ -71,6 +71,7 @@ import {
   writeSheetCells,
   appendRows,
   createSheetTab,
+  createSpreadsheet,
   replaceSheetTab,
   parseFmt,
   fmtString,
@@ -882,10 +883,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       const rest = { ...shelfRef.current }
       if (cur) rest[shelfKeyOf(cur.data)] = cur
       activate(project, rest)
-      if (o.target === 'sheet') return void createInSheet(project) // 이어서 연결된 시트에 탭을 만든다(실패하면 이 브라우저 연도로 남음)
+      if (o.target === 'sheet' || o.target === 'file') return void createInSheet(project, o.target === 'file') // 이어서 연결된 시트에 탭을 만든다(실패하면 이 브라우저 연도로 남음)
       if (made.left[0]) setOpenKey(NEW_PREFIX + made.left[0].id) // 첫 과제 이름부터 입력
       setMessage(
-        `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 오른쪽 위 「구글시트」 메뉴의 "구글시트로 만들기"로 시트에 탭을 만들 수 있습니다' : ''}.`,
+        `「${o.year} 실적관리」를 만들었습니다. 이 브라우저에 저장됩니다${canManage ? ' · 머리의 「시트 › 탭 ⌄」 메뉴의 "구글시트로 만들기"로 시트에 만들 수 있습니다' : ''}.`,
       )
     } catch (e) {
       setError(errText(e, '새 연도를 만들지 못했습니다.'))
@@ -909,16 +910,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }
   // 이 브라우저에서 만든 연도 → 연결된 구글시트 파일에 「YYYY 추진현황」 탭을 만들어 통째로 쓴다(관리자)
   // proj: 방금 만든 연도(아직 화면 상태에 반영되기 전)를 바로 올릴 때
-  async function createInSheet(proj?: ShelfItem) {
+  async function createInSheet(proj?: ShelfItem, newFile = false) {
     const d = proj?.data ?? data
     const dr = proj?.drafts ?? drafts
     const order = proj ? Array.from(new Set([...proj.data.rows.map((r) => r.l1), ...proj.drafts.newRows.map((n) => n.l1)])) : l1s
     // 이 브라우저 연도(local) · 엑셀 파일로 연 표(시트 없음)를 연결된 구글시트에 새 탭으로 올린다
     const fromXlsx = !!d && !d.local && !d.spreadsheetId
     if (!d || !(d.local || fromXlsx)) return
-    const link = parseSheetUrl(sheetLink)
-    if (!link) return setError('연결된 구글시트가 없습니다. 오른쪽 위 「구글시트」 메뉴 › "시트 연결 설정"에서 먼저 연결해 주세요.')
-    if (isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
+    const link = newFile ? null : parseSheetUrl(sheetLink)
+    if (!newFile && !link) return setError('연결된 구글시트가 없습니다. 머리의 「시트 › 탭 ⌄」 메뉴 › "시트 연결 설정"에서 먼저 연결해 주세요.')
+    if (link && isProtectedSheet(link.spreadsheetId)) return setError('운영 중인 팀 시트에는 탭을 만들지 않습니다. 테스트 시트를 연결해 주세요.')
     // 이름이 빈 과제는 시트에 올라가지 않는다(시트는 L3 이름이 있는 줄만 과제로 읽음) -- 미리 알리고, 만든 뒤에는 화면에서도 뺀다
     const nameless = dr.newRows.filter((n) => !n.fields.name?.trim()).length
     if (
@@ -936,7 +937,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     setMessage('')
     try {
       const m = materialize(d, dr, order)
-      const { tabs } = await fetchSpreadsheetTabs(link.spreadsheetId)
+      // 새 시트 만들기: 연도 이름의 새 구글시트 파일을 만들고 그 첫 탭에 표를 쓴다(만든 사람 소유 · 공유는 관리자가 손으로)
+      let targetId = link?.spreadsheetId ?? ''
+      if (newFile) targetId = await createSpreadsheet(`${d.year ?? now.getFullYear()} 실적관리`, [{ title: d.tabTitle, rows: [['']] }])
+      const { tabs } = newFile ? { tabs: [] as { title: string }[] } : await fetchSpreadsheetTabs(targetId)
       const taken = (t: string) => tabs.some((x) => x.title.replace(/\s/g, '') === t.replace(/\s/g, ''))
       // 엑셀에서 올릴 때 같은 이름 탭이 이미 있으면 덮어쓰지 않고 「… (엑셀 10.03)」 탭으로 따로 만든다
       // 이전에 엑셀로 올린 탭(「… (엑셀 10.09)」 · 「… (엑셀 10.09) 2」)이 있으면 새로 만들지 않고 가장 최근 것을 이번 내용으로 갱신한다.
@@ -984,17 +988,36 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order)
       const ws = wb.worksheets[0]
       const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
-      if (updateExisting) await replaceSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => worksheetRequests(ws, id))
+      if (newFile)
+        await replaceSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => [
+          ...worksheetRequests(ws, id),
+          {
+            updateSheetProperties: {
+              properties: { sheetId: id, gridProperties: { frozenRowCount: 2, frozenColumnCount: frozenCols, hideGridlines: true } },
+              fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount,gridProperties.hideGridlines',
+            },
+          },
+        ])
+      else if (updateExisting) await replaceSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => worksheetRequests(ws, id))
       else
-        await createSheetTab(link.spreadsheetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
+        await createSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
           worksheetRequests(ws, id),
         )
-      const fresh = await readFromSheet(link.spreadsheetId, d.year ?? now.getFullYear(), tabTitle)
+      const fresh = await readFromSheet(targetId, d.year ?? now.getFullYear(), tabTitle)
       // 시트 연도가 됐으니 이 브라우저 연도와 예전에 내려 둔 시트 연도는 정리한다
       const rest = Object.fromEntries(Object.entries(shelfRef.current).filter(([, x]) => x.data.local))
+      if (newFile) {
+        // 새 파일을 지금 연결 시트로(공유 시트와 다르면 이 브라우저에 기억)
+        const clean = sheetUrl(targetId)
+        setSheetLink(clean)
+        writeLinkedSheet(parseSheetUrl(sharedLink)?.spreadsheetId === targetId ? null : clean)
+        writeActiveTab(null)
+      }
       activate({ data: fresh, drafts: { edits: {}, newRows: [] } }, rest)
       setMessage(
-        fromXlsx && updateExisting
+        newFile
+          ? `새 구글시트 「${d.year ?? now.getFullYear()} 실적관리」를 만들어 연결했습니다. 팀원이 쓰려면 ① 구글시트에서 팀원에게 공유 ② 관리 › 권한 · 시트 설정의 팀별 과제 시트를 이 파일로 바꿔 주세요.`
+          : fromXlsx && updateExisting
           ? `엑셀 내용으로 「${tabTitle}」 탭을 갱신했습니다. 이 탭과 연결됩니다(원래 「${d.tabTitle}」 탭은 그대로).`
           : fromXlsx && tabTitle !== d.tabTitle
           ? `시트에 이미 「${d.tabTitle}」 탭이 있어 엑셀 내용을 「${tabTitle}」 탭으로 올렸습니다. 이제 이 탭과 연결됩니다(원래 탭은 그대로).`
@@ -1971,6 +1994,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       onCreate={createYear}
       onClose={() => setNewYearOpen(false)}
       sheetName={canManage && isSheetsApiConfigured() && parseSheetUrl(sheetLink) && !protectedLink ? sheetName : undefined}
+      canCreateFile={canManage && isSheetsApiConfigured()}
     />
   )
 
