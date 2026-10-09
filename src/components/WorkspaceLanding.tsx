@@ -1,5 +1,6 @@
 import { errText } from '../utils/googleError'
 import { useEffect, useMemo, useState } from 'react'
+import { setAppYear, useAppYear } from '../utils/appYear'
 import { toast } from './ui/Toast'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
@@ -286,6 +287,10 @@ export default function WorkspaceLanding() {
   const myTeam = useMemo(() => access?.users.find((u) => u.email === me)?.team ?? '', [access, me])
   const members = useMemo(() => teamMembersOf(access, teamName, me), [access, teamName, me])
   const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  // 보는 연도(과제 입력과 같이 바뀜): 그 해 평가만 목록에 보인다
+  const appYear = useAppYear()
+  const yearWorkspaces = teamWorkspaces.filter((w) => w.evaluationYear === appYear)
+  const evalYears = Array.from(new Set([...teamWorkspaces.map((w) => w.evaluationYear), new Date().getFullYear(), appYear])).sort((a, b) => b - a)
 
   // 팀 이름 바꾸기: 팀원 명단(권한 시트)에 이 팀으로 적힌 사람도 같이 바꿀지 -- 관리자가 추가한 팀원까지 모두
   // (예전엔 내가 추가한 사람만 바꿔서 관리자가 넣은 팀원은 옛 팀에 남았다)
@@ -452,6 +457,19 @@ export default function WorkspaceLanding() {
                   </>
                 )}
               </div>
+              <select
+                value={appYear}
+                onChange={(e) => setAppYear(Number(e.target.value))}
+                aria-label="보는 연도"
+                title="연도를 바꾸면 과제 입력과 평가 목록이 그 해 것만 보입니다"
+                className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
+              >
+                {evalYears.map((y) => (
+                  <option key={y} value={y}>
+                    {y}년
+                  </option>
+                ))}
+              </select>
               <span className="ml-auto flex items-center gap-2">
                 <Button onClick={() => setDialog('invite')}>
                   <UserPlus {...icSm} /> 팀원 초대
@@ -488,26 +506,29 @@ export default function WorkspaceLanding() {
 
             {/* 평가 */}
             <section className="mt-8">
-              {teamWorkspaces.length === 0 ? (
+              {yearWorkspaces.length === 0 ? (
                 <div className="flex flex-col items-center rounded-[16px] border border-dashed border-separator px-6 py-12 text-center">
-                  <p className={`text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label`}>아직 평가가 없습니다</p>
+                  <p className={`text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label`}>{appYear}년 평가가 아직 없습니다</p>
                   <p className={`mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2`}>연도와 기간(상반기 등)을 고르면 바로 만들어집니다.</p>
                   <Button variant="primary" className="mt-5" onClick={() => setDialog('newEval')}>
-                    <Plus {...icSm} /> 첫 평가 만들기
+                    <Plus {...icSm} /> {appYear}년 평가 만들기
                   </Button>
                 </div>
               ) : (
                 <>
                   <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
-                    평가 {teamWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · 우클릭으로 복제 · 삭제</span>
+                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · 우클릭으로 복제 · 삭제</span>
                   </h2>
                   <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {teamWorkspaces.map((w) => (
+                    {yearWorkspaces.map((w) => (
                       <ProjectCard
                         key={w.id}
                         workspace={w}
                         isCurrent={w.id === mostRecentWorkspaceId}
-                        onOpen={selectWorkspace}
+                        onOpen={(id) => {
+                          setAppYear(w.evaluationYear)
+                          selectWorkspace(id)
+                        }}
                         onOpenAt={(id, stage) => {
                           setPerfStage(stage)
                           selectWorkspace(id)
@@ -577,6 +598,7 @@ export default function WorkspaceLanding() {
           <EvaluationPeriodPicker
             key={teamName}
             teamName={teamName}
+            defaultYear={appYear}
             onDone={(id, created) => {
               close()
               if (created) markNewWorkspace(id) // 새로 만들었으면 들어가서 "어떻게 시작할까요?" 안내를 한 번 띄운다

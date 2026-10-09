@@ -11,12 +11,13 @@ import Select from './ui/Select'
 
 interface EvaluationPeriodPickerProps {
   teamName: string
+  defaultYear?: number // 보는 연도(새 평가의 처음 연도)
   // 열기/생성 둘 다 이 콜백 하나로 끝난다 -- 호출 시점엔 이미 해당 평가가
   // 선택(selectWorkspace)된 뒤이므로, 모달을 닫거나 화면을 전환하면 된다.
   onDone: (workspaceId: string, created: boolean) => void // created: 새로 만들었는지(이미 있던 기간을 연 게 아니라)
 }
 
-export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationPeriodPickerProps) {
+export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }: EvaluationPeriodPickerProps) {
   const { workspaces, teamCyclePreference, setTeamCyclePreference, openOrCreateEvaluation } = useWorkspaces()
   const teamWorkspaces = useMemo(
     () => workspaces.filter((w) => w.teamName === teamName).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
@@ -25,7 +26,7 @@ export default function EvaluationPeriodPicker({ teamName, onDone }: EvaluationP
   const mostRecent = teamWorkspaces[teamWorkspaces.length - 1] as WorkspaceMeta | undefined
 
   const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
-  const [year, setYear] = useState<number>(mostRecent?.evaluationYear ?? new Date().getFullYear())
+  const [year, setYear] = useState<number>(defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear())
   const [periodCode, setPeriodCode] = useState<string>(mostRecent?.evaluationPeriodCode ?? periodOptionsForCycle(cycle)[0]?.code ?? '')
   const [customLabel, setCustomLabel] = useState<string>(cycle === 'custom' ? (mostRecent?.periodName ?? '') : '')
   const [settingsOpen, setSettingsOpen] = useState(false)
