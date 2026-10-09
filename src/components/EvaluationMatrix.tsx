@@ -158,6 +158,155 @@ export default function EvaluationMatrix() {
     .map((task) => ({ task, sum: getTaskContributionSum(contributions, task.id, activeMemberIds) }))
     .filter(({ sum }) => sum > 0 && !isContributionSumValid(sum))
 
+  // 표 보기: 과제가 행(기본) / 팀원이 행(팀원이 많을 때)
+  const [view, setViewState] = useState<'task' | 'member'>(() => {
+    try {
+      return localStorage.getItem('eval-matrix-view') === 'member' ? 'member' : 'task'
+    } catch {
+      return 'task'
+    }
+  })
+  function setView(v: 'task' | 'member') {
+    setViewState(v)
+    try {
+      localStorage.setItem('eval-matrix-view', v)
+    } catch {
+      /* 저장 실패는 무시 */
+    }
+  }
+
+  function memberHead(member: (typeof activeMembers)[number], align: 'center' | 'left') {
+    const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
+    const result = resultIdx >= 0 ? memberResults[resultIdx] : undefined
+    const row = align === 'left'
+    return (
+      <>
+        {/* 이름 · 등급 / 순위 · 점수 / 피어 -- 칸이 좁아도 글자가 꺾이지 않게 줄을 나눈다(넘치면 표를 옆으로 민다) */}
+        <div className={`flex items-center gap-1.5 ${row ? '' : 'justify-center'}`}>
+          <span className="truncate text-label" title={member.name}>
+            {member.name}
+          </span>
+          {result && hasScores && (
+            <span
+              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`}
+              title={result.grade ? undefined : UNGRADED_HINT}
+            >
+              {gradeText(result.grade)}
+            </span>
+          )}
+        </div>
+        {result && hasScores && (
+          <div className="mt-0.5 text-xs font-normal text-label-2">
+            {resultIdx + 1}위 ·{' '}
+            <span
+              className="cursor-help tabular-nums underline decoration-dotted underline-offset-2"
+              title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
+            >
+              {result.cumulativeScore.toFixed(1)}점
+            </span>
+          </div>
+        )}
+        <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
+      </>
+    )
+  }
+
+  // 분류 · 성과등급: 과제관리에서 못 넣었으면 여기서 바로 고친다
+  function taskMeta(task: (typeof tasks)[number]) {
+    const taskScore = calcTaskScore(task, criteria)
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs font-normal text-label-2">
+        <Select
+          value={task.importance}
+          title="분류(과제 · 일반 · 일상) -- 여기서 바꿀 수 있습니다"
+          onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, importance: e.target.value as Importance } })}
+          className="h-6 rounded-full border border-hairline px-2 text-xs font-medium text-label"
+        >
+          {Array.from(new Set<string>([...IMPORTANCE_OPTIONS, task.importance])).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </Select>
+        {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
+        <span>·</span>
+        <Select
+          value={task.performanceGrade ?? ''}
+          title={`성과등급 -- 여기서 입력 · 수정할 수 있습니다 · 과제 점수 ${taskScore.toFixed(1)}`}
+          onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })}
+          className={`h-6 rounded-full border px-2 text-xs font-medium ${task.performanceGrade ? 'border-hairline text-label' : 'border-warning/50 bg-warning/10 text-warning'}`}
+        >
+          <option value="">성과등급 미입력</option>
+          {PERFORMANCE_GRADE_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              성과 {o}
+            </option>
+          ))}
+        </Select>
+      </div>
+    )
+  }
+
+  function percentCell(task: (typeof tasks)[number], memberId: string) {
+    const percent = getContributionPercent(contributions, task.id, memberId)
+    const pr = peerRankOf.get(`${task.id}|${memberId}`)
+    return (
+      <>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          value={percent || ''}
+          onChange={(e) => handlePercentChange(task.id, memberId, e.target.value)}
+          className={`h-8 w-full rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label ${percent ? '' : 'bg-black/[0.03]'}`}
+        />
+        {pr && (
+          <p
+            className="mt-0.5 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] text-label-3"
+            title={`동료 ${pr.count}명이 매긴 이 과제 안 순위의 평균(본인 평가 제외) · 기여도를 정할 때 참고`}
+          >
+            동료 {pr.avg.toFixed(1)}위
+          </p>
+        )}
+      </>
+    )
+  }
+
+  function gradeCell(task: (typeof tasks)[number], member: (typeof activeMembers)[number]) {
+    const percent = getContributionPercent(contributions, task.id, member.id)
+    const grade = getPersonalPerformanceGrade(contributions, task.id, member.id)
+    const gradeEnabled = criteria.personalGradeWeight > 0 && percent > 0
+    const note = getContribution(contributions, task.id, member.id)?.personalGradeNote
+    return (
+      <div className="flex items-center gap-1">
+        {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼 'B'가 미리 선택돼 있으면 팀장이 고른 것인지 앱이 채운 것인지 구분할 수 없다. */}
+        <Select
+          value={grade ?? ''}
+          disabled={!gradeEnabled}
+          title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
+          onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
+          className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] ${gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'}`}
+        >
+          <option value="" disabled>
+            미입력
+          </option>
+          {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </Select>
+        {gradeEnabled && (
+          <GradeNoteButton note={note} label={`${task.name} · ${member.name}`} onSave={(next) => handleGradeNoteSave(task.id, member.id, next)} />
+        )}
+      </div>
+    )
+  }
+
+  const TASK_COL_W = 240 // 팀원 기준 보기: 과제 열 폭
+  const MEMBER_ROW_COL_W = 190 // 팀원 기준 보기: 팀원(첫 열) 폭
+
   const memberCount = activeMembers.length
   const gradeW = showGrade ? GRADE_COL_WIDTH : 0
   const tableWidth = taskWidth + SUM_COL_WIDTH + memberCount * (PCT_COL_WIDTH + gradeW)
@@ -170,7 +319,27 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span />
+        <div className="inline-flex rounded-[9px] bg-black/[0.05] p-0.5" role="group" aria-label="표 보기">
+          {(
+            [
+              ['task', '과제가 행'],
+              ['member', '팀원이 행'],
+            ] as const
+          ).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              aria-pressed={view === v}
+              title={v === 'member' ? '팀원이 많을 때: 팀원은 아래로, 과제는 옆으로' : '과제는 아래로, 팀원은 옆으로'}
+              className={`h-7 rounded-[7px] px-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium transition-colors ${
+                view === v ? 'bg-white text-label shadow-sm' : 'text-label-2 hover:text-label'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
             <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>
@@ -193,6 +362,80 @@ export default function EvaluationMatrix() {
         </p>
       ) : (
         <>
+          {view === 'member' ? (
+            <ScrollX className="mt-4 rounded-card border border-separator bg-white">
+              <table
+                className="table-fixed border-collapse text-left text-[length:calc(14px*var(--ui-fs,1))]"
+                style={{ width: '100%', minWidth: MEMBER_ROW_COL_W + tasks.length * (TASK_COL_W + (showGrade ? 110 : 0)) }}
+              >
+                <colgroup>
+                  <col style={{ width: MEMBER_ROW_COL_W }} />
+                  {tasks.map((task) => (
+                    <Fragment key={task.id}>
+                      <col style={{ width: TASK_COL_W }} />
+                      {showGrade && <col style={{ width: 110 }} />}
+                    </Fragment>
+                  ))}
+                </colgroup>
+                <thead className="bg-subtle text-label">
+                  <tr>
+                    <th
+                      rowSpan={showGrade ? 2 : 1}
+                      className="sticky left-0 z-20 border-b border-separator bg-subtle px-4 py-3 align-bottom font-semibold"
+                      style={{ position: 'sticky', left: 0 }}
+                    >
+                      팀원
+                    </th>
+                    {tasks.map((task) => {
+                      const sum = getTaskContributionSum(contributions, task.id, activeMemberIds)
+                      const valid = sum === 0 || isContributionSumValid(sum)
+                      const delta = sum - 100
+                      const sumLabel = sum === 0 ? '0%' : valid ? '100%' : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`
+                      return (
+                        <th key={task.id} colSpan={showGrade ? 2 : 1} className="border-b border-l border-separator px-3 py-2 align-top font-semibold">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 truncate" title={task.name}>
+                              {task.name}
+                            </div>
+                            <span
+                              className={`shrink-0 text-xs font-semibold ${valid ? 'text-success' : 'text-danger'}`}
+                              title={valid ? '기여도 합계 100%' : `100% 기준 ${sumLabel} (${delta > 0 ? '초과' : '부족'})`}
+                            >
+                              {sumLabel}
+                            </span>
+                          </div>
+                          {taskMeta(task)}
+                        </th>
+                      )
+                    })}
+                  </tr>
+                  {showGrade && (
+                    <tr>
+                      {tasks.map((task) => (
+                        <Fragment key={task.id}>
+                          <th className="border-l border-separator px-3 py-2 text-center text-xs font-medium">기여도(%)</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium">개인수행등급</th>
+                        </Fragment>
+                      ))}
+                    </tr>
+                  )}
+                </thead>
+                <tbody>
+                  {activeMembers.map((member) => (
+                    <tr key={member.id} className="border-t border-separator text-label">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-3 font-semibold">{memberHead(member, 'left')}</td>
+                      {tasks.map((task) => (
+                        <Fragment key={task.id}>
+                          <td className="border-l border-separator px-3 py-2">{percentCell(task, member.id)}</td>
+                          {showGrade && <td className="px-3 py-2">{gradeCell(task, member)}</td>}
+                        </Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollX>
+          ) : (
           <ScrollX className="mt-4 rounded-card border border-separator bg-white">
             <table className="table-fixed border-collapse text-left text-[length:calc(14px*var(--ui-fs,1))]" style={{ width: '100%', minWidth: tableWidth }}>
               <colgroup>
@@ -223,36 +466,9 @@ export default function EvaluationMatrix() {
                     기여도
                   </th>
                   {activeMembers.map((member) => {
-                    const resultIdx = memberResults.findIndex((r) => r.member.id === member.id)
-                    const result = resultIdx >= 0 ? memberResults[resultIdx] : undefined
                     return (
                       <th key={member.id} colSpan={showGrade ? 2 : 1} className="whitespace-nowrap border-b border-l border-separator px-2 py-2 text-center font-semibold">
-                        {/* 이름 · 등급 / 순위 · 점수 / 피어 -- 칸이 좁아도 글자가 꺾이지 않게 줄을 나눈다(넘치면 표를 옆으로 민다) */}
-                        <div className="flex items-center justify-center gap-1.5">
-                          <span className="truncate text-label" title={member.name}>
-                            {member.name}
-                          </span>
-                          {result && hasScores && (
-                            <span
-                              className={`shrink-0 rounded-full px-1.5 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold ${gradeColor(result.grade)}`}
-                              title={result.grade ? undefined : UNGRADED_HINT}
-                            >
-                              {gradeText(result.grade)}
-                            </span>
-                          )}
-                        </div>
-                        {result && hasScores && (
-                          <div className="mt-0.5 text-xs font-normal text-label-2">
-                            {resultIdx + 1}위 ·{' '}
-                            <span
-                              className="cursor-help tabular-nums underline decoration-dotted underline-offset-2"
-                              title={explainMemberScore(member, tasks, contributions, criteria, peerInputs)}
-                            >
-                              {result.cumulativeScore.toFixed(1)}점
-                            </span>
-                          </div>
-                        )}
-                        <PeerLine summary={peerSummaryOf(peerInputs, member.id, criteria)} />
+                        {memberHead(member, 'center')}
                       </th>
                     )
                   })}
@@ -274,43 +490,11 @@ export default function EvaluationMatrix() {
                   const valid = sum === 0 || isContributionSumValid(sum)
                   const delta = sum - 100
                   const sumLabel = sum === 0 ? '0%' : valid ? '100%' : `${delta > 0 ? '+' : ''}${delta.toFixed(0)}%`
-                  const taskScore = calcTaskScore(task, criteria)
                   return (
                     <tr key={task.id} className="border-t border-separator text-label">
                       <td className="sticky left-0 z-10 truncate bg-white px-4 py-3">
                         <div className="truncate font-medium">{task.name}</div>
-                        <div className="mt-1 flex items-center gap-1.5 text-xs text-label-2">
-                          {/* 분류 · 성과등급: 과제관리에서 못 넣었으면 여기서 바로 고친다 */}
-                          <Select
-                            value={task.importance}
-                            title="분류(과제 · 일반 · 일상) -- 여기서 바꿀 수 있습니다"
-                            onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, importance: e.target.value as Importance } })}
-                            className="h-6 rounded-full border border-hairline px-2 text-xs font-medium text-label"
-                          >
-                            {Array.from(new Set<string>([...IMPORTANCE_OPTIONS, task.importance])).map((o) => (
-                              <option key={o} value={o}>
-                                {o}
-                              </option>
-                            ))}
-                          </Select>
-                          {criteria.workloadWeight > 0 && <span>· 업무량 {task.workload}</span>}
-                          <span>·</span>
-                          <Select
-                            value={task.performanceGrade ?? ''}
-                            title={`성과등급 -- 여기서 입력 · 수정할 수 있습니다 · 과제 점수 ${taskScore.toFixed(1)}`}
-                            onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { ...task, performanceGrade: (e.target.value || null) as PerformanceGrade | null } })}
-                            className={`h-6 rounded-full border px-2 text-xs font-medium ${
-                              task.performanceGrade ? 'border-hairline text-label' : 'border-warning/50 bg-warning/10 text-warning'
-                            }`}
-                          >
-                            <option value="">성과등급 미입력</option>
-                            {PERFORMANCE_GRADE_OPTIONS.map((o) => (
-                              <option key={o} value={o}>
-                                성과 {o}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
+                        {taskMeta(task)}
                       </td>
                       <td
                         className={`sticky z-10 border-l border-separator bg-white px-3 py-3 font-semibold ${valid ? 'text-success' : 'text-danger'}`}
@@ -320,69 +504,10 @@ export default function EvaluationMatrix() {
                         {sumLabel}
                       </td>
                       {activeMembers.map((member) => {
-                        const percent = getContributionPercent(contributions, task.id, member.id)
-                        const grade = getPersonalPerformanceGrade(contributions, task.id, member.id)
-                        const gradeEnabled = criteria.personalGradeWeight > 0 && percent > 0
-                        const note = getContribution(contributions, task.id, member.id)?.personalGradeNote
                         return (
                           <Fragment key={member.id}>
-                            <td className="border-l border-separator px-3 py-2">
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={1}
-                                value={percent || ''}
-                                onChange={(e) => handlePercentChange(task.id, member.id, e.target.value)}
-                                className={`h-8 w-full rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] text-label ${percent ? '' : 'bg-black/[0.03]'}`}
-                              />
-                              {(() => {
-                                const pr = peerRankOf.get(`${task.id}|${member.id}`)
-                                if (!pr) return null
-                                return (
-                                  <p
-                                    className="mt-0.5 whitespace-nowrap text-[length:calc(12px*var(--ui-fs,1))] text-label-3"
-                                    title={`동료 ${pr.count}명이 매긴 이 과제 안 순위의 평균(본인 평가 제외) · 기여도를 정할 때 참고`}
-                                  >
-                                    동료 {pr.avg.toFixed(1)}위
-                                  </p>
-                                )
-                              })()}
-                            </td>
-                            {showGrade && (
-                              <td className="px-3 py-2">
-                                <div className="flex items-center gap-1">
-                                  {/* 아직 안 매긴 칸은 빈 값으로 둔다 -- 예전처럼
-                                    'B'가 미리 선택돼 있으면 팀장이 고른 것인지
-                                    앱이 채운 것인지 구분할 수 없다. */}
-                                  <Select
-                                    value={grade ?? ''}
-                                    disabled={!gradeEnabled}
-                                    title={percent === 0 ? '기여도가 0이면 개인수행등급을 설정할 수 없습니다' : undefined}
-                                    onChange={(e) => handleGradeChange(task.id, member.id, e.target.value as PerformanceGrade)}
-                                    className={`h-8 w-full min-w-0 rounded-control border border-hairline px-2 text-[length:calc(14px*var(--ui-fs,1))] ${
-                                      gradeEnabled ? 'text-label' : 'bg-black/[0.05] text-label-3'
-                                    }`}
-                                  >
-                                    <option value="" disabled>
-                                      미입력
-                                    </option>
-                                    {PERFORMANCE_GRADE_OPTIONS.map((opt) => (
-                                      <option key={opt} value={opt}>
-                                        {opt}
-                                      </option>
-                                    ))}
-                                  </Select>
-                                  {gradeEnabled && (
-                                    <GradeNoteButton
-                                      note={note}
-                                      label={`${task.name} · ${member.name}`}
-                                      onSave={(next) => handleGradeNoteSave(task.id, member.id, next)}
-                                    />
-                                  )}
-                                </div>
-                              </td>
-                            )}
+                            <td className="border-l border-separator px-3 py-2">{percentCell(task, member.id)}</td>
+                            {showGrade && <td className="px-3 py-2">{gradeCell(task, member)}</td>}
                           </Fragment>
                         )
                       })}
@@ -392,6 +517,7 @@ export default function EvaluationMatrix() {
               </tbody>
             </table>
           </ScrollX>
+          )}
 
           {invalidTasks.length > 0 && (
             <div className="mt-3 space-y-1 rounded-control border border-danger/30 bg-danger/10 px-4 py-3">
