@@ -186,6 +186,8 @@ const ROW_PAD_KEY = 'progress-board:row-pad-v3'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 1
+// 구글시트 보기에서 구글 머리 줄(제목 · 메뉴 · 공유 · 로그인) 높이(px) -- 도구 모음을 켠 때 이만큼 위로 밀어 가린다
+const SHEET_HEAD_H = 64
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
 const ROW_PAD_MIN = -3 // 마이너스 = 기본보다 얇게(글자가 온전히 보이는 한계, 내용은 그 높이에서 잘림)
 
@@ -263,7 +265,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
 
 export default function ProgressBoard({ view = 'progress' }: { view?: 'progress' | 'rate' }) {
   // 표 틀 높이 = 창 높이에 맞춤(아래 여백 = 본문 아래 32px + 판 바깥 8px + 4px). 가로 스크롤 막대가 늘 화면 안에 보이게
-  const [tableBoxRef, tableBoxH] = useFitHeight(44)
+  const [tableBoxRef, tableBoxH] = useFitHeight(96)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
   // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
@@ -2138,6 +2140,232 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </span>
   )
 
+  // 아래 얇은 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기일 때) 구글 도구 모음 · 새로고침 · 새 창
+  // 구글시트 보기에서는 구글의 아래 시트 탭 자리를 덮고, 다른 보기에서는 본문 바로 아래에 같은 모양으로 놓인다
+  function jumpToGroup(name: string) {
+    if (!data) return
+    const first = Math.min(...data.rows.filter((r) => r.l1 === name).map((r) => r.row + 1))
+    if (Number.isFinite(first)) setSheetJump(first)
+  }
+  const dockBar = (
+    <div className="flex h-10 items-center gap-2 border-t border-separator bg-white px-2 text-[length:calc(13px*var(--ui-fs,1))]">
+      {!(editing && boardView === 'table') && viewSwitchEl}
+      {!(editing && boardView === 'table') && <span className="h-5 w-px shrink-0 bg-separator" />}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
+        <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+          {shownL1s.map((name) => {
+            const dirty = dirtyL1.has(name)
+            const rowsOf = data.rows.filter((r) => r.l1 === name)
+            const newOf = drafts.newRows.filter((n) => n.l1 === name)
+            const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
+            const gone = alive === 0 && rowsOf.length > 0
+            const on = name === l1
+            return (
+              <div
+                key={name}
+                onClick={() => {
+                  setActiveL1(name)
+                  if (boardView === 'sheet') jumpToGroup(name)
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
+                }}
+                data-l1-tab={name}
+                className={`group flex h-7 min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden rounded-control text-[length:calc(13.5px*var(--ui-fs,1))] transition-colors ${
+                  tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-2.5'
+                } ${
+                  on
+                    ? 'bg-black/[0.07] font-semibold text-label'
+                    : 'font-medium text-label-2 hover:bg-black/[0.04] hover:text-label'
+                }`}
+                title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
+              >
+                {newOf.length > 0 && rowsOf.length === 0 && (
+                  <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
+                )}
+                <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
+                {/* 과제 수: 저장 안 한 변경이 있으면 오른쪽 위 주황 점, 과제가 늘거나 줄었으면 숫자도 주황 */}
+                {!tabsCompact ? (
+                  <span
+                    className={`relative shrink-0 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${alive !== rowsOf.length ? 'font-bold text-orange-600' : 'font-medium text-label-3'}`}
+                  >
+                    {alive}
+                    {dirty && <span className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />}
+                  </span>
+                ) : (
+                  dirty && <span className="h-1.5 w-1.5 shrink-0 self-start rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />
+                )}
+                {/* 탭 ✕ 삭제는 없앴다(우리 팀이 아닌 그룹은 우클릭 › 숨기기). 줄을 모두 지워 빈 그룹이 되면 되살리기만 */}
+                {!readOnly && gone && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      restoreRows(rowsOf)
+                    }}
+                    title="그룹(L1) 삭제 취소"
+                    aria-label="그룹 삭제 취소"
+                    className="-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
+                  >
+                    <Undo2 size={12} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+          {!readOnly && (
+            <button
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
+              }}
+              title="그룹(L1) 추가"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-control px-2.5 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label-3 hover:bg-black/[0.04] hover:text-label"
+            >
+              <Plus {...icSm} />
+              그룹 추가
+            </button>
+          )}
+        </div>
+        {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
+        <div className="relative shrink-0">
+          {/* 우리 팀이 아닌 그룹은 숨긴다(이 브라우저에서만). 숨긴 게 있으면 개수를 보여 되돌리기 쉽게 */}
+          <button
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setViewOpen(viewOpen ? null : { x: Math.min(r.right - 264, window.innerWidth - 272), y: r.bottom + 4 })
+            }}
+            title={`${hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개 · ` : ''}보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다`}
+            aria-label={hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개` : '그룹 숨기기'}
+            className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium hover:bg-black/[0.05] hover:text-label ${
+              viewOpen || hiddenL1Count > 0 ? 'bg-black/[0.05] text-label' : 'text-label-2'
+            }`}
+          >
+            <EyeOff size={14} strokeWidth={1.8} />
+            {hiddenL1Count > 0 && <span className="tabular-nums">{hiddenL1Count}</span>}
+          </button>
+          {viewOpen && (
+            <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
+              <div
+                className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[length:calc(14px*var(--ui-fs,1))]"
+                style={{ left: viewOpen.x, top: viewOpen.y }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between px-3 py-1.5">
+                  <span className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보이는 그룹</span>
+                  {hiddenL1.length > 0 && (
+                    <button onClick={() => setHiddenL1([])} className="text-[length:calc(13px*var(--ui-fs,1))] font-medium text-accent hover:underline">
+                      모두 보기
+                    </button>
+                  )}
+                </div>
+                {l1s.map((name) => {
+                  const shown = !hiddenL1.includes(name)
+                  const last = shown && shownL1s.length === 1
+                  return (
+                    <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
+                      {/* 체크 대신 눈: 뜬 눈 = 보임, 감은 눈(연한 회색) = 숨김 */}
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={shown}
+                        disabled={last}
+                        onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
+                      />
+                      {shown ? (
+                        <Eye size={16} strokeWidth={1.9} className="shrink-0 text-accent" />
+                      ) : (
+                        <EyeOff size={16} strokeWidth={1.7} className="shrink-0 text-label-3/60" />
+                      )}
+                      <span className={`truncate ${shown ? '' : 'text-label-3'}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
+                      <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] text-label-3">
+                        {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
+                      </span>
+                    </label>
+                  )
+                })}
+                <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">
+                  눈을 누르면 그 그룹 탭을 숨깁니다(감은 눈 = 숨김). 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+        {tabMenu && (
+          <div className="fixed inset-0 z-40" onMouseDown={() => setTabMenu(null)} onContextMenu={(e) => (e.preventDefault(), setTabMenu(null))}>
+            <div
+              className="mac-pop absolute z-50 w-[220px] py-1 text-[length:calc(14px*var(--ui-fs,1))]"
+              style={{ left: tabMenu.x, top: tabMenu.y }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setTabMenu(null)}
+            >
+              <p className="truncate px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">{tabMenu.name === NO_L1 ? 'L1 없음' : tabMenu.name}</p>
+              <button
+                className="mac-menu-item disabled:opacity-40"
+                disabled={shownL1s.length <= 1}
+                onClick={() => setHiddenL1([...hiddenL1, tabMenu.name])}
+              >
+                <EyeOff {...icSm} className="shrink-0" />이 그룹 숨기기
+              </button>
+              <button
+                className="mac-menu-item disabled:opacity-40"
+                disabled={shownL1s.length <= 1}
+                onClick={() => {
+                  setHiddenL1(l1s.filter((x) => x !== tabMenu.name))
+                  setActiveL1(tabMenu.name)
+                }}
+              >
+                <Eye {...icSm} className="shrink-0" />이 그룹만 보기
+              </button>
+              {hiddenL1Count > 0 && (
+                <button className="mac-menu-item" onClick={() => setHiddenL1([])}>
+                  <Eye {...icSm} className="shrink-0" />숨긴 그룹 {hiddenL1Count}개 다시 보기
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <div className="hidden">
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
+        </div>
+      </div>
+      {boardView === 'sheet' && data.spreadsheetId && (
+        <>
+          <span className="h-5 w-px shrink-0 bg-separator" />
+          <button
+            role="switch"
+            aria-checked={sheetFull}
+            onClick={() => setSheetFull(!sheetFull)}
+            title={sheetFull ? '구글 도구 모음 숨기기' : '구글 도구 모음 보기(서식 · 수식)'}
+            aria-label="구글 도구 모음"
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control ${sheetFull ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+          >
+            <PanelTop {...icSm} />
+          </button>
+          <button
+            onClick={() => setSheetReload((n) => n + 1)}
+            title="구글시트 화면을 다시 불러옵니다"
+            aria-label="새로고침"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
+          >
+            <RotateCw {...icSm} />
+          </button>
+          <a
+            href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
+            target="_blank"
+            rel="noreferrer"
+            title="새 창에서 열기(화면이 안 보이거나 로그인이 필요할 때)"
+            aria-label="새 창에서 열기"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
+          >
+            <ExternalLink {...icSm} />
+          </a>
+        </>
+      )}
+    </div>
+  )
+
   const statusBar = view === 'rate' ? null : fromXlsx ? (
     <NoticeBar
       tone="warn"
@@ -2357,183 +2585,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <div className={view === 'rate' ? 'hidden' : ''}>
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
-        <div className={`flex items-end gap-2 border-b border-separator ${boardView === 'sheet' ? 'hidden' : ''}`}>
-          {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
-          <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
-            {shownL1s.map((name) => {
-              const dirty = dirtyL1.has(name)
-              const rowsOf = data.rows.filter((r) => r.l1 === name)
-              const newOf = drafts.newRows.filter((n) => n.l1 === name)
-              const alive = rowsOf.filter((r) => !deletedSet.has(r.key)).length + newOf.length
-              const gone = alive === 0 && rowsOf.length > 0
-              const on = name === l1
-              return (
-                <div
-                  key={name}
-                  onClick={() => setActiveL1(name)}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
-                  }}
-                  data-l1-tab={name}
-                  className={`group -mb-px flex min-w-[44px] max-w-[240px] flex-[0_1_auto] cursor-pointer select-none items-center overflow-hidden border-b-2 py-2 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
-                    tabsCompact ? 'gap-1 px-2' : 'gap-1.5 px-3.5'
-                  } ${
-                    on
-                      ? 'border-accent font-semibold text-label'
-                      : 'border-transparent font-medium text-label-3 hover:border-black/[0.12] hover:text-label-2'
-                  }`}
-                  title={gone ? `${name} · 삭제로 표시함(저장하면 시트에서 지움)` : `${name}${dirty ? ' · 저장 안 한 변경 있음' : ''} · 우클릭하면 숨기기`}
-                >
-                  {newOf.length > 0 && rowsOf.length === 0 && (
-                    <span className="shrink-0 rounded-[3px] bg-accent px-1 text-[10px] font-bold text-white">새</span>
-                  )}
-                  <span className={`min-w-0 truncate break-all ${gone ? 'text-label-3 line-through' : ''}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                  {/* 과제 수: 저장 안 한 변경이 있으면 오른쪽 위 주황 점, 과제가 늘거나 줄었으면 숫자도 주황 */}
-                  {!tabsCompact ? (
-                    <span
-                      className={`relative shrink-0 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${alive !== rowsOf.length ? 'font-bold text-orange-600' : 'font-medium text-label-3'}`}
-                    >
-                      {alive}
-                      {dirty && <span className="absolute -right-1.5 -top-1 h-1.5 w-1.5 rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />}
-                    </span>
-                  ) : (
-                    dirty && <span className="h-1.5 w-1.5 shrink-0 self-start rounded-full bg-orange-500" aria-label="저장 안 한 변경 있음" />
-                  )}
-                  {/* 탭 ✕ 삭제는 없앴다(우리 팀이 아닌 그룹은 우클릭 › 숨기기). 줄을 모두 지워 빈 그룹이 되면 되살리기만 */}
-                  {!readOnly && gone && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        restoreRows(rowsOf)
-                      }}
-                      title="그룹(L1) 삭제 취소"
-                      aria-label="그룹 삭제 취소"
-                      className="-mr-1.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
-                    >
-                      <Undo2 size={12} strokeWidth={2} />
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-            {!readOnly && (
-              <button
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect()
-                  setTabAdd({ l1: '', l2: '', x: Math.min(r.left, window.innerWidth - 330), y: r.bottom + 4 })
-                }}
-                title="그룹(L1) 추가"
-                className="flex shrink-0 items-center gap-1 rounded-[8px] px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-3 hover:bg-black/[0.04] hover:text-label"
-              >
-                <Plus {...icSm} />
-                그룹 추가
-              </button>
-            )}
-          </div>
-          {/* 보기: 표에서 열을 켜고 끄듯 그룹(L1) 탭을 켜고 끈다 */}
-          <div className="relative shrink-0 pb-1.5">
-            {/* 우리 팀이 아닌 그룹은 숨긴다(이 브라우저에서만). 숨긴 게 있으면 개수를 보여 되돌리기 쉽게 */}
-            <button
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect()
-                setViewOpen(viewOpen ? null : { x: Math.min(r.right - 264, window.innerWidth - 272), y: r.bottom + 4 })
-              }}
-              title={`${hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개 · ` : ''}보이는 그룹 고르기 · 탭을 우클릭해도 숨길 수 있습니다`}
-              aria-label={hiddenL1Count > 0 ? `숨긴 그룹 ${hiddenL1Count}개` : '그룹 숨기기'}
-              className={`flex h-7 items-center gap-1 whitespace-nowrap rounded-[7px] px-2 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium hover:bg-black/[0.05] hover:text-label ${
-                viewOpen || hiddenL1Count > 0 ? 'bg-black/[0.05] text-label' : 'text-label-2'
-              }`}
-            >
-              <EyeOff size={14} strokeWidth={1.8} />
-              {hiddenL1Count > 0 && <span className="tabular-nums">{hiddenL1Count}</span>}
-            </button>
-            {viewOpen && (
-              <div className="fixed inset-0 z-40" onMouseDown={() => setViewOpen(null)}>
-                <div
-                  className="mac-pop absolute z-50 max-h-[70vh] w-64 overflow-y-auto py-1 text-[length:calc(14px*var(--ui-fs,1))]"
-                  style={{ left: viewOpen.x, top: viewOpen.y }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-between px-3 py-1.5">
-                    <span className="text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보이는 그룹</span>
-                    {hiddenL1.length > 0 && (
-                      <button onClick={() => setHiddenL1([])} className="text-[length:calc(13px*var(--ui-fs,1))] font-medium text-accent hover:underline">
-                        모두 보기
-                      </button>
-                    )}
-                  </div>
-                  {l1s.map((name) => {
-                    const shown = !hiddenL1.includes(name)
-                    const last = shown && shownL1s.length === 1
-                    return (
-                      <label key={name} className={`flex items-center gap-2 px-3 py-1.5 ${last ? 'opacity-50' : 'cursor-pointer hover:bg-black/[0.04]'}`}>
-                        {/* 체크 대신 눈: 뜬 눈 = 보임, 감은 눈(연한 회색) = 숨김 */}
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={shown}
-                          disabled={last}
-                          onChange={() => setHiddenL1(shown ? [...hiddenL1, name] : hiddenL1.filter((x) => x !== name))}
-                        />
-                        {shown ? (
-                          <Eye size={16} strokeWidth={1.9} className="shrink-0 text-accent" />
-                        ) : (
-                          <EyeOff size={16} strokeWidth={1.7} className="shrink-0 text-label-3/60" />
-                        )}
-                        <span className={`truncate ${shown ? '' : 'text-label-3'}`}>{name === NO_L1 ? 'L1 없음' : name}</span>
-                        <span className="ml-auto text-[length:calc(12px*var(--ui-fs,1))] text-label-3">
-                          {data.rows.filter((r) => r.l1 === name).length + drafts.newRows.filter((n) => n.l1 === name).length}
-                        </span>
-                      </label>
-                    )
-                  })}
-                  <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">
-                    눈을 누르면 그 그룹 탭을 숨깁니다(감은 눈 = 숨김). 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          {tabMenu && (
-            <div className="fixed inset-0 z-40" onMouseDown={() => setTabMenu(null)} onContextMenu={(e) => (e.preventDefault(), setTabMenu(null))}>
-              <div
-                className="mac-pop absolute z-50 w-[220px] py-1 text-[length:calc(14px*var(--ui-fs,1))]"
-                style={{ left: tabMenu.x, top: tabMenu.y }}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={() => setTabMenu(null)}
-              >
-                <p className="truncate px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">{tabMenu.name === NO_L1 ? 'L1 없음' : tabMenu.name}</p>
-                <button
-                  className="mac-menu-item disabled:opacity-40"
-                  disabled={shownL1s.length <= 1}
-                  onClick={() => setHiddenL1([...hiddenL1, tabMenu.name])}
-                >
-                  <EyeOff {...icSm} className="shrink-0" />이 그룹 숨기기
-                </button>
-                <button
-                  className="mac-menu-item disabled:opacity-40"
-                  disabled={shownL1s.length <= 1}
-                  onClick={() => {
-                    setHiddenL1(l1s.filter((x) => x !== tabMenu.name))
-                    setActiveL1(tabMenu.name)
-                  }}
-                >
-                  <Eye {...icSm} className="shrink-0" />이 그룹만 보기
-                </button>
-                {hiddenL1Count > 0 && (
-                  <button className="mac-menu-item" onClick={() => setHiddenL1([])}>
-                    <Eye {...icSm} className="shrink-0" />숨긴 그룹 {hiddenL1Count}개 다시 보기
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          <div className="hidden">
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
-          </div>
-        </div>
-
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div
           className={`-mx-2 mt-2 flex min-h-[52px] flex-wrap items-center gap-2 rounded-[12px] px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
@@ -2578,7 +2629,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </label>
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
           {/* 입력 중에는 보기 바꾸기를 숨긴다(서식 막대는 고른 칸 위에 뜬다) */}
-          {!(editing && boardView === 'table') && viewSwitchEl}
           {/* 보드 · 타임라인 거르기(단계 + 지연 · 이번 달 마감): 보기 버튼 바로 옆 */}
           {boardView !== 'table' && boardView !== 'sheet' &&
             (() => {
@@ -2887,65 +2937,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}:${sheetJump ?? ''}`}
                 title="구글시트"
                 src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}${sheetJump ? `#gid=${data.sheetGid ?? 0}&range=A${sheetJump}` : ''}`}
-                className="absolute inset-x-0 top-0 w-full border-0"
-                style={{ height: '100%' }}
+                className="absolute inset-x-0 w-full border-0"
+                style={sheetFull ? { top: -SHEET_HEAD_H, height: `calc(100% + ${SHEET_HEAD_H}px)` } : { top: 0, height: '100%' }}
               />
-              <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center gap-2 border-t border-separator bg-white px-2 text-[length:calc(13px*var(--ui-fs,1))]">
-                {viewSwitchEl}
-                <span className="h-5 w-px shrink-0 bg-separator" />
-                {/* 그룹 이동: 누르면 시트의 그 그룹 첫 행으로 */}
-                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
-                  {shownL1s
-                    .filter((x) => x !== NO_L1)
-                    .map((name) => {
-                      const first = Math.min(...data.rows.filter((r) => r.l1 === name).map((r) => r.row + 1))
-                      const on = name === l1
-                      return (
-                        <button
-                          key={name}
-                          disabled={!Number.isFinite(first)}
-                          onClick={() => {
-                            setActiveL1(name)
-                            if (Number.isFinite(first)) setSheetJump(first)
-                          }}
-                          title={`${name} · 시트의 첫 행(${Number.isFinite(first) ? first : '-'}행)으로 이동`}
-                          className={`h-7 max-w-[160px] shrink-0 truncate rounded-control px-2.5 font-medium transition-colors ${on ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
-                        >
-                          {name}
-                        </button>
-                      )
-                    })}
-                </div>
-                <span className="h-5 w-px shrink-0 bg-separator" />
-                <button
-                  role="switch"
-                  aria-checked={sheetFull}
-                  onClick={() => setSheetFull(!sheetFull)}
-                  title={sheetFull ? '구글 도구 모음 숨기기' : '구글 도구 모음 보기(메뉴 · 서식)'}
-                  aria-label="구글 도구 모음"
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control ${sheetFull ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
-                >
-                  <PanelTop {...icSm} />
-                </button>
-                <button
-                  onClick={() => setSheetReload((n) => n + 1)}
-                  title="구글시트 화면을 다시 불러옵니다"
-                  aria-label="새로고침"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-                >
-                  <RotateCw {...icSm} />
-                </button>
-                <a
-                  href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  title="새 창에서 열기(화면이 안 보이거나 로그인이 필요할 때)"
-                  aria-label="새 창에서 열기"
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-                >
-                  <ExternalLink {...icSm} />
-                </a>
-              </div>
+              <div className="absolute inset-x-0 bottom-0 z-10">{dockBar}</div>
             </div>
           ) : boardView === 'board' ? (
             <KanbanBoard
@@ -3067,6 +3062,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             />
           )}
         </div>
+        {/* 아래 얇은 줄: 구글시트 보기에서는 시트 위에 떠 있고, 다른 보기에서는 본문 바로 아래 */}
+        {boardView !== 'sheet' && <div className="-mx-2 mt-1 overflow-hidden rounded-[12px] border border-separator">{dockBar}</div>}
         {exportOpen && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
