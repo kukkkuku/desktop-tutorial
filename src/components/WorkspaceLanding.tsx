@@ -97,12 +97,6 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
         isCurrent ? 'shadow-card ring-[1.5px] ring-accent' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
     >
-      {isCurrent && (
-        <span className="mac-badge w-fit shrink-0 gap-1 bg-accent-soft text-accent">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          평가 진행중
-        </span>
-      )}
       <div className="flex min-h-7 items-center justify-between gap-2">
         {renaming ? (
           // 연도 · 기간 이름을 그 자리에서 고친다(Enter 저장 · Esc 취소 · 카드 밖을 누르면 저장)
@@ -144,6 +138,13 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
             <p className="min-w-0 truncate text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
               {workspace.evaluationYear} {workspace.periodName}
             </p>
+            {/* 배지는 제목 줄 안에 둔다 -- 줄이 늘지 않아 진행중 카드와 아닌 카드 크기가 같다 */}
+            {isCurrent && (
+              <span className="mac-badge shrink-0 gap-1 bg-accent-soft text-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                평가 진행중
+              </span>
+            )}
             <IconButton
               onClick={(e) => {
                 e.stopPropagation()
