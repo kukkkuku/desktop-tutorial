@@ -1848,7 +1848,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onClick={() => fileRef.current?.click()}
           disabled={loading || saving}
           className="mac-menu-item disabled:opacity-40"
-          title="시트에서 파일 › 다운로드 › xlsx로 받은 파일(보기 전용)"
+          title="엑셀(.xlsx) 파일을 불러옵니다"
         >
           <Upload {...icSm} className="shrink-0" />
           엑셀 파일 열기
@@ -2049,7 +2049,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               <StartCard
                 Icon={Upload}
                 title="엑셀 파일 열기"
-                desc="구글시트에서 xlsx로 받은 파일을 봅니다(보기 전용)."
+                desc="엑셀(.xlsx) 파일을 불러옵니다."
                 disabled={loading}
                 onClick={() => fileRef.current?.click()}
               />
