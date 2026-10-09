@@ -892,16 +892,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[1], flex: '0 0 auto' } : undefined}>
             {perfNarrow ? (
-              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
-                <CollapseToggleButton collapsed onClick={() => expandColumn('perf')} label="성과" />
-                <button
-                  onClick={() => expandColumn('perf')}
-                  title="성과 펼치기"
-                  className="[writing-mode:vertical-rl] text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label hover:text-accent"
-                >
-                  성과
-                </button>
-              </div>
+              <button
+                onClick={() => expandColumn('perf')}
+                title="성과 펼치기"
+                aria-label="성과 펼치기"
+                className="flex min-h-[200px] w-full flex-1 cursor-pointer items-start justify-center rounded-card border border-separator bg-white py-6 text-label hover:bg-black/[0.02] hover:text-accent"
+              >
+                <span className="[writing-mode:vertical-rl] text-[length:calc(13px*var(--ui-fs,1))] font-bold">성과</span>
+              </button>
             ) : (
               <div className="space-y-3">
                 <span className="flex min-h-[28px] items-center justify-between gap-2 px-1">
@@ -996,16 +994,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[2], flex: '0 0 auto' } : undefined}>
             {peerNarrow ? (
-              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
-                <CollapseToggleButton collapsed onClick={() => expandColumn('peer')} label="피어리뷰" />
-                <button
-                  onClick={() => expandColumn('peer')}
-                  title="피어리뷰 펼치기"
-                  className="[writing-mode:vertical-rl] text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label hover:text-accent"
-                >
-                  피어리뷰
-                </button>
-              </div>
+              <button
+                onClick={() => expandColumn('peer')}
+                title="피어리뷰 펼치기"
+                aria-label="피어리뷰 펼치기"
+                className="flex min-h-[200px] w-full flex-1 cursor-pointer items-start justify-center rounded-card border border-separator bg-white py-6 text-label hover:bg-black/[0.02] hover:text-accent"
+              >
+                <span className="[writing-mode:vertical-rl] text-[length:calc(13px*var(--ui-fs,1))] font-bold">피어리뷰</span>
+              </button>
             ) : (
               <SectionCard title="피어리뷰" headerBadge={<IconButton onClick={() => collapseColumn('peer')} title="피어리뷰 한 줄로 접기" aria-label="피어리뷰 한 줄로 접기"><FoldHorizontal {...icSm} /></IconButton>}>
                 <MemberPeerPanel state={state} memberId={memberId} />
@@ -1017,16 +1013,14 @@ export default function MemberGrowthDetail({ memberId, prepRequest }: MemberGrow
 
           <div className="flex w-full min-w-0 flex-col xl:shrink-0" style={colWidths ? { width: colWidths[3], flex: '0 0 auto' } : undefined}>
             {meetingNarrow ? (
-              <div className="flex min-h-[200px] w-full flex-1 flex-col items-center gap-3 rounded-card border border-separator bg-white py-6">
-                <CollapseToggleButton collapsed onClick={() => expandColumn('meeting')} label="면담" />
-                <button
-                  onClick={() => expandColumn('meeting')}
-                  title="면담 펼치기"
-                  className="[writing-mode:vertical-rl] text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label hover:text-accent"
-                >
-                  면담
-                </button>
-              </div>
+              <button
+                onClick={() => expandColumn('meeting')}
+                title="면담 펼치기"
+                aria-label="면담 펼치기"
+                className="flex min-h-[200px] w-full flex-1 cursor-pointer items-start justify-center rounded-card border border-separator bg-white py-6 text-label hover:bg-black/[0.02] hover:text-accent"
+              >
+                <span className="[writing-mode:vertical-rl] text-[length:calc(13px*var(--ui-fs,1))] font-bold">면담</span>
+              </button>
             ) : (
               <div className="flex h-full min-h-[calc(100vh-16rem)] flex-col">
                 {/* 인사이트·면담 기록을 접어두면 카드가 내용 높이만큼만 줄어들어
