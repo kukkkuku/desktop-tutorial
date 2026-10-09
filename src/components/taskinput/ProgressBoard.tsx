@@ -985,7 +985,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         return
       if (!updateExisting && taken(tabTitle))
         throw new Error(`연결된 시트에 이미 「${d.tabTitle}」 탭이 있습니다. 시트에서 탭 이름을 바꾸거나 지운 뒤 다시 해 주세요.`)
-      const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order)
+      const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order, { guessDates: fromXlsx })
       const ws = wb.worksheets[0]
       const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
       if (newFile)

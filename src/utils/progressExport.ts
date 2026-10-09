@@ -78,7 +78,21 @@ export function exportRows(data: ProgressData, drafts: Drafts, l1s: string[]): P
   )
 }
 
-export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: string[]): ExcelJS.Workbook {
+// 엑셀에서 날짜였던 칸이 날짜 열이 아닌 곳(메모 · 비고 열 등)에서는 「4/29」 · 「2026.4.7」 같은 글자로 읽힌다.
+// 구글시트로 올릴 때 이런 글자는 진짜 날짜(월/일 모양)로 되돌려 쓴다. 연도 없는 「월/일」은 이 표의 연도로.
+export function guessDateText(text: string, year: number | null): Date | null {
+  const t = text.trim()
+  const full = t.match(/^(20\d{2})[./-]\s?(\d{1,2})[./-]\s?(\d{1,2})\.?$/)
+  const short = full ? null : t.match(/^(\d{1,2})[./](\d{1,2})$/)
+  const y = full ? +full[1] : year
+  const m = full ? +full[2] : short ? +short[1] : 0
+  const d = full ? +full[3] : short ? +short[2] : 0
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt : null
+}
+
+export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: string[], opts: { guessDates?: boolean } = {}): ExcelJS.Workbook {
   // 새 열 · 지운 열을 얹은 입력 열로
   const eff = effectiveFields(data0.fields, data0.headerStyle, drafts)
   const data: ProgressData = { ...data0, fields: eff.fields, headerStyle: eff.headerStyle }
@@ -219,8 +233,12 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
         const v = effectiveField(row, e, key)
         const f = fieldById.get(key)
         const d = f?.kind === 'date' ? v.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null
+        const guessed = !d && opts.guessDates && c.kind !== 'name' ? guessDateText(v, data.year) : null
         if (d) {
           cell.value = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]))
+          cell.numFmt = 'm/d'
+        } else if (guessed) {
+          cell.value = guessed
           cell.numFmt = 'm/d'
         } else if (v) cell.value = v
         if (c.kind === 'name') cell.font = font({ bold: true })
