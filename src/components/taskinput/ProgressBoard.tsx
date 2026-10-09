@@ -125,6 +125,8 @@ import {
   readAskBeforeSave,
   writeAskBeforeSave,
   writeActiveTab,
+  readHiddenTabs,
+  writeHiddenTabs,
   loadShelf,
   clearProgressData,
   saveShelf,
@@ -1757,6 +1759,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     ...(curProject?.data.local ? [`local:${curProject.data.tabTitle}`] : []),
   ]
   const allSheetTabs = data && !data.local ? (data.yearTabs ?? [data.tabTitle]) : parkedSheet ? (parkedSheet.data.yearTabs ?? [parkedSheet.data.tabTitle]) : []
+  // 입력할 탭 목록에서 뺀 탭(목록에서만 안 보임 · 구글시트 탭은 그대로). 지금 연결한 탭 · 보고 있는 탭은 뺄 수 없다.
+  const sheetFileId = (data && !data.local ? data.spreadsheetId : parkedSheet?.data.spreadsheetId) ?? null
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => readHiddenTabs(sheetFileId))
+  useEffect(() => setHiddenTabs(readHiddenTabs(sheetFileId)), [sheetFileId])
+  const hideTab = (t: string) => {
+    if (!sheetFileId) return
+    const next = Array.from(new Set([...hiddenTabs, t]))
+    setHiddenTabs(next)
+    writeHiddenTabs(sheetFileId, next)
+  }
   const allYears = [...localTabs, ...allSheetTabs].map((t) => Number(t.match(/(20\d{2})/)?.[1] ?? 0)).filter(Boolean)
   // 보는 연도(앱 공통 · 성과관리 평가 목록과 같이 바뀜)가 다른 연도로 바뀌면 그 해 탭으로 옮긴다
   const appYear = useAppYear()
@@ -1773,7 +1785,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }, [appYear, shownTab, !!data])
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
-  const sheetTabs = allSheetTabs
+  const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
   const sheetName = sheetFileTitle ?? (isOperatingSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '디자인연구소 실적관리(운영 시트)' : '연결된 시트')
@@ -1829,15 +1841,38 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     </>
   )
   // 구글시트 메뉴 = 연결한 시트에 관한 일 전부(입력할 탭 · 다시 불러오기 · 올리기 · 열기 · 연결 바꾸기)
+  // 입력할 탭 = 올해(이후) 연도의 탭만(지난 연도는 보기 전용이라 고를 일이 없다). 같은 해 복사본이 2개 이상일 때만 보인다.
+  const inputTabs = sheetTabs.filter((t) => yearOf(t) >= now.getFullYear())
   const tabPickItems =
-    canManage && isSheetsApiConfigured() && allSheetTabs.length > 1 ? (
+    canManage && isSheetsApiConfigured() && inputTabs.length > 1 ? (
       <>
-      <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">입력할 탭</p>
-        {allSheetTabs.map((t) => (
-          <button key={t} onClick={() => void openSheetYear(t)} disabled={loading || saving} className="mac-menu-item disabled:opacity-40" title={t}>
+        <p className="px-3.5 pb-1 pt-1 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-3">입력할 탭</p>
+        {inputTabs.map((t) => (
+          <div
+            key={t}
+            role="button"
+            tabIndex={0}
+            onClick={() => void openSheetYear(t)}
+            className="mac-menu-item group/tab whitespace-nowrap"
+            title={t}
+          >
             <Check {...icSm} className={`shrink-0 ${t === connectedTitle ? '' : 'invisible'}`} />
             <span className="min-w-0 truncate">{t}</span>
-          </button>
+            {t !== connectedTitle && t !== data?.tabTitle && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  hideTab(t)
+                }}
+                title="이 목록에서 빼기(구글시트의 탭은 그대로)"
+                aria-label={`${t} 목록에서 빼기`}
+                className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded text-label-3 hover:bg-black/[0.06] hover:text-label"
+              >
+                <X size={13} strokeWidth={2} />
+              </button>
+            )}
+          </div>
         ))}
         <div className="mac-menu-sep" />
       </>
