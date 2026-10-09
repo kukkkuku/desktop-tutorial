@@ -28,7 +28,6 @@ import {
   Save,
   RotateCcw,
   PanelTop,
-  Ruler,
   Rows3,
   AlignVerticalSpaceAround,
   ChevronDown,
@@ -2886,22 +2885,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               title="모든 행을 기본 높이로 통일(행간 기본값 · 끌어서 바꾼 행 높이 모두 되돌림)"
             >
               <AlignVerticalSpaceAround {...icSm} />
-            </button>
-            <button
-              onClick={() => {
-                setSrcHeights(true)
-                setRowPad(ROW_PAD_DEFAULT)
-                if (Object.keys(heightsRef.current).length) {
-                  pushHistory('')
-                  setView(widthsRef.current, {})
-                }
-              }}
-              aria-pressed={srcHeights}
-              className={`flex h-8 w-8 items-center justify-center border-l border-hairline hover:bg-black/[0.04] ${srcHeights ? 'bg-accent-soft text-accent-hover' : 'text-label'}`}
-              aria-label="원본 줄 높이로"
-              title="시트 · 엑셀 원본의 줄 높이로 보기(끌어서 바꾼 높이는 되돌림)"
-            >
-              <Ruler {...icSm} />
             </button>
           </span>
           <span className="h-5 w-px shrink-0 bg-separator" />
