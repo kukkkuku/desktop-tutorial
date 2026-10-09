@@ -115,6 +115,8 @@ interface DataGridProps<R extends { id: string }> {
   rowDetailSplit?: string
   addRowLabel?: string
   emptyText?: string
+  // 열 머리글 오른쪽에 붙일 작은 동작(예: 과제명 칸의 묶음 모두 접기 · 펴기). 없으면 null
+  headerExtra?: (colId: string) => ReactNode
 }
 
 export interface GroupHeaderRow {
@@ -1325,6 +1327,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               <span className="truncate">{col.label}</span>
                             )}
                             {!col.system && <span className="shrink-0 text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">추가</span>}
+                            {props.headerExtra && <span className="ml-auto shrink-0 pr-2 font-normal" onMouseDown={(e) => e.stopPropagation()}>{props.headerExtra(col.id)}</span>}
                           </span>
                         )}
                         <span onMouseDown={(e) => onResizeStart(e, col)} className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-accent/30" />

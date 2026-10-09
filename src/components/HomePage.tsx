@@ -134,7 +134,7 @@ export default function HomePage() {
                   <ChartColumn size={21} strokeWidth={1.9} />
                 </span>
                 <span>
-                  <span className="block text-[length:calc(17px*var(--ui-fs,1))] font-bold text-label">과제관리</span>
+                  <span className="block text-[length:calc(17px*var(--ui-fs,1))] font-bold text-label">성과관리</span>
                   <span className="block text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">팀 · 평가기간 · 피어리뷰 · 면담 (팀장)</span>
                 </span>
               </button>

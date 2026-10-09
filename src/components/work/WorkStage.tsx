@@ -50,7 +50,6 @@ import { ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, 
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
-import IconButton from '../IconButton'
 import ConfirmDialog from '../ConfirmDialog'
 
 const HISTORY_LIMIT = 60
@@ -1118,17 +1117,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
               )}
             </label>
-            {/* 묶음 일괄 접기 · 펴기 토글(지금 보이는 묶음 전부): 펼친 게 있으면 모두 접기, 다 접혀 있으면 모두 펴기 */}
-            {bundleNames.length > 0 &&
-              (() => {
-                const allFolded = bundleNames.every((n) => collapsed.has(n))
-                const label = allFolded ? '묶음 모두 펴기' : '묶음 모두 접기'
-                return (
-                  <IconButton onClick={() => setCollapsed(allFolded ? new Set() : new Set(bundleNames))} title={label} aria-label={label}>
-                    {allFolded ? <ListChevronsUpDown {...ic} /> : <ListChevronsDownUp {...ic} />}
-                  </IconButton>
-                )
-              })()}
             {filtered && !evalOnly && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
             {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
             <div className="ml-auto flex items-center gap-1">
@@ -1183,6 +1171,22 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           </div>
 
           <DataGrid
+            headerExtra={(colId) => {
+              // 묶음 모두 접기 · 펴기: L3 과제명 머리 칸에. 묶음이 없으면(접을 게 없으면) 안 보인다
+              if (colId !== COL_NAME || bundleNames.length === 0) return null
+              const allFolded = bundleNames.every((n) => collapsed.has(n))
+              const label = allFolded ? '묶음 모두 펴기' : '묶음 모두 접기'
+              return (
+                <button
+                  onClick={() => setCollapsed(allFolded ? new Set() : new Set(bundleNames))}
+                  title={label}
+                  aria-label={label}
+                  className="flex h-6 w-6 items-center justify-center rounded text-label-2 hover:bg-black/[0.06] hover:text-label"
+                >
+                  {allFolded ? <ListChevronsUpDown {...ic} /> : <ListChevronsDownUp {...ic} />}
+                </button>
+              )
+            }}
             selectCell={selectReq}
             rowActions={(ids) => {
               const free = board.items.filter((i) => ids.includes(i.id))

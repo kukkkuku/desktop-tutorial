@@ -108,7 +108,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
             }}
             header={
               <PageHeader
-                area="과제관리"
+                area="성과관리"
                 // 평가기간 고르기(과제 입력의 연도 고르기와 같은 모양)
                 chooser={
                   <WorkspaceSwitcher
