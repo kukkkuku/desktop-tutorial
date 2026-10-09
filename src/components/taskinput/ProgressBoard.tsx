@@ -937,7 +937,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       // 올라가지 않는 줄 · 기존 탭 갱신은 올리기 전에 알리고 확인받는다
       const sk = d.skipped
       const skippedMsg = sk && (sk.blank || sk.stray.length)
-        ? `엑셀의 ${[sk.blank ? `빈 줄 ${sk.blank}개` : '', sk.stray.length ? `과제 이름이 없고 값만 있는 줄 ${sk.stray.length}개(${sk.stray.slice(0, 6).join(' · ')}${sk.stray.length > 6 ? ' …' : ''}행)` : ''].filter(Boolean).join(', ')}은 올라가지 않습니다.`
+        ? `엑셀에서 과제 이름 없이 값만 있는 줄 ${sk.stray.length}개(${sk.stray.slice(0, 6).join(' · ')}${sk.stray.length > 6 ? ' …' : ''}행)의 내용은 올라가지 않습니다(줄 번호는 그대로 둡니다).`
         : ''
       if (
         (updateExisting || skippedMsg) &&

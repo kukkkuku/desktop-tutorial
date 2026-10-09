@@ -16,14 +16,14 @@ export function sheetToData(parsed: ParsedSheet, raw: RawSheet, meta: Meta): Pro
   const levelCols: ProgressData['levelCols'] = { l2: l2Col, ...(l1Col !== null ? { l1: l1Col } : {}), ...(hCol !== null ? { h: hCol } : {}) }
   const lc = Object.values(levelCols)
   // 표로 옮기지 않은 줄(빈 줄 · 이름 없는 값 줄)을 세어 둔다 -- 구글시트로 올리기 전에 알리려고
+  // (빈 줄은 줄 번호를 지키려고 같은 자리에 다시 넣으므로, 내용이 사라지는 「값만 있고 이름이 없는 줄」만 알린다)
   const used = new Set(parsed.rows.map((r) => r.row))
-  let blank = 0
+  const blank = 0
   const stray: number[] = []
   for (let r = parsed.header.dataStartRow; r < raw.rows.length; r++) {
     if (used.has(r)) continue
     const has = (raw.rows[r] ?? []).some((c) => c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
     if (has) stray.push(r + 1)
-    else blank++
   }
   return {
     ...meta,

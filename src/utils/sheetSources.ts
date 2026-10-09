@@ -668,7 +668,112 @@ export interface XlsxBook {
 //   · 메모 위치가 "D159:D159" → 없는 칸이 생기고 표 범위가 터무니없이 커짐
 // 한컴 파일이 아니면 그대로 돌려준다.
 export async function readXlsxBookAsync(buffer: ArrayBuffer, fileName: string): Promise<XlsxBook> {
-  return readXlsxBook(await fixHancomXlsx(buffer), fileName)
+  const fixed = await fixHancomXlsx(buffer)
+  const book = readXlsxBook(fixed, fileName)
+  try {
+    await attachXlsxFmts(book, fixed)
+  } catch (e) {
+    // 글자 서식은 덤: 못 읽어도 값 · 배경색 · 메모는 그대로 쓴다
+    console.warn('엑셀 글자 서식을 읽지 못했습니다', e)
+  }
+  return book
+}
+
+// ---------- 엑셀 칸 글자 서식(굵게 · 기울임 · 취소선 · 글자색 · 크기 · 정렬) ----------
+// SheetJS(무료판)는 배경색만 주고 글자 서식은 주지 않는다 -- styles.xml과 시트 XML을 직접 읽어 구글시트에서 읽을 때와 같은 문자열(fmtString)로 채운다.
+// 추진현황 탭만(다른 탭은 서식을 쓰지 않는다). 기본 글꼴(첫 글꼴)과 같은 크기 · 검정 글자 · 가로 정렬 없음은 서식으로 치지 않는다.
+const THEME_ORDER = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink']
+const INDEXED_COLORS: Record<number, string> = { 8: '000000', 9: 'FFFFFF', 10: 'FF0000', 11: '00FF00', 12: '0000FF', 13: 'FFFF00', 14: 'FF00FF', 15: '00FFFF', 16: '800000', 17: '008000', 18: '000080', 19: '808000', 20: '800080', 21: '008080', 22: 'C0C0C0', 23: '808080' }
+const xmlAttr = (tag: string, name: string): string | null => new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(tag)?.[1] ?? null
+
+async function attachXlsxFmts(book: XlsxBook, buffer: ArrayBuffer): Promise<void> {
+  const targets = book.sheets.filter((sh) => /추진현황/.test(sh.title))
+  if (!targets.length) return
+  const { default: JSZip } = await import('jszip')
+  const zip = await JSZip.loadAsync(buffer)
+  const read = async (name: string) => (await zip.file(name)?.async('string')) ?? ''
+  const styles = await read('xl/styles.xml')
+  const theme = await read('xl/theme/theme1.xml')
+  if (!styles) return
+  // 테마 색(R G B 순서는 THEME_ORDER, 엑셀의 theme 번호는 0=lt1 · 1=dk1 · 2=lt2 · 3=dk2 · 4~=accent)
+  const themeRgb: string[] = THEME_ORDER.map((k) => {
+    const m = new RegExp(`<a:${k}>\\s*<a:(?:srgbClr val|sysClr[^>]*?lastClr)="([0-9A-Fa-f]{6})"`).exec(theme)
+    return (m?.[1] ?? '000000').toUpperCase()
+  })
+  const themeColor = (i: number) => themeRgb[i === 0 ? 1 : i === 1 ? 0 : i === 2 ? 3 : i === 3 ? 2 : i]
+  const colorOf = (tag: string | undefined): string | null => {
+    if (!tag) return null
+    const rgb = xmlAttr(tag, 'rgb')
+    if (rgb && /^[0-9A-Fa-f]{6,8}$/.test(rgb)) return rgb.slice(-6).toUpperCase()
+    const th = xmlAttr(tag, 'theme')
+    if (th !== null && themeColor(Number(th))) return themeColor(Number(th))
+    const ix = xmlAttr(tag, 'indexed')
+    if (ix !== null && INDEXED_COLORS[Number(ix)]) return INDEXED_COLORS[Number(ix)]
+    return null
+  }
+  // 글꼴 목록
+  const fontsXml = /<(?:\w+:)?fonts\b[^>]*>([\s\S]*?)<\/(?:\w+:)?fonts>/.exec(styles)?.[1] ?? ''
+  const fonts = [...fontsXml.matchAll(/<(?:\w+:)?font\b[^>]*?(?:\/>|>([\s\S]*?)<\/(?:\w+:)?font>)/g)].map((m) => {
+    const x = m[1] ?? ''
+    const flag = (t: string) => {
+      const tag = new RegExp(`<(?:\\w+:)?${t}\\b[^>]*?\\/?>`).exec(x)?.[0]
+      return !!tag && xmlAttr(tag, 'val') !== '0' && xmlAttr(tag, 'val') !== 'false'
+    }
+    const sz = Number(xmlAttr(/<(?:\w+:)?sz\b[^>]*?\/?>/.exec(x)?.[0] ?? '', 'val')) || 0
+    return { b: flag('b'), i: flag('i'), x: flag('strike'), c: colorOf(/<(?:\w+:)?color\b[^>]*?\/?>/.exec(x)?.[0]), s: sz }
+  })
+  const baseSize = fonts[0]?.s ?? 0
+  // 칸 서식(cellXfs): 글꼴 번호 + 가로 정렬
+  const xfsXml = /<(?:\w+:)?cellXfs\b[^>]*>([\s\S]*?)<\/(?:\w+:)?cellXfs>/.exec(styles)?.[1] ?? ''
+  const xfFmt: string[] = [...xfsXml.matchAll(/<(?:\w+:)?xf\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:\w+:)?xf>)/g)].map((m) => {
+    const font = fonts[Number(xmlAttr(m[1], 'fontId') ?? 0)] ?? fonts[0]
+    const al = /<(?:\w+:)?alignment\b[^>]*?\/?>/.exec(m[2] ?? '')?.[0]
+    const h = al ? xmlAttr(al, 'horizontal') : null
+    return fmtString({
+      ...(font?.b ? { b: true } : {}),
+      ...(font?.i ? { i: true } : {}),
+      ...(font?.x ? { x: true } : {}),
+      ...(font?.c && font.c !== '000000' ? { c: font.c } : {}),
+      ...(font?.s && font.s !== baseSize ? { s: font.s } : {}),
+      ...(h === 'left' || h === 'center' || h === 'right' ? { a: h as CellAlign } : {}),
+    })
+  })
+  // 탭 이름 → 시트 XML 경로
+  const wbXml = await read('xl/workbook.xml')
+  const rels = await read('xl/_rels/workbook.xml.rels')
+  const pathOfRid = new Map<string, string>()
+  for (const m of rels.matchAll(/<(?:\w+:)?Relationship\b([^>]*?)\/?>/g)) {
+    const id = xmlAttr(m[1], 'Id')
+    const target = xmlAttr(m[1], 'Target')
+    if (id && target) pathOfRid.set(id, target.startsWith('/') ? target.slice(1) : `xl/${target}`)
+  }
+  const unesc = (t: string) => t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+  for (const m of wbXml.matchAll(/<(?:\w+:)?sheet\b([^>]*?)\/?>/g)) {
+    const name = unesc(xmlAttr(m[1], 'name') ?? '')
+    const rid = /\sr:id="([^"]*)"/.exec(m[1])?.[1]
+    const sheet = targets.find((sh) => sh.title === name)
+    const path = rid ? pathOfRid.get(rid) : undefined
+    if (!sheet || !path) continue
+    const xml = await read(path)
+    const fmts: (string | null)[][] = []
+    for (const c of xml.matchAll(/<(?:\w+:)?c\b([^>]*?)(?:\/>|>)/g)) {
+      const ref = /^([A-Z]+)(\d+)$/.exec(xmlAttr(c[1], 'r') ?? '')
+      const si = xmlAttr(c[1], 's')
+      if (!ref || si === null) continue
+      const f = xfFmt[Number(si)]
+      if (!f) continue
+      const r = Number(ref[2]) - 1
+      const col = ref[1].split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1
+      if (r >= sheet.rows.length) continue
+      ;(fmts[r] ||= [])[col] = f
+    }
+    for (let r = 0; r < sheet.rows.length; r++) {
+      fmts[r] ||= []
+      const w = Math.max(sheet.rows[r]?.length ?? 0, fmts[r].length)
+      for (let c = 0; c < w; c++) fmts[r][c] = fmts[r][c] || null
+    }
+    sheet.fmts = fmts
+  }
 }
 async function fixHancomXlsx(buffer: ArrayBuffer): Promise<ArrayBuffer> {
   const { default: JSZip } = await import('jszip')

@@ -156,8 +156,18 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   const labelOf = (r: ProgressRow, l: Level) =>
     r.labels?.[l] ?? (l === 'h' ? (r.h ?? '') : l === 'l1' ? (r.l1 === NO_L1 ? '' : r.l1) : r.l2Tag ? `${r.l2} [${r.l2Tag}]` : r.l2)
   const spanStart: Record<string, number> = {}
+  // 줄의 시트 행 번호: 앞에 있던 빈 줄(gapBefore)을 그대로 두어 원본과 줄 번호가 맞게 한다
+  const yAt: number[] = []
   rows.forEach((row, ri) => {
-    const y = ri + 3
+    yAt[ri] = (ri === 0 ? 3 : yAt[ri - 1] + 1) + (ri > 0 ? row.gapBefore ?? 0 : 0)
+  })
+  // 빈 줄도 표 선은 이어지게
+  rows.forEach((row, ri) => {
+    const gap = ri > 0 ? row.gapBefore ?? 0 : 0
+    for (let g = 1; g <= gap; g++) for (let i = 0; i < all.length; i++) ws.getCell(yAt[ri] - g, at(i)).border = BORDER
+  })
+  rows.forEach((row, ri) => {
+    const y = yAt[ri]
     const e = row.isNew ? undefined : drafts.edits[row.key]
     const cells = effectiveCells(row, e)
     all.forEach((c, i) => {
@@ -234,7 +244,7 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   })
 
   // ---- 입력 열 칸 병합(줄 · 열이 붙어 있을 때만) ----
-  const yOf = new Map(rows.map((r, ri) => [r.key, ri + 3]))
+  const yOf = new Map(rows.map((r, ri) => [r.key, yAt[ri]]))
   for (const m of effectiveMerges(data, drafts)) {
     const ys = m.rows.map((k) => yOf.get(k) ?? -1).sort((p, q) => p - q)
     const xs = m.ids
@@ -259,7 +269,7 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
   // 줄 높이(pt): 첫 머리글 15 · 둘째 20.25 · 본문 19.5
   ws.getRow(1).height = 15
   ws.getRow(2).height = 20.25
-  for (let r = 3; r < rows.length + 3; r++) ws.getRow(r).height = 19.5
+  for (let r = 3; r <= (yAt[rows.length - 1] ?? 2); r++) ws.getRow(r).height = 19.5
   const nameIdx = all.findIndex((c) => c.kind === 'name')
   ws.views = [{ state: 'frozen', xSplit: at(nameIdx), ySplit: 2, showGridLines: false }]
   return wb

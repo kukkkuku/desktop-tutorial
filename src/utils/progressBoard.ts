@@ -34,6 +34,8 @@ export interface ProgressRow {
   // 이 행에 직접 적힌 H·L1·L2 칸 글자(병합이면 맨 위 칸에만 있음). 줄을 넣거나 지울 때 이름 칸을 옮기는 데 쓴다.
   labels?: Partial<Record<Level, string>>
   isNew?: boolean // 이 화면에서 새로 추가(아직 시트에 없음)
+  // 읽어 올 때 이 줄 바로 앞에 있던 빈 줄 수(그룹 사이 여백 등). 시트로 올리거나 내보낼 때 같은 자리에 다시 넣어 줄 번호가 원본과 맞게 한다
+  gapBefore?: number
 }
 
 export type Level = 'h' | 'l1' | 'l2'
@@ -369,7 +371,8 @@ export function toProgressRows(
 ): ProgressRow[] {
   const seen = new Map<string, number>()
   const extra = fields.filter((f) => f.id.startsWith('col'))
-  return rows.map((r) => {
+  return rows.map((r, idx) => {
+    const gap = idx > 0 ? r.row - rows[idx - 1].row - 1 : 0
     const base = rowKeyOf(r.l2, r.l3)
     const n = (seen.get(base) ?? 0) + 1
     seen.set(base, n)
@@ -408,6 +411,7 @@ export function toProgressRows(
     return {
       key: rowKeyOf(r.l2, r.l3, n),
       row: r.row,
+      ...(gap > 0 ? { gapBefore: gap } : {}),
       h: r.h,
       l1: r.l1 ?? NO_L1,
       l2: r.l2,
