@@ -26,6 +26,7 @@ import {
   FilePlus2,
   Save,
   RotateCcw,
+  PanelTop,
   RotateCw,
   Rows3,
   AlignVerticalSpaceAround,
@@ -393,6 +394,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   })
   const [sheetReload, setSheetReload] = useState(0)
+  const [sheetJump, setSheetJump] = useState<number | null>(null) // 그룹 탭으로 옮겨 갈 시트 행(1-based)
+  const [sheetBoxRef, sheetBoxH] = useFitHeight(12, 360)
   function setSheetFull(v: boolean) {
     setSheetFullState(v)
     try {
@@ -2109,6 +2112,32 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       엑셀로 받기
     </Button>
   )
+  // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
+  const viewSwitchEl = (
+    <span className="flex shrink-0 items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
+            {(
+              [
+                ['table', '표', Table2],
+                ['board', '보드', SquareKanban],
+                ['timeline', '타임라인', ChartGantt],
+                ...(data.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
+              ] as const
+            ).map(([k, label, Icon]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={boardView === k}
+                onClick={() => changeBoardView(k)}
+                title={label}
+                aria-label={label}
+                className={`flex h-7 w-8 items-center justify-center rounded-[7px] ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
+              >
+                <Icon size={16} strokeWidth={1.8} />
+              </button>
+            ))}
+          </span>
+  )
+
   const statusBar = view === 'rate' ? null : fromXlsx ? (
     <NoticeBar
       tone="warn"
@@ -2328,7 +2357,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       <div className={view === 'rate' ? 'hidden' : ''}>
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
-        <div className="flex items-end gap-2 border-b border-separator">
+        <div className={`flex items-end gap-2 border-b border-separator ${boardView === 'sheet' ? 'hidden' : ''}`}>
           {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
           <div ref={tabStripRef} className="flex min-w-0 flex-1 items-end gap-1 overflow-hidden pt-1">
             {shownL1s.map((name) => {
@@ -2509,7 +2538,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <div
           className={`-mx-2 mt-2 flex min-h-[52px] flex-wrap items-center gap-2 rounded-[12px] px-2 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
             editing && boardView === 'table' && !readOnly ? 'bg-accent-soft/70' : ''
-          }`}
+          } ${boardView === 'sheet' ? 'hidden' : ''}`}
         >
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
           <label className={`relative ${boardView === 'sheet' ? 'hidden' : ''}`} title="L2 · L3 · 담당자 찾기">
@@ -2549,30 +2578,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </label>
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
           {/* 입력 중에는 보기 바꾸기를 숨긴다(서식 막대는 고른 칸 위에 뜬다) */}
-          {!(editing && boardView === 'table') && (
-          <span className="flex items-center gap-0.5 rounded-[9px] bg-black/[0.05] p-0.5" role="tablist" aria-label="보기">
-            {(
-              [
-                ['table', '표', Table2],
-                ['board', '보드', SquareKanban],
-                ['timeline', '타임라인', ChartGantt],
-                ...(data.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
-              ] as const
-            ).map(([k, label, Icon]) => (
-              <button
-                key={k}
-                role="tab"
-                aria-selected={boardView === k}
-                onClick={() => changeBoardView(k)}
-                title={label}
-                aria-label={label}
-                className={`flex h-7 w-8 items-center justify-center rounded-[7px] ${boardView === k ? 'bg-white text-label shadow-pill' : 'text-label-2 hover:text-label'}`}
-              >
-                <Icon size={16} strokeWidth={1.8} />
-              </button>
-            ))}
-          </span>
-          )}
+          {!(editing && boardView === 'table') && viewSwitchEl}
           {/* 보드 · 타임라인 거르기(단계 + 지연 · 이번 달 마감): 보기 버튼 바로 옆 */}
           {boardView !== 'table' && boardView !== 'sheet' &&
             (() => {
@@ -2868,49 +2874,78 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`mt-2 overflow-auto pb-4 transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? '-mx-4 -mb-6 -mt-3 lg:-mx-6' : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
-          style={{ maxHeight: tableBoxH }}
+          style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
         >
           {boardView === 'sheet' && data.spreadsheetId ? (
-            <div className="flex flex-col gap-2">
-              {/* 얇은 도구 줄: 이 모드에서 쓸 수 있는 것만(검색 · 칠하기 같은 표 도구는 숨김) */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                <span className="mr-auto min-w-0">구글시트 화면 그대로입니다. 여기서 고치면 바로 시트에 저장됩니다(편집 권한이 있는 구글 계정으로 로그인).</span>
-                <label className="flex cursor-pointer items-center gap-1.5" title="구글의 메뉴 · 서식 도구 모음을 보입니다(꺼 두면 칸만 보이는 최소 화면)">
-                  구글 도구 모음
-                  <button
-                    role="switch"
-                    aria-checked={sheetFull}
-                    onClick={() => setSheetFull(!sheetFull)}
-                    className={`relative h-[18px] w-8 rounded-full transition-colors ${sheetFull ? 'bg-accent' : 'bg-black/[0.15]'}`}
-                  >
-                    <span className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow transition-[left] ${sheetFull ? 'left-[16px]' : 'left-[2px]'}`} />
-                  </button>
-                </label>
-                <Button size="sm" variant="ghost" onClick={() => setSheetReload((n) => n + 1)} title="구글시트 화면을 다시 불러옵니다">
+            // 구글시트가 본문을 꽉 채운다. 앱 도구는 한 줄을 차지하지 않고, 구글의 아래 시트 탭 자리를 덮는 얇은 줄 하나로 떠 있다
+            // (보기 전환 · 그룹 이동 · 구글 도구 모음 켜기/끄기 · 새로고침 · 새 창)
+            <div ref={sheetBoxRef} className="relative overflow-hidden rounded-[12px] border border-hairline bg-white" style={{ height: sheetBoxH ?? 640 }}>
+              <iframe
+                key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}:${sheetJump ?? ''}`}
+                title="구글시트"
+                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}${sheetJump ? `#gid=${data.sheetGid ?? 0}&range=A${sheetJump}` : ''}`}
+                className="absolute inset-x-0 top-0 w-full border-0"
+                style={{ height: '100%' }}
+              />
+              <div className="absolute inset-x-0 bottom-0 z-10 flex h-10 items-center gap-2 border-t border-separator bg-white px-2 text-[length:calc(13px*var(--ui-fs,1))]">
+                {viewSwitchEl}
+                <span className="h-5 w-px shrink-0 bg-separator" />
+                {/* 그룹 이동: 누르면 시트의 그 그룹 첫 행으로 */}
+                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
+                  {shownL1s
+                    .filter((x) => x !== NO_L1)
+                    .map((name) => {
+                      const first = Math.min(...data.rows.filter((r) => r.l1 === name).map((r) => r.row + 1))
+                      const on = name === l1
+                      return (
+                        <button
+                          key={name}
+                          disabled={!Number.isFinite(first)}
+                          onClick={() => {
+                            setActiveL1(name)
+                            if (Number.isFinite(first)) setSheetJump(first)
+                          }}
+                          title={`${name} · 시트의 첫 행(${Number.isFinite(first) ? first : '-'}행)으로 이동`}
+                          className={`h-7 max-w-[160px] shrink-0 truncate rounded-control px-2.5 font-medium transition-colors ${on ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+                        >
+                          {name}
+                        </button>
+                      )
+                    })}
+                </div>
+                <span className="h-5 w-px shrink-0 bg-separator" />
+                <button
+                  role="switch"
+                  aria-checked={sheetFull}
+                  onClick={() => setSheetFull(!sheetFull)}
+                  title={sheetFull ? '구글 도구 모음 숨기기' : '구글 도구 모음 보기(메뉴 · 서식)'}
+                  aria-label="구글 도구 모음"
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control ${sheetFull ? 'bg-accent-soft text-accent-hover' : 'text-label-2 hover:bg-black/[0.05] hover:text-label'}`}
+                >
+                  <PanelTop {...icSm} />
+                </button>
+                <button
+                  onClick={() => setSheetReload((n) => n + 1)}
+                  title="구글시트 화면을 다시 불러옵니다"
+                  aria-label="새로고침"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
+                >
                   <RotateCw {...icSm} />
-                  새로고침
-                </Button>
+                </button>
                 <a
                   href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-7 items-center gap-1 rounded-control px-2.5 font-medium text-accent hover:bg-accent-soft"
-                  title="화면이 안 보이면 새 창에서 엽니다"
+                  title="새 창에서 열기(화면이 안 보이거나 로그인이 필요할 때)"
+                  aria-label="새 창에서 열기"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
                 >
                   <ExternalLink {...icSm} />
-                  새 창에서 열기
                 </a>
               </div>
-              <iframe
-                key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}`}
-                title="구글시트"
-                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}`}
-                className="w-full rounded-[8px] border border-hairline bg-white"
-                style={{ height: Math.max(420, (tableBoxH ?? 640) - 40) }}
-              />
             </div>
           ) : boardView === 'board' ? (
             <KanbanBoard
