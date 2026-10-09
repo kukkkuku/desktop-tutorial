@@ -261,7 +261,7 @@ async function readFromSheet(spreadsheetId: string, year: number, pick?: string)
 
 export default function ProgressBoard({ view = 'progress' }: { view?: 'progress' | 'rate' }) {
   // 표 틀 높이 = 창 높이에 맞춤(아래 여백 = 본문 아래 32px + 판 바깥 8px + 4px). 가로 스크롤 막대가 늘 화면 안에 보이게
-  const [tableBoxRef, tableBoxH] = useFitHeight(44)
+  const [tableBoxRef, tableBoxH] = useFitHeight(13)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
   // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
@@ -3096,7 +3096,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : 'mt-2 overflow-auto pb-4'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : '-mx-6 -mb-8 mt-2 overflow-auto rounded-b-panel lg:-mx-8'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
           style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
@@ -3123,6 +3123,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               />
             </div>
           ) : boardView === 'board' ? (
+            <div className="px-6 pb-6 lg:px-8">
             <KanbanBoard
               views={views}
               weekCols={weekCols}
@@ -3131,8 +3132,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
               onStatus={readOnly || !data.fields.some((f) => f.id === 'status') ? undefined : (row, value) => setField(row, 'status', value)}
               filter={viewFilter}
             />
+            </div>
           ) : boardView === 'timeline' ? (
-            <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} filter={viewFilter} onFilter={setViewFilter} />
+            <div className="px-6 pb-6 lg:px-8">
+              <TimelineView views={views} weekCols={weekCols} currentKey={currentKey} filter={viewFilter} onFilter={setViewFilter} />
+            </div>
           ) : (
             <ScheduleTable
               weekCols={weekCols}
