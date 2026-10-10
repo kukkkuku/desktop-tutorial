@@ -691,7 +691,7 @@ export default function SheetImportPanel({
               {warnings.unknownAssignees.length > 0 && (
                 <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                   추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리 팀 사람만
-                  고르세요. 권한 시트(없으면 시트의 담당팀)로 본 소속이 우리 팀이면 「우리 팀」, 다른 팀이면 주황 「다른 팀」 표시가 붙습니다(다른 팀은 처음엔 체크하지 않음).
+                  고르세요. 회색 칩은 이미 팀원인 사람입니다. 권한 시트(없으면 시트의 담당팀)로 본 소속이 다른 팀이면 주황으로 「다른 팀 · 팀 이름」이 붙고 처음엔 체크하지 않습니다. 우리 팀 사람은 이름만 나옵니다.
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -699,11 +699,10 @@ export default function SheetImportPanel({
                 {warnings.memberAssignees.map((m) => (
                   <span
                     key={`m:${m.name}`}
-                    className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label shadow-control"
-                    title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결)"
+                    className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
+                    title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
                   >
                     {m.name} <span className="text-label-3">{m.count}</span>
-                    <span className="rounded-full bg-success/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-success">팀원</span>
                   </span>
                 ))}
                 {warnings.unknownAssignees.map((u) => {
@@ -722,7 +721,6 @@ export default function SheetImportPanel({
                     >
                       {on && <Check {...icSm} />}
                       {u.name} <span className="text-label-3">{u.count}</span>
-                      {u.kind === 'ours' && <span className="rounded-full bg-success/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-success">우리 팀</span>}
                       {u.kind === 'other' && (
                         <span className="rounded-full bg-orange-100 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">다른 팀 · {u.team}</span>
                       )}
