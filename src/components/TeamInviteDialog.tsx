@@ -49,9 +49,8 @@ function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string)
     const doc = frameRef.current?.contentDocument
     const w = wrapRef.current?.clientWidth ?? MAIL_W
     if (!doc) return
-    // 문서 높이는 틀 높이보다 작아지지 않으므로 메일 표의 실제 높이로 잰다
-    const first = doc.body.firstElementChild as HTMLElement | null
-    const ch = Math.ceil(first ? first.getBoundingClientRect().height : doc.documentElement.scrollHeight)
+    // 문서 높이는 틀 높이보다 작아지지 않으므로 몸통(body)의 실제 높이로 잰다(맨 앞 숨은 미리보기 글 div는 높이 0)
+    const ch = Math.ceil(doc.body.getBoundingClientRect().height || doc.documentElement.scrollHeight)
     setH(ch)
     // 화면 높이에 맞춰 줄이되 글자가 너무 작아지지 않게(0.78 아래로는 안 줄임 -- 그때는 창이 스크롤)
     setScale(Math.min(1, w / MAIL_W, Math.max(0.78, maxHRef.current / ch)))
