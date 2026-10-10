@@ -123,13 +123,16 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                 title={PERF_ITEMS.find((i) => i.key === stage || i.also?.includes(stage))?.label ?? ''}
                 actions={
                   <>
-                    <NoticeBell teamName={teamName} onOpenTeam={goToTeamManagement} onOpenEvaluate={() => handleStageChange('evaluate')} />
                     {stage !== 'notes' && (
-                      <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
-                        <SlidersHorizontal size={15} strokeWidth={1.8} />
-                        기준 설정
-                      </Button>
+                      <>
+                        <Button variant="secondary" onClick={() => setCriteriaOpen((v) => !v)} aria-pressed={criteriaOpen}>
+                          <SlidersHorizontal size={15} strokeWidth={1.8} />
+                          기준 설정
+                        </Button>
+                        <span className="mx-1 h-5 w-px bg-separator" aria-hidden="true" />
+                      </>
                     )}
+                    <NoticeBell teamName={teamName} onOpenTeam={goToTeamManagement} onOpenEvaluate={() => handleStageChange('evaluate')} />
                   </>
                 }
               />
