@@ -35,7 +35,7 @@ export function teamMembersOf(data: AccessData | null, teamName: string, me: str
 
 // 실제 메일 미리보기: 메일 HTML을 그대로 띄우고 인사말(#invite-msg)만 그 자리에서 고친다.
 // 칸 너비 · 화면 높이에 맞춰 줄여서 안쪽 스크롤 없이 한눈에 보이게 한다.
-const MAIL_W = 560
+const MAIL_W = 600
 function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string) => void; maxH: number }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
@@ -65,10 +65,6 @@ function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string)
   function onLoad() {
     const doc = frameRef.current?.contentDocument
     if (!doc) return
-    // 메일 앱의 회색 바탕 · 바깥 여백은 빼고 흰 카드로(시안)
-    doc.body.style.background = '#FFFFFF'
-    const outer = doc.querySelector('table') as HTMLElement | null
-    if (outer) Object.assign(outer.style, { background: '#FFFFFF', padding: '0' })
     const msg = doc.getElementById('invite-msg')
     if (msg) {
       msg.contentEditable = 'true'
