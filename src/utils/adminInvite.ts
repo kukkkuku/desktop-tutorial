@@ -257,11 +257,9 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   return `<!doctype html><html><body style="margin:0;padding:0;background:#FFFFFF">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:32px 12px;font-family:${font}">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border:1px solid #111111;border-radius:16px;overflow:hidden;background:#FFFFFF">
-<tr><td style="background:#111111;padding:20px 32px">
-  <div style="font-size:15px;font-weight:700;color:#FFFFFF">페이스<span style="color:#F97316">.</span> <span style="font-weight:400;color:#A3A3A3">과제관리</span></div>
-</td></tr>
-<tr><td style="padding:30px 32px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#EA580C">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;background:#FFFFFF">
+<tr><td style="padding:28px 32px 0"><span style="font-size:15px;font-weight:700;color:#111111">페이스</span><span style="font-size:15px;font-weight:700;color:#F97316">.</span> <span style="font-size:13px;color:#A3A3A3">과제관리</span></td></tr>
+<tr><td style="padding:26px 32px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#EA580C">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
 <tr><td style="padding:10px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
 <tr><td style="padding:18px 32px 0"><div id="invite-msg" style="border-left:3px solid #F97316;padding:4px 0 4px 16px;font-size:15px;line-height:2;color:#262626">${msg}</div></td></tr>
 <tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all;border-bottom:3px solid #F97316;display:inline-block">${escHtml(r.email)}</div></td></tr>
