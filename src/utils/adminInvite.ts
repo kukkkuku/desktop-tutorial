@@ -251,7 +251,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
         `로그인할 계정: ${r.email}\n어떤 화면에서 막혔는지 적어 주세요:\n\n`,
       )}`
     : ''
-  // 시안 「Refined」: 흰 바탕 · 제목이 웃는 선 안에 들어간 그림 · 검은 알약 버튼. 표 + inline 스타일(메일 앱용), Outlook은 VML 버튼.
+  // 시안 「Refined」: 흰 바탕 · 표정 4개 · 계정이 들어간 검은 알약 버튼. 표 + inline 스타일(메일 앱용), Outlook은 VML 버튼.
   // 그림은 앱 주소의 /invite/ 폴더(public/invite)에서 불러온다(메일 앱이 SVG를 못 보여 줘서 PNG). 원본 · 미리보기: docs/invite-email
   const imgBase = (() => {
     try {
@@ -304,12 +304,11 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   [data-ogsc] .btn-text { color: #FFFFFF !important; }
   [data-ogsb] .bg-main { background-color: #FFFFFF !important; }
   [data-ogsb] .btn-cell { background-color: #181818 !important; }
-  /* 모바일 */
+  /* 모바일(실제 폰 화면) */
   @media only screen and (max-width: 480px) {
     .wrap { width: 100% !important; }
     .pad { padding-left: 24px !important; padding-right: 24px !important; }
-    .welcome { background-size: 100% auto !important; }
-    .email { font-size: 22px !important; line-height: 30px !important; }
+    .guide { padding-left: 8px !important; }
   }
 </style>
 </head>
@@ -317,7 +316,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 
 <!-- 미리보기 글(받은편지함 목록에 보이는 한 줄) -->
 <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
-  페이스(과제관리)에 초대합니다. 아래 버튼을 눌러 시작하세요.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+  페이스(과제관리)에 초대합니다. 아래 계정으로 로그인해 주세요.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
 </div>
 
 <table role="presentation" class="bg-main" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
@@ -327,56 +326,28 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   <table role="presentation" class="wrap bg-main" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;max-width:600px;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
 
     <!-- 위 머리 줄 -->
-    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:28px 58px 0 58px;background-color:#FFFFFF;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:37px 58px 0 58px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td class="gray" align="left" style="padding:0 0 16px 0;border-bottom:1px solid #181818;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;line-height:18px;font-weight:500;color:#535353;">PACE / 과제관리</td>
-          <td class="gray" align="right" style="padding:0 0 16px 0;border-bottom:1px solid #181818;font-family:'Roboto Mono','Courier New',Courier,monospace;font-size:13px;line-height:18px;color:#535353;">INVITATION</td>
+          <td class="gray" align="left" style="padding:0 0 22px 0;border-bottom:1px solid #181818;font-family:'Roboto Mono','Courier New',Courier,monospace;font-size:13px;line-height:18px;color:#535353;">INVITATION</td>
         </tr>
       </table>
     </td></tr>
 
-    <!-- 제목 + 웃는 얼굴(그림) : 제목이 웃는 선 안에 들어간다 -->
-    <!--[if mso]>
-    <tr><td align="center" bgcolor="#FFFFFF" style="padding:6px 58px 0 58px;"><img src="${imgBase}welcome.png" width="290" height="110" alt="웃는 얼굴 모양의 굵은 선과 오렌지색 &quot;Hi!&quot; 스티커" style="display:block;border:0;"></td></tr>
-    <tr><td align="center" bgcolor="#FFFFFF" style="padding:8px 58px 0 58px;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:23px;line-height:29px;font-weight:bold;color:#181818;">페이스에<br>초대합니다.</td></tr>
-    <![endif]-->
-    <!--[if !mso]><!-->
-    <tr><td class="pad bg-main" align="center" bgcolor="#FFFFFF" style="padding:0 58px;background-color:#FFFFFF;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td class="welcome" align="center" valign="top" height="116" background="${imgBase}welcome.png" bgcolor="#FFFFFF" style="height:116px;background-image:url('${imgBase}welcome.png');background-repeat:no-repeat;background-position:center 4px;background-size:290px 110px;background-color:#FFFFFF;">
-            <div class="ink" style="padding:4px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:23px;line-height:29px;font-weight:900;color:#181818;text-align:center;">페이스에<br>초대합니다.</div>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-    <!--<![endif]-->
-
-    <!-- 인사말 (초대 창에서 그 자리에서 고침) -->
-    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:0 58px 18px 58px;background-color:#FFFFFF;">
-      <p id="invite-msg" class="gray" style="margin:0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;line-height:24px;font-weight:500;color:#535353;">${msg}</p>
+    <!-- 인사 : 표정 4개 → 안녕하세요. → 제목 → 안내 한 줄(초대 창에서 그 자리에서 고침) -->
+    <tr><td class="pad bg-main" align="center" bgcolor="#FFFFFF" style="padding:30px 58px 40px 58px;background-color:#FFFFFF;">
+      <img src="${imgBase}faces.png" width="127" height="23" alt="웃는 얼굴 아이콘 네 개" style="display:block;margin:0 auto;width:127px;height:23px;border:0;">
+      <div class="gray" style="padding-top:6px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;line-height:24px;font-weight:500;color:#535353;text-align:center;">안녕하세요.</div>
+      <div class="ink" style="padding-top:12px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:26px;line-height:32px;font-weight:700;color:#000000;text-align:center;">과제 관리 앱으로 초대합니다.</div>
+      <div id="invite-msg" class="gray" style="padding-top:2px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;line-height:26px;font-weight:500;color:#535353;text-align:center;">${msg}</div>
     </td></tr>
 
-    <!-- 로그인 계정 -->
-    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:0 58px;background-color:#FFFFFF;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #181818;">
-        <tr>
-          <td class="gray" align="left" style="padding:14px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#535353;">로그인 계정</td>
-          <td align="right" style="padding:14px 0 0 0;font-family:'Roboto Mono','Courier New',Courier,monospace;font-size:13px;line-height:18px;color:#777777;">LOGIN ID</td>
-        </tr>
-        <tr>
-          <td class="ink email" colspan="2" align="left" style="padding:6px 0 18px 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:26px;line-height:34px;font-weight:700;color:#181818;word-break:break-all;">${escHtml(r.email)}</td>
-        </tr>
-      </table>
-    </td></tr>
-
-    <!-- 시작 버튼(알약 · Outlook은 VML) -->
+    <!-- 계정 + 시작 버튼 (알약 · 계정이 버튼 안에 들어간다 · Outlook은 VML) -->
     <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:0 58px;background-color:#FFFFFF;">
       <!--[if mso]>
       <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escHtml(appUrl)}" style="height:49px;v-text-anchor:middle;width:484px;" arcsize="50%" stroke="f" fillcolor="#181818">
         <w:anchorlock/>
-        <center style="color:#FFFFFF;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:19px;font-weight:bold;">페이스 시작하기 &nbsp;&rarr;</center>
+        <center style="color:#FFFFFF;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:17px;font-weight:bold;">${escHtml(r.email)} &nbsp;&nbsp;&nbsp; 시작 &nbsp;&rarr;</center>
       </v:roundrect>
       <![endif]-->
       <!--[if !mso]><!-->
@@ -386,7 +357,10 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td align="left" height="49" style="height:49px;padding:0 0 0 32px;">
-                  <a class="btn-text" href="${escHtml(appUrl)}" target="_blank" style="display:block;line-height:49px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:19px;font-weight:700;color:#FFFFFF;text-decoration:none;">페이스 시작하기</a>
+                  <a class="btn-text" href="${escHtml(appUrl)}" target="_blank" style="display:block;line-height:49px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:19px;font-weight:700;color:#FFFFFF;text-decoration:none;word-break:break-all;">${escHtml(r.email)}</a>
+                </td>
+                <td align="right" width="52" style="width:52px;padding:0 0 0 8px;white-space:nowrap;">
+                  <a class="btn-text" href="${escHtml(appUrl)}" target="_blank" style="display:block;line-height:49px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:17px;font-weight:700;color:#FFFFFF;text-decoration:none;">시작</a>
                 </td>
                 <td align="right" width="64" style="width:64px;padding:0 6px 0 0;">
                   <a href="${escHtml(appUrl)}" target="_blank" style="display:block;font-size:0;line-height:0;"><img src="${imgBase}arrow.png" width="52" height="52" alt="&rarr;" style="display:block;width:52px;height:52px;border:0;color:#FFFFFF;font-size:22px;"></a>
@@ -400,21 +374,18 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     </td></tr>
 
     <!-- 처음 로그인할 때 -->
-    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:18px 58px 16px 58px;background-color:#FFFFFF;">
+    <tr><td class="pad guide bg-main" bgcolor="#FFFFFF" style="padding:22px 87px 18px 87px;background-color:#FFFFFF;">
       <div class="ink" style="font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:15px;line-height:20px;font-weight:700;color:#181818;">처음 로그인할 때</div>
       <div class="gray" style="padding-top:8px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:20px;color:#535353;"><b style="font-weight:700;">「Google에서 확인하지 않은 앱」</b> 화면이 나오면</div>
       <div class="gray" style="padding-top:2px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:20px;color:#535353;">&nbsp;&nbsp;&nbsp;왼쪽 아래 <b class="ink" style="font-weight:700;color:#181818;">「고급」 → 「페이스(으)로 이동」</b> 을 눌러 주세요.</div>
     </td></tr>
 
-    <!-- 바닥 줄: 미니 표정 4개 -->
+    <!-- 바닥 줄: 문의하기 -->
     <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:0 58px 28px 58px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #181818;">
         <tr>
-          <td align="left" valign="middle" style="padding:14px 0 0 0;font-size:0;line-height:0;">
-            <img src="${imgBase}faces.png" width="127" height="23" alt="웃는 얼굴 아이콘 네 개" style="display:block;width:127px;height:23px;border:0;">
-          </td>
 ${contact ? `
-          <td align="right" valign="middle" style="padding:14px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:12px;line-height:23px;color:#777777;white-space:nowrap;">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#181818;text-decoration:underline;">문의하기</a></td>` : ''}
+          <td align="left" valign="middle" style="padding:19px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;line-height:20px;color:#777777;">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#181818;text-decoration:underline;">문의하기</a></td>` : ''}
         </tr>
       </table>
     </td></tr>
@@ -431,7 +402,9 @@ ${contact ? `
 // 글만 보는 메일 앱용: 인사말 + 시작하는 방법 + 문의
 function inviteText(message: string, r: { email: string }, appUrl: string, contact: InviteContact): string {
   appUrl = withLoginHint(appUrl, r.email)
-  return `${message.trim()}
+  return `안녕하세요.
+과제 관리 앱으로 초대합니다.
+${message.trim()}
 
 [시작하는 방법]
 1. 페이스 시작하기: ${appUrl}

@@ -16,8 +16,7 @@ import { connectAdmin, getAdminEmail, inviteHtml, isAdminConfigured, isAdminConn
 import { contactFor, getAccessSheetId, appInviteUrl, refreshAccess, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../utils/accessSheet'
 
 const DEFAULT_SUBJECT = '페이스(과제관리) 앱 초대'
-const DEFAULT_BODY = `안녕하세요, 팀 과제관리 앱 「페이스」에 초대합니다.
-아래 시작하는 방법대로 들어와 주세요.`
+const DEFAULT_BODY = `아래 계정으로 로그인해주세요.`
 const stamp = () => {
   const d = new Date()
   const p = (n: number) => String(n).padStart(2, '0')
