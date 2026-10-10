@@ -59,7 +59,7 @@ interface ProjectCardProps {
   onDelete: (workspace: WorkspaceMeta) => void
 }
 
-// 프로젝트 카드: 누르면 들어가기 · 마우스를 올리면 연필(이름 바꾸기) · ⋯ 메뉴(우클릭도 됨)에서 복제 · 이름 바꾸기 · 삭제
+// 프로젝트 카드: 누르면 들어가기 · ⋯ 메뉴(우클릭도 됨)에서 복제 · 이름 바꾸기 · 삭제
 function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   const [renaming, setRenaming] = useState(false)
@@ -145,18 +145,6 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
                 평가 진행중
               </span>
             )}
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditYear(workspace.evaluationYear)
-                setRenaming(true)
-              }}
-              title="연도 · 이름 바꾸기"
-              aria-label="이름 바꾸기"
-              className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-            >
-              <Pencil {...ic} />
-            </IconButton>
             {/* 우클릭하지 않아도 열리는 ⋯ 메뉴(복제 · 이름 바꾸기 · 삭제) */}
             <IconButton
               onMouseDown={(e) => e.stopPropagation()}
