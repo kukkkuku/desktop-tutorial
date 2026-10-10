@@ -991,7 +991,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative flex h-[26px] min-w-[44px] max-w-[280px] cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+              className={`group relative flex h-[26px] min-w-[44px] ${on ? 'max-w-none' : 'max-w-[280px]'} cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                 tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'
               } ${
                 on
@@ -1022,7 +1022,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               ) : (
                 <>
                   {g.tag && !tabsCompact && <span className="shrink-0 rounded bg-label/85 px-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold leading-5 text-white">{g.tag}</span>}
-                  <span className="min-w-0 truncate break-all">{g.name}</span>
+                  <span className={on ? 'whitespace-nowrap' : 'min-w-0 truncate break-all'}>{g.name}</span>
                   {!tabsCompact && <span className="shrink-0 text-xs tabular-nums text-label-3">{count}</span>}
                   {!on && moved?.groupId === g.id && <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="옮겨 온 과제가 있습니다" />}
                   <button
