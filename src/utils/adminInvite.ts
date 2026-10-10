@@ -259,8 +259,8 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FFFFFF">
 <tr><td style="padding:28px 32px 0"><span style="font-size:15px;font-weight:700;color:#111111">페이스</span><span style="font-size:15px;font-weight:700;color:#F97316">.</span> <span style="font-size:13px;color:#A3A3A3">과제관리</span></td></tr>
 <tr><td style="padding:26px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
-<tr><td style="padding:18px 32px 0"><div id="invite-msg" style="border-left:3px solid #F97316;padding:4px 0 4px 16px;font-size:15px;line-height:2;color:#262626">${msg}</div></td></tr>
-<tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all">“ ${escHtml(r.email)} ”</div></td></tr>
+<tr><td style="padding:18px 32px 0"><div id="invite-msg" style="padding:4px 0;font-size:15px;line-height:2;color:#262626">${msg}</div></td></tr>
+<tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all"><span style="color:#F97316">“</span> ${escHtml(r.email)} <span style="color:#F97316">”</span></div></td></tr>
 <tr><td style="padding:24px 32px 0">
   <a href="${escHtml(appUrl)}" style="display:block;padding:17px 0;border-radius:8px;background:#111111;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
 </td></tr>
