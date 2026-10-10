@@ -950,25 +950,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (newFile) targetId = await createSpreadsheet(`${d.year ?? now.getFullYear()} 실적관리`, [{ title: d.tabTitle, rows: [['']] }])
       const { tabs } = newFile ? { tabs: [] as { title: string }[] } : await fetchSpreadsheetTabs(targetId)
       const taken = (t: string) => tabs.some((x) => x.title.replace(/\s/g, '') === t.replace(/\s/g, ''))
-      // 엑셀에서 올릴 때 같은 이름 탭이 이미 있으면 덮어쓰지 않고 「… (엑셀 10.03)」 탭으로 따로 만든다
-      // 이전에 엑셀로 올린 탭(「… (엑셀 10.09)」 · 「… (엑셀 10.09) 2」)이 있으면 새로 만들지 않고 가장 최근 것을 이번 내용으로 갱신한다.
-      // 팀이 쓰는 원래 탭은 건드리지 않는다.
+      // 엑셀에서 올릴 때 같은 이름 탭이 이미 있으면 새 탭을 만들지 않고 그 탭에 그대로 덮어쓴다(저장 전에 확인 창으로 한 번 더 묻는다)
       let tabTitle = d.tabTitle
       let updateExisting = false
-      if (fromXlsx && taken(tabTitle)) {
-        const esc = d.tabTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        const re = new RegExp(`^${esc}\\s*\\(엑셀 (\\d+)\\.(\\d+)\\)(?:\\s+(\\d+))?$`)
-        const prev = tabs
-          .map((x) => ({ title: x.title, m: re.exec(x.title.trim()) }))
-          .filter((x): x is { title: string; m: RegExpExecArray } => !!x.m)
-          .map((x) => ({ title: x.title, k: Number(x.m[1]) * 10000 + Number(x.m[2]) * 100 + Number(x.m[3] ?? 1) }))
-          .sort((a, b) => a.k - b.k)
-        if (prev.length) {
-          tabTitle = prev[prev.length - 1].title
+      if (fromXlsx) {
+        const same = tabs.find((x) => x.title.replace(/\s/g, '') === d.tabTitle.replace(/\s/g, ''))
+        if (same) {
+          tabTitle = same.title
           updateExisting = true
-        } else {
-          const t = new Date()
-          tabTitle = `${d.tabTitle} (엑셀 ${t.getMonth() + 1}.${String(t.getDate()).padStart(2, '0')})`
         }
       }
       // 올라가지 않는 줄 · 기존 탭 갱신은 올리기 전에 알리고 확인받는다
@@ -979,15 +968,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       if (
         (updateExisting || skippedMsg) &&
         !(await askConfirm({
-          title: updateExisting ? `「${tabTitle}」 탭 갱신` : '구글시트로 올리기',
+          title: updateExisting ? `「${tabTitle}」 탭에 덮어쓰기` : '구글시트로 올리기',
           message: [
-            updateExisting ? `이미 엑셀로 올린 「${tabTitle}」 탭을 이번 엑셀 내용으로 갱신합니다.\n그 탭의 기존 내용(거기서 고친 것 포함)은 바뀌고, 원래 「${d.tabTitle}」 탭은 그대로입니다.` : '',
+            updateExisting ? `연결된 시트의 「${tabTitle}」 탭 내용을 이번 엑셀 내용으로 바꿉니다.\n그 탭의 지금 내용(팀이 시트에서 고친 것 포함)은 엑셀 내용으로 덮어써집니다. 새 탭은 만들지 않습니다.` : '',
             skippedMsg,
           ]
             .filter(Boolean)
             .join('\n\n'),
-          confirmLabel: updateExisting ? '갱신하기' : '올리기',
-          tone: 'accent',
+          confirmLabel: updateExisting ? '덮어쓰기' : '올리기',
+          tone: updateExisting ? 'danger' : 'accent',
         }))
       )
         return
@@ -1026,9 +1015,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         newFile
           ? `새 구글시트 「${d.year ?? now.getFullYear()} 실적관리」를 만들어 연결했습니다. 팀원이 쓰려면 ① 구글시트에서 팀원에게 공유 ② 관리 › 권한 · 시트 설정의 팀별 과제 시트를 이 파일로 바꿔 주세요.`
           : fromXlsx && updateExisting
-          ? `엑셀 내용으로 「${tabTitle}」 탭을 갱신했습니다. 이 탭과 연결됩니다(원래 「${d.tabTitle}」 탭은 그대로).`
-          : fromXlsx && tabTitle !== d.tabTitle
-          ? `시트에 이미 「${d.tabTitle}」 탭이 있어 엑셀 내용을 「${tabTitle}」 탭으로 올렸습니다. 이제 이 탭과 연결됩니다(원래 탭은 그대로).`
+          ? `엑셀 내용으로 「${tabTitle}」 탭을 덮어썼습니다. 새 탭은 만들지 않았고, 이 탭과 연결됩니다.`
           : `구글시트에 「${tabTitle}」 탭을 만들었습니다. 이제 이 연도는 시트와 연결됩니다.`,
       )
     } catch (e) {
@@ -2586,7 +2573,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         <button
           onClick={() => void createInSheet()}
           disabled={saving || !parseSheetUrl(sheetLink)}
-          title={`연결된 시트(${sheetName})에 이 표를 새 탭으로 올립니다(고친 내용 포함). 같은 이름 탭이 있으면 「… (엑셀 날짜)」 탭으로 따로 만듭니다.`}
+          title={`연결된 시트(${sheetName})에 이 표를 올립니다(고친 내용 포함). 같은 이름 탭이 있으면 새 탭을 만들지 않고 그 탭에 덮어씁니다(저장 전에 확인).`}
           className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-[8px] bg-[#C2410C] px-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
         >
           {saving ? <Spinner className="h-3.5 w-3.5" /> : <CloudUpload {...icSm} />}
