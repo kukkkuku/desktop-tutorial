@@ -64,6 +64,7 @@ function HandoverTaskList({ text, empty }: { text: string; empty: string }) {
         <li key={i} className="flex items-start gap-3 px-3 py-1.5">
           <span className="min-w-0 flex-1 break-words">{it.name}</span>
           {it.percent && <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-label-2">기여도 {it.percent}%</span>}
+          {it.assigned && <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-medium text-label-3">담당</span>}
         </li>
       ))}
     </ul>
@@ -186,15 +187,24 @@ export default function TeamManagement() {
   const [handoverFor, setHandoverFor] = useState<{ m: TeamMember; toTeam: string } | null>(null)
   const [opinion, setOpinion] = useState('')
   const [handoverBusy, setHandoverBusy] = useState(false)
-  const tasksOf = (m: TeamMember) =>
-    state.contributions
-      .filter((c) => c.memberId === m.id && c.contributionPercent > 0)
-      .map((c) => {
-        const t = state.tasks.find((x) => x.id === c.taskId)
-        return t ? `${t.name} ${c.contributionPercent}%` : ''
-      })
-      .filter(Boolean)
-      .join(' / ')
+  // 이 팀원이 맡았던 과제: 기여도가 있는 평가과제(「이름 N%」) · 기여도는 없어도 담당자였던 평가과제와 과제관리의 L3(「이름 (담당)」)
+  const tasksOf = (m: TeamMember) => {
+    const items = state.workBoard.items
+    const itemById = new Map(items.map((i) => [i.id, i]))
+    const inEvalTask = new Set<string>()
+    const parts: string[] = []
+    for (const t of state.tasks) {
+      for (const id of t.workItemIds ?? []) inEvalTask.add(id)
+      const pct = state.contributions.find((c) => c.taskId === t.id && c.memberId === m.id)?.contributionPercent ?? 0
+      const assigned = (t.workItemIds ?? []).some((id) => itemById.get(id)?.assigneeIds.includes(m.id))
+      if (pct > 0) parts.push(`${t.name} ${pct}%`)
+      else if (assigned) parts.push(`${t.name} (담당)`)
+    }
+    const others = items.filter((i) => i.assigneeIds.includes(m.id) && !inEvalTask.has(i.id) && i.name.trim())
+    others.slice(0, 40).forEach((i) => parts.push(`${i.name.trim()} (담당)`))
+    if (others.length > 40) parts.push(`외 ${others.length - 40}개 (담당)`)
+    return parts.join(' / ')
+  }
   async function submitHandover() {
     if (!handoverFor || !access) return
     const { m, toTeam } = handoverFor
@@ -963,8 +973,8 @@ export default function TeamManagement() {
               {handoverFor.m.name} → 「{handoverFor.toTeam}」 · 이전 팀장 의견
             </h3>
             <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">새 팀장(「{handoverFor.toTeam}」 팀장)이 팀원관리에서 이 팀원 이름 옆 말풍선을 눌러 볼 수 있고, 평가할 때 참고합니다. 팀원 본인에게는 보이지 않습니다.</p>
-            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">우리 팀에서 맡았던 과제(이번 평가 · 기여도)</p>
-            <HandoverTaskList text={tasksOf(handoverFor.m)} empty="(기여도를 입력한 과제가 없습니다)" />
+            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">우리 팀에서 맡았던 과제</p>
+            <HandoverTaskList text={tasksOf(handoverFor.m)} empty="(맡은 과제가 없습니다)" />
             <textarea
               autoFocus
               value={opinion}

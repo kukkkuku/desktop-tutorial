@@ -385,14 +385,17 @@ export async function writeHandover(id: string, h: Omit<Handover, 'at'>): Promis
 }
 // 시트에는 「과제 이름 10% / 과제 이름 20%」 한 칸 글로 저장돼 있다 -- 화면에서는 줄마다 나눠 보여 주려고 되돌린다.
 // 과제 이름 안에 「 / 」가 있어도 「%」 바로 뒤의 「 / 」에서만 자른다. 기여도 형식이 아니면 한 줄 그대로.
-export function parseHandoverTasks(text: string): { name: string; percent: string | null }[] {
+export function parseHandoverTasks(text: string): { name: string; percent: string | null; assigned: boolean }[] {
   return text
-    .split(/(?<=%) \/ /)
+    .split(/(?<=%|\(담당\)) \/ /)
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => {
       const m = part.match(/^(.*\S)\s+(\d+(?:\.\d+)?)%$/)
-      return m ? { name: m[1], percent: m[2] } : { name: part, percent: null }
+      if (m) return { name: m[1], percent: m[2], assigned: false }
+      // 기여도는 없지만 담당자로 맡았던 과제
+      const a = part.match(/^(.*\S)\s+\(담당\)$/)
+      return a ? { name: a[1], percent: null, assigned: true } : { name: part, percent: null, assigned: false }
     })
 }
 // 없으면(탭이 아직 없음 · 못 읽음) 빈 목록
