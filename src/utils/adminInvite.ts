@@ -338,15 +338,15 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 
     <!-- 제목 + 웃는 얼굴(그림) : 제목이 웃는 선 안에 들어간다 -->
     <!--[if mso]>
-    <tr><td align="center" bgcolor="#FFFFFF" style="padding:18px 58px 0 58px;"><img src="${imgBase}welcome.png" width="368" height="140" alt="웃는 얼굴 모양의 굵은 선과 오렌지색 &quot;Hi!&quot; 스티커" style="display:block;border:0;"></td></tr>
-    <tr><td align="center" bgcolor="#FFFFFF" style="padding:8px 58px 0 58px;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:29px;line-height:36px;font-weight:bold;color:#181818;">페이스에<br>초대합니다.</td></tr>
+    <tr><td align="center" bgcolor="#FFFFFF" style="padding:6px 58px 0 58px;"><img src="${imgBase}welcome.png" width="290" height="110" alt="웃는 얼굴 모양의 굵은 선과 오렌지색 &quot;Hi!&quot; 스티커" style="display:block;border:0;"></td></tr>
+    <tr><td align="center" bgcolor="#FFFFFF" style="padding:8px 58px 0 58px;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:23px;line-height:29px;font-weight:bold;color:#181818;">페이스에<br>초대합니다.</td></tr>
     <![endif]-->
     <!--[if !mso]><!-->
     <tr><td class="pad bg-main" align="center" bgcolor="#FFFFFF" style="padding:0 58px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td class="welcome" align="center" valign="top" height="152" background="${imgBase}welcome.png" bgcolor="#FFFFFF" style="height:152px;background-image:url('${imgBase}welcome.png');background-repeat:no-repeat;background-position:center 10px;background-size:368px 140px;background-color:#FFFFFF;">
-            <div class="ink" style="padding:8px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:29px;line-height:36px;font-weight:900;color:#181818;text-align:center;">페이스에<br>초대합니다.</div>
+          <td class="welcome" align="center" valign="top" height="116" background="${imgBase}welcome.png" bgcolor="#FFFFFF" style="height:116px;background-image:url('${imgBase}welcome.png');background-repeat:no-repeat;background-position:center 4px;background-size:290px 110px;background-color:#FFFFFF;">
+            <div class="ink" style="padding:4px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:23px;line-height:29px;font-weight:900;color:#181818;text-align:center;">페이스에<br>초대합니다.</div>
           </td>
         </tr>
       </table>
