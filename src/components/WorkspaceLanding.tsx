@@ -4,7 +4,7 @@ import { setAppYear, useAppYear } from '../utils/appYear'
 import { toast } from './ui/Toast'
 import type { WorkspaceMeta } from '../types'
 import { fmtWorkspaceDate, readWorkspaceCounts, useWorkspaces } from '../state/WorkspaceContext'
-import { Copy, Ellipsis, Pencil, Plus, Trash2, UserPlus, Users, X } from 'lucide-react'
+import { ArrowRight, Copy, Ellipsis, Pencil, Plus, Trash2, UserPlus, Users, X } from 'lucide-react'
 import TeamInviteDialog, { teamMembersOf } from './TeamInviteDialog'
 import Modal from './ui/Modal'
 import { useAccessData } from '../hooks/useAccessData'
@@ -211,18 +211,36 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
         >
           {counts.memberNames.length ? <AvatarRow names={counts.memberNames} /> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">팀원 넣기</span>}
         </button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenAt(workspace.id, 'work')
-          }}
-          title="과제관리로"
-          className="shrink-0 !px-2.5"
-        >
-          과제관리
-        </Button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenAt(workspace.id, 'work')
+            }}
+            title="과제관리로"
+            className="shrink-0 !px-2.5"
+          >
+            과제관리
+          </Button>
+          {/* 지금 진행 중인 평가에는 바로 이어서 하는 버튼 */}
+          {isCurrent && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpen(workspace.id)
+              }}
+              title="이 평가를 열어 이어서 합니다"
+              className="shrink-0 !px-3"
+            >
+              평가 계속하기
+              <ArrowRight {...icSm} />
+            </Button>
+          )}
+        </div>
       </div>
       {menu &&
         createPortal(
