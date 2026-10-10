@@ -3,13 +3,13 @@
 // 올해는 입력, 지난 연도는 보기 전용.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, EyeOff, Folder, Plus, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, Folder, Plus, Trash2, X } from 'lucide-react'
 import Spinner from '../Spinner'
 import SheetsIcon from '../SheetsIcon'
 import { ic, icSm } from '../ui/icon'
 import { accountScope } from '../../utils/accountScope'
 
-// 목록에서 숨긴 연도(이 브라우저 · 계정별). 구글시트의 탭은 지우지 않고 이 목록에서만 뺀다.
+// 목록에서 지운 연도(이 브라우저 · 계정별). 구글시트의 탭은 지우지 않고 이 목록에서만 뺀다(되돌리기 없음).
 const hiddenKey = () => `year-hidden:${accountScope()}`
 function readHidden(): string[] {
   try {
@@ -97,8 +97,7 @@ export default function YearSwitcher({
   // 숨긴 연도는 목록에서 뺀다(지금 보는 연도 · 입력 중인 연도 · 이 브라우저 연도는 숨기지 않는다)
   const hideable = (rw: { key: string; tabs: string[]; local: boolean }) =>
     !rw.local && !rw.tabs.includes(title) && !(connectedTitle !== undefined && rw.tabs.includes(connectedTitle)) && !rw.tabs.includes(editableTitle)
-  const hiddenRows = rows.filter((rw) => hideable(rw) && hidden.includes(rw.key))
-  const shownRows = rows.filter((rw) => !hiddenRows.includes(rw))
+  const shownRows = rows.filter((rw) => !(hideable(rw) && hidden.includes(rw.key)))
   const repOf = (tabs: string[]) =>
     tabs.includes(title) ? title : connectedTitle && tabs.includes(connectedTitle) ? connectedTitle : [...tabs].sort((a, b) => a.length - b.length)[0]
   const canPick = (rows.length > 1 || !!onCreate || !!footer) && !disabled
@@ -216,8 +215,8 @@ export default function YearSwitcher({
                           e.stopPropagation()
                           setHidden([...hidden, r.key])
                         }}
-                        title="이 연도를 목록에서 숨기기(구글시트의 탭은 그대로)"
-                        aria-label={`${r.label} 목록에서 숨기기`}
+                        title="이 연도를 목록에서 지우기(구글시트의 탭은 그대로)"
+                        aria-label={`${r.label} 목록에서 지우기`}
                         className="flex h-5 w-5 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
                       >
                         <X size={13} strokeWidth={2} />
@@ -227,12 +226,6 @@ export default function YearSwitcher({
                 </div>
               )
             })}
-            {hiddenRows.length > 0 && (
-              <button type="button" onClick={() => setHidden([])} className="mac-menu-item text-label-2" title="숨긴 연도를 목록에 다시 보입니다">
-                <EyeOff {...icSm} className="shrink-0" />
-                숨긴 연도 {hiddenRows.length}개 다시 보기
-              </button>
-            )}
             {onCreate && (
               <>
                 {rows.length > 0 && <div className="mac-menu-sep" />}
