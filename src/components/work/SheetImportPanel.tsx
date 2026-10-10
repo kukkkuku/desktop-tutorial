@@ -691,7 +691,7 @@ export default function SheetImportPanel({
               {warnings.unknownAssignees.length > 0 && (
                 <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                   추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리 팀 사람만
-                  고르세요. 회색 칩은 이미 팀원인 사람입니다. 권한 시트(없으면 시트의 담당팀)로 본 소속이 다른 팀이면 주황으로 「다른 팀 · 팀 이름」이 붙고 처음엔 체크하지 않습니다. 우리 팀 사람은 이름만 나옵니다.
+                  고르세요. 회색 칩은 이미 팀원인 사람입니다. 권한 시트(없으면 시트의 담당팀)로 본 소속이 다른 팀이면 이름이 굵게, 옆에 작은 주황 글씨로 팀 이름이 붙고 처음엔 체크하지 않습니다. 우리 팀 사람이 먼저, 이름만 나옵니다.
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -705,7 +705,10 @@ export default function SheetImportPanel({
                     {m.name} <span className="text-label-3">{m.count}</span>
                   </span>
                 ))}
-                {warnings.unknownAssignees.map((u) => {
+                {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
+                {[...warnings.unknownAssignees]
+                  .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
+                  .map((u) => {
                   const on = addNames.has(u.name)
                   return (
                     <button
@@ -720,10 +723,8 @@ export default function SheetImportPanel({
                       title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
                     >
                       {on && <Check {...icSm} />}
-                      {u.name} <span className="text-label-3">{u.count}</span>
-                      {u.kind === 'other' && (
-                        <span className="rounded-full bg-orange-100 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">다른 팀 · {u.team}</span>
-                      )}
+                      <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
+                      {u.kind === 'other' && <span className="text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">{u.team}</span>}
                     </button>
                   )
                 })}
