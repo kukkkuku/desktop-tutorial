@@ -1,14 +1,14 @@
 import { errText } from '../utils/googleError'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Calendar, HardDrive, Mail, Plus } from 'lucide-react'
-import { icSm } from './ui/icon'
+import { Plus } from 'lucide-react'
+import { GmailIcon, GoogleCalendarIcon, GoogleDriveIcon } from './ui/GoogleIcons'
 import { connectDifferentAccount, getConnectedEmail, withGoogleAccount } from '../utils/googleDrive'
 
 const ACCOUNT_LINKS = [
-  { label: '캘린더', href: 'https://calendar.google.com/', Icon: Calendar },
-  { label: '구글메일', href: 'https://mail.google.com/', Icon: Mail },
-  { label: '구글 드라이브', href: 'https://drive.google.com/', Icon: HardDrive },
+  { label: '캘린더', href: 'https://calendar.google.com/', Icon: GoogleCalendarIcon },
+  { label: '구글메일', href: 'https://mail.google.com/', Icon: GmailIcon },
+  { label: '구글 드라이브', href: 'https://drive.google.com/', Icon: GoogleDriveIcon },
 ] as const
 
 interface GoogleAccountMenuProps {
@@ -127,7 +127,7 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
               {switchError && <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{switchError}</p>}
               {/* 구글 바로가기: 아이콘만 나란히(이름은 마우스를 올리면) */}
               <div className="mt-2.5 flex gap-1.5">
-                {[...extraLinks.map((l) => ({ label: l.label, href: l.href, icon: l.icon })), ...ACCOUNT_LINKS.map(({ label, href, Icon }) => ({ label, href, icon: <Icon {...icSm} className="shrink-0" /> }))].map(({ label, href, icon }) => (
+                {[...extraLinks.map((l) => ({ label: l.label, href: l.href, icon: l.icon })), ...ACCOUNT_LINKS.map(({ label, href, Icon }) => ({ label, href, icon: <Icon size={18} className="shrink-0" /> }))].map(({ label, href, icon }) => (
                   <a
                     key={href}
                     href={withGoogleAccount(href)}
