@@ -252,16 +252,16 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
         `로그인할 계정: ${r.email}\n어떤 화면에서 막혔는지 적어 주세요:\n\n`,
       )}`
     : ''
-  // 번호 + 인용문: 얇고 큰 숫자 + 가는 세로선 + 글자 사이를 넓힌 제목(B), 인사말은 굵은 따옴표 안에(C).
-  // 1 초대 · 2 로그인 계정 · 3 처음 한 번 안내. 검정 · 흰색 · 연한 회청색 바탕, 오렌지는 안내 글자와 점에만
+  // 위: 「페이스에 초대합니다」 + 따옴표 인사말 + 시작 버튼(번호 없음). 아래: 1 로그인 계정 · 2 처음 한 번 해야 할 일(고급 → 이동).
+  // 숫자는 굵은 기하학 글꼴로 크게, 오른쪽이 세로선에서 살짝 잘려 보이고 선은 숫자 위아래로 길게 뻗는다(overflow 가림).
   const serif = "Georgia,'Times New Roman','Noto Serif KR',serif"
   const sans = "Arial,'Helvetica Neue',sans-serif"
-  // 숫자: 굵은 기하학 글꼴로 크게, 오른쪽을 세로선에 걸치게 살짝 잘라 보인다(overflow 가림). 안 되는 메일 앱에서는 그냥 잘리지 않고 보임.
+  const geo = `'Avenir Next',Avenir,'Century Gothic',Montserrat,'Helvetica Neue',${sans}`
   const num = (n: number) =>
-    `<td width="104" align="right" valign="bottom" style="padding:0 0 30px;height:210px"><div style="width:104px;height:150px;overflow:hidden;text-align:right"><div style="margin-right:-18px;font-family:'Avenir Next',Avenir,'Century Gothic','Helvetica Neue',${sans};font-size:176px;line-height:150px;font-weight:500;color:#111111">${n}</div></div></td>`
-  const title = (t: string) => `<div style="font-size:17px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111;padding-top:8px">${t}</div>`
+    `<td width="104" align="right" valign="middle" style="padding:34px 0 0"><div style="width:104px;height:150px;overflow:hidden;text-align:right"><div style="margin-right:${n === 1 ? -4 : -26}px;font-family:${geo};font-size:190px;line-height:150px;font-weight:600;color:#111111">${n}</div></div></td>`
+  const title = (t: string) => `<div style="font-size:17px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111;padding-top:34px">${t}</div>`
   const row = (n: number, body: string) =>
-    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;padding:0 0 8px 26px">${body}</td></tr></table></td></tr><tr><td style="height:24px;font-size:0;line-height:0">&nbsp;</td></tr>`
+    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;height:250px;padding:0 0 28px 26px">${body}</td></tr></table></td></tr>`
   const q = (ch: string, align: string, lh: number, h: number) =>
     `<div style="text-align:${align};font-family:${sans};font-size:72px;line-height:${lh}px;height:${h}px;font-weight:900;color:#111111">${ch}</div>`
   return `<!doctype html><html><body style="margin:0;padding:0;background:#EEF2F5">
@@ -269,20 +269,20 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 <tr><td style="padding:0 0 36px;font-size:12px;font-weight:700;letter-spacing:.2em;color:#111111">페이스<span style="color:#F97316">.</span> <span style="font-weight:400;color:#8A949C">과제관리</span></td></tr>
+<tr><td style="padding:0 0 44px 130px">
+  <div style="font-size:19px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111">페이스에 초대합니다</div>
+  <div style="padding-top:10px">${q('“', 'left', 60, 24)}</div>
+  <div id="invite-msg" style="padding-top:6px;font-family:${serif};font-size:15px;line-height:1.95;color:#262626">${msg}</div>
+  ${q('”', 'right', 56, 18)}
+  <div style="padding-top:14px"><a href="${escHtml(appUrl)}" style="display:inline-block;padding:14px 30px;background:#111111;color:#FFFFFF;font-size:14px;font-weight:700;letter-spacing:.08em;text-decoration:none">페이스 시작하기 &rarr;</a></div>
+</td></tr>
 ${row(
     1,
-    `${title('페이스에 초대합니다')}
-    <div style="padding-top:10px">${q('“', 'left', 60, 24)}</div>
-    <div id="invite-msg" style="padding-top:6px;font-family:${serif};font-size:15px;line-height:1.95;color:#262626">${msg}</div>
-    ${q('”', 'right', 56, 18)}
-    <div style="padding-top:14px"><a href="${escHtml(appUrl)}" style="display:inline-block;padding:14px 30px;background:#111111;color:#FFFFFF;font-size:14px;font-weight:700;letter-spacing:.08em;text-decoration:none">페이스 시작하기 &rarr;</a></div>`,
-  )}${row(
-    2,
     `${title('로그인 계정')}
     <div style="padding-top:14px;font-size:19px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all">${escHtml(r.email)}</div>
     <div style="padding-top:6px;font-family:${serif};font-size:13.5px;line-height:1.8;color:#5B656D">이 Google 계정으로 로그인해 주세요.</div>`,
   )}${row(
-    3,
+    2,
     `${title('처음 한 번만')}
     <div style="padding-top:14px;font-family:${serif};font-size:14.5px;line-height:1.9;color:#262626">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="color:#EA580C">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b>을 눌러 주세요.</div>
     ${contact ? `<div style="padding-top:14px;font-size:12.5px;color:#8A949C">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#111111;text-decoration:underline">문의하기</a></div>` : ''}`,
