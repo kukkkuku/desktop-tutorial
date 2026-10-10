@@ -3,10 +3,30 @@
 // 올해는 입력, 지난 연도는 보기 전용.
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, ChevronDown, Folder, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronDown, EyeOff, Folder, Plus, Trash2, X } from 'lucide-react'
 import Spinner from '../Spinner'
 import SheetsIcon from '../SheetsIcon'
 import { ic, icSm } from '../ui/icon'
+import { accountScope } from '../../utils/accountScope'
+
+// 목록에서 숨긴 연도(이 브라우저 · 계정별). 구글시트의 탭은 지우지 않고 이 목록에서만 뺀다.
+const hiddenKey = () => `year-hidden:${accountScope()}`
+function readHidden(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(hiddenKey()) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+function writeHidden(v: string[]) {
+  try {
+    if (v.length) localStorage.setItem(hiddenKey(), JSON.stringify(v))
+    else localStorage.removeItem(hiddenKey())
+  } catch {
+    // 기억 못 해도 지금은 숨겨진다
+  }
+}
 
 // 「2026 추진현황」 → 「2026 실적관리」(연도를 못 찾으면 탭 이름 그대로)
 // 「2026 추진현황_9월」처럼 뒤에 붙은 말은 괄호로(같은 연도의 복사본 탭 구분)
@@ -55,6 +75,8 @@ export default function YearSwitcher({
 }) {
   const pastYear = (t: string) => (editableFrom ? Number(t.match(/(20\d{2})/)?.[1] ?? 0) < editableFrom : t !== editableTitle)
   const [open, setOpen] = useState(false)
+  const [hidden, setHiddenState] = useState<string[]>(readHidden)
+  const setHidden = (v: string[]) => (setHiddenState(v), writeHidden(v))
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -72,6 +94,11 @@ export default function YearSwitcher({
     if (hit) hit.tabs.push(t)
     else rows.push({ key: k, label: yearLabel(t).replace(/ \(.*$/, ''), tabs: [t], local })
   }
+  // 숨긴 연도는 목록에서 뺀다(지금 보는 연도 · 입력 중인 연도 · 이 브라우저 연도는 숨기지 않는다)
+  const hideable = (rw: { key: string; tabs: string[]; local: boolean }) =>
+    !rw.local && !rw.tabs.includes(title) && !(connectedTitle !== undefined && rw.tabs.includes(connectedTitle)) && !rw.tabs.includes(editableTitle)
+  const hiddenRows = rows.filter((rw) => hideable(rw) && hidden.includes(rw.key))
+  const shownRows = rows.filter((rw) => !hiddenRows.includes(rw))
   const repOf = (tabs: string[]) =>
     tabs.includes(title) ? title : connectedTitle && tabs.includes(connectedTitle) ? connectedTitle : [...tabs].sort((a, b) => a.length - b.length)[0]
   const canPick = (rows.length > 1 || !!onCreate || !!footer) && !disabled
@@ -137,7 +164,7 @@ export default function YearSwitcher({
         createPortal(
           <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left }} className="mac-pop z-50 w-max min-w-[300px] max-w-[440px] overflow-hidden py-1">
             <p className="px-3.5 pb-1 pt-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">실적관리 연도</p>
-            {rows.map((r) => {
+            {shownRows.map((r) => {
               const rep = repOf(r.tabs)
               const selected = r.tabs.includes(title)
               const edit = connectedTitle !== undefined && !r.local && r.tabs.includes(connectedTitle)
@@ -182,10 +209,30 @@ export default function YearSwitcher({
                     ) : pastYear(rep) ? (
                       '보기 전용'
                     ) : null}
+                    {hideable(r) && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setHidden([...hidden, r.key])
+                        }}
+                        title="이 연도를 목록에서 숨기기(구글시트의 탭은 그대로)"
+                        aria-label={`${r.label} 목록에서 숨기기`}
+                        className="flex h-5 w-5 items-center justify-center rounded text-label-3 hover:bg-black/[0.07] hover:text-label"
+                      >
+                        <X size={13} strokeWidth={2} />
+                      </button>
+                    )}
                   </span>
                 </div>
               )
             })}
+            {hiddenRows.length > 0 && (
+              <button type="button" onClick={() => setHidden([])} className="mac-menu-item text-label-2" title="숨긴 연도를 목록에 다시 보입니다">
+                <EyeOff {...icSm} className="shrink-0" />
+                숨긴 연도 {hiddenRows.length}개 다시 보기
+              </button>
+            )}
             {onCreate && (
               <>
                 {rows.length > 0 && <div className="mac-menu-sep" />}
