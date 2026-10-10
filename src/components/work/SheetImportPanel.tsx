@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import { useAccessData } from '../../hooks/useAccessData'
 import type { TeamMember } from '../../types'
 import {
   applySheetImport,
@@ -100,6 +101,7 @@ export default function SheetImportPanel({
   const progress = source === 'progress' ? (progressProp ?? null) : null
   const { state, dispatch } = useAppState()
   const { currentWorkspace } = useWorkspaces()
+  const { data: accessData } = useAccessData(false)
   const board = state.workBoard
   const link = board.sheetLink
 
@@ -227,14 +229,14 @@ export default function SheetImportPanel({
   )
   const groups = useMemo(() => summarizeGroups(rows), [rows])
   const importRows = useMemo(() => filterRows(rows, Array.from(selected), null), [rows, selected])
-  const warnings = useMemo(() => collectWarnings(importRows, state.members, currentWorkspace?.teamName ?? ''), [importRows, state.members, currentWorkspace?.teamName])
+  const warnings = useMemo(() => collectWarnings(importRows, state.members, currentWorkspace?.teamName ?? '', accessData?.users ?? []), [importRows, state.members, currentWorkspace?.teamName, accessData])
 
   // 기본으로 체크할 새 팀원: 고른 L2에서 2건 이상 맡은 사람만. 팀원으로 넣으면
   // 평가의 기여도 자동 배분에도 들어가고, 담당자 칸에는 "방인용\n국내"처럼
   // 이름이 아닌 값도 섞여 있어서 한 번만 나온 이름은 사람이 직접 고르게 둔다.
   useEffect(() => {
-    // 다른 팀으로 보이는 사람은 처음엔 체크하지 않는다(직접 고르게)
-    setAddNames(new Set(warnings.unknownAssignees.filter((u) => u.count >= 2 && !u.otherTeam).map((u) => u.name)))
+    // 우리 팀으로 확인된 사람은 1건이어도 체크, 다른 팀은 체크하지 않고, 팀을 모르면 2건 이상일 때만 체크(직접 고르게)
+    setAddNames(new Set(warnings.unknownAssignees.filter((u) => u.kind === 'ours' || (u.kind === 'unknown' && u.count >= 2)).map((u) => u.name)))
   }, [warnings.unknownAssignees])
 
   // L1을 탭으로, 그 아래 L2 목록 (시트 순서 유지)
@@ -689,7 +691,7 @@ export default function SheetImportPanel({
               {warnings.unknownAssignees.length > 0 && (
                 <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                   추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리 팀 사람만
-                  고르세요. 시트의 담당팀이 우리 팀과 다른 사람은 「다른 팀」 표시가 붙고 처음엔 체크하지 않습니다.
+                  고르세요. 권한 시트(없으면 시트의 담당팀)로 본 소속이 우리 팀이면 「우리 팀」, 다른 팀이면 주황 「다른 팀」 표시가 붙습니다(다른 팀은 처음엔 체크하지 않음).
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -720,7 +722,8 @@ export default function SheetImportPanel({
                     >
                       {on && <Check {...icSm} />}
                       {u.name} <span className="text-label-3">{u.count}</span>
-                      {u.otherTeam && (
+                      {u.kind === 'ours' && <span className="rounded-full bg-success/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-success">우리 팀</span>}
+                      {u.kind === 'other' && (
                         <span className="rounded-full bg-orange-100 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">다른 팀 · {u.team}</span>
                       )}
                     </button>

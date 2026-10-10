@@ -411,13 +411,18 @@ export interface ImportWarnings {
   inferredRows: ParsedRow[]
   oddCategory: { row: ParsedRow; value: string }[]
   emptyCategory: ParsedRow[]
-  // 팀원 목록에 없는 담당자. otherTeam = 시트의 담당팀이 이 평가의 팀과 다름(다른 팀 사람일 가능성)
-  unknownAssignees: { name: string; count: number; team: string | null; otherTeam: boolean }[]
+  // 팀원 목록에 없는 담당자. kind: ours = 우리 팀으로 확인됨 · other = 다른 팀 · unknown = 팀을 알 수 없음
+  //   team = 비교에 쓴 팀 이름(권한 시트의 팀 → 없으면 시트의 담당팀)
+  unknownAssignees: { name: string; count: number; team: string | null; kind: 'ours' | 'other' | 'unknown'; otherTeam: boolean }[]
   // 팀원 목록에 이미 있는 담당자(고른 과제에서 맡은 건수)
   memberAssignees: { name: string; count: number }[]
 }
 
-export function collectWarnings(rows: ParsedRow[], members: TeamMember[], evalTeam = ''): ImportWarnings {
+// 팀 이름 비교용: 공백 · 대소문자 · 끝의 「팀」을 무시(「One Platform」 = 「OnePlatform팀」)
+const teamKey = (t: string) => t.replace(/\s+/g, '').replace(/팀$/, '').toLowerCase()
+
+// accessUsers: 권한 시트의 사용자(이름 · 팀). 이름이 같은 사람이 있으면 그 팀을 먼저 믿는다
+export function collectWarnings(rows: ParsedRow[], members: TeamMember[], evalTeam = '', accessUsers: { name: string; team: string }[] = []): ImportWarnings {
   const inferredRows = rows.filter((r) => r.hierarchyInferred)
   const oddCategory: ImportWarnings['oddCategory'] = []
   const emptyCategory: ParsedRow[] = []
@@ -445,8 +450,12 @@ export function collectWarnings(rows: ParsedRow[], members: TeamMember[], evalTe
   }
   const unknownAssignees = Array.from(unknown.entries())
     .map(([name, e]) => {
-      const team = [...e.teams.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
-      return { name, count: e.count, team, otherTeam: !!team && !!evalTeam.trim() && team.trim() !== evalTeam.trim() }
+      const sheetTeam = [...e.teams.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      const hit = accessUsers.filter((u) => u.name.trim() === name && u.team.trim())
+      const team = hit[0]?.team.trim() || sheetTeam
+      const kind: 'ours' | 'other' | 'unknown' =
+        !team || !evalTeam.trim() ? 'unknown' : hit.some((u) => teamKey(u.team) === teamKey(evalTeam)) || teamKey(team) === teamKey(evalTeam) ? 'ours' : 'other'
+      return { name, count: e.count, team, kind, otherTeam: kind === 'other' }
     })
     .sort((a, b) => b.count - a.count)
   const memberAssignees = Array.from(known.entries())
