@@ -1107,11 +1107,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       // 직접 고른 시트가 없으면 공유 시트를 따라간다
       if (!readLinkedSheet()) {
         setSheetLink(next)
-        // 처음 열 때는 권한 시트를 아직 못 읽어 앱 기본 시트를 먼저 받아 두었을 수 있다.
-        // 관리자가 공유한 시트가 다르면 그 시트로 다시 받는다(고친 칸이 없고, 조용히 읽을 권한이 있을 때만)
-        const d = dataRef.current
-        const id = parseSheetUrl(next)?.spreadsheetId
-        if (d && !d.local && id && d.spreadsheetId !== id && countDrafts(draftsRef.current) === 0 && hasLoginSheetsToken()) void loadFromSheet(false, next)
       }
     }
     window.addEventListener(ACCESS_EVENT, on)
@@ -1122,7 +1117,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   useEffect(() => {
     const d = dataRef.current
     const id = parseSheetUrl(sheetLink)?.spreadsheetId
-    if (d && !d.local && id && d.spreadsheetId !== id && countDrafts(draftsRef.current) === 0 && hasLoginSheetsToken()) void loadFromSheet(false, sheetLink)
+    if (!d || d.local || !id || d.spreadsheetId === id) return
+    // 관리자가 정한 시트와 다른 시트에서 받아 둔 내용(고친 칸 포함)은 버리고, 정한 시트에서 다시 받는다(로그인이 이미 돼 있을 때). 아니면 「시트 불러오기」 화면.
+    dataRef.current = null
+    draftsRef.current = { edits: {}, newRows: [] }
+    setDrafts(draftsRef.current)
+    saveDrafts(draftsRef.current)
+    clearProgressData()
+    setData(null)
+    clearHistory()
+    if (hasLoginSheetsToken()) void loadFromSheet(false, sheetLink)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetLink])
   const [linkOpen, setLinkOpen] = useState(false)

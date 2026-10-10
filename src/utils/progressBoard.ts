@@ -491,7 +491,7 @@ export function writeAskBeforeSave(ask: boolean) {
 }
 
 // 관리자가 공유한 시트(권한 시트 「연결 시트」)의 id -- 모르면 null
-function currentSharedId(): string | null {
+export function currentSharedId(): string | null {
   try {
     const hit = sharedSheetFor(getConnectedEmail())
     return hit ? parseSheetLink(hit.url)?.spreadsheetId ?? null : null
@@ -499,33 +499,21 @@ function currentSharedId(): string | null {
     return null
   }
 }
-// 직접 고른 시트는 「그때의 공유 시트」와 함께 적어 둔다. 관리자가 공유 시트를 바꿨으면(또는 예전 형식이면) 그 선택은 낡은 것이라 버리고 공유 시트를 따라간다.
+// 앱이 쓰는 시트는 관리자가 정한 하나뿐이다(이 브라우저에서 따로 고른 시트는 따르지 않는다). 예전에 남은 선택은 지운다.
 export function readLinkedSheet(): string | null {
   try {
-    const raw = localStorage.getItem(sheetKey())
-    if (!raw) return null
-    let url = raw
-    let shared: string | null | undefined
-    if (raw.startsWith('{')) {
-      const o = JSON.parse(raw) as { url?: string; shared?: string | null }
-      if (!o.url) return null
-      url = o.url
-      shared = o.shared ?? null
-    }
-    const cur = currentSharedId()
-    if (!cur) return url
-    if (parseSheetLink(url)?.spreadsheetId === cur) return url
-    return shared === cur ? url : null
+    if (localStorage.getItem(sheetKey())) localStorage.removeItem(sheetKey())
   } catch {
-    return null
+    // 무시
   }
+  return null
 }
-export function writeLinkedSheet(url: string | null) {
+export function writeLinkedSheet(_url: string | null) {
+  void _url
   try {
-    if (url) localStorage.setItem(sheetKey(), JSON.stringify({ url, shared: currentSharedId() }))
-    else localStorage.removeItem(sheetKey())
+    localStorage.removeItem(sheetKey())
   } catch {
-    // 기억 못 해도 지금 화면에는 반영
+    // 무시
   }
 }
 
@@ -541,7 +529,14 @@ export function loadProgress(): { data: ProgressData | null; drafts: Drafts } {
     const data = JSON.parse(localStorage.getItem(dataKey()) ?? 'null') as ProgressData | null
     const drafts = JSON.parse(localStorage.getItem(draftsKey()) ?? 'null') as Drafts | null
     // 열 정의가 없는 예전 형식은 다시 불러오게 한다.
-    const ok = data && Array.isArray(data.rows) && Array.isArray(data.fields) && data.rows.every((r) => r.bg && r.notes)
+    let ok = data && Array.isArray(data.rows) && Array.isArray(data.fields) && data.rows.every((r) => r.bg && r.notes)
+    // 관리자가 정한 시트와 다른 시트에서 받아 둔 내용(예전 시트)은 버린다 -- 앱 어디서든 관리자가 정한 시트 하나만 보이게
+    const shared = currentSharedId()
+    if (ok && data && !data.local && shared && data.spreadsheetId && data.spreadsheetId !== shared) {
+      localStorage.removeItem(dataKey())
+      localStorage.removeItem(draftsKey())
+      return { data: null, drafts: { edits: {}, newRows: [] } }
+    }
     return { data: ok ? data : null, drafts: drafts && drafts.edits && Array.isArray(drafts.newRows) ? drafts : { edits: {}, newRows: [] } }
   } catch {
     return { data: null, drafts: { edits: {}, newRows: [] } }

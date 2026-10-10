@@ -10,7 +10,9 @@ import { mmdd, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
 import AppShell, { PageHeader } from './shell/AppShell'
 import { ROLE_LABEL } from '../utils/roles'
-import { TASK_INPUT_SHEET_URL, isProtectedSheet, loadProgress, loadShelf, readLinkedSheet } from '../utils/progressBoard'
+import { TASK_INPUT_SHEET_URL, isProtectedSheet, loadProgress, loadShelf } from '../utils/progressBoard'
+import { sharedSheetFor } from '../utils/accessSheet'
+import { getConnectedEmail } from '../utils/googleDrive'
 import { parseSheetUrl } from '../utils/sheetSources'
 
 const yearName = (t: string) => t.replace(/추진현황/, '실적관리')
@@ -18,7 +20,7 @@ const yearName = (t: string) => t.replace(/추진현황/, '실적관리')
 function taskSummary() {
   const { data, drafts } = loadProgress()
   const shelf = loadShelf()
-  const link = readLinkedSheet() ?? TASK_INPUT_SHEET_URL
+  const link = sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL
   const id = parseSheetUrl(link)?.spreadsheetId
   const pending =
     Object.keys(drafts.edits ?? {}).length +

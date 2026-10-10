@@ -330,8 +330,9 @@ export function sharedSheetFor(email: string | null | undefined): { url: string;
   const d = readAccessCache()
   const hint = taskHint()
   if (!d) return hint ? { url: hint, team: ALL_TEAMS } : null
-  const team = accessUserOf(email)?.team
-  const hit = (team && d.links.find((x) => x.team === team)) || d.links.find((x) => x.team === ALL_TEAMS)
+  // 관리자가 「관리 › 실적관리 시트」에서 정한 시트 하나(전체 줄)가 앱 전체의 기준이다. 예전 팀별 줄이 남아 있어도 따르지 않는다.
+  void email
+  const hit = taskSheetOf(d)
   return hit ? { url: hit.url, team: hit.team } : null
 }
 
