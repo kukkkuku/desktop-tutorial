@@ -1,3 +1,4 @@
+import InfoTip from './ui/InfoTip'
 import { useEffect, useMemo, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../state/AppContext'
@@ -222,9 +223,9 @@ export default function PeerReviewManagement() {
             </div>
           </div>
 
-          <p className="mt-3 text-xs text-label-2">
-            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원(본인 포함)에게 매긴 기여도·등급·근거입니다. 같이 일하지 않은
-            사람은 기여도를 비워두면 됩니다.
+          <p className="mt-3 flex items-center gap-1 text-xs text-label-2">
+            '{memberNameById.get(reviewerId)}'님이 '{selectedTask?.name}' 과제에서 함께한 팀원에게 매긴 기여도·등급·근거
+            <InfoTip label="설명" width={260}>같이 일하지 않은 사람은 기여도를 비워두면 됩니다.</InfoTip>
           </p>
 
           <div className="mt-3 divide-y divide-separator overflow-hidden rounded-control border border-separator">

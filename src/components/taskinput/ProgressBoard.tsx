@@ -3,6 +3,7 @@
 // 입력한 칸은 "구글시트에 저장"으로 시트의 같은 칸(글자 + 배경색)에 쓴다.
 import { errText } from '../../utils/googleError'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import InfoTip from '../ui/InfoTip'
 import { toast } from '../ui/Toast'
 import { useFitHeight } from '../../hooks/useFitHeight'
 import { createPortal } from 'react-dom'
@@ -1972,9 +1973,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           />
         </div>
         {/* 「관리자가 공유한 시트」가 어디서 오는지: 권한 시트의 「연결 시트」 표(내 팀 줄 → 없으면 「전체」 줄) */}
-        <p className="mt-2.5 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label-3">
-          관리자가 공유한 시트는 <b className="font-semibold text-label-2">관리 › 권한 · 시트 설정 › ② 팀별 과제 시트</b>에서 정합니다. 내 팀 줄의 시트, 없으면 「전체」 줄의 시트가
-          보입니다.
+        <p className="mt-2.5 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+          관리자가 공유한 시트
+          <InfoTip label="공유 시트 설명" width={300}>
+            <b className="font-semibold text-label-2">관리 › 권한 · 시트 설정 › ② 팀별 과제 시트</b>에서 정합니다. 내 팀 줄의 시트, 없으면 「전체」 줄의 시트가 보입니다.
+          </InfoTip>
         </p>
         {settingsExtras}
       </div>
@@ -2029,9 +2032,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {sheetSettings}
         <div className="mx-auto mt-10 max-w-[940px] text-center">
           <h2 className="text-[length:calc(20px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">추진현황을 시작하세요</h2>
-          <p className="mt-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-            그룹(L1)마다 일정표를 만듭니다. 시작한 뒤에는 오른쪽 위 「구글시트」 메뉴에서 다시 불러오고 「파일」 메뉴에서 엑셀로 받습니다.
-          </p>
+          <p className="mt-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">그룹(L1)마다 일정표를 만듭니다.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3 text-left">
             {isSheetsApiConfigured() && (
               // 먼저 관리자가 공유한(지금 연결된) 시트를 이름으로 보여 주고 연결할지 묻는다. 아니면 공유받은 링크 붙여넣기
@@ -2465,7 +2466,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   )
                 })}
                 <p className="mt-1 border-t border-separator px-3 pt-1.5 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">
-                  눈을 누르면 그 그룹 탭을 숨깁니다(감은 눈 = 숨김). 탭을 우클릭해도 숨길 수 있습니다. 숨겨도 시트에서는 지워지지 않고, 이 브라우저에서만 안 보입니다.
+                  눈 = 이 그룹 탭 숨기기(시트에서는 안 지워지고 이 브라우저에서만 숨김)
                 </p>
               </div>
             </div>
@@ -3379,8 +3380,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 }}
               />
               <p className="mt-2 text-[length:calc(12px*var(--ui-fs,1))] leading-snug text-label-3">
-                이 브라우저에 기억합니다. 새로 칠하거나 고친 칸은 구글시트에 이 색으로 저장되고, 시트를 다시 읽을 때 이 색을 계획/실적으로 알아봅니다.
-                재설정하면 기본색(회색 · 분홍)입니다.
+                새로 칠한 칸은 이 색으로 시트에 저장되고, 다시 읽을 때 이 색으로 계획/실적을 알아봅니다. 재설정 = 기본색(회색 · 분홍).
               </p>
             </div>
           </div>

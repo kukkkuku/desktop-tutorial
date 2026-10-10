@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import InfoTip from '../ui/InfoTip'
 import { useAccessData } from '../../hooks/useAccessData'
 import type { TeamMember } from '../../types'
 import {
@@ -327,11 +328,7 @@ export default function SheetImportPanel({
       {source === 'progress' ? (
         <div>
           <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '추진현황 과제 내보내기' : '추진현황에서 과제 가져오기'}</h3>
-          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-            {verb === 'export'
-              ? '추진현황에서 L1/L2 분류를 골라 L3 과제와 담당자를 성과관리 과제리스트로 내보냅니다. 내보낸 L2는 과제관리의 탭이 됩니다.'
-              : '과제 입력 › 추진현황에 불러온 과제에서 L1/L2 분류를 골라 L3 과제와 담당자를 가져옵니다. 가져온 L2는 과제관리의 탭이 됩니다.'}
-          </p>
+          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{verb === 'export' ? '내보낼 L1/L2 분류를 고르세요.' : '가져올 L1/L2 분류를 고르세요.'}</p>
           {progress ? (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label">
               <SheetsIcon className="h-4 w-3.5 shrink-0" />
@@ -419,8 +416,9 @@ export default function SheetImportPanel({
         <>
           <div>
             <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">추진현황 xlsx로 과제 가져오기</h3>
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면, 구글시트 연결과 똑같이 L1/L2를 골라 가져옵니다.
+            <p className="mt-1 flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              xlsx 파일을 올려 L1/L2를 고릅니다.
+              <InfoTip label="xlsx 받는 방법">구글시트에서 「파일 › 다운로드 › Microsoft Excel(.xlsx)」로 받은 파일을 올리면 됩니다.</InfoTip>
             </p>
           </div>
           <div className="mt-3 flex items-center gap-2">
@@ -686,14 +684,15 @@ export default function SheetImportPanel({
             <div className="mt-3 rounded-card bg-subtle p-3">
               <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
                 고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
-                {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원 목록에 없는 {warnings.unknownAssignees.length}명 중 팀원으로 추가할 사람을 고르세요</span>}
+                {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
+                {warnings.unknownAssignees.length > 0 && (
+                  <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
+                    체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
+                    <br />
+                    회색 = 이미 팀원 · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
+                  </InfoTip>
+                )}
               </p>
-              {warnings.unknownAssignees.length > 0 && (
-                <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                  추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리 팀 사람만
-                  고르세요. 회색 칩은 이미 팀원인 사람입니다. 권한 시트(없으면 시트의 담당팀)로 본 소속이 다른 팀이면 이름이 굵게, 옆에 작은 주황 글씨로 팀 이름이 붙고 처음엔 체크하지 않습니다. 우리 팀 사람이 먼저, 이름만 나옵니다.
-                </p>
-              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
                 {warnings.memberAssignees.map((m) => (

@@ -8,6 +8,7 @@ import { IMPORTANCE_COLORS, WORKLOAD_COLORS } from '../utils/badgeColors'
 import { GRADE_COLORS, calcAllTaskScores, getContribution, getTaskContributionSum, isContributionSumValid } from '../utils/calculations'
 import GradeNoteButton from './GradeNoteButton'
 import Select from './ui/Select'
+import InfoTip from './ui/InfoTip'
 import { OutOfSyncBanner } from './EvaluationMatrix'
 import Button from './Button'
 import IconButton from './IconButton'
@@ -494,18 +495,18 @@ export default function TaskManagement({ onGoToWork }: { onGoToWork?: () => void
           </Button>
         </div>
       </div>
-      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        과제리스트에서 "평가 대상"을 체크한 L3 · 묶음이 한 줄씩 나옵니다. 성과등급 · 목표 · 성과를 넣고, 줄을 펼쳐(›) 참여자 기여도 · 개인수행등급을 매깁니다.
-        과제명 · 과제등급 · 묶기는 과제리스트에서 바꿉니다.
+      <p className="mt-1 flex items-center gap-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+        평가 대상으로 체크한 과제
+        <InfoTip label="도움말" width={300}>
+          과제리스트에서 「평가 대상」을 체크한 L3 · 묶음이 한 줄씩 나옵니다. 성과등급 · 목표 · 성과를 넣고, 줄을 펼쳐(›) 참여자 기여도 · 개인수행등급을 매깁니다. 과제명 · 과제등급 · 묶기는 과제리스트에서 바꿉니다.
+        </InfoTip>
       </p>
       <OutOfSyncBanner />
 
       {state.tasks.length === 0 ? (
         <div className="mt-4 rounded-card border border-dashed border-separator px-6 py-12 text-center">
           <p className="text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">아직 평가과제가 없습니다</p>
-          <p className="mt-1 text-xs text-label-2">
-            과제리스트에서 L3의 "평가 대상"을 체크하면 여기에 바로 생깁니다. 과제리스트와 상관없는 과제는 위 "과제 추가"로 만듭니다.
-          </p>
+          <p className="mt-1 text-xs text-label-2">과제리스트에서 「평가 대상」을 체크하면 여기에 생깁니다.</p>
           {onGoToWork && (
             <Button variant="primary" onClick={onGoToWork} className="mt-4">
               과제리스트로 이동

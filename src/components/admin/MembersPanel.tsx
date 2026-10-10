@@ -10,6 +10,7 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
+import InfoTip from '../ui/InfoTip'
 import IconButton from '../IconButton'
 import { isEmail, parseInviteText, parseInviteWorkbook, type InviteEntry } from '../../utils/adminInvite'
 import { PENDING_SUFFIX, type SheetShare, isPendingEmail, pendingDuplicates, withoutPendingDuplicates, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
@@ -843,14 +844,23 @@ export default function MembersPanel({
 
   return (
     <div className="space-y-4">
-      <p className="max-w-4xl text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+      <p className="flex max-w-4xl items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
         {scope === 'all'
-          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다. 바꾸면 바로 아래 권한 시트에 저장됩니다. 팀장을 새로 정하면 오른쪽 위 「편집자 공유」로 그 팀장에게 권한 시트를 공유해 주세요.'
+          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다.'
           : scope === 'leaders'
-          ? '관리자 · 팀장을 정합니다. 팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 권한 시트를 편집자로 공유해 주세요(팀장이 팀원을 추가 · 초대할 수 있게). 바꾸면 바로 저장됩니다.'
+          ? '관리자 · 팀장을 정합니다.'
           : isAdmin
-            ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다(팀장이 추가한 팀원 포함, 바꾸면 바로 저장). 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
-            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다. 실적관리 시트 공유는 관리자가 합니다.'}
+            ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다.'
+            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다.'}
+        <InfoTip label="도움말" width={320}>
+          {scope === 'all'
+            ? '바꾸면 바로 권한 시트에 저장됩니다. 팀장을 새로 정하면 오른쪽 위 「편집자 공유」로 그 팀장에게 권한 시트를 공유해 주세요.'
+            : scope === 'leaders'
+              ? '팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 시트를 편집자로 공유해 주세요(팀원 추가 · 초대를 하려면 필요). 바꾸면 바로 저장됩니다.'
+              : isAdmin
+                ? '팀장이 추가한 팀원도 보이고, 바꾸면 바로 저장됩니다. 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
+                : '실적관리 시트 공유는 관리자가 합니다.'}
+        </InfoTip>
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
@@ -1314,7 +1324,7 @@ export default function MembersPanel({
               <p className={`mt-2 rounded-control px-3 py-2 text-[length:calc(12.5px*var(--ui-fs,1))] ${exists ? 'bg-warning-soft text-warning' : 'bg-subtle text-label-2'}`}>
                 {exists
                   ? `「${to}」 팀이 이미 있습니다. 바꾸면 두 팀이 하나로 합쳐집니다.`
-                  : '팀장의 평가 목록 이름은 팀장이 다음에 앱을 열 때 「팀 이름 맞추기」 안내로 바꿉니다. 바꾼 내용은 권한 시트 「변경 기록」에 남습니다.'}
+                  : '팀장의 평가 목록 이름은 팀장이 다음에 앱을 열 때 맞춰집니다.'}
               </p>
             </Modal>
           )

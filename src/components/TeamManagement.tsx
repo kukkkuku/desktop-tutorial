@@ -20,6 +20,7 @@ import { toast } from './ui/Toast'
 import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
 import { ArrowDownAZ, ArrowRightLeft, Check, Trash2, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
+import InfoTip from './ui/InfoTip'
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, parseHandoverTasks, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
@@ -818,7 +819,12 @@ export default function TeamManagement() {
           >
             <X {...ic} />
           </button>
-          <p className="text-amber-900">평가는 새 팀장이 합니다. 의견을 남기면 새 팀장이 참고합니다.</p>
+          <p className="flex items-center gap-1 text-amber-900">
+            다른 팀으로 옮겨진 팀원
+            <InfoTip label="팀 이동 설명" width={300}>
+              평가는 새 팀장이 합니다. 「의견 남기고 비활성」으로 의견을 남기면 새 팀장이 참고합니다. 필요 없으면 팀원 삭제를 누르세요.
+            </InfoTip>
+          </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {moved.map(({ m, u }) => (
               <span key={m.id} className="flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 text-label">
@@ -859,7 +865,10 @@ export default function TeamManagement() {
             <X {...ic} />
           </button>
           <div className="flex flex-wrap items-center justify-between gap-2 pr-9">
-            <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">우리 팀 사람만 골라 추가하세요 -- 과제관리 담당자와 자동으로 연결됩니다.</p>
+            <p className="flex items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              팀원으로 추가할 사람을 고르세요
+              <InfoTip label="설명" width={280}>우리 팀 사람만 고르세요. 추가하면 과제관리 담당자와 자동으로 연결됩니다.</InfoTip>
+            </p>
             <div className="flex items-center gap-1.5">
               <Button
                 variant="secondary"

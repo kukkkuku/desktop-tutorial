@@ -20,6 +20,7 @@ import { peerInputsOf } from '../utils/peerScores'
 import { explainMemberScore, peerSummaryOf } from '../utils/calculations'
 import PeerLine from './PeerLine'
 import Button from './Button'
+import InfoTip from './ui/InfoTip'
 import { Trophy, X } from 'lucide-react'
 import { ic, icSm, TableSwap } from './ui/icon'
 import { outOfSyncDetails } from '../utils/assigneeSync'
@@ -414,7 +415,11 @@ export default function EvaluationMatrix() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span />
+        <InfoTip label="평가하기 도움말" width={320}>
+          칸에 팀원이 그 과제에 기여한 비율(%)을 적습니다. 과제 하나의 합이 100%가 되어야 하고, 처음엔 담당자끼리 똑같이 나눠 채워 둡니다.
+          <br />
+          분류 · 성과등급은 과제 이름 아래에서, 목표 · 성과는 과제관리에서 고칩니다.
+        </InfoTip>
         <div className="flex flex-wrap items-center gap-2">
           {hasScores && !rankingOpen && (
             <Button type="button" variant="secondary" onClick={() => setRankingOpen(true)}>
@@ -426,9 +431,6 @@ export default function EvaluationMatrix() {
       </div>
 
       <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
-      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        칸마다 그 팀원이 과제에 기여한 비율(%)을 적습니다. 과제 하나의 합이 100%가 되어야 하고, 처음에는 과제 담당자끼리 똑같이 나눠 채워 둡니다. 팀원 이름 옆에서 합계 점수 · 순위를 볼 수 있습니다. 분류 · 성과등급은 과제 이름 아래에서, 목표 · 성과는 과제관리 표에서 고칩니다.
-      </p>
       <OutOfSyncBanner />
 
       {tasks.length === 0 || activeMembers.length === 0 ? (

@@ -3,6 +3,7 @@
 // SET_WORK_BOARD로 넣고, 되돌리기는 보드 스냅샷 스택으로 한다.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import InfoTip from '../ui/InfoTip'
 import { createPortal } from 'react-dom'
 import { useAppState } from '../../state/AppContext'
 import type { ColumnDef, Importance, Task, TaskGroup, TeamMember, WorkBoard, WorkItem } from '../../types'
@@ -1250,10 +1251,13 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             onRedo={redo}
             storageKey="work"
             addRowLabel="과제 추가"
-            emptyText={evalOnly && !search.trim() ? '평가 대상이 없습니다. "과제평가하기"를 끄고 그룹 탭에서 왼쪽 체크로 넣으세요.' : filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 아래 "＋ 과제 추가"를 누르거나 엑셀에서 복사해 붙여넣으세요.'}
+            emptyText={evalOnly && !search.trim() ? '평가 대상이 없습니다. 그룹 탭에서 왼쪽 체크로 넣으세요.' : filtered ? '찾는 내용이 없습니다.' : '아직 과제가 없습니다. 「＋ 과제 추가」를 누르세요.'}
           />
-          <p className="text-xs text-label-3">
-            왼쪽 체크 = 평가 대상(체크하면 바로 평가과제가 생김 · 성과등급 · 목표/성과 열이 잠깐 강조됨) · 여러 행 선택 후 우클릭 → 평가과제로 묶기 · 묶음 이름은 두 번 눌러 바꾸기 · 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어서 이동(다른 그룹 탭에 놓으면 그 그룹으로)
+          <p className="flex items-center gap-1 text-xs text-label-3">
+            왼쪽 체크 = 평가 대상
+            <InfoTip label="표 사용법" width={340}>
+              왼쪽 체크로 평가 대상을 넣으면 바로 평가과제가 생깁니다. 여러 행을 골라 우클릭 → 평가과제로 묶기, 묶음 이름은 두 번 눌러 바꿉니다. 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어 옮기기(다른 그룹 탭에 놓으면 그 그룹으로).
+            </InfoTip>
           </p>
         </>
       )}

@@ -15,6 +15,7 @@ import EvaluationPeriodPicker from './EvaluationPeriodPicker'
 import { markNewWorkspace } from './work/PerfStartDialog'
 import IconButton from './IconButton'
 import AppShell, { PageHeader } from './shell/AppShell'
+import InfoTip from './ui/InfoTip'
 import YearPicker from './YearPicker'
 import { icSm } from './ui/icon'
 import { isPendingEmail, updateUsers } from '../utils/accessSheet'
@@ -448,10 +449,9 @@ export default function WorkspaceLanding() {
                 나중에
               </Button>
             </span>
-            <span className="basis-full text-[length:calc(12.5px*var(--ui-fs,1))] text-label-2">
-              이 팀의 평가{teamWorkspaces.length ? ` ${teamWorkspaces.length}개` : ''} · 인사평가 이력 · 승진 기준이 새 이름으로 함께 옮겨집니다. 드라이브 백업 폴더 · 면담 캘린더는 새 이름으로 새로
-              만들어집니다(이전 것은 그대로). 맞추기 전에는 「{alignTo}」 팀원이 이 팀 평가에 자동으로 들어오지 않습니다.
-            </span>
+            <InfoTip label="팀 이름 맞추기 설명" width={320} align="right">
+              이 팀의 평가{teamWorkspaces.length ? ` ${teamWorkspaces.length}개` : ''} · 인사평가 이력 · 승진 기준이 새 이름으로 옮겨집니다. 드라이브 백업 폴더 · 면담 캘린더는 새 이름으로 새로 만들어집니다(이전 것은 그대로). 맞추기 전에는 「{alignTo}」 팀원이 이 팀 평가에 자동으로 들어오지 않습니다.
+            </InfoTip>
           </div>
         )}
         {teamNames.length === 0 ? (
@@ -578,7 +578,7 @@ export default function WorkspaceLanding() {
               ) : (
                 <>
                   <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
-                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · ⋯ 메뉴에서 복제 · 이름 바꾸기 · 삭제</span>
+                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기</span>
                   </h2>
                   <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2">
                     {yearWorkspaces.map((w) => (
