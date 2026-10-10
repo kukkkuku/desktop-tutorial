@@ -1117,6 +1117,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     window.addEventListener(ACCESS_EVENT, on)
     return () => window.removeEventListener(ACCESS_EVENT, on)
   }, [])
+  // 이미 받아 둔 내용이 지금 연결된 시트(공유 시트)와 다른 시트에서 온 것이면 연결된 시트로 다시 받는다
+  // (예전에 받아 둔 시트가 이 브라우저에 남아 있는 경우). 고친 칸이 없고 조용히 읽을 권한이 있을 때만.
+  useEffect(() => {
+    const d = dataRef.current
+    const id = parseSheetUrl(sheetLink)?.spreadsheetId
+    if (d && !d.local && id && d.spreadsheetId !== id && countDrafts(draftsRef.current) === 0 && hasLoginSheetsToken()) void loadFromSheet(false, sheetLink)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetLink])
   const [linkOpen, setLinkOpen] = useState(false)
   // 업데이트 전에 묻기(저장 창의 「다음부터 묻지 않기」 · 파일 메뉴에서 다시 켬)
   const [askSave, setAskSave] = useState(readAskBeforeSave)

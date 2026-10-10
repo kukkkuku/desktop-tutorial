@@ -10,6 +10,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
+import { sharedSheetFor } from './accessSheet'
+import { getConnectedEmail } from './googleDrive'
+import { parseSheetUrl as parseSheetLink } from './sheetSources'
 import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
 import { parseFmt, type SheetCellWrite, type SheetInsert, type SheetMergeOp, type SheetMove, type SheetRange } from './sheetSources'
 import { COL_EVAL_GROUP, COL_NAME, SYSTEM_COLUMNS } from './workBoard'
@@ -487,16 +490,39 @@ export function writeAskBeforeSave(ask: boolean) {
   }
 }
 
+// 관리자가 공유한 시트(권한 시트 「연결 시트」)의 id -- 모르면 null
+function currentSharedId(): string | null {
+  try {
+    const hit = sharedSheetFor(getConnectedEmail())
+    return hit ? parseSheetLink(hit.url)?.spreadsheetId ?? null : null
+  } catch {
+    return null
+  }
+}
+// 직접 고른 시트는 「그때의 공유 시트」와 함께 적어 둔다. 관리자가 공유 시트를 바꿨으면(또는 예전 형식이면) 그 선택은 낡은 것이라 버리고 공유 시트를 따라간다.
 export function readLinkedSheet(): string | null {
   try {
-    return localStorage.getItem(sheetKey())
+    const raw = localStorage.getItem(sheetKey())
+    if (!raw) return null
+    let url = raw
+    let shared: string | null | undefined
+    if (raw.startsWith('{')) {
+      const o = JSON.parse(raw) as { url?: string; shared?: string | null }
+      if (!o.url) return null
+      url = o.url
+      shared = o.shared ?? null
+    }
+    const cur = currentSharedId()
+    if (!cur) return url
+    if (parseSheetLink(url)?.spreadsheetId === cur) return url
+    return shared === cur ? url : null
   } catch {
     return null
   }
 }
 export function writeLinkedSheet(url: string | null) {
   try {
-    if (url) localStorage.setItem(sheetKey(), url)
+    if (url) localStorage.setItem(sheetKey(), JSON.stringify({ url, shared: currentSharedId() }))
     else localStorage.removeItem(sheetKey())
   } catch {
     // 기억 못 해도 지금 화면에는 반영
