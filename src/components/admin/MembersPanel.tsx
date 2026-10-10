@@ -231,8 +231,12 @@ export default function MembersPanel({
       `${names.length}명을 추가했습니다 · 표의 계정 칸에 Gmail을 넣어 주세요.`,
     )
   }
-  function addEntries(entries: InviteEntry[], invalid: string[] = []) {
-    if (!entries.length) return setNote({ ok: false, text: '추가할 수 있는 Gmail이 없습니다.' })
+  // names: Gmail 없이 이름만 적은 사람 -- 이름만 넣어 두고 표의 계정 칸에 Gmail을 나중에 넣는다(추진현황 담당자에서 가져올 때와 같음)
+  function addEntries(entries: InviteEntry[], invalid: string[] = [], names: string[] = []) {
+    const haveNames = new Set(data.users.map((u) => u.name.trim()).filter(Boolean))
+    const freshNames = Array.from(new Set(names.map((n) => n.trim()).filter(Boolean))).filter((n) => !haveNames.has(n))
+    const dupNames = names.length - freshNames.length
+    if (!entries.length && !names.length) return setNote({ ok: false, text: '추가할 이름이나 Gmail이 없습니다.' })
     const have = new Set(data.users.map((u) => u.email))
     const fresh = entries.filter((e) => !have.has(e.email.toLowerCase()))
     const dup = entries.length - fresh.length
@@ -243,7 +247,7 @@ export default function MembersPanel({
     const dupNote = hiddenDup.length
       ? ` ${hiddenDup.map((u) => `${label(u)}: ${u.team ? `「${u.team}」 팀` : '팀 없음'} · ${u.addedBy ? `${nameOf(u.addedBy)}님이 추가` : '처음부터 등록'}`).join(' / ')} -- 우리 팀으로 옮기려면 관리자에게 팀을 바꿔 달라고 하세요.`
       : ''
-    if (!fresh.length) return setNote({ ok: false, text: `이미 등록된 사람입니다.${dupNote}` })
+    if (!fresh.length && !freshNames.length) return setNote({ ok: false, text: `이미 등록된 사람입니다.${dupNote}` })
     void run(
       () =>
         updateUsers(
@@ -253,14 +257,15 @@ export default function MembersPanel({
             ...fresh
               .filter((e) => !users.some((u) => u.email === e.email.toLowerCase()))
               .map<AccessUser>((e) => ({ email: e.email.toLowerCase(), name: e.name ?? '', role: isAdmin ? addRole : 'member', team: team.trim(), memo: '', addedBy: me, sendTo: e.sendTo ?? '' })),
+            ...freshNames.map<AccessUser>((name, i) => ({ email: newPendingEmail(i), name, role: isAdmin ? addRole : 'member', team: team.trim(), memo: '', addedBy: me, sendTo: '' })),
           ],
           me,
-          [`팀원 추가: ${fresh.map((e) => e.name || e.email).join(', ')}`],
+          [`팀원 추가: ${[...fresh.map((e) => e.name || e.email), ...freshNames].join(', ')}`],
         ).then(() => {
           setPasteText('')
           setAddOpen(false)
         }),
-      `${fresh.length}명을 추가했습니다${dup ? ` · 이미 등록된 ${dup}명은 건너뜀` : ''}${invalid.length ? ` · 형식이 틀린 ${invalid.length}개 건너뜀` : ''}. 이제 초대 메일을 보내세요.`,
+      `${fresh.length + freshNames.length}명을 추가했습니다${dup + dupNames ? ` · 이미 등록된 ${dup + dupNames}명은 건너뜀` : ''}${invalid.length ? ` · 형식이 틀린 ${invalid.length}개 건너뜀` : ''}. ${freshNames.length ? `이름만 넣은 ${freshNames.length}명은 표의 계정 칸에 Gmail을 넣은 뒤 ` : '이제 '}초대 메일을 보내세요.`,
     )
   }
   async function addFromExcel(e: ChangeEvent<HTMLInputElement>) {
@@ -1072,8 +1077,14 @@ export default function MembersPanel({
                 <Button
                   variant="primary"
                   onClick={() => {
-                    const { entries, invalid } = parseInviteText(pasteText)
-                    addEntries(entries, invalid)
+                    const parsed = parseInviteText(pasteText)
+                    // 메일이 없는 줄은 이름만 적은 것으로 본다(쉼표 · 탭으로 나눈 칸마다 한 사람). @가 들어 있는데 틀린 것은 형식 오류
+                    const tokens = parsed.invalid.flatMap((l) => l.split(/[,;\t]+/).map((x) => x.trim()).filter(Boolean))
+                    addEntries(
+                      parsed.entries,
+                      tokens.filter((t) => t.includes('@')),
+                      tokens.filter((t) => !t.includes('@')),
+                    )
                   }}
                   disabled={!pasteText.trim() || busy}
                 >
@@ -1152,6 +1163,9 @@ export default function MembersPanel({
               <p className="font-semibold text-label">한 줄에 한 명</p>
               <p className="mt-1">
                 <b>로그인할 Gmail</b>(아이디만 적어도 됨) · <b>받는 메일</b>(회사 메일 등, 없으면 Gmail) · <b>이름</b>
+              </p>
+              <p className="mt-1.5">
+                <b>이름만</b> 적어도 됩니다(예: 양기호, 오희연). 이름만 넣은 사람은 표의 계정 칸에 Gmail을 나중에 넣으세요.
               </p>
               <p className="mt-1.5 text-label-3">쉼표나 탭으로 나눕니다. 엑셀은 한 행에 한 명. 추가한 사람은 팀원으로 등록됩니다.</p>
             </div>
