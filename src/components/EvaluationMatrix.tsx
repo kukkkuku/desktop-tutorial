@@ -430,7 +430,13 @@ export default function EvaluationMatrix() {
         </div>
       </div>
 
-      <LiveRankingPopover results={memberResults} open={hasScores && rankingOpen} onClose={() => setRankingOpen(false)} />
+      <LiveRankingPopover
+        results={memberResults}
+        scoredTasks={tasks.filter((t) => t.performanceGrade !== null).length}
+        totalTasks={tasks.length}
+        open={hasScores && rankingOpen}
+        onClose={() => setRankingOpen(false)}
+      />
       <OutOfSyncBanner />
 
       {tasks.length === 0 || activeMembers.length === 0 ? (

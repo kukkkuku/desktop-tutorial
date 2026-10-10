@@ -8,6 +8,9 @@ import { icSm } from './ui/icon'
 
 interface LiveRankingPopoverProps {
   results: MemberResultRow[]
+  // 순위에 들어간 과제 수 / 전체 과제 수(성과등급이 입력된 과제만 점수에 들어간다)
+  scoredTasks?: number
+  totalTasks?: number
   open: boolean
   onClose: () => void
 }
@@ -19,7 +22,7 @@ const PANEL_WIDTH = 232
 // 상단에 기본으로 뜨고, 헤더를 드래그해서 위치를 옮기거나 X로 닫을 수
 // 있다. 데이터는 부모가 넘겨주는 memberResults를 그대로 보여주므로,
 // 매트릭스 입력이 바뀌어 재계산될 때마다 자동으로 갱신된다.
-export default function LiveRankingPopover({ results, open, onClose }: LiveRankingPopoverProps) {
+export default function LiveRankingPopover({ results, scoredTasks, totalTasks, open, onClose }: LiveRankingPopoverProps) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const dragRef = useRef<{ startX: number; startY: number; startTop: number; startLeft: number } | null>(null)
 
@@ -75,6 +78,11 @@ export default function LiveRankingPopover({ results, open, onClose }: LiveRanki
         </IconButton>
       </div>
 
+      {totalTasks !== undefined && scoredTasks !== undefined && (
+        <p className="border-b border-separator bg-subtle px-3 py-1.5 text-[length:calc(12px*var(--ui-fs,1))] text-label-2">
+          <b className={scoredTasks < totalTasks ? 'text-warning' : 'text-label-2'}>{scoredTasks < totalTasks ? '잠정' : '전체 반영'}</b> · 과제 {scoredTasks}/{totalTasks}개 반영
+        </p>
+      )}
       {results.length === 0 ? (
         <p className="px-3 py-4 text-center text-xs text-label-3">활성 팀원이 없습니다.</p>
       ) : (

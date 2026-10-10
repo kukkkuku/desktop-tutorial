@@ -693,7 +693,7 @@ export default function SheetImportPanel({
                   <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
                     체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
                     <br />
-                    실선 회색 = 이미 팀원 · 점선 = 아직 팀원 아님 · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
+                    회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
                   </InfoTip>
                 )}
               </p>
@@ -722,7 +722,7 @@ export default function SheetImportPanel({
                         else next.add(u.name)
                         setAddNames(next)
                       }}
-                      className={`inline-flex items-center gap-1 rounded-full border border-dashed px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
                       title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
                     >
                       {on && <Check {...icSm} />}

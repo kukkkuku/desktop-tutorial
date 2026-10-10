@@ -16,6 +16,8 @@ import {
   getContribution,
   getContributionPercent,
   getEffectiveContributionPercent,
+  getTaskContributionSum,
+  isContributionSumValid,
   gradeText,
   IMPORTANCE_SCORE,
   PERFORMANCE_SCORE,
@@ -54,7 +56,6 @@ const STATUS_TONE: Record<EvaluationStatus, BadgeTone> = {
   reviewed: 'accent',
   confirmed: 'success',
 }
-const STATUS_ORDER: EvaluationStatus[] = ['evaluating', 'reviewed', 'confirmed']
 
 // 등급을 색상 있는 글자로만 표시(배지 아님)
 function gradeTextColor(grade: EvaluationGrade): string {
@@ -183,10 +184,15 @@ export default function EvaluationResults() {
   function statusOf(memberId: string): EvaluationStatus {
     return evaluationStatus[memberId] ?? 'evaluating'
   }
-  function cycleStatus(memberId: string) {
-    const current = statusOf(memberId)
-    const next = STATUS_ORDER[(STATUS_ORDER.indexOf(current) + 1) % STATUS_ORDER.length]
-    dispatch({ type: 'SET_EVALUATION_STATUS', payload: { memberId, status: next } })
+  // 상태는 누를 때마다 도는 단추가 아니라, 현재 상태(배지) + 다음 행동(검토 완료 · 결과 확정) + 되돌리기로 나눈다
+  function setStatus(memberId: string, status: EvaluationStatus) {
+    dispatch({ type: 'SET_EVALUATION_STATUS', payload: { memberId, status } })
+  }
+  // 확정 전에 확인할 것이 남아 있으면 건수를 보여 주고 물어본다(막지는 않는다)
+  const [confirmOneId, setConfirmOneId] = useState<string | null>(null)
+  function requestConfirm(memberId: string) {
+    if (checkIssues.length > 0) setConfirmOneId(memberId)
+    else setStatus(memberId, 'confirmed')
   }
   function confirmAll() {
     dispatch({
@@ -259,6 +265,13 @@ export default function EvaluationResults() {
         if (activeMembers.every((m) => getContributionPercent(contributions, t.id, m.id) === 0))
           list.push({ title: '기여자 없음', desc: `${quoted(t.name)} -- 기여도를 넣은 팀원이 없어 이 과제 점수가 아무에게도 반영되지 않습니다` })
       })
+    const activeIds = new Set(activeMembers.map((m) => m.id))
+    const badSum = tasks.filter((t) => {
+      const sum = getTaskContributionSum(contributions, t.id, activeIds)
+      return sum > 0 && !isContributionSumValid(sum)
+    })
+    if (badSum.length > 0)
+      list.push({ title: '기여도 합계', desc: `${badSum.length}건(${badSum.slice(0, 2).map((t) => quoted(t.name)).join(' · ')}${badSum.length > 2 ? ' 외' : ''})이 100%가 아닙니다 -- 평가하기에서 맞춰 주세요` })
     results.forEach((r) => {
       const prev = prevGradeByMember.get(r.member.id) ?? null
       if (prev && r.grade && Math.abs(GRADE_RANK[r.grade] - GRADE_RANK[prev]) >= 2)
@@ -284,6 +297,11 @@ export default function EvaluationResults() {
     return list
   }, [tasks, activeMembers, contributions, results, prevGradeByMember])
 
+  // 확정 전에 짚을 것(점수에 영향을 주는 것만): 종류별 건수
+  const checkIssues = useMemo(() => {
+    const keys = ['성과등급 미입력', '기여자 없음', '기여도 합계']
+    return keys.map((k) => ({ k, n: checks.filter((c) => c.title === k).length })).filter((x) => x.n > 0)
+  }, [checks])
   const noData = results.length === 0
   const memberIds = highlightId ? [highlightId] : undefined
 
@@ -428,9 +446,26 @@ export default function EvaluationResults() {
                   <span className="truncate text-label-2">
                     {selRank}위 · {selected.cumulativeScore.toFixed(1)}점{prevGradeByMember.get(selected.member.id) ? ` · 지난 평가 ${prevGradeByMember.get(selected.member.id)}` : ''}
                   </span>
-                  <button onClick={() => cycleStatus(selected.member.id)} title="눌러서 상태 바꾸기(평가중 → 검토완료 → 확정)">
-                    <Badge tone={STATUS_TONE[statusOf(selected.member.id)]}>{STATUS_LABEL[statusOf(selected.member.id)]}</Badge>
-                  </button>
+                  <Badge tone={STATUS_TONE[statusOf(selected.member.id)]}>{STATUS_LABEL[statusOf(selected.member.id)]}</Badge>
+                  {statusOf(selected.member.id) === 'evaluating' && (
+                    <Button size="sm" variant="secondary" onClick={() => setStatus(selected.member.id, 'reviewed')}>
+                      검토 완료
+                    </Button>
+                  )}
+                  {statusOf(selected.member.id) === 'reviewed' && (
+                    <Button size="sm" variant="primary" onClick={() => requestConfirm(selected.member.id)}>
+                      결과 확정
+                    </Button>
+                  )}
+                  {statusOf(selected.member.id) !== 'evaluating' && (
+                    <button
+                      onClick={() => setStatus(selected.member.id, statusOf(selected.member.id) === 'confirmed' ? 'reviewed' : 'evaluating')}
+                      className="text-xs text-label-3 underline underline-offset-2 hover:text-label"
+                      title={statusOf(selected.member.id) === 'confirmed' ? '확정을 풀어 검토 완료로 되돌립니다' : '평가중으로 되돌립니다'}
+                    >
+                      {statusOf(selected.member.id) === 'confirmed' ? '확정 해제' : '되돌리기'}
+                    </button>
+                  )}
                   <IconButton onClick={() => previewMemberResultPdf(teamName, periodName, selected.member, members, tasks, contributions, criteria, meetingNotes, peerInputs)} title="리포트 미리보기" aria-label="리포트 미리보기">
                     <Eye {...ic} />
                   </IconButton>
@@ -573,6 +608,18 @@ export default function EvaluationResults() {
         </>
       )}
 
+      <ConfirmDialog
+        open={confirmOneId !== null}
+        title="확인할 것이 남아 있습니다"
+        message={`${checkIssues.map((x) => `${x.k} ${x.n}건`).join(' · ')}\n(위쪽 「확인 필요」에서 내용을 볼 수 있습니다)\n\n그래도 확정으로 표시할까요?`}
+        confirmLabel="확정"
+        tone="accent"
+        onConfirm={() => {
+          if (confirmOneId) setStatus(confirmOneId, 'confirmed')
+          setConfirmOneId(null)
+        }}
+        onCancel={() => setConfirmOneId(null)}
+      />
       <ConfirmDialog
         open={confirmAllOpen}
         title="모두 확정으로 표시"

@@ -72,6 +72,22 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
   // 캘린더 등록/수정 실패는 면담 기록 저장 자체를 막지는 않지만, 콘솔에만
   // 조용히 남기면 왜 캘린더에 안 뜨는지 알 방법이 없다 -- 화면에도 보여준다.
   const [calendarError, setCalendarError] = useState<string | null>(null)
+  // 일정 등록이 실패한 기록(기록은 저장됨) -- 「일정 다시 등록」으로 일정만 다시 시도한다
+  const [retryNote, setRetryNote] = useState<MeetingNote | null>(null)
+  const [retrying, setRetrying] = useState(false)
+  function retryCalendar() {
+    if (!retryNote || retrying) return
+    const n = retryNote
+    setRetrying(true)
+    createCalendarEvent({ memberName: member.name, date: n.date, comment: n.comment, teamName })
+      .then((eventId) => {
+        dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...n, calendarEventId: eventId } })
+        setCalendarError(null)
+        setRetryNote(null)
+      })
+      .catch((err) => setCalendarError(errText(err, '캘린더 일정 등록에 실패했습니다.')))
+      .finally(() => setRetrying(false))
+  }
 
   useEffect(() => {
     setDate(todayStr)
@@ -112,6 +128,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
           setCalendarError(errText(err, '캘린더 일정 등록에 실패했습니다.'))
+          setRetryNote(note)
         })
     }
     setDate(todayStr)
@@ -251,7 +268,12 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
       {calendarError && (
         <p className="mt-1.5 flex items-start gap-1.5 rounded-card bg-danger/[0.06] px-2.5 py-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-danger">
           <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-          면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}
+          <span className="min-w-0 flex-1">면담 기록은 저장됐지만 캘린더 등록에 실패했습니다: {calendarError}</span>
+          {retryNote && (
+            <button onClick={retryCalendar} disabled={retrying} className="shrink-0 rounded-control border border-danger/40 px-2 py-0.5 text-xs font-medium hover:bg-danger/10 disabled:opacity-60">
+              {retrying ? '등록 중…' : '일정 다시 등록'}
+            </button>
+          )}
         </p>
       )}
 
