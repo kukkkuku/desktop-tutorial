@@ -247,7 +247,6 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     .replace(/(<br>){3,}/g, '<br><br>')
   appUrl = withLoginHint(appUrl, r.email)
   const font = "-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif"
-  const who = r.name ? `${escHtml(r.name)}님,` : ''
   const mailto = contact
     ? `mailto:${contact.email}?subject=${encodeURIComponent(`[페이스] 로그인 문의 - ${r.name || r.email}`)}&body=${encodeURIComponent(
         `로그인할 계정: ${r.email}\n어떤 화면에서 막혔는지 적어 주세요:\n\n`,
@@ -259,12 +258,11 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FFFFFF">
 <tr><td style="padding:28px 32px 0"><span style="font-size:15px;font-weight:700;color:#111111">페이스</span><span style="font-size:15px;font-weight:700;color:#F97316">.</span> <span style="font-size:13px;color:#A3A3A3">과제관리</span></td></tr>
-<tr><td style="padding:26px 32px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#EA580C">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
-<tr><td style="padding:10px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
+<tr><td style="padding:26px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
 <tr><td style="padding:18px 32px 0"><div id="invite-msg" style="border-left:3px solid #F97316;padding:4px 0 4px 16px;font-size:15px;line-height:2;color:#262626">${msg}</div></td></tr>
-<tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all;border-bottom:3px solid #F97316;display:inline-block">${escHtml(r.email)}</div></td></tr>
+<tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all">“ ${escHtml(r.email)} ”</div></td></tr>
 <tr><td style="padding:24px 32px 0">
-  <a href="${escHtml(appUrl)}" style="display:block;padding:17px 0;border-radius:8px;background:#EA580C;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+  <a href="${escHtml(appUrl)}" style="display:block;padding:17px 0;border-radius:8px;background:#111111;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
 </td></tr>
 <tr><td style="padding:28px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:8px"><tr><td style="padding:18px 20px;font-size:14px;line-height:1.9;color:#262626">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="font-size:15px;color:#EA580C">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b><br><span style="font-size:12.5px;color:#737373">처음 한 번만 나오는 화면이에요.</span></td></tr></table></td></tr>
 ${contact ? `<tr><td style="padding:24px 32px 0;font-size:12.5px;color:#737373">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#111111;text-decoration:underline">문의하기</a></td></tr>` : ''}
