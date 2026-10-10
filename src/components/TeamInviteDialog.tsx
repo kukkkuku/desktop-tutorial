@@ -94,7 +94,7 @@ function MailPreview({ html, onBody, maxH }: { html: string; onBody: (v: string)
     fit()
   }
   return (
-    <div ref={wrapRef} className="overflow-hidden rounded-[14px] border border-[#E7ECF0] bg-white">
+    <div ref={wrapRef} className="overflow-hidden bg-white">
       <div className="mx-auto overflow-hidden" style={{ width: MAIL_W * scale, height: h * scale }}>
         <iframe
           ref={frameRef}

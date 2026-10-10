@@ -257,7 +257,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   return `<!doctype html><html><body style="margin:0;padding:0;background:#FFFFFF">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:32px 12px;font-family:${font}">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border:1px solid #E5E5E5;border-radius:16px;overflow:hidden;background:#FFFFFF">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#FFFFFF">
 <tr><td style="padding:28px 32px 0"><span style="font-size:15px;font-weight:700;color:#111111">페이스</span><span style="font-size:15px;font-weight:700;color:#F97316">.</span> <span style="font-size:13px;color:#A3A3A3">과제관리</span></td></tr>
 <tr><td style="padding:26px 32px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#EA580C">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
 <tr><td style="padding:10px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
