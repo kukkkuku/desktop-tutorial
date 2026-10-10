@@ -251,7 +251,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
         `로그인할 계정: ${r.email}\n어떤 화면에서 막혔는지 적어 주세요:\n\n`,
       )}`
     : ''
-  // 시안 「Refined」: 노란 바탕 · 큰 스마일 그림 · 굵은 제목 · 검은 알약 버튼. 표 + inline 스타일(메일 앱용), Outlook은 VML 버튼.
+  // 시안 「Refined」: 흰 바탕 · 큰 스마일 그림 · 굵은 제목 · 검은 알약 버튼. 표 + inline 스타일(메일 앱용), Outlook은 VML 버튼.
   // 그림은 앱 주소의 /invite/ 폴더(public/invite)에서 불러온다(메일 앱이 SVG를 못 보여 줘서 PNG). 원본 · 미리보기: docs/invite-email
   const imgBase = (() => {
     try {
@@ -293,17 +293,17 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   a { text-decoration: none; }
   /* 다크모드를 지원하는 메일 앱(애플 메일 · Outlook.com 등)이 색을 바꾸지 못하게 같은 색을 다시 지정 */
   @media (prefers-color-scheme: dark) {
-    body, .bg-main { background-color: #F4C81E !important; background-image: linear-gradient(#F4C81E, #F4C81E) !important; }
+    body, .bg-main { background-color: #FFFFFF !important; background-image: linear-gradient(#FFFFFF, #FFFFFF) !important; }
     .ink { color: #161616 !important; }
     .btn-cell { background-color: #161616 !important; background-image: linear-gradient(#161616, #161616) !important; }
-    .btn-text { color: #F4C81E !important; }
-    .pill { background-color: #FFFFFF !important; color: #161616 !important; }
+    .btn-text { color: #FFFFFF !important; }
+    .pill { background-color: #F0F0F0 !important; color: #161616 !important; }
   }
   [data-ogsc] .ink { color: #161616 !important; }
-  [data-ogsc] .btn-text { color: #F4C81E !important; }
-  [data-ogsb] .bg-main { background-color: #F4C81E !important; }
+  [data-ogsc] .btn-text { color: #FFFFFF !important; }
+  [data-ogsb] .bg-main { background-color: #FFFFFF !important; }
   [data-ogsb] .btn-cell { background-color: #161616 !important; }
-  [data-ogsb] .pill { background-color: #FFFFFF !important; }
+  [data-ogsb] .pill { background-color: #F0F0F0 !important; }
   /* 모바일 */
   @media only screen and (max-width: 620px) {
     .wrap { width: 100% !important; }
@@ -315,21 +315,21 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   }
 </style>
 </head>
-<body class="bg-main" bgcolor="#F4C81E" style="margin:0;padding:0;width:100%;background-color:#F4C81E;background-image:linear-gradient(#F4C81E,#F4C81E);">
+<body class="bg-main" bgcolor="#FFFFFF" style="margin:0;padding:0;width:100%;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
 
 <!-- 미리보기 글(받은편지함 목록에 보이는 한 줄) -->
 <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
   페이스(과제관리)에 초대합니다. 아래 버튼을 눌러 시작하세요.&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
 </div>
 
-<table role="presentation" class="bg-main" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4C81E" style="background-color:#F4C81E;background-image:linear-gradient(#F4C81E,#F4C81E);">
-<tr><td align="center" bgcolor="#F4C81E" class="bg-main" style="background-color:#F4C81E;background-image:linear-gradient(#F4C81E,#F4C81E);">
+<table role="presentation" class="bg-main" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
+<tr><td align="center" bgcolor="#FFFFFF" class="bg-main" style="background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
 
   <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td><![endif]-->
-  <table role="presentation" class="wrap bg-main" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#F4C81E" style="width:600px;max-width:600px;background-color:#F4C81E;background-image:linear-gradient(#F4C81E,#F4C81E);">
+  <table role="presentation" class="wrap bg-main" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:600px;max-width:600px;background-color:#FFFFFF;background-image:linear-gradient(#FFFFFF,#FFFFFF);">
 
     <!-- 위 머리 줄 -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:40px 44px 0 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:40px 44px 0 44px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td class="ink" align="left" style="padding:0 0 14px 0;border-bottom:2px solid #161616;font-family:'IBM Plex Mono','Courier New',Courier,monospace;font-size:11px;line-height:16px;letter-spacing:2px;color:#161616;">PACE / 과제관리</td>
@@ -339,18 +339,18 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     </td></tr>
 
     <!-- 큰 스마일 + Hi! 스티커 (그림 한 장) -->
-    <tr><td class="pad bg-main" align="center" bgcolor="#F4C81E" style="padding:0 44px;background-color:#F4C81E;font-size:0;line-height:0;">
-      <img class="hero-img" src="${imgBase}hero.png" width="512" height="340" alt="웃는 얼굴 모양의 굵은 선과 파란 &quot;Hi!&quot; 스티커" style="display:block;width:512px;max-width:100%;height:auto;border:0;">
+    <tr><td class="pad bg-main" align="center" bgcolor="#FFFFFF" style="padding:18px 44px 0 44px;background-color:#FFFFFF;font-size:0;line-height:0;">
+      <img class="hero-img" src="${imgBase}hero.png" width="410" height="188" alt="웃는 얼굴 모양의 굵은 선과 오렌지색 &quot;Hi!&quot; 스티커" style="display:block;width:410px;max-width:100%;height:auto;border:0;">
     </td></tr>
 
     <!-- 제목 + 인사말 -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:28px 44px 0 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:20px 44px 0 44px;background-color:#FFFFFF;">
       <h1 class="h1 ink" style="margin:0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:54px;line-height:62px;font-weight:900;letter-spacing:-2px;color:#161616;">페이스에<br>초대합니다.</h1>
       <p id="invite-msg" class="ink" style="margin:18px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:16px;line-height:26px;font-weight:500;color:#161616;">${msg}</p>
     </td></tr>
 
     <!-- 로그인 계정 -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:36px 44px 0 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:36px 44px 0 44px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:2px solid #161616;">
         <tr>
           <td class="ink" align="left" style="padding:12px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:12px;line-height:18px;font-weight:700;color:#161616;">로그인 계정</td>
@@ -363,11 +363,11 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     </td></tr>
 
     <!-- 시작 버튼(알약 · Outlook은 VML) -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:24px 44px 0 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:24px 44px 0 44px;background-color:#FFFFFF;">
       <!--[if mso]>
       <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escHtml(appUrl)}" style="height:64px;v-text-anchor:middle;width:512px;" arcsize="50%" stroke="f" fillcolor="#161616">
         <w:anchorlock/>
-        <center style="color:#F4C81E;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:17px;font-weight:bold;">페이스 시작하기 &nbsp;&rarr;</center>
+        <center style="color:#FFFFFF;font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;font-size:17px;font-weight:bold;">페이스 시작하기 &nbsp;&rarr;</center>
       </v:roundrect>
       <![endif]-->
       <!--[if !mso]><!-->
@@ -377,10 +377,10 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td align="left" height="64" style="height:64px;padding:0 0 0 28px;">
-                  <a class="btn-text" href="${escHtml(appUrl)}" target="_blank" style="display:block;line-height:64px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:17px;font-weight:700;color:#F4C81E;text-decoration:none;">페이스 시작하기</a>
+                  <a class="btn-text" href="${escHtml(appUrl)}" target="_blank" style="display:block;line-height:64px;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:17px;font-weight:700;color:#FFFFFF;text-decoration:none;">페이스 시작하기</a>
                 </td>
                 <td align="right" width="54" style="width:54px;padding:10px 10px 10px 0;">
-                  <a href="${escHtml(appUrl)}" target="_blank" style="display:block;font-size:0;line-height:0;"><img src="${imgBase}arrow-circle.png" width="44" height="44" alt="&rarr;" style="display:block;width:44px;height:44px;border:0;color:#F4C81E;font-size:20px;"></a>
+                  <a href="${escHtml(appUrl)}" target="_blank" style="display:block;font-size:0;line-height:0;"><img src="${imgBase}arrow-circle.png" width="44" height="44" alt="&rarr;" style="display:block;width:44px;height:44px;border:0;color:#FFFFFF;font-size:20px;"></a>
                 </td>
               </tr>
             </table>
@@ -391,7 +391,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
     </td></tr>
 
     <!-- 처음 로그인할 때 -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:32px 44px 0 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:32px 44px 0 44px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td class="ink" colspan="2" style="padding:0 0 4px 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;line-height:22px;font-weight:700;color:#161616;">처음 로그인할 때</td>
@@ -402,14 +402,14 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
         </tr>
         <tr>
           <td class="ink" width="28" valign="top" style="width:28px;font-family:'IBM Plex Mono','Courier New',Courier,monospace;font-size:11px;line-height:23px;color:#161616;">02</td>
-          <td class="ink" valign="top" style="font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;line-height:26px;color:#161616;">왼쪽 아래 <span class="pill" style="background-color:#FFFFFF;color:#161616;padding:2px 8px;border-radius:999px;font-weight:700;white-space:nowrap;">「고급」</span> &rarr; <span class="pill" style="background-color:#FFFFFF;color:#161616;padding:2px 8px;border-radius:999px;font-weight:700;white-space:nowrap;">「페이스(으)로 이동」</span>을 눌러 주세요.</td>
+          <td class="ink" valign="top" style="font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:13px;line-height:26px;color:#161616;">왼쪽 아래 <span class="pill" style="background-color:#F0F0F0;color:#161616;padding:2px 8px;border-radius:999px;font-weight:700;white-space:nowrap;">「고급」</span> &rarr; <span class="pill" style="background-color:#F0F0F0;color:#161616;padding:2px 8px;border-radius:999px;font-weight:700;white-space:nowrap;">「페이스(으)로 이동」</span>을 눌러 주세요.</td>
         </tr>
 ${contact ? `<tr><td class="ink" colspan="2" style="padding:10px 0 0 0;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:12px;line-height:20px;color:#161616;">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#161616;text-decoration:underline;">문의하기</a></td></tr>` : ''}
       </table>
     </td></tr>
 
     <!-- 바닥 줄: 미니 스마일 4개 + 이름 -->
-    <tr><td class="pad bg-main" bgcolor="#F4C81E" style="padding:40px 44px 36px 44px;background-color:#F4C81E;">
+    <tr><td class="pad bg-main" bgcolor="#FFFFFF" style="padding:40px 44px 36px 44px;background-color:#FFFFFF;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:2px solid #161616;">
         <tr>
           <td align="left" valign="middle" style="padding:14px 0 0 0;font-size:0;line-height:0;">
