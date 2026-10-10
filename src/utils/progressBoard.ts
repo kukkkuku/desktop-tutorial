@@ -10,7 +10,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type { WeekColumn, WeekMark } from '../types'
 import { accountScope } from './accountScope'
-import { sharedSheetFor } from './accessSheet'
+import { readAccessCache, sharedSheetFor, taskTabOf } from './accessSheet'
 import { getConnectedEmail } from './googleDrive'
 import { parseSheetUrl as parseSheetLink } from './sheetSources'
 import { cellText, splitL2, type ParsedHeader, type ParsedRow, type RawSheet, type SheetMerge, type WeekFill } from './sheetImport'
@@ -456,16 +456,37 @@ export const TASK_INPUT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1wnE
 const sheetKey = () => `progress-board:sheet:${accountScope()}`
 // 입력하는 시트 연도 탭(올해 이후 연도를 골랐으면 새로 불러와도 그 탭으로)
 const activeTabKey = () => `progress-board:tab:${accountScope()}`
+// 관리자가 정한 열 탭(관리 › 실적관리 시트)
+function sharedTab(): string | null {
+  try {
+    return taskTabOf(readAccessCache())
+  } catch {
+    return null
+  }
+}
+// 직접 고른 탭은 「그때 관리자가 정한 탭」과 함께 적어 둔다. 관리자가 열 탭을 바꿨으면(또는 예전 형식이면) 관리자가 정한 탭이 먼저 열린다.
 export function readActiveTab(): string | null {
   try {
-    return localStorage.getItem(activeTabKey())
+    const cur = sharedTab()
+    const raw = localStorage.getItem(activeTabKey())
+    if (!raw) return cur
+    let title = raw
+    let shared: string | null | undefined
+    if (raw.startsWith('{')) {
+      const o = JSON.parse(raw) as { title?: string; shared?: string | null }
+      if (!o.title) return cur
+      title = o.title
+      shared = o.shared ?? null
+    }
+    if (!cur) return title
+    return shared === cur ? title : cur
   } catch {
     return null
   }
 }
 export function writeActiveTab(title: string | null) {
   try {
-    if (title) localStorage.setItem(activeTabKey(), title)
+    if (title) localStorage.setItem(activeTabKey(), JSON.stringify({ title, shared: sharedTab() }))
     else localStorage.removeItem(activeTabKey())
   } catch {
     // 무시

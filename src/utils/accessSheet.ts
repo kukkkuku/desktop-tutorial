@@ -290,7 +290,15 @@ async function writeAccess(
 // 과제 시트는 연구소에 하나: 「연결 시트」를 「전체」 한 줄로 바꿔 쓴다(예전 팀별 줄은 지움)
 export async function setTaskSheet(id: string, url: string, title: string, by: string): Promise<AccessData> {
   const fresh = await readSheet(id)
-  return writeAccess(fresh, fresh.users, [{ team: ALL_TEAMS, url, note: title }], by, [`과제 시트 바꿈: ${title}`])
+  // 열 탭 선택은 예전 시트의 것이라 함께 비운다
+  const { taskTab: _old, ...settings } = fresh.settings ?? {}
+  void _old
+  return writeAccess(fresh, fresh.users, [{ team: ALL_TEAMS, url, note: title }], by, [`과제 시트 바꿈: ${title}`], settings)
+}
+// 관리자가 정한, 앱을 열면 먼저 열 시트 탭(예: 2026 추진현황) -- 없으면 올해 탭
+export const taskTabOf = (d: AccessData | null): string | null => d?.settings?.taskTab || null
+export async function setTaskTab(id: string, tab: string, by: string): Promise<AccessData> {
+  return setAccessSetting(id, 'taskTab', tab, by, `열 탭 정함: ${tab}`)
 }
 // 앱 설정 한 칸 바꾸기(예: 로그인 문의 받는 사람)
 export async function setAccessSetting(id: string, key: string, value: string, by: string, what: string): Promise<AccessData> {

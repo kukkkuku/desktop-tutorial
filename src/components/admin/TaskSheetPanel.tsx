@@ -8,7 +8,7 @@ import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
 import { icSm } from '../ui/icon'
-import { isPendingEmail, setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { isPendingEmail, setTaskSheet, setTaskTab, taskSheetOf, taskTabOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet, writeLinkedSheet } from '../../utils/progressBoard'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -70,6 +70,27 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
     }
   }
 
+  // 먼저 열 탭: 관리자가 정한 것, 없으면 올해 탭, 그것도 없으면 첫 탭
+  const openTab = (() => {
+    const years = info?.years ?? []
+    const set = taskTabOf(data)
+    if (set && years.includes(set)) return set
+    const thisYear = `${new Date().getFullYear()} 추진현황`
+    return years.includes(thisYear) ? thisYear : (years[0] ?? '')
+  })()
+  async function pickTab(tab: string) {
+    if (tab === openTab && taskTabOf(data) === tab) return
+    setBusy(true)
+    try {
+      await setTaskTab(data.id, tab, me)
+      onChanged()
+      toast(`앱을 열면 「${tab}」 탭이 먼저 열립니다.`, 'ok')
+    } catch (e) {
+      toast(errText(e, '탭을 정하지 못했습니다.'), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
   const locked = isProtectedSheet(curId ?? undefined)
   // 공유할 사람: 관리자는 모두, 팀장은 내가 추가한 사람만(나는 빼고)
   const people = (isAdmin ? data.users : data.users.filter((u) => u.addedBy === me)).filter((u) => u.email !== me && !isPendingEmail(u.email))
@@ -87,15 +108,38 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
               <FileSpreadsheet size={22} strokeWidth={1.7} className="mt-0.5 shrink-0 text-emerald-700" />
               <div className="min-w-0 flex-1">
                 <p className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{info?.title ?? cur.note ?? '과제 시트'}</p>
-                <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
-                  {info
-                    ? info.years.length
-                      ? `연도 탭: ${info.years.join(' · ')}`
-                      : '추진현황 탭이 없습니다'
-                    : infoErr
-                      ? `읽지 못함: ${infoErr}`
-                      : '읽는 중…'}
-                </p>
+                {info && info.years.length > 0 ? (
+                  <div className="mt-2">
+                    <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                      앱을 열면 먼저 열 탭{isAdmin ? ' (눌러서 정하세요)' : ''} · 팀원은 연도 메뉴에서 다른 연도도 볼 수 있습니다
+                    </p>
+                    <div role="radiogroup" aria-label="먼저 열 탭" className="mt-1.5 flex flex-wrap gap-1.5">
+                      {info.years.map((y) => {
+                        const on = y === openTab
+                        return (
+                          <button
+                            key={y}
+                            type="button"
+                            role="radio"
+                            aria-checked={on}
+                            disabled={!isAdmin || busy}
+                            onClick={() => void pickTab(y)}
+                            className={`rounded-full border px-3 py-1 text-[length:calc(13.5px*var(--ui-fs,1))] transition-colors ${
+                              on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline text-label-2 hover:text-label'
+                            } ${isAdmin ? '' : 'cursor-default'}`}
+                          >
+                            {on ? '✓ ' : ''}
+                            {y}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+                    {info ? '추진현황 탭이 없습니다' : infoErr ? `읽지 못함: ${infoErr}` : '읽는 중…'}
+                  </p>
+                )}
                 <p className="mt-1 flex items-center gap-1.5 text-[length:calc(13.5px*var(--ui-fs,1))]">
                   {locked ? (
                     <span className="flex items-center gap-1 text-label-2">
