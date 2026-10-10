@@ -258,10 +258,10 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   const sans = "Arial,'Helvetica Neue',sans-serif"
   const geo = `'Avenir Next',Avenir,'Century Gothic',Montserrat,'Helvetica Neue',${sans}`
   const num = (n: number) =>
-    `<td width="104" align="right" valign="middle" style="padding:34px 0 0"><div style="width:104px;height:150px;overflow:hidden;text-align:right"><div style="margin-right:${n === 1 ? -4 : -26}px;font-family:${geo};font-size:190px;line-height:150px;font-weight:600;color:#111111">${n}</div></div></td>`
-  const title = (t: string) => `<div style="font-size:17px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111;padding-top:34px">${t}</div>`
+    `<td width="92" align="right" valign="bottom" style="padding:0 0 26px"><div style="width:92px;height:112px;overflow:hidden;text-align:right"><div style="margin-right:${n === 1 ? -16 : -20}px;font-family:${geo};font-size:140px;line-height:112px;font-weight:600;color:#111111">${n}</div></div></td>`
+  const title = (t: string) => `<div style="font-size:17px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111;padding-top:20px">${t}</div>`
   const row = (n: number, body: string) =>
-    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;height:250px;padding:0 0 28px 26px">${body}</td></tr></table></td></tr>`
+    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;height:190px;padding:0 0 24px 26px">${body}</td></tr></table></td></tr>`
   const q = (ch: string, align: string, lh: number, h: number) =>
     `<div style="text-align:${align};font-family:${sans};font-size:72px;line-height:${lh}px;height:${h}px;font-weight:900;color:#111111">${ch}</div>`
   return `<!doctype html><html><body style="margin:0;padding:0;background:#EEF2F5">
@@ -269,11 +269,11 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
 <tr><td style="padding:0 0 36px;font-size:12px;font-weight:700;letter-spacing:.2em;color:#111111">페이스<span style="color:#F97316">.</span> <span style="font-weight:400;color:#8A949C">과제관리</span></td></tr>
-<tr><td style="padding:0 0 44px 130px">
+<tr><td style="padding:0 0 40px 118px">
   <div style="font-size:19px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111">페이스에 초대합니다</div>
   <div style="padding-top:10px">${q('“', 'left', 60, 24)}</div>
-  <div id="invite-msg" style="padding-top:6px;font-family:${serif};font-size:15px;line-height:1.95;color:#262626">${msg}</div>
-  ${q('”', 'right', 56, 18)}
+  <div id="invite-msg" style="padding-top:16px;font-family:${serif};font-size:15px;line-height:1.95;color:#262626">${msg}</div>
+  <div style="padding-top:14px">${q('”', 'right', 56, 18)}</div>
   <div style="padding-top:14px"><a href="${escHtml(appUrl)}" style="display:inline-block;padding:14px 30px;background:#111111;color:#FFFFFF;font-size:14px;font-weight:700;letter-spacing:.08em;text-decoration:none">페이스 시작하기 &rarr;</a></div>
 </td></tr>
 ${row(
