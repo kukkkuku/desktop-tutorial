@@ -294,7 +294,7 @@ function requestAccessToken(promptOverride?: string): Promise<string> {
   return p
 }
 
-function openTokenPopup(promptOverride?: string): Promise<string> {
+function openTokenPopup(promptOverride?: string, extraScope?: string): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!CLIENT_ID) {
       reject(new Error('Google Client ID가 설정되지 않았습니다.'))
@@ -311,7 +311,7 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
     const hint = promptOverride ? undefined : (readInvitedEmail() ?? getConnectedEmail() ?? readRememberedEmail() ?? undefined)
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: hint && mailScopeWanted(hint) ? `${DRIVE_SCOPE} ${MAIL_SEND_SCOPE}` : DRIVE_SCOPE,
+      scope: extraScope ? `${DRIVE_SCOPE} ${extraScope}` : hint && mailScopeWanted(hint) ? `${DRIVE_SCOPE} ${MAIL_SEND_SCOPE}` : DRIVE_SCOPE,
       ...(hint ? { login_hint: hint } : {}),
       // 창을 닫거나 구글 쪽 오류(400 등)로 끝나면 기다리지 않고 알린다.
       error_callback: (err) =>
@@ -771,4 +771,9 @@ export async function trashAllAppDriveData(): Promise<number> {
   }
   rootFolderIdCache = null
   return ids.size
+}
+
+// 로그인 토큰에 권한을 더해 다시 받는다(초대 메일 보내기: gmail.send). 앱의 다른 로그인과 같은 창 · 같은 계정 지정 방식을 쓴다.
+export function requestLoginWithScope(extraScope: string): Promise<string> {
+  return withAuthLock(() => openTokenPopup(undefined, extraScope))
 }

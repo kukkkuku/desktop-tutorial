@@ -8,24 +8,17 @@
 // 사용자 목록이 담당한다).
 import { loadToken, saveToken } from './tokenStore'
 import * as XLSX from 'xlsx'
-import { loadGis, getConnectedEmail, readRememberedEmail, peekLoginToken, loginTokenExpiry, MAIL_SEND_SCOPE } from './googleDrive'
-import { googleErrorText, oauthErrorText } from './googleError'
+import { loadGis, getConnectedEmail, peekLoginToken, loginTokenExpiry, MAIL_SEND_SCOPE, requestLoginWithScope } from './googleDrive'
+import { googleErrorText } from './googleError'
 import { canManageEmail } from './roles'
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-const ADMIN_SCOPE = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email'
 
 // 보낼 수 있는 사람: 팀장 · 관리자(권한 시트 역할 · 앱에 정해 둔 첫 관리자)
 const canSend = (email: string | null) => canManageEmail(email)
 
 export function isAdminConfigured(): boolean {
   return Boolean(CLIENT_ID)
-}
-
-interface GoogleTokenResponse {
-  access_token?: string
-  expires_in?: number
-  error?: string
 }
 
 // 이 탭에 보관해 둔 메일 보내기 토큰이 있으면 이어 쓴다(tokenStore)
@@ -54,12 +47,6 @@ export function getAdminEmail(): string | null {
   return isAdminConnected() ? adminEmail : null
 }
 
-async function fetchEmail(accessToken: string): Promise<string | null> {
-  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!res.ok) return null
-  const data = (await res.json()) as { email?: string }
-  return data.email ?? null
-}
 
 // "관리자로 Google 연결" 버튼에서 호출한다. 로그인 자체는 성공해도, 그
 // 계정이 팀장 · 관리자가 아니면 토큰을 버리고 에러를 던진다.
@@ -70,34 +57,17 @@ export async function connectAdmin(): Promise<void> {
   if (!CLIENT_ID) throw new Error('Google Client ID가 설정되지 않았습니다.')
   if (!window.google) throw new Error('Google 로그인 스크립트가 로드되지 않았습니다.')
 
-  const accessToken = await new Promise<string>((resolve, reject) => {
-    // 이미 로그인한 계정을 지정해 계정 선택 화면 없이 바로 동의로 넘긴다(다른 로그인 창과 같은 방식).
-    // 창을 닫거나 막히면 끝없이 기다리지 않고 알린다.
-    const hint = getConnectedEmail() ?? readRememberedEmail() ?? undefined
-    const tokenClient = window.google!.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: ADMIN_SCOPE,
-      ...(hint ? { login_hint: hint } : {}),
-      error_callback: (err: { type?: string }) =>
-        reject(new Error(err.type === 'popup_failed_to_open' ? '구글 로그인 창이 열리지 않았습니다(팝업 차단 확인).' : '구글 로그인 창이 닫혔습니다. 「보내기」를 다시 눌러 주세요.')),
-      callback: (resp: GoogleTokenResponse) => {
-        if (resp.error || !resp.access_token) reject(new Error(oauthErrorText(resp.error)))
-        else resolve(resp.access_token)
-      },
-    })
-    tokenClient.requestAccessToken()
-  })
+  // 앱의 로그인과 같은 창으로 메일 보내기 권한을 더해 받는다(계정 선택 화면 없이 같은 계정으로 바로 이어지게)
+  await requestLoginWithScope(MAIL_SEND_SCOPE)
+  adoptLoginMailToken()
+  if (isAdminConnected()) return
 
-  const email = await fetchEmail(accessToken)
-  if (!email || !canSend(email)) {
-    adminToken = null
-    adminEmail = null
-    throw new Error(`팀장 · 관리자 계정이 아닙니다${email ? ` (${email})` : ''}. 권한 시트에 팀장 · 관리자로 등록된 계정으로 로그인해주세요.`)
-  }
-
-  adminToken = { token: accessToken, expiresAt: Date.now() + 3300 * 1000 }
-  adminEmail = email
-  saveToken('admin-mail', { ...adminToken, email })
+  // 받았어도 팀장 · 관리자 계정이 아니거나, 구글 창에서 메일 권한을 빼고 허용한 경우
+  const email = getConnectedEmail()
+  adminToken = null
+  adminEmail = null
+  if (email && !canSend(email)) throw new Error(`팀장 · 관리자 계정이 아닙니다 (${email}). 권한 시트에 팀장 · 관리자로 등록된 계정으로 로그인해주세요.`)
+  throw new Error('메일 보내기 권한을 허용하지 않았습니다. 「보내기」를 다시 눌러 Gmail 권한을 체크해 주세요.')
 }
 
 // ---------- 초대 대상자 명단(로컬 저장) ----------
