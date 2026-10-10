@@ -8,7 +8,7 @@
 // 사용자 목록이 담당한다).
 import { loadToken, saveToken } from './tokenStore'
 import * as XLSX from 'xlsx'
-import { loadGis } from './googleDrive'
+import { loadGis, getConnectedEmail, readRememberedEmail } from './googleDrive'
 import { googleErrorText, oauthErrorText } from './googleError'
 import { canManageEmail } from './roles'
 
@@ -56,9 +56,15 @@ export async function connectAdmin(): Promise<void> {
   if (!window.google) throw new Error('Google 로그인 스크립트가 로드되지 않았습니다.')
 
   const accessToken = await new Promise<string>((resolve, reject) => {
+    // 이미 로그인한 계정을 지정해 계정 선택 화면 없이 바로 동의로 넘긴다(다른 로그인 창과 같은 방식).
+    // 창을 닫거나 막히면 끝없이 기다리지 않고 알린다.
+    const hint = getConnectedEmail() ?? readRememberedEmail() ?? undefined
     const tokenClient = window.google!.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: ADMIN_SCOPE,
+      ...(hint ? { login_hint: hint } : {}),
+      error_callback: (err: { type?: string }) =>
+        reject(new Error(err.type === 'popup_failed_to_open' ? '구글 로그인 창이 열리지 않았습니다(팝업 차단 확인).' : '구글 로그인 창이 닫혔습니다. 「보내기」를 다시 눌러 주세요.')),
       callback: (resp: GoogleTokenResponse) => {
         if (resp.error || !resp.access_token) reject(new Error(oauthErrorText(resp.error)))
         else resolve(resp.access_token)
