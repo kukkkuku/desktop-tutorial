@@ -41,6 +41,7 @@ import { ManualPanel, type ManualArea } from '../ManualLink'
 import { ROLE_LABEL } from '../../utils/roles'
 import { FONT_PREF_LABEL, currentScale, onFontPrefChange, readFontPref, setFontPref, type FontPref } from '../../utils/uiFontScale'
 import { getConnectedEmail } from '../../utils/googleDrive'
+import { boardViewKey } from '../../utils/progressBoard'
 import { THEMES, onThemeChange, readTheme, setTheme, type ThemeKey } from '../../utils/uiTheme'
 
 const TASK_ITEMS: { key: TaskMenu; label: string; Icon: LucideIcon }[] = [
@@ -90,7 +91,7 @@ function useShellNav() {
       // 추진현황을 보드 · 타임라인으로 보고 있으면 그 장(보기 모양은 ProgressBoard가 이 브라우저에 기억)
       let board = false
       try {
-        board = taskMenu === 'progress' && ['board', 'timeline'].includes(localStorage.getItem('progress-board-view') ?? '')
+        board = taskMenu === 'progress' && ['board', 'timeline'].includes(localStorage.getItem(boardViewKey()) ?? '')
       } catch {
         // 모르면 추진현황 장
       }

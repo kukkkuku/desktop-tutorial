@@ -505,6 +505,8 @@ export function writeLinkedSheet(url: string | null) {
 
 // ---------- 저장(브라우저) ----------
 
+// 보기 모양(표 · 보드 · 타임라인) 기억: 계정마다 따로(다른 계정으로 로그인해도 앞 사람 설정이 따라오지 않게)
+export const boardViewKey = () => `progress-board-view:${accountScope()}`
 const dataKey = () => `progress-board:data:${accountScope()}`
 const draftsKey = () => `progress-board:drafts:${accountScope()}`
 

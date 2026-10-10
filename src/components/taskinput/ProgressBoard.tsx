@@ -134,6 +134,7 @@ import {
   type FieldDef,
   type ProgressData,
   type ProgressRow,
+  boardViewKey,
 } from '../../utils/progressBoard'
 import { buildProgressWorkbook, downloadProgressExcel } from '../../utils/progressExport'
 import { blankProgress, materialize, sheetToData, worksheetRequests } from '../../utils/progressLocal'
@@ -272,14 +273,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [data, setData] = useState<ProgressData | null>(initial.data)
   // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
   useEffect(() => {
-    if (data && !data.spreadsheetId && localStorage.getItem('progress-board-view') === 'sheet') {
-      try {
-        localStorage.setItem('progress-board-view', 'table')
-      } catch {
-        // 기억 못 해도 아래 줄이 바로 바꾼다
-      }
-      setBoardView('table')
-    }
+    if (data && !data.spreadsheetId && boardView === 'sheet') setBoardView('table')
   }, [data])
   const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
   const edits = drafts.edits
@@ -374,8 +368,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 추진현황 보기 모양(이 브라우저에 기억)
   const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline' | 'sheet'>(() => {
     try {
-      const v = localStorage.getItem('progress-board-view')
-      return v === 'board' || v === 'timeline' || v === 'sheet' ? v : 'table'
+      // 구글시트 그대로 보기는 기억하지 않는다 -- 들어오자마자 시트 화면이 뜨고, 그 안의 구글 「로그인」을 누르면 앱을 벗어나 버린다
+      const v = localStorage.getItem(boardViewKey())
+      return v === 'board' || v === 'timeline' ? v : 'table'
     } catch {
       return 'table'
     }
@@ -383,7 +378,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   function changeBoardView(v: 'table' | 'board' | 'timeline' | 'sheet') {
     setBoardView(v)
     try {
-      localStorage.setItem('progress-board-view', v)
+      if (v === 'sheet') localStorage.removeItem(boardViewKey())
+      else localStorage.setItem(boardViewKey(), v)
     } catch {
       // 기억 못 해도 지금은 바뀐다
     }
