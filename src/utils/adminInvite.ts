@@ -256,11 +256,12 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   // 1 초대 · 2 로그인 계정 · 3 처음 한 번 안내. 검정 · 흰색 · 연한 회청색 바탕, 오렌지는 안내 글자와 점에만
   const serif = "Georgia,'Times New Roman','Noto Serif KR',serif"
   const sans = "Arial,'Helvetica Neue',sans-serif"
+  // 숫자: 굵은 기하학 글꼴로 크게, 오른쪽을 세로선에 걸치게 살짝 잘라 보인다(overflow 가림). 안 되는 메일 앱에서는 그냥 잘리지 않고 보임.
   const num = (n: number) =>
-    `<td width="84" align="right" valign="top" style="padding:0 20px 0 0;font-family:'Helvetica Neue',${sans};font-size:96px;line-height:84px;font-weight:200;color:#111111">${n}</td>`
-  const title = (t: string) => `<div style="font-size:15px;line-height:1.5;font-weight:700;letter-spacing:.18em;color:#111111;padding-top:6px">${t}</div>`
+    `<td width="104" align="right" valign="bottom" style="padding:0 0 30px;height:210px"><div style="width:104px;height:150px;overflow:hidden;text-align:right"><div style="margin-right:-18px;font-family:'Avenir Next',Avenir,'Century Gothic','Helvetica Neue',${sans};font-size:176px;line-height:150px;font-weight:500;color:#111111">${n}</div></div></td>`
+  const title = (t: string) => `<div style="font-size:17px;line-height:1.5;font-weight:600;letter-spacing:.2em;color:#111111;padding-top:8px">${t}</div>`
   const row = (n: number, body: string) =>
-    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;padding:0 0 8px 24px">${body}</td></tr></table></td></tr><tr><td style="height:40px;font-size:0;line-height:0">&nbsp;</td></tr>`
+    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${num(n)}<td valign="top" style="border-left:1px solid #111111;padding:0 0 8px 26px">${body}</td></tr></table></td></tr><tr><td style="height:24px;font-size:0;line-height:0">&nbsp;</td></tr>`
   const q = (ch: string, align: string, lh: number, h: number) =>
     `<div style="text-align:${align};font-family:${sans};font-size:72px;line-height:${lh}px;height:${h}px;font-weight:900;color:#111111">${ch}</div>`
   return `<!doctype html><html><body style="margin:0;padding:0;background:#EEF2F5">
