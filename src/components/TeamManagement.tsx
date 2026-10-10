@@ -19,7 +19,7 @@ import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/Data
 import { toast } from './ui/Toast'
 import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
-import { ArrowDownAZ, ArrowRightLeft, Check, Trash2, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
+import { ArrowDownAZ, ArrowRightLeft, Check, Trash2, IdCard, MessageSquareText, PanelRightOpen, Redo2, Settings2, Undo2, UserPlus, X } from 'lucide-react'
 import InfoTip from './ui/InfoTip'
 import Select from './ui/Select'
 import { ic, icLg, icSm } from './ui/icon'
@@ -832,9 +832,9 @@ export default function TeamManagement() {
           </div>
           <span className="mx-1.5 h-5 w-px bg-separator" />
           {access && (
-            <Button variant="primary" onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
-              <Send {...icSm} />
-              초대 메일 보내기
+            <Button onClick={() => setInviteOpen(true)} title="Gmail이 있는 팀원에게 앱 초대 메일(실적관리 시트 공유는 관리자가)">
+              <UserPlus {...icSm} />
+              팀원 초대
             </Button>
           )}
           <Button variant="secondary" onClick={() => setHrOpen(true)} title="종합 인사기록카드 엑셀로 직급·입사일·발령일·소속 맞추기">
