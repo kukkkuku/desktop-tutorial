@@ -31,9 +31,28 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
   const sourceOptions = useMemo(() => [...teamWorkspaces].reverse(), [teamWorkspaces])
   const sourceCounts = useMemo(() => (source ? readWorkspaceCounts(source.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[], taskNames: [] as string[] }), [source])
 
-  const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
-  const [year, setYear] = useState<number>(defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear())
-  const [periodCode, setPeriodCode] = useState<string>(mostRecent?.evaluationPeriodCode ?? periodOptionsForCycle(cycle)[0]?.code ?? '')
+  // 처음 고르는 기간: 이미 만든 평가를 다시 보여 주지 않고, 아직 없는 다음 기간(예: 상반기가 있으면 하반기, 그 해가 다 찼으면 다음 해 첫 기간)을 추천한다
+  const [initial] = useState(() => {
+    const cycle0: EvaluationCycle = mostRecent?.evaluationCycle ?? teamCyclePreference(teamName)
+    const opts = periodOptionsForCycle(cycle0)
+    let y = defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear()
+    let code = opts[0]?.code ?? ''
+    if (cycle0 !== 'custom' && opts.length) {
+      for (let k = 0; k < 3; k++) {
+        const free = opts.find((o) => !findWorkspace(teamWorkspaces, teamName, y, cycle0, o.code))
+        if (free) {
+          code = free.code
+          break
+        }
+        y += 1
+        code = opts[0].code
+      }
+    }
+    return { cycle: cycle0, year: y, code }
+  })
+  const [cycle, setCycle] = useState<EvaluationCycle>(initial.cycle)
+  const [year, setYear] = useState<number>(initial.year)
+  const [periodCode, setPeriodCode] = useState<string>(initial.code)
   const [customLabel, setCustomLabel] = useState<string>(cycle === 'custom' ? (mostRecent?.periodName ?? '') : '')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsRef = useRef<HTMLDivElement>(null)
