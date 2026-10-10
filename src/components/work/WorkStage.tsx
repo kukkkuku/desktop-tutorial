@@ -208,6 +208,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // ---------- 표 ----------
   const [search, setSearch] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  // 「전체」 탭: 모든 그룹(L2)의 과제를 한 표로(그룹(L2) 열). 찾기를 시작하면 자동으로 여기로 온다.
+  const [allTab, setAllTab] = useState(false)
   // 묶음 이름을 그 자리에서 고치는 중인 평가과제 묶음
   const [renamingEval, setRenamingEval] = useState<string | null>(null)
   // L3 id -> 그 L3가 들어간 평가 과제 이름들
@@ -439,16 +441,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // 처음에는 꺼져 있다(과제관리는 그룹 탭 보기부터)
   const [evalOnly, setEvalOnly] = useState(false)
   const sourceItems = useMemo(() => {
-    // 찾는 중에는 이 L2가 아니라 모든 과제에서 찾는다
-    if (!evalOnly && search.trim() === '') return groupItems
+    const base = allTab ? board.items : groupItems
+    if (!allTab && !evalOnly) return groupItems
     const order = new Map(board.groups.map((g, k) => [g.id, k]))
     const targetBundles = new Set(board.items.filter((i) => targetIds.has(i.id)).map(evalGroupOf).filter(Boolean))
-    return board.items
-      .map((i, k) => ({ i, k }))
+    return base
+      .map((i) => ({ i, k: board.items.indexOf(i) }))
       .filter(({ i }) => !evalOnly || targetIds.has(i.id) || (evalGroupOf(i) && targetBundles.has(evalGroupOf(i))))
       .sort((a, b) => (order.get(a.i.groupId) ?? 0) - (order.get(b.i.groupId) ?? 0) || a.k - b.k)
       .map(({ i }) => i)
-  }, [evalOnly, search, groupItems, board.items, board.groups, targetIds])
+  }, [evalOnly, allTab, groupItems, board.items, board.groups, targetIds])
   // 지금 보기(그룹 탭 또는 평가 대상만)에 있는 묶음 이름들 -- 일괄 접기 · 펴기
   const bundleNames = useMemo(() => Array.from(new Set(sourceItems.map(evalGroupOf).filter(Boolean))), [sourceItems])
   const groupNameOf = (id: string) => board.groups.find((g) => g.id === id)?.name ?? ''
@@ -504,9 +506,9 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     })
     return { viewRows: rows, headerAt: heads, numbers, ranges }
   }, [sourceItems, search, board.columns, members, collapsed])
-  const filtered = search.trim() !== '' || evalOnly
+  const filtered = search.trim() !== '' || evalOnly || allTab
   // 여러 그룹이 섞여 보이는 보기(평가 대상 모음 · 전체 찾기): 그룹(L2) 열을 보이고 행 추가 · 옮기기는 끈다
-  const crossView = filtered
+  const crossView = allTab
 
   function groupHeader(g: string): GroupHeaderRow {
     const all = board.items.filter((i) => evalGroupOf(i) === g)
@@ -963,8 +965,19 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-2 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 lg:-mx-8">
       {/* 브라우저 탭처럼: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(가려지거나 옆으로 밀리지 않게) */}
       <div ref={tabStripRef} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden py-1">
+        <div
+          data-l2-tab="all"
+          onClick={() => setAllTab(true)}
+          title="모든 그룹(L2)의 과제를 한 표로 보기"
+          className={`relative flex h-[26px] min-w-[44px] flex-none cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'} ${
+            allTab ? 'l1-tab-on font-semibold text-label' : 'l1-tab-sep font-medium text-label-2 hover:bg-black/[0.06] hover:text-label'
+          }`}
+        >
+          <span className="whitespace-nowrap">전체</span>
+          <span className="text-[length:calc(13px*var(--ui-fs,1))] tabular-nums text-label-3">{board.items.length}</span>
+        </div>
         {board.groups.map((g, idx) => {
-          const on = !evalOnly && g.id === activeGroup?.id
+          const on = !allTab && g.id === activeGroup?.id
           const count = itemsOfGroup(board, g.id).length
           return (
             <div
@@ -988,7 +1001,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               data-l2-tab={g.id}
               onClick={() => {
                 setActiveGroupId(g.id)
-                if (evalOnly) setEvalOnly(false) // 그룹 탭을 누르면 그 탭 보기로
+                setAllTab(false)
               }}
               onDoubleClick={() => setRenamingGroup(g.id)}
               onContextMenu={(e) => {
@@ -1000,7 +1013,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               } ${
                 on
                   ? 'l1-tab-on flex-none font-semibold text-label'
-                  : `flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${!evalOnly && board.groups[idx + 1]?.id === activeGroup?.id ? '' : 'l1-tab-sep'}`
+                  : `flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${!allTab && board.groups[idx + 1]?.id === activeGroup?.id ? '' : 'l1-tab-sep'}`
               } ${dragTab?.over === idx && dragTab.id !== g.id ? 'shadow-[inset_3px_0_0_#F97316]' : ''} ${
                 rowDropTab === g.id ? '!bg-orange-50 ring-2 ring-orange-300' : ''
               }`}
@@ -1074,7 +1087,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <>
           {/* 정보 줄 한 줄: H › L1 › L2(제목은 굵고 크게) */}
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1">
-            <span className={`shrink-0 text-xs text-label-2 ${evalOnly ? 'hidden' : ''}`}>
+            <span className={`shrink-0 text-xs text-label-2 ${allTab ? 'hidden' : ''}`}>
               {[activeGroup.h, activeGroup.l1].filter(Boolean).join(' › ') || 'H·L1 없음'}
               {activeGroup.hierarchyInferred && (
                 <span className="ml-1.5 text-orange-500" title="시트에서 병합 셀이 끊겨 비어 있던 H/L1을 위 행 값으로 채웠습니다. 시트에서 확인해 주세요.">
@@ -1082,8 +1095,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 </span>
               )}
             </span>
-            {!evalOnly && <span className="text-xs text-label-3">›</span>}
-            <h2 className="min-w-0 truncate text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{evalOnly ? '평가 대상 · 모든 그룹' : activeGroup.name}</h2>
+            {!allTab && <span className="text-xs text-label-3">›</span>}
+            <h2 className="min-w-0 truncate text-[length:calc(17px*var(--ui-fs,1))] font-semibold text-label">{allTab ? (evalOnly ? '전체 · 평가 대상만' : '전체 · 모든 그룹') : activeGroup.name}</h2>
             {missingCount > 0 && (
               <span
                 className="ml-1.5 self-center rounded-full bg-orange-100 px-2 py-0.5 text-[length:calc(12px*var(--ui-fs,1))] font-bold text-orange-700"
@@ -1102,7 +1115,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 <input
                   autoFocus
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value)
+                    if (e.target.value.trim() !== '') setAllTab(true)
+                  }}
                   onBlur={() => search === '' && setSearchOpen(false)}
                   onKeyDown={(e) => {
                     if (e.key === 'Escape') {
@@ -1110,7 +1126,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                       setSearchOpen(false)
                     }
                   }}
-                  placeholder={evalOnly ? '평가 대상에서 찾기' : '전체 과제에서 찾기'}
+                  placeholder="전체 과제에서 찾기"
                   className="h-8 w-60 rounded-control border border-hairline bg-white pl-8 pr-7 text-[length:calc(14px*var(--ui-fs,1))]"
                 />
                 <button
@@ -1137,16 +1153,15 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             )}
             <label
               className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[length:calc(14px*var(--ui-fs,1))] transition-shadow duration-300 ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : targetTaskCount > 0 ? 'border-accent/40 text-label hover:bg-accent-soft' : 'border-hairline text-label-2 hover:text-label'} ${evalFlash ? 'shadow-[0_0_0_4px_rgb(var(--c-accent)/0.25)]' : ''}`}
-              title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
+              title="평가 대상만 보기 (전체 탭에서 켜면 모든 그룹의 평가 대상을 한 표에 모아 성과등급 · 목표/성과를 매깁니다)"
             >
               <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
-              과제평가하기
+              평가 대상만
               {targetTaskCount > 0 && (
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
               )}
             </label>
-            {search.trim() !== '' && !evalOnly && <span className="text-xs text-label-2">모든 그룹에서 {viewRows.length}건 · 찾는 중에는 행 추가 · 이동이 꺼집니다</span>}
-            {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
+            {allTab && <span className="text-xs text-label-2">{viewRows.length}건 · 전체 보기에서는 행 추가 · 옮기기가 꺼집니다(그룹 탭에서)</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
                 onClick={undo}
