@@ -29,9 +29,9 @@ function versionFile(): Plugin {
   return {
     name: 'version-file',
     apply: 'build',
-    // index.html에도 같은 id를 적어 둔다 -- 새로고침 전에 새 index.html이 정말 내려오는지 확인용(UpdateToast)
+    // index.html에도 같은 id를 적어 둔다 -- 새로고침 전에 새 index.html이 정말 내려오는지 확인용(utils/appUpdate.ts · index.html의 스스로 확인)
     transformIndexHtml() {
-      return [{ tag: 'meta', attrs: { name: 'app-build', content: BUILD_ID }, injectTo: 'head' }]
+      return [{ tag: 'meta', attrs: { name: 'app-build', content: BUILD_ID }, injectTo: 'head-prepend' }]
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ id: BUILD_ID, notes: latestNotes() }) })

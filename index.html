@@ -10,6 +10,33 @@
     <meta name="theme-color" content="#ffffff" />
     <title>페이스</title>
     <script>
+      // 옛 화면으로 열렸는지(브라우저 · CDN이 index.html을 최대 10분 기억) 스스로 확인한다: 배포된 version.json이 이 화면의 빌드(app-build)보다 새것이면
+      // 처음 쓰는 주소(?v=새버전&t=시각)로 다시 연다. 세션당 3번까지만(CDN이 아직 옛것을 줄 때 무한 반복 방지). 개발 서버에는 meta가 없어 건너뛴다.
+      ;(function () {
+        try {
+          var m = document.querySelector('meta[name="app-build"]')
+          if (!m || !window.fetch) return
+          var cur = m.getAttribute('content')
+          var KEY = 'app:heal'
+          fetch(new URL('version.json?t=' + Date.now(), document.baseURI).toString(), { cache: 'no-store' })
+            .then(function (r) {
+              return r.ok ? r.json() : null
+            })
+            .then(function (v) {
+              if (!v || typeof v.id !== 'string' || v.id <= cur) return
+              var n = Number(sessionStorage.getItem(KEY) || 0)
+              if (n >= 3) return
+              sessionStorage.setItem(KEY, String(n + 1))
+              var u = new URL(location.href)
+              u.searchParams.set('v', v.id)
+              u.searchParams.set('t', String(Date.now()))
+              location.replace(u.toString())
+            })
+            .catch(function () {})
+        } catch (e) {}
+      })()
+    </script>
+    <script>
       // 배포 직후 브라우저가 예전 index.html을 잠깐 기억하고 있으면, 이미 지워진 예전 스크립트를 불러오다 빈 화면이 된다.
       // 스크립트 · 스타일을 못 불러오면 index.html을 새로 받아 한 번만 다시 연다.
       ;(function () {

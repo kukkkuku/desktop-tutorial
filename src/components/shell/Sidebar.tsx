@@ -34,6 +34,7 @@ import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useAccessData } from '../../hooks/useAccessData'
 import { isPendingEmail } from '../../utils/accessSheet'
 import GoogleAccountMenu from '../GoogleAccountMenu'
+import NoticeBell from '../NoticeBell'
 import DataResetDialog from '../DataResetDialog'
 import DataManagerDrawer from '../DataManagerDrawer'
 import { ManualPanel, type ManualArea } from '../ManualLink'
@@ -541,6 +542,7 @@ export function TopNav({
       )}
       <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1.5">
         {actions}
+        <NoticeBell />
         {/* 저장 상태(저장됨 · 저장 중 · 실패)는 계정 앞에 */}
         {inPerf && perf?.saveBadge && <span className="flex items-center pl-1">{perf.saveBadge}</span>}
         {accountEmail && (

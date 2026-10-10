@@ -18,7 +18,8 @@ import Button from './components/Button'
 import { SlidersHorizontal } from 'lucide-react'
 import TeamStage, { type TeamSubTabRequest } from './components/TeamStage'
 import EvaluationMatrix from './components/EvaluationMatrix'
-import NoticeBell from './components/NoticeBell'
+import PerfNoticeSource from './components/PerfNoticeSource'
+import { NoticeCenterProvider } from './state/NoticeCenter'
 import EvaluationResults from './components/EvaluationResults'
 import NotesStage, { type NotesNavigationRequest, type NotesSubTab } from './components/notes/NotesStage'
 import GoogleSignInGate from './components/GoogleSignInGate'
@@ -102,6 +103,7 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
     <AppProvider workspaceId={workspaceId}>
       <TeamProvider teamName={teamName}>
         <MemberDetailProvider onNavigateToNotes={goToNotes}>
+          <PerfNoticeSource teamName={teamName} onOpenTeam={goToTeamManagement} onOpenEvaluate={() => handleStageChange('evaluate')} />
           <AppShell
             perf={{
               onOpenDataManager: () => setDataManagerOpen(true),
@@ -132,7 +134,6 @@ function WorkspaceApp({ workspaceId }: { workspaceId: string }) {
                         <span className="mx-1 h-5 w-px bg-separator" aria-hidden="true" />
                       </>
                     )}
-                    <NoticeBell teamName={teamName} onOpenTeam={goToTeamManagement} onOpenEvaluate={() => handleStageChange('evaluate')} />
                   </>
                 }
               />
@@ -224,6 +225,7 @@ export default function App() {
   useAccessSync()
   return (
     <WorkspaceProvider>
+      <NoticeCenterProvider>
       <UpdateToast />
       <ToastHost />
       <GoogleSignInGate>
@@ -231,6 +233,7 @@ export default function App() {
           <ModeGate />
         </AppModeProvider>
       </GoogleSignInGate>
+      </NoticeCenterProvider>
     </WorkspaceProvider>
   )
 }

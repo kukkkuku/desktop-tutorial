@@ -5,6 +5,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
 import Sidebar, { HeaderAccount, TopNav, type SidebarPerfExtras } from './Sidebar'
+import NoticeBell from '../NoticeBell'
 
 // 메뉴 모양: open(펼침) · rail(아이콘만) · top(위 메뉴) · hidden(사이드바 숨김). 사이드바 경계를 끌면 폭 조절, 누르거나 ⌘B면 숨김/펼침
 export type ShellLayout = 'open' | 'rail' | 'top' | 'hidden'
@@ -193,6 +194,7 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
       {title && <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>}
       <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
         {actions}
+        <NoticeBell />
         {/* 사이드바가 없을 때만 머리 줄에 계정(사이드바가 있으면 왼쪽 아래) */}
         {ctx?.layout === 'hidden' && <HeaderAccount perf={ctx?.perf} />}
       </div>
