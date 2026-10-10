@@ -68,6 +68,8 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
       const target = e.target as Node
       if (btnRef.current?.contains(target)) return
       if (menuRef.current?.contains(target)) return
+      // 메뉴 옆으로 펼친 작은 메뉴(디스플레이 등)도 메뉴의 일부다
+      if ((target as Element).closest?.('[data-menu-sub]')) return
       setOpen(false)
     }
     function handleKey(e: KeyboardEvent) {
