@@ -21,6 +21,7 @@ import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
 import { ArrowDownAZ, ArrowRightLeft, Check, Trash2, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import InfoTip from './ui/InfoTip'
+import Select from './ui/Select'
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, parseHandoverTasks, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
@@ -184,7 +185,20 @@ export default function TeamManagement() {
       .reverse()
       .find((h) => (m.email ? h.email === m.email.toLowerCase() : h.name.trim() === m.name.trim()) && (!teamName.trim() || h.toTeam === teamName.trim()))
   const [handoverView, setHandoverView] = useState<Handover | null>(null)
-  const [handoverFor, setHandoverFor] = useState<{ m: TeamMember; toTeam: string } | null>(null)
+  const [handoverFor, setHandoverFor] = useState<{ m: TeamMember; toTeam: string; send?: boolean } | null>(null)
+  // 「다른 팀으로 보내기」: 고른 팀(목록에서) · 새 팀 이름 직접 입력 · 보낸 뒤 이 평가에서 비활성 / 삭제
+  const [sendTeam, setSendTeam] = useState('')
+  const [sendCustom, setSendCustom] = useState('')
+  const [sendAfter, setSendAfter] = useState<'inactive' | 'delete'>('inactive')
+  function openSend(memberId: string) {
+    const m = state.members.find((x) => x.id === memberId)
+    if (!m) return
+    setOpinion('')
+    setSendTeam('')
+    setSendCustom('')
+    setSendAfter('inactive')
+    setHandoverFor({ m, toTeam: '', send: true })
+  }
   const [opinion, setOpinion] = useState('')
   const [handoverBusy, setHandoverBusy] = useState(false)
   // 이 팀원이 맡았던 과제: 기여도가 있는 평가과제(「이름 N%」) · 기여도는 없어도 담당자였던 평가과제와 과제관리의 L3(「이름 (담당)」)
@@ -207,12 +221,15 @@ export default function TeamManagement() {
   }
   async function submitHandover() {
     if (!handoverFor || !access) return
-    const { m, toTeam } = handoverFor
+    const { m, send } = handoverFor
+    const toTeam = send ? (sendTeam === '__new' ? sendCustom.trim() : sendTeam.trim()) : handoverFor.toTeam
+    if (send && (!toTeam || toTeam === teamName.trim())) return toast('보낼 팀을 고르세요(지금 팀과 달라야 합니다).', 'error')
     setHandoverBusy(true)
     try {
+      const u = accessUserFor(m)
       await writeHandover(access.id, {
         // Gmail 없는 팀원은 명단의 자리표시 계정(이름으로 찾음)
-        email: (m.email ?? access.users.find((u) => u.name.trim() === m.name.trim())?.email ?? '').toLowerCase(),
+        email: (m.email ?? access.users.find((x) => x.name.trim() === m.name.trim())?.email ?? '').toLowerCase(),
         name: m.name,
         fromTeam: teamName.trim(),
         toTeam,
@@ -220,16 +237,32 @@ export default function TeamManagement() {
         opinion: opinion.trim(),
         tasks: tasksOf(m),
       })
-      // 이번 평가에서는 비활성(지난 기록은 그대로)
-      save(
-        state.members.map((x) => (x.id === m.id ? { ...x, active: false } : x)),
-        [],
-      )
+      // 보내기: 권한 시트의 팀도 새 팀으로(새 팀장의 팀원 명단에 들어가게). 시트에 없는 사람이면 의견만 남는다
+      let teamMoved = !send
+      if (send && u) {
+        await updateUsers(access.id, (users) => users.map((x) => (x.email === u.email ? { ...x, team: toTeam } : x)), me, [`팀 이동(팀원관리에서 보내기): ${u.name || u.email} ${teamName.trim()} → ${toTeam}`])
+        teamMoved = true
+      }
+      if (send && sendAfter === 'delete') {
+        history.record()
+        dispatch({ type: 'DELETE_MEMBER', payload: { id: m.id } })
+        addRosterSkip(wsId, [m.name.trim(), (m.email ?? '').toLowerCase()])
+      } else {
+        // 이번 평가에서는 비활성(지난 기록은 그대로)
+        save(
+          state.members.map((x) => (x.id === m.id ? { ...x, active: false } : x)),
+          [],
+        )
+      }
       setHandoverFor(null)
       setOpinion('')
-      toast(`${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`)
+      toast(
+        send
+          ? `${m.name}: 「${toTeam}」(으)로 ${teamMoved ? '보냈습니다' : '의견만 남겼습니다(권한 시트에 없는 사람이라 팀은 바꾸지 못함)'}${sendAfter === 'delete' ? ' · 이 평가에서 삭제' : ' · 이 평가에서 비활성'}.`
+          : `${m.name}: 의견을 남기고 비활성으로 바꿨습니다. 새 팀장(「${toTeam}」)이 팀원관리에서 볼 수 있습니다.`,
+      )
     } catch (e) {
-      toast(`의견을 남기지 못했습니다: ${errText(e)}`, 'error')
+      toast(`${send ? '보내지 못했습니다' : '의견을 남기지 못했습니다'}: ${errText(e)}`, 'error')
     } finally {
       setHandoverBusy(false)
     }
@@ -733,6 +766,12 @@ export default function TeamManagement() {
               선택 {pickedRows.length}명 삭제
             </Button>
           )}
+          {pickedRows.length === 1 && (
+            <Button variant="secondary" size="sm" onClick={() => openSend(pickedRows[0])} title="의견을 남기고 이 팀원을 다른 팀으로 보냅니다">
+              <ArrowRightLeft {...icSm} />
+              다른 팀으로 보내기
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={sortByTeam} title="표의 줄을 팀 이름순(가나다)으로 정렬합니다. ⌘Z로 되돌립니다">
             <ArrowDownAZ {...icSm} />팀 이름순 정렬
           </Button>
@@ -952,6 +991,7 @@ export default function TeamManagement() {
           onPaste={paste}
           onInsertRows={insertRows}
           onDeleteRows={(ids) => setDeleting(state.members.filter((m) => ids.includes(m.id)))}
+          rowActions={(ids) => (ids.length === 1 ? [{ label: '다른 팀으로 보내기…', onClick: () => openSend(ids[0]) }] : [])}
           onSelectionChange={(ids, kind) => setPickedRows(kind === 'rows' || (kind === 'cells' && ids.length > 1) ? ids : [])}
           onMoveRows={moveRows}
           onResizeColumn={(id, w) => saveCfg({ widths: { ...cfg.widths, [id]: w } })}
@@ -965,15 +1005,47 @@ export default function TeamManagement() {
 
       {hrOpen && <HRCardImportModal members={state.members} onApply={applyHRCards} onClose={() => setHrOpen(false)} />}
 
-      {/* 이전 팀장: 의견 남기기 */}
+      {/* 이전 팀장: 의견 남기기 · 다른 팀으로 보내기 */}
       {handoverFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => !handoverBusy && setHandoverFor(null)}>
           <div className="w-full max-w-lg rounded-[12px] bg-white p-5 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
             <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
-              {handoverFor.m.name} → 「{handoverFor.toTeam}」 · 이전 팀장 의견
+              {handoverFor.send ? `${handoverFor.m.name} · 다른 팀으로 보내기` : `${handoverFor.m.name} → 「${handoverFor.toTeam}」 · 이전 팀장 의견`}
             </h3>
-            <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">새 팀장(「{handoverFor.toTeam}」 팀장)이 팀원관리에서 이 팀원 이름 옆 말풍선을 눌러 볼 수 있고, 평가할 때 참고합니다. 팀원 본인에게는 보이지 않습니다.</p>
-            <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">우리 팀에서 맡았던 과제</p>
+            {handoverFor.send && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">보낼 팀</span>
+                <Select
+                  value={sendTeam}
+                  onChange={(e) => setSendTeam(e.target.value)}
+                  className="h-9 min-w-[150px] rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
+                >
+                  <option value="">팀 고르기</option>
+                  {sheetTeamNames
+                    .filter((t) => t.trim() !== teamName.trim())
+                    .map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  <option value="__new">새 팀 이름 입력…</option>
+                </Select>
+                {sendTeam === '__new' && (
+                  <input
+                    value={sendCustom}
+                    onChange={(e) => setSendCustom(e.target.value)}
+                    placeholder="팀 이름"
+                    className="h-9 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
+                  />
+                )}
+              </div>
+            )}
+            <p className="mt-3 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">
+              우리 팀에서 맡았던 과제
+              <InfoTip label="의견 설명" width={280}>
+                {handoverFor.send ? '보낸 팀의 팀장이 팀원관리에서 이 팀원 이름 옆 말풍선으로 봅니다.' : `「${handoverFor.toTeam}」 팀장이 팀원관리의 이 팀원 말풍선으로 봅니다.`} 팀원 본인에게는 보이지 않습니다.
+              </InfoTip>
+            </p>
             <HandoverTaskList text={tasksOf(handoverFor.m)} empty="(맡은 과제가 없습니다)" />
             <textarea
               autoFocus
@@ -983,12 +1055,28 @@ export default function TeamManagement() {
               placeholder="성과 · 강점 · 아쉬운 점 등 새 팀장에게 전할 의견"
               className="mt-3 w-full rounded-control border border-hairline px-3 py-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed outline-none focus:border-accent"
             />
+            {handoverFor.send && (
+              <div className="mt-3 flex items-center gap-4 text-[length:calc(14px*var(--ui-fs,1))] text-label">
+                <span className="text-label-2">보낸 뒤 이 평가에서</span>
+                {(
+                  [
+                    ['inactive', '비활성'],
+                    ['delete', '삭제'],
+                  ] as const
+                ).map(([k, l]) => (
+                  <label key={k} className="flex cursor-pointer items-center gap-1.5">
+                    <input type="radio" name="send-after" checked={sendAfter === k} onChange={() => setSendAfter(k)} />
+                    {l}
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setHandoverFor(null)} disabled={handoverBusy}>
                 취소
               </Button>
-              <Button variant="primary" onClick={() => void submitHandover()} disabled={handoverBusy}>
-                남기고 비활성
+              <Button variant="primary" onClick={() => void submitHandover()} disabled={handoverBusy || (!!handoverFor.send && !(sendTeam && (sendTeam !== '__new' || sendCustom.trim())))}>
+                {handoverFor.send ? '보내기' : '남기고 비활성'}
               </Button>
             </div>
           </div>
