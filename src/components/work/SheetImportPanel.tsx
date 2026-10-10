@@ -536,39 +536,43 @@ export default function SheetImportPanel({
       {/* L1 탭 + L2 목록 */}
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
-          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-subtle">
-            {/* 한 줄로 늘어놓았을 때의 폭을 재는 보이지 않는 복사본 */}
+          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-white">
+            {/* 한 줄로 늘어놓았을 때의 폭을 재는 보이지 않는 복사본(창 폭을 탭에 맞추는 데 씀) */}
             <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 overflow-hidden">
-              <div ref={measureRef} className="mac-seg w-max">
+              <div ref={measureRef} className="flex w-max items-end gap-6 px-4">
                 {l1Tabs.map(([l1, gs]) => {
                   const picked = gs.filter((g) => selected.has(g.name)).length
                   return (
-                    <span key={l1} className={`mac-seg-item ${l1 === currentL1[0] ? 'mac-seg-item-on' : ''}`}>
+                    <span key={l1} className="flex items-center gap-1.5 whitespace-nowrap pb-2.5 pt-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold">
                       {l1} <span>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
                     </span>
                   )
                 })}
               </div>
             </div>
-            {/* 한 줄로: 폭이 모자라면 탭이 함께 줄고 이름은 말줄임(브라우저 탭처럼) */}
-            <div className="mac-seg m-2.5 flex max-w-[calc(100%-1.25rem)] overflow-hidden">
-              {l1Tabs.map(([l1, gs]) => {
-                const on = l1 === currentL1[0]
-                const picked = gs.filter((g) => selected.has(g.name)).length
-                return (
-                  <button
-                    key={l1}
-                    onClick={() => setActiveL1(l1)}
-                    title={l1}
-                    className={`mac-seg-item flex min-w-[48px] flex-[0_1_auto] items-center gap-1 ${on ? 'mac-seg-item-on' : ''}`}
-                  >
-                    <span className="min-w-0 truncate break-all">{l1}</span>
-                    <span className={`shrink-0 ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>
-                      {picked > 0 ? `${picked}/${gs.length}` : gs.length}
-                    </span>
-                  </button>
-                )
-              })}
+            {/* 다른 화면의 하위 탭(팀원 | 피어리뷰 등)과 같은 모양: 선택한 탭은 진한 글자 + 아래 선. 이름은 줄이지 않고, 넘치면 옆으로 민다 */}
+            <div className="overflow-x-auto bg-white px-4 [scrollbar-width:thin]" role="tablist">
+              <div className="flex w-max min-w-full items-end gap-6 border-b border-separator">
+                {l1Tabs.map(([l1, gs]) => {
+                  const on = l1 === currentL1[0]
+                  const picked = gs.filter((g) => selected.has(g.name)).length
+                  return (
+                    <button
+                      key={l1}
+                      type="button"
+                      role="tab"
+                      aria-selected={on}
+                      onClick={() => setActiveL1(l1)}
+                      className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 pb-2.5 pt-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
+                        on ? 'border-accent font-semibold text-label' : 'border-transparent text-label-3 hover:text-label-2'
+                      }`}
+                    >
+                      {l1}
+                      <span className={`shrink-0 tabular-nums ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             <div className="divide-y divide-separator border-t border-separator bg-white">
               {currentL1[1].map((g) => {
