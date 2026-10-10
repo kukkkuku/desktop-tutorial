@@ -7,6 +7,7 @@ import { toast } from '../ui/Toast'
 import { Copy, ExternalLink, FileSpreadsheet, Lock } from 'lucide-react'
 import Button from '../Button'
 import Spinner from '../Spinner'
+import Select from '../ui/Select'
 import { icSm } from '../ui/icon'
 import { isPendingEmail, setTaskSheet, setTaskTab, taskSheetOf, taskTabOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
@@ -109,31 +110,26 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
               <div className="min-w-0 flex-1">
                 <p className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{info?.title ?? cur.note ?? '과제 시트'}</p>
                 {info && info.years.length > 0 ? (
-                  <div className="mt-2">
-                    <p className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-                      앱을 열면 먼저 열 탭{isAdmin ? ' (눌러서 정하세요)' : ''} · 팀원은 연도 메뉴에서 다른 연도도 볼 수 있습니다
-                    </p>
-                    <div role="radiogroup" aria-label="먼저 열 탭" className="mt-1.5 flex flex-wrap gap-1.5">
-                      {info.years.map((y) => {
-                        const on = y === openTab
-                        return (
-                          <button
-                            key={y}
-                            type="button"
-                            role="radio"
-                            aria-checked={on}
-                            disabled={!isAdmin || busy}
-                            onClick={() => void pickTab(y)}
-                            className={`rounded-full border px-3 py-1 text-[length:calc(13.5px*var(--ui-fs,1))] transition-colors ${
-                              on ? 'border-accent bg-accent-soft font-semibold text-accent' : 'border-hairline text-label-2 hover:text-label'
-                            } ${isAdmin ? '' : 'cursor-default'}`}
-                          >
-                            {on ? '✓ ' : ''}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">앱에서 보여 줄 탭</span>
+                    {isAdmin ? (
+                      <Select
+                        value={openTab}
+                        onChange={(e) => void pickTab(e.target.value)}
+                        disabled={busy}
+                        aria-label="앱에서 보여 줄 탭"
+                        className="h-8 min-w-[220px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
+                      >
+                        {info.years.map((y) => (
+                          <option key={y} value={y}>
                             {y}
-                          </button>
-                        )
-                      })}
-                    </div>
+                          </option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <b className="text-[length:calc(14px*var(--ui-fs,1))] text-label">{openTab}</b>
+                    )}
+                    <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">앱을 열면 이 탭부터 보입니다</span>
                   </div>
                 ) : (
                   <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
