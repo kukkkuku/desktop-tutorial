@@ -253,21 +253,23 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
         `로그인할 계정: ${r.email}\n어떤 화면에서 막혔는지 적어 주세요:\n\n`,
       )}`
     : ''
-  // 심플: 흰 판 하나, 오렌지는 위쪽 가는 선 · 버튼 · 점에만. 글 순서 = 인사 → 메시지 → 버튼 → 로그인 계정 → 처음 한 번 안내
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#F5F5F4">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F5F4;padding:32px 12px;font-family:${font}">
+  // 블랙 · 화이트 · 오렌지 포인트(배경 그림 없음). 위는 검은 띠, 본문은 흰 판, 오렌지는 버튼 · 강조 글자 · 안내 상자 선에만
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#FFFFFF">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FFFFFF;padding:32px 12px;font-family:${font}">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:14px;overflow:hidden">
-<tr><td style="height:4px;background:#F97316;font-size:0;line-height:0">&nbsp;</td></tr>
-<tr><td style="padding:32px 36px 0;font-size:14px;font-weight:700;color:#111111;letter-spacing:-.01em">페이스<span style="color:#F97316">.</span> <span style="font-weight:400;color:#A3A3A3">과제관리</span></td></tr>
-<tr><td style="padding:24px 36px 0;font-size:22px;line-height:1.4;font-weight:700;color:#111111;letter-spacing:-.02em">${who ? `${escHtml(r.name || '')}님, ` : ''}페이스에 초대합니다</td></tr>
-<tr><td style="padding:14px 36px 0"><div id="invite-msg" style="font-size:15px;line-height:1.85;color:#404040">${msg}</div></td></tr>
-<tr><td style="padding:28px 36px 0">
-  <a href="${escHtml(appUrl)}" style="display:block;padding:15px 0;border-radius:10px;background:#EA580C;color:#FFFFFF;text-align:center;font-size:15px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;border:1px solid #111111;border-radius:16px;overflow:hidden;background:#FFFFFF">
+<tr><td style="background:#111111;padding:20px 32px">
+  <div style="font-size:15px;font-weight:700;color:#FFFFFF">페이스<span style="color:#F97316">.</span> <span style="font-weight:400;color:#A3A3A3">과제관리</span></div>
 </td></tr>
-<tr><td align="center" style="padding:16px 36px 0;font-size:13px;color:#737373">로그인 계정 <b style="color:#111111;font-weight:600;word-break:break-all">${escHtml(r.email)}</b></td></tr>
-<tr><td style="padding:28px 36px 0"><div style="border-top:1px solid #EEEEEE;padding-top:18px;font-size:13px;line-height:1.8;color:#737373">처음 로그인할 때 「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="color:#404040;font-weight:600">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b>을 눌러 주세요.</div></td></tr>
-${contact ? `<tr><td style="padding:12px 36px 0;font-size:13px;color:#A3A3A3">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#737373;text-decoration:underline">문의하기</a></td></tr>` : ''}
+<tr><td style="padding:30px 32px 0;font-family:Georgia,'Times New Roman',serif;font-style:italic;font-size:14px;color:#EA580C">${who ? `to. ${escHtml(r.name || '')}` : 'to. you'}</td></tr>
+<tr><td style="padding:10px 32px 0;font-size:26px;line-height:1.5;font-weight:300;color:#111111;letter-spacing:-.02em"><b style="font-weight:800">페이스</b>에 초대합니다</td></tr>
+<tr><td style="padding:18px 32px 0"><div id="invite-msg" style="border-left:3px solid #F97316;padding:4px 0 4px 16px;font-size:15px;line-height:2;color:#262626">${msg}</div></td></tr>
+<tr><td align="center" style="padding:30px 32px 0"><div style="font-size:23px;line-height:1.5;font-weight:700;color:#111111;word-break:break-all;border-bottom:3px solid #F97316;display:inline-block">${escHtml(r.email)}</div></td></tr>
+<tr><td style="padding:24px 32px 0">
+  <a href="${escHtml(appUrl)}" style="display:block;padding:17px 0;border-radius:8px;background:#EA580C;color:#FFFFFF;text-align:center;font-size:16px;font-weight:700;text-decoration:none">페이스 시작하기</a>
+</td></tr>
+<tr><td style="padding:28px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:8px"><tr><td style="padding:18px 20px;font-size:14px;line-height:1.9;color:#262626">「Google에서 확인하지 않은 앱」 화면이 나오면<br><b style="font-size:15px;color:#EA580C">왼쪽 아래 「고급」 → 「페이스(으)로 이동」</b><br><span style="font-size:12.5px;color:#737373">처음 한 번만 나오는 화면이에요.</span></td></tr></table></td></tr>
+${contact ? `<tr><td style="padding:24px 32px 0;font-size:12.5px;color:#737373">로그인이 안 되나요? <a href="${escHtml(mailto)}" style="color:#111111;text-decoration:underline">문의하기</a></td></tr>` : ''}
 <tr><td style="height:32px;font-size:0;line-height:0">&nbsp;</td></tr>
 </table>
 </td></tr></table></body></html>`
