@@ -10,7 +10,7 @@ import Spinner from '../Spinner'
 import { icSm } from '../ui/icon'
 import { isPendingEmail, setTaskSheet, taskSheetOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
-import { TASK_INPUT_SHEET_URL, isProtectedSheet } from '../../utils/progressBoard'
+import { TASK_INPUT_SHEET_URL, isProtectedSheet, writeLinkedSheet } from '../../utils/progressBoard'
 import { withGoogleAccount } from '../../utils/googleDrive'
 
 const YEAR_TAB = /추진현황|실적관리/
@@ -51,6 +51,8 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
       const years = tabs.map((t) => t.title).filter((t) => YEAR_TAB.test(t))
       if (!years.length) throw new Error(`「${title}」에 추진현황 탭(예: 2026 추진현황)이 없습니다. 과제 시트 링크가 맞는지 확인해 주세요.`)
       await setTaskSheet(data.id, sheetUrl(p.spreadsheetId), title, me)
+      // 공유 시트를 바꿨으면 내가 따로 골라 둔 시트는 풀어 둔다(안 그러면 내 화면만 예전 시트를 계속 씀)
+      writeLinkedSheet(null)
       onChanged()
       setEditing(false)
       setLink('')

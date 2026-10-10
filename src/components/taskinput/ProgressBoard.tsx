@@ -1105,7 +1105,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       const next = sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL
       setSharedLink(next)
       // 직접 고른 시트가 없으면 공유 시트를 따라간다
-      if (!readLinkedSheet()) setSheetLink(next)
+      if (!readLinkedSheet()) {
+        setSheetLink(next)
+        // 처음 열 때는 권한 시트를 아직 못 읽어 앱 기본 시트를 먼저 받아 두었을 수 있다.
+        // 관리자가 공유한 시트가 다르면 그 시트로 다시 받는다(고친 칸이 없고, 조용히 읽을 권한이 있을 때만)
+        const d = dataRef.current
+        const id = parseSheetUrl(next)?.spreadsheetId
+        if (d && !d.local && id && d.spreadsheetId !== id && countDrafts(draftsRef.current) === 0 && hasLoginSheetsToken()) void loadFromSheet(false, next)
+      }
     }
     window.addEventListener(ACCESS_EVENT, on)
     return () => window.removeEventListener(ACCESS_EVENT, on)
