@@ -18,7 +18,7 @@ import AppShell, { PageHeader } from './shell/AppShell'
 import InfoTip from './ui/InfoTip'
 import YearPicker from './YearPicker'
 import { icSm } from './ui/icon'
-import { isPendingEmail, updateUsers } from '../utils/accessSheet'
+import { updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
 import { useAppMode, type PerfStage } from '../state/AppMode'
 
@@ -63,6 +63,10 @@ interface ProjectCardProps {
 // 프로젝트 카드: 누르면 들어가기 · ⋯ 메뉴(우클릭도 됨)에서 복제 · 이름 바꾸기 · 삭제
 function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
+  // 준비 중: 평가 대상(팀원)이나 평가과제가 아직 없음. 둘 다 있으면 진행 중
+  const noMembers = counts.memberCount === 0
+  const noTasks = counts.taskCount === 0
+  const ready = noMembers || noTasks
   const [renaming, setRenaming] = useState(false)
   const [editYear, setEditYear] = useState(workspace.evaluationYear)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -140,11 +144,18 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
               {workspace.evaluationYear} {workspace.periodName}
             </p>
             {/* 배지는 제목 줄 안에 둔다 -- 줄이 늘지 않아 진행중 카드와 아닌 카드 크기가 같다 */}
-            {isCurrent && (
-              <span className="mac-badge shrink-0 gap-1 bg-accent-soft text-accent">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                평가 진행중
+            {ready ? (
+              <span className="mac-badge shrink-0 gap-1 bg-black/[0.06] text-label-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-label-3" />
+                준비 중
               </span>
+            ) : (
+              isCurrent && (
+                <span className="mac-badge shrink-0 gap-1 bg-accent-soft text-accent">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                  진행 중
+                </span>
+              )
             )}
             {/* 우클릭하지 않아도 열리는 ⋯ 메뉴(복제 · 이름 바꾸기 · 삭제) */}
             <IconButton
@@ -167,7 +178,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
-        <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">팀원 {counts.memberCount}명</span>
+        <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">평가 대상 {counts.memberCount}명</span>
       </div>
       {/* 평가과제: 개수 + 이름 목록(최대 5개, 나머지는 「외 N개」) */}
       <div className="min-h-0 flex-1">
@@ -185,49 +196,81 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
             {counts.taskNames.length > 5 && <li className="pl-3 text-label-3">외 {counts.taskNames.length - 5}개</li>}
           </ul>
         ) : (
-          <p className="mt-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">아직 평가과제가 없습니다. 과제관리에서 평가 대상을 골라 주세요.</p>
+          <ol className="mt-2 space-y-1.5 text-[length:calc(13.5px*var(--ui-fs,1))]">
+            {[
+              { done: !noMembers, label: '평가 대상 넣기' },
+              { done: !noTasks, label: '평가과제 체크하기(과제관리)' },
+            ].map((st, i) => (
+              <li key={i} className={`flex items-center gap-2 ${st.done ? 'text-label-3' : 'text-label'}`}>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${st.done ? 'bg-success/15 text-success' : 'bg-black/[0.06] text-label-2'}`}>{st.done ? '✓' : i + 1}</span>
+                <span className={st.done ? 'line-through' : ''}>{st.label}</span>
+              </li>
+            ))}
+          </ol>
         )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onOpenAt(workspace.id, 'members')
-          }}
-          title="팀원관리로"
-          className="-m-1 min-w-0 rounded-control p-1 hover:bg-black/[0.04]"
-        >
-          {counts.memberNames.length ? <AvatarRow names={counts.memberNames} /> : <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">팀원 넣기</span>}
-        </button>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
+        {counts.memberNames.length > 0 ? (
+          <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation()
-              onOpenAt(workspace.id, 'work')
+              onOpenAt(workspace.id, 'members')
             }}
-            title="과제관리로"
-            className="shrink-0 !px-2.5"
+            title="팀원관리로"
+            className="-m-1 min-w-0 rounded-control p-1 hover:bg-black/[0.04]"
           >
-            과제관리
-          </Button>
-          {/* 지금 진행 중인 평가에는 바로 이어서 하는 버튼 */}
-          {isCurrent && (
+            <AvatarRow names={counts.memberNames} />
+          </button>
+        ) : (
+          <span />
+        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {ready ? (
+            // 비어 있는 평가: 다음에 할 일 하나만 주 단추로
             <Button
               variant="primary"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation()
-                onOpen(workspace.id)
+                onOpenAt(workspace.id, noMembers ? 'members' : 'work')
               }}
-              title="이 평가를 열어 이어서 합니다"
+              title={noMembers ? '팀원관리를 열어 평가 대상을 넣습니다' : '과제관리를 열어 평가과제를 체크합니다'}
               className="shrink-0 !px-3"
             >
-              평가 계속하기
+              {noMembers ? '평가 대상 넣기' : '평가과제 체크하기'}
               <ArrowRight {...icSm} />
             </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onOpenAt(workspace.id, 'work')
+                }}
+                title="과제관리로"
+                className="shrink-0 !px-2.5"
+              >
+                과제관리
+              </Button>
+              {isCurrent && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpen(workspace.id)
+                  }}
+                  title="이 평가를 열어 이어서 합니다"
+                  className="shrink-0 !px-3"
+                >
+                  평가 계속하기
+                  <ArrowRight {...icSm} />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -336,8 +379,8 @@ export default function WorkspaceLanding() {
   const yearWorkspaces = teamWorkspaces
     .filter((w) => w.evaluationYear === appYear)
     .sort((a, b) => (a.evaluationPeriodCode ?? '').localeCompare(b.evaluationPeriodCode ?? '') || a.createdAt.localeCompare(b.createdAt))
-  // 연도 탭: 이 팀에 평가가 있는 해 + 올해 + 지금 보는 해(최신 연도가 왼쪽)
-  const tabYears = Array.from(new Set([...teamWorkspaces.map((w) => w.evaluationYear), new Date().getFullYear(), appYear])).sort((a, b) => b - a)
+  // 연도 탭: 이 팀에 평가가 있는 해만(지금 보는 해는 비어 있어도 보여 줌, 최신 연도가 왼쪽)
+  const tabYears = Array.from(new Set([...teamWorkspaces.map((w) => w.evaluationYear), appYear])).sort((a, b) => b - a)
 
   // 팀 이름 바꾸기: 팀원 명단(권한 시트)에 이 팀으로 적힌 사람도 같이 바꿀지 -- 관리자가 추가한 팀원까지 모두
   // (예전엔 내가 추가한 사람만 바꿔서 관리자가 넣은 팀원은 옛 팀에 남았다)
@@ -468,31 +511,30 @@ export default function WorkspaceLanding() {
           </section>
         ) : (
           <>
-            {/* 팀 탭 */}
-            <nav className="flex flex-wrap items-center gap-1" aria-label="팀">
-              {teamNames.map((name) => {
-                const on = name === teamName
-                return (
-                  <button
-                    key={name}
-                    onClick={() => setTeamName(name)}
-                    aria-current={on ? 'true' : undefined}
-                    className={`h-8 whitespace-nowrap rounded-[9px] px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'bg-white font-semibold text-label shadow-control' : 'text-label-2 hover:bg-black/[0.04] hover:text-label'}`}
-                  >
-                    {name}
-                  </button>
-                )
-              })}
-              <button onClick={() => setDialog('newTeam')} className={`flex h-8 items-center gap-1 rounded-[9px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.04] hover:text-label`}>
-                <Plus {...icSm} /> 새 팀
-              </button>
-            </nav>
+            {/* 팀 탭: 팀이 둘 이상일 때만(하나면 아래 제목이 팀 이름). 팀 이름은 한 곳에서만 보인다 */}
+            {teamNames.length > 1 && (
+              <nav className="flex flex-wrap items-center gap-1" aria-label="팀">
+                {teamNames.map((name) => {
+                  const on = name === teamName
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => setTeamName(name)}
+                      aria-current={on ? 'true' : undefined}
+                      className={`h-8 whitespace-nowrap rounded-[9px] px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'bg-white font-semibold text-label shadow-control' : 'text-label-2 hover:bg-black/[0.04] hover:text-label'}`}
+                    >
+                      {name}
+                    </button>
+                  )
+                })}
+              </nav>
+            )}
 
-            {/* 팀 머리: 이름 · ⋯(이름 바꾸기 · 삭제) · 팀원 초대 · 새 평가 */}
-            <header className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-3">
-              <h2 className="text-[length:calc(26px*var(--ui-fs,1))] font-semibold tracking-[-0.02em] text-label">{teamName}</h2>
+            {/* 팀 머리: (팀이 하나면 이름) · ⋯(이름 바꾸기 · 새 팀 · 삭제) · 팀원 초대 · 새 평가 */}
+            <header className={`${teamNames.length > 1 ? 'mt-4' : 'mt-1'} flex flex-wrap items-center gap-x-3 gap-y-3`}>
+              {teamNames.length <= 1 && <h2 className="text-[length:calc(26px*var(--ui-fs,1))] font-semibold tracking-[-0.02em] text-label">{teamName}</h2>}
               <div className="relative">
-                <IconButton onClick={() => setTeamMenu(!teamMenu)} aria-label="팀 메뉴" title="팀 이름 바꾸기 · 삭제" aria-expanded={teamMenu}>
+                <IconButton onClick={() => setTeamMenu(!teamMenu)} aria-label="팀 메뉴" title="팀 이름 바꾸기 · 새 팀 · 삭제" aria-expanded={teamMenu}>
                   <Ellipsis size={18} strokeWidth={1.8} />
                 </IconButton>
                 {teamMenu && (
@@ -501,6 +543,9 @@ export default function WorkspaceLanding() {
                     <div className="mac-pop absolute left-0 top-9 z-50 w-44 py-1">
                       <button className="mac-menu-item" onClick={() => (setTeamMenu(false), setDialog('renameTeam'))}>
                         <Pencil {...icSm} /> 팀 이름 바꾸기
+                      </button>
+                      <button className="mac-menu-item" onClick={() => (setTeamMenu(false), setDialog('newTeam'))}>
+                        <Plus {...icSm} /> 새 팀 만들기
                       </button>
                       <button className="mac-menu-item text-danger" onClick={() => (setTeamMenu(false), setDialog('deleteTeam'))}>
                         <Trash2 {...icSm} /> 팀 삭제
@@ -519,27 +564,19 @@ export default function WorkspaceLanding() {
               </span>
             </header>
 
-            {/* 팀원 한 줄: 이름 · 초대 상태(● 초대함 ○ 안 보냄 · 흐림 Gmail 없음). 누르면 팀원 초대 */}
-            <button onClick={() => setDialog('invite')} className="group mt-2 flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 text-left" title="팀원 초대 열기">
-              <span className={`text-[length:calc(14px*var(--ui-fs,1))] text-label-2`}>팀원 {members.length}명</span>
+            {/* 팀원 한 줄: 팀 전체 팀원. 누르면 팀원 초대(초대 상태는 그 창에서) */}
+            <button onClick={() => setDialog('invite')} className="group mt-2 flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 text-left text-[length:calc(14px*var(--ui-fs,1))]" title="팀원 초대 열기">
+              <span className="text-label-2">팀원 {members.length}명</span>
               {members.length === 0 ? (
-                <span className={`text-[length:calc(14px*var(--ui-fs,1))] text-accent group-hover:underline`}>Gmail 아이디로 초대하기</span>
+                <span className="text-accent group-hover:underline">Gmail 아이디로 초대하기</span>
               ) : (
-                <>
-                  {members.slice(0, 10).map((u) => {
-                    const pend = isPendingEmail(u.email)
-                    return (
-                      <span key={u.email} className={`flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] ${pend ? 'text-label-3' : 'text-label'}`}>
-                        <span
-                          className={`h-2 w-2 rounded-full ${pend ? 'bg-black/15' : u.invitedAt ? 'bg-success' : 'border-[1.5px] border-label-3'}`}
-                          title={pend ? 'Gmail 없음' : u.invitedAt ? `초대함 ${u.invitedAt.slice(0, 10)}` : '초대 안 보냄'}
-                        />
-                        {u.name || u.email.split('@')[0]}
-                      </span>
-                    )
-                  })}
-                  {members.length > 10 && <span className={`text-[length:calc(14px*var(--ui-fs,1))] text-label-3`}>외 {members.length - 10}명</span>}
-                </>
+                <span className="truncate text-label-3 group-hover:text-label-2">
+                  {members
+                    .slice(0, 8)
+                    .map((u) => u.name || u.email.split('@')[0])
+                    .join(' · ')}
+                  {members.length > 8 ? ` 외 ${members.length - 8}명` : ''}
+                </span>
               )}
             </button>
 
@@ -556,12 +593,12 @@ export default function WorkspaceLanding() {
                     className={`-mb-px flex h-9 items-center gap-1.5 border-b-2 px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'border-ink font-semibold text-label' : 'border-transparent text-label-2 hover:text-label'}`}
                   >
                     {y}
-                    <span className={`rounded-full px-1.5 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${n ? (on ? 'bg-ink text-white' : 'bg-black/[0.06] text-label-2') : 'text-label-3'}`}>{n ? `${n}개` : '없음'}</span>
+                    {n > 0 && <span className={`rounded-full px-1.5 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${on ? 'bg-ink text-white' : 'bg-black/[0.06] text-label-2'}`}>{n}</span>}
                   </button>
                 )
               })}
-              <span className="ml-1 pb-1" title="다른 연도 보기">
-                <YearPicker year={appYear} onChange={setAppYear} yearsWithData={new Set(teamWorkspaces.map((w) => w.evaluationYear))} />
+              <span className="-mb-px pb-0.5" title="다른 연도 보기">
+                <YearPicker year={appYear} onChange={setAppYear} addLabel="연도" yearsWithData={new Set(teamWorkspaces.map((w) => w.evaluationYear))} />
               </span>
             </nav>
 
@@ -577,9 +614,6 @@ export default function WorkspaceLanding() {
                 </div>
               ) : (
                 <>
-                  <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
-                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기</span>
-                  </h2>
                   <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2">
                     {yearWorkspaces.map((w) => (
                       <ProjectCard

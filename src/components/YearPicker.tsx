@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import IconButton from './IconButton'
 import { icSm } from './ui/icon'
 
@@ -15,11 +15,14 @@ export default function YearPicker({
   onChange,
   yearsWithData = new Set(),
   className,
+  addLabel,
 }: {
   year: number
   onChange: (y: number) => void
   yearsWithData?: Set<number>
   className?: string
+  // 주면 알약 대신 「+ 연도」 같은 글자 단추로 보인다(다른 연도 추가용)
+  addLabel?: string
 }) {
   const [open, setOpen] = useState(false)
   // 2020-2029처럼 실제 "연대" 경계(10의 배수)에 맞춰 시작 연도를 정한다.
@@ -43,12 +46,25 @@ export default function YearPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-8 items-center gap-1.5 rounded-[18px] border border-[#ececef] bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] shadow-[0_3px_7px_rgba(0,0,0,0.05)] text-label hover:bg-[#FAFAFA] ${
-          open ? 'shadow-focus' : ''
-        }`}
+        className={
+          addLabel
+            ? `flex h-8 items-center gap-1 rounded-[9px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:bg-black/[0.04] hover:text-label ${open ? 'bg-black/[0.05]' : ''}`
+            : `flex h-8 items-center gap-1.5 rounded-[18px] border border-[#ececef] bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] shadow-[0_3px_7px_rgba(0,0,0,0.05)] text-label hover:bg-[#FAFAFA] ${
+                open ? 'shadow-focus' : ''
+              }`
+        }
       >
-        <Calendar {...icSm} className="shrink-0 text-label-2" />
-        <span className="tabular-nums">{year}</span>
+        {addLabel ? (
+          <>
+            <Plus {...icSm} className="shrink-0" />
+            {addLabel}
+          </>
+        ) : (
+          <>
+            <Calendar {...icSm} className="shrink-0 text-label-2" />
+            <span className="tabular-nums">{year}</span>
+          </>
+        )}
       </button>
       {open && (
         <div className="mac-pop absolute left-0 top-full z-30 mt-1.5 w-64 p-2">
