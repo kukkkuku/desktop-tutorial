@@ -7,7 +7,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
+  ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   Monitor,
   Palette,
   BookOpen,
@@ -227,6 +229,7 @@ function DisplayItem() {
   const rowRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const [leftward, setLeftward] = useState(false)
   const W = 288
   useLayoutEffect(() => {
     if (!open) return
@@ -234,10 +237,17 @@ function DisplayItem() {
     const h = panelRef.current?.offsetHeight ?? 0
     if (!r) return
     let left = r.right + 6
-    if (left + W > window.innerWidth - 8) left = Math.max(8, r.left - W - 6)
+    const flip = left + W > window.innerWidth - 8
+    if (flip) left = Math.max(8, r.left - W - 6)
+    setLeftward(flip)
     const top = Math.max(8, Math.min(r.top - 4, window.innerHeight - h - 8))
     setPos({ left, top })
   }, [open])
+  // 열기 전에도 화살표가 펼쳐질 쪽을 가리키게(화면 오른쪽 끝 계정 메뉴는 왼쪽으로 펼쳐진다)
+  useLayoutEffect(() => {
+    const r = rowRef.current?.getBoundingClientRect()
+    if (r) setLeftward(r.right + 6 + W > window.innerWidth - 8)
+  }, [])
   const summary = `글자 ${pref === 'auto' ? `자동 ${Math.round(currentScale(pref) * 100)}%` : FONT_PREF_LABEL[pref]}, ${THEMES.find((t) => t.key === theme)?.label ?? ''}`
   return (
     <>
@@ -255,7 +265,7 @@ function DisplayItem() {
           디스플레이
           <span className="block truncate text-[length:calc(12px*var(--ui-fs,1))] font-normal text-label-3">{summary}</span>
         </span>
-        <ChevronRight size={14} strokeWidth={1.8} className="shrink-0 text-label-3" />
+        {leftward ? <ChevronLeft size={14} strokeWidth={1.8} className="shrink-0 text-label-3" /> : <ChevronRight size={14} strokeWidth={1.8} className="shrink-0 text-label-3" />}
       </button>
       {open &&
         createPortal(
@@ -342,10 +352,10 @@ export function HeaderAccount({ perf }: { perf?: SidebarPerfExtras }) {
   )
 }
 
-export default function Sidebar({ collapsed, width, animate = true }: { perf?: SidebarPerfExtras; collapsed: boolean; width: number; animate?: boolean }) {
+export default function Sidebar({ perf, collapsed, width, animate = true }: { perf?: SidebarPerfExtras; collapsed: boolean; width: number; animate?: boolean }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
-  const { canPerf, inPerf, inTasks } = nav
+  const { canPerf, inPerf, inTasks, accountEmail, role, onAccountChange } = nav
   function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode, off?: string) {
     return (
       <button
@@ -411,6 +421,35 @@ export default function Sidebar({ collapsed, width, animate = true }: { perf?: S
           </>
         )}
       </nav>
+
+      {/* 맨 아래 왼쪽: 계정(누르면 위로 메뉴 -- 매뉴얼 · 관리 · 데이터 백업 · 디스플레이 · 로그아웃). 저장 상태 점은 그 옆에.
+          메뉴가 위로 열리고 디스플레이 상세는 오른쪽으로 펼쳐진다(화살표 방향과 같게) */}
+      {accountEmail && (
+        <div className={`mt-1 flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
+          <GoogleAccountMenu
+            placement="up"
+            onAccountChange={onAccountChange}
+            title={`${accountEmail} · ${ROLE_LABEL[role]}`}
+            className={`flex min-w-0 items-center gap-2 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : 'flex-1'}`}
+            footer={<AccountFooter nav={nav} perf={perf} />}
+            roleLabel={ROLE_LABEL[role]}
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
+              {accountEmail.slice(0, 1).toUpperCase()}
+            </span>
+            {!collapsed && (
+              <>
+                <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label">{accountEmail.split('@')[0]}</span>
+                <ChevronsUpDown size={14} strokeWidth={1.8} className="shrink-0 text-label-3" />
+              </>
+            )}
+          </GoogleAccountMenu>
+          {inPerf && perf?.saveBadge}
+        </div>
+      )}
+      {nav.manualPanel}
+      {nav.resetDialog}
+      {nav.backupDrawer}
 
     </aside>
   )

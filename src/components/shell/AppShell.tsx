@@ -193,7 +193,8 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
       {title && <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>}
       <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
         {actions}
-        <HeaderAccount perf={ctx?.perf} />
+        {/* 사이드바가 없을 때만 머리 줄에 계정(사이드바가 있으면 왼쪽 아래) */}
+        {ctx?.layout === 'hidden' && <HeaderAccount perf={ctx?.perf} />}
       </div>
     </header>
   )
