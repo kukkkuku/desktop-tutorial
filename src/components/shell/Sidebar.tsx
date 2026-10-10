@@ -8,7 +8,6 @@ import { createPortal } from 'react-dom'
 import {
   ALargeSmall,
   ChevronRight,
-  ChevronsUpDown,
   Monitor,
   Palette,
   BookOpen,
@@ -316,10 +315,37 @@ function AccountFooter({ nav, perf }: { nav: ReturnType<typeof useShellNav>; per
   )
 }
 
-export default function Sidebar({ perf, collapsed, width, animate = true }: { perf?: SidebarPerfExtras; collapsed: boolean; width: number; animate?: boolean }) {
+// 화면 머리 줄 맨 오른쪽의 계정 단추(저장 상태 점 + 아바타). 누르면 계정 메뉴 -- 사이드바 모양일 때 PageHeader가 붙인다(위 메뉴 모양은 TopNav가 따로 가짐)
+export function HeaderAccount({ perf }: { perf?: SidebarPerfExtras }) {
+  const nav = useShellNav()
+  const { accountEmail, role, inPerf, onAccountChange } = nav
+  if (!accountEmail) return null
+  return (
+    <>
+      {inPerf && perf?.saveBadge && <span className="flex items-center pl-1">{perf.saveBadge}</span>}
+      <GoogleAccountMenu
+        placement="down"
+        onAccountChange={onAccountChange}
+        title={`${accountEmail} · ${ROLE_LABEL[role]}`}
+        className="ml-0.5 shrink-0 rounded-full"
+        footer={<AccountFooter nav={nav} perf={perf} />}
+        roleLabel={ROLE_LABEL[role]}
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
+          {accountEmail.slice(0, 1).toUpperCase()}
+        </span>
+      </GoogleAccountMenu>
+      {nav.manualPanel}
+      {nav.resetDialog}
+      {nav.backupDrawer}
+    </>
+  )
+}
+
+export default function Sidebar({ collapsed, width, animate = true }: { perf?: SidebarPerfExtras; collapsed: boolean; width: number; animate?: boolean }) {
   const nav = useShellNav()
   const { mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage, currentWorkspaceId, exitToLanding } = nav
-  const { accountEmail, role, canPerf, inPerf, inTasks, onAccountChange } = nav
+  const { canPerf, inPerf, inTasks } = nav
   function item(key: string, label: string, Icon: LucideIcon, on: boolean, onClick: () => void, extra?: ReactNode, off?: string) {
     return (
       <button
@@ -344,33 +370,6 @@ export default function Sidebar({ perf, collapsed, width, animate = true }: { pe
       className={`sticky top-0 flex h-screen shrink-0 flex-col bg-canvas px-2.5 pb-3 pt-1.5 ${animate ? 'transition-[width] duration-200' : ''}`}
       aria-label="메뉴"
     >
-      {/* 맨 위: 계정(누르면 메뉴 -- 매뉴얼 · 관리 · 데이터 백업 · 디스플레이 · 로그아웃). 저장 상태 점은 그 옆에 */}
-      {accountEmail && (
-        <div className={`mt-0.5 flex items-center gap-1 ${collapsed ? 'flex-col' : ''}`}>
-          <GoogleAccountMenu
-            placement="down"
-            onAccountChange={onAccountChange}
-            title={accountEmail}
-            className={`flex min-w-0 items-center gap-2 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : 'flex-1'}`}
-            footer={<AccountFooter nav={nav} perf={perf} />}
-            roleLabel={ROLE_LABEL[nav.role]}
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
-              {accountEmail.slice(0, 1).toUpperCase()}
-            </span>
-            {/* 구글 계정은 이름 한 줄만(이메일 앞부분). 전체 이메일 · 역할은 마우스를 올리면 */}
-            {!collapsed && (
-              <>
-                <span className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label" title={`${accountEmail} · ${ROLE_LABEL[role]}`}>
-                  {accountEmail.split('@')[0]}
-                </span>
-                <ChevronsUpDown size={14} strokeWidth={1.8} className="shrink-0 text-label-3" />
-              </>
-            )}
-          </GoogleAccountMenu>
-          {inPerf && perf?.saveBadge}
-        </div>
-      )}
       <nav className="mt-2 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div className="space-y-0.5">{item('home', '홈', House, mode === 'home', () => mode !== 'home' && setMode('home'))}</div>
 
@@ -413,9 +412,6 @@ export default function Sidebar({ perf, collapsed, width, animate = true }: { pe
         )}
       </nav>
 
-      {nav.manualPanel}
-      {nav.resetDialog}
-      {nav.backupDrawer}
     </aside>
   )
 }

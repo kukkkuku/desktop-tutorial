@@ -4,7 +4,7 @@
 // 고른 모양은 이 브라우저에 기억한다.
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, PanelTop } from 'lucide-react'
-import Sidebar, { TopNav, type SidebarPerfExtras } from './Sidebar'
+import Sidebar, { HeaderAccount, TopNav, type SidebarPerfExtras } from './Sidebar'
 
 // 메뉴 모양: open(펼침) · rail(아이콘만) · top(위 메뉴) · hidden(사이드바 숨김). 사이드바 경계를 끌면 폭 조절, 누르거나 ⌘B면 숨김/펼침
 export type ShellLayout = 'open' | 'rail' | 'top' | 'hidden'
@@ -191,7 +191,10 @@ export function PageHeader({ area, chooser, title, actions }: { area?: string; c
         </>
       )}
       {title && <h1 className="text-[length:calc(17px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">{title}</h1>}
-      {actions && <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">{actions}</div>}
+      <div className="ml-auto flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+        {actions}
+        <HeaderAccount perf={ctx?.perf} />
+      </div>
     </header>
   )
 }

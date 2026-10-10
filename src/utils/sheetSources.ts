@@ -344,7 +344,17 @@ export async function fetchSheetFormats(
         rowData?: {
           values?: {
             note?: string
-            effectiveFormat?: { backgroundColor?: { red?: number; green?: number; blue?: number } }
+            effectiveFormat?: {
+              backgroundColor?: { red?: number; green?: number; blue?: number }
+              // 조건부 서식까지 반영된 글자 서식(회색으로 바뀐 줄 · 빨간 글자 등)
+              textFormat?: {
+                bold?: boolean
+                italic?: boolean
+                strikethrough?: boolean
+                foregroundColor?: { red?: number; green?: number; blue?: number }
+                foregroundColorStyle?: { rgbColor?: { red?: number; green?: number; blue?: number } }
+              }
+            }
             userEnteredFormat?: {
               horizontalAlignment?: string
               textFormat?: {
@@ -360,7 +370,7 @@ export async function fetchSheetFormats(
       }[]
     }[]
   }>(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowMetadata.pixelSize,rowData.values(note,effectiveFormat.backgroundColor,userEnteredFormat(horizontalAlignment,textFormat(bold,italic,strikethrough,fontSize,foregroundColor))))`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=sheets.data(rowMetadata.pixelSize,rowData.values(note,effectiveFormat(backgroundColor,textFormat(bold,italic,strikethrough,foregroundColor,foregroundColorStyle)),userEnteredFormat(horizontalAlignment,textFormat(bold,italic,strikethrough,fontSize,foregroundColor))))`,
   )
   const grid = data.sheets[0]?.data?.[0]
   const fills: (string | null)[][] = []
@@ -376,12 +386,15 @@ export async function fetchSheetFormats(
       notes[r][c1 + j] = v.note ?? null
       const u = v.userEnteredFormat
       const t = u?.textFormat
+      const e = v.effectiveFormat?.textFormat
       const al = u?.horizontalAlignment?.toLowerCase()
-      const color = t?.foregroundColor ? toHex(t.foregroundColor) : null
+      // 글자 색 · 굵게 · 기울임 · 취소선은 화면에 보이는 값(조건부 서식 · 테마 색 포함)을 우선, 크기 · 정렬은 직접 정한 값만
+      const fg = e?.foregroundColorStyle?.rgbColor ?? e?.foregroundColor ?? t?.foregroundColor
+      const color = fg ? toHex(fg) : null
       const s = fmtString({
-        b: t?.bold || undefined,
-        i: t?.italic || undefined,
-        x: t?.strikethrough || undefined,
+        b: e?.bold || t?.bold || undefined,
+        i: e?.italic || t?.italic || undefined,
+        x: e?.strikethrough || t?.strikethrough || undefined,
         c: color && color !== '000000' ? color : undefined,
         s: t?.fontSize,
         a: al === 'left' || al === 'center' || al === 'right' ? al : undefined,
@@ -704,12 +717,41 @@ async function attachXlsxFmts(book: XlsxBook, buffer: ArrayBuffer): Promise<void
     return (m?.[1] ?? '000000').toUpperCase()
   })
   const themeColor = (i: number) => themeRgb[i === 0 ? 1 : i === 1 ? 0 : i === 2 ? 3 : i === 3 ? 2 : i]
+  // 엑셀 「밝게 · 어둡게」(tint): 밝기(L)만 조절한다 -- 회색 글자는 대개 검정에 tint를 준 값
+  const tinted = (hex: string, tint: number): string => {
+    if (!tint) return hex
+    const r = parseInt(hex.slice(0, 2), 16) / 255
+    const g = parseInt(hex.slice(2, 4), 16) / 255
+    const b = parseInt(hex.slice(4, 6), 16) / 255
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    let l = (max + min) / 2
+    const d = max - min
+    let h = 0
+    let sat = 0
+    if (d) {
+      sat = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+      h /= 6
+    }
+    l = tint < 0 ? l * (1 + tint) : l * (1 - tint) + tint
+    const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat
+    const p = 2 * l - q
+    const f = (t0: number) => {
+      let t = t0
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p
+    }
+    const out = d || sat ? [f(h + 1 / 3), f(h), f(h - 1 / 3)] : [l, l, l]
+    return out.map((x) => Math.round(Math.min(1, Math.max(0, x)) * 255).toString(16).padStart(2, '0')).join('').toUpperCase()
+  }
   const colorOf = (tag: string | undefined): string | null => {
     if (!tag) return null
     const rgb = xmlAttr(tag, 'rgb')
     if (rgb && /^[0-9A-Fa-f]{6,8}$/.test(rgb)) return rgb.slice(-6).toUpperCase()
     const th = xmlAttr(tag, 'theme')
-    if (th !== null && themeColor(Number(th))) return themeColor(Number(th))
+    if (th !== null && themeColor(Number(th))) return tinted(themeColor(Number(th)), Number(xmlAttr(tag, 'tint') ?? 0) || 0)
     const ix = xmlAttr(tag, 'indexed')
     if (ix !== null && INDEXED_COLORS[Number(ix)]) return INDEXED_COLORS[Number(ix)]
     return null
