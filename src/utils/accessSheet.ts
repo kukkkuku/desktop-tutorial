@@ -291,14 +291,23 @@ async function writeAccess(
 export async function setTaskSheet(id: string, url: string, title: string, by: string): Promise<AccessData> {
   const fresh = await readSheet(id)
   // 열 탭 선택은 예전 시트의 것이라 함께 비운다
-  const { taskTab: _old, ...settings } = fresh.settings ?? {}
+  const { taskTab: _old, taskTabs: _old2, ...settings } = fresh.settings ?? {}
   void _old
+  void _old2
   return writeAccess(fresh, fresh.users, [{ team: ALL_TEAMS, url, note: title }], by, [`과제 시트 바꿈: ${title}`], settings)
 }
 // 관리자가 정한, 앱을 열면 먼저 열 시트 탭(예: 2026 추진현황) -- 없으면 올해 탭
 export const taskTabOf = (d: AccessData | null): string | null => d?.settings?.taskTab || null
-export async function setTaskTab(id: string, tab: string, by: string): Promise<AccessData> {
-  return setAccessSetting(id, 'taskTab', tab, by, `열 탭 정함: ${tab}`)
+// 관리자가 앱에 보이기로 한 탭들(연도 메뉴에는 이것만 뜬다) -- 정한 적이 없으면 null
+export const taskTabsOf = (d: AccessData | null): string[] | null => {
+  const v = d?.settings?.taskTabs
+  return v ? v.split('|').map((x) => x.trim()).filter(Boolean) : null
+}
+// 보일 탭들과 그중 먼저 열 탭을 한 번에 저장
+export async function setTaskTabs(id: string, tabs: string[], open: string, by: string): Promise<AccessData> {
+  const fresh = await readSheet(id)
+  const settings = { ...(fresh.settings ?? {}), taskTabs: tabs.join('|'), taskTab: open }
+  return writeAccess(fresh, fresh.users, fresh.links, by, [`앱에 보일 탭: ${tabs.join(', ')} (먼저 열 탭: ${open})`], settings)
 }
 // 앱 설정 한 칸 바꾸기(예: 로그인 문의 받는 사람)
 export async function setAccessSetting(id: string, key: string, value: string, by: string, what: string): Promise<AccessData> {

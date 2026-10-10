@@ -14,7 +14,7 @@ import { useCanManageSheets } from '../../hooks/useSheetManager'
 import YearSwitcher from './YearSwitcher'
 import { setAppYear, useAppYear } from '../../utils/appYear'
 import SharedSheetPrompt, { writeSheetMeta } from './SharedSheetPrompt'
-import { ACCESS_EVENT, sharedSheetFor } from '../../utils/accessSheet'
+import { ACCESS_EVENT, readAccessCache, sharedSheetFor, taskTabOf, taskTabsOf } from '../../utils/accessSheet'
 import {
   CloudUpload,
   ChartGantt,
@@ -1087,10 +1087,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   // 관리자가 공유한 시트: 권한 관리 시트의 「연결 시트」(내 팀 → 없으면 "전체"), 그것도 없으면 앱 기본(테스트 시트)
   const [sharedLink, setSharedLink] = useState(() => sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL)
   const [sheetLink, setSheetLink] = useState<string>(() => readLinkedSheet() ?? sharedLink)
+  const [, setAccessVer] = useState(0) // 권한 시트 설정(보일 탭 등)이 바뀌면 다시 그린다
   useEffect(() => {
     const on = () => {
       const next = sharedSheetFor(getConnectedEmail())?.url ?? TASK_INPUT_SHEET_URL
       setSharedLink(next)
+      setAccessVer((v) => v + 1)
       // 직접 고른 시트가 없으면 공유 시트를 따라간다
       if (!readLinkedSheet()) {
         setSheetLink(next)
@@ -1803,7 +1805,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   }, [appYear, shownTab, !!data])
   // 연도 메뉴: 연결된(입력하는) 시트 연도 · 연결하기(관리자) · 아래에 연결된 시트
   const connectedTitle = curProject && !curProject.data.local ? curProject.data.tabTitle : (readActiveTab() ?? parkedSheet?.data.tabTitle)
-  const sheetTabs = allSheetTabs.filter((t) => !hiddenTabs.includes(t) || t === connectedTitle || t === data?.tabTitle)
+  // 관리자가 「관리 › 실적관리 시트」에서 체크한 탭만 연도 메뉴에 뜬다(정한 적이 없으면 올해 탭 하나). 지금 보는 탭은 늘 보인다.
+  const adminCache = readAccessCache()
+  const adminTabs = taskTabsOf(adminCache) ?? (taskTabOf(adminCache) ? [taskTabOf(adminCache) as string] : [`${now.getFullYear()} 추진현황`])
+  const sheetTabs = allSheetTabs.filter(
+    (t) => ((adminTabs.includes(t) || !allSheetTabs.some((x) => adminTabs.includes(x))) && !hiddenTabs.includes(t)) || t === connectedTitle || t === data?.tabTitle,
+  )
   const sheetFileTitle = (curProject && !curProject.data.local ? curProject.data.fileTitle : parkedSheet?.data.fileTitle) ?? null
   const protectedLink = isProtectedSheet(parseSheetUrl(sheetLink)?.spreadsheetId)
   const sheetName = sheetFileTitle ?? (isOperatingSheet(parseSheetUrl(sheetLink)?.spreadsheetId) ? '디자인연구소 실적관리(운영 시트)' : '연결된 시트')

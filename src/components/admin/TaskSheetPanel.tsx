@@ -9,7 +9,7 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import Select from '../ui/Select'
 import { icSm } from '../ui/icon'
-import { isPendingEmail, setTaskSheet, setTaskTab, taskSheetOf, taskTabOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
+import { isPendingEmail, setTaskSheet, setTaskTabs, taskSheetOf, taskTabOf, taskTabsOf, type AccessData, type AccessUser } from '../../utils/accessSheet'
 import { fetchSpreadsheetTabs, parseSheetUrl, sheetUrl } from '../../utils/sheetSources'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet, writeLinkedSheet } from '../../utils/progressBoard'
 import { withGoogleAccount } from '../../utils/googleDrive'
@@ -71,26 +71,41 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
     }
   }
 
-  // 먼저 열 탭: 관리자가 정한 것, 없으면 올해 탭, 그것도 없으면 첫 탭
-  const openTab = (() => {
-    const years = info?.years ?? []
-    const set = taskTabOf(data)
-    if (set && years.includes(set)) return set
-    const thisYear = `${new Date().getFullYear()} 추진현황`
-    return years.includes(thisYear) ? thisYear : (years[0] ?? '')
+  // 앱에 보일 탭: 관리자가 체크한 것(정한 적이 없으면 올해 탭 하나). 먼저 열 탭은 그중 하나.
+  const years = info?.years ?? []
+  const thisYearTab = (() => {
+    const t = `${new Date().getFullYear()} 추진현황`
+    return years.includes(t) ? t : (years[0] ?? '')
   })()
-  async function pickTab(tab: string) {
-    if (tab === openTab && taskTabOf(data) === tab) return
+  const visibleTabs = (() => {
+    const set = (taskTabsOf(data) ?? []).filter((t) => years.includes(t))
+    return set.length ? set : thisYearTab ? [thisYearTab] : []
+  })()
+  const openTab = (() => {
+    const o = taskTabOf(data)
+    return o && visibleTabs.includes(o) ? o : (visibleTabs[0] ?? '')
+  })()
+  async function saveTabs(tabs: string[], open: string) {
     setBusy(true)
     try {
-      await setTaskTab(data.id, tab, me)
+      await setTaskTabs(data.id, tabs, open, me)
       onChanged()
-      toast(`앱을 열면 「${tab}」 탭이 먼저 열립니다.`, 'ok')
+      toast(`앱에는 ${tabs.map((t) => `「${t}」`).join(' · ')} 탭이 보입니다(먼저 열 탭: 「${open}」).`, 'ok')
     } catch (e) {
       toast(errText(e, '탭을 정하지 못했습니다.'), 'error')
     } finally {
       setBusy(false)
     }
+  }
+  async function toggleTab(tab: string) {
+    const on = visibleTabs.includes(tab)
+    if (on && visibleTabs.length === 1) return toast('앱에 보일 탭이 하나는 있어야 합니다.', 'error')
+    const next = on ? visibleTabs.filter((t) => t !== tab) : years.filter((t) => t === tab || visibleTabs.includes(t))
+    await saveTabs(next, next.includes(openTab) ? openTab : next[0])
+  }
+  async function pickOpen(tab: string) {
+    if (tab === openTab) return
+    await saveTabs(visibleTabs, tab)
   }
   const locked = isProtectedSheet(curId ?? undefined)
   // 공유할 사람: 관리자는 모두, 팀장은 내가 추가한 사람만(나는 빼고)
@@ -110,26 +125,38 @@ export default function TaskSheetPanel({ data, me, isAdmin, onChanged }: { data:
               <div className="min-w-0 flex-1">
                 <p className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{info?.title ?? cur.note ?? '과제 시트'}</p>
                 {info && info.years.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">앱에서 보여 줄 탭</span>
-                    {isAdmin ? (
-                      <Select
-                        value={openTab}
-                        onChange={(e) => void pickTab(e.target.value)}
-                        disabled={busy}
-                        aria-label="앱에서 보여 줄 탭"
-                        className="h-8 min-w-[220px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
-                      >
+                  <div className="mt-2 space-y-2">
+                    <div>
+                      <p className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">앱에 보일 탭{isAdmin ? ' (체크한 탭만 모두의 연도 메뉴에 뜹니다)' : ''}</p>
+                      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
                         {info.years.map((y) => (
-                          <option key={y} value={y}>
+                          <label key={y} className={`flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] ${isAdmin ? 'cursor-pointer' : ''} ${visibleTabs.includes(y) ? 'text-label' : 'text-label-3'}`}>
+                            <input type="checkbox" className="h-3.5 w-3.5 accent-accent" checked={visibleTabs.includes(y)} disabled={!isAdmin || busy} onChange={() => void toggleTab(y)} />
                             {y}
-                          </option>
+                          </label>
                         ))}
-                      </Select>
-                    ) : (
-                      <b className="text-[length:calc(14px*var(--ui-fs,1))] text-label">{openTab}</b>
-                    )}
-                    <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">앱을 열면 이 탭부터 보입니다</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">앱을 열면 먼저 열 탭</span>
+                      {isAdmin ? (
+                        <Select
+                          value={openTab}
+                          onChange={(e) => void pickOpen(e.target.value)}
+                          disabled={busy}
+                          aria-label="먼저 열 탭"
+                          className="h-8 min-w-[220px] px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
+                        >
+                          {visibleTabs.map((y) => (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          ))}
+                        </Select>
+                      ) : (
+                        <b className="text-[length:calc(14px*var(--ui-fs,1))] text-label">{openTab}</b>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p className="mt-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
