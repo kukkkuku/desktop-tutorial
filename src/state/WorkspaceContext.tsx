@@ -22,19 +22,21 @@ export function workspaceStateKey(id: string): string {
   return workspaceStateKeyFor(id)
 }
 
-export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number; memberNames: string[] } {
+export function readWorkspaceCounts(id: string): { taskCount: number; memberCount: number; memberNames: string[]; taskNames: string[] } {
   try {
     const raw = localStorage.getItem(workspaceStateKey(id))
-    if (!raw) return { taskCount: 0, memberCount: 0, memberNames: [] }
+    if (!raw) return { taskCount: 0, memberCount: 0, memberNames: [], taskNames: [] }
     const parsed = JSON.parse(raw)
     const members = Array.isArray(parsed.members) ? (parsed.members as { name?: string; active?: boolean }[]) : []
     return {
       taskCount: Array.isArray(parsed.tasks) ? parsed.tasks.length : 0,
       memberCount: members.length,
       memberNames: members.filter((m) => m.active !== false).map((m) => m.name ?? ''),
+      // 평가과제 이름(카드에 목록으로)
+      taskNames: Array.isArray(parsed.tasks) ? (parsed.tasks as { name?: string }[]).map((t) => (t.name ?? '').trim()).filter(Boolean) : [],
     }
   } catch {
-    return { taskCount: 0, memberCount: 0, memberNames: [] }
+    return { taskCount: 0, memberCount: 0, memberNames: [], taskNames: [] }
   }
 }
 

@@ -25,7 +25,7 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
   )
   const mostRecent = teamWorkspaces[teamWorkspaces.length - 1] as WorkspaceMeta | undefined
 
-  const sourceCounts = useMemo(() => (mostRecent ? readWorkspaceCounts(mostRecent.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[] }), [mostRecent])
+  const sourceCounts = useMemo(() => (mostRecent ? readWorkspaceCounts(mostRecent.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[], taskNames: [] as string[] }), [mostRecent])
 
   const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
   const [year, setYear] = useState<number>(defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear())

@@ -93,7 +93,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
         setMenu({ x: Math.min(e.clientX, window.innerWidth - 240), y: Math.min(e.clientY, window.innerHeight - 140) })
       }}
       title="눌러서 들어가기 · 우클릭: 복제 · 삭제"
-      className={`group flex cursor-pointer flex-col gap-3 rounded-card bg-white p-5 text-left transition-shadow ${
+      className={`group flex min-h-[250px] cursor-pointer flex-col gap-3.5 rounded-card bg-white p-6 text-left transition-shadow ${
         isCurrent ? 'shadow-card ring-[1.5px] ring-accent' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
     >
@@ -135,7 +135,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
           </form>
         ) : (
           <>
-            <p className="min-w-0 truncate text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+            <p className="min-w-0 truncate text-[length:calc(18px*var(--ui-fs,1))] font-semibold tracking-[-0.01em] text-label">
               {workspace.evaluationYear} {workspace.periodName}
             </p>
             {/* 배지는 제목 줄 안에 둔다 -- 줄이 늘지 않아 진행중 카드와 아닌 카드 크기가 같다 */}
@@ -163,6 +163,25 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 flex-1 truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">최근 수정 {fmtWorkspaceDate(workspace.updatedAt)}</p>
         <span className="shrink-0 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">팀원 {counts.memberCount}명</span>
+      </div>
+      {/* 평가과제: 개수 + 이름 목록(최대 5개, 나머지는 「외 N개」) */}
+      <div className="min-h-0 flex-1">
+        <p className="text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2">
+          평가과제 <b className="tabular-nums text-label">{counts.taskCount}</b>개
+        </p>
+        {counts.taskNames.length > 0 ? (
+          <ul className="mt-1.5 space-y-1 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">
+            {counts.taskNames.slice(0, 5).map((n, i) => (
+              <li key={i} className="flex items-baseline gap-2" title={n}>
+                <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-label-3" />
+                <span className="truncate">{n}</span>
+              </li>
+            ))}
+            {counts.taskNames.length > 5 && <li className="pl-3 text-label-3">외 {counts.taskNames.length - 5}개</li>}
+          </ul>
+        ) : (
+          <p className="mt-1.5 text-[length:calc(13.5px*var(--ui-fs,1))] text-label-3">아직 평가과제가 없습니다. 과제관리에서 평가 대상을 골라 주세요.</p>
+        )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
@@ -526,7 +545,7 @@ export default function WorkspaceLanding() {
                   <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
                     {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · 우클릭으로 복제 · 삭제</span>
                   </h2>
-                  <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2">
                     {yearWorkspaces.map((w) => (
                       <ProjectCard
                         key={w.id}
