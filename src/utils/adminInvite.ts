@@ -305,7 +305,7 @@ export function inviteHtml(message: string, r: { email: string; name?: string },
   [data-ogsb] .bg-main { background-color: #FFFFFF !important; }
   [data-ogsb] .btn-cell { background-color: #181818 !important; }
   /* 모바일 */
-  @media only screen and (max-width: 620px) {
+  @media only screen and (max-width: 480px) {
     .wrap { width: 100% !important; }
     .pad { padding-left: 24px !important; padding-right: 24px !important; }
     .welcome { background-size: 100% auto !important; }
