@@ -343,8 +343,12 @@ export default function WorkspaceLanding() {
   const teamWorkspaces = workspaces.filter((w) => w.teamName === teamName).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   // 보는 연도(과제 입력과 같이 바뀜): 그 해 평가만 목록에 보인다
   const appYear = useAppYear()
-  const yearWorkspaces = teamWorkspaces.filter((w) => w.evaluationYear === appYear)
-  const evalYears = Array.from(new Set([...teamWorkspaces.map((w) => w.evaluationYear), new Date().getFullYear(), appYear])).sort((a, b) => b - a)
+  // 카드는 기간 순서(상반기 → 하반기, 1분기 → 4분기…)로
+  const yearWorkspaces = teamWorkspaces
+    .filter((w) => w.evaluationYear === appYear)
+    .sort((a, b) => (a.evaluationPeriodCode ?? '').localeCompare(b.evaluationPeriodCode ?? '') || a.createdAt.localeCompare(b.createdAt))
+  // 연도 탭: 이 팀에 평가가 있는 해 + 올해 + 지금 보는 해(최신 연도가 왼쪽)
+  const tabYears = Array.from(new Set([...teamWorkspaces.map((w) => w.evaluationYear), new Date().getFullYear(), appYear])).sort((a, b) => b - a)
 
   // 팀 이름 바꾸기: 팀원 명단(권한 시트)에 이 팀으로 적힌 사람도 같이 바꿀지 -- 관리자가 추가한 팀원까지 모두
   // (예전엔 내가 추가한 사람만 바꿔서 관리자가 넣은 팀원은 옛 팀에 남았다)
@@ -517,19 +521,6 @@ export default function WorkspaceLanding() {
                   </>
                 )}
               </div>
-              <select
-                value={appYear}
-                onChange={(e) => setAppYear(Number(e.target.value))}
-                aria-label="보는 연도"
-                title="연도를 바꾸면 과제 입력과 평가 목록이 그 해 것만 보입니다"
-                className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
-              >
-                {evalYears.map((y) => (
-                  <option key={y} value={y}>
-                    {y}년
-                  </option>
-                ))}
-              </select>
               <span className="ml-auto flex items-center gap-2">
                 <Button onClick={() => setDialog('invite')}>
                   <UserPlus {...icSm} /> 팀원 초대
@@ -564,8 +555,30 @@ export default function WorkspaceLanding() {
               )}
             </button>
 
+            {/* 연도 탭: 이 팀의 연도별 평가 개수를 한눈에(과제 입력과 같은 연도가 바뀜). 다른 연도는 오른쪽 달력에서 */}
+            <nav className="mt-6 flex flex-wrap items-center gap-1 border-b border-separator" aria-label="연도">
+              {tabYears.map((y) => {
+                const on = y === appYear
+                const n = teamWorkspaces.filter((w) => w.evaluationYear === y).length
+                return (
+                  <button
+                    key={y}
+                    onClick={() => setAppYear(y)}
+                    aria-current={on ? 'true' : undefined}
+                    className={`-mb-px flex h-9 items-center gap-1.5 border-b-2 px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'border-ink font-semibold text-label' : 'border-transparent text-label-2 hover:text-label'}`}
+                  >
+                    {y}
+                    <span className={`rounded-full px-1.5 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${n ? (on ? 'bg-ink text-white' : 'bg-black/[0.06] text-label-2') : 'text-label-3'}`}>{n ? `${n}개` : '없음'}</span>
+                  </button>
+                )
+              })}
+              <span className="ml-1 pb-1" title="다른 연도 보기">
+                <YearPicker year={appYear} onChange={setAppYear} yearsWithData={new Set(teamWorkspaces.map((w) => w.evaluationYear))} />
+              </span>
+            </nav>
+
             {/* 평가 */}
-            <section className="mt-8">
+            <section className="mt-6">
               {yearWorkspaces.length === 0 ? (
                 <div className="flex flex-col items-center rounded-[16px] border border-dashed border-separator px-6 py-12 text-center">
                   <p className={`text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label`}>{appYear}년 평가가 아직 없습니다</p>
