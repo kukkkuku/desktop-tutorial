@@ -2014,6 +2014,21 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     />
   )
 
+  // (훅은 아래 early return 앞에 둔다 -- 데이터가 없다가 생길 때 「훅 개수가 달라짐」 오류가 나지 않게)
+  // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
+  // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
+  const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
+  useEffect(() => {
+    const root = document.documentElement
+    if (sheetFocused) root.setAttribute('data-sheet-focus', '1')
+    else root.removeAttribute('data-sheet-focus')
+    const t = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+    return () => {
+      cancelAnimationFrame(t)
+      root.removeAttribute('data-sheet-focus')
+    }
+  }, [sheetFocused])
+
   if (!data) {
     return (
       <>
@@ -2254,19 +2269,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
       엑셀로 받기
     </Button>
   )
-  // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
-  // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
-  const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
-  useEffect(() => {
-    const root = document.documentElement
-    if (sheetFocused) root.setAttribute('data-sheet-focus', '1')
-    else root.removeAttribute('data-sheet-focus')
-    const t = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
-    return () => {
-      cancelAnimationFrame(t)
-      root.removeAttribute('data-sheet-focus')
-    }
-  }, [sheetFocused])
   const viewItems = [
     ['table', '표', Table2],
     ['board', '보드', SquareKanban],
