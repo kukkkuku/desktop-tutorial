@@ -353,6 +353,7 @@ export default function Sidebar({ perf, collapsed, width, animate = true }: { pe
             title={accountEmail}
             className={`flex min-w-0 items-center gap-2 rounded-[10px] p-1.5 text-left hover:bg-black/[0.04] ${collapsed ? 'justify-center' : 'flex-1'}`}
             footer={<AccountFooter nav={nav} perf={perf} />}
+            roleLabel={ROLE_LABEL[nav.role]}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
               {accountEmail.slice(0, 1).toUpperCase()}
@@ -514,6 +515,7 @@ export function TopNav({
             title={accountEmail}
             className="ml-0.5 rounded-full"
             footer={<AccountFooter nav={nav} perf={perf} />}
+            roleLabel={ROLE_LABEL[nav.role]}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label shadow-pill">
               {accountEmail.slice(0, 1).toUpperCase()}

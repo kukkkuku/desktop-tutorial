@@ -6,9 +6,9 @@ import { icSm } from './ui/icon'
 import { connectDifferentAccount, getConnectedEmail, withGoogleAccount } from '../utils/googleDrive'
 
 const ACCOUNT_LINKS = [
-  { label: '캘린더 이동', href: 'https://calendar.google.com/', Icon: Calendar },
-  { label: '구글메일 이동', href: 'https://mail.google.com/', Icon: Mail },
-  { label: '구글 드라이브로 이동', href: 'https://drive.google.com/', Icon: HardDrive },
+  { label: '캘린더', href: 'https://calendar.google.com/', Icon: Calendar },
+  { label: '구글메일', href: 'https://mail.google.com/', Icon: Mail },
+  { label: '구글 드라이브', href: 'https://drive.google.com/', Icon: HardDrive },
 ] as const
 
 interface GoogleAccountMenuProps {
@@ -26,13 +26,15 @@ interface GoogleAccountMenuProps {
   // 메뉴 맨 아래에 덧붙이는 항목(예: 로그아웃)
   footer?: ReactNode
   title?: string
+  // 계정 줄 아래에 보이는 역할(관리자 · 팀장 · 팀원) -- 주면 보여 준다
+  roleLabel?: string
 }
 
 // 연결된 계정 칩을 누르면 지금 계정 정보 + 다른 계정으로 전환하는 액션,
 // 그리고 캘린더/Gmail/Drive로 바로 넘어갈 수 있는 짧은 메뉴를 띄운다.
 // 헤더(StageTabs)와 데이터 관리 드로어의 Google Drive 탭(GoogleDrivePanel)
 // 양쪽에서 같은 동작을 쓴다.
-export default function GoogleAccountMenu({ children, className, onAccountChange, extraLinks = [], placement = 'down', footer, title }: GoogleAccountMenuProps) {
+export default function GoogleAccountMenu({ children, className, onAccountChange, extraLinks = [], placement = 'down', footer, title, roleLabel }: GoogleAccountMenuProps) {
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const [switchError, setSwitchError] = useState<string | null>(null)
@@ -97,47 +99,52 @@ export default function GoogleAccountMenu({ children, className, onAccountChange
             style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left }}
             className="mac-pop z-50 w-72 overflow-hidden py-1"
           >
-            <div className="px-3.5 py-1.5">
-              <p className="truncate text-[length:calc(14px*var(--ui-fs,1))] text-label-2">현재 계정 · {getConnectedEmail() ?? '연결 안 됨'}</p>
-              <button
-                type="button"
-                onClick={() => void handleConnectDifferentAccount()}
-                disabled={switching}
-                className="mt-1 flex w-full items-center gap-1.5 whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Plus {...icSm} className="shrink-0" />
-                {switching ? '전환하는 중...' : '다른 Google 계정 연결'}
-              </button>
+            {/* 계정: 동그라미 + 이메일 한 줄, 그 아래 역할 · 다른 계정 연결 */}
+            <div className="px-3.5 pb-1 pt-2">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/[0.06] text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+                  {(getConnectedEmail() ?? '?').slice(0, 1).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label" title={getConnectedEmail() ?? ''}>
+                    {getConnectedEmail() ?? '연결 안 됨'}
+                  </p>
+                  <p className="flex items-center gap-1.5 whitespace-nowrap text-[length:calc(12.5px*var(--ui-fs,1))] text-label-3">
+                    {roleLabel && <span>{roleLabel}</span>}
+                    {roleLabel && <span>·</span>}
+                    <button
+                      type="button"
+                      onClick={() => void handleConnectDifferentAccount()}
+                      disabled={switching}
+                      className="inline-flex items-center gap-0.5 font-medium text-accent hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Plus size={12} strokeWidth={2} className="shrink-0" />
+                      {switching ? '전환하는 중...' : '다른 계정 연결'}
+                    </button>
+                  </p>
+                </div>
+              </div>
               {switchError && <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-danger">{switchError}</p>}
+              {/* 구글 바로가기: 아이콘만 나란히(이름은 마우스를 올리면) */}
+              <div className="mt-2.5 flex gap-1.5">
+                {[...extraLinks.map((l) => ({ label: l.label, href: l.href, icon: l.icon })), ...ACCOUNT_LINKS.map(({ label, href, Icon }) => ({ label, href, icon: <Icon {...icSm} className="shrink-0" /> }))].map(({ label, href, icon }) => (
+                  <a
+                    key={href}
+                    href={withGoogleAccount(href)}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setOpen(false)}
+                    title={label}
+                    aria-label={label}
+                    className="flex h-9 flex-1 items-center justify-center rounded-control bg-black/[0.04] text-label-2 hover:bg-black/[0.08] hover:text-label"
+                  >
+                    {icon}
+                  </a>
+                ))}
+              </div>
             </div>
             <div className="mac-menu-sep" />
 
-            {extraLinks.map(({ label, href, icon }) => (
-              <a
-                key={href}
-                href={withGoogleAccount(href)}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setOpen(false)}
-                className="mac-menu-item whitespace-nowrap"
-              >
-                {icon}
-                {label}
-              </a>
-            ))}
-            {ACCOUNT_LINKS.map(({ label, href, Icon }) => (
-              <a
-                key={href}
-                href={withGoogleAccount(href)}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setOpen(false)}
-                className="mac-menu-item whitespace-nowrap"
-              >
-                <Icon {...icSm} className="shrink-0" />
-                {label}
-              </a>
-            ))}
             {footer && (
               <>
                 <div className="mac-menu-sep" />
