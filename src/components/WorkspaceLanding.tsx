@@ -59,7 +59,7 @@ interface ProjectCardProps {
   onDelete: (workspace: WorkspaceMeta) => void
 }
 
-// 프로젝트 카드: 누르면 들어가기 · 마우스를 올리면 연필(이름 바꾸기) · 우클릭하면 복제 · 삭제
+// 프로젝트 카드: 누르면 들어가기 · 마우스를 올리면 연필(이름 바꾸기) · ⋯ 메뉴(우클릭도 됨)에서 복제 · 이름 바꾸기 · 삭제
 function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit, onDuplicate, onDelete }: ProjectCardProps) {
   const counts = readWorkspaceCounts(workspace.id)
   const [renaming, setRenaming] = useState(false)
@@ -92,7 +92,7 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
         e.preventDefault()
         setMenu({ x: Math.min(e.clientX, window.innerWidth - 240), y: Math.min(e.clientY, window.innerHeight - 140) })
       }}
-      title="눌러서 들어가기 · 우클릭: 복제 · 삭제"
+      title="눌러서 들어가기 · ⋯ 메뉴(우클릭도 됨): 복제 · 삭제"
       className={`group flex min-h-[250px] cursor-pointer flex-col gap-3.5 rounded-card bg-white p-6 text-left transition-shadow ${
         isCurrent ? 'shadow-card ring-[1.5px] ring-accent' : 'shadow-card hover:shadow-[0_0_0_0.5px_rgba(0,0,0,0.1),0_4px_14px_rgba(0,0,0,0.08)]'
       }`}
@@ -156,6 +156,22 @@ function ProjectCard({ workspace, isCurrent, onOpen, onOpenAt, onRename, onEdit,
               className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Pencil {...ic} />
+            </IconButton>
+            {/* 우클릭하지 않아도 열리는 ⋯ 메뉴(복제 · 이름 바꾸기 · 삭제) */}
+            <IconButton
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (menu) return setMenu(null)
+                const r = e.currentTarget.getBoundingClientRect()
+                setMenu({ x: Math.max(8, Math.min(r.right - 230, window.innerWidth - 240)), y: Math.min(r.bottom + 4, window.innerHeight - 190) })
+              }}
+              title="복제 · 이름 바꾸기 · 삭제"
+              aria-label="카드 메뉴"
+              aria-expanded={!!menu}
+              className="-mr-1 shrink-0 text-label-2"
+            >
+              <Ellipsis size={18} strokeWidth={1.8} />
             </IconButton>
           </>
         )}
@@ -543,7 +559,7 @@ export default function WorkspaceLanding() {
               ) : (
                 <>
                   <h2 className={`mb-3 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-2`}>
-                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · 우클릭으로 복제 · 삭제</span>
+                    {appYear}년 평가 {yearWorkspaces.length}개 <span className="ml-1.5 font-normal text-label-3">눌러서 들어가기 · ⋯ 메뉴에서 복제 · 이름 바꾸기 · 삭제</span>
                   </h2>
                   <div className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-2">
                     {yearWorkspaces.map((w) => (
