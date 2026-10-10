@@ -82,7 +82,8 @@ interface DataGridProps<R extends { id: string }> {
   onUndo: () => void
   onRedo: () => void
   // 선택 범위에 걸친 행 id -- 부모가 "선택한 행으로 무엇을 하기" 버튼을 띄울 때 쓴다.
-  onSelectionChange?: (rowIds: string[]) => void
+  // kind: 행 번호로 행을 골랐는지(rows) · 칸을 골랐는지(cells) · 열을 골랐는지(cols)
+  onSelectionChange?: (rowIds: string[], kind?: 'rows' | 'cells' | 'cols') => void
   // 밖에서 칸 하나를 고르게 한다(예: 평가 대상으로 넣은 줄의 성과등급 칸). token이 바뀔 때마다 한 번.
   selectCell?: { rowId: string; colId: string; token: number } | null
   // 우클릭 메뉴 맨 위에 붙일 부모 전용 동작(선택 범위에 걸친 행 id를 받는다). 빈 배열이면 안 붙임.
@@ -531,9 +532,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const onSelectionChange = props.onSelectionChange
   const selectionKey = selectedRowIds.join('|')
   useEffect(() => {
-    onSelectionChange?.(selectionKey ? selectionKey.split('|') : [])
+    onSelectionChange?.(selectionKey ? selectionKey.split('|') : [], sel?.t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionKey])
+  }, [selectionKey, sel?.t])
 
   const selectedColIds = useMemo(() => {
     if (!sel || sel.t !== 'cols') return []

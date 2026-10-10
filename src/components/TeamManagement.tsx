@@ -19,7 +19,7 @@ import DataGrid, { CHIP_BASE, type CellEdit, type GridColumn } from './grid/Data
 import { toast } from './ui/Toast'
 import { accessUserOf, effectiveTeam } from '../utils/memberTeam'
 import IconButton from './IconButton'
-import { ArrowRightLeft, Check, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
+import { ArrowDownAZ, ArrowRightLeft, Check, Trash2, IdCard, MessageSquareText, PanelRightOpen, Redo2, Send, Settings2, Undo2, X } from 'lucide-react'
 import { ic, icLg, icSm } from './ui/icon'
 import { isPendingEmail, parseHandoverTasks, readHandovers, updateUsers, writeHandover, type AccessUser, type Handover } from '../utils/accessSheet'
 import { useAccessData } from '../hooks/useAccessData'
@@ -521,6 +521,21 @@ export default function TeamManagement() {
     save(withEdits(list, edits, problems), problems)
   }
 
+  // 팀 이름순 정렬: 표의 줄 순서를 팀 이름(가나다순, 팀이 없으면 맨 아래)으로 바꾼다. 같은 팀 안 순서는 그대로, ⌘Z로 되돌린다
+  function sortByTeam() {
+    const key = (m: TeamMember) => effectiveTeam(m, access?.users).trim()
+    const sorted = [...state.members].sort((a, b) => {
+      const ta = key(a)
+      const tb = key(b)
+      if (!ta !== !tb) return ta ? -1 : 1
+      return ta.localeCompare(tb, 'ko')
+    })
+    if (sorted.every((m, i) => m.id === state.members[i].id)) return toast('이미 팀 이름순입니다.')
+    history.record()
+    dispatch({ type: 'IMPORT_MEMBERS', payload: sorted })
+  }
+  // 표에서 고른 줄(행 번호를 눌러 고르거나 여러 줄에 걸쳐 칸을 고름) -- 도구 줄의 「선택 삭제」 단추용
+  const [pickedRows, setPickedRows] = useState<string[]>([])
   function moveRows(ids: string[], toIndex: number) {
     const set = new Set(ids)
     const moving = state.members.filter((m) => set.has(m.id))
@@ -701,6 +716,15 @@ export default function TeamManagement() {
           </button>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {pickedRows.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => setDeleting(state.members.filter((m) => pickedRows.includes(m.id)))} className="!text-danger" title="고른 줄의 팀원을 삭제합니다(확인 창이 뜨고, ⌘Z로 되돌릴 수 있음)">
+              <Trash2 {...icSm} />
+              선택 {pickedRows.length}명 삭제
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={sortByTeam} title="표의 줄을 팀 이름순(가나다)으로 정렬합니다. ⌘Z로 되돌립니다">
+            <ArrowDownAZ {...icSm} />팀 이름순 정렬
+          </Button>
           <IconButton onClick={history.undo} disabled={!history.canUndo} title="되돌리기 (⌘Z)" aria-label="되돌리기">
             <Undo2 {...ic} />
           </IconButton>
@@ -909,6 +933,7 @@ export default function TeamManagement() {
           onPaste={paste}
           onInsertRows={insertRows}
           onDeleteRows={(ids) => setDeleting(state.members.filter((m) => ids.includes(m.id)))}
+          onSelectionChange={(ids, kind) => setPickedRows(kind === 'rows' || (kind === 'cells' && ids.length > 1) ? ids : [])}
           onMoveRows={moveRows}
           onResizeColumn={(id, w) => saveCfg({ widths: { ...cfg.widths, [id]: w } })}
           onUndo={history.undo}
