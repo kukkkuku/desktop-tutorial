@@ -63,3 +63,4 @@ export function useDismissedNotices() {
 
 // 종에서 「보기」를 누르면 팀원관리가 열릴 때 그 상자를 펼쳐 둔다
 export const OPEN_TEAM_NOTICE_KEY = 'open-team-notice'
+export const OPEN_EVAL_NOTICE_KEY = 'open-eval-notice'

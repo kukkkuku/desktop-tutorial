@@ -81,7 +81,7 @@ export default function TeamManagement() {
   const [pickedUnmatched, setPickedUnmatched] = useState<Set<string>>(new Set())
   // 시트 담당자 중 팀원 아닌 사람 목록 -- 평소엔 한 줄로 접어 둔다.
   // 위쪽 종에서 「보기」로 들어오면 그 상자를 펼쳐 둔다
-  const openNotice = (() => {
+  const readOpenNotice = () => {
     try {
       const v = sessionStorage.getItem(OPEN_TEAM_NOTICE_KEY)
       if (v) sessionStorage.removeItem(OPEN_TEAM_NOTICE_KEY)
@@ -89,10 +89,18 @@ export default function TeamManagement() {
     } catch {
       return null
     }
-  })()
-  const [movedOpen, setMovedOpen] = useState(openNotice === 'moved')
-  const [unmatchedOpen, setUnmatchedOpen] = useState(openNotice === 'unmatched')
+  }
+  const [initialNotice] = useState(readOpenNotice)
+  const [movedOpen, setMovedOpen] = useState(initialNotice === 'moved')
+  const [unmatchedOpen, setUnmatchedOpen] = useState(initialNotice === 'unmatched')
   const { dismissed: dismissedNotices, deleted: deletedNotices, dismiss: dismissNotice } = useDismissedNotices()
+  // 이미 팀원관리에 있을 때 종에서 눌러도 펼친다(종이 닫아 둔 표시를 풀면 이 값이 바뀐다)
+  useEffect(() => {
+    const v = readOpenNotice()
+    if (v === 'moved') setMovedOpen(true)
+    if (v === 'unmatched') setUnmatchedOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dismissedNotices])
   // ---- 팀원 명단(권한 시트)과 이 표를 뒤에서 맞춘다(teamRoster) -- 팀장은 이 표 하나로 추가 · Gmail · 초대까지
   const { data: access } = useAccessData()
   const me = (getConnectedEmail() ?? '').toLowerCase()

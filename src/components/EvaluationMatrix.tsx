@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '../state/AppContext'
 import type { Importance, PerformanceGrade } from '../types'
 import { IMPORTANCE_OPTIONS, PERFORMANCE_GRADE_OPTIONS } from '../types'
@@ -23,7 +23,7 @@ import Button from './Button'
 import { Trophy, X } from 'lucide-react'
 import { ic, icSm, TableSwap } from './ui/icon'
 import { outOfSyncDetails } from '../utils/assigneeSync'
-import { useDismissedNotices } from '../utils/dismissedNotices'
+import { OPEN_EVAL_NOTICE_KEY, useDismissedNotices } from '../utils/dismissedNotices'
 import Select from './ui/Select'
 import ScrollX from './ui/ScrollX'
 
@@ -69,6 +69,17 @@ export function OutOfSyncBanner() {
   const [open, setOpen] = useState(false)
   const all = useMemo(() => outOfSyncDetails(state), [state])
   const list = all.filter((d) => !dismissed.has(d.sig) && !deleted.has(d.sig))
+  // 위쪽 종에서 눌러 들어오면 상세보기를 펼쳐서 보여 준다
+  useEffect(() => {
+    try {
+      if (list.length > 0 && sessionStorage.getItem(OPEN_EVAL_NOTICE_KEY)) {
+        sessionStorage.removeItem(OPEN_EVAL_NOTICE_KEY)
+        setOpen(true)
+      }
+    } catch {
+      /* 못 읽어도 알림은 보인다 */
+    }
+  }, [list.length])
   if (list.length === 0) return null
 
   return (
