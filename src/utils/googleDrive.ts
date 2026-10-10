@@ -35,6 +35,12 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 // 팀원이 입력한 것을 따로 권한 창 없이 시트에 저장하기 위해서(sheetSources가 이 토큰을 먼저 쓴다).
 export const SHEETS_LOGIN_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 const DRIVE_SCOPE = `https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/calendar ${SHEETS_LOGIN_SCOPE}`
+// 초대 메일 보내기(gmail.send): 팀장 · 관리자만 로그인 때 같이 받는다(보낼 때 권한 창을 한 번 더 겪지 않게). 팀원에게는 요청하지 않는다.
+export const MAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send'
+let mailScopeWanted: (email: string | null) => boolean = () => false
+export function setMailScopeWanted(fn: (email: string | null) => boolean) {
+  mailScopeWanted = fn
+}
 // 미리보기 빌드는 운영 저장본을 목록에 보이거나 덮어쓰지 않도록 태그와 폴더를 따로 쓴다.
 const APP_TAG = PREVIEW_NAMESPACE ? `team-performance-evaluation-${PREVIEW_NAMESPACE}` : 'team-performance-evaluation'
 const ROOT_FOLDER_NAME = PREVIEW_NAMESPACE ? '성장관리(미리보기)' : '성장관리'
@@ -106,6 +112,10 @@ let cachedScope = restored?.scope ?? ''
 export function peekLoginToken(scope: string): string | null {
   if (!isConnected() || !cachedScope.split(' ').includes(scope)) return null
   return cachedToken!.token
+}
+// 위 토큰의 만료 시각(ms) -- 없으면 null
+export function loginTokenExpiry(): number | null {
+  return isConnected() ? cachedToken!.expiresAt : null
 }
 // 로그인(토큰 새로 받음)을 알린다 -- 권한 관리 시트를 다시 읽는 데 쓴다
 export const LOGIN_EVENT = 'google-login'
@@ -301,7 +311,7 @@ function openTokenPopup(promptOverride?: string): Promise<string> {
     const hint = promptOverride ? undefined : (readInvitedEmail() ?? getConnectedEmail() ?? readRememberedEmail() ?? undefined)
     const tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: DRIVE_SCOPE,
+      scope: hint && mailScopeWanted(hint) ? `${DRIVE_SCOPE} ${MAIL_SEND_SCOPE}` : DRIVE_SCOPE,
       ...(hint ? { login_hint: hint } : {}),
       // 창을 닫거나 구글 쪽 오류(400 등)로 끝나면 기다리지 않고 알린다.
       error_callback: (err) =>

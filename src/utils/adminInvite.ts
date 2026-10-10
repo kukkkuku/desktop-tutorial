@@ -8,7 +8,7 @@
 // 사용자 목록이 담당한다).
 import { loadToken, saveToken } from './tokenStore'
 import * as XLSX from 'xlsx'
-import { loadGis, getConnectedEmail, readRememberedEmail } from './googleDrive'
+import { loadGis, getConnectedEmail, readRememberedEmail, peekLoginToken, loginTokenExpiry, MAIL_SEND_SCOPE } from './googleDrive'
 import { googleErrorText, oauthErrorText } from './googleError'
 import { canManageEmail } from './roles'
 
@@ -33,7 +33,20 @@ const restoredAdmin = loadToken('admin-mail')
 let adminToken: { token: string; expiresAt: number } | null = restoredAdmin ? { token: restoredAdmin.token, expiresAt: restoredAdmin.expiresAt } : null
 let adminEmail: string | null = restoredAdmin?.email ?? null
 
+// 로그인 때 메일 보내기 권한을 같이 받았으면 그 토큰을 그대로 쓴다(권한 창을 또 띄우지 않음)
+function adoptLoginMailToken(): void {
+  if (adminToken !== null && adminToken.expiresAt - 60_000 > Date.now()) return
+  const token = peekLoginToken(MAIL_SEND_SCOPE)
+  const expiresAt = loginTokenExpiry()
+  const email = getConnectedEmail()
+  if (!token || !expiresAt || !email || !canSend(email)) return
+  adminToken = { token, expiresAt }
+  adminEmail = email
+  saveToken('admin-mail', { ...adminToken, email })
+}
+
 export function isAdminConnected(): boolean {
+  adoptLoginMailToken()
   return adminToken !== null && adminToken.expiresAt - 60_000 > Date.now() && canSend(adminEmail)
 }
 
@@ -51,6 +64,8 @@ async function fetchEmail(accessToken: string): Promise<string | null> {
 // "관리자로 Google 연결" 버튼에서 호출한다. 로그인 자체는 성공해도, 그
 // 계정이 팀장 · 관리자가 아니면 토큰을 버리고 에러를 던진다.
 export async function connectAdmin(): Promise<void> {
+  adoptLoginMailToken()
+  if (isAdminConnected()) return
   await loadGis()
   if (!CLIENT_ID) throw new Error('Google Client ID가 설정되지 않았습니다.')
   if (!window.google) throw new Error('Google 로그인 스크립트가 로드되지 않았습니다.')

@@ -5,6 +5,7 @@
 //   팀원: 과제 입력만 -- 추진현황 입력 · 진척률 보기 (피어리뷰는 팀장이 엑셀로 나눠 주고 받는다)
 // 구글 로그인 없이 쓰는 경우("연동 없이 시작")는 혼자 쓰는 것이라 막지 않는다.
 import { accessRoleOf } from './accessSheet'
+import { setMailScopeWanted } from './googleDrive'
 
 // 앱에 정해 둔 첫 관리자(권한 시트와 상관없이 늘 관리자)
 export const ADMIN_EMAILS = ['jjy.osstem@gmail.com']
@@ -38,3 +39,6 @@ export function canUsePerf(email: string | null | undefined): boolean {
   return roleOf(email) !== 'member'
 }
 export const ROLE_LABEL: Record<Role, string> = { admin: '관리자 · 팀장', leader: '팀장', member: '팀원', guest: '로그인 없음' }
+
+// 로그인 때 초대 메일 보내기 권한을 같이 받을 사람: 팀장 · 관리자(로그인 창을 띄우기 전에 아는 계정 기준)
+setMailScopeWanted((email) => isLeaderEmail(email))
