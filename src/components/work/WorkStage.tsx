@@ -47,7 +47,7 @@ import { useWorkspaces } from '../../state/WorkspaceContext'
 import { useAccessData } from '../../hooks/useAccessData'
 import type { AccessUser } from '../../utils/accessSheet'
 import { effectiveTeam, sameTeam } from '../../utils/memberTeam'
-import { ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, CornerDownRight, Download, Plus, Search, Settings2, Redo2, Undo2, Ungroup, X } from 'lucide-react'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
 import DataGrid, { CHIP_BASE, CHIP_IDLE, type CellEdit, type GridColumn, type GroupHeaderRow } from '../grid/DataGrid'
 import Button from '../Button'
@@ -207,6 +207,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
   // ---------- 표 ----------
   const [search, setSearch] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   // 묶음 이름을 그 자리에서 고치는 중인 평가과제 묶음
   const [renamingEval, setRenamingEval] = useState<string | null>(null)
   // L3 id -> 그 L3가 들어간 평가 과제 이름들
@@ -438,15 +439,16 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // 처음에는 꺼져 있다(과제관리는 그룹 탭 보기부터)
   const [evalOnly, setEvalOnly] = useState(false)
   const sourceItems = useMemo(() => {
-    if (!evalOnly) return groupItems
+    // 찾는 중에는 이 L2가 아니라 모든 과제에서 찾는다
+    if (!evalOnly && search.trim() === '') return groupItems
     const order = new Map(board.groups.map((g, k) => [g.id, k]))
     const targetBundles = new Set(board.items.filter((i) => targetIds.has(i.id)).map(evalGroupOf).filter(Boolean))
     return board.items
       .map((i, k) => ({ i, k }))
-      .filter(({ i }) => targetIds.has(i.id) || (evalGroupOf(i) && targetBundles.has(evalGroupOf(i))))
+      .filter(({ i }) => !evalOnly || targetIds.has(i.id) || (evalGroupOf(i) && targetBundles.has(evalGroupOf(i))))
       .sort((a, b) => (order.get(a.i.groupId) ?? 0) - (order.get(b.i.groupId) ?? 0) || a.k - b.k)
       .map(({ i }) => i)
-  }, [evalOnly, groupItems, board.items, board.groups, targetIds])
+  }, [evalOnly, search, groupItems, board.items, board.groups, targetIds])
   // 지금 보기(그룹 탭 또는 평가 대상만)에 있는 묶음 이름들 -- 일괄 접기 · 펴기
   const bundleNames = useMemo(() => Array.from(new Set(sourceItems.map(evalGroupOf).filter(Boolean))), [sourceItems])
   const groupNameOf = (id: string) => board.groups.find((g) => g.id === id)?.name ?? ''
@@ -503,6 +505,8 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     return { viewRows: rows, headerAt: heads, numbers, ranges }
   }, [sourceItems, search, board.columns, members, collapsed])
   const filtered = search.trim() !== '' || evalOnly
+  // 여러 그룹이 섞여 보이는 보기(평가 대상 모음 · 전체 찾기): 그룹(L2) 열을 보이고 행 추가 · 옮기기는 끈다
+  const crossView = filtered
 
   function groupHeader(g: string): GroupHeaderRow {
     const all = board.items.filter((i) => evalGroupOf(i) === g)
@@ -752,7 +756,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       if (g.id === COL_CATEGORY) out.push(grade)
     }
     if (!out.includes(grade)) out.splice(Math.max(0, out.findIndex((g) => g.id === COL_NAME)) + 1, 0, grade)
-    if (evalOnly) out.unshift({ id: V_L2, label: '그룹(L2)', type: 'text', width: vWidths[V_L2] ?? 150, system: true, readOnly: true })
+    if (crossView) out.unshift({ id: V_L2, label: '그룹(L2)', type: 'text', width: vWidths[V_L2] ?? 150, system: true, readOnly: true })
     out.push({ id: V_GOAL, label: '목표', sub: '성과', type: 'text', width: vWidths[V_GOAL] ?? 260, system: true, readOnly: true, emphasis: evalFlash })
     return out
   })()
@@ -814,7 +818,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     const created: WorkItem[] = []
     matrix.forEach((line, i) => {
       const existing = viewRows[rowIndex + i]
-      if (!existing && evalOnly) return // 과제평가하기에서는 새 줄을 만들지 않는다
+      if (!existing && crossView) return // 과제평가하기에서는 새 줄을 만들지 않는다
       let item = existing ? updates.get(existing.id) ?? byId.get(existing.id)! : newWorkItem(activeGroup.id)
       line.forEach((text, j) => {
         const gcol = gridColumns[colIndex + j]
@@ -1092,12 +1096,45 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
 
           {/* 도구 줄 */}
           <div className="flex min-h-[40px] flex-wrap items-center gap-2">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={evalOnly ? '평가 대상에서 찾기' : '이 L2에서 찾기'}
-              className="h-8 w-60 rounded-control border border-hairline bg-white px-2.5 text-[length:calc(14px*var(--ui-fs,1))]"
-            />
+            {searchOpen || search !== '' ? (
+              <div className="relative flex items-center">
+                <Search size={14} className="pointer-events-none absolute left-2.5 text-label-3" />
+                <input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onBlur={() => search === '' && setSearchOpen(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setSearch('')
+                      setSearchOpen(false)
+                    }
+                  }}
+                  placeholder={evalOnly ? '평가 대상에서 찾기' : '전체 과제에서 찾기'}
+                  className="h-8 w-60 rounded-control border border-hairline bg-white pl-8 pr-7 text-[length:calc(14px*var(--ui-fs,1))]"
+                />
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setSearch('')
+                    setSearchOpen(false)
+                  }}
+                  title="찾기 닫기 (Esc)"
+                  className="absolute right-1.5 rounded p-0.5 text-label-3 hover:text-label"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSearchOpen(true)}
+                title="전체 과제에서 찾기"
+                aria-label="찾기"
+                className="flex h-8 w-8 items-center justify-center rounded-control border border-hairline text-label-2 hover:text-label"
+              >
+                <Search size={15} />
+              </button>
+            )}
             <label
               className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[length:calc(14px*var(--ui-fs,1))] transition-shadow duration-300 ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : targetTaskCount > 0 ? 'border-accent/40 text-label hover:bg-accent-soft' : 'border-hairline text-label-2 hover:text-label'} ${evalFlash ? 'shadow-[0_0_0_4px_rgb(var(--c-accent)/0.25)]' : ''}`}
               title="모든 그룹(L2) 탭의 평가 대상만 한 표에 모아 성과등급 · 목표/성과를 매깁니다"
@@ -1108,7 +1145,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
               )}
             </label>
-            {filtered && !evalOnly && <span className="text-xs text-label-2">{viewRows.length}건 · 찾는 중에는 행 이동이 꺼집니다</span>}
+            {search.trim() !== '' && !evalOnly && <span className="text-xs text-label-2">모든 그룹에서 {viewRows.length}건 · 찾는 중에는 행 추가 · 이동이 꺼집니다</span>}
             {evalOnly && <span className="text-xs text-label-2">모든 그룹의 평가 대상 · 행 추가 · 옮기기는 그룹 탭에서</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
@@ -1228,11 +1265,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
             )}
             onCommit={commit}
             onPaste={paste}
-            onInsertRows={evalOnly ? undefined : insertRows}
+            onInsertRows={crossView ? undefined : insertRows}
             onDeleteRows={removeRows}
             onMoveRows={filtered ? undefined : moveRows}
             onMoveRowsBefore={filtered ? undefined : moveRowsBefore}
-            onRowDragOutside={evalOnly ? undefined : rowDragOutside}
+            onRowDragOutside={crossView ? undefined : rowDragOutside}
             onInsertColumn={(gi) => insertColumn(visIndexOfGrid(gi))}
             onDeleteColumns={(ids) => requestDeleteColumns(realColIds(ids))}
             onHideColumns={(ids) => {
