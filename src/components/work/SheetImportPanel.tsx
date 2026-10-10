@@ -227,13 +227,14 @@ export default function SheetImportPanel({
   )
   const groups = useMemo(() => summarizeGroups(rows), [rows])
   const importRows = useMemo(() => filterRows(rows, Array.from(selected), null), [rows, selected])
-  const warnings = useMemo(() => collectWarnings(importRows, state.members), [importRows, state.members])
+  const warnings = useMemo(() => collectWarnings(importRows, state.members, currentWorkspace?.teamName ?? ''), [importRows, state.members, currentWorkspace?.teamName])
 
   // 기본으로 체크할 새 팀원: 고른 L2에서 2건 이상 맡은 사람만. 팀원으로 넣으면
   // 평가의 기여도 자동 배분에도 들어가고, 담당자 칸에는 "방인용\n국내"처럼
   // 이름이 아닌 값도 섞여 있어서 한 번만 나온 이름은 사람이 직접 고르게 둔다.
   useEffect(() => {
-    setAddNames(new Set(warnings.unknownAssignees.filter((u) => u.count >= 2).map((u) => u.name)))
+    // 다른 팀으로 보이는 사람은 처음엔 체크하지 않는다(직접 고르게)
+    setAddNames(new Set(warnings.unknownAssignees.filter((u) => u.count >= 2 && !u.otherTeam).map((u) => u.name)))
   }, [warnings.unknownAssignees])
 
   // L1을 탭으로, 그 아래 L2 목록 (시트 순서 유지)
@@ -679,16 +680,30 @@ export default function SheetImportPanel({
             {board.items.some((i) => i.editedAt) && <li className="text-label-2">앱에서 고친 칸은 시트 값으로 덮지 않습니다.</li>}
           </ul>
 
-          {warnings.unknownAssignees.length > 0 && (
+          {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
             <div className="mt-3 rounded-card bg-subtle p-3">
               <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-                팀원 목록에 없는 담당자 {warnings.unknownAssignees.length}명 -- 팀원으로 추가할 사람을 고르세요
+                고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
+                {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원 목록에 없는 {warnings.unknownAssignees.length}명 중 팀원으로 추가할 사람을 고르세요</span>}
               </p>
-              <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도
-                들어가니 우리 팀 사람만 고르세요.
-              </p>
+              {warnings.unknownAssignees.length > 0 && (
+                <p className="mt-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                  추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 자동으로 연결됩니다. 팀원은 평가하기의 기여도 자동 배분에도 들어가니 우리 팀 사람만
+                  고르세요. 시트의 담당팀이 우리 팀과 다른 사람은 「다른 팀」 표시가 붙고 처음엔 체크하지 않습니다.
+                </p>
+              )}
               <div className="mt-2 flex flex-wrap gap-1.5">
+                {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
+                {warnings.memberAssignees.map((m) => (
+                  <span
+                    key={`m:${m.name}`}
+                    className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label shadow-control"
+                    title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결)"
+                  >
+                    {m.name} <span className="text-label-3">{m.count}</span>
+                    <span className="rounded-full bg-success/10 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-success">팀원</span>
+                  </span>
+                ))}
                 {warnings.unknownAssignees.map((u) => {
                   const on = addNames.has(u.name)
                   return (
@@ -701,10 +716,13 @@ export default function SheetImportPanel({
                         setAddNames(next)
                       }}
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on ? 'bg-accent-soft font-semibold text-accent' : 'bg-white text-label-2 shadow-control hover:text-label'}`}
-                      title={u.team ?? undefined}
+                      title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
                     >
                       {on && <Check {...icSm} />}
                       {u.name} <span className="text-label-3">{u.count}</span>
+                      {u.otherTeam && (
+                        <span className="rounded-full bg-orange-100 px-1.5 text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">다른 팀 · {u.team}</span>
+                      )}
                     </button>
                   )
                 })}

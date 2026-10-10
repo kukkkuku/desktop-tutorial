@@ -411,21 +411,30 @@ export interface ImportWarnings {
   inferredRows: ParsedRow[]
   oddCategory: { row: ParsedRow; value: string }[]
   emptyCategory: ParsedRow[]
-  unknownAssignees: { name: string; count: number; team: string | null }[]
+  // 팀원 목록에 없는 담당자. otherTeam = 시트의 담당팀이 이 평가의 팀과 다름(다른 팀 사람일 가능성)
+  unknownAssignees: { name: string; count: number; team: string | null; otherTeam: boolean }[]
+  // 팀원 목록에 이미 있는 담당자(고른 과제에서 맡은 건수)
+  memberAssignees: { name: string; count: number }[]
 }
 
-export function collectWarnings(rows: ParsedRow[], members: TeamMember[]): ImportWarnings {
+export function collectWarnings(rows: ParsedRow[], members: TeamMember[], evalTeam = ''): ImportWarnings {
   const inferredRows = rows.filter((r) => r.hierarchyInferred)
   const oddCategory: ImportWarnings['oddCategory'] = []
   const emptyCategory: ParsedRow[] = []
   const unknown = new Map<string, { count: number; teams: Map<string, number> }>()
+  const known = new Map<string, number>()
+  const nameById = new Map(members.map((m) => [m.id, m.name.trim()]))
   for (const r of rows) {
     const cat = r.values[COL_CATEGORY]
     if (!cat) emptyCategory.push(r)
     else if (!isTaskCategory(cat)) oddCategory.push({ row: r, value: cat })
     const raw = r.values[COL_ASSIGNEES]
     if (raw) {
-      const { unmatched } = matchAssignees(splitNames(raw), members)
+      const { ids, unmatched } = matchAssignees(splitNames(raw), members)
+      for (const id of ids) {
+        const nm = nameById.get(id)
+        if (nm) known.set(nm, (known.get(nm) ?? 0) + 1)
+      }
       for (const n of unmatched) {
         const e = unknown.get(n) ?? { count: 0, teams: new Map() }
         e.count += 1
@@ -435,9 +444,15 @@ export function collectWarnings(rows: ParsedRow[], members: TeamMember[]): Impor
     }
   }
   const unknownAssignees = Array.from(unknown.entries())
-    .map(([name, e]) => ({ name, count: e.count, team: [...e.teams.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null }))
+    .map(([name, e]) => {
+      const team = [...e.teams.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+      return { name, count: e.count, team, otherTeam: !!team && !!evalTeam.trim() && team.trim() !== evalTeam.trim() }
+    })
     .sort((a, b) => b.count - a.count)
-  return { inferredRows, oddCategory, emptyCategory, unknownAssignees }
+  const memberAssignees = Array.from(known.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+  return { inferredRows, oddCategory, emptyCategory, unknownAssignees, memberAssignees }
 }
 
 // 시작일·완료일 추정은 utils/workBoard.ts (저장본을 읽을 때도 같은 규칙을 쓴다)
