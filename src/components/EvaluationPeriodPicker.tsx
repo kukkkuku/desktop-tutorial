@@ -25,7 +25,11 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
   )
   const mostRecent = teamWorkspaces[teamWorkspaces.length - 1] as WorkspaceMeta | undefined
 
-  const sourceCounts = useMemo(() => (mostRecent ? readWorkspaceCounts(mostRecent.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[], taskNames: [] as string[] }), [mostRecent])
+  // 가져올 평가(기본: 이 팀의 가장 최근 평가, 여럿이면 드롭다운으로 고름)
+  const [sourceId, setSourceId] = useState<string>('')
+  const source = teamWorkspaces.find((w) => w.id === sourceId) ?? mostRecent
+  const sourceOptions = useMemo(() => [...teamWorkspaces].reverse(), [teamWorkspaces])
+  const sourceCounts = useMemo(() => (source ? readWorkspaceCounts(source.id) : { taskCount: 0, memberCount: 0, memberNames: [] as string[], taskNames: [] as string[] }), [source])
 
   const [cycle, setCycle] = useState<EvaluationCycle>(mostRecent?.evaluationCycle ?? teamCyclePreference(teamName))
   const [year, setYear] = useState<number>(defaultYear ?? mostRecent?.evaluationYear ?? new Date().getFullYear())
@@ -78,6 +82,7 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
       periodLabel: effectiveLabel,
       copyMembers,
       copyTaskNames,
+      ...(source ? { copyFromId: source.id } : {}),
     })
     onDone(id, !matched)
   }
@@ -165,11 +170,32 @@ export default function EvaluationPeriodPicker({ teamName, defaultYear, onDone }
             <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               {year} {effectiveLabel || '평가'}가 없습니다.
             </p>
-            {mostRecent && (
+            {mostRecent && source && (
               <div className="mt-3 space-y-1.5 border-t border-separator pt-3">
-                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label-3">
-                  새 평가에 가져올 것 <span className="font-normal">-- 이 팀의 가장 최근 평가 「{mostRecent.evaluationYear} {mostRecent.periodName}」에서</span>
-                </p>
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">새 평가에 가져올 것</p>
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                  <b className="font-semibold text-label">「{teamName}」 팀</b>의
+                  {sourceOptions.length > 1 ? (
+                    <Select
+                      value={source.id}
+                      onChange={(e) => setSourceId(e.target.value)}
+                      className="h-8 min-w-0 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
+                      title="가져올 평가를 고르세요"
+                    >
+                      {sourceOptions.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.evaluationYear} {w.periodName}
+                          {w.id === mostRecent.id ? ' (가장 최근)' : ''}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <b className="rounded-full bg-black/[0.05] px-2.5 py-0.5 font-semibold text-label">
+                      {source.evaluationYear} {source.periodName}
+                    </b>
+                  )}
+                  에서
+                </div>
                 <label className="flex items-start gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label">
                   <input type="checkbox" className="mt-1" checked={copyMembers} onChange={(e) => setCopyMembers(e.target.checked)} />
                   <span>

@@ -155,6 +155,8 @@ export interface NewPeriodInput {
   // 평가라 이어받을 대상이 없으면 무시된다.
   copyMembers?: boolean
   copyTaskNames?: boolean
+  // 어느 평가에서 가져올지(같은 팀의 평가 id). 없으면 같은 팀의 가장 최근 평가
+  copyFromId?: string
 }
 
 interface WorkspaceContextValue {
@@ -341,7 +343,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       // "이전 평가에서 가져오기"는 이 승계와 별개로, 최근 평가가 아닌 다른
       // 기간에서 추가로 가져오고 싶을 때 쓰는 보조 수단이다.
       const sameTeamWorkspaces = workspaces.filter((w) => w.teamName === trimmedTeamName)
-      const mostRecentSameTeam = sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
+      const mostRecentSameTeam = sameTeamWorkspaces.find((w) => w.id === input.copyFromId) ?? sameTeamWorkspaces[sameTeamWorkspaces.length - 1]
       const empty = createEmptyState()
       if (mostRecentSameTeam) {
         const raw = localStorage.getItem(workspaceStateKey(mostRecentSameTeam.id))
