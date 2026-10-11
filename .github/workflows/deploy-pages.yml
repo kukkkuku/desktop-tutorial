@@ -1,11 +1,13 @@
 name: Deploy to GitHub Pages
 
-# main에 푸시하면 앱을 빌드해 https://kukkkuku.github.io/ 에 올린다.
-# 예전 버전은 backup/main-2026-10-11 브랜치에 보관돼 있다.
+# main에 푸시하면 정식 주소 https://kukkkuku.github.io/ 에 올린다(예전 버전은 backup/main-2026-10-11 브랜치에 보관).
+# feature/face_v1에 푸시하면 그 브랜치를 https://kukkkuku.github.io/pace/ (미리보기)에도 함께 올린다.
+# 미리보기는 저장 키를 따로(preview-next) 써서 정식 데이터를 건드리지 않는다.
 on:
   push:
     branches:
       - main
+      - feature/face_v1
   workflow_dispatch:
 
 permissions:
@@ -22,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-node@v4
         with:
@@ -35,6 +39,26 @@ jobs:
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           VITE_BASE_PATH: /
+
+      - name: Checkout pace preview branch
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: feature/face_v1
+          path: pace-src
+
+      - name: Build preview into dist/pace
+        continue-on-error: true
+        working-directory: pace-src
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/pace
+          cp -r dist/. ../dist/pace/
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          VITE_BASE_PATH: /pace/
+          VITE_PREVIEW_NAMESPACE: preview-next
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
