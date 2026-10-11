@@ -206,7 +206,7 @@ export function KanbanBoard({
               setDragKey(null)
               setOverCol(null)
             }}
-            className={`flex w-[264px] shrink-0 flex-col rounded-[12px] bg-[#F4F4F6] p-2 transition-colors ${overCol === col ? 'bg-accent-soft ring-2 ring-accent/40' : ''}`}
+            className={`flex min-w-[200px] flex-1 basis-0 flex-col rounded-[12px] bg-[#F4F4F6] p-2 transition-colors ${overCol === col ? 'bg-accent-soft ring-2 ring-accent/40' : ''}`}
           >
             <header className="flex items-center gap-2 px-1.5 pb-2 pt-1">
               <span className={`rounded-full px-2 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-semibold ${tone}`}>{col}</span>
