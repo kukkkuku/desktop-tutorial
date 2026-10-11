@@ -5,9 +5,10 @@ React 18 + TypeScript + Vite + Tailwind. 데이터는 브라우저(localStorage,
 
 ## 꼭 지킬 것
 
-- **main은 건드리지 않는다.** 지금 쓰는 버전이 main에 있고, GitHub Pages가 main 푸시마다 자동 배포한다. main에 푸시하면 쓰는 사람들 화면이 바로 바뀐다.
-- 작업 브랜치: `feature/redesign-2026-09-27`. 미리보기: https://kukkkuku.github.io/desktop-tutorial/preview-design/
-- **푸시할 때마다** 미리보기 배포를 돌린다: GitHub Actions `deploy-pages.yml`을 `ref: main`으로 `run_workflow`(owner `kukkkuku`, repo `desktop-tutorial`). main의 워크플로가 이 브랜치를 `/preview-design/`에 빌드한다.
+- **main에는 사용자가 「병합해줘」라고 할 때만 올린다.** main에 푸시하면 https://kukkkuku.github.io/ (정식 주소)가 자동 배포로 바로 바뀐다.
+- 작업 브랜치: `feature/face_v1`. 수정은 여기에 커밋 · 푸시만 하고, **변경이 어느 정도 모이면 「main에 병합할까요?」라고 한 번에 물어본다**(수정마다 묻지 않는다). 푸시만으로는 정식 주소가 바뀌지 않는다.
+- 주소: 저장소 이름이 `kukkkuku.github.io`라 정식 버전은 `https://kukkkuku.github.io/`(main, `vite.config.ts` 기본 경로 `/`). 예전 버전은 `backup/main-2026-10-11` 브랜치에 보관.
+- 배포: `.github/workflows/deploy-pages.yml`이 main 푸시마다 자동으로 돈다(미리보기 폴더 없음).
 - **실제 데이터는 절대 커밋하지 않는다**: 실적관리 시트 내용, 인사카드, 사용자가 올린 엑셀, 팀장 · 팀원 실제 이메일. 스크린샷 · 예시는 가짜 데이터로.
 - 인사 민감 항목(주민번호 · 연락처 · 주소 · 가족)은 읽지도 저장하지도 않는다.
 - 사실을 지어내지 않는다(모르면 묻거나 「확인 못 함」이라고 보고).
@@ -19,7 +20,7 @@ React 18 + TypeScript + Vite + Tailwind. 데이터는 브라우저(localStorage,
 1. `release-notes.json` 맨 위 항목(`items[0]`의 앞쪽)에 이번 변경을 한 줄씩 넣는다(앱의 「새 버전」 알림에 보임). 기존 줄을 덮어쓰지 않게 주의.
 2. `docs/MANUAL-TODO.md` 끝에 매뉴얼에 반영할 내용을 `- [ ] …` 한 줄로 덧붙인다.
    **매뉴얼(`docs/manual-src/`, `public/manual/`)은 사용자가 「매뉴얼 수정하자」고 할 때만** 한 번에 고친다. 그 전에는 매뉴얼을 다시 만들지 않는다.
-3. `npx tsc -b --noEmit` · `npm run build` 통과 확인 → 커밋 → `git push origin feature/redesign-2026-09-27` → 배포 실행.
+3. `npx tsc -b --noEmit` · `npm run build` 통과 확인 → 커밋 → `git push origin feature/face_v1`(main 병합은 사용자가 말할 때만).
 
 ## 권한 · 하지 않기로 한 것
 
