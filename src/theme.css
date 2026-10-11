@@ -279,3 +279,68 @@ html[data-theme='figma'] {
   --logo-1: #6a9bff;
   --logo-2: #2f63e0;
 }
+
+html[data-theme='pace'] {
+  /* PACE 기본(피그마 + 원래 디자인): 푸른 회색 바탕 · 같은 색 판에 흰 1px 선 · 회색 탭 띠(피그마) + 검정 주요 버튼 · 파란 선택(메뉴 아이콘 · 포커스 · 선택 칩)과 8~12px 모서리(원래) */
+  --c-accent: 57 120 255;
+  --c-accent-hover: 40 98 224;
+  --c-accent-soft: 234 240 255;
+  --c-ink: 32 40 63;
+  --c-label: 32 40 63;
+  --c-label-2: 100 109 132;
+  --c-label-3: 148 159 182;
+  --c-canvas: 237 240 244;
+  --c-subtle: 247 248 250;
+  --c-sep: 60 80 120;
+  --c-hair: 60 80 120;
+
+  --r-control: 8px;
+  --r-card: 12px;
+  --r-pop: 12px;
+  --r-panel: 12px;
+  --r-dialog: 14px;
+  --r-btn: 8px;
+  --r-nav: 9px;
+  --r-group: 14px;
+  --r-group-body: 10px;
+
+  --sh-control: 0 0 0 1px rgba(60, 80, 120, 0.14), 0 1px 2px rgba(36, 55, 83, 0.05);
+  --sh-card: 0 0 0 1px rgba(60, 80, 120, 0.1), 0 1px 2px rgba(36, 55, 83, 0.04);
+  --sh-pill: 0 3px 6px rgba(36, 55, 83, 0.05), 0 0 0 1px rgba(60, 80, 120, 0.06);
+  --sh-pop: 0 0 0 1px rgba(60, 80, 120, 0.08), 0 16px 40px -12px rgba(36, 55, 83, 0.22), 0 4px 10px -4px rgba(36, 55, 83, 0.08);
+  --sh-dialog: 0 0 0 1px rgba(60, 80, 120, 0.08), 0 24px 64px -16px rgba(36, 55, 83, 0.35);
+
+  --body-bg: #edf0f4;
+  --panel-bg: #f9fafa;
+  --panel-border: #ffffff;
+  --panel-shadow: none;
+
+  --btn-primary-bg: #18181b;
+  --btn-primary-hover: #27272a;
+  --btn-primary-fg: #ffffff;
+  --btn-primary-shadow: 0 1px 2px rgba(24, 24, 27, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  --nav-on-bg: #ffffff;
+  --nav-on-fg: #242427;
+  --nav-on-shadow: 0 3px 7px rgba(0, 0, 0, 0.05);
+  --nav-on-icon: rgb(var(--c-accent));
+
+  --seg-track: #e3e7ee;
+  --group-bg: rgb(var(--c-subtle));
+  --group-shadow: 0 0 0 1px rgba(60, 80, 120, 0.08);
+
+  --nav-h: 38px;
+  --nav-fs: 13px;
+  --nav-fg: #72727e;
+  --nav-bg: #eeeef1;
+  --nav-label-fs: 11px;
+  --nav-label-fg: #a4a4b2;
+
+  --tabbar-bg: #d9dde4;
+  --tab-on-bg: #f6f7f9;
+  --tab-on-border: #d8dbe3;
+  --tab-sep: #cfd2d9;
+
+  --logo-1: #6a9bff;
+  --logo-2: #2f63e0;
+}
