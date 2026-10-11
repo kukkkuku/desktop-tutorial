@@ -609,8 +609,8 @@ export async function replaceSheetTab(
   build: (sheetId: number) => object[],
 ): Promise<{ sheetId: number; created: boolean }> {
   const meta = await sheetsFetch<{
-    sheets: { properties: { sheetId: number; title: string; gridProperties?: { rowCount?: number; columnCount?: number } } }[]
-  }>(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(sheetId,title,gridProperties)`)
+    sheets: { properties: { sheetId: number; title: string; index?: number; gridProperties?: { rowCount?: number; columnCount?: number } } }[]
+  }>(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties(sheetId,title,index,gridProperties)`)
   const hit = meta.sheets.find((x) => x.properties.title === title)
   if (!hit) {
     const sheetId = await createSheetTab(spreadsheetId, title, { rows: Math.max(size.rows, 20), cols: size.cols, frozenRows: 0, frozenCols: 0 }, build)
@@ -633,8 +633,20 @@ export async function replaceSheetTab(
     { updateCells: { range: { sheetId }, fields: 'userEnteredValue,userEnteredFormat' } },
     ...build(sheetId),
   ]
-  await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
-  return { sheetId, created: false }
+  try {
+    await sheetsFetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) }, true)
+    return { sheetId, created: false }
+  } catch (e) {
+    // 탭에 표(구글시트 「표」) · 보호 범위 등이 있어 제자리에서 못 바꾸면: 새 탭에 쓰고 옛 탭을 지운 뒤 이름 · 순서를 옮긴다
+    console.warn('[replaceSheetTab] 제자리 덮어쓰기 실패, 탭을 새로 만들어 교체', e)
+    const tmp = `${title}__새로`
+    const newId = await createSheetTab(spreadsheetId, tmp, { rows: Math.max(size.rows, 20), cols: size.cols, frozenRows: 0, frozenCols: 0 }, build)
+    await sheetBatchUpdate(spreadsheetId, [
+      { deleteSheet: { sheetId } },
+      { updateSheetProperties: { properties: { sheetId: newId, title, index: hit.properties.index ?? 0 }, fields: 'title,index' } },
+    ])
+    return { sheetId: newId, created: false }
+  }
 }
 
 // 값만 쓰기(RAW -- 수식 · 날짜로 바꾸지 않음). 여러 범위를 한 번에.
