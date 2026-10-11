@@ -252,7 +252,6 @@ export default function SheetImportPanel({
   }, [groups])
   const [activeL1, setActiveL1] = useState<string | null>(null)
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
-  const [confirming, setConfirming] = useState(false)
 
   function toggle(names: string[], on: boolean) {
     const next = new Set(selected)
@@ -300,7 +299,6 @@ export default function SheetImportPanel({
     if (newMembers.length > 0) dispatch({ type: 'IMPORT_MEMBERS', payload: members })
     dispatch({ type: 'SET_WORK_BOARD', payload: res.board })
     setResult(res)
-    setConfirming(false)
   }
 
   const unmapped = SYSTEM_COLUMNS.filter((c) => c.id !== COL_NAME && (columnMap[c.id] === null || columnMap[c.id] === undefined))
@@ -521,7 +519,7 @@ export default function SheetImportPanel({
       )}
 
       {/* L1 탭 + L2 목록 */}
-      {header && groups.length > 0 && !confirming && !result && currentL1 && (
+      {header && groups.length > 0 && !result && currentL1 && (
         <>
           <div className="relative mt-3 bg-white">
             {/* 앱 공통 탭 모양(과제 입력 그룹 탭과 같음): 말줄임, 고른 탭은 이름이 다 보이고 흰 알약 */}
@@ -572,8 +570,8 @@ export default function SheetImportPanel({
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-3 border-t border-separator bg-white pb-1 pt-4">
-            <div className="min-w-0 flex-1">
+          <div className="sticky bottom-0 mt-3 max-h-[46vh] overflow-y-auto border-t border-separator bg-white pb-1 pt-4">
+            <div className="min-w-0">
               <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
                 {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
@@ -602,115 +600,85 @@ export default function SheetImportPanel({
                 </div>
               )}
             </div>
-            <span className="ml-auto flex gap-2">
+            {selectedGroups.length > 0 && (
+              <ul className="mt-2 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                {warnings.oddCategory.length > 0 && (
+                  <li className="flex items-start gap-1.5 text-warning">
+                    <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
+                    <span>
+                      분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')}) -- 과제등급 "미입력"으로 두고 원문은 보존합니다
+                    </span>
+                  </li>
+                )}
+                {warnings.emptyCategory.length > 0 && <li>분류가 빈 행 {warnings.emptyCategory.length}건 -- 과제등급 "미입력"</li>}
+                {board.excludedSheetKeys.length > 0 && <li>앱에서 지운 시트 행은 다시 {V.go === '보내기' ? '보내지' : '가져오지'} 않습니다.</li>}
+                {board.items.some((i) => i.editedAt) && <li>앱에서 고친 칸은 시트 값으로 덮지 않습니다.</li>}
+              </ul>
+            )}
+
+            {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
+              <div className="mt-3 rounded-card bg-subtle p-3">
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+                  고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
+                  {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
+                  {warnings.unknownAssignees.length > 0 && (
+                    <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
+                      체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
+                      <br />
+                      회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
+                    </InfoTip>
+                  )}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
+                  {warnings.memberAssignees.map((m) => (
+                    <span
+                      key={`m:${m.name}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
+                      title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
+                    >
+                      {m.name} <span className="text-label-3">{m.count}</span>
+                    </span>
+                  ))}
+                  {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
+                  {[...warnings.unknownAssignees]
+                    .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
+                    .map((u) => {
+                    const on = addNames.has(u.name)
+                    return (
+                      <button
+                        key={u.name}
+                        onClick={() => {
+                          const next = new Set(addNames)
+                          if (on) next.delete(u.name)
+                          else next.add(u.name)
+                          setAddNames(next)
+                        }}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
+                        title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
+                      >
+                        {on && <Check {...icSm} />}
+                        <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
+                        {u.kind === 'other' && <span className="text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">{u.team}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
               {onCancel && (
                 <Button variant="secondary" onClick={onCancel}>
                   취소
                 </Button>
               )}
-              <Button variant="primary" onClick={() => setConfirming(true)} disabled={importRows.length === 0}>
+              <Button variant="primary" onClick={doImport} disabled={importRows.length === 0}>
                 {selectedGroups.length}개 과제 {V.go}
+                {addNames.size > 0 ? ` · 팀원 ${addNames.size}명 추가` : ''}
               </Button>
-            </span>
+            </div>
           </div>
         </>
-      )}
-
-      {/* 확인 */}
-      {header && confirming && !result && (
-        <div className="mt-4 rounded-card border border-separator p-4">
-          <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-            L2 {selectedGroups.length}개 · L3 {importRows.length}건을 {V.doing}
-          </p>
-          <ul className="mt-2 space-y-1.5 text-[length:calc(14px*var(--ui-fs,1))]">
-            {warnings.inferredRows.length > 0 && (
-              <li className="flex items-start gap-1.5 text-warning">
-                <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-                <span>
-                  H/L1이 비어 있어 위 행 값으로 채운 행 {warnings.inferredRows.length}건 (시트{' '}
-                  {warnings.inferredRows
-                    .slice(0, 5)
-                    .map((r) => r.row + 1)
-                    .join(', ')}
-                  {warnings.inferredRows.length > 5 ? ' …' : ''}행)
-                </span>
-              </li>
-            )}
-            {warnings.oddCategory.length > 0 && (
-              <li className="flex items-start gap-1.5 text-warning">
-                <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-                <span>
-                  분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')})
-                  -- 과제등급 "미입력"으로 두고 원문은 보존합니다
-                </span>
-              </li>
-            )}
-            {warnings.emptyCategory.length > 0 && <li className="text-label-2">분류가 빈 행 {warnings.emptyCategory.length}건 -- 과제등급 "미입력"</li>}
-            {board.excludedSheetKeys.length > 0 && <li className="text-label-2">앱에서 지운 시트 행은 다시 가져오지 않습니다.</li>}
-            {board.items.some((i) => i.editedAt) && <li className="text-label-2">앱에서 고친 칸은 시트 값으로 덮지 않습니다.</li>}
-          </ul>
-
-          {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
-            <div className="mt-3 rounded-card bg-subtle p-3">
-              <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-                고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
-                {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
-                {warnings.unknownAssignees.length > 0 && (
-                  <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
-                    체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
-                    <br />
-                    회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
-                  </InfoTip>
-                )}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
-                {warnings.memberAssignees.map((m) => (
-                  <span
-                    key={`m:${m.name}`}
-                    className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
-                    title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
-                  >
-                    {m.name} <span className="text-label-3">{m.count}</span>
-                  </span>
-                ))}
-                {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
-                {[...warnings.unknownAssignees]
-                  .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
-                  .map((u) => {
-                  const on = addNames.has(u.name)
-                  return (
-                    <button
-                      key={u.name}
-                      onClick={() => {
-                        const next = new Set(addNames)
-                        if (on) next.delete(u.name)
-                        else next.add(u.name)
-                        setAddNames(next)
-                      }}
-                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
-                      title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
-                    >
-                      {on && <Check {...icSm} />}
-                      <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
-                      {u.kind === 'other' && <span className="text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">{u.team}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setConfirming(false)}>
-              뒤로
-            </Button>
-            <Button variant="primary" onClick={doImport}>
-              {V.go}
-              {addNames.size > 0 ? ` · 팀원 ${addNames.size}명 추가` : ''}
-            </Button>
-          </div>
-        </div>
       )}
 
       {result && (
@@ -728,7 +696,6 @@ export default function SheetImportPanel({
               variant="secondary"
               onClick={() => {
                 setResult(null)
-                setConfirming(false)
               }}
             >
               다시 고르기
