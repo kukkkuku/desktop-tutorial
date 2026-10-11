@@ -10,7 +10,6 @@ import Button from '../Button'
 import Spinner from '../Spinner'
 import ConfirmDialog from '../ConfirmDialog'
 import { ic, icSm, ListChevronsDownUp, ListChevronsUpDown } from '../ui/icon'
-import InfoTip from '../ui/InfoTip'
 import IconButton from '../IconButton'
 import { isEmail, parseInviteText, parseInviteWorkbook, type InviteEntry } from '../../utils/adminInvite'
 import { PENDING_SUFFIX, type SheetShare, isPendingEmail, pendingDuplicates, withoutPendingDuplicates, newPendingEmail, ROLE_WORD, type AccessRole, type ContactMode, contactModeOf, setAccessSetting, accessSheetUrl, taskSheetOf, updateUsers, type AccessData, type AccessUser } from '../../utils/accessSheet'
@@ -400,7 +399,7 @@ export default function MembersPanel({
             onChange={(e) => saveField(u, { role: e.target.value as AccessRole }, `역할: ${logWho(u)} ${ROLE_WORD[u.role]} → ${ROLE_WORD[e.target.value as AccessRole]}`)}
             // 평소엔 글자만, 줄에 마우스를 올리면 고르기 상자(줄마다 테두리 상자가 늘어서지 않게)
             style={{ backgroundImage: 'none' }}
-            className={`-mx-1.5 h-8 w-[calc(100%+12px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${
+            className={`-mx-1.5 h-6 w-[calc(100%+12px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${
               u.role === 'admin' ? 'font-semibold text-accent' : u.role === 'leader' ? 'font-semibold text-label' : 'text-label'
             }`}
           >
@@ -437,7 +436,7 @@ export default function MembersPanel({
             onChange={(e) => saveField(u, { sheetShare: e.target.value as SheetShare }, `시트 권한: ${logWho(u)} → ${e.target.value || '공유 전'}`)}
             title="실적관리 시트를 공유한 뒤 표시합니다(구글에서 직접 읽지는 않음)"
             style={{ backgroundImage: 'none' }}
-            className={`-mr-1.5 h-8 w-[calc(100%+6px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent pl-3 pr-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${tone} ${wait ? 'font-medium' : ''}`}
+            className={`-mr-1.5 h-6 w-[calc(100%+6px)] cursor-pointer appearance-none rounded-control border border-transparent bg-transparent pl-3 pr-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none group-hover/row:border-hairline group-hover/row:bg-white focus:border-accent ${tone} ${wait ? 'font-medium' : ''}`}
           >
             <option value="">{wait ? '공유 대기' : '공유 전'}</option>
             <option value="편집자">편집자</option>
@@ -760,7 +759,7 @@ export default function MembersPanel({
                   onClick={(e) => clickRow(e, u, flatRows)}
                   className={`group/row border-t border-separator ${sel.has(u.email) ? 'bg-accent-soft/50' : 'hover:bg-black/[0.015]'} ${dragIds?.includes(u.email) ? 'opacity-40' : ''}`}
                 >
-                  <td className={`relative py-2 ${scope === 'all' && isAdmin ? 'pl-7 pr-2' : 'px-3'}`}>
+                  <td className={`relative py-1 ${scope === 'all' && isAdmin ? 'pl-7 pr-2' : 'px-3'}`}>
                     {/* ⠿ 손잡이: 끌어서 다른 팀 묶음 머리에 놓으면 옮긴다(고른 줄이면 고른 줄 전부) */}
                     {isAdmin && scope === 'all' && (
                       <span
@@ -804,7 +803,7 @@ export default function MembersPanel({
                     />
                   </td>
                   {cols.map((k) => (
-                    <td key={k} className={`overflow-hidden px-3 ${k === 'name' || k === 'team' || k === 'sendTo' || k === 'role' ? 'py-1.5' : 'py-2'} ${k === 'name' ? 'font-medium text-label' : 'text-label-2'}`}>
+                    <td key={k} className={`overflow-hidden px-3 ${k === 'name' || k === 'team' || k === 'sendTo' || k === 'role' ? 'py-[3px]' : 'py-1'} ${k === 'name' ? 'font-medium text-label' : 'text-label-2'}`}>
                       {cell(u, k)}
                     </td>
                   ))}
@@ -852,15 +851,6 @@ export default function MembersPanel({
           : isAdmin
             ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다.'
             : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다.'}
-        <InfoTip label="도움말" width={320}>
-          {scope === 'all'
-            ? '바꾸면 바로 권한 시트에 저장됩니다. 팀장을 새로 정하면 오른쪽 위 「편집자 공유」로 그 팀장에게 권한 시트를 공유해 주세요.'
-            : scope === 'leaders'
-              ? '팀장을 추가하면 「권한 시트」 탭에서 그 팀장에게 시트를 편집자로 공유해 주세요(팀원 추가 · 초대를 하려면 필요). 바꾸면 바로 저장됩니다.'
-              : isAdmin
-                ? '팀장이 추가한 팀원도 보이고, 바꾸면 바로 저장됩니다. 팀원 추가 · 초대는 보통 팀장이 성과관리 › 팀원관리에서 합니다.'
-                : '실적관리 시트 공유는 관리자가 합니다.'}
-        </InfoTip>
       </p>
 
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
@@ -1577,7 +1567,7 @@ function TeamCell({
   }, [open])
   const q = text.trim()
   const list = open && q && q !== cur ? teams.filter((t) => t.includes(q)) : teams
-  const quiet = `-mx-[7px] h-8 w-[calc(100%+14px)] rounded-control border px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none`
+  const quiet = `-mx-[7px] h-6 w-[calc(100%+14px)] rounded-control border px-1.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none`
   if (!open)
     return (
       <button
@@ -1666,7 +1656,7 @@ function CellInput({ value, placeholder, disabled, onSave }: { value: string; pl
       onBlur={() => v.trim() !== value && onSave(v.trim())}
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       placeholder={placeholder}
-      className="-mx-[7px] -my-1 h-8 w-[calc(100%+14px)] min-w-[90px] rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-inherit outline-none hover:border-hairline focus:border-accent focus:bg-white"
+      className="-mx-[7px] -my-1 h-6 w-[calc(100%+14px)] min-w-[90px] rounded-control border border-transparent bg-transparent px-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-inherit outline-none hover:border-hairline focus:border-accent focus:bg-white"
     />
   )
 }
