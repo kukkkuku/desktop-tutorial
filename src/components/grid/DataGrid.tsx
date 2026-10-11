@@ -220,19 +220,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const ro = (row: R | undefined, col: GridColumn | undefined) => !!col && (!!col.readOnly || (!!row && !!props.isReadOnly?.(row, col.id)))
   const nR = rows.length
   const nC = columns.length
-  // 강조 열(emphasis)은 배경을 깔지 않고, 붙어 있는 열 묶음 전체를 큰 외곽선 하나로 감싼다
-  const emphasisOutline = (c: number, top: boolean, bottom: boolean) => {
-    if (!columns[c]?.emphasis) return undefined
-    const E = 'rgb(var(--c-accent))'
-    return [
-      !columns[c - 1]?.emphasis && `inset 2px 0 0 ${E}`,
-      !columns[c + 1]?.emphasis && `inset -2px 0 0 ${E}`,
-      top && `inset 0 2px 0 ${E}`,
-      bottom && `inset 0 -2px 0 ${E}`,
-    ]
-      .filter(Boolean)
-      .join(', ')
-  }
+  // 강조 열(emphasis): 배경 없이, 붙어 있는 열 묶음 전체(머리글~맨 아래 행)를 둥근 외곽선 하나로 감싼다(표 위에 겹쳐 그림)
+  const [emBox, setEmBox] = useState<{ left: number; width: number } | null>(null)
 
   const [sel, setSel] = useState<Sel | null>(null)
   const [active, setActive] = useState<{ r: number; c: number } | null>(null)
@@ -261,6 +250,21 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const handleW = noNum ? 0 : numW
 
   const wrapRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const idx = columns.map((c, i) => (c.emphasis ? i : -1)).filter((i) => i >= 0)
+    const wrap = wrapRef.current
+    if (!wrap || idx.length === 0) {
+      if (emBox) setEmBox(null)
+      return
+    }
+    const a = headRefs.current.get(idx[0])
+    const b = headRefs.current.get(idx[idx.length - 1])
+    if (!a || !b) return
+    const w = wrap.getBoundingClientRect()
+    const left = a.getBoundingClientRect().left - w.left
+    const width = b.getBoundingClientRect().right - a.getBoundingClientRect().left
+    if (!emBox || Math.abs(emBox.left - left) > 0.5 || Math.abs(emBox.width - width) > 0.5) setEmBox({ left, width })
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrollEdges = useScrollEdges(scrollRef)
   const sinkRef = useRef<HTMLTextAreaElement>(null)
@@ -1272,6 +1276,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
             style={{ width: '100%', minWidth: tableWidth }}
           >
+            {emBox && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 z-20 rounded-[8px] border-2 border-accent"
+                style={{ left: emBox.left, width: emBox.width }}
+              />
+            )}
             <table
               className="table-fixed border-separate border-spacing-0 text-[length:calc(14.5px*var(--ui-fs,1))] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
               style={{ width: '100%', minWidth: tableWidth }}
@@ -1338,7 +1349,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               ]
                                 .filter(Boolean)
                                 .join(', ')
-                            : emphasisOutline(c, true, false),
+                            : undefined,
                         }}
                         className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
                           colSelected ? 'bg-accent-soft text-accent' : ''
@@ -1465,7 +1476,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               onMouseEnter={() => onCellMouseEnter(r, c)}
                               onDoubleClick={() => startEdit()}
                               onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                              style={{ boxShadow: [pickedRow ? pickShadow(c) : cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), emphasisOutline(c, false, r === rows.length - 1)].filter(Boolean).join(', ') || undefined }}
+                              style={{ boxShadow: [pickedRow ? pickShadow(c) : cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r))].filter(Boolean).join(', ') || undefined }}
                               className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
                                 pickedRow || (inRange && (!isActive || sel?.t !== 'cells')) ? 'bg-accent-soft' : ''
                               } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
