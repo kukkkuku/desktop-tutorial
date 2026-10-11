@@ -549,7 +549,7 @@ export default function SheetImportPanel({
                 const already = board.groups.some((bg) => bg.name === g.name)
                 return (
                   <div key={g.name} className={`flex gap-3 px-4 py-4 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
-                    <input type="checkbox" className="mt-1 shrink-0 cursor-pointer" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} aria-label={`${g.name} 선택`} />
+                    <input type="checkbox" className="mt-1 shrink-0 cursor-pointer self-start" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} aria-label={`${g.name} 선택`} />
                     <div className="min-w-0 flex-1">
                       <label className="flex cursor-pointer flex-wrap items-baseline gap-x-2 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
@@ -576,13 +576,20 @@ export default function SheetImportPanel({
                         <span className={`inline-block text-[10px] transition-transform ${detailOpen.has(g.name) ? 'rotate-90' : ''}`}>▶</span> 상세 보기
                       </button>
                       {detailOpen.has(g.name) && (
-                        <div className="mt-2 space-y-1.5 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                          {g.assignees.length > 0 && <p>담당자 {g.assignees.join(', ')}</p>}
-                          {g.teams.length > 0 && <p className="text-label-3">{g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}</p>}
-                          <p className="text-label">
-                            {g.l3Names.slice(0, 8).join(' · ')}
-                            {g.l3Names.length > 8 && ` 외 ${g.l3Names.length - 8}개`}
-                          </p>
+                        <div className="mt-2 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                          {(g.assignees.length > 0 || g.teams.length > 0) && (
+                            <p className="mb-1.5 text-label-3">
+                              {g.assignees.length > 0 && `담당자 ${g.assignees.join(', ')}`}
+                              {g.teams.length > 0 && ` · ${g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}`}
+                            </p>
+                          )}
+                          <ul className="max-h-48 space-y-0.5 overflow-y-auto pr-2">
+                            {g.l3Names.map((n, k) => (
+                              <li key={k} className="truncate text-label" title={n}>
+                                {n}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                     </div>
