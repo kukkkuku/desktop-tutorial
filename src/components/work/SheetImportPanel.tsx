@@ -46,7 +46,7 @@ import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { Check, ExternalLink } from 'lucide-react'
+import { Check, ExternalLink, X } from 'lucide-react'
 import SheetsIcon from '../SheetsIcon'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
@@ -586,15 +586,28 @@ export default function SheetImportPanel({
                 <div className="flex max-h-[76px] min-w-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
                   {selectedGroups.length === 0 && <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">보낼 과제를 골라 주세요.</p>}
                   {selectedGroups.map((g) => (
-                    <button
+                    <span
                       key={g.name}
-                      type="button"
-                      onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')}
-                      title={`${g.l1 ?? ''} › ${g.name} · 누르면 그 탭으로 이동`}
-                      className="max-w-full truncate rounded-full bg-accent-soft px-3.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:bg-accent-soft/70"
+                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-1 pl-3.5 pr-1.5 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
                     >
-                      {g.name}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')}
+                        title={`${g.l1 ?? ''} › ${g.name} · 누르면 그 탭으로 이동`}
+                        className="truncate hover:underline"
+                      >
+                        {g.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggle([g.name], false)}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
+                        aria-label={`${g.name} 선택 해제`}
+                        title="선택 해제"
+                      >
+                        <X size={13} strokeWidth={2} />
+                      </button>
+                    </span>
                   ))}
                 </div>
               </div>
