@@ -1185,7 +1185,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               className={`flex h-8 cursor-pointer select-none items-center gap-2 rounded-control border px-2.5 text-[length:calc(14px*var(--ui-fs,1))] transition-shadow duration-300 ${evalOnly ? 'border-accent bg-accent-soft font-medium text-accent' : targetTaskCount > 0 ? 'border-accent/40 text-label hover:bg-accent-soft' : 'border-hairline text-label-2 hover:text-label'} ${evalFlash ? 'shadow-[0_0_0_4px_rgb(var(--c-accent)/0.25)]' : ''}`}
               title="평가 대상만 보기 (전체 탭에서 켜면 모든 그룹의 평가 대상을 한 표에 모아 성과등급 · 목표/성과를 매깁니다)"
             >
-              <input type="checkbox" checked={evalOnly} onChange={(e) => setEvalOnly(e.target.checked)} className="h-3.5 w-3.5 accent-accent" />
+              <input type="checkbox" checked={evalOnly} onChange={(e) => {
+                  setEvalOnly(e.target.checked)
+                  // 켜면 「전체」 탭에서 모든 그룹의 평가 대상을 먼저 보여 준다(그룹 탭을 누르면 그 그룹 것만)
+                  if (e.target.checked) setAllTab(true)
+                }} className="h-3.5 w-3.5 accent-accent" />
               평가 대상만
               {targetTaskCount > 0 && (
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
