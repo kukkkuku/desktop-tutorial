@@ -138,7 +138,7 @@ import NewYearDialog, { type NewYearOptions } from './NewYearDialog'
 import ProgressRate from './ProgressRate'
 import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
-import { useAppMode } from '../../state/AppMode'
+import { takeIntent, useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
@@ -635,6 +635,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     saveShelf(next)
   }
   const [newYearOpen, setNewYearOpen] = useState(false)
+  useEffect(() => {
+    if (takeIntent('newYear')) setNewYearOpen(true)
+  }, [])
   // 지금 입력하는 연도(지난 연도 보기 중이면 맡겨 둔 올해)
   function currentProject(): ShelfItem | null {
     const a = archiveRef.current
@@ -1887,21 +1890,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           </div>
         </div>
       )}
-      {canManage && (
-        <div className="mt-4 flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setLinkOpen(false)
-              setNewYearOpen(true)
-            }}
-          >
-            <FilePlus2 {...icSm} />새 연도 만들기
-          </Button>
-          <span className="text-[length:calc(13px*var(--ui-fs,1))] text-label-3">1년에 한 번, 관리자만</span>
-        </div>
-      )}
       <label className="mt-4 flex cursor-pointer items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2" title="끄면 입력 끝내기 · 저장 때 묻지 않고 바로 구글시트에 업데이트합니다(과제를 지울 때는 늘 묻습니다)">
         <input type="checkbox" checked={askSave} onChange={(e) => setAskSavePref(e.target.checked)} />
         업데이트 전에 묻기
@@ -1995,6 +1983,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             footer={yearMenuFooter}
             onDeleteLocal={(id) => void deleteLocal(id)}
             onOpenMenu={() => void refreshYearTabs()}
+            onCreate={canManage ? () => setNewYearOpen(true) : undefined}
           />
         </MenuSlot>
         {newYearDialog}
@@ -2646,6 +2635,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           onOpenMenu={() => void refreshYearTabs()}
           localTabs={localTabs}
           footer={yearMenuFooter}
+          onCreate={canManage ? () => setNewYearOpen(true) : undefined}
         />
       </MenuSlot>
       <MenuSlot id={PROGRESS_ACTIONS_SLOT}>

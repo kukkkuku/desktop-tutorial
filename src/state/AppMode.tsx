@@ -61,6 +61,21 @@ export function AppModeProvider({ children }: { children: ReactNode }) {
   return <ModeCtx.Provider value={{ mode, setMode, taskMenu, setTaskMenu, perfStage, setPerfStage }}>{children}</ModeCtx.Provider>
 }
 
+// 홈에서 「새 연도 만들기」 · 「새 평가」를 누르면 그 화면으로 가서 바로 창을 연다(한 번만)
+const INTENT_KEY = 'app-intent'
+export function setIntent(v: 'newYear' | 'newEval') {
+  write(INTENT_KEY, v)
+}
+export function takeIntent(v: 'newYear' | 'newEval'): boolean {
+  try {
+    if (sessionStorage.getItem(INTENT_KEY) !== v) return false
+    sessionStorage.removeItem(INTENT_KEY)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function useAppMode() {
   return useContext(ModeCtx)
 }

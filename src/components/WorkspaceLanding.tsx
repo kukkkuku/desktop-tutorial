@@ -21,7 +21,7 @@ import YearPicker from './YearPicker'
 import { icSm } from './ui/icon'
 import { updateUsers } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
-import { useAppMode, type PerfStage } from '../state/AppMode'
+import { takeIntent, useAppMode, type PerfStage } from '../state/AppMode'
 
 const MAX_VISIBLE_AVATARS = 6
 
@@ -370,6 +370,9 @@ export default function WorkspaceLanding() {
   const [dialog, setDialog] = useState<null | 'newTeam' | 'renameTeam' | 'deleteTeam' | 'invite' | 'newEval'>(null)
   const [teamMenu, setTeamMenu] = useState(false)
   const close = () => setDialog(null)
+  useEffect(() => {
+    if (takeIntent('newEval')) setDialog('newEval')
+  }, [])
 
   const myTeam = useMemo(() => access?.users.find((u) => u.email === me)?.team ?? '', [access, me])
   const members = useMemo(() => teamMembersOf(access, teamName, me), [access, teamName, me])

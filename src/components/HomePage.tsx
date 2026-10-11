@@ -4,12 +4,11 @@
 // 머리글 맨 왼쪽 홈 버튼으로 언제든 돌아온다.
 import { ManualPanel, type ManualArea } from './ManualLink'
 import { useMemo, useState } from 'react'
-import { ArrowRight, BookOpen, ChartColumn, ClipboardList, FileSpreadsheet } from 'lucide-react'
-import { useAppMode } from '../state/AppMode'
+import { ArrowRight, BookOpen, ChartColumn, ClipboardList, FilePlus2, FileSpreadsheet, Plus } from 'lucide-react'
+import { setIntent, useAppMode } from '../state/AppMode'
 import { mmdd, useWorkspaces } from '../state/WorkspaceContext'
 import { useGoogleAccount } from '../hooks/useGoogleAccount'
 import AppShell, { PageHeader } from './shell/AppShell'
-import { ROLE_LABEL } from '../utils/roles'
 import { TASK_INPUT_SHEET_URL, isProtectedSheet, loadProgress, loadShelf } from '../utils/progressBoard'
 import { sharedSheetFor } from '../utils/accessSheet'
 import { getConnectedEmail } from '../utils/googleDrive'
@@ -45,7 +44,7 @@ function taskSummary() {
 export default function HomePage() {
   const { setMode, setTaskMenu } = useAppMode()
   const { workspaces, selectWorkspace, exitToLanding } = useWorkspaces()
-  const { accountEmail, role, canPerf } = useGoogleAccount()
+  const { canPerf, canManage } = useGoogleAccount()
   const t = useMemo(taskSummary, [])
   const [manual, setManual] = useState<ManualArea | null>(null)
   // 카드 오른쪽 위: 그 영역 매뉴얼(준비할 데이터부터)
@@ -70,9 +69,6 @@ export default function HomePage() {
     <AppShell header={<PageHeader title="홈" />}>
       <main className="w-full max-w-5xl flex-1 px-6 pb-10 pt-6 lg:px-8">
         <h2 className="text-[length:calc(24px*var(--ui-fs,1))] font-semibold tracking-[-0.02em] text-label">무엇을 할까요?</h2>
-        <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'}
-        </p>
 
         <div className={`mt-8 grid gap-5 ${canPerf ? 'sm:grid-cols-2' : 'max-w-[460px]'}`}>
           {/* 과제 입력 */}
@@ -119,6 +115,18 @@ export default function HomePage() {
                 <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
               </span>
             </button>
+            {canManage && (
+              <button
+                onClick={() => {
+                  setIntent('newYear')
+                  setTaskMenu('progress')
+                  setMode('tasks')
+                }}
+                className="absolute bottom-5 right-6 flex h-8 items-center gap-1.5 rounded-[9px] bg-black/[0.05] px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label hover:bg-black/[0.09]"
+              >
+                <FilePlus2 size={14} strokeWidth={1.9} />새 연도 만들기
+              </button>
+            )}
           </div>
 
           {/* 성과관리(팀장) */}
@@ -168,6 +176,18 @@ export default function HomePage() {
                 {recent.length ? '평가 목록' : '팀 만들기'}
                 <ArrowRight size={14} />
               </button>
+              {recent.length > 0 && (
+                <button
+                  onClick={() => {
+                    setIntent('newEval')
+                    exitToLanding()
+                    setMode('perf')
+                  }}
+                  className="absolute bottom-5 right-6 flex h-8 items-center gap-1.5 rounded-[9px] bg-black/[0.05] px-3 text-[length:calc(13.5px*var(--ui-fs,1))] font-medium text-label hover:bg-black/[0.09]"
+                >
+                  <Plus size={14} strokeWidth={1.9} />새 평가
+                </button>
+              )}
             </div>
           )}
         </div>
