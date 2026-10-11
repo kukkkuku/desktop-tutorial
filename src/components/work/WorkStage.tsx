@@ -1168,7 +1168,6 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 평가하기
               </Button>
             )}
-            {allTab && <span className="text-xs text-label-2">{viewRows.length}건 · 전체 보기에서는 행 추가 · 옮기기가 꺼집니다(그룹 탭에서)</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
                 onClick={undo}
