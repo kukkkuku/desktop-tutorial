@@ -1,7 +1,7 @@
 name: Deploy to GitHub Pages
 
 # main에 푸시하면 앱을 빌드해 https://kukkkuku.github.io/ 에 올린다.
-# 예전 버전은 backup/main-2026-10-11 브랜치와 backup-main-2026-10-11 태그에 보관돼 있다.
+# 예전 버전은 backup/main-2026-10-11 브랜치에 보관돼 있다.
 on:
   push:
     branches:
