@@ -2729,6 +2729,13 @@ export default function ScheduleTable({
                           g.rows.every((x) => x.deleted) ? 'text-label-3 line-through' : ''
                         } ${l2Sel === g.rows[0].row.key && !l2Col && !l2Edit ? 'outline outline-2 -outline-offset-2 outline-accent' : ''}`}
                       >
+                        {/* 줄이 적은(1~2줄) 구분은 이름이 잘리지 않게, 이름 높이만큼 행이 자란다(보이지 않는 복사본으로 최소 높이를 잡는다) */}
+                        {g.rows.length <= 2 && (
+                          <div aria-hidden="true" className="invisible whitespace-pre-line break-words py-1">
+                            {g.l2}
+                            {g.tag ? `\n[${g.tag}]` : ''}
+                          </div>
+                        )}
                         {/* 줄이 많은 L2도 이름이 보이도록 위에 붙이고, 스크롤해도 머리글 아래에 머문다. */}
                         {/* 구분 칸 내용이 행 높이를 키우지 않게 칸 안에 가둔다(과제가 적은 구분의 행만 높아지던 것 방지). 이름 고치는 중에는 넘쳐도 보이게 */}
                         <div className={`absolute inset-0 px-2 ${g.rows.length <= 2 ? 'flex items-center justify-center' : 'py-2'} ${l2Edit?.key === g.rows[0].row.key ? 'z-10 overflow-visible' : 'overflow-clip'}`}>
