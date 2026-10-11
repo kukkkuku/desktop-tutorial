@@ -140,6 +140,7 @@ import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
+import EvaluationPeriodPicker from '../EvaluationPeriodPicker'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
 import { KanbanBoard, TimelineView, ALL_FILTER, ViewFilterBar, scheduleListOf, type ViewFilter } from './BoardViews'
@@ -288,8 +289,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [exportOpen, setExportOpen] = useState(false) // 성과관리 과제리스트로 내보내기 창
   const { setMode } = useAppMode()
   // 보낼 곳: 성과관리 프로젝트(팀 · 평가기간). 기본은 지금 성과관리에서 열려 있는 것, 없으면 최근에 고친 것
-  const { workspaces, currentWorkspaceId } = useWorkspaces()
+  const { workspaces, currentWorkspaceId, teamNames } = useWorkspaces()
   const [exportTo, setExportTo] = useState<string>('')
+  const [exportTeam, setExportTeam] = useState<string>('') // 평가가 아직 없을 때 여기서 바로 만들 팀 이름
   // 내보내기 창이 읽는 추진현황(저장 안 한 변경 포함) -- 창을 연 동안 같은 것을 쓴다
   const exportSource = useMemo(() => (exportOpen && data ? { data, drafts } : null), [exportOpen]) // eslint-disable-line react-hooks/exhaustive-deps
   const defaultTarget = currentWorkspaceId ?? [...workspaces].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? ''
@@ -3141,18 +3143,38 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           )}
         </div>
         {exportOpen && workspaces.length === 0 && (
-          // 보낼 평가가 아직 없으면 큰 창 대신 작은 안내만(빈 창이 크게 뜨지 않게)
+          // 보낼 평가가 아직 없으면 화면을 옮기지 않고 이 창에서 바로 평가를 만든 뒤 이어서 보낸다(처음 쓰는 사람도 막히지 않게)
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => setExportOpen(false)}>
-            <div className="w-[min(420px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
-              <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
-              <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                내보낼 평가(팀 · 평가기간)가 아직 없습니다. 왼쪽 「성과관리」 메뉴에서 평가를 먼저 만들면, 여기서 그룹(L1)을 골라 과제를 보낼 수 있습니다.
-              </p>
-              <div className="mt-5 flex justify-end gap-2">
-                <Button size="sm" onClick={() => setExportOpen(false)}>
-                  확인
-                </Button>
+            <div className="w-[min(460px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
+                <IconButton onClick={() => setExportOpen(false)} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
+                  <X {...ic} />
+                </IconButton>
               </div>
+              <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
+                성과관리에 아직 평가가 없습니다. 팀 이름과 평가기간을 정하면 여기서 바로 평가를 만들고, 이어서 과제를 보낼 수 있습니다.
+              </p>
+              <label className="mt-4 block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀 이름</label>
+              <input
+                type="text"
+                value={exportTeam || teamNames[0] || ''}
+                onChange={(e) => setExportTeam(e.target.value)}
+                placeholder="예: 브랜드디자인팀"
+                className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
+              />
+              {(exportTeam || teamNames[0] || '').trim() ? (
+                <div className="mt-4">
+                  <EvaluationPeriodPicker
+                    key={(exportTeam || teamNames[0] || '').trim()}
+                    teamName={(exportTeam || teamNames[0] || '').trim()}
+                    defaultYear={data.year ?? undefined}
+                    onDone={(id) => setExportTo(id)}
+                  />
+                </div>
+              ) : (
+                <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">팀 이름을 적으면 평가기간을 고를 수 있습니다.</p>
+              )}
             </div>
           </div>
         )}
