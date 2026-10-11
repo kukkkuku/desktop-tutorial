@@ -46,7 +46,7 @@ import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { Check, ExternalLink, X } from 'lucide-react'
+import { Check, ExternalLink } from 'lucide-react'
 import SheetsIcon from '../SheetsIcon'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
@@ -574,99 +574,93 @@ export default function SheetImportPanel({
           </div>
 
           <div className="sticky bottom-0 mt-3 bg-white pb-1">
-            <div className="space-y-2 rounded-card bg-subtle p-3">
-            {selectedGroups.length > 0 ? (
-              <>
-                <div className="flex items-start gap-2">
-                  <span className="mt-1 w-14 shrink-0 whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">과제</span>
-                  <div className="flex max-h-[68px] min-w-0 flex-1 flex-wrap gap-1.5 overflow-y-auto">
-                    {selectedGroups.map((g) => (
+            {/* 하단: 선택 과제 요약 / 추가할 팀원 / 보낼 곳 · 취소 · 보내기 (Figma 「선택 및 보내기」) */}
+            <div className="overflow-hidden rounded-[14px] border border-[#f5f6f8] bg-[#f5f6f8]">
+              <div className={`flex gap-4 p-4 ${warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0 ? 'border-b border-dashed border-[#d7d7d7]' : ''}`}>
+                <div className="w-[132px] shrink-0">
+                  <p className="text-[length:calc(14px*var(--ui-fs,1))] font-bold leading-snug text-label">
+                    선택 과제 그룹 <span className="whitespace-nowrap">{selectedGroups.length}건</span>
+                  </p>
+                  <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">하위과제 {importRows.length}건</p>
+                </div>
+                <div className="flex max-h-[76px] min-w-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
+                  {selectedGroups.length === 0 && <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">보낼 과제를 골라 주세요.</p>}
+                  {selectedGroups.map((g) => (
+                    <button
+                      key={g.name}
+                      type="button"
+                      onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')}
+                      title={`${g.l1 ?? ''} › ${g.name} · 누르면 그 탭으로 이동`}
+                      className="max-w-full truncate rounded-full bg-accent-soft px-3.5 py-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent hover:bg-accent-soft/70"
+                    >
+                      {g.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
+                <div className="flex gap-4 p-4">
+                  <div className="w-[132px] shrink-0">
+                    <p className="flex items-center gap-0.5 whitespace-nowrap text-[length:calc(14px*var(--ui-fs,1))] font-bold leading-snug text-label">
+                      추가할 팀원
+                      <InfoTip label="팀원 추가 설명" width={320} className="ml-0.5">
+                        체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
+                      </InfoTip>
+                    </p>
+                    <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">{addNames.size}명 선택</p>
+                  </div>
+                  <div className="flex max-h-[84px] min-w-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
+                    {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순). 눌러서 팀원으로 추가 */}
+                    {[...warnings.unknownAssignees]
+                      .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
+                      .map((u) => {
+                        const on = addNames.has(u.name)
+                        return (
+                          <button
+                            key={u.name}
+                            type="button"
+                            onClick={() => {
+                              const next = new Set(addNames)
+                              if (on) next.delete(u.name)
+                              else next.add(u.name)
+                              setAddNames(next)
+                            }}
+                            title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
+                            className={`inline-flex h-8 items-center gap-1.5 rounded-[10px] border px-3 text-[length:calc(14px*var(--ui-fs,1))] font-medium ${
+                              on ? 'border-transparent bg-accent-soft text-accent' : 'border-[#e1e5ed] bg-white text-label hover:border-accent/40'
+                            }`}
+                          >
+                            {on && <Check size={14} strokeWidth={2.4} />}
+                            {u.name}
+                          </button>
+                        )
+                      })}
+                    {/* 이미 팀원인 담당자: 고를 필요 없이 확인용 */}
+                    {warnings.memberAssignees.map((m) => (
                       <span
-                        key={g.name}
-                        className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
+                        key={`m:${m.name}`}
+                        className="inline-flex h-8 items-center rounded-[10px] px-3 text-[length:calc(14px*var(--ui-fs,1))] text-label-3"
+                        title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결)"
                       >
-                        <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
-                          {g.name}
-                          {g.tag ? ` [${g.tag}]` : ''}
-                        </button>
-                        <button
-                          onClick={() => toggle([g.name], false)}
-                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
-                          aria-label={`${g.name} 선택 해제`}
-                          title="선택 해제"
-                        >
-                          <X size={12} strokeWidth={2} />
-                        </button>
+                        {m.name}
                       </span>
                     ))}
                   </div>
                 </div>
-                {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
-                  <div className="flex items-start gap-2">
-                    <span className="mt-1 flex w-14 shrink-0 items-center whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">
-                      팀원
-                      {warnings.unknownAssignees.length > 0 && (
-                        <InfoTip label="팀원 추가 설명" width={320} className="ml-0.5">
-                          체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
-                          <br />
-                          회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 체크 안 한 사람.
-                        </InfoTip>
-                      )}
-                    </span>
-                    <div className="flex max-h-[68px] min-w-0 flex-1 flex-wrap gap-1.5 overflow-y-auto">
-                      {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
-                      {warnings.memberAssignees.map((m) => (
-                        <span
-                          key={`m:${m.name}`}
-                          className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
-                          title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
-                        >
-                          {m.name} <span className="text-label-3">{m.count}</span>
-                        </span>
-                      ))}
-                      {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순). 체크한 사람은 팀원으로 추가 */}
-                      {[...warnings.unknownAssignees]
-                        .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
-                        .map((u) => {
-                          const on = addNames.has(u.name)
-                          return (
-                            <button
-                              key={u.name}
-                              onClick={() => {
-                                const next = new Set(addNames)
-                                if (on) next.delete(u.name)
-                                else next.add(u.name)
-                                setAddNames(next)
-                              }}
-                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
-                              title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
-                            >
-                              {on && <Check {...icSm} />}
-                              <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
-                            </button>
-                          )
-                        })}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">보낼 과제를 골라 주세요.</p>
-            )}
-            <div className="flex items-center gap-2 pt-1">
-              {footerSlot && <span className="w-14 shrink-0 whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보낼 곳</span>}
-              <div className="min-w-0">{footerSlot}</div>
-              <div className="ml-auto flex shrink-0 justify-end gap-2">
-                {onCancel && (
-                  <Button variant="secondary" onClick={onCancel}>
-                    취소
+              )}
+              <div className="flex items-center justify-end gap-3 border-t border-[#f5f6f8] bg-white p-4">
+                {footerSlot}
+                <div className="flex gap-2">
+                  {onCancel && (
+                    <Button variant="secondary" onClick={onCancel}>
+                      취소
+                    </Button>
+                  )}
+                  <Button variant="primary" onClick={doImport} disabled={importRows.length === 0}>
+                    {selectedGroups.length}건 {V.go}
                   </Button>
-                )}
-                <Button variant="primary" onClick={doImport} disabled={importRows.length === 0}>
-                  {selectedGroups.length}개 과제 {V.go}
-                </Button>
+                </div>
               </div>
-            </div>
             </div>
           </div>
         </>
