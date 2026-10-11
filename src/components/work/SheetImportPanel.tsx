@@ -46,7 +46,7 @@ import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { AlertTriangle, Check, ExternalLink, X } from 'lucide-react'
+import { Check, ExternalLink, X } from 'lucide-react'
 import SheetsIcon from '../SheetsIcon'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
@@ -557,8 +557,11 @@ export default function SheetImportPanel({
                         )}
                       </p>
                       <div className="mt-1.5 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                        {g.assignees.length > 0 && <p className="truncate">팀원 {g.assignees.join(', ')}</p>}
-                        <p className="truncate text-label" title={g.l3Names.join(' · ')}>
+                        {g.assignees.length > 0 && <p className="truncate text-label-3">팀원 {g.assignees.join(', ')}</p>}
+                        <p
+                          className="truncate font-semibold text-label"
+                          title={`${g.l3Names.slice(0, 30).join('\n')}${g.l3Names.length > 30 ? `\n… 외 ${g.l3Names.length - 30}건` : ''}`}
+                        >
                           {g.l3Names.slice(0, 2).join(' · ')}
                           {g.l3Names.length > 2 && ` 외 ${g.l3Names.length - 2}건`}
                         </p>
@@ -600,21 +603,6 @@ export default function SheetImportPanel({
                 </div>
               )}
             </div>
-            {selectedGroups.length > 0 && (
-              <ul className="mt-2 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-                {warnings.oddCategory.length > 0 && (
-                  <li className="flex items-start gap-1.5 text-warning">
-                    <AlertTriangle {...icSm} className="mt-0.5 shrink-0" />
-                    <span>
-                      분류가 과제/일반/일상이 아닌 행 {warnings.oddCategory.length}건 ({Array.from(new Set(warnings.oddCategory.map((o) => o.value))).join(', ')}) -- 과제등급 "미입력"으로 두고 원문은 보존합니다
-                    </span>
-                  </li>
-                )}
-                {warnings.emptyCategory.length > 0 && <li>분류가 빈 행 {warnings.emptyCategory.length}건 -- 과제등급 "미입력"</li>}
-                {board.excludedSheetKeys.length > 0 && <li>앱에서 지운 시트 행은 다시 {V.go === '보내기' ? '보내지' : '가져오지'} 않습니다.</li>}
-                {board.items.some((i) => i.editedAt) && <li>앱에서 고친 칸은 시트 값으로 덮지 않습니다.</li>}
-              </ul>
-            )}
 
             {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
               <div className="mt-3 rounded-card bg-subtle p-3">
@@ -659,8 +647,7 @@ export default function SheetImportPanel({
                       >
                         {on && <Check {...icSm} />}
                         <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
-                        {u.kind === 'other' && <span className="text-[length:calc(11.5px*var(--ui-fs,1))] font-medium text-orange-700">{u.team}</span>}
-                      </button>
+                        </button>
                     )
                   })}
                 </div>
