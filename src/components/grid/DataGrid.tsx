@@ -220,6 +220,19 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const ro = (row: R | undefined, col: GridColumn | undefined) => !!col && (!!col.readOnly || (!!row && !!props.isReadOnly?.(row, col.id)))
   const nR = rows.length
   const nC = columns.length
+  // 강조 열(emphasis)은 배경을 깔지 않고, 붙어 있는 열 묶음 전체를 큰 외곽선 하나로 감싼다
+  const emphasisOutline = (c: number, top: boolean, bottom: boolean) => {
+    if (!columns[c]?.emphasis) return undefined
+    const E = 'rgb(var(--c-accent))'
+    return [
+      !columns[c - 1]?.emphasis && `inset 2px 0 0 ${E}`,
+      !columns[c + 1]?.emphasis && `inset -2px 0 0 ${E}`,
+      top && `inset 0 2px 0 ${E}`,
+      bottom && `inset 0 -2px 0 ${E}`,
+    ]
+      .filter(Boolean)
+      .join(', ')
+  }
 
   const [sel, setSel] = useState<Sel | null>(null)
   const [active, setActive] = useState<{ r: number; c: number } | null>(null)
@@ -1293,10 +1306,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               ]
                                 .filter(Boolean)
                                 .join(', ')
-                            : undefined,
+                            : emphasisOutline(c, true, false),
                         }}
                         className={`relative h-9 select-none border-b border-r border-[#E3E3E8] px-2 text-left text-[length:calc(14px*var(--ui-fs,1))] font-semibold ${
-                          colSelected ? 'bg-accent-soft text-accent' : col.emphasis ? '!bg-accent/[0.12]' : ''
+                          colSelected ? 'bg-accent-soft text-accent' : ''
                         } ${dragInsert?.kind === 'col' && dragInsert.index === c ? 'shadow-[inset_3px_0_0_#F97316]' : ''}`}
                         title={col.system && !props.fixedColumns ? `${col.label} (시트 열)` : col.label}
                       >
@@ -1418,10 +1431,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               onMouseEnter={() => onCellMouseEnter(r, c)}
                               onDoubleClick={() => startEdit()}
                               onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                              style={{ boxShadow: cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)) }}
+                              style={{ boxShadow: [cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), emphasisOutline(c, false, r === rows.length - 1)].filter(Boolean).join(', ') || undefined }}
                               className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
                                 inRange && (!isActive || sel?.t !== 'cells') ? 'bg-accent-soft' : ''
-                              } ${col.id === 'name' ? 'font-medium text-label' : ''} ${col.emphasis && !(inRange && (!isActive || sel?.t !== 'cells')) ? 'bg-accent/[0.12]' : ''}`}
+                              } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
                             >
                               <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
                                 {custom !== undefined ? (
