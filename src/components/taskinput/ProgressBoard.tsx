@@ -140,9 +140,9 @@ import SheetImportPanel from '../work/SheetImportPanel'
 import { AppProvider } from '../../state/AppContext'
 import { useAppMode } from '../../state/AppMode'
 import { useGoogleAccount } from '../../hooks/useGoogleAccount'
-import EvaluationPeriodPicker from '../EvaluationPeriodPicker'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
+import { accessUserOf } from '../../utils/accessSheet'
 import { KanbanBoard, TimelineView, ALL_FILTER, ViewFilterBar, scheduleListOf, type ViewFilter } from './BoardViews'
 import ScheduleTable, { CellSwatch, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
@@ -289,9 +289,17 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [exportOpen, setExportOpen] = useState(false) // 성과관리 과제리스트로 내보내기 창
   const { setMode } = useAppMode()
   // 보낼 곳: 성과관리 프로젝트(팀 · 평가기간). 기본은 지금 성과관리에서 열려 있는 것, 없으면 최근에 고친 것
-  const { workspaces, currentWorkspaceId, teamNames } = useWorkspaces()
+  const { workspaces, currentWorkspaceId, teamNames, openOrCreateEvaluation, deleteWorkspace } = useWorkspaces()
   const [exportTo, setExportTo] = useState<string>('')
-  const [exportTeam, setExportTeam] = useState<string>('') // 평가가 아직 없을 때 여기서 바로 만들 팀 이름
+  const [exportTeam, setExportTeam] = useState<string>('') // 평가가 아직 없을 때 여기서 바로 만들 팀 이름(기본 = 로그인한 팀장의 팀)
+  const draftWs = useRef<string | null>(null) // 이 창에서 방금 만든 평가 -- 내보내지 않고 닫으면 지운다
+  function closeExport() {
+    if (draftWs.current) {
+      deleteWorkspace(draftWs.current)
+      draftWs.current = null
+    }
+    setExportOpen(false)
+  }
   // 내보내기 창이 읽는 추진현황(저장 안 한 변경 포함) -- 창을 연 동안 같은 것을 쓴다
   const exportSource = useMemo(() => (exportOpen && data ? { data, drafts } : null), [exportOpen]) // eslint-disable-line react-hooks/exhaustive-deps
   const defaultTarget = currentWorkspaceId ?? [...workspaces].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? ''
@@ -3142,42 +3150,60 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             />
           )}
         </div>
-        {exportOpen && workspaces.length === 0 && (
-          // 보낼 평가가 아직 없으면 화면을 옮기지 않고 이 창에서 바로 평가를 만든 뒤 이어서 보낸다(처음 쓰는 사람도 막히지 않게)
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={() => setExportOpen(false)}>
-            <div className="w-[min(460px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
-                <IconButton onClick={() => setExportOpen(false)} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
-                  <X {...ic} />
-                </IconButton>
-              </div>
-              <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.
-              </p>
-              <label className="mt-4 block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀 이름</label>
-              <input
-                type="text"
-                value={exportTeam || teamNames[0] || ''}
-                onChange={(e) => setExportTeam(e.target.value)}
-                placeholder="예: 브랜드디자인팀"
-                className="mt-1 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
-              />
-              {(exportTeam || teamNames[0] || '').trim() ? (
-                <div className="mt-4">
-                  <EvaluationPeriodPicker
-                    key={(exportTeam || teamNames[0] || '').trim()}
-                    teamName={(exportTeam || teamNames[0] || '').trim()}
-                    defaultYear={data.year ?? undefined}
-                    onDone={(id) => setExportTo(id)}
-                  />
+        {exportOpen && workspaces.length === 0 && (() => {
+          // 팀 이름만 고칠 수 있고, 연도 · 상반기/하반기는 지금 기준으로 채운다. 내보내지 않고 닫으면 만든 평가는 지워진다.
+          const leaderTeam = (accessUserOf(getConnectedEmail())?.team ?? '').trim()
+          const teamValue = exportTeam || leaderTeam || teamNames[0] || ''
+          const evalYear = data.year ?? new Date().getFullYear()
+          const half = new Date().getMonth() < 6 ? { code: 'H1', label: '상반기' } : { code: 'H2', label: '하반기' }
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={closeExport}>
+              <div className="w-[min(460px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
+                  <IconButton onClick={closeExport} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
+                    <X {...ic} />
+                  </IconButton>
                 </div>
-              ) : (
-                <p className="mt-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">팀 이름을 적으면 평가기간을 고를 수 있습니다.</p>
-              )}
+                <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.</p>
+                <div className="mt-4 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+                  <input
+                    type="text"
+                    value={teamValue}
+                    onChange={(e) => setExportTeam(e.target.value)}
+                    placeholder="팀 이름"
+                    aria-label="팀 이름"
+                    className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 font-semibold text-label"
+                  />
+                  <span className="shrink-0 font-semibold text-label">
+                    {evalYear} {half.label}
+                  </span>
+                </div>
+                <div className="mt-5 flex justify-end gap-2">
+                  <Button variant="secondary" size="sm" onClick={closeExport}>
+                    취소
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!teamValue.trim()}
+                    onClick={() => {
+                      const r = openOrCreateEvaluation(teamValue.trim(), {
+                        evaluationYear: evalYear,
+                        evaluationCycle: 'half',
+                        evaluationPeriodCode: half.code,
+                        periodLabel: half.label,
+                      })
+                      if (r.created) draftWs.current = r.id
+                      setExportTo(r.id)
+                    }}
+                  >
+                    만들고 내보내기
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
         {exportOpen && workspaces.length > 0 && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
@@ -3211,7 +3237,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     )}
                   </div>
                 </div>
-                <IconButton onClick={() => setExportOpen(false)} aria-label="닫기" className="shrink-0">
+                <IconButton onClick={closeExport} aria-label="닫기" className="shrink-0">
                   <X {...ic} />
                 </IconButton>
               </div>
@@ -3224,8 +3250,9 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       progress={exportSource}
                       verb="export"
                       initialL1s={l1 ? [l1] : undefined}
-                      onCancel={() => setExportOpen(false)}
+                      onCancel={closeExport}
                       onDone={() => {
+                        draftWs.current = null
                         setExportOpen(false)
                         setMode('perf')
                       }}
