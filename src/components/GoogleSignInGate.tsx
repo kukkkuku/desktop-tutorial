@@ -100,23 +100,10 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
   const working = busy !== null
 
   return (
-    // 왼쪽 일러스트 판 + 오른쪽 로그인 폼(좁은 화면에서는 폼만)
-    <div className="flex min-h-screen bg-white">
-      <div className="hidden flex-1 basis-0 items-center justify-center bg-[#F5F4F1] lg:flex">
-        <img src={`${import.meta.env.BASE_URL}login-art.png`} alt="" className="w-full max-w-[640px]" />
-      </div>
-      <div className="flex flex-1 basis-0 items-center justify-center px-6 py-12">
-      <div className="w-full max-w-[380px] text-left">
-        <div className="flex items-center gap-2.5">
-          <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">
-            <circle cx="16" cy="16" r="16" fill="#F0873A" />
-            <circle cx="11.2" cy="13.2" r="1.7" fill="#fff" />
-            <circle cx="20.8" cy="13.2" r="1.7" fill="#fff" />
-            <path d="M10.5 18.6c1.6 2 3.2 2.8 5.5 2.8s3.9-.8 5.5-2.8" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" />
-          </svg>
-          <span className="text-[length:calc(26px*var(--ui-fs,1))] font-extrabold tracking-tight text-label">pace</span>
-        </div>
-        <h1 className="mt-6 text-[length:calc(30px*var(--ui-fs,1))] font-extrabold leading-tight tracking-tight text-label">페이스</h1>
+    <div className="flex min-h-screen items-center justify-center bg-window px-4">
+      <div className="w-full max-w-md rounded-[12px] bg-white px-10 py-12 text-center shadow-dialog">
+        <img src={`${import.meta.env.BASE_URL}login-faces.png`} alt="" className="mx-auto h-10 w-auto" />
+        <h1 className="mt-3 text-[length:calc(26px*var(--ui-fs,1))] font-semibold tracking-tight text-label">페이스</h1>
         <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제 입력과 과제관리. 일의 과정이 쌓여, 사람의 성장을 만듭니다.</p>
 
         {/* 이 브라우저에 마지막 로그인 계정이 남아 있으면 그 계정으로 바로
@@ -131,7 +118,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
               variant="primary"
               onClick={() => handleStart(false)}
               disabled={working}
-              className="mt-3 h-12 w-full !rounded-[12px] text-[length:calc(15px*var(--ui-fs,1))]"
+              className="mt-3 h-10 w-full text-[length:calc(14px*var(--ui-fs,1))]"
             >
               {busy === 'same' && <Spinner className="h-4 w-4 text-white" />}
               {busy === 'same' ? '연결하는 중...' : '이 계정으로 계속'}
@@ -139,7 +126,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             <button
               onClick={() => handleStart(true)}
               disabled={working}
-              className="mt-3 w-full text-center text-[length:calc(14px*var(--ui-fs,1))] text-accent hover:underline disabled:opacity-50"
+              className="mt-3 w-full text-[length:calc(14px*var(--ui-fs,1))] text-accent hover:underline disabled:opacity-50"
             >
               {busy === 'other' ? '계정 선택 중...' : '다른 계정으로 로그인'}
             </button>
@@ -149,7 +136,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             variant="primary"
             onClick={() => handleStart(false)}
             disabled={working || !configured}
-            className="mt-8 h-12 w-full !rounded-[12px] text-[length:calc(15px*var(--ui-fs,1))]"
+            className="mt-8 h-10 w-full text-[length:calc(14px*var(--ui-fs,1))]"
           >
             {busy === 'same' && <Spinner className="h-4 w-4 text-white" />}
             {busy === 'same' ? '연결하는 중...' : 'Google 계정으로 시작'}
@@ -157,7 +144,7 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
         )}
 
         {configured && (
-          <label className="mt-5 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+          <label className="mt-5 flex items-center justify-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
             <input
               type="checkbox"
               checked={keepLogin}
@@ -196,7 +183,6 @@ export default function GoogleSignInGate({ children }: GoogleSignInGateProps) {
             </p>
           </div>
         )}
-      </div>
       </div>
     </div>
   )
