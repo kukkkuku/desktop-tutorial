@@ -29,8 +29,6 @@ document.querySelectorAll('[data-who]').forEach(e=>{if(!ok(e.dataset.who))e.clas
 document.querySelectorAll('a[href$=".html"]').forEach(a=>{a.href=a.getAttribute('href')+'?role='+role+(a.hash||'')});
 let n=0;document.querySelectorAll('.chapter:not(.role-hide)').forEach(s=>{n++;const e=s.querySelector('.eyebrow');if(e)e.innerHTML=e.innerHTML.replace(/Chapter [0-9]+/,'Chapter '+String(n).padStart(2,'0'))});
 n=0;document.querySelectorAll('nav a:not(.role-hide) .nav-no').forEach(x=>{x.textContent=String(++n).padStart(2,'0')});
-const nav=document.getElementById('chapter-nav');if(nav){const L={admin:'관리자',leader:'팀장',member:'팀원'}[role]||role;const b=document.createElement('p');b.className='role-note';b.innerHTML='<b>'+L+'</b>에게 필요한 장만 보는 중 · <a href="#" id="role-all">모두 보기</a>';nav.parentNode.insertBefore(b,nav);document.getElementById('role-all').onclick=ev=>{ev.preventDefault();document.querySelectorAll('.role-hide').forEach(e=>e.classList.remove('role-hide'));b.remove()}}
-if(role==='member'&&location.pathname.endsWith('perf.html')){document.getElementById('content').insertAdjacentHTML('afterbegin','<p class="role-note" style="margin:0 0 16px">성과관리 매뉴얼은 팀장 · 관리자용입니다. 모두 보려면 왼쪽 「모두 보기」를 누르세요.</p>')}
 })()</script>
 </body>
 </html>
