@@ -332,7 +332,7 @@ export default function SheetImportPanel({
                   {countDrafts(progress.drafts) > 0 && <span className="shrink-0 text-orange-600">· 저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>}
                 </span>
               </div>
-              {groups.length > 0 && (
+              {groups.length > 0 && !result && (
                 <label className="flex cursor-pointer items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                   <input
                     type="checkbox"
