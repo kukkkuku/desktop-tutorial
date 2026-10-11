@@ -706,7 +706,6 @@ export default function WorkspaceLanding() {
                   onChange={(e) => setRenamePeriodName(e.target.value)}
                   className="h-8 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] mt-1 w-full text-label"
                 />
-                <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">화면에 보이는 이름만 바뀝니다. 연도/주기 값은 유지됩니다.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

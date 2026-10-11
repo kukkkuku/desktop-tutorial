@@ -843,16 +843,6 @@ export default function MembersPanel({
 
   return (
     <div className="space-y-4">
-      <p className="flex max-w-4xl items-center gap-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-        {scope === 'all'
-          ? '관리자 · 팀장 · 팀원의 역할과 팀을 정합니다.'
-          : scope === 'leaders'
-          ? '관리자 · 팀장을 정합니다.'
-          : isAdmin
-            ? '모든 팀의 팀원입니다. 팀 · 역할을 바로 바꿀 수 있습니다.'
-            : '우리 팀 팀원을 추가하고 초대 메일을 보냅니다.'}
-      </p>
-
       {/* 팀 이름이 평가 목록과 관리에서 다르면 어느 쪽으로 맞출지 고른다 */}
       {(() => {
         const mine = data.users.find((u) => u.email === me)

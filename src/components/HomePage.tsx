@@ -71,7 +71,7 @@ export default function HomePage() {
       <main className="w-full max-w-5xl flex-1 px-6 pb-10 pt-6 lg:px-8">
         <h2 className="text-[length:calc(24px*var(--ui-fs,1))] font-semibold tracking-[-0.02em] text-label">무엇을 할까요?</h2>
         <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'} · 처음이면 카드의 매뉴얼에서 준비할 데이터부터 보세요.
+          {accountEmail ? `${accountEmail} · ${ROLE_LABEL[role]}` : '구글 로그인 없이 쓰는 중'}
         </p>
 
         <div className={`mt-8 grid gap-5 ${canPerf ? 'sm:grid-cols-2' : 'max-w-[460px]'}`}>
