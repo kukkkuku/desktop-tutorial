@@ -46,7 +46,7 @@ import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { AlertTriangle, Check, ExternalLink, X } from 'lucide-react'
+import { AlertTriangle, Check, ExternalLink } from 'lucide-react'
 import SheetsIcon from '../SheetsIcon'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
@@ -91,14 +91,13 @@ export default function SheetImportPanel({
   onLoadedChange,
   initialUrl,
   source = 'sheet',
-  onNaturalWidth,
   initialL1s,
   progress: progressProp,
   verb = 'import',
 }: Props) {
   const V =
     verb === 'export'
-      ? { go: '내보내기', done: '내보냈습니다', doing: '내보냅니다', badge: '내보냄' }
+      ? { go: '보내기', done: '보냈습니다', doing: '보냅니다', badge: '보냄' }
       : { go: '가져오기', done: '가져왔습니다', doing: '가져옵니다', badge: '가져옴' }
   const progress = source === 'progress' ? (progressProp ?? null) : null
   const { state, dispatch } = useAppState()
@@ -252,14 +251,9 @@ export default function SheetImportPanel({
     return Array.from(m.entries())
   }, [groups])
   const [activeL1, setActiveL1] = useState<string | null>(null)
-  const measureRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = measureRef.current
-    if (el && onNaturalWidth) onNaturalWidth(Math.ceil(el.getBoundingClientRect().width))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [l1Tabs.map(([l1]) => l1).join('|'), selected, activeL1])
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
   const [confirming, setConfirming] = useState(false)
+  const [detailOpen, setDetailOpen] = useState<Set<string>>(new Set()) // 「상세 보기」를 펼친 분류
 
   function toggle(names: string[], on: boolean) {
     const next = new Set(selected)
@@ -328,38 +322,34 @@ export default function SheetImportPanel({
     <div className="flex min-h-full flex-col">
       {source === 'progress' ? (
         <div>
-          <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '추진현황 과제 내보내기' : '추진현황에서 과제 가져오기'}</h3>
-          <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">{verb === 'export' ? '내보낼 L1/L2 분류를 고르세요.' : '가져올 L1/L2 분류를 고르세요.'}</p>
           {progress ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-              <SheetsIcon className="h-4 w-3.5 shrink-0" />
-              <span className="font-semibold">
-                {progress.data.fileTitle ? (
-                  <>
-                    {progress.data.fileTitle}
-                    <span className="font-normal text-label-3"> › </span>
-                    {progress.data.tabTitle}
-                  </>
-                ) : (
-                  progress.data.source
+            <>
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                <SheetsIcon className="h-4 w-3.5 shrink-0" />
+                <span>{progress.data.fileTitle ? `${progress.data.fileTitle} / ${progress.data.tabTitle}` : progress.data.source}</span>
+                {countDrafts(progress.drafts) > 0 && <span className="text-orange-600">· 저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>}
+              </p>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '보낼 과제 선택' : '가져올 과제 선택'}</h3>
+                {groups.length > 0 && (
+                  <label className="flex cursor-pointer items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                    <input
+                      type="checkbox"
+                      checked={groups.length > 0 && groups.every((g) => selected.has(g.name))}
+                      onChange={(e) => toggle(groups.map((g) => g.name), e.target.checked)}
+                    />
+                    분류 전체 선택
+                  </label>
                 )}
-              </span>
-              <span className="text-label-3">·</span>
-              <span>L2 분류 {groups.length}개</span>
-              {countDrafts(progress.drafts) > 0 && (
-                <>
-                  <span className="text-label-3">·</span>
-                  <span className="text-orange-600">저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>
-                </>
-              )}
-            </p>
+              </div>
+              <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
+                선택한 과제의 하위 과제도 함께 {verb === 'export' ? '보내요' : '가져와요'}.
+              </p>
+            </>
           ) : (
-            <p className="mt-3 rounded-card bg-black/[0.04] px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+            <p className="rounded-card bg-black/[0.04] px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               아직 과제 입력 › 추진현황을 불러온 적이 없습니다. 맨 위 「과제 입력」에서 추진현황을 먼저 불러와 주세요.
             </p>
-          )}
-          {progress && board.sheetLink && (
-            <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">앱에서 고친 칸과 지운 행은 유지합니다. 선택을 뺀 L2의 기존 과제는 지우지 않습니다.</p>
           )}
         </div>
       ) : source === 'sheet' ? (
@@ -538,19 +528,6 @@ export default function SheetImportPanel({
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
           <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-white">
-            {/* 한 줄로 늘어놓았을 때의 폭을 재는 보이지 않는 복사본(창 폭을 탭에 맞추는 데 씀) */}
-            <div aria-hidden className="pointer-events-none invisible absolute left-0 top-0 h-0 overflow-hidden">
-              <div ref={measureRef} className="flex w-max items-end gap-6 px-4">
-                {l1Tabs.map(([l1, gs]) => {
-                  const picked = gs.filter((g) => selected.has(g.name)).length
-                  return (
-                    <span key={l1} className="flex items-center gap-1.5 whitespace-nowrap pb-2.5 pt-1 text-[length:calc(14px*var(--ui-fs,1))] font-semibold">
-                      {l1} <span>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
-                    </span>
-                  )
-                })}
-              </div>
-            </div>
             {/* 앱 공통 탭 모양(과제 입력 그룹 탭과 같음): 말줄임, 고른 탭은 이름이 다 보이고 흰 알약 */}
             <div className="px-3 py-2">
               <PillTabs
@@ -571,63 +548,55 @@ export default function SheetImportPanel({
                 const on = selected.has(g.name)
                 const already = board.groups.some((bg) => bg.name === g.name)
                 return (
-                  <label key={g.name} className={`flex cursor-pointer gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
-                    <input type="checkbox" className="mt-0.5 shrink-0" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} />
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-x-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+                  <div key={g.name} className={`flex gap-3 px-4 py-4 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
+                    <input type="checkbox" className="mt-1 shrink-0 cursor-pointer" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} aria-label={`${g.name} 선택`} />
+                    <div className="min-w-0 flex-1">
+                      <label className="flex cursor-pointer flex-wrap items-baseline gap-x-2 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
-                        {g.tag ? ` [${g.tag}]` : ''}
+                        {g.tag && <span className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">{g.tag}</span>}
                         {already && <span className="mac-badge bg-success/15 text-success">{V.badge}</span>}
                         {g.inferred && (
-                          <span className="text-[length:calc(14px*var(--ui-fs,1))] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
+                          <span className="text-[length:calc(13px*var(--ui-fs,1))] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
                             H/L1 추정
                           </span>
                         )}
-                      </span>
-                      <span className="mt-1 block text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                        L3 하위과제 {g.count}개{g.assignees.length > 0 && ` · 담당자 ${g.assignees.join(', ')}`}
-                        {g.teams.length > 0 && <span className="text-label-3"> · {g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}</span>}
-                      </span>
-                      <span className="mt-2 block truncate border-l-2 border-warning/50 pl-3 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                        {g.l3Names.slice(0, 4).join(' · ')}
-                        {g.l3Names.length > 4 && ` 외 ${g.l3Names.length - 4}개`}
-                      </span>
-                    </span>
-                  </label>
+                      </label>
+                      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">하위 과제 {g.count}개</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = new Set(detailOpen)
+                          if (next.has(g.name)) next.delete(g.name)
+                          else next.add(g.name)
+                          setDetailOpen(next)
+                        }}
+                        className="mt-2 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3 hover:text-label-2"
+                        aria-expanded={detailOpen.has(g.name)}
+                      >
+                        <span className={`inline-block text-[10px] transition-transform ${detailOpen.has(g.name) ? 'rotate-90' : ''}`}>▶</span> 상세 보기
+                      </button>
+                      {detailOpen.has(g.name) && (
+                        <div className="mt-2 space-y-1.5 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                          {g.assignees.length > 0 && <p>담당자 {g.assignees.join(', ')}</p>}
+                          {g.teams.length > 0 && <p className="text-label-3">{g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}</p>}
+                          <p className="text-label">
+                            {g.l3Names.slice(0, 8).join(' · ')}
+                            {g.l3Names.length > 8 && ` 외 ${g.l3Names.length - 8}개`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )
               })}
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-3 border-t border-separator bg-white pb-1 pt-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                선택한 시트 L2 분류 {selectedGroups.length}개{selectedGroups.length > 0 && ` · L3 ${importRows.length}건`}
-              </p>
-              {selectedGroups.length > 0 && (
-                <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
-                  {selectedGroups.map((g) => (
-                    <span
-                      key={g.name}
-                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
-                    >
-                      <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
-                        {g.name}
-                        {g.tag ? ` [${g.tag}]` : ''}
-                      </button>
-                      <button
-                        onClick={() => toggle([g.name], false)}
-                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
-                        aria-label={`${g.name} 선택 해제`}
-                        title="선택 해제"
-                      >
-                        <X size={12} strokeWidth={2} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="sticky bottom-0 mt-3 flex flex-wrap items-center gap-3 border-t border-separator bg-white pb-1 pt-4">
+            <p className="min-w-0 flex-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+              과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
+              {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
+            </p>
             <span className="ml-auto flex gap-2">
               {onCancel && (
                 <Button variant="secondary" onClick={onCancel}>
@@ -635,7 +604,7 @@ export default function SheetImportPanel({
                 </Button>
               )}
               <Button variant="primary" onClick={() => setConfirming(true)} disabled={importRows.length === 0}>
-                선택 과제 {V.go}
+                {selectedGroups.length}개 과제 {V.go}
               </Button>
             </span>
           </div>

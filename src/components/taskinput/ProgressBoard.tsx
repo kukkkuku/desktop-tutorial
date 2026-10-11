@@ -3160,7 +3160,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={closeExport}>
               <div className="w-[min(460px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
+                  <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
                   <IconButton onClick={closeExport} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
                     <X {...ic} />
                   </IconButton>
@@ -3207,10 +3207,10 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {exportOpen && workspaces.length > 0 && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-            <div className="flex h-[min(900px,92vh)] w-[min(1180px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+            <div className="flex max-h-[92vh] w-[min(760px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
               <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
                 <div className="min-w-0">
-                  <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
+                  <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
                     <span className="font-semibold text-label-2">보낼 곳</span>
                     {workspaces.length > 0 ? (
@@ -3222,8 +3222,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       >
                         {workspaces.map((w) => (
                           <option key={w.id} value={w.id}>
-                            {w.teamName} {w.evaluationYear} {w.periodName}
-                            {w.id === currentWorkspaceId ? ' (지금 열린 평가)' : ''}
+                            {w.teamName} · {w.evaluationYear} {w.periodName}
                           </option>
                         ))}
                       </Select>
