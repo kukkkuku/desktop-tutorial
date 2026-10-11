@@ -1434,7 +1434,14 @@ export default function ScheduleTable({
   // 칸 글자 고치기 중(더블클릭 · Enter · 타이핑) -- 한 칸만 골랐을 때 서식 막대는 이때만
   // (막대의 크기 칸을 누르면 입력기가 초점을 잃으므로, 한 번 고치기 시작하면 다른 칸을 고를 때까지 유지)
   const [textEdit, setTextEditState] = useState(false)
-  const setTextEdit = (on: boolean) => on && setTextEditState(true)
+  // 고치기를 끝내면(Enter · 바깥 클릭 · Esc) 서식 막대도 닫는다. 막대의 입력칸(크기)으로 초점이 옮겨 간 경우만 유지
+  const setTextEdit = (on: boolean) => {
+    if (on) return setTextEditState(true)
+    window.setTimeout(() => {
+      const a = document.activeElement as HTMLElement | null
+      if (!a?.closest('[data-keep-sel]')) setTextEditState(false)
+    }, 0)
+  }
   useEffect(() => setTextEditState(false), [sel?.row, sel?.id])
   // 구분(L2) 열 전체(머리글을 눌렀을 때): 모든 구분 칸에 서식
   const [l2Col, setL2Col] = useState(false)
