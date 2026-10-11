@@ -3153,7 +3153,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 </IconButton>
               </div>
               <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                성과관리에 아직 평가가 없습니다. 팀 이름과 평가기간을 정하면 여기서 바로 평가를 만들고, 이어서 과제를 보낼 수 있습니다.
+                평가가 없습니다. 팀과 기간을 정해 만드세요.
               </p>
               <label className="mt-4 block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀 이름</label>
               <input
