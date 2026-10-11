@@ -40,7 +40,7 @@ function versionFile(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
-  base: command === 'build' ? (process.env.VITE_BASE_PATH ?? '/desktop-tutorial/') : '/',
+  base: command === 'build' ? (process.env.VITE_BASE_PATH ?? '/') : '/',
   plugins: [react(), versionFile()],
   define: { __APP_BUILD__: JSON.stringify(BUILD_ID) },
 }))

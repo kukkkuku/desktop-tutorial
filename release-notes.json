@@ -2,6 +2,7 @@
   {
     "date": "2026-10-08",
     "items": [
+      "저장소 이름을 kukkkuku.github.io 로 바꿈에 따라 주소 변경: 정식 버전은 https://kukkkuku.github.io/ , 새 디자인 미리보기는 https://kukkkuku.github.io/pace/",
       "과제관리: 띄엄띄엄 고른 행의 외곽선을 가장 바깥 선만 남기도록 정리(붙어 있는 행은 한 덩어리)",
       "과제 보내기 완료 화면에서 「분류 전체 선택」 숨김",
       "미리보기 주소를 앱 이름(PACE)에 맞게 /pace/ 로 변경(이전 /preview-face/ 주소는 사라짐)",
