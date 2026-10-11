@@ -1,18 +1,16 @@
 import { errText } from '../../utils/googleError'
 import { useEffect, useRef, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { AlertTriangle, CalendarCheck, FoldHorizontal, FileText, Pencil, Trash2, X } from 'lucide-react'
+import { AlertTriangle, FoldHorizontal, FileText, MessageSquareText } from 'lucide-react'
 import { useAppState } from '../../state/AppContext'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import type { MeetingNote, TeamMember } from '../../types'
 import { createCalendarEvent, deleteCalendarEvent, isCalendarConfigured, updateCalendarEvent } from '../../utils/googleCalendar'
 import ConfirmDialog from '../ConfirmDialog'
-import Badge from '../Badge'
-import Button from '../Button'
 import CollapseToggleButton from '../CollapseToggleButton'
 import DatePicker from '../DatePicker'
 import IconButton from '../IconButton'
-import MoodIcon, { MOOD_OPTIONS } from './MoodIcon'
+import MoodIcon, { MOOD_OPTIONS, moodColor } from './MoodIcon'
 import MeetingPaperModal from './MeetingPaperModal'
 import type { MeetingInsight } from '../../utils/meetingInsights'
 import { ic, icSm } from '../ui/icon'
@@ -63,11 +61,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
   const [careerGoal, setCareerGoal] = useState('')
 
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [pastOpen, setPastOpen] = useState(false)
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
-  const [editDate, setEditDate] = useState('')
-  const [editComment, setEditComment] = useState('')
-  const [editMood, setEditMood] = useState<string | null>(null)
+  // 레일에서 고른 지난 면담(입력 영역에 불러와 수정하기 · 삭제). null이면 새로 쓰는 중
+  const [loadedId, setLoadedId] = useState<string | null>(null)
   const [deletingNote, setDeletingNote] = useState<MeetingNote | null>(null)
   // 캘린더 등록/수정 실패는 면담 기록 저장 자체를 막지는 않지만, 콘솔에만
   // 조용히 남기면 왜 캘린더에 안 뜨는지 알 방법이 없다 -- 화면에도 보여준다.
@@ -98,8 +93,7 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
     setNextExperience('')
     setCareerGoal('')
     setDetailsOpen(false)
-    setPastOpen(false)
-    setEditingNoteId(null)
+    setLoadedId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId])
 
@@ -140,16 +134,56 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
     setCareerGoal('')
   }
 
-  function saveEdit(note: MeetingNote) {
-    if (!editDate || !editComment.trim()) return
-    const updated: MeetingNote = { ...note, date: editDate, comment: editComment.trim(), mood: editMood ?? undefined }
+  function clearForm() {
+    setLoadedId(null)
+    setDate(todayStr)
+    setComment('')
+    setMood(null)
+    setStrengths('')
+    setImprovements('')
+    setNextExperience('')
+    setCareerGoal('')
+    setDetailsOpen(false)
+  }
+
+  // 레일에서 지난 면담을 누르면 그 내용이 입력 영역에 들어온다(같은 걸 다시 누르면 새로 쓰기로 돌아감)
+  function loadNote(n: MeetingNote) {
+    if (loadedId === n.id) {
+      clearForm()
+      return
+    }
+    setLoadedId(n.id)
+    setDate(n.date)
+    setComment(n.comment)
+    setMood(n.mood ?? null)
+    setStrengths(n.strengths ?? '')
+    setImprovements(n.improvements ?? '')
+    setNextExperience(n.nextExperience ?? '')
+    setCareerGoal(n.careerInterest ?? '')
+    setDetailsOpen(Boolean(n.strengths || n.improvements || n.nextExperience || n.careerInterest))
+    requestAnimationFrame(() => commentRef.current?.focus())
+  }
+
+  function saveLoaded() {
+    const note = notes.find((n) => n.id === loadedId)
+    if (!note || !date || !comment.trim()) return
+    const updated: MeetingNote = {
+      ...note,
+      date,
+      comment: comment.trim(),
+      mood: mood ?? undefined,
+      strengths: strengths.trim() || undefined,
+      improvements: improvements.trim() || undefined,
+      nextExperience: nextExperience.trim() || undefined,
+      careerInterest: careerGoal.trim() || undefined,
+    }
     dispatch({ type: 'UPDATE_MEETING_NOTE', payload: updated })
-    setEditingNoteId(null)
+    clearForm()
     setCalendarError(null)
     if (!isCalendarConfigured()) return
     if (updated.calendarEventId) {
-      if (editDate >= todayStr) {
-        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date: editDate, comment: updated.comment, teamName }).catch((err) => {
+      if (date >= todayStr) {
+        void updateCalendarEvent(updated.calendarEventId, { memberName: member.name, date, comment: updated.comment, teamName }).catch((err) => {
           console.warn('캘린더 일정 수정 실패:', err)
           setCalendarError(errText(err, '캘린더 일정 수정에 실패했습니다.'))
         })
@@ -158,8 +192,8 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         void deleteCalendarEvent(updated.calendarEventId, teamName)
         dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: undefined } })
       }
-    } else if (editDate >= todayStr) {
-      createCalendarEvent({ memberName: member.name, date: editDate, comment: updated.comment, teamName })
+    } else if (date >= todayStr) {
+      createCalendarEvent({ memberName: member.name, date, comment: updated.comment, teamName })
         .then((eventId) => dispatch({ type: 'UPDATE_MEETING_NOTE', payload: { ...updated, calendarEventId: eventId } }))
         .catch((err) => {
           console.warn('캘린더 일정 등록 실패:', err)
@@ -254,13 +288,31 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         >
           면담용지
         </button>
+        {loadedId && (
+          <>
+            <button
+              type="button"
+              onClick={clearForm}
+              className="flex h-8 items-center justify-center rounded-[18px] border border-[#ececef] bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] text-label shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:text-accent"
+            >
+              새로 쓰기
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeletingNote(notes.find((n) => n.id === loadedId) ?? null)}
+              className="flex h-8 items-center justify-center rounded-[18px] border border-danger/30 bg-white px-3 text-[length:calc(13px*var(--ui-fs,1))] text-danger shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:bg-danger/[0.06]"
+            >
+              삭제
+            </button>
+          </>
+        )}
         <button
           type="button"
-          onClick={handleSave}
+          onClick={loadedId ? saveLoaded : handleSave}
           disabled={!comment.trim()}
           className="flex h-8 min-w-[76px] items-center justify-center rounded-[18px] bg-accent px-3 text-[length:calc(13px*var(--ui-fs,1))] text-white shadow-[0_3px_7px_rgba(0,0,0,0.05)] hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-[#adadad]"
         >
-          작성하기
+          {loadedId ? '수정하기' : '작성하기'}
         </button>
       </div>
       {insightsBlock && <div className="mt-[9px] shrink-0">{insightsBlock}</div>}
@@ -343,160 +395,15 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
     </div>
   )
 
-  const historyBlock = (
-    <div>
-      {/* 면담 기록 -- Figma의 timeline-list: 세로선 + 분위기 이모지 노드로
-          기록을 훑어볼 수 있게 한다. 기본 접힘, 필요할 때만 펼침. */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <CollapseToggleButton collapsed={!pastOpen} onClick={() => setPastOpen((v) => !v)} label="면담 기록" />
-        <h4 className="text-[length:calc(12px*var(--ui-fs,1))] font-bold text-label">면담 기록</h4>
-        <span className="rounded-[12px] border border-[#dedee2] bg-[#f3f3f4] px-[5px] py-[2px] text-[length:calc(10px*var(--ui-fs,1))] text-[#72727e]">최근 {notes.length}건</span>
-      </div>
-
-      {pastOpen && (
-        <div className="mt-2">
-          {notes.length === 0 && <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">아직 면담 기록이 없습니다.</p>}
-          {notes.map((note, i) =>
-            editingNoteId === note.id ? (
-              <div key={note.id} className="flex items-stretch gap-4 pb-4">
-                {/* 수정 중에도 타임라인 인디케이터(분위기 아이콘/점 + 세로선)는
-                    그대로 둔다 -- 편집 폼으로 바뀌었다고 위치 감각이
-                    사라지면 안 된다. */}
-                <div className="flex w-5 shrink-0 flex-col items-center">
-                  {note.mood ? (
-                    <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-subtle ring-1 ring-separator">
-                      <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
-                    </span>
-                  )}
-                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <DatePicker value={editDate} onChange={setEditDate} ariaLabel="면담 일자" clearable={false} />
-                    <div className="flex shrink-0 items-center gap-1">
-                      <IconButton onClick={() => setEditingNoteId(null)} title="취소" aria-label="취소">
-                        <X {...ic} />
-                      </IconButton>
-                      <span className="h-4 w-px bg-black/[0.08]" />
-                      <IconButton
-                        onClick={() => {
-                          setEditingNoteId(null)
-                          setDeletingNote(note)
-                        }}
-                        title="삭제"
-                        aria-label="삭제"
-                        tone="danger"
-                      >
-                        <Trash2 {...ic} />
-                      </IconButton>
-                    </div>
-                  </div>
-                  {/* 면담일지(작성 폼)와 똑같은 레이아웃 -- textarea 옆에
-                      기분 그리드 + 제출 버튼을 세로로 쌓는다. 버튼 라벨만
-                      "수정하기"로 바꾸고, 그 동작이 곧 저장이라 별도
-                      체크(저장) 아이콘은 두지 않는다. */}
-                  <div className="mt-2 flex flex-wrap items-stretch gap-4">
-                    <textarea
-                      value={editComment}
-                      onChange={(e) => setEditComment(e.target.value)}
-                      rows={3}
-                      className="py-1.5 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] min-h-[72px] min-w-[160px] flex-1 resize-y text-label"
-                    />
-                    <div className="flex shrink-0 flex-col items-center gap-2">
-                      <div className="grid grid-cols-3 gap-0.5">
-                        {MOOD_OPTIONS.map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setEditMood((v) => (v === opt.value ? null : opt.value))}
-                            title={opt.label}
-                            aria-label={opt.label}
-                            className={`flex items-center justify-center rounded-full p-0.5 transition-colors ${
-                              editMood === opt.value ? 'bg-accent-soft ring-2 ring-accent' : 'hover:bg-black/[0.03]'
-                            }`}
-                          >
-                            <MoodIcon mood={opt.value} className="h-5 w-5" />
-                          </button>
-                        ))}
-                      </div>
-                      <Button variant="primary" onClick={() => saveEdit(note)} disabled={!editComment.trim()} className="w-full">
-                        수정하기
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div key={note.id} className="flex items-stretch gap-4">
-                <div className="flex w-5 shrink-0 flex-col items-center">
-                  {note.mood ? (
-                    <MoodIcon mood={note.mood} className="h-5 w-5 shrink-0" />
-                  ) : (
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-subtle ring-1 ring-separator">
-                      <span className="h-1.5 w-1.5 rounded-full bg-black/20" />
-                    </span>
-                  )}
-                  {i < notes.length - 1 && <span className="mt-1 w-px flex-1 bg-black/[0.08]" />}
-                </div>
-                <div className="min-w-0 flex-1 pb-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <span className="text-[length:calc(14px*var(--ui-fs,1))] tabular-nums text-label">{note.date}</span>
-                      {i === 0 && <span className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">최근 면담</span>}
-                      {note.date > todayStr && <Badge tone="accent">예정</Badge>}
-                      {note.calendarEventId && (
-                        <span title="Google 캘린더에 등록됨" className="flex shrink-0 text-accent">
-                          <CalendarCheck {...icSm} />
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <IconButton
-                        onClick={() => {
-                          setEditingNoteId(note.id)
-                          setEditDate(note.date)
-                          setEditComment(note.comment)
-                          setEditMood(note.mood ?? null)
-                        }}
-                        title="수정"
-                        aria-label="수정"
-                      >
-                        <Pencil {...ic} />
-                      </IconButton>
-                      <span className="h-4 w-px bg-black/[0.08]" />
-                      <IconButton onClick={() => setDeletingNote(note)} title="삭제" aria-label="삭제" tone="danger">
-                        <Trash2 {...ic} />
-                      </IconButton>
-                    </div>
-                  </div>
-                  <div className="mt-0.5 space-y-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label">
-                    <p className="whitespace-pre-wrap break-words">{note.comment}</p>
-                    {note.strengths?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">강점 : {note.strengths}</p>}
-                    {note.improvements?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">보완 : {note.improvements}</p>}
-                    {note.nextExperience?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">다음도전 : {note.nextExperience}</p>}
-                    {note.careerInterest?.trim() && <p className="whitespace-pre-wrap break-words text-label-2">Career Goal : {note.careerInterest}</p>}
-                  </div>
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-      )}
-    </div>
-  )
-
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 gap-3">
+      <HistoryRail notes={notes} activeId={loadedId} onPick={loadNote} />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {splitLayout ? (
-        <div className="grid min-h-0 flex-1 grid-cols-2 gap-6">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6">
           {/* 왼쪽(인사이트·면담 기록)은 기본이 접힘이라 짧지만, 펼쳐서 기록이
               많아지면 이 칸 안에서만 스크롤한다 -- 카드 전체가 늘어나 오른쪽
               입력칸까지 같이 길어지지 않도록. */}
-          <div className="min-h-0 space-y-4 overflow-y-auto">
-            {historyBlock}
-          </div>
           <div className="flex min-h-0 flex-col">{logFormBlock}</div>
         </div>
       ) : (
@@ -505,10 +412,10 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
         // 펼치면 그만큼만 가져가고 나머지는 그대로 입력칸 몫이다.
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           {logFormBlock}
-          <div className="shrink-0">{historyBlock}</div>
         </div>
       )}
 
+      </div>
       {paperOpen && (
         <MeetingPaperModal
           name={member.name}
@@ -530,11 +437,51 @@ export default function MeetingForm({ member, focusToken, insights, paper, insig
           if (deletingNote) {
             if (deletingNote.calendarEventId) void deleteCalendarEvent(deletingNote.calendarEventId, teamName)
             dispatch({ type: 'DELETE_MEETING_NOTE', payload: { id: deletingNote.id } })
+            if (deletingNote.id === loadedId) clearForm()
           }
           setDeletingNote(null)
         }}
         onCancel={() => setDeletingNote(null)}
       />
+    </div>
+  )
+}
+
+// 면담 기록 레일: 말풍선 + 건수, 그 아래 면담마다 짧은 막대(분위기 색). 막대에 마우스를 올리면 날짜 · 내용 한 줄 · 「클릭하여 상세 보기」,
+// 누르면 전체 기록(수정 · 삭제) 창이 열린다.
+function HistoryRail({ notes, activeId, onPick }: { notes: MeetingNote[]; activeId: string | null; onPick: (n: MeetingNote) => void }) {
+  const [hover, setHover] = useState<string | null>(null)
+  return (
+    <div className="relative flex w-[72px] shrink-0 flex-col items-start gap-1.5 pt-[44px]">
+      <span title={`면담 기록 ${notes.length}건`} className="mb-1 flex items-center gap-2 px-1.5 py-1 text-label-2">
+        <MessageSquareText {...ic} />
+        <span className="text-[length:calc(14px*var(--ui-fs,1))] font-bold tabular-nums text-label">{notes.length}</span>
+      </span>
+      {notes.map((n) => {
+        const on = hover === n.id || activeId === n.id
+        return (
+          <div key={n.id} className="relative" onMouseEnter={() => setHover(n.id)} onMouseLeave={() => setHover((h) => (h === n.id ? null : h))}>
+            <button
+              type="button"
+              onClick={() => onPick(n)}
+              aria-label={`${n.date} 면담 기록 불러오기`}
+              className="flex h-4 w-[76px] items-center justify-start px-1.5"
+            >
+              <span
+                className="block h-[3px] rounded-full transition-all"
+                style={{ width: on ? 76 - 12 : 26, background: on ? '#18181B' : moodColor(n.mood) }}
+              />
+            </button>
+            {hover === n.id && (
+              <div className="mac-pop pointer-events-none absolute left-[calc(100%+6px)] top-1/2 z-40 w-[280px] -translate-y-1/2 px-4 py-3">
+                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-bold tabular-nums text-label">{n.date}</p>
+                <p className="mt-1 truncate text-[length:calc(13.5px*var(--ui-fs,1))] text-label-2">{n.comment.split('\n')[0]}</p>
+                <p className="mt-2 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-accent">클릭하여 상세 보기</p>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

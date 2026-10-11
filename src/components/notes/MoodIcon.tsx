@@ -96,6 +96,13 @@ interface MoodIconProps {
   className?: string
 }
 
+// 레일 막대 색: 분위기 색, 없으면 회색
+export function moodColor(mood?: string | null): string {
+  if (!mood) return '#D4D4D8'
+  const key = MOOD_COLORS[mood] ? mood : LEGACY_EMOJI_MAP[mood]
+  return key ? MOOD_COLORS[key].fg : '#D4D4D8'
+}
+
 export default function MoodIcon({ mood, className = 'h-8 w-8' }: MoodIconProps) {
   const key = MOOD_COLORS[mood] ? mood : LEGACY_EMOJI_MAP[mood]
   const colors = key ? MOOD_COLORS[key] : undefined
