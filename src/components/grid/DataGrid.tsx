@@ -907,6 +907,13 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     else if (d.kind === 'rows' && !d.moving && !d.pending) setSel({ t: 'rows', a: d.anchor, b: r })
   }
 
+  // 띄엄띄엄 고른 행: 붙어 있는 행끼리 하나로 묶어 가장 바깥 선만 그린다(kind: 번호칸 · 체크칸 · 나머지 칸)
+  function pickEdge(r: number, left: boolean, right: boolean) {
+    const on = (i: number) => !!rows[i] && pick.includes(rows[i].id)
+    const B = '#007AFF'
+    return [!on(r - 1) && `inset 0 2px 0 ${B}`, !on(r + 1) && `inset 0 -2px 0 ${B}`, left && `inset 2px 0 0 ${B}`, right && `inset -2px 0 0 ${B}`].filter(Boolean).join(', ') || undefined
+  }
+
   // ⌘/Ctrl 클릭 = 이 행을 고른 행에 넣거나 뺀다(띄엄띄엄 고르기)
   function togglePick(r: number) {
     const base = pick.length ? pick : sel?.t === 'rows' ? rows.slice(lo(sel.a, sel.b), hi(sel.a, sel.b) + 1).map((x) => x.id) : active && rows[active.r] ? [rows[active.r].id] : []
@@ -1406,7 +1413,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             onMouseDown={(e) => onRowHandleMouseDown(e, r)}
                             onMouseEnter={() => onCellMouseEnter(r, 0)}
                             onContextMenu={(e) => openMenu(e, 'row', r)}
-                            style={{ boxShadow: rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
+                            style={{ boxShadow: pick.length > 1 ? (rowSelected ? pickEdge(r, true, false) : undefined) : rowSelected ? rowShadow(sel, r, true, coveredTop(r)) : undefined }}
                             className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
                               rowSelected ? 'bg-accent-soft font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                             }`}
@@ -1424,7 +1431,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             onMouseDown={(e) => (noNum && (e.target as HTMLElement).tagName !== 'INPUT' ? onRowHandleMouseDown(e, r) : e.stopPropagation())}
                             onMouseEnter={noNum ? () => onCellMouseEnter(r, 0) : undefined}
                             onContextMenu={noNum ? (e) => openMenu(e, 'row', r) : undefined}
-                            style={{ boxShadow: rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
+                            style={{ boxShadow: pick.length > 1 ? (rowSelected ? pickEdge(r, noNum, false) : undefined) : rowSelected ? rowShadow(sel, r, noNum, coveredTop(r)) : undefined }}
                             className={`relative border-b border-r border-[#EBEBEF] text-center ${rowSelected ? 'bg-accent-soft' : ''} ${noNum ? 'cursor-pointer select-none hover:bg-black/[0.03]' : ''}`}
                             title={noNum ? '클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴' : check.title?.(row)}
                           >
@@ -1441,7 +1448,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                         )}
                         {columns.map((col, c) => {
                           const pickedRow = pick.length > 1 && pick.includes(row.id)
-                          const pickShadow = (cc: number) => ['inset 0 2px 0 #007AFF', 'inset 0 -2px 0 #007AFF', cc === 0 && 'inset 2px 0 0 #007AFF', cc === nC - 1 && 'inset -2px 0 0 #007AFF'].filter(Boolean).join(', ')
+                          const pickShadow = (cc: number) => pickEdge(r, false, cc === nC - 1)
                           const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
                           const isActive = active?.r === r && active?.c === c
                           const custom = props.renderCell?.(row, col)
