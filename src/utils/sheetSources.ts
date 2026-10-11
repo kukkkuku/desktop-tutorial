@@ -627,6 +627,8 @@ export async function replaceSheetTab(
     },
     // 고정 줄 · 열을 먼저 풀어 둔다(고정 경계에 걸친 병합은 구글이 400으로 거절한다)
     { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
+    // 기존 탭의 필터가 남아 있으면 그 머리줄 위에 세로 병합을 만들 수 없다고 거절하므로 필터도 먼저 푼다
+    { clearBasicFilter: { sheetId } },
     { unmergeCells: { range: { sheetId } } },
     { updateCells: { range: { sheetId }, fields: 'userEnteredValue,userEnteredFormat' } },
     ...build(sheetId),
