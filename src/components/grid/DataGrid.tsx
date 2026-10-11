@@ -245,6 +245,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 접힌 묶음 머리 행 선택(데이터 행이 화면에 없어 행 선택 범위로 못 나타냄)
   // 여러 개면 Shift/⌘ 클릭으로 추가한 것. ids = 고른 묶음들의 행 전체
   const [headSel, setHeadSel] = useState<{ keys: string[]; ids: string[] } | null>(null)
+  // ⌘/Ctrl로 띄엄띄엄 고른 행(id) -- 2개 이상이면 우클릭 메뉴(예: 평가과제로 묶기)가 이 행들에 적용된다
+  const [pick, setPick] = useState<string[]>([])
   // 번호 칸 너비(사용자가 조절, 브라우저에 기억)
   const [numW, setHandleW] = useState(() => {
     try {
@@ -580,9 +582,11 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   // 지운 뒤에도 그 자리(바로 아래 행)에 선택을 남겨 둔다 -- 입력칸이 사라지면
   // 포커스가 빠져서 곧바로 ⌘Z로 되돌릴 수 없다.
   function deleteSelectedRows() {
-    if (selectedRowIds.length === 0 || !range) return
-    const count = selectedRowIds.length
-    props.onDeleteRows(selectedRowIds)
+    const ids = pick.length > 1 ? pick : selectedRowIds
+    if (ids.length === 0 || !range) return
+    const count = ids.length
+    setPick([])
+    props.onDeleteRows(ids)
     const remaining = nR - count
     if (remaining <= 0) {
       setSel(null)
@@ -868,6 +872,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     e.preventDefault()
     if (editing) commitEdit()
     setMenu(null)
+    if (pick.length) setPick([])
     const extend = e.shiftKey || e.metaKey || e.ctrlKey
     if (extend && sel?.t === 'rows') {
       // 행을 고른 상태에서 Shift/⌘ 클릭 = 그 행까지 행 선택을 넓힌다
@@ -904,9 +909,20 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     if (editing) commitEdit()
     setMenu(null)
     const within = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
-    const extend = e.shiftKey || e.metaKey || e.ctrlKey
+    const extend = e.shiftKey
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && rows[r]) {
+      // ⌘/Ctrl 클릭 = 이 행을 고른 행에 넣거나 뺀다(띄엄띄엄 고르기)
+      const base = pick.length ? pick : sel?.t === 'rows' ? rows.slice(lo(sel.a, sel.b), hi(sel.a, sel.b) + 1).map((x) => x.id) : active && rows[active.r] ? [rows[active.r].id] : []
+      const id = rows[r].id
+      setPick(base.includes(id) ? base.filter((x) => x !== id) : [...base, id])
+      setSel({ t: 'rows', a: r, b: r })
+      setActive({ r, c: active?.c ?? 0 })
+      requestAnimationFrame(focusSink)
+      return
+    }
+    if (pick.length) setPick([])
     if (extend && (sel?.t === 'rows' || active)) {
-      // Shift/⌘/Ctrl 클릭 = 지금 고른 행(또는 칸의 행)부터 이 행까지 행 선택
+      // Shift 클릭 = 지금 고른 행(또는 칸의 행)부터 이 행까지 행 선택
       setSel({ t: 'rows', a: sel?.t === 'rows' ? sel.a : active!.r, b: r })
     } else {
       if (!within) {
@@ -1048,8 +1064,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
       const inside = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
       if (!inside) select(r, c)
     } else if (kind === 'row' && r !== undefined) {
-      const inside = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
+      const inside = (sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)) || (rows[r] && pick.includes(rows[r].id))
       if (!inside) {
+        setPick([])
         setSel({ t: 'rows', a: r, b: r })
         setActive({ r, c: active?.c ?? 0 })
       }
@@ -1363,7 +1380,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
               </thead>
               <tbody>
                 {rows.map((row, r) => {
-                  const rowSelected = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
+                  const rowSelected = pick.length > 1 ? pick.includes(row.id) : sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
                   return (
                     <Fragment key={row.id}>
                       {renderHeaders(r)}
@@ -1385,7 +1402,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
                               rowSelected ? 'bg-accent-soft font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                             }`}
-                            title="클릭: 행 선택 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
+                            title="클릭: 행 선택 · ⌘(Ctrl) 클릭: 띄엄띄엄 고르기 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                           >
                             <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
                             <span className="inline-flex items-center gap-1">
@@ -1760,7 +1777,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
           {(menu.kind === 'cell' || menu.kind === 'row') && range && (
             <>
               {(() => {
-                const actions = props.rowActions?.(selectedRowIds) ?? []
+                const actions = props.rowActions?.(pick.length > 1 ? pick : selectedRowIds) ?? []
                 if (actions.length === 0) return null
                 return (
                   <>
