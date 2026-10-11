@@ -621,6 +621,14 @@ export default function SheetImportPanel({
                       </InfoTip>
                     </p>
                     <p className="mt-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3">{addNames.size}명 선택</p>
+                    <p className="mt-1 flex gap-2 text-[length:calc(13px*var(--ui-fs,1))] font-medium">
+                      <button type="button" onClick={() => setAddNames(new Set(warnings.unknownAssignees.map((u) => u.name)))} className="text-accent hover:underline">
+                        모두 선택
+                      </button>
+                      <button type="button" onClick={() => setAddNames(new Set())} disabled={addNames.size === 0} className="text-label-2 hover:underline disabled:opacity-40">
+                        해제
+                      </button>
+                    </p>
                   </div>
                   <div className="flex max-h-[84px] min-w-0 flex-1 flex-wrap content-start gap-2 overflow-y-auto">
                     {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순). 눌러서 팀원으로 추가 */}

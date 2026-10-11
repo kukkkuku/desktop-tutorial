@@ -45,6 +45,16 @@ exec(open(os.path.join(HERE, 'chapters3.py')).read())
 script = ref[ref.index('<script>'):ref.index('</script>')+9]
 # 주소의 #장으로 열면: 그림을 다 읽은 뒤 그 장으로 다시 맞추고, 목차도 그 장을 표시(스크롤 감지가 늦게 덮어쓰지 않게 잠깐 고정)
 script += """<script>(function(){const links=[...document.querySelectorAll('nav a')];let lock=0;const mark=h=>links.forEach(a=>a.classList.toggle('active',a.hash===h));const go=()=>{const h=location.hash;const el=h&&document.getElementById(h.slice(1));if(!el)return;el.scrollIntoView();mark(h);lock=Date.now()+600};const mo=new MutationObserver(()=>{if(Date.now()<lock&&location.hash)mark(location.hash)});links.forEach(a=>mo.observe(a,{attributes:true,attributeFilter:['class']}));go();window.addEventListener('load',go);window.addEventListener('hashchange',go)})()</script>"""
+
+script += """<script>(function(){const q=new URLSearchParams(location.search),role=q.get('role');if(!role||role==='guest')return;
+const ok=w=>!w||(w==='admin'?role==='admin':role==='admin'||role==='leader');
+document.querySelectorAll('[data-who]').forEach(e=>{if(!ok(e.dataset.who))e.classList.add('role-hide')});
+document.querySelectorAll('a[href$=".html"]').forEach(a=>{a.href=a.getAttribute('href')+'?role='+role+(a.hash||'')});
+let n=0;document.querySelectorAll('.chapter:not(.role-hide)').forEach(s=>{n++;const e=s.querySelector('.eyebrow');if(e)e.innerHTML=e.innerHTML.replace(/Chapter [0-9]+/,'Chapter '+String(n).padStart(2,'0'))});
+n=0;document.querySelectorAll('nav a:not(.role-hide) .nav-no').forEach(x=>{x.textContent=String(++n).padStart(2,'0')});
+const nav=document.getElementById('chapter-nav');if(nav){const L={admin:'관리자',leader:'팀장',member:'팀원'}[role]||role;const b=document.createElement('p');b.className='role-note';b.innerHTML='<b>'+L+'</b>에게 필요한 장만 보는 중 · <a href="#" id="role-all">모두 보기</a>';nav.parentNode.insertBefore(b,nav);document.getElementById('role-all').onclick=ev=>{ev.preventDefault();document.querySelectorAll('.role-hide').forEach(e=>e.classList.remove('role-hide'));b.remove()}}
+if(role==='member'&&location.pathname.endsWith('perf.html')){document.getElementById('content').insertAdjacentHTML('afterbegin','<p class="role-note" style="margin:0 0 16px">성과관리 매뉴얼은 팀장 · 관리자용입니다. 모두 보려면 왼쪽 「모두 보기」를 누르세요.</p>')}
+})()</script>"""
 # 앱 안 패널(iframe)에서 열리면 창 닫기 버튼을 숨긴다
 embed = "<script>if(window.self!==window.top)document.documentElement.classList.add('embed')</script>"
 # 앱 디자인 시스템 색(tailwind.config: accent #007AFF · label #1D1D1F/#6E6E73/#AEAEB2 · window #F5F5F7 · success #28A745)
@@ -54,26 +64,32 @@ for a, b in [('--ink:#111827', '--ink:#1D1D1F'), ('--muted:#667085', '--muted:#6
              ('#f2f4f7', '#F2F2F7'), ('#344054', '#1D1D1F'), ('#ecfdf3', '#E9F7EC'), ('#059669', '#28A745')]:
     assert a in css, a
     css = css.replace(a, b)
-css2 = css.replace('</style>', '.more{margin-top:8px}.more summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;padding:4px 0;list-style:none}.more summary::-webkit-details-marker{display:none}.more summary:before{content:\'+ \'}.more[open] summary:before{content:\'− \'}.more[open] summary{margin-bottom:6px}.chapter{padding:34px 0}.step{gap:16px;margin:26px 0}.step h3{font-size:17px;margin:0 0 8px}.step p,.step li{font-size:14.5px;line-height:1.85;color:#3a3a3c}ul.ln{list-style:none;margin:0;padding:0;display:grid;gap:7px}ul.ln li{position:relative;padding-left:14px;font-size:14.5px;line-height:1.8;color:#3a3a3c}ul.ln li:before{content:\'\';position:absolute;left:1px;top:.85em;width:5px;height:5px;border-radius:50%;background:#C7C7CC}.feat{grid-template-columns:1fr;gap:12px}.feat div{padding:16px 18px;font-size:14px;background:#fff}.feat div>b:first-child{display:block;font-size:14.5px;margin-bottom:8px}.feat li b,.feat p b{display:inline;margin:0;font-size:inherit;color:var(--ink)}.feat ul.ln li{font-size:14px}.faq ul.ln{margin-top:10px}.faq ul.ln li{font-size:13.5px}.lead{font-size:15px;line-height:1.8}.note{font-size:14px;line-height:1.75}.embed .topbar .close{display:none}.chapter .eyebrow b{color:var(--accent);font-weight:700}.book-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.book-cards a{display:block;border:1px solid var(--line);border-radius:14px;padding:22px;text-decoration:none;color:inherit;background:#fff}.book-cards a:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}.book-cards h3{margin:0 0 6px;font-size:18px}.book-cards p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}@media(max-width:720px){.book-cards{grid-template-columns:1fr}}</style>')
+css2 = css.replace('</style>', '.role-hide{display:none!important}.role-note{font-size:12.5px;color:var(--muted);background:var(--accent-soft);border-radius:8px;padding:8px 10px;margin:0 0 12px;line-height:1.6}.role-note a{color:var(--accent);font-weight:600}.more{margin-top:8px}.more summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;padding:4px 0;list-style:none}.more summary::-webkit-details-marker{display:none}.more summary:before{content:\'+ \'}.more[open] summary:before{content:\'− \'}.more[open] summary{margin-bottom:6px}.chapter{padding:34px 0}.step{gap:16px;margin:26px 0}.step h3{font-size:17px;margin:0 0 8px}.step p,.step li{font-size:14.5px;line-height:1.85;color:#3a3a3c}ul.ln{list-style:none;margin:0;padding:0;display:grid;gap:7px}ul.ln li{position:relative;padding-left:14px;font-size:14.5px;line-height:1.8;color:#3a3a3c}ul.ln li:before{content:\'\';position:absolute;left:1px;top:.85em;width:5px;height:5px;border-radius:50%;background:#C7C7CC}.feat{grid-template-columns:1fr;gap:12px}.feat div{padding:16px 18px;font-size:14px;background:#fff}.feat div>b:first-child{display:block;font-size:14.5px;margin-bottom:8px}.feat li b,.feat p b{display:inline;margin:0;font-size:inherit;color:var(--ink)}.feat ul.ln li{font-size:14px}.faq ul.ln{margin-top:10px}.faq ul.ln li{font-size:13.5px}.lead{font-size:15px;line-height:1.8}.note{font-size:14px;line-height:1.75}.embed .topbar .close{display:none}.chapter .eyebrow b{color:var(--accent);font-weight:700}.book-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.book-cards a{display:block;border:1px solid var(--line);border-radius:14px;padding:22px;text-decoration:none;color:inherit;background:#fff}.book-cards a:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}.book-cards h3{margin:0 0 6px;font-size:18px}.book-cards p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}@media(max-width:720px){.book-cards{grid-template-columns:1fr}}</style>')
 
 def faqfix(h):
     h=re.sub(r'(<summary>.*?</summary>)<p>(.*?)</p>', lambda m: m.group(1)+lines(m.group(2), fold=False), h, flags=re.S)
     h=re.sub(r'<div><b>([^<]*)</b>((?:(?!</div>).)*)</div>', lambda m: '<div><b>'+m.group(1)+'</b>'+lines(m.group(2))+'</div>', h, flags=re.S)
     return re.sub(r'<p class="raw">(.*?)</p>', lambda m: lines(m.group(1)), h, flags=re.S)
 
-def chapter2(c, no):
+WHO = {'sheet': 'admin', 'newyear': 'manager'}  # 그 외 장은 모두에게 보임(성과관리 책은 통째로 팀장 · 관리자)
+
+def chapter2(c, no, book=''):
     id, sec, title, lead, badge, body, key = c
     b = f'<span class="badge">{badge}</span>' if badge else ''
-    return f'<section id="{id}" class="chapter searchable" data-title="{key}"><div class="chapter-head"><div><div class="eyebrow"><b>{sec}</b> · Chapter {no:02d}</div><h2>{title}</h2><p class="lead">{lead}</p></div>{b}</div>{body}</section>'
+    who = 'manager' if book == 'perf' else WHO.get(id, '')
+    wa = f' data-who="{who}"' if who else ''
+    return f'<section id="{id}" class="chapter searchable" data-title="{key}"{wa}><div class="chapter-head"><div><div class="eyebrow"><b>{sec}</b> · Chapter {no:02d}</div><h2>{title}</h2><p class="lead">{lead}</p></div>{b}</div>{body}</section>'
 
 def page(fname, title, hero, chs, other):
     navs = []
     last = None
     for i, c in enumerate(chs):
         act = ' class="active"' if i == 0 else ''
-        navs.append(f'<a{act} href="#{c[0]}"><span class="nav-no">{i+1:02d}</span>{c[2]}</a>')
+        who = 'manager' if fname.startswith('perf') else WHO.get(c[0], '')
+        wa = f' data-who="{who}"' if who else ''
+        navs.append(f'<a{act}{wa} href="#{c[0]}"><span class="nav-no">{i+1:02d}</span>{c[2]}</a>')
     nav = ''.join(navs)
-    body = ''.join(chapter2(c, i+1) for i, c in enumerate(chs))
+    body = ''.join(chapter2(c, i+1, fname[:4]) for i, c in enumerate(chs))
     html = f"""<!doctype html>
 <html lang="ko">
 <head>
@@ -105,7 +121,7 @@ hero_t = """<section class="hero searchable" data-title="빠르게 시작 과제
 <div class="hero-flow"><div class="hero-step"><b>1</b>준비 · 권한 설정 · 실적관리 시트</div><div class="hero-step"><b>2</b>로그인 · 공유된 시트 연결</div><div class="hero-step"><b>3</b>입력하기 · 구글시트에 업데이트</div></div></section>"""
 hero_p = """<section class="hero searchable" data-title="빠르게 시작 성과관리"><div><div class="eyebrow">Quick start</div><h1>데이터를 먼저 준비하고,<br>메뉴 순서대로 평가합니다.</h1><p>추진현황 시트 · 인사기록카드 · 이전 성과 엑셀을 준비해 두면, 팀장은 과제를 가져와 과제관리에서 평가 대상 · 성과등급 · 목표/성과를 넣고, 피어리뷰 · 평가하기 · 평가결과 · 면담으로 이어 갑니다.</p></div>
 <div class="hero-flow"><div class="hero-step"><b>1</b>준비 · 시트 · 인사기록카드 · 이전 성과</div><div class="hero-step"><b>2</b>평가 목록 · 새 평가 시작</div><div class="hero-step"><b>3</b>과제관리 · 팀원관리 · 평가하기 · 평가결과 · 면담</div></div></section>"""
-print(page('tasks.html', '페이스 · 과제 입력 매뉴얼', hero_t, TASKS, '<a href="perf.html">성과관리 매뉴얼 →</a>'))
+print(page('tasks.html', '페이스 · 과제 입력 매뉴얼', hero_t, TASKS, '<a data-who="manager" href="perf.html">성과관리 매뉴얼 →</a>'))
 print(page('perf.html', '페이스 · 성과관리 매뉴얼', hero_p, PERF, '<a href="tasks.html">과제 입력 매뉴얼 →</a>'))
 
 index = f"""<!doctype html>
@@ -123,7 +139,7 @@ index = f"""<!doctype html>
 <section class="hero"><div><div class="eyebrow">Manuals</div><h1>어떤 일을 하시나요?</h1><p>과제 입력은 연구소 모두가, 성과관리는 팀장이 씁니다. 각 매뉴얼은 준비할 데이터부터 순서대로 안내합니다.</p></div></section>
 <div class="book-cards">
 <a href="tasks.html"><h3>과제 입력 매뉴얼</h3><p>관리 · 권한 설정 · 실적관리 시트(관리자) → 로그인 → 공유된 시트 불러오기 → 시트 · 연도 메뉴 → 추진현황 입력하기 · 구글시트에 업데이트 → 보드 · 타임라인 · 진척률</p></a>
-<a href="perf.html"><h3>성과관리 매뉴얼</h3><p>준비(과제 가져올 곳 · 인사기록카드 · 이전 성과) → 평가 목록(팀 · 새 평가) → 과제관리(평가 대상 · 성과등급 · 목표/성과) → 피어리뷰 · 평가하기 → 평가결과 · 리포트 → 승진 시뮬레이션 · 면담 · 데이터 백업</p></a>
+<a data-who="manager" href="perf.html"><h3>성과관리 매뉴얼</h3><p>준비(과제 가져올 곳 · 인사기록카드 · 이전 성과) → 평가 목록(팀 · 새 평가) → 과제관리(평가 대상 · 성과등급 · 목표/성과) → 피어리뷰 · 평가하기 → 평가결과 · 리포트 → 승진 시뮬레이션 · 면담 · 데이터 백업</p></a>
 </div>
 <p class="privacy" style="margin-top:28px">화면의 인물·과제·조직 정보는 모두 설명용 가상 데이터입니다.</p>
 </main>
