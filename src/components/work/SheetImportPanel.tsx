@@ -323,7 +323,7 @@ export default function SheetImportPanel({
       {source === 'progress' ? (
         <div>
           {progress ? (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pr-10">
               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '보낼 과제 선택' : '가져올 과제 선택'}</h3>
                 <span className="flex min-w-0 items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
