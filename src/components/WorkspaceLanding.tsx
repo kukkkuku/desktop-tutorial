@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom'
 import Button from './Button'
 import ConfirmDialog from './ConfirmDialog'
 import EvaluationPeriodPicker from './EvaluationPeriodPicker'
+import PillTabs from './ui/PillTabs'
 import { markNewWorkspace } from './work/PerfStartDialog'
 import IconButton from './IconButton'
 import AppShell, { PageHeader } from './shell/AppShell'
@@ -513,21 +514,7 @@ export default function WorkspaceLanding() {
           <>
             {/* 팀 탭: 팀이 둘 이상일 때만(하나면 아래 제목이 팀 이름). 팀 이름은 한 곳에서만 보인다 */}
             {teamNames.length > 1 && (
-              <nav className="flex flex-wrap items-center gap-1" aria-label="팀">
-                {teamNames.map((name) => {
-                  const on = name === teamName
-                  return (
-                    <button
-                      key={name}
-                      onClick={() => setTeamName(name)}
-                      aria-current={on ? 'true' : undefined}
-                      className={`h-8 whitespace-nowrap rounded-[9px] px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'bg-white font-semibold text-label shadow-control' : 'text-label-2 hover:bg-black/[0.04] hover:text-label'}`}
-                    >
-                      {name}
-                    </button>
-                  )
-                })}
-              </nav>
+              <PillTabs items={teamNames.map((n) => ({ key: n, label: n }))} value={teamName} onChange={setTeamName} fit />
             )}
 
             {/* 팀 머리: (팀이 하나면 이름) · ⋯(이름 바꾸기 · 새 팀 · 삭제) · 팀원 초대 · 새 평가 */}
@@ -581,26 +568,20 @@ export default function WorkspaceLanding() {
             </button>
 
             {/* 연도 탭: 이 팀의 연도별 평가 개수를 한눈에(과제 입력과 같은 연도가 바뀜). 다른 연도는 오른쪽 달력에서 */}
-            <nav className="mt-6 flex flex-wrap items-center gap-1 border-b border-separator" aria-label="연도">
-              {tabYears.map((y) => {
-                const on = y === appYear
-                const n = teamWorkspaces.filter((w) => w.evaluationYear === y).length
-                return (
-                  <button
-                    key={y}
-                    onClick={() => setAppYear(y)}
-                    aria-current={on ? 'true' : undefined}
-                    className={`-mb-px flex h-9 items-center gap-1.5 border-b-2 px-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${on ? 'border-ink font-semibold text-label' : 'border-transparent text-label-2 hover:text-label'}`}
-                  >
-                    {y}
-                    {n > 0 && <span className={`rounded-full px-1.5 text-[length:calc(12px*var(--ui-fs,1))] tabular-nums ${on ? 'bg-ink text-white' : 'bg-black/[0.06] text-label-2'}`}>{n}</span>}
-                  </button>
-                )
-              })}
-              <span className="-mb-px pb-0.5" title="다른 연도 보기">
+            <div className="mt-6 flex items-center gap-2">
+              <PillTabs
+                items={tabYears.map((y) => {
+                  const n = teamWorkspaces.filter((w) => w.evaluationYear === y).length
+                  return { key: String(y), label: String(y), badge: n > 0 ? n : undefined }
+                })}
+                value={String(appYear)}
+                onChange={(k) => setAppYear(Number(k))}
+                fit
+              />
+              <span title="다른 연도 보기">
                 <YearPicker year={appYear} onChange={setAppYear} addLabel="연도" yearsWithData={new Set(teamWorkspaces.map((w) => w.evaluationYear))} />
               </span>
-            </nav>
+            </div>
 
             {/* 평가 */}
             <section className="mt-6">

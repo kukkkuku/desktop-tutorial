@@ -52,6 +52,7 @@ import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
 import { icSm } from '../ui/icon'
 import Spinner from '../Spinner'
+import PillTabs from '../ui/PillTabs'
 import Select from '../ui/Select'
 
 // 연결된 시트가 없을 때 기본으로 채워 두는 팀 과제관리 시트(바꿔 넣을 수 있음)
@@ -550,29 +551,20 @@ export default function SheetImportPanel({
                 })}
               </div>
             </div>
-            {/* 다른 화면의 하위 탭(팀원 | 피어리뷰 등)과 같은 모양: 선택한 탭은 진한 글자 + 아래 선. 이름은 줄이지 않고, 넘치면 옆으로 민다 */}
-            <div className="overflow-x-auto bg-white px-4 [scrollbar-width:thin]" role="tablist">
-              <div className="flex w-max min-w-full items-end gap-6 border-b border-separator">
-                {l1Tabs.map(([l1, gs]) => {
-                  const on = l1 === currentL1[0]
+            {/* 앱 공통 탭 모양(과제 입력 그룹 탭과 같음): 말줄임, 고른 탭은 이름이 다 보이고 흰 알약 */}
+            <div className="px-3 py-2">
+              <PillTabs
+                items={l1Tabs.map(([l1, gs]) => {
                   const picked = gs.filter((g) => selected.has(g.name)).length
-                  return (
-                    <button
-                      key={l1}
-                      type="button"
-                      role="tab"
-                      aria-selected={on}
-                      onClick={() => setActiveL1(l1)}
-                      className={`-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 pb-2.5 pt-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors ${
-                        on ? 'border-accent font-semibold text-label' : 'border-transparent text-label-3 hover:text-label-2'
-                      }`}
-                    >
-                      {l1}
-                      <span className={`shrink-0 tabular-nums ${picked > 0 ? 'font-semibold text-accent' : 'text-label-3'}`}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>
-                    </button>
-                  )
+                  return {
+                    key: l1,
+                    label: l1,
+                    badge: <span className={picked > 0 ? 'font-semibold text-accent' : ''}>{picked > 0 ? `${picked}/${gs.length}` : gs.length}</span>,
+                  }
                 })}
-              </div>
+                value={currentL1[0]}
+                onChange={setActiveL1}
+              />
             </div>
             <div className="divide-y divide-separator border-t border-separator bg-white">
               {currentL1[1].map((g) => {
