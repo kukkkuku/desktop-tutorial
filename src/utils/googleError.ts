@@ -21,6 +21,7 @@ export function googleErrorText(status: number, body: string, what: string): str
   if (status === 404) return `${what}: 대상을 찾지 못했습니다. 링크나 파일이 지워지지 않았는지 확인해 주세요.`
   if (status === 400 && /parse range/i.test(message)) return '시트에서 해당 탭을 찾지 못했습니다(탭 이름이 바뀌었을 수 있습니다).'
   if (status >= 500) return '구글 서버가 잠시 응답하지 않습니다. 잠시 후 다시 시도해 주세요.'
+  if (status === 400 && message) return `${what}에 실패했습니다(구글: ${message.slice(0, 160)})`
   return `${what}에 실패했습니다. 잠시 후 다시 시도해 주세요.`
 }
 

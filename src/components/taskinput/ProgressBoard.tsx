@@ -995,7 +995,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             },
           },
         ])
-      else if (updateExisting) await replaceSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => worksheetRequests(ws, id))
+      else if (updateExisting) await replaceSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5 }, (id) => [
+          ...worksheetRequests(ws, id),
+          {
+            updateSheetProperties: {
+              properties: { sheetId: id, gridProperties: { frozenRowCount: 2, frozenColumnCount: frozenCols } },
+              fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount',
+            },
+          },
+        ])
       else
         await createSheetTab(targetId, tabTitle, { rows: ws.rowCount + 100, cols: ws.columnCount + 5, frozenRows: 2, frozenCols }, (id) =>
           worksheetRequests(ws, id),

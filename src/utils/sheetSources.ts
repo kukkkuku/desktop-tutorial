@@ -625,6 +625,8 @@ export async function replaceSheetTab(
         fields: 'gridProperties.rowCount,gridProperties.columnCount',
       },
     },
+    // 고정 줄 · 열을 먼저 풀어 둔다(고정 경계에 걸친 병합은 구글이 400으로 거절한다)
+    { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties.frozenRowCount,gridProperties.frozenColumnCount' } },
     { unmergeCells: { range: { sheetId } } },
     { updateCells: { range: { sheetId }, fields: 'userEnteredValue,userEnteredFormat' } },
     ...build(sheetId),
