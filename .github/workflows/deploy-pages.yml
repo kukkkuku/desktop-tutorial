@@ -1,16 +1,11 @@
 name: Deploy to GitHub Pages
 
-# 이 파일은 feature/face_v1 브랜치 전용이다(main의 워크플로는 바꾸지 않는다).
-# feature/face_v1에서 실행하면 세 주소를 한 번에 올린다:
-#   /                  = main(지금 쓰는 버전)
-#   /preview-design/   = feature/redesign-2026-09-27(이전 디자인 미리보기, 그대로)
-#   /pace/             = feature/face_v1(새 디자인 v3 미리보기)
-# 미리보기 빌드는 저장 키를 따로(preview-next) 써서 운영 데이터를 건드리지 않는다.
-# main에 푸시하면 main의 워크플로가 돌아 /pace/는 사라진다 -- 이 브랜치에서 다시 실행하면 돌아온다.
+# main에 푸시하면 앱을 빌드해 https://kukkkuku.github.io/ 에 올린다.
+# 예전 버전은 backup/main-2026-10-11 브랜치와 backup-main-2026-10-11 태그에 보관돼 있다.
 on:
   push:
     branches:
-      - feature/face_v1
+      - main
   workflow_dispatch:
 
 permissions:
@@ -27,64 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Build main into dist
+      - name: Build
         run: |
           npm ci
           npm run build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           VITE_BASE_PATH: /
-
-      - name: Checkout design preview branch
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: feature/redesign-2026-09-27
-          path: design-src
-          fetch-depth: 0
-
-      - name: Build into dist/preview-design
-        continue-on-error: true
-        working-directory: design-src
-        run: |
-          npm ci
-          npm run build
-          mkdir -p ../dist/preview-design
-          cp -r dist/. ../dist/preview-design/
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          VITE_BASE_PATH: /preview-design/
-          VITE_PREVIEW_NAMESPACE: preview-next
-
-      - name: Checkout pace branch
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: feature/face_v1
-          path: pace-src
-          fetch-depth: 0
-
-      - name: Build into dist/pace
-        continue-on-error: true
-        working-directory: pace-src
-        run: |
-          npm ci
-          npm run build
-          mkdir -p ../dist/pace
-          cp -r dist/. ../dist/pace/
-        env:
-          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          VITE_BASE_PATH: /pace/
-          VITE_PREVIEW_NAMESPACE: preview-next
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
