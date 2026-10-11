@@ -3144,6 +3144,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   style={{ right: SHEET_FOLD_BLOCK.right, top: SHEET_FOLD_BLOCK.top, width: SHEET_FOLD_BLOCK.w, height: SHEET_FOLD_BLOCK.h }}
                 />
               )}
+              {!cropHead && (
+                // 구글 위 줄이 보일 때 오른쪽 위(댓글 · 공유 · 로그인)를 막아 둔다 -- 안에서 「로그인」을 누르면 앱 화면이 구글 로그인으로 바뀌어 버린다(앱 로그인으로 이미 연결돼 있다)
+                <div
+                  className="absolute right-0 top-0 z-10 cursor-default"
+                  style={{ width: 380, height: 72 }}
+                  title="구글 로그인 · 공유는 여기서 쓰지 않습니다(앱 로그인으로 이미 연결돼 있습니다)"
+                />
+              )}
             </div>
           ) : boardView === 'board' ? (
             <div className="px-6 pb-6 lg:px-8">
