@@ -544,10 +544,10 @@ export default function SheetImportPanel({
                 const on = selected.has(g.name)
                 const already = board.groups.some((bg) => bg.name === g.name)
                 return (
-                  <div key={g.name} className={`flex gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
-                    <input type="checkbox" className="mt-1 shrink-0 cursor-pointer self-start" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} aria-label={`${g.name} 선택`} />
+                  <div key={g.name} onClick={() => toggle([g.name], !on)} className={`flex cursor-pointer select-none gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
+                    <input type="checkbox" className="pointer-events-none mt-1 shrink-0 self-start" checked={on} readOnly tabIndex={-1} aria-label={`${g.name} 선택`} />
                     <div className="min-w-0 flex-1">
-                      <label className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
                         {g.tag && <span className="rounded-[4px] bg-orange-100 px-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-orange-700">{g.tag}</span>}
                         <span className="rounded-full bg-black/[0.06] px-2 text-[length:calc(12px*var(--ui-fs,1))] font-medium tabular-nums text-label-2">{g.count}</span>
@@ -557,7 +557,7 @@ export default function SheetImportPanel({
                             H/L1 추정
                           </span>
                         )}
-                      </label>
+                      </p>
                       <div className="mt-1.5 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
                         {g.assignees.length > 0 && <p className="truncate">팀원 {g.assignees.join(', ')}</p>}
                         <p className="truncate text-label" title={g.l3Names.join(' · ')}>

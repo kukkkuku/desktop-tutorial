@@ -2300,7 +2300,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                   setTabMenu({ name, x: Math.min(e.clientX, window.innerWidth - 230), y: e.clientY + 4 })
                 }}
                 data-l1-tab={name}
-                className={`group flex h-[26px] cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                className={`group flex h-[26px] cursor-pointer select-none items-center rounded-t-[10px] rounded-b-none text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                   tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'
                 } ${
                   on

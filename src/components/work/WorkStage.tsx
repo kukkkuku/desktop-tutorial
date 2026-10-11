@@ -969,7 +969,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           data-l2-tab="all"
           onClick={() => setAllTab(true)}
           title="모든 그룹(L2)의 과제를 한 표로 보기"
-          className={`relative flex h-[26px] min-w-[44px] flex-none cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'} ${
+          className={`relative flex h-[26px] min-w-[44px] flex-none cursor-pointer select-none items-center rounded-t-[10px] rounded-b-none text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'} ${
             allTab ? 'l1-tab-on font-semibold text-label' : 'l1-tab-sep font-medium text-label-2 hover:bg-black/[0.06] hover:text-label'
           }`}
         >
@@ -1008,7 +1008,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 e.preventDefault()
                 setTabMenu({ x: e.clientX, y: e.clientY, groupId: g.id })
               }}
-              className={`group relative flex h-[26px] min-w-[44px] ${on ? 'max-w-none' : 'max-w-[280px]'} cursor-pointer select-none items-center rounded-[10px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+              className={`group relative flex h-[26px] min-w-[44px] ${on ? 'max-w-none' : 'max-w-[280px]'} cursor-pointer select-none items-center rounded-t-[10px] rounded-b-none text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                 tabsCompact ? 'gap-1 px-2.5' : 'gap-1.5 px-[11px]'
               } ${
                 on

@@ -360,7 +360,7 @@ export default function ProgressRate({ data, drafts, l1s, asOfDefault }: { data:
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`h-[26px] rounded-[10px] px-[11px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+            className={`h-[26px] rounded-t-[10px] rounded-b-none px-[11px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
               cur.key === t.key ? 'l1-tab-on font-semibold text-label' : 'font-medium text-label-2 hover:bg-black/[0.06] hover:text-label'
             }`}
           >

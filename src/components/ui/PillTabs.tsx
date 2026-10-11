@@ -23,7 +23,7 @@ export default function PillTabs<K extends string>({ items, value, onChange, cla
   return (
     <div
       role="tablist"
-      className={`flex h-[38px] min-w-0 items-center gap-0.5 overflow-hidden rounded-[10px] px-2 [background:var(--tabbar-bg,rgb(0_0_0/0.04))] ${fit ? 'w-fit max-w-full' : 'w-full'} ${className}`}
+      className={`flex h-[38px] min-w-0 items-center gap-0.5 overflow-hidden rounded-t-[10px] px-2 [background:var(--tabbar-bg,rgb(0_0_0/0.04))] ${fit ? 'w-fit max-w-full' : 'w-full'} ${className}`}
     >
       {items.map((it, i) => {
         const on = i === onIdx
@@ -35,7 +35,7 @@ export default function PillTabs<K extends string>({ items, value, onChange, cla
             aria-selected={on}
             title={it.title ?? (typeof it.label === 'string' ? it.label : undefined)}
             onClick={() => onChange(it.key)}
-            className={`relative flex h-[26px] cursor-pointer select-none items-center gap-1.5 rounded-[10px] px-[11px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+            className={`relative flex h-[26px] cursor-pointer select-none items-center gap-1.5 rounded-t-[10px] rounded-b-none px-[11px] text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
               on
                 ? 'l1-tab-on flex-none font-semibold text-label'
                 : `min-w-[44px] max-w-[240px] flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${i + 1 === onIdx ? '' : 'l1-tab-sep'}`

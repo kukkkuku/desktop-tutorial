@@ -78,7 +78,7 @@ export default function MemberGrowthRail({ selectedMemberId, onSelectMember, onM
                 key={member.id}
                 onClick={() => onSelectMember(member.id)}
                 title={member.name}
-                className={`flex h-[26px] min-w-[48px] max-w-[220px] select-none items-center gap-1.5 rounded-[10px] px-[11px] text-left text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
+                className={`flex h-[26px] min-w-[48px] max-w-[220px] select-none items-center gap-1.5 rounded-t-[10px] rounded-b-none px-[11px] text-left text-[length:calc(13px*var(--ui-fs,1))] transition-colors ${
                   isSelected
                     ? 'l1-tab-on flex-none font-semibold text-label'
                     : `relative flex-[0_1_auto] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label ${activeMembers[mi + 1]?.id === selectedMemberId ? '' : 'l1-tab-sep'}`
