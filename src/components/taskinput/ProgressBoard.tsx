@@ -3207,7 +3207,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {exportOpen && workspaces.length > 0 && (
           // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-            <div className="flex max-h-[92vh] w-[min(880px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
+            <div className="flex h-[min(720px,92vh)] w-[min(880px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
               <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
                 <div className="min-w-0">
                   <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>

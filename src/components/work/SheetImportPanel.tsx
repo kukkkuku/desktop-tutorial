@@ -576,20 +576,12 @@ export default function SheetImportPanel({
                         <span className={`inline-block text-[10px] transition-transform ${detailOpen.has(g.name) ? 'rotate-90' : ''}`}>▶</span> 상세 보기
                       </button>
                       {detailOpen.has(g.name) && (
-                        <div className="mt-2 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                          {(g.assignees.length > 0 || g.teams.length > 0) && (
-                            <p className="mb-1.5 text-label-3">
-                              {g.assignees.length > 0 && `담당자 ${g.assignees.join(', ')}`}
-                              {g.teams.length > 0 && ` · ${g.teams.map((t) => `${t.team} ${t.count}`).join(' / ')}`}
-                            </p>
-                          )}
-                          <ul className="max-h-48 space-y-0.5 overflow-y-auto pr-2">
-                            {g.l3Names.map((n, k) => (
-                              <li key={k} className="truncate text-label" title={n}>
-                                {n}
-                              </li>
-                            ))}
-                          </ul>
+                        <div className="mt-2 space-y-1 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                          {g.assignees.length > 0 && <p>팀원 {g.assignees.join(', ')}</p>}
+                          <p className="truncate text-label" title={g.l3Names.join(' · ')}>
+                            {g.l3Names.slice(0, 2).join(' · ')}
+                            {g.l3Names.length > 2 && ` 외 ${g.l3Names.length - 2}건`}
+                          </p>
                         </div>
                       )}
                     </div>
