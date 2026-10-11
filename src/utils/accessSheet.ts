@@ -157,6 +157,7 @@ export async function refreshAccess(id = getAccessSheetId()): Promise<AccessData
     throw e
   }
 }
+const DATE_LIKE = /^\d{4}-\d{2}-\d{2}/
 async function readSheet(id: string): Promise<AccessData & { userRows: number; linkRows: number }> {
   const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:I`, `'${LINKS_TAB}'!A2:C`])
   const [u = [], l = []] = values
@@ -178,8 +179,9 @@ async function readSheet(id: string): Promise<AccessData & { userRows: number; l
       team: (r[3] ?? '').trim(),
       memo: (r[4] ?? '').trim(),
       addedBy: norm(r[5]),
-      sendTo: (r[6] ?? '').trim(),
-      invitedAt: (r[7] ?? '').trim(),
+      // 받는 메일 칸에 날짜가 들어가 있으면(칸이 한 칸 밀려 적힌 경우) 메일로 보지 않고 「초대 보냄」으로 읽는다
+      sendTo: DATE_LIKE.test((r[6] ?? '').trim()) ? '' : (r[6] ?? '').trim(),
+      invitedAt: (DATE_LIKE.test((r[6] ?? '').trim()) && !(r[7] ?? '').trim() ? (r[6] ?? '') : (r[7] ?? '')).trim(),
       sheetShare: (['편집자', '뷰어'].includes((r[8] ?? '').trim()) ? (r[8] ?? '').trim() : '') as SheetShare,
     }))
     .filter((x) => x.email.includes('@'))
