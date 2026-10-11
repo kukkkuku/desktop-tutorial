@@ -605,13 +605,13 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
               {people.map((n) => {
                 const c = personChip(memberByName.get(n), currentWorkspace?.teamName ?? '', accessUsers)
                 return (
-                  <Chip key={n} tone={c.tone} title={c.title}>
+                  <Chip key={n} tone={c.tone} title={`${c.title ?? n} · 누르면 이 묶음에서 뺍니다`} onRemove={() => removeFromBundle(all, n)}>
                     {n}
                   </Chip>
                 )
               })}
               {strangers.map((n) => (
-                <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 팀원관리에서 추가하면 자동으로 연결됩니다.">
+                <Chip key={n} tone={UNKNOWN_TONE} title="팀원 목록에 없는 이름입니다. 누르면 이 묶음에서 뺍니다." onRemove={() => removeFromBundle(all, n)}>
                   {n}
                 </Chip>
               ))}
@@ -783,6 +783,18 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
     if (colId === 'status') return (STATUS_OPTIONS as readonly string[]).includes(text)
     if (colId === COL_CATEGORY) return (TASK_CATEGORY_OPTIONS as string[]).includes(text)
     return true
+  }
+
+  // 묶음 머리 행의 담당자 칩 × : 그 묶음 안 모든 L3에서 이 사람을 뺀다
+  function removeFromBundle(items: WorkItem[], name: string) {
+    const nameOf = new Map(members.map((m) => [m.id, m.name]))
+    const edits: CellEdit[] = []
+    for (const i of items) {
+      const names = [...i.assigneeIds.map((id) => nameOf.get(id) ?? ''), ...i.unmatchedAssignees].filter(Boolean)
+      if (!names.includes(name)) continue
+      edits.push({ rowId: i.id, colId: COL_ASSIGNEES, text: names.filter((n) => n !== name).join(', ') })
+    }
+    if (edits.length) commit(edits)
   }
 
   function commit(edits: CellEdit[]) {
@@ -1600,7 +1612,23 @@ function UngroupIcon() {
   return <Ungroup {...icSm} />
 }
 
-function Chip({ tone, title, children }: { tone: string; title?: string; children: React.ReactNode }) {
+function Chip({ tone, title, children, onRemove }: { tone: string; title?: string; children: React.ReactNode; onRemove?: () => void }) {
+  if (onRemove)
+    return (
+      <button
+        type="button"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          onRemove()
+        }}
+        className={`${CHIP_BASE} cursor-pointer ${tone}`}
+        title={title}
+      >
+        {children}
+        <span className="ml-1 opacity-60">×</span>
+      </button>
+    )
   return (
     <span className={`${CHIP_BASE} ${tone}`} title={title}>
       {children}

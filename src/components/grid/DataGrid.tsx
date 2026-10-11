@@ -1612,8 +1612,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   minHeight: sinkBox.height,
                 }}
                 aria-label={activeCol ? `${activeCol.label} 편집` : '셀 편집'}
-                placeholder={editing && activeCol?.picker && !plainPick ? (activeCol.picker.allowNew ? '찾기 · 없으면 입력 후 Enter' : '찾기') : undefined}
-              />
+                              />
             )}
 
             {dateEditing &&
@@ -1658,6 +1657,29 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                   className="mac-pop fixed z-[60] text-sm"
                   style={{ left: popPos.left, top: popPos.top, bottom: popPos.bottom, width: plainPick ? undefined : popPos.width }}
                 >
+                  {activeCol.picker.multi && picked.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 border-b border-separator p-2.5">
+                      {picked.map((n) => {
+                        const pk = activeCol.picker!
+                        const tone = pk.tone?.(n, pk.options.includes(n)) ?? 'bg-accent-soft text-accent-hover'
+                        return (
+                          <button
+                            key={`sel:${n}`}
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setPicked((cur) => cur.filter((x) => x !== n))
+                            }}
+                            title="누르면 빼기"
+                            className={`${CHIP_BASE} cursor-pointer ${tone}`}
+                          >
+                            {n}
+                            <span className="ml-1 opacity-60">×</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto p-2.5">
                     {filteredOptions.map((n, i) => {
                       const pk = activeCol.picker!
