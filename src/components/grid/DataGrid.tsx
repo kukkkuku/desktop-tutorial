@@ -872,6 +872,10 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     e.preventDefault()
     if (editing) commitEdit()
     setMenu(null)
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && rows[r]) {
+      togglePick(r)
+      return
+    }
     if (pick.length) setPick([])
     const extend = e.shiftKey || e.metaKey || e.ctrlKey
     if (extend && sel?.t === 'rows') {
@@ -903,6 +907,16 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     else if (d.kind === 'rows' && !d.moving && !d.pending) setSel({ t: 'rows', a: d.anchor, b: r })
   }
 
+  // ⌘/Ctrl 클릭 = 이 행을 고른 행에 넣거나 뺀다(띄엄띄엄 고르기)
+  function togglePick(r: number) {
+    const base = pick.length ? pick : sel?.t === 'rows' ? rows.slice(lo(sel.a, sel.b), hi(sel.a, sel.b) + 1).map((x) => x.id) : active && rows[active.r] ? [rows[active.r].id] : []
+    const id = rows[r].id
+    setPick(base.includes(id) ? base.filter((x) => x !== id) : [...base, id])
+    setSel({ t: 'rows', a: r, b: r })
+    setActive({ r, c: active?.c ?? 0 })
+    requestAnimationFrame(focusSink)
+  }
+
   function onRowHandleMouseDown(e: React.MouseEvent, r: number) {
     if (e.button !== 0) return
     e.preventDefault()
@@ -911,13 +925,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
     const within = sel?.t === 'rows' && r >= lo(sel.a, sel.b) && r <= hi(sel.a, sel.b)
     const extend = e.shiftKey
     if ((e.metaKey || e.ctrlKey) && !e.shiftKey && rows[r]) {
-      // ⌘/Ctrl 클릭 = 이 행을 고른 행에 넣거나 뺀다(띄엄띄엄 고르기)
-      const base = pick.length ? pick : sel?.t === 'rows' ? rows.slice(lo(sel.a, sel.b), hi(sel.a, sel.b) + 1).map((x) => x.id) : active && rows[active.r] ? [rows[active.r].id] : []
-      const id = rows[r].id
-      setPick(base.includes(id) ? base.filter((x) => x !== id) : [...base, id])
-      setSel({ t: 'rows', a: r, b: r })
-      setActive({ r, c: active?.c ?? 0 })
-      requestAnimationFrame(focusSink)
+      togglePick(r)
       return
     }
     if (pick.length) setPick([])
@@ -1402,7 +1410,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                             className={`h-9 cursor-pointer select-none border-b border-r border-[#EBEBEF] text-center text-xs tabular-nums ${
                               rowSelected ? 'bg-accent-soft font-semibold text-accent' : 'text-gray-400 hover:bg-gray-50'
                             }`}
-                            title="클릭: 행 선택 · ⌘(Ctrl) 클릭: 띄엄띄엄 고르기 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
+                            title="클릭: 행 선택 · ⌘(Ctrl)+클릭(어느 칸이든): 띄엄띄엄 고르기 · 선택한 행을 끌어서 이동 · 우클릭: 메뉴"
                           >
                             <DragGrip active={rowSelected && r === selLo && !coveredTop(r)} />
                             <span className="inline-flex items-center gap-1">
@@ -1432,6 +1440,8 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                           </td>
                         )}
                         {columns.map((col, c) => {
+                          const pickedRow = pick.length > 1 && pick.includes(row.id)
+                          const pickShadow = (cc: number) => ['inset 0 2px 0 #007AFF', 'inset 0 -2px 0 #007AFF', cc === 0 && 'inset 2px 0 0 #007AFF', cc === nC - 1 && 'inset -2px 0 0 #007AFF'].filter(Boolean).join(', ')
                           const inRange = range && r >= range.r1 && r <= range.r2 && c >= range.c1 && c <= range.c2
                           const isActive = active?.r === r && active?.c === c
                           const custom = props.renderCell?.(row, col)
@@ -1448,9 +1458,9 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
                               onMouseEnter={() => onCellMouseEnter(r, c)}
                               onDoubleClick={() => startEdit()}
                               onContextMenu={(e) => openMenu(e, 'cell', r, c)}
-                              style={{ boxShadow: [cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), emphasisOutline(c, false, r === rows.length - 1)].filter(Boolean).join(', ') || undefined }}
+                              style={{ boxShadow: [pickedRow ? pickShadow(c) : cellShadow(inRange ? range : null, r, c, isActive, sel?.t ?? 'cells', coveredTop(r)), emphasisOutline(c, false, r === rows.length - 1)].filter(Boolean).join(', ') || undefined }}
                               className={`h-9 ${rowSelected ? 'cursor-grab' : 'cursor-cell'} overflow-hidden border-b border-r border-[#EBEBEF] px-2 align-middle ${
-                                inRange && (!isActive || sel?.t !== 'cells') ? 'bg-accent-soft' : ''
+                                pickedRow || (inRange && (!isActive || sel?.t !== 'cells')) ? 'bg-accent-soft' : ''
                               } ${col.id === 'name' ? 'font-medium text-label' : ''}`}
                             >
                               <div className={col.picker || col.type === 'date' ? 'flex items-center justify-between gap-1' : ''}>
