@@ -3162,7 +3162,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={empty ? closeExport : undefined}>
               <div
                 className="flex flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
-                style={{ width: empty ? 'min(460px, calc(100vw - 2rem))' : 'min(880px, calc(100vw - 2rem))', height: empty ? 276 : 'min(720px, 92vh)' }}
+                style={{ width: empty ? 'min(460px, calc(100vw - 2rem))' : 'min(1180px, calc(100vw - 2rem))', height: empty ? 276 : 'min(900px, 92vh)' }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {empty ? (

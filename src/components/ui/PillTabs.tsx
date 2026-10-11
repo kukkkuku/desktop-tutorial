@@ -15,9 +15,10 @@ interface Props<K extends string> {
   onChange: (key: K) => void
   className?: string
   fit?: boolean // true = 탭 폭만큼만 차지(기본: 가로를 꽉 채움)
+  bare?: boolean // true = 회색 띠 · 배경 없이 탭만(흰 바탕 위). 자리가 모자라면 잘리지 않고 다음 줄로 넘어간다
 }
 
-export default function PillTabs<K extends string>({ items, value, onChange, className = '', fit = false }: Props<K>) {
+export default function PillTabs<K extends string>({ items, value, onChange, className = '', fit = false, bare = false }: Props<K>) {
   const onIdx = items.findIndex((it) => it.key === value)
   const boxRef = useRef<HTMLDivElement>(null)
   // 탭이 많아 넘치면 옆으로 밀 수 있고, 고른 탭이 보이게 따라간다
@@ -28,7 +29,11 @@ export default function PillTabs<K extends string>({ items, value, onChange, cla
     <div
       ref={boxRef}
       role="tablist"
-      className={`flex h-[38px] min-w-0 items-center gap-0.5 overflow-x-auto rounded-[10px] px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [background:var(--tabbar-bg,rgb(0_0_0/0.04))] ${fit ? 'w-fit max-w-full' : 'w-full'} ${className}`}
+      className={
+        bare
+          ? `flex min-w-0 flex-wrap items-center gap-x-0.5 gap-y-1 ${className}`
+          : `flex h-[38px] min-w-0 items-center gap-0.5 overflow-x-auto rounded-[10px] px-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [background:var(--tabbar-bg,rgb(0_0_0/0.04))] ${fit ? 'w-fit max-w-full' : 'w-full'} ${className}`
+      }
     >
       {items.map((it, i) => {
         const on = i === onIdx

@@ -46,7 +46,7 @@ import { countDrafts } from '../../utils/progressBoard'
 
 // 시트 머리글과 짝을 맞추는 열만(상태 원문처럼 앱이 만드는 열은 빼고).
 const SYSTEM_COLUMNS = ALL_SYSTEM_COLUMNS.filter((c) => c.sheetHeaders.length > 0)
-import { AlertTriangle, Check, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Check, ExternalLink, X } from 'lucide-react'
 import SheetsIcon from '../SheetsIcon'
 import { withGoogleAccount } from '../../utils/googleDrive'
 import Button from '../Button'
@@ -342,9 +342,6 @@ export default function SheetImportPanel({
                   </label>
                 )}
               </div>
-              <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">
-                선택한 과제의 하위 과제도 함께 {verb === 'export' ? '보내요' : '가져와요'}.
-              </p>
             </>
           ) : (
             <p className="rounded-card bg-black/[0.04] px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
@@ -527,9 +524,9 @@ export default function SheetImportPanel({
       {/* L1 탭 + L2 목록 */}
       {header && groups.length > 0 && !confirming && !result && currentL1 && (
         <>
-          <div className="relative mt-4 overflow-hidden rounded-card border border-separator bg-white">
+          <div className="relative mt-3 bg-white">
             {/* 앱 공통 탭 모양(과제 입력 그룹 탭과 같음): 말줄임, 고른 탭은 이름이 다 보이고 흰 알약 */}
-            <div className="px-3 py-2">
+            <div className="pb-2">
               <PillTabs
                 items={l1Tabs.map(([l1, gs]) => {
                   const picked = gs.filter((g) => selected.has(g.name)).length
@@ -541,9 +538,10 @@ export default function SheetImportPanel({
                 })}
                 value={currentL1[0]}
                 onChange={setActiveL1}
+                bare
               />
             </div>
-            <div className="divide-y divide-separator border-t border-separator bg-white">
+            <div className="divide-y divide-separator rounded-card border border-separator bg-white">
               {currentL1[1].map((g) => {
                 const on = selected.has(g.name)
                 const already = board.groups.some((bg) => bg.name === g.name)
@@ -591,11 +589,36 @@ export default function SheetImportPanel({
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-3 flex flex-wrap items-center gap-3 border-t border-separator bg-white pb-1 pt-4">
-            <p className="min-w-0 flex-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-              과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
-              {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
-            </p>
+          <div className="sticky bottom-0 mt-3 flex flex-wrap items-end gap-3 border-t border-separator bg-white pb-1 pt-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
+                {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
+              </p>
+              {selectedGroups.length > 0 && (
+                <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+                  {selectedGroups.map((g) => (
+                    <span
+                      key={g.name}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
+                    >
+                      <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
+                        {g.name}
+                        {g.tag ? ` [${g.tag}]` : ''}
+                      </button>
+                      <button
+                        onClick={() => toggle([g.name], false)}
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
+                        aria-label={`${g.name} 선택 해제`}
+                        title="선택 해제"
+                      >
+                        <X size={12} strokeWidth={2} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <span className="ml-auto flex gap-2">
               {onCancel && (
                 <Button variant="secondary" onClick={onCancel}>
