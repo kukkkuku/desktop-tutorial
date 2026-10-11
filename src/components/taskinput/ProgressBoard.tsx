@@ -27,12 +27,8 @@ import {
   FilePlus2,
   Save,
   RotateCcw,
-  PanelTop,
-  PanelTopClose,
-  PanelTopOpen,
   Rows3,
   AlignVerticalSpaceAround,
-  ChevronDown,
   Search,
   Send,
   SquareKanban,
@@ -191,13 +187,6 @@ const ROW_PAD_KEY = 'progress-board:row-pad-v4'
 // 이 탭에서 시트의 최신 내용을 받았는지(로그인 · 앱을 새로 열 때마다 다시 받는다)
 const SYNC_KEY = 'progress-board:synced'
 const ROW_PAD_DEFAULT = 0
-// 구글 화면 아래 시트 탭 줄 높이(px) -- 시트 아래쪽을 이만큼 잘라 안 보이게 한다(과제 입력에서는 앱이 고른 탭 하나만 쓰므로)
-const SHEET_TABS_H = 40
-// 구글 맨 위 줄(제목 · 메뉴 · 공유 · 로그인 버튼)을 위로 밀어 가린다. 구글 화면 안은 읽을 수 없어 캡처로 맞춘 값(어긋나면 이 값만 조정).
-// 구글이 위 줄을 이미 접어 둔 상태에서는 도구 모음까지 잘리므로, 아래 줄의 「구글 위 줄 가리기」 버튼으로 끌 수 있다.
-const SHEET_HEAD_H = 64
-// 도구 모음 오른쪽 끝의 접기(^) 자리를 보이지 않는 막이로 덮어, 눌러서 위 줄이 되살아나거나 도구 모음이 움직이지 않게 한다
-const SHEET_FOLD_BLOCK = { right: 34, top: 22, w: 44, h: 36 }
 const ROW_PAD_MAX = 40 // 행간 늘이기 한계(칸 위아래 여백 px)
 const ROW_PAD_MIN = -3 // 마이너스 = 기본보다 얇게(글자가 온전히 보이는 한계, 내용은 그 높이에서 잘림)
 
@@ -271,10 +260,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [tableBoxRef, tableBoxH] = useFitHeight(13)
   const initial = useMemo(() => loadProgress(), [])
   const [data, setData] = useState<ProgressData | null>(initial.data)
-  // 구글시트 보기는 시트에 연결된 연도에서만(엑셀 · 이 브라우저 연도로 바뀌면 표로)
-  useEffect(() => {
-    if (data && !data.spreadsheetId && boardView === 'sheet') setBoardView('table')
-  }, [data])
   const [drafts, setDrafts] = useState<Drafts>(initial.drafts)
   const edits = drafts.edits
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -366,56 +351,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const [filters, setFilters] = useState<Record<string, string[]>>({})
   const [query, setQuery] = useState('')
   // 추진현황 보기 모양(이 브라우저에 기억)
-  const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline' | 'sheet'>(() => {
+  const [boardView, setBoardView] = useState<'table' | 'board' | 'timeline'>(() => {
     try {
-      // 구글시트 그대로 보기는 기억하지 않는다 -- 들어오자마자 시트 화면이 뜨고, 그 안의 구글 「로그인」을 누르면 앱을 벗어나 버린다
       const v = localStorage.getItem(boardViewKey())
       return v === 'board' || v === 'timeline' ? v : 'table'
     } catch {
       return 'table'
     }
   })
-  function changeBoardView(v: 'table' | 'board' | 'timeline' | 'sheet') {
+  function changeBoardView(v: 'table' | 'board' | 'timeline') {
     setBoardView(v)
     try {
-      if (v === 'sheet') localStorage.removeItem(boardViewKey())
-      else localStorage.setItem(boardViewKey(), v)
+      localStorage.setItem(boardViewKey(), v)
     } catch {
       // 기억 못 해도 지금은 바뀐다
     }
   }
   const [searchFocus, setSearchFocus] = useState(false)
-  // 구글시트 그대로 보기: 구글의 메뉴 · 서식 도구 모음을 보일지(끄면 칸만 보이는 최소 화면) -- 이 브라우저에 기억. 새로고침 = iframe을 다시 그린다
-  const [sheetFull, setSheetFullState] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('progress-board:sheet-toolbar') !== '0'
-    } catch {
-      return true
-    }
-  })
-  const sheetReload = 0
-  // 구글 위 줄 가리기(64px 위로 올려 시작) -- 이 브라우저에 기억. 끄면 구글이 보여 주는 그대로
-  const [sheetCrop, setSheetCropState] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('progress-board:sheet-crop') !== '0'
-    } catch {
-      return true
-    }
-  })
-  function setSheetCrop(v: boolean) {
-    setSheetCropState(v)
-    try {
-      localStorage.setItem('progress-board:sheet-crop', v ? '1' : '0')
-    } catch {
-      // 기억 못 해도 지금 화면에는 반영
-    }
-  }
-  const cropHead = sheetFull && sheetCrop
-  // (위쪽 접기 기능은 없앴다 -- 예전에 접어 둔 기억이 있어도 늘 펼친 채로)
-  const sheetFocus = false
-  const setSheetFocus = (v: boolean) => {
-    void v
-  }
   // 줄 높이: 시트 · 엑셀 원본 높이를 쓸지(켜 두면 원본 그대로, 행간 버튼으로 바꾸면 모두 같은 높이) -- 이 브라우저에 기억
   const [srcHeights, setSrcHeightsState] = useState<boolean>(() => {
     try {
@@ -433,16 +385,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     }
   }
   const [viewMenu, setViewMenu] = useState(false) // 보기 전환(아래 줄)이 펼쳐져 있는지
-  const [sheetJump, setSheetJump] = useState<number | null>(null) // 그룹 탭으로 옮겨 갈 시트 행(1-based)
-  const [sheetBoxRef, sheetBoxH] = useFitHeight(13, 360)
-  function setSheetFull(v: boolean) {
-    setSheetFullState(v)
-    try {
-      localStorage.setItem('progress-board:sheet-toolbar', v ? '1' : '0')
-    } catch {
-      // 기억 못 해도 지금 화면에는 반영
-    }
-  }
   const searchRef = useRef<HTMLInputElement>(null)
   const searchOpen = searchFocus || query.trim() !== ''
   const [editing, setEditing] = useState(false)
@@ -2027,20 +1969,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   )
 
   // (훅은 아래 early return 앞에 둔다 -- 데이터가 없다가 생길 때 「훅 개수가 달라짐」 오류가 나지 않게)
-  // 보기 전환(표 · 보드 · 타임라인 · 구글시트): 도구 줄과, 구글시트 모드의 아래 떠 있는 줄에서 같이 쓴다
-  // 구글시트 보기 + 접힘이면 html에 표시를 걸어 앱 맨 위 줄을 숨기고, 시트 높이를 다시 잰다
-  const sheetFocused = boardView === 'sheet' && !!data?.spreadsheetId && sheetFocus
-  useEffect(() => {
-    const root = document.documentElement
-    if (sheetFocused) root.setAttribute('data-sheet-focus', '1')
-    else root.removeAttribute('data-sheet-focus')
-    const t = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
-    return () => {
-      cancelAnimationFrame(t)
-      root.removeAttribute('data-sheet-focus')
-    }
-  }, [sheetFocused])
-
   if (!data) {
     return (
       <>
@@ -2285,7 +2213,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
     ['table', '표', Table2],
     ['board', '보드', SquareKanban],
     ['timeline', '타임라인', ChartGantt],
-    ...(data?.spreadsheetId ? ([['sheet', '구글시트 그대로(바로 편집)', FileSpreadsheet]] as const) : []),
   ] as const
   const CurViewIcon = (viewItems.find((v) => v[0] === boardView) ?? viewItems[0])[2]
   // 평소에는 고른 보기 아이콘 하나만 보이고, 마우스를 올리면(또는 누르면) 옆으로 펼쳐져 바꿀 수 있다(옆 그룹 탭이 잘리지 않게)
@@ -2337,11 +2264,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   )
 
   // 위 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기일 때) 구글 도구 모음 · 새로고침 · 새 창
-  function jumpToGroup(name: string) {
-    if (!data) return
-    const first = Math.min(...data.rows.filter((r) => r.l1 === name).map((r) => r.row + 1))
-    if (Number.isFinite(first)) setSheetJump(first)
-  }
   const dockBar = (
     <div className="-mx-6 -mt-5 flex h-[38px] items-center gap-2 rounded-t-panel [background:var(--tabbar-bg,rgb(0_0_0/0.04))] px-4 text-[length:calc(13px*var(--ui-fs,1))] lg:-mx-8">
       {!(editing && boardView === 'table') && viewSwitchEl}
@@ -2362,7 +2284,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 key={name}
                 onClick={() => {
                   setActiveL1(name)
-                  if (boardView === 'sheet') jumpToGroup(name)
                 }}
                 onContextMenu={(e) => {
                   e.preventDefault()
@@ -2526,38 +2447,15 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && loadFromFile(e.target.files[0])} />
         </div>
       </div>
-      {boardView === 'sheet' && data.spreadsheetId && (
+      {data.spreadsheetId && (
         <>
           <span className="h-5 w-px shrink-0 bg-separator" />
-          {/* 구글 위 줄 가리기: 켜면 제목 · 로그인 줄이 가려지고, 구글이 위 줄을 접어 둔 상태에서 도구 모음이 잘리면 끈다 */}
-          {sheetFull && (
-            <button
-              onClick={() => setSheetCrop(!sheetCrop)}
-              aria-pressed={sheetCrop}
-              title={sheetCrop ? '구글 위 줄 가림 끄기(도구 모음이 잘려 보일 때)' : '구글 위 줄(제목 · 로그인) 가리기'}
-              aria-label="구글 위 줄 가리기"
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-control hover:bg-black/[0.05] ${sheetCrop ? 'text-accent' : 'text-label-2 hover:text-label'}`}
-            >
-              {sheetCrop ? <PanelTopClose {...icSm} /> : <PanelTopOpen {...icSm} />}
-            </button>
-          )}
-          {/* 구글 도구 모음(메뉴 · 서식)은 숨겨져 있을 때만 「열기」 버튼을 보인다. 열린 뒤에는 구글 화면 안의 접기(^)로 숨긴다 */}
-          {!sheetFull && (
-            <button
-              onClick={() => setSheetFull(true)}
-              title="구글 도구 모음 열기(서식 · 수식)"
-              aria-label="구글 도구 모음 열기"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
-            >
-              <PanelTop {...icSm} />
-            </button>
-          )}
           <a
             href={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${data.sheetGid !== null ? `#gid=${data.sheetGid}` : ''}`}
             target="_blank"
             rel="noreferrer"
-            title="새 창에서 열기(화면이 안 보이거나 로그인이 필요할 때)"
-            aria-label="새 창에서 열기"
+            title="구글시트에서 열기(새 창)"
+            aria-label="구글시트에서 열기"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-label-2 hover:bg-black/[0.05] hover:text-label"
           >
             <ExternalLink {...icSm} />
@@ -2770,16 +2668,16 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {statusBar}
         {/* 연도 ▾ + L1 탭(우클릭 = 숨기기 · 이 그룹만 보기, 끝의 +로 추가) + 오른쪽 그룹 숨기기 */}
         {/* 위 줄(모든 보기 공통): 보기 전환 │ 그룹(L1) 탭 │ (구글시트 보기) 구글 도구 모음 · 새로고침 · 새 창 */}
-        {!(boardView === 'sheet' && sheetFocus) && dockBar}
+        {dockBar}
 
         {/* 도구 한 줄: 찾기·거르기 │ 보기(지브라·글자) │ 범례(입력 중엔 칠하기 도구) │ 되돌리기·저장·과제 추가·입력하기 */}
         <div
           className={`-mx-6 flex min-h-[58px] flex-wrap items-center gap-2 px-5 py-3 text-[length:calc(14px*var(--ui-fs,1))] transition-colors lg:-mx-8 ${
             editing && boardView === 'table' && !readOnly ? 'bg-accent-soft/70' : ''
-          } ${boardView === 'sheet' ? 'hidden' : ''}`}
+          } `}
         >
           {/* 찾기: 평소엔 돋보기 버튼만, 누르면 칸이 넓어진다. 찾는 말이 있으면 넓게 둔 채로 · 비우고 벗어나면(Esc) 다시 버튼 */}
-          <label className={`relative ${boardView === 'sheet' ? 'hidden' : ''}`} title="L2 · L3 · 담당자 찾기">
+          <label className="relative" title="L2 · L3 · 담당자 찾기">
             <Search {...icSm} className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${searchOpen ? 'left-2 text-label-3' : 'left-1/2 -translate-x-1/2 text-label-2'}`} />
             <input
               ref={searchRef}
@@ -2817,7 +2715,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           {/* 보기: 표 · 보드(상태별 칸반) · 타임라인(구분별 간트) -- 같은 행 · 같은 거르기 */}
           {/* 입력 중에는 보기 바꾸기를 숨긴다(서식 막대는 고른 칸 위에 뜬다) */}
           {/* 보드 · 타임라인 거르기(단계 + 지연 · 이번 달 마감): 보기 버튼 바로 옆 */}
-          {boardView !== 'table' && boardView !== 'sheet' &&
+          {boardView !== 'table' &&
             (() => {
               const { list, nowMonth } = scheduleListOf(views, weekCols, currentKey)
               return <ViewFilterBar list={list} value={viewFilter} onChange={setViewFilter} weekCols={weekCols} nowMonth={nowMonth} />
@@ -3112,48 +3010,12 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         {/* 아래 여백: 마지막 행의 "+ 행" 칩 · 높이 조절 손잡이가 잘리거나, 다 보이는데도 세로 스크롤이 생기지 않게 */}
         <div
           ref={tableBoxRef}
-          className={`${boardView === 'sheet' ? `-mx-6 -mb-8 lg:-mx-8 ${sheetFocus ? '-mt-5' : 'mt-0'}` : '-mx-6 -mb-8 mt-0 overflow-auto rounded-b-panel lg:-mx-8'} transition-opacity ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
+          className={`-mx-6 -mb-8 mt-0 overflow-auto rounded-b-panel transition-opacity lg:-mx-8 ${editing && boardView === 'table' && !readOnly ? 'rounded-[6px] ring-1 ring-accent/40 ring-offset-2' : ''} ${
             loading ? 'pointer-events-none opacity-40' : ''
           }`}
-          style={boardView === 'sheet' ? undefined : { maxHeight: tableBoxH }}
+          style={{ maxHeight: tableBoxH }}
         >
-          {boardView === 'sheet' && data.spreadsheetId ? (
-            // 구글시트가 본문을 꽉 채운다(위 줄 아래부터). 구글의 아래 시트 탭 줄은 시트 아래쪽을 잘라 가린다
-            <div ref={sheetBoxRef} className="relative overflow-hidden rounded-b-panel bg-white" style={{ height: sheetBoxH ?? 640 }}>
-              {sheetFocused && (
-                <button
-                  onClick={() => setSheetFocus(false)}
-                  title="위쪽 펴기(머리 줄 · 그룹 탭)"
-                  aria-label="위쪽 펴기"
-                  className="fixed left-1/2 top-0 z-40 flex h-5 w-14 -translate-x-1/2 items-center justify-center rounded-b-[10px] bg-white text-label-2 shadow-pop hover:text-label"
-                >
-                  <ChevronDown size={14} strokeWidth={2} />
-                </button>
-              )}
-              <iframe
-                key={`${data.spreadsheetId}:${data.sheetGid}:${sheetReload}:${sheetFull ? 'full' : 'min'}:${sheetJump ?? ''}`}
-                title="구글시트"
-                src={`https://docs.google.com/spreadsheets/d/${data.spreadsheetId}/edit${sheetFull ? '' : '?rm=minimal'}${data.sheetGid !== null ? `${sheetFull ? '?' : '&'}gid=${data.sheetGid}` : ''}${sheetJump ? `#gid=${data.sheetGid ?? 0}&range=A${sheetJump}` : ''}`}
-                className="absolute inset-x-0 w-full border-0"
-                style={{ top: cropHead ? -SHEET_HEAD_H : 0, height: `calc(100% + ${(cropHead ? SHEET_HEAD_H : 0) + SHEET_TABS_H}px)` }}
-              />
-              {cropHead && (
-                <div
-                  aria-hidden="true"
-                  className="absolute z-10"
-                  style={{ right: SHEET_FOLD_BLOCK.right, top: SHEET_FOLD_BLOCK.top, width: SHEET_FOLD_BLOCK.w, height: SHEET_FOLD_BLOCK.h }}
-                />
-              )}
-              {!cropHead && (
-                // 구글 위 줄이 보일 때 오른쪽 위(댓글 · 공유 · 로그인)를 막아 둔다 -- 안에서 「로그인」을 누르면 앱 화면이 구글 로그인으로 바뀌어 버린다(앱 로그인으로 이미 연결돼 있다)
-                <div
-                  className="absolute right-0 top-0 z-10 cursor-default"
-                  style={{ width: 380, height: 72 }}
-                  title="구글 로그인 · 공유는 여기서 쓰지 않습니다(앱 로그인으로 이미 연결돼 있습니다)"
-                />
-              )}
-            </div>
-          ) : boardView === 'board' ? (
+          {boardView === 'board' ? (
             <div className="px-6 pb-6 lg:px-8">
             <KanbanBoard
               views={views}
