@@ -160,9 +160,19 @@ export async function refreshAccess(id = getAccessSheetId()): Promise<AccessData
 async function readSheet(id: string): Promise<AccessData & { userRows: number; linkRows: number }> {
   const { title, values } = await fetchValues(id, [`'${USERS_TAB}'!A2:I`, `'${LINKS_TAB}'!A2:C`])
   const [u = [], l = []] = values
+  // 이메일 칸이 빈 줄(이름만 적은 팀원)도 버리지 않는다 -- 이름 · 팀으로 만든 임시 주소(@pending)를 붙여 「메일 없음」 팀원으로 보인다
+  const seen = new Set<string>()
+  const blankKey = (r: string[]) => {
+    let h = 0
+    for (const ch of `${(r[1] ?? '').trim()}|${(r[3] ?? '').trim()}`) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+    let k = `p${h.toString(36)}`
+    for (let i = 1; seen.has(k); i++) k = `p${h.toString(36)}${i}`
+    seen.add(k)
+    return `${k}${PENDING_SUFFIX}`
+  }
   const users = u
     .map((r) => ({
-      email: norm(r[0]),
+      email: norm(r[0]) || ((r[1] ?? '').trim() ? blankKey(r) : ''),
       name: (r[1] ?? '').trim(),
       role: ROLE_WORDS[(r[2] ?? '').trim()] ?? 'member',
       team: (r[3] ?? '').trim(),
