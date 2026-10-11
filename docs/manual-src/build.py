@@ -76,8 +76,8 @@ def page(fname, title, hero, chs, other):
     open('public/manual/' + fname, 'w').write(html)
     return len(html)
 
-hero_t = """<section class="hero searchable" data-title="빠르게 시작 과제 입력"><div><div class="eyebrow">Quick start</div><h1>시트를 연결하고,<br>한 해 추진현황을 함께 채웁니다.</h1><p>관리자가 권한 시트에 역할과 팀별 추진현황 시트를 적어 두면, 팀원은 로그인해서 공유된 시트를 불러와 과제와 일정을 입력하고 구글시트에 저장합니다. 진척률은 일정 칸으로 자동 계산됩니다.</p></div>
-<div class="hero-flow"><div class="hero-step"><b>1</b>준비 · 권한 시트 · 추진현황 시트</div><div class="hero-step"><b>2</b>로그인 · 공유된 시트 연결</div><div class="hero-step"><b>3</b>입력하기 · 구글시트에 저장</div></div></section>"""
+hero_t = """<section class="hero searchable" data-title="빠르게 시작 과제 입력"><div><div class="eyebrow">Quick start</div><h1>시트를 연결하고,<br>한 해 추진현황을 함께 채웁니다.</h1><p>관리자가 관리 메뉴에서 역할과 실적관리 시트를 정해 두면, 팀원은 로그인해서 공유된 시트를 불러와 과제와 일정을 입력하고 구글시트에 저장합니다. 진척률은 일정 칸으로 자동 계산됩니다.</p></div>
+<div class="hero-flow"><div class="hero-step"><b>1</b>준비 · 권한 설정 · 실적관리 시트</div><div class="hero-step"><b>2</b>로그인 · 공유된 시트 연결</div><div class="hero-step"><b>3</b>입력하기 · 구글시트에 업데이트</div></div></section>"""
 hero_p = """<section class="hero searchable" data-title="빠르게 시작 성과관리"><div><div class="eyebrow">Quick start</div><h1>데이터를 먼저 준비하고,<br>메뉴 순서대로 평가합니다.</h1><p>추진현황 시트 · 인사기록카드 · 이전 성과 엑셀을 준비해 두면, 팀장은 과제를 가져와 과제관리에서 평가 대상 · 성과등급 · 목표/성과를 넣고, 피어리뷰 · 평가하기 · 평가결과 · 면담으로 이어 갑니다.</p></div>
 <div class="hero-flow"><div class="hero-step"><b>1</b>준비 · 시트 · 인사기록카드 · 이전 성과</div><div class="hero-step"><b>2</b>평가 목록 · 새 평가 시작</div><div class="hero-step"><b>3</b>과제관리 · 팀원관리 · 평가하기 · 평가결과 · 면담</div></div></section>"""
 print(page('tasks.html', '페이스 · 과제 입력 매뉴얼', hero_t, TASKS, '<a href="perf.html">성과관리 매뉴얼 →</a>'))
@@ -97,8 +97,8 @@ index = f"""<!doctype html>
 <main style="max-width:880px;margin:0 auto;padding:40px 20px">
 <section class="hero"><div><div class="eyebrow">Manuals</div><h1>어떤 일을 하시나요?</h1><p>과제 입력은 연구소 모두가, 성과관리는 팀장이 씁니다. 각 매뉴얼은 준비할 데이터부터 순서대로 안내합니다.</p></div></section>
 <div class="book-cards">
-<a href="tasks.html"><h3>과제 입력 매뉴얼</h3><p>권한 시트 · 구글시트 연결(관리자) → 로그인 → 공유된 시트 불러오기 → 연도 · 「파일」 메뉴 → 추진현황 입력하기 · 구글시트에 저장 → 진척률</p></a>
-<a href="perf.html"><h3>성과관리 매뉴얼</h3><p>준비(과제 가져올 곳 · 인사기록카드 · 이전 성과) → 평가 목록 · 새 평가 시작 → 과제관리(평가 대상 · 성과등급 · 목표/성과) → 피어리뷰 · 평가하기 → 평가결과 · 리포트 → 승진 시뮬레이션 · 면담 · 데이터 백업</p></a>
+<a href="tasks.html"><h3>과제 입력 매뉴얼</h3><p>관리 · 권한 설정 · 실적관리 시트(관리자) → 로그인 → 공유된 시트 불러오기 → 시트 · 연도 메뉴 → 추진현황 입력하기 · 구글시트에 업데이트 → 보드 · 타임라인 · 진척률</p></a>
+<a href="perf.html"><h3>성과관리 매뉴얼</h3><p>준비(과제 가져올 곳 · 인사기록카드 · 이전 성과) → 평가 목록(팀 · 새 평가) → 과제관리(평가 대상 · 성과등급 · 목표/성과) → 피어리뷰 · 평가하기 → 평가결과 · 리포트 → 승진 시뮬레이션 · 면담 · 데이터 백업</p></a>
 </div>
 <p class="privacy" style="margin-top:28px">화면의 인물·과제·조직 정보는 모두 설명용 가상 데이터입니다.</p>
 </main>
