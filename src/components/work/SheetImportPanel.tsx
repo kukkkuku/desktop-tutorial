@@ -573,7 +573,7 @@ export default function SheetImportPanel({
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-3 border-t border-separator bg-white pb-1 pt-4">
+          <div className="sticky bottom-0 mt-3 bg-white pb-1">
             <div className="space-y-2 rounded-card bg-subtle p-3">
             {selectedGroups.length > 0 ? (
               <>
