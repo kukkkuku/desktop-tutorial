@@ -1493,7 +1493,23 @@ export default function ScheduleTable({
     setL2Edit(null)
     if (name) onRenameGroup?.(row, name)
   }
-  const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number } | null>(null)
+  // 메모 보기 상자(구글시트처럼): 칸에 마우스를 올리면 뜨고, 상자로 옮겨 가도 남아 있다. 안의 글은 드래그해 복사 · 눌러서 바로 고치기 · 모서리를 끌어 크기 조절
+  const [hoverNote, setHoverNote] = useState<{ text: string; x: number; y: number; row?: ProgressRow; key?: string } | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const noteHideTimer = useRef<number | null>(null)
+  const noteFocused = useRef(false)
+  useEffect(() => {
+    setNoteDraft(hoverNote?.text ?? '')
+  }, [hoverNote?.row?.key, hoverNote?.key, hoverNote?.text])
+  function cancelNoteHide() {
+    if (noteHideTimer.current !== null) window.clearTimeout(noteHideTimer.current)
+    noteHideTimer.current = null
+  }
+  function scheduleNoteHide() {
+    if (noteFocused.current) return
+    cancelNoteHide()
+    noteHideTimer.current = window.setTimeout(() => setHoverNote(null), 220)
+  }
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
@@ -1510,13 +1526,17 @@ export default function ScheduleTable({
   function openMenu(e: React.MouseEvent, row: ProgressRow, key: string, kind: Menu['kind']) {
     e.preventDefault()
     if (readOnly) return
+    cancelNoteHide()
+    noteFocused.current = false
     setHoverNote(null)
     setMenu({ row, key, kind, x: Math.min(e.clientX, window.innerWidth - 250), y: Math.max(8, Math.min(e.clientY, window.innerHeight - 440)) })
   }
-  function showNote(e: React.MouseEvent | null, text: string) {
-    if (!e) return setHoverNote(null)
+  function showNote(e: React.MouseEvent | null, text: string, row?: ProgressRow, key?: string) {
+    if (!e) return scheduleNoteHide()
+    if (noteFocused.current) return // 메모를 고치는 중에는 다른 칸 메모로 바꾸지 않는다
+    cancelNoteHide()
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setHoverNote({ text, x: Math.min(r.right + 4, window.innerWidth - 300), y: r.top })
+    setHoverNote({ text, x: Math.min(r.right + 2, window.innerWidth - 300), y: Math.min(r.top, window.innerHeight - 160), row, key })
   }
 
   // 같은 L2끼리 묶어 "구분" 칸을 합친다(시트 순서 그대로).
@@ -2830,7 +2850,7 @@ export default function ScheduleTable({
                         }}
                         onMouseEnter={(e) => {
                           cellEnter(v.row.key, 'name')
-                          if (l3Note) showNote(e, l3Note)
+                          if (l3Note) showNote(e, l3Note, v.row, 'name')
                         }}
                         onMouseLeave={l3Note ? () => showNote(null, '') : undefined}
                         style={{
@@ -2911,7 +2931,7 @@ export default function ScheduleTable({
                             onMouseEnter={(e) => {
                               if (editing && dragRow.current === v.row.key) onPaint(v.row, x.key, false)
                               if (!editing) weekEnter(ri2, i)
-                              if (note) showNote(e, note)
+                              if (note) showNote(e, note, v.row, x.key)
                             }}
                             onMouseLeave={note ? () => showNote(null, '') : undefined}
                             onContextMenu={(e) => openMenu(e, v.row, x.key, 'week')}
@@ -2991,7 +3011,7 @@ export default function ScheduleTable({
                           edited={v.editedFields.has(f.id) || (!!v.row.isNew && !!v.vals[f.id])}
                           onCommit={(val) => onField(v.row, f.id, val)}
                           onMenu={(e) => openMenu(e, v.row, f.id, 'field')}
-                          onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '')}
+                          onHoverNote={(e) => showNote(e, v.notes[f.id] ?? '', v.row, f.id)}
                           disabled={v.deleted || readOnly}
                           selected={isSel(v.row.key, f.id)}
                           onSelect={(edit) => selectCell(v.row.key, f.id, edit)}
@@ -3138,12 +3158,31 @@ export default function ScheduleTable({
           document.body,
         )}
       {hoverNote && !menu && !noteEdit && (
-        <div
-          className="pointer-events-none fixed z-50 max-w-[300px] whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label shadow-dialog"
+        <textarea
+          value={noteDraft}
+          readOnly={readOnly || !hoverNote.row || !hoverNote.key}
+          onChange={(e) => setNoteDraft(e.target.value)}
+          onMouseEnter={cancelNoteHide}
+          onMouseLeave={scheduleNoteHide}
+          onFocus={() => {
+            noteFocused.current = true
+            cancelNoteHide()
+          }}
+          onBlur={() => {
+            noteFocused.current = false
+            if (!readOnly && hoverNote.row && hoverNote.key && noteDraft.trim() !== hoverNote.text.trim()) onNote(hoverNote.row, hoverNote.key, noteDraft)
+            setHoverNote(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setNoteDraft(hoverNote.text)
+              e.currentTarget.blur()
+            } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur()
+          }}
+          title={readOnly ? '메모(복사만 가능)' : '눌러서 고치기 · 모서리를 끌어 크기 조절 · 바깥을 누르면 저장 · Esc 취소'}
+          className="fixed z-50 h-[110px] max-h-[520px] min-h-[56px] w-[250px] min-w-[160px] max-w-[640px] resize overflow-auto whitespace-pre-wrap break-words rounded-[4px] border border-[#D6DAE0] bg-white px-2.5 py-2 text-[length:calc(13px*var(--ui-fs,1))] leading-relaxed text-label shadow-dialog outline-none focus:border-accent"
           style={{ left: hoverNote.x, top: hoverNote.y }}
-        >
-          {hoverNote.text}
-        </div>
+        />
       )}
 
       {menu && menuView && (
