@@ -143,6 +143,7 @@ import { useGoogleAccount } from '../../hooks/useGoogleAccount'
 import { useWorkspaces } from '../../state/WorkspaceContext'
 import { LOGIN_EVENT, getConnectedEmail, withGoogleAccount } from '../../utils/googleDrive'
 import { accessUserOf } from '../../utils/accessSheet'
+import YearPicker from '../YearPicker'
 import { KanbanBoard, TimelineView, ALL_FILTER, ViewFilterBar, scheduleListOf, type ViewFilter } from './BoardViews'
 import ScheduleTable, { CellSwatch, HEAD_DEFAULT, L2_KEY, type ScheduleMode, type ScheduleRowView } from './ScheduleTable'
 import ColorPalette from './ColorPalette'
@@ -292,6 +293,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
   const { workspaces, currentWorkspaceId, teamNames, openOrCreateEvaluation, deleteWorkspace } = useWorkspaces()
   const [exportTo, setExportTo] = useState<string>('')
   const [exportTeam, setExportTeam] = useState<string>('') // 평가가 아직 없을 때 여기서 바로 만들 팀 이름(기본 = 로그인한 팀장의 팀)
+  const [exportYear, setExportYear] = useState<number | null>(null) // 평가가 없을 때 만들 평가의 연도(기본 = 보는 연도)
+  const [exportHalf, setExportHalf] = useState<'H1' | 'H2' | null>(null) // 상반기/하반기(기본 = 지금 기준)
   const draftWs = useRef<string | null>(null) // 이 창에서 방금 만든 평가 -- 내보내지 않고 닫으면 지운다
   function closeExport() {
     if (draftWs.current) {
@@ -3156,13 +3159,14 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           const empty = workspaces.length === 0
           const leaderTeam = (accessUserOf(getConnectedEmail())?.team ?? '').trim()
           const teamValue = exportTeam || leaderTeam || teamNames[0] || ''
-          const evalYear = data.year ?? new Date().getFullYear()
-          const half = new Date().getMonth() < 6 ? { code: 'H1', label: '상반기' } : { code: 'H2', label: '하반기' }
+          const evalYear = exportYear ?? data.year ?? new Date().getFullYear()
+          const halfCode = exportHalf ?? (new Date().getMonth() < 6 ? 'H1' : 'H2')
+          const half = { code: halfCode, label: halfCode === 'H1' ? '상반기' : '하반기' }
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={empty ? closeExport : undefined}>
               <div
                 className="flex flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
-                style={{ width: empty ? 'min(460px, calc(100vw - 2rem))' : 'min(1180px, calc(100vw - 2rem))', height: empty ? 276 : 'min(900px, 92vh)' }}
+                style={{ width: empty ? 'min(460px, calc(100vw - 2rem))' : 'min(1180px, calc(100vw - 2rem))', height: empty ? 320 : 'min(900px, 92vh)' }}
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 {empty ? (
@@ -3174,18 +3178,25 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                       </IconButton>
                     </div>
                     <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.</p>
-                    <div className="mt-4 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                      <input
-                        type="text"
-                        value={teamValue}
-                        onChange={(e) => setExportTeam(e.target.value)}
-                        placeholder="팀 이름"
-                        aria-label="팀 이름"
-                        className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 font-semibold text-label"
-                      />
-                      <span className="shrink-0 font-semibold text-label">
-                        {evalYear} {half.label}
-                      </span>
+                    <input
+                      type="text"
+                      value={teamValue}
+                      onChange={(e) => setExportTeam(e.target.value)}
+                      placeholder="팀 이름"
+                      aria-label="팀 이름"
+                      className="mt-4 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <YearPicker year={evalYear} onChange={setExportYear} />
+                      <Select
+                        value={half.code}
+                        onChange={(e) => setExportHalf(e.target.value as 'H1' | 'H2')}
+                        aria-label="평가기간"
+                        className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label"
+                      >
+                        <option value="H1">상반기</option>
+                        <option value="H2">하반기</option>
+                      </Select>
                     </div>
                     <div className="mt-5 flex justify-end gap-2">
                       <Button variant="secondary" size="sm" onClick={closeExport}>
