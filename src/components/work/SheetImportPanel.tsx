@@ -76,6 +76,8 @@ interface Props {
   initialL1s?: string[]
   // 'export' = 과제 입력에서 여는 "내보내기" 창(같은 화면, 문구만 내보내기로)
   verb?: 'import' | 'export'
+  // 보내기 버튼 줄 왼쪽에 둘 것(보낼 곳 선택 등)
+  footerSlot?: React.ReactNode
 }
 
 interface TabOption {
@@ -94,6 +96,7 @@ export default function SheetImportPanel({
   initialL1s,
   progress: progressProp,
   verb = 'import',
+  footerSlot,
 }: Props) {
   const V =
     verb === 'export'
@@ -251,7 +254,6 @@ export default function SheetImportPanel({
     return Array.from(m.entries())
   }, [groups])
   const [activeL1, setActiveL1] = useState<string | null>(null)
-  const [assigneeOpen, setAssigneeOpen] = useState(false) // 「새 팀원 N명 추가 › 바꾸기」 목록
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
 
   function toggle(names: string[], on: boolean) {
@@ -321,26 +323,26 @@ export default function SheetImportPanel({
       {source === 'progress' ? (
         <div>
           {progress ? (
-            <>
-              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
-                <SheetsIcon className="h-4 w-3.5 shrink-0" />
-                <span>{progress.data.fileTitle ? `${progress.data.fileTitle} / ${progress.data.tabTitle}` : progress.data.source}</span>
-                {countDrafts(progress.drafts) > 0 && <span className="text-orange-600">· 저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>}
-              </p>
-              <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 className="text-[length:calc(16px*var(--ui-fs,1))] font-semibold text-label">{verb === 'export' ? '보낼 과제 선택' : '가져올 과제 선택'}</h3>
-                {groups.length > 0 && (
-                  <label className="flex cursor-pointer items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                    <input
-                      type="checkbox"
-                      checked={groups.length > 0 && groups.every((g) => selected.has(g.name))}
-                      onChange={(e) => toggle(groups.map((g) => g.name), e.target.checked)}
-                    />
-                    분류 전체 선택
-                  </label>
-                )}
+                <span className="flex min-w-0 items-center gap-1.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-3">
+                  <SheetsIcon className="h-4 w-3.5 shrink-0" />
+                  <span className="truncate">{progress.data.fileTitle ? `${progress.data.fileTitle} / ${progress.data.tabTitle}` : progress.data.source}</span>
+                  {countDrafts(progress.drafts) > 0 && <span className="shrink-0 text-orange-600">· 저장 안 한 변경 {countDrafts(progress.drafts)}건 포함</span>}
+                </span>
               </div>
-            </>
+              {groups.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
+                  <input
+                    type="checkbox"
+                    checked={groups.length > 0 && groups.every((g) => selected.has(g.name))}
+                    onChange={(e) => toggle(groups.map((g) => g.name), e.target.checked)}
+                  />
+                  분류 전체 선택
+                </label>
+              )}
+            </div>
           ) : (
             <p className="rounded-card bg-black/[0.04] px-3 py-2.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
               아직 과제 입력 › 추진현황을 불러온 적이 없습니다. 맨 위 「과제 입력」에서 추진현황을 먼저 불러와 주세요.
@@ -549,7 +551,7 @@ export default function SheetImportPanel({
                       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
                         {g.tag && <span className="rounded-[4px] bg-orange-100 px-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-orange-700">{g.tag}</span>}
-                        <span className="rounded-full bg-black/[0.06] px-2 text-[length:calc(12px*var(--ui-fs,1))] font-medium tabular-nums text-label-2">{g.count}</span>
+                        {g.assignees.length > 0 && <span className="min-w-0 truncate text-[length:calc(13px*var(--ui-fs,1))] font-normal text-label-3">{g.assignees.join(', ')}</span>}
                         {already && <span className="mac-badge bg-success/15 text-success">{V.badge}</span>}
                         {g.inferred && (
                           <span className="text-[length:calc(13px*var(--ui-fs,1))] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
@@ -557,16 +559,13 @@ export default function SheetImportPanel({
                           </span>
                         )}
                       </p>
-                      <div className="mt-1.5 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                        {g.assignees.length > 0 && <p className="truncate text-label-3">팀원 {g.assignees.join(', ')}</p>}
-                        <p
-                          className="truncate font-semibold text-label"
-                          title={`${g.l3Names.slice(0, 30).join('\n')}${g.l3Names.length > 30 ? `\n… 외 ${g.l3Names.length - 30}건` : ''}`}
-                        >
-                          {g.l3Names.slice(0, 2).join(' · ')}
-                          {g.l3Names.length > 2 && ` 외 ${g.l3Names.length - 2}건`}
-                        </p>
-                      </div>
+                      <p
+                        className="mt-1 truncate text-[length:calc(13px*var(--ui-fs,1))] text-label-2"
+                        title={`${g.l3Names.slice(0, 30).join('\n')}${g.l3Names.length > 30 ? `\n… 외 ${g.l3Names.length - 30}건` : ''}`}
+                      >
+                        <span className="font-semibold text-label">하위과제 총 {g.count}건</span> : {g.l3Names.slice(0, 3).join(', ')}
+                        {g.l3Names.length > 3 && ' 외'}
+                      </p>
                     </div>
                   </div>
                 )
@@ -575,67 +574,45 @@ export default function SheetImportPanel({
           </div>
 
           <div className="sticky bottom-0 mt-3 border-t border-separator bg-white pb-1 pt-4">
-            <div className="min-w-0">
-              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
-                과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
-                {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
-              </p>
-              {selectedGroups.length > 0 && (
-                <div className="mt-2 flex max-h-[68px] flex-wrap gap-1.5 overflow-y-auto">
-                  {selectedGroups.map((g) => (
-                    <span
-                      key={g.name}
-                      className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
-                    >
-                      <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
-                        {g.name}
-                        {g.tag ? ` [${g.tag}]` : ''}
-                      </button>
-                      <button
-                        onClick={() => toggle([g.name], false)}
-                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
-                        aria-label={`${g.name} 선택 해제`}
-                        title="선택 해제"
+            {selectedGroups.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 w-9 shrink-0 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">과제</span>
+                  <div className="flex max-h-[68px] min-w-0 flex-1 flex-wrap gap-1.5 overflow-y-auto">
+                    {selectedGroups.map((g) => (
+                      <span
+                        key={g.name}
+                        className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-soft py-0.5 pl-3 pr-1 text-[length:calc(14px*var(--ui-fs,1))] font-medium text-accent"
                       >
-                        <X size={12} strokeWidth={2} />
-                      </button>
-                    </span>
-                  ))}
+                        <button onClick={() => setActiveL1(g.l1 ?? '(L1 없음)')} className="truncate hover:underline" title={`${g.l1 ?? ''} › ${g.name}`}>
+                          {g.name}
+                          {g.tag ? ` [${g.tag}]` : ''}
+                        </button>
+                        <button
+                          onClick={() => toggle([g.name], false)}
+                          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:bg-accent/15"
+                          aria-label={`${g.name} 선택 해제`}
+                          title="선택 해제"
+                        >
+                          <X size={12} strokeWidth={2} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div className="relative mt-3 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                {warnings.unknownAssignees.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setAssigneeOpen(!assigneeOpen)}
-                    aria-expanded={assigneeOpen}
-                    className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:text-label"
-                  >
-                    새 팀원 <span className="font-semibold text-accent">{addNames.size}명</span> 추가
-                    <span className="rounded-control px-1.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3 underline underline-offset-2">바꾸기</span>
-                  </button>
-                )}
-              </div>
-              {assigneeOpen && (warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
-                <>
-                  <div className="fixed inset-0 z-10" onMouseDown={() => setAssigneeOpen(false)} />
-                  <div className="absolute bottom-full left-0 z-20 mb-2 max-h-[50vh] w-[min(760px,calc(100vw-4rem))] overflow-y-auto rounded-card border border-separator bg-white p-3 shadow-pop">
-              <div>
-                    <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-                      고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
-                      {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
+                {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 flex w-9 shrink-0 items-center text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">
+                      팀원
                       {warnings.unknownAssignees.length > 0 && (
-                        <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
+                        <InfoTip label="팀원 추가 설명" width={320} className="ml-0.5">
                           체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
                           <br />
-                          회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
+                          회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 체크 안 한 사람.
                         </InfoTip>
                       )}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    </span>
+                    <div className="flex max-h-[68px] min-w-0 flex-1 flex-wrap gap-1.5 overflow-y-auto">
                       {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
                       {warnings.memberAssignees.map((m) => (
                         <span
@@ -646,33 +623,37 @@ export default function SheetImportPanel({
                           {m.name} <span className="text-label-3">{m.count}</span>
                         </span>
                       ))}
-                      {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
+                      {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순). 체크한 사람은 팀원으로 추가 */}
                       {[...warnings.unknownAssignees]
                         .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
                         .map((u) => {
-                        const on = addNames.has(u.name)
-                        return (
-                          <button
-                            key={u.name}
-                            onClick={() => {
-                              const next = new Set(addNames)
-                              if (on) next.delete(u.name)
-                              else next.add(u.name)
-                              setAddNames(next)
-                            }}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
-                            title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
-                          >
-                            {on && <Check {...icSm} />}
-                            <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
+                          const on = addNames.has(u.name)
+                          return (
+                            <button
+                              key={u.name}
+                              onClick={() => {
+                                const next = new Set(addNames)
+                                if (on) next.delete(u.name)
+                                else next.add(u.name)
+                                setAddNames(next)
+                              }}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
+                              title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
+                            >
+                              {on && <Check {...icSm} />}
+                              <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
                             </button>
-                        )
-                      })}
+                          )
+                        })}
                     </div>
                   </div>
-                  </div>
-                </>
-              )}
+                )}
+              </div>
+            ) : (
+              <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">보낼 과제를 골라 주세요.</p>
+            )}
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">{footerSlot}</div>
               <div className="flex shrink-0 justify-end gap-2">
                 {onCancel && (
                   <Button variant="secondary" onClick={onCancel}>

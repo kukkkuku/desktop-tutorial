@@ -3226,21 +3226,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                     <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
                       <div className="min-w-0">
                         <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                          <span className="font-semibold text-label-2">보낼 곳</span>
-                          <Select
-                            value={target}
-                            onChange={(e) => setExportTo(e.target.value)}
-                            aria-label="보낼 성과관리 평가"
-                            className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
-                          >
-                            {workspaces.map((w) => (
-                              <option key={w.id} value={w.id}>
-                                {w.teamName} · {w.evaluationYear} {w.periodName}
-                              </option>
-                            ))}
-                          </Select>
-                        </div>
                       </div>
                       <IconButton onClick={closeExport} aria-label="닫기" className="shrink-0">
                         <X {...ic} />
@@ -3254,6 +3239,23 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                             source="progress"
                             progress={exportSource}
                             verb="export"
+                            footerSlot={
+                              <div className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+                                <span className="font-semibold text-label-2">보낼 곳</span>
+                                <Select
+                                  value={target}
+                                  onChange={(e) => setExportTo(e.target.value)}
+                                  aria-label="보낼 성과관리 평가"
+                                  className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
+                                >
+                                  {workspaces.map((w) => (
+                                    <option key={w.id} value={w.id}>
+                                      {w.teamName} · {w.evaluationYear} {w.periodName}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                            }
                             initialL1s={l1 ? [l1] : undefined}
                             onCancel={closeExport}
                             onDone={() => {
