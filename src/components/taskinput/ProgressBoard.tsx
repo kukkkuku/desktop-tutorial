@@ -3150,118 +3150,116 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             />
           )}
         </div>
-        {exportOpen && workspaces.length === 0 && (() => {
+        {exportOpen && (() => {
+          // 하나의 창: 보낼 평가가 없으면 작게(팀 이름만 정해 만들기), 만들면 같은 창이 스르륵 커지며 과제 고르기로 이어진다
           // 팀 이름만 고칠 수 있고, 연도 · 상반기/하반기는 지금 기준으로 채운다. 내보내지 않고 닫으면 만든 평가는 지워진다.
+          const empty = workspaces.length === 0
           const leaderTeam = (accessUserOf(getConnectedEmail())?.team ?? '').trim()
           const teamValue = exportTeam || leaderTeam || teamNames[0] || ''
           const evalYear = data.year ?? new Date().getFullYear()
           const half = new Date().getMonth() < 6 ? { code: 'H1', label: '상반기' } : { code: 'H2', label: '하반기' }
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={closeExport}>
-              <div className="w-[min(460px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
-                  <IconButton onClick={closeExport} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
-                    <X {...ic} />
-                  </IconButton>
-                </div>
-                <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.</p>
-                <div className="mt-4 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                  <input
-                    type="text"
-                    value={teamValue}
-                    onChange={(e) => setExportTeam(e.target.value)}
-                    placeholder="팀 이름"
-                    aria-label="팀 이름"
-                    className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 font-semibold text-label"
-                  />
-                  <span className="shrink-0 font-semibold text-label">
-                    {evalYear} {half.label}
-                  </span>
-                </div>
-                <div className="mt-5 flex justify-end gap-2">
-                  <Button variant="secondary" size="sm" onClick={closeExport}>
-                    취소
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={!teamValue.trim()}
-                    onClick={() => {
-                      const r = openOrCreateEvaluation(teamValue.trim(), {
-                        evaluationYear: evalYear,
-                        evaluationCycle: 'half',
-                        evaluationPeriodCode: half.code,
-                        periodLabel: half.label,
-                      })
-                      if (r.created) draftWs.current = r.id
-                      setExportTo(r.id)
-                    }}
-                  >
-                    만들고 내보내기
-                  </Button>
-                </div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4" onMouseDown={empty ? closeExport : undefined}>
+              <div
+                className="flex flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog transition-[width,height] duration-300 ease-out"
+                style={{ width: empty ? 'min(460px, calc(100vw - 2rem))' : 'min(880px, calc(100vw - 2rem))', height: empty ? 276 : 'min(720px, 92vh)' }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                {empty ? (
+                  <div className="p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
+                      <IconButton onClick={closeExport} aria-label="닫기" className="-mr-2 -mt-1 shrink-0">
+                        <X {...ic} />
+                      </IconButton>
+                    </div>
+                    <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] text-label-2">과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.</p>
+                    <div className="mt-4 flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+                      <input
+                        type="text"
+                        value={teamValue}
+                        onChange={(e) => setExportTeam(e.target.value)}
+                        placeholder="팀 이름"
+                        aria-label="팀 이름"
+                        className="h-8 min-w-0 flex-1 rounded-control border border-hairline px-2.5 font-semibold text-label"
+                      />
+                      <span className="shrink-0 font-semibold text-label">
+                        {evalYear} {half.label}
+                      </span>
+                    </div>
+                    <div className="mt-5 flex justify-end gap-2">
+                      <Button variant="secondary" size="sm" onClick={closeExport}>
+                        취소
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={!teamValue.trim()}
+                        onClick={() => {
+                          const r = openOrCreateEvaluation(teamValue.trim(), {
+                            evaluationYear: evalYear,
+                            evaluationCycle: 'half',
+                            evaluationPeriodCode: half.code,
+                            periodLabel: half.label,
+                          })
+                          if (r.created) draftWs.current = r.id
+                          setExportTo(r.id)
+                        }}
+                      >
+                        만들고 내보내기
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
+                  <>
+                    <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
+                      <div className="min-w-0">
+                        <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
+                          <span className="font-semibold text-label-2">보낼 곳</span>
+                          <Select
+                            value={target}
+                            onChange={(e) => setExportTo(e.target.value)}
+                            aria-label="보낼 성과관리 평가"
+                            className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
+                          >
+                            {workspaces.map((w) => (
+                              <option key={w.id} value={w.id}>
+                                {w.teamName} · {w.evaluationYear} {w.periodName}
+                              </option>
+                            ))}
+                          </Select>
+                        </div>
+                      </div>
+                      <IconButton onClick={closeExport} aria-label="닫기" className="shrink-0">
+                        <X {...ic} />
+                      </IconButton>
+                    </div>
+                    <div className="min-w-[320px] flex-1 overflow-y-auto p-6">
+                      {target && (
+                        <AppProvider key={target} workspaceId={target}>
+                          <ExportTargetSync id={target} />
+                          <SheetImportPanel
+                            source="progress"
+                            progress={exportSource}
+                            verb="export"
+                            initialL1s={l1 ? [l1] : undefined}
+                            onCancel={closeExport}
+                            onDone={() => {
+                              draftWs.current = null
+                              setExportOpen(false)
+                              setMode('perf')
+                            }}
+                          />
+                        </AppProvider>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )
         })()}
-        {exportOpen && workspaces.length > 0 && (
-          // 성과관리의 가져오기 화면(추진현황에서)과 같은 화면 -- 보낼 프로젝트를 고르고 L2를 골라 바로 넣는다
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-            <div className="flex h-[min(720px,92vh)] w-[min(880px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[12px] bg-white shadow-dialog">
-              <div className="flex items-start justify-between gap-4 border-b border-separator px-6 pb-3 pt-5">
-                <div className="min-w-0">
-                  <h3 className="text-[length:calc(18px*var(--ui-fs,1))] font-semibold text-label">성과관리로 과제 보내기</h3>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                    <span className="font-semibold text-label-2">보낼 곳</span>
-                    {workspaces.length > 0 ? (
-                      <Select
-                        value={target}
-                        onChange={(e) => setExportTo(e.target.value)}
-                        aria-label="보낼 성과관리 평가"
-                        className="h-8 rounded-control border border-hairline bg-white px-2 text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label"
-                      >
-                        {workspaces.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {w.teamName} · {w.evaluationYear} {w.periodName}
-                          </option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <span className="text-label-2">
-                        성과관리에 아직 평가(팀 · 평가기간)가 없습니다.{' '}
-                        <button onClick={() => setMode('perf')} className="font-semibold text-accent hover:underline">
-                          성과관리에서 평가 만들기
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <IconButton onClick={closeExport} aria-label="닫기" className="shrink-0">
-                  <X {...ic} />
-                </IconButton>
-              </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                {target && (
-                  <AppProvider key={target} workspaceId={target}>
-                    <ExportTargetSync id={target} />
-                    <SheetImportPanel
-                      source="progress"
-                      progress={exportSource}
-                      verb="export"
-                      initialL1s={l1 ? [l1] : undefined}
-                      onCancel={closeExport}
-                      onDone={() => {
-                        draftWs.current = null
-                        setExportOpen(false)
-                        setMode('perf')
-                      }}
-                    />
-                  </AppProvider>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
         {tabAdd && (
           <div className="fixed inset-0 z-50" onMouseDown={() => setTabAdd(null)}>
             <form
