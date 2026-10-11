@@ -3153,7 +3153,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                 </IconButton>
               </div>
               <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                아직 평가가 없어요. 팀과 기간을 정하면 바로 만들어 드려요.
+                과제를 보낼 성과관리 프로젝트를 먼저 만들어 주세요.
               </p>
               <label className="mt-4 block text-[length:calc(14px*var(--ui-fs,1))] font-medium text-label-2">팀 이름</label>
               <input
