@@ -251,6 +251,7 @@ export default function SheetImportPanel({
     return Array.from(m.entries())
   }, [groups])
   const [activeL1, setActiveL1] = useState<string | null>(null)
+  const [assigneeOpen, setAssigneeOpen] = useState(false) // 「새 팀원 N명 추가 › 바꾸기」 목록
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
 
   function toggle(names: string[], on: boolean) {
@@ -573,14 +574,14 @@ export default function SheetImportPanel({
             </div>
           </div>
 
-          <div className="sticky bottom-0 mt-3 max-h-[46vh] overflow-y-auto border-t border-separator bg-white pb-1 pt-4">
+          <div className="sticky bottom-0 mt-3 border-t border-separator bg-white pb-1 pt-4">
             <div className="min-w-0">
               <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-2">
                 과제 <span className="font-semibold text-accent">{selectedGroups.length}개</span> 선택
                 {selectedGroups.length > 0 && ` · 하위 과제 ${importRows.length}개 포함`}
               </p>
               {selectedGroups.length > 0 && (
-                <div className="mt-2 flex max-h-24 flex-wrap gap-1.5 overflow-y-auto">
+                <div className="mt-2 flex max-h-[68px] flex-wrap gap-1.5 overflow-y-auto">
                   {selectedGroups.map((g) => (
                     <span
                       key={g.name}
@@ -604,65 +605,84 @@ export default function SheetImportPanel({
               )}
             </div>
 
-            {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
-              <div className="mt-3 rounded-card bg-subtle p-3">
-                <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
-                  고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
-                  {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
-                  {warnings.unknownAssignees.length > 0 && (
-                    <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
-                      체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
-                      <br />
-                      회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
-                    </InfoTip>
-                  )}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
-                  {warnings.memberAssignees.map((m) => (
-                    <span
-                      key={`m:${m.name}`}
-                      className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
-                      title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
-                    >
-                      {m.name} <span className="text-label-3">{m.count}</span>
-                    </span>
-                  ))}
-                  {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
-                  {[...warnings.unknownAssignees]
-                    .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
-                    .map((u) => {
-                    const on = addNames.has(u.name)
-                    return (
-                      <button
-                        key={u.name}
-                        onClick={() => {
-                          const next = new Set(addNames)
-                          if (on) next.delete(u.name)
-                          else next.add(u.name)
-                          setAddNames(next)
-                        }}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
-                        title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
-                      >
-                        {on && <Check {...icSm} />}
-                        <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
-                        </button>
-                    )
-                  })}
-                </div>
+            <div className="relative mt-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                {warnings.unknownAssignees.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAssigneeOpen(!assigneeOpen)}
+                    aria-expanded={assigneeOpen}
+                    className="flex items-center gap-1.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2 hover:text-label"
+                  >
+                    새 팀원 <span className="font-semibold text-accent">{addNames.size}명</span> 추가
+                    <span className="rounded-control px-1.5 py-0.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-3 underline underline-offset-2">바꾸기</span>
+                  </button>
+                )}
               </div>
-            )}
-            <div className="mt-4 flex justify-end gap-2">
-              {onCancel && (
-                <Button variant="secondary" onClick={onCancel}>
-                  취소
-                </Button>
+              {assigneeOpen && (warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
+                <>
+                  <div className="fixed inset-0 z-10" onMouseDown={() => setAssigneeOpen(false)} />
+                  <div className="absolute bottom-full left-0 z-20 mb-2 max-h-[50vh] w-[min(760px,calc(100vw-4rem))] overflow-y-auto rounded-card border border-separator bg-white p-3 shadow-pop">
+              <div>
+                    <p className="text-[length:calc(14px*var(--ui-fs,1))] font-semibold text-label">
+                      고른 과제의 담당자 {warnings.memberAssignees.length + warnings.unknownAssignees.length}명
+                      {warnings.unknownAssignees.length > 0 && <span className="font-normal text-label-2"> -- 팀원으로 추가할 사람을 고르세요</span>}
+                      {warnings.unknownAssignees.length > 0 && (
+                        <InfoTip label="담당자 표시 설명" width={320} className="ml-1">
+                          체크한 사람은 팀원으로 추가되어 평가하기의 기여도 자동 배분에 들어갑니다. 추가하지 않아도 과제관리에는 이름이 그대로 보이고, 나중에 팀원관리에서 추가하면 연결됩니다.
+                          <br />
+                          회색 = 이미 팀원 · 실선 = 체크한 우리 팀 사람 · 점선 = 그 밖(다른 팀 · 체크 안 함) · 굵은 이름 + 주황 팀 이름 = 다른 팀 사람(처음엔 체크 안 됨).
+                        </InfoTip>
+                      )}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {/* 이미 팀원인 담당자: 선택할 필요 없이 확인용 */}
+                      {warnings.memberAssignees.map((m) => (
+                        <span
+                          key={`m:${m.name}`}
+                          className="inline-flex items-center gap-1 rounded-full bg-black/[0.05] px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] text-label-2"
+                          title="이미 팀원 목록에 있는 사람(과제 담당자로 자동 연결 -- 고를 필요 없음)"
+                        >
+                          {m.name} <span className="text-label-3">{m.count}</span>
+                        </span>
+                      ))}
+                      {/* 우리 팀 먼저 → 팀을 모르는 사람 → 다른 팀(건수 많은 순) */}
+                      {[...warnings.unknownAssignees]
+                        .sort((a, b) => ['ours', 'unknown', 'other'].indexOf(a.kind) - ['ours', 'unknown', 'other'].indexOf(b.kind) || b.count - a.count)
+                        .map((u) => {
+                        const on = addNames.has(u.name)
+                        return (
+                          <button
+                            key={u.name}
+                            onClick={() => {
+                              const next = new Set(addNames)
+                              if (on) next.delete(u.name)
+                              else next.add(u.name)
+                              setAddNames(next)
+                            }}
+                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[length:calc(14px*var(--ui-fs,1))] ${on && u.kind === 'ours' ? 'border-solid border-accent/60 bg-accent-soft font-semibold text-accent' : `border-dashed ${on ? 'border-accent/60 bg-accent-soft font-semibold text-accent' : 'border-black/25 bg-white text-label-2 hover:text-label'}`}`}
+                            title={u.team ? `시트의 담당팀: ${u.team}` : undefined}
+                          >
+                            {on && <Check {...icSm} />}
+                            <span className={u.kind === 'other' ? 'font-bold text-label' : ''}>{u.name}</span> <span className="text-label-3">{u.count}</span>
+                            </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  </div>
+                </>
               )}
-              <Button variant="primary" onClick={doImport} disabled={importRows.length === 0}>
-                {selectedGroups.length}개 과제 {V.go}
-                {addNames.size > 0 ? ` · 팀원 ${addNames.size}명 추가` : ''}
-              </Button>
+              <div className="flex shrink-0 justify-end gap-2">
+                {onCancel && (
+                  <Button variant="secondary" onClick={onCancel}>
+                    취소
+                  </Button>
+                )}
+                <Button variant="primary" onClick={doImport} disabled={importRows.length === 0}>
+                  {selectedGroups.length}개 과제 {V.go}
+                </Button>
+              </div>
             </div>
           </div>
         </>
