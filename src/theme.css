@@ -215,7 +215,7 @@ html[data-theme='blue'] {
 }
 
 html[data-theme='figma'] {
-  /* 피그마 디자인(추진현황 시안): 푸른 회색 바탕 + 같은 색 판에 흰 1px 선, 파란 포인트, 흰 알약 메뉴.
+  /* 피그마 디자인(추진현황 시안): 푸른 회색 바탕 + 같은 색 판에 흰 1px 선, 파란 포인트, 흰 알약 메뉴(고른 메뉴 아이콘은 파랑), 주요 버튼은 검정.
      탭 줄은 한 단계 진한 회색 띠, 고른 탭은 옅은 회색 + 가는 선 */
   --c-accent: 57 120 255;
   --c-accent-hover: 40 98 224;
@@ -250,15 +250,15 @@ html[data-theme='figma'] {
   --panel-border: #ffffff;
   --panel-shadow: none;
 
-  --btn-primary-bg: #3978ff;
-  --btn-primary-hover: #2a68ee;
+  --btn-primary-bg: #18181b;
+  --btn-primary-hover: #27272a;
   --btn-primary-fg: #ffffff;
-  --btn-primary-shadow: 0 1px 2px rgba(41, 90, 200, 0.3);
+  --btn-primary-shadow: 0 1px 2px rgba(24, 24, 27, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 
   --nav-on-bg: #ffffff;
   --nav-on-fg: #242427;
   --nav-on-shadow: 0 3px 7px rgba(0, 0, 0, 0.05);
-  --nav-on-icon: #242427;
+  --nav-on-icon: rgb(var(--c-accent));
 
   --seg-track: #e3e7ee;
   --group-bg: rgb(var(--c-subtle));
