@@ -3146,20 +3146,11 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
             <div className="w-[min(420px,calc(100vw-2rem))] rounded-[12px] bg-white p-6 shadow-dialog" onMouseDown={(e) => e.stopPropagation()}>
               <h3 className="text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">성과관리 과제리스트로 내보내기</h3>
               <p className="mt-2 text-[length:calc(14px*var(--ui-fs,1))] leading-relaxed text-label-2">
-                내보낼 평가(팀 · 평가기간)가 아직 없습니다. 성과관리에서 평가를 먼저 만들면, 여기서 그룹(L1)을 골라 과제를 보낼 수 있습니다.
+                내보낼 평가(팀 · 평가기간)가 아직 없습니다. 왼쪽 「성과관리」 메뉴에서 평가를 먼저 만들면, 여기서 그룹(L1)을 골라 과제를 보낼 수 있습니다.
               </p>
               <div className="mt-5 flex justify-end gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setExportOpen(false)}>
-                  닫기
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setExportOpen(false)
-                    setMode('perf')
-                  }}
-                >
-                  성과관리에서 평가 만들기
+                <Button size="sm" onClick={() => setExportOpen(false)}>
+                  확인
                 </Button>
               </div>
             </div>
