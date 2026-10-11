@@ -99,6 +99,7 @@ function worksheetToRaw(ws: ExcelJS.Worksheet, title: string): RawSheet {
   const rows: unknown[][] = []
   const fills: (string | null)[][] = []
   const notes: (string | null)[][] = []
+  const nums: ({ v: number; z: string } | null)[][] = []
   const nCols = ws.columnCount
   const heights: (number | null)[] = []
   for (let r = 1; r <= ws.rowCount; r++) {
@@ -107,9 +108,11 @@ function worksheetToRaw(ws: ExcelJS.Worksheet, title: string): RawSheet {
     heights[r - 1] = ht ? Math.round((ht * 4) / 3) : null
     fills[r - 1] = []
     notes[r - 1] = []
+    nums[r - 1] = []
     for (let c = 1; c <= nCols; c++) {
       const cell = ws.getCell(r, c)
       const v = cell.isMerged && cell.master !== cell ? null : cell.value
+      nums[r - 1][c - 1] = typeof v === 'number' ? { v, z: cell.numFmt ?? 'General' } : v instanceof Date ? { v: excelSerial(v), z: cell.numFmt ?? 'm/d' } : null
       if (v instanceof Date) {
         const serial = excelSerial(v)
         row.push({ kind: 'date', serial, text: `${String(v.getUTCMonth() + 1).padStart(2, '0')}.${String(v.getUTCDate()).padStart(2, '0')}` })
@@ -128,7 +131,7 @@ function worksheetToRaw(ws: ExcelJS.Worksheet, title: string): RawSheet {
     const pb = decodeRef(b ?? a)
     merges.push({ r1: pa.r, c1: pa.c, r2: pb.r, c2: pb.c })
   }
-  return { title, rows, merges, fills, notes, heights }
+  return { title, rows, merges, fills, notes, heights, nums }
 }
 function decodeRef(ref: string): { r: number; c: number } {
   const m = ref.match(/^([A-Z]+)(\d+)$/)!
@@ -188,6 +191,13 @@ function rgb(argb: string | undefined) {
   const hex = argb && /^[0-9A-F]{8}$/i.test(argb) ? argb.slice(2) : null
   return hex ? { red: parseInt(hex.slice(0, 2), 16) / 255, green: parseInt(hex.slice(2, 4), 16) / 255, blue: parseInt(hex.slice(4, 6), 16) / 255 } : undefined
 }
+// 엑셀 칸 서식 → 구글시트 서식(날짜 · 숫자 모양만. 모르는 모양은 서식 없이 값만)
+function sheetNumberFormat(z: string | undefined): { type: string; pattern: string } | null {
+  if (!z || z === 'General') return null
+  if (/^[ymdhs/\-.: ,"\\]+$/i.test(z) && /[ymd]/i.test(z)) return { type: 'DATE', pattern: z }
+  if (/^[0#.,%]+$/.test(z)) return { type: z.includes('%') ? 'PERCENT' : 'NUMBER', pattern: z }
+  return null
+}
 export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): object[] {
   const nCols = ws.columnCount
   const rowData: object[] = []
@@ -229,6 +239,7 @@ export function worksheetRequests(ws: ExcelJS.Worksheet, sheetId: number): objec
           ...(al.vertical ? { verticalAlignment: al.vertical === 'middle' ? 'MIDDLE' : String(al.vertical).toUpperCase() } : {}),
           ...(al.wrapText ? { wrapStrategy: 'WRAP' } : {}),
           ...(v instanceof Date ? { numberFormat: { type: 'DATE', pattern: 'm/d' } } : {}),
+          ...(typeof v === 'number' && sheetNumberFormat(cell.numFmt) ? { numberFormat: sheetNumberFormat(cell.numFmt) } : {}),
           ...(Object.keys(borders).length ? { borders } : {}),
         },
         ...(note ? { note } : {}),

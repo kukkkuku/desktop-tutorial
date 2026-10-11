@@ -59,6 +59,8 @@ export interface RawSheet {
   fmts?: (string | null)[][]
   // 줄 높이(px, 0부터 센 줄 번호). 모르면 null
   heights?: (number | null)[]
+  // 엑셀에 저장된 숫자 값과 서식(추진현황 탭만, 숫자 칸이 아니면 null) -- 구글시트로 올릴 때 숫자 그대로 쓰려고
+  nums?: ({ v: number; z: string } | null)[][]
 }
 
 export interface ParsedHeader {
@@ -85,6 +87,8 @@ export interface ParsedRow {
   // 앱 열 id -> 원문 텍스트 (담당자는 원문 그대로)
   values: Record<string, string>
   weeks: Record<string, WeekMark>
+  // 소문자 s · f로 적은 주차 칸의 원문(읽을 때 S · F로 읽으므로, 올릴 때 원문을 되살리려고 따로 둔다)
+  weeksRaw?: Record<string, string>
   // 주차 칸 배경: 회색 = 계획, 분홍 = 실적(시트 배경색이 없으면 비어 있음)
   fills: Record<string, WeekFill>
 }
@@ -328,17 +332,21 @@ export function parseRows(filled: unknown[][], header: ParsedHeader, columnMap: 
       if (text) values[colId] = text
     }
     const weeks: Record<string, WeekMark> = {}
+    const weeksRaw: Record<string, string> = {}
     const fills: Record<string, WeekFill> = {}
     for (const w of header.weekCols) {
       // 소문자 s · f로 적은 칸도 같은 표시로 읽는다(그대로 두면 값이 사라지고 색만 남는다)
       const raw = cellText(row[w.col])
       const v = raw === 's' ? 'S' : raw === 'f' ? 'F' : raw
-      if (isWeekMark(v)) weeks[w.key] = v
+      if (isWeekMark(v)) {
+        weeks[w.key] = v
+        if (raw !== v) weeksRaw[w.key] = raw
+      }
       const f = classifyFill(cellFills?.[r]?.[w.col])
       if (f) fills[w.key] = f
     }
     const { name, tag } = splitL2(l2)
-    rows.push({ row: r, h, l1, l2: name, l2Tag: tag, l3, hierarchyInferred: inferred, values, weeks, fills })
+    rows.push({ row: r, h, l1, l2: name, l2Tag: tag, l3, hierarchyInferred: inferred, values, weeks, ...(Object.keys(weeksRaw).length ? { weeksRaw } : {}), fills })
   }
   return rows
 }

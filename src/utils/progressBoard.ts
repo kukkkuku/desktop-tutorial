@@ -42,6 +42,16 @@ export interface ProgressRow {
   // 줄 높이(px, 시트 · 엑셀 그대로)와, 앞 빈 줄들의 높이. 올리거나 내보낼 때, 화면에서 원본 높이를 쓸 때 쓴다
   height?: number
   gapHeights?: number[]
+  // 엑셀에 저장돼 있던 숫자 값 · 서식(열 id별). 값 글자(t)가 그대로일 때 올리면 숫자 그대로(날짜 일련번호 · 소수 등) 쓴다
+  origNums?: Record<string, { v: number; z: string; t: string }>
+  // 앞뒤 공백 · 줄바꿈 · 겹친 공백이 있던 글 칸의 원문(열 id별, t = 다듬어 읽은 글). 값을 안 고쳤으면 올릴 때 원문 그대로 쓴다
+  origText?: Record<string, { raw: string; t: string }>
+  // 소문자 s · f로 적었던 주차 칸 원문(주차 키별)
+  weeksRaw?: Record<string, string>
+  // 앞 빈 줄(gapBefore) 안에 적혀 있던 값(대분류 이름 · 이름 없는 줄의 메모 등). 키 = 빈 줄 순서(0부터), src = 시트 열 index
+  gapCells?: Record<number, { src: number; v: string | number }[]>
+  // 읽어 온 줄(이름 칸에 적힌 것만 올린다는 뜻 -- 앞 줄에서 이어받은 이름은 새로 쓰지 않는다)
+  labelsExplicit?: boolean
 }
 
 export type Level = 'h' | 'l1' | 'l2'
@@ -402,6 +412,35 @@ export function toProgressRows(
       const n = raw?.notes?.[r.row]?.[w.col]
       if (n) notes[w.key] = n
     }
+    // 엑셀 숫자 값 · 서식 (입력 열)
+    const origNums: Record<string, { v: number; z: string; t: string }> = {}
+    for (const f of fields) {
+      const n = raw?.nums?.[r.row]?.[f.col]
+      if (n && values[f.id] !== undefined) origNums[f.id] = { v: n.v, z: n.z, t: values[f.id] }
+    }
+    const origText: Record<string, { raw: string; t: string }> = {}
+    for (const f of fields) {
+      const rv = raw?.rows[r.row]?.[f.col]
+      if (typeof rv !== 'string') continue
+      const t = f.id === 'name' ? r.l3 : values[f.id]
+      const rawText = rv.replace(/\r\n/g, '\n')
+      if (t !== undefined && t !== '' && rawText !== t) origText[f.id] = { raw: rawText, t }
+    }
+    // 앞 빈 줄 안에 적힌 값(이름 없는 줄 · 대분류 이름만 있는 줄 등) -- 줄 번호를 지켜 다시 쓸 때 그대로 되살린다
+    const gapCells: Record<number, { src: number; v: string | number }[]> = {}
+    if (gap > 0 && raw) {
+      for (let g = 0; g < gap; g++) {
+        const gr = raw.rows[rows[idx - 1].row + 1 + g] ?? []
+        const cells: { src: number; v: string | number }[] = []
+        gr.forEach((cv, src) => {
+          if (cv === null || cv === undefined) return
+          const v = typeof cv === 'number' ? cv : typeof cv === 'object' && (cv as { kind?: string }).kind === 'date' ? (cv as { serial: number }).serial : typeof cv === 'string' ? cv : String(cv)
+          if (typeof v === 'string' ? v.trim() === '' : false) return
+          cells.push({ src, v })
+        })
+        if (cells.length) gapCells[g] = cells
+      }
+    }
     const labels: Partial<Record<Level, string>> = {}
     for (const [lv, col] of Object.entries(levelCols) as [Level, number][]) {
       const t = cellText(raw?.rows[r.row]?.[col])
@@ -437,6 +476,11 @@ export function toProgressRows(
       notes,
       ...(Object.keys(fmt).length ? { fmt } : {}),
       ...(Object.keys(labels).length ? { labels } : {}),
+      labelsExplicit: true,
+      ...(Object.keys(origNums).length ? { origNums } : {}),
+      ...(Object.keys(origText).length ? { origText } : {}),
+      ...(r.weeksRaw ? { weeksRaw: r.weeksRaw } : {}),
+      ...(Object.keys(gapCells).length ? { gapCells } : {}),
     }
   })
 }

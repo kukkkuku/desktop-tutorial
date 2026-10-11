@@ -907,6 +907,8 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { disp
     const rows: unknown[][] = []
     const fills: (string | null)[][] = []
     const notes: (string | null)[][] = []
+    const nums: ({ v: number; z: string } | null)[][] = []
+    const keepNums = /추진현황/.test(name)
     const used = usedRange(ws)
     if (used.rows) {
       const range = { e: { r: used.rows - 1, c: used.cols - 1 } }
@@ -914,6 +916,7 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { disp
         const row: unknown[] = []
         fills[r] = []
         notes[r] = []
+        nums[r] = []
         for (let c = 0; c <= range.e.c; c++) {
           const cell = ws[XLSX.utils.encode_cell({ r, c })]
           const cm = (cell as { c?: { t?: string }[] } | undefined)?.c
@@ -924,15 +927,9 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { disp
                 .trim() || null
             : null
           fills[r][c] = cellFill(cell)
+          nums[r][c] = keepNums && cell && cell.t === 'n' && typeof cell.v === 'number' ? { v: cell.v, z: cell.z ?? 'General' } : null
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
-            // 추진현황 탭에서 탭 연도와 다른 해의 날짜는 「2025.11.24」처럼 연도를 붙여 둔다(월/일만 남기면 구글시트로 올릴 때 탭 연도로 읽힘)
-            let text = cell.w ?? String(cell.v)
-            const tabYear = /추진현황/.test(name) ? Number(name.match(/(20\d{2})/)?.[1]) : 0
-            if (tabYear && !/\d{4}/.test(text)) {
-              const dt = new Date(Math.round(((cell.v as number) - 25569) * 86400000))
-              if (dt.getUTCFullYear() !== tabYear) text = `${dt.getUTCFullYear()}.${dt.getUTCMonth() + 1}.${dt.getUTCDate()}`
-            }
-            row.push({ kind: 'date', serial: cell.v as number, text } satisfies DateCell)
+            row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
           } else if (opts.displayNumbers && cell && cell.t === 'n' && cell.w !== undefined && cell.z && cell.z !== 'General' && !Number.isInteger(cell.v as number)) {
             row.push(cell.w.trim())
           } else row.push(cell ? cell.v : null)
@@ -941,7 +938,7 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { disp
       }
     }
     const merges: SheetMerge[] = (ws['!merges'] ?? []).map((m) => ({ r1: m.s.r, c1: m.s.c, r2: m.e.r, c2: m.e.c }))
-    return { title: name, hidden, rows, merges, fills, notes }
+    return { title: name, hidden, rows, merges, fills, notes, ...(keepNums ? { nums } : {}) }
   })
   return { title: fileName.replace(/\.xlsx?$/i, ''), sheets }
 }

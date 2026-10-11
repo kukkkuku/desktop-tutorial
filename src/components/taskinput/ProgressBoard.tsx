@@ -960,11 +960,8 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
           updateExisting = true
         }
       }
-      // 올라가지 않는 줄 · 기존 탭 갱신은 올리기 전에 알리고 확인받는다
-      const sk = d.skipped
-      const skippedMsg = sk && (sk.blank || sk.stray.length)
-        ? `엑셀에서 과제 이름 없이 값만 있는 줄 ${sk.stray.length}개(${sk.stray.slice(0, 6).map((n, i) => (sk.preview?.[i] ? `${n}행 「${sk.preview[i]}」` : `${n}행`)).join(' · ')}${sk.stray.length > 6 ? ' …' : ''})의 내용은 올라가지 않습니다. 남기려면 취소하고 엑셀에서 그 줄에 과제 이름(L3)을 넣어 주세요.`
-        : ''
+      // 기존 탭 덮어쓰기는 올리기 전에 알리고 확인받는다(이름 없이 값만 있는 줄도 같은 자리에 그대로 올라간다)
+      const skippedMsg = ''
       if (
         (updateExisting || skippedMsg) &&
         !(await askConfirm({
@@ -982,7 +979,7 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
         return
       if (!updateExisting && taken(tabTitle))
         throw new Error(`연결된 시트에 이미 「${d.tabTitle}」 탭이 있습니다. 시트에서 탭 이름을 바꾸거나 지운 뒤 다시 해 주세요.`)
-      const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order, { guessDates: fromXlsx })
+      const wb = buildProgressWorkbook(m.data, { edits: {}, newRows: [] }, order, {})
       const ws = wb.worksheets[0]
       const frozenCols = Object.keys(m.data.levelCols ?? {}).length + 1
       if (newFile)

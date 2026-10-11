@@ -197,8 +197,17 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
       cell.font = font()
       if (c.kind === 'level') {
         const prev = rows[ri - 1]
-        if (!prev || chain(prev, c.level) !== chain(row, c.level)) {
-          cell.value = labelOf(row, c.level)
+        // 엑셀에서 같은 이름이 한 번 더 따로 적혀 있던 칸(예: 두 번째 SW디자인 묶음)은 새 묶음으로 다시 쓴다
+        const norm = (t: string) => t.replace(/\s+/g, '')
+        const explicit = (r: ProgressRow | undefined) => {
+          const t = r?.labels?.[c.level]
+          return !!r && !!t && !r.isNew && c.level !== 'l2' && norm(t) === norm(labelOf({ ...r, labels: undefined }, c.level))
+        }
+        const startsHere = !prev || chain(prev, c.level) !== chain(row, c.level) || explicit(row)
+        if (startsHere) {
+          // 앞 빈 줄에 대분류 이름만 따로 적혀 있던 묶음은 그 줄에서 되살리므로, 첫 줄에 같은 이름을 또 쓰지 않는다
+          const fromGap = c.level === 'h' && row.labelsExplicit && row.labels?.h === undefined && !!row.gapCells
+          if (!fromGap) cell.value = labelOf(row, c.level)
           cell.font = font({ bold: c.level === 'l2' })
           if (c.level === 'l2') {
             // 구분(L2) 칸 색 · 서식
@@ -222,13 +231,13 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
           spanStart[`${i}`] = y
         }
         const next = rows[ri + 1]
-        if ((!next || chain(next, c.level) !== chain(row, c.level)) && spanStart[`${i}`] < y) ws.mergeCells(spanStart[`${i}`], at(i), y, at(i))
+        if ((!next || chain(next, c.level) !== chain(row, c.level) || explicit(next)) && spanStart[`${i}`] < y) ws.mergeCells(spanStart[`${i}`], at(i), y, at(i))
         return
       }
       const key = c.kind === 'name' ? 'name' : c.kind === 'week' ? c.key : c.id
       if (c.kind === 'week') {
         const s = cells[c.key]
-        if (s?.m) cell.value = s.m
+        if (s?.m) cell.value = row.weeksRaw?.[c.key] && row.weeksRaw[c.key].toUpperCase() === s.m ? row.weeksRaw[c.key] : s.m
         if (s?.f) cell.fill = fill(FILL_HEX[s.f])
         cell.font = font()
       } else {
@@ -236,7 +245,15 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
         const f = fieldById.get(key)
         const d = f?.kind === 'date' ? v.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null
         const guessed = !d && opts.guessDates && c.kind !== 'name' ? guessDateText(v, data.year) : null
-        if (d) {
+        // 엑셀에서 숫자(날짜 일련번호 · 소수)였고 값 글자를 안 고쳤으면 숫자 그대로 쓴다
+        const on = row.origNums?.[key]
+        const ot = row.origText?.[key]
+        if (ot && !row.isNew && v === ot.t) {
+          cell.value = ot.raw
+        } else if (on && !row.isNew && v === on.t) {
+          cell.value = on.v
+          if (on.z && on.z !== 'General') cell.numFmt = on.z
+        } else if (d) {
           cell.value = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]))
           cell.numFmt = 'm/d'
         } else if (guessed) {
@@ -261,6 +278,21 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
       const note = effectiveNote(row, e, key)
       if (note) cell.note = note
     })
+  })
+
+  // ---- 앞 빈 줄 안에 적혀 있던 값(대분류 이름만 있는 줄 · 이름 없는 줄의 메모 등)을 같은 칸에 되살린다 ----
+  rows.forEach((row, ri) => {
+    const gap = ri > 0 ? row.gapBefore ?? 0 : 0
+    for (const [g, list] of Object.entries(row.gapCells ?? {})) {
+      const y = yAt[ri] - gap + Number(g)
+      if (y < 3 || y >= yAt[ri]) continue
+      for (const it of list) {
+        const i = all.findIndex((c) => c.src === it.src)
+        if (i < 0) continue
+        const cell = ws.getCell(y, at(i))
+        if (cell.value === null || cell.value === undefined || cell.value === '') cell.value = it.v
+      }
+    }
   })
 
   // ---- 입력 열 칸 병합(줄 · 열이 붙어 있을 때만) ----
