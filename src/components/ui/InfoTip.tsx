@@ -5,6 +5,7 @@ import { Info } from 'lucide-react'
 
 export default function InfoTip({ children, label = '도움말', align = 'left', width = 300, className = '' }: { children: ReactNode; label?: string; align?: 'left' | 'right'; width?: number; className?: string }) {
   const [open, setOpen] = useState(false)
+  const [up, setUp] = useState(false) // 아래 공간이 모자라면 위로 연다
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     if (!open) return
@@ -25,6 +26,10 @@ export default function InfoTip({ children, label = '도움말', align = 'left',
         type="button"
         onClick={(e) => {
           e.stopPropagation()
+          if (!open) {
+            const r = e.currentTarget.getBoundingClientRect()
+            setUp(window.innerHeight - r.bottom < 280 && r.top > window.innerHeight - r.bottom)
+          }
           setOpen((v) => !v)
         }}
         aria-label={label}
@@ -38,7 +43,7 @@ export default function InfoTip({ children, label = '도움말', align = 'left',
         <span
           role="note"
           style={{ width }}
-          className={`mac-pop absolute top-full z-40 mt-1.5 max-w-[80vw] px-3.5 py-2.5 text-left text-[length:calc(13.5px*var(--ui-fs,1))] font-normal leading-relaxed text-label-2 ${align === 'right' ? 'right-0' : 'left-0'}`}
+          className={`mac-pop absolute z-40 max-w-[80vw] ${up ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} px-3.5 py-2.5 text-left text-[length:calc(13.5px*var(--ui-fs,1))] font-normal leading-relaxed text-label-2 ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {children}
         </span>

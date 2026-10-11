@@ -1307,8 +1307,14 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
           />
           <p className="flex items-center gap-1 text-xs text-label-3">
             왼쪽 체크 = 평가 대상
-            <InfoTip label="표 사용법" width={340}>
-              왼쪽 체크로 평가 대상을 넣으면 바로 평가과제가 생깁니다. 여러 행을 골라 우클릭 → 평가과제로 묶기, 묶음 이름은 두 번 눌러 바꿉니다. 칸을 누르고 바로 입력 · Enter로 이어서 편집 · ⌘V로 엑셀/시트 붙여넣기 · 행을 끌어 옮기기(다른 그룹 탭에 놓으면 그 그룹으로).
+            <InfoTip label="표 사용법" width={360}>
+              <ul className="list-disc space-y-1 pl-4">
+                <li>왼쪽 체크로 평가 대상을 넣으면 바로 평가과제가 생깁니다.</li>
+                <li>여러 행을 골라 우클릭 → 평가과제로 묶기. 묶음 이름은 두 번 눌러 바꿉니다.</li>
+                <li>칸을 누르고 바로 입력, Enter로 이어서 편집</li>
+                <li>⌘V로 엑셀/시트 붙여넣기</li>
+                <li>행을 끌어 옮기기(다른 그룹 탭에 놓으면 그 그룹으로)</li>
+              </ul>
             </InfoTip>
           </p>
         </>
