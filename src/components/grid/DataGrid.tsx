@@ -221,7 +221,7 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
   const nR = rows.length
   const nC = columns.length
   // 강조 열(emphasis): 배경 없이, 붙어 있는 열 묶음 전체(머리글~맨 아래 행)를 둥근 외곽선 하나로 감싼다(표 위에 겹쳐 그림)
-  const [emBox, setEmBox] = useState<{ left: number; width: number } | null>(null)
+  const [emBox, setEmBox] = useState<{ left: number; width: number }[]>([])
 
   const [sel, setSel] = useState<Sel | null>(null)
   const [active, setActive] = useState<{ r: number; c: number } | null>(null)
@@ -251,19 +251,30 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
 
   const wrapRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    const idx = columns.map((c, i) => (c.emphasis ? i : -1)).filter((i) => i >= 0)
     const wrap = wrapRef.current
-    if (!wrap || idx.length === 0) {
-      if (emBox) setEmBox(null)
+    // 이어진 강조 열끼리 묶어 박스 하나씩(떨어진 열 사이의 다른 열은 감싸지 않는다)
+    const runs: [number, number][] = []
+    columns.forEach((c, i) => {
+      if (!c.emphasis) return
+      const last = runs[runs.length - 1]
+      if (last && last[1] === i - 1) last[1] = i
+      else runs.push([i, i])
+    })
+    if (!wrap || runs.length === 0) {
+      if (emBox.length) setEmBox([])
       return
     }
-    const a = headRefs.current.get(idx[0])
-    const b = headRefs.current.get(idx[idx.length - 1])
-    if (!a || !b) return
     const w = wrap.getBoundingClientRect()
-    const left = a.getBoundingClientRect().left - w.left
-    const width = b.getBoundingClientRect().right - a.getBoundingClientRect().left
-    if (!emBox || Math.abs(emBox.left - left) > 0.5 || Math.abs(emBox.width - width) > 0.5) setEmBox({ left, width })
+    const next: { left: number; width: number }[] = []
+    for (const [a, b] of runs) {
+      const ha = headRefs.current.get(a)
+      const hb = headRefs.current.get(b)
+      if (!ha || !hb) return
+      const ra = ha.getBoundingClientRect()
+      next.push({ left: ra.left - w.left, width: hb.getBoundingClientRect().right - ra.left })
+    }
+    const same = next.length === emBox.length && next.every((n, k) => Math.abs(n.left - emBox[k].left) < 0.5 && Math.abs(n.width - emBox[k].width) < 0.5)
+    if (!same) setEmBox(next)
   })
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrollEdges = useScrollEdges(scrollRef)
@@ -1276,13 +1287,14 @@ export default function DataGrid<R extends { id: string }>(props: DataGridProps<
             className="relative overflow-visible rounded-card border border-[#E3E3E8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
             style={{ width: '100%', minWidth: tableWidth }}
           >
-            {emBox && (
+            {emBox.map((b) => (
               <div
+                key={b.left}
                 aria-hidden
                 className="pointer-events-none absolute inset-y-0 z-20 rounded-[8px] border-2 border-accent"
-                style={{ left: emBox.left, width: emBox.width }}
+                style={{ left: b.left, width: b.width }}
               />
-            )}
+            ))}
             <table
               className="table-fixed border-separate border-spacing-0 text-[length:calc(14.5px*var(--ui-fs,1))] [&_thead_th:first-child]:rounded-tl-[9px] [&_thead_th:last-child]:rounded-tr-[9px]"
               style={{ width: '100%', minWidth: tableWidth }}

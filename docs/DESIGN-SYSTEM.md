@@ -10,7 +10,7 @@
 ## 0. 테마 (`src/theme.css`, `src/utils/uiTheme.ts`)
 
 색 · 모서리 · 그림자는 CSS 변수(`--c-*`, `--r-*`, `--sh-*` 등)로 두고 `<html data-theme>`로 갈아 끼운다.
-테마: `pace`(기본: 피그마 + 원래) · `figma` · `classic`(원래 디자인) · `orange` · `black` · `blue`. 새 테마 = `theme.css`에 블록 하나 + `uiTheme.ts` 목록에 한 줄.
+테마: `pace`(라벨 「기본 디자인」, 예전 피그마 + 원래 디자인을 합친 것) · `orange` · `black` · `blue`. 새 테마 = `theme.css`에 블록 하나 + `uiTheme.ts` 목록에 한 줄.
 고르는 곳: 사이드바 계정 메뉴 › 테마(이 브라우저에 기억). 아래 표의 값은 `orange` 기준 설명이고, 테마마다 값이 다르다.
 화면 코드에서는 #색상코드 대신 tailwind 토큰(`bg-accent`, `rounded-card` …)이나 이 변수만 쓴다.
 
