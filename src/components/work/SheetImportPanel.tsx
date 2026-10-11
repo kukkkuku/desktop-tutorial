@@ -538,7 +538,6 @@ export default function SheetImportPanel({
                 })}
                 value={currentL1[0]}
                 onChange={setActiveL1}
-                bare
               />
             </div>
             <div className="divide-y divide-separator rounded-card border border-separator bg-white">
