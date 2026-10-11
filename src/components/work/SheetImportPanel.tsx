@@ -253,7 +253,6 @@ export default function SheetImportPanel({
   const [activeL1, setActiveL1] = useState<string | null>(null)
   const currentL1 = l1Tabs.find(([l1]) => l1 === activeL1) ?? l1Tabs[0]
   const [confirming, setConfirming] = useState(false)
-  const [detailOpen, setDetailOpen] = useState<Set<string>>(new Set()) // 「상세 보기」를 펼친 분류
 
   function toggle(names: string[], on: boolean) {
     const next = new Set(selected)
@@ -526,7 +525,7 @@ export default function SheetImportPanel({
         <>
           <div className="relative mt-3 bg-white">
             {/* 앱 공통 탭 모양(과제 입력 그룹 탭과 같음): 말줄임, 고른 탭은 이름이 다 보이고 흰 알약 */}
-            <div className="pb-2">
+            <div>
               <PillTabs
                 items={l1Tabs.map(([l1, gs]) => {
                   const picked = gs.filter((g) => selected.has(g.name)).length
@@ -540,17 +539,18 @@ export default function SheetImportPanel({
                 onChange={setActiveL1}
               />
             </div>
-            <div className="divide-y divide-separator rounded-card border border-separator bg-white">
+            <div className="divide-y divide-separator rounded-b-card border border-t-0 border-separator bg-white">
               {currentL1[1].map((g) => {
                 const on = selected.has(g.name)
                 const already = board.groups.some((bg) => bg.name === g.name)
                 return (
-                  <div key={g.name} className={`flex gap-3 px-4 py-4 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
+                  <div key={g.name} className={`flex gap-3 px-4 py-3.5 ${on ? 'bg-accent-soft/40' : 'hover:bg-black/[0.02]'}`}>
                     <input type="checkbox" className="mt-1 shrink-0 cursor-pointer self-start" checked={on} onChange={(e) => toggle([g.name], e.target.checked)} aria-label={`${g.name} 선택`} />
                     <div className="min-w-0 flex-1">
-                      <label className="flex cursor-pointer flex-wrap items-baseline gap-x-2 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
+                      <label className="flex cursor-pointer flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(15px*var(--ui-fs,1))] font-semibold text-label">
                         {g.name}
-                        {g.tag && <span className="text-[length:calc(12px*var(--ui-fs,1))] font-medium text-label-3">{g.tag}</span>}
+                        {g.tag && <span className="rounded-[4px] bg-orange-100 px-1.5 text-[length:calc(12px*var(--ui-fs,1))] font-semibold text-orange-700">{g.tag}</span>}
+                        <span className="rounded-full bg-black/[0.06] px-2 text-[length:calc(12px*var(--ui-fs,1))] font-medium tabular-nums text-label-2">{g.count}</span>
                         {already && <span className="mac-badge bg-success/15 text-success">{V.badge}</span>}
                         {g.inferred && (
                           <span className="text-[length:calc(13px*var(--ui-fs,1))] font-normal text-warning" title="시트의 H/L1 병합이 끊겨 위 행 값으로 채웠습니다">
@@ -558,29 +558,13 @@ export default function SheetImportPanel({
                           </span>
                         )}
                       </label>
-                      <p className="mt-1 text-[length:calc(14px*var(--ui-fs,1))] text-label-3">하위 과제 {g.count}개</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = new Set(detailOpen)
-                          if (next.has(g.name)) next.delete(g.name)
-                          else next.add(g.name)
-                          setDetailOpen(next)
-                        }}
-                        className="mt-2 flex items-center gap-1 text-[length:calc(13px*var(--ui-fs,1))] text-label-3 hover:text-label-2"
-                        aria-expanded={detailOpen.has(g.name)}
-                      >
-                        <span className={`inline-block text-[10px] transition-transform ${detailOpen.has(g.name) ? 'rotate-90' : ''}`}>▶</span> 상세 보기
-                      </button>
-                      {detailOpen.has(g.name) && (
-                        <div className="mt-2 space-y-1 border-l-2 border-separator pl-3 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
-                          {g.assignees.length > 0 && <p>팀원 {g.assignees.join(', ')}</p>}
-                          <p className="truncate text-label" title={g.l3Names.join(' · ')}>
-                            {g.l3Names.slice(0, 2).join(' · ')}
-                            {g.l3Names.length > 2 && ` 외 ${g.l3Names.length - 2}건`}
-                          </p>
-                        </div>
-                      )}
+                      <div className="mt-1.5 space-y-0.5 text-[length:calc(13px*var(--ui-fs,1))] text-label-2">
+                        {g.assignees.length > 0 && <p className="truncate">팀원 {g.assignees.join(', ')}</p>}
+                        <p className="truncate text-label" title={g.l3Names.join(' · ')}>
+                          {g.l3Names.slice(0, 2).join(' · ')}
+                          {g.l3Names.length > 2 && ` 외 ${g.l3Names.length - 2}건`}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )
