@@ -4,9 +4,9 @@ name: Deploy to GitHub Pages
 # feature/face_v1에서 실행하면 세 주소를 한 번에 올린다:
 #   /                  = main(지금 쓰는 버전)
 #   /preview-design/   = feature/redesign-2026-09-27(이전 디자인 미리보기, 그대로)
-#   /preview-face/     = feature/face_v1(새 디자인 v3 미리보기)
+#   /preview-pace/     = feature/face_v1(새 디자인 v3 미리보기)
 # 미리보기 빌드는 저장 키를 따로(preview-next) 써서 운영 데이터를 건드리지 않는다.
-# main에 푸시하면 main의 워크플로가 돌아 /preview-face/는 사라진다 -- 이 브랜치에서 다시 실행하면 돌아온다.
+# main에 푸시하면 main의 워크플로가 돌아 /preview-pace/는 사라진다 -- 이 브랜치에서 다시 실행하면 돌아온다.
 on:
   push:
     branches:
@@ -64,25 +64,25 @@ jobs:
           VITE_BASE_PATH: /desktop-tutorial/preview-design/
           VITE_PREVIEW_NAMESPACE: preview-next
 
-      - name: Checkout face branch
+      - name: Checkout pace branch
         continue-on-error: true
         uses: actions/checkout@v4
         with:
           ref: feature/face_v1
-          path: face-src
+          path: pace-src
           fetch-depth: 0
 
-      - name: Build into dist/preview-face
+      - name: Build into dist/preview-pace
         continue-on-error: true
-        working-directory: face-src
+        working-directory: pace-src
         run: |
           npm ci
           npm run build
-          mkdir -p ../dist/preview-face
-          cp -r dist/. ../dist/preview-face/
+          mkdir -p ../dist/preview-pace
+          cp -r dist/. ../dist/preview-pace/
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          VITE_BASE_PATH: /desktop-tutorial/preview-face/
+          VITE_BASE_PATH: /desktop-tutorial/preview-pace/
           VITE_PREVIEW_NAMESPACE: preview-next
 
       - uses: actions/configure-pages@v5
