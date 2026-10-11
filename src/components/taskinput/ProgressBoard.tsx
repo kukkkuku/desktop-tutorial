@@ -3241,7 +3241,6 @@ export default function ProgressBoard({ view = 'progress' }: { view?: 'progress'
                             verb="export"
                             footerSlot={
                               <div className="flex items-center gap-2 text-[length:calc(14px*var(--ui-fs,1))]">
-                                <span className="font-semibold text-label-2">보낼 곳</span>
                                 <Select
                                   value={target}
                                   onChange={(e) => setExportTo(e.target.value)}

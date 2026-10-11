@@ -574,10 +574,11 @@ export default function SheetImportPanel({
           </div>
 
           <div className="sticky bottom-0 mt-3 border-t border-separator bg-white pb-1 pt-4">
+            <div className="space-y-2 rounded-card bg-subtle p-3">
             {selectedGroups.length > 0 ? (
-              <div className="space-y-2">
+              <>
                 <div className="flex items-start gap-2">
-                  <span className="mt-0.5 w-9 shrink-0 text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">과제</span>
+                  <span className="mt-1 w-14 shrink-0 whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">과제</span>
                   <div className="flex max-h-[68px] min-w-0 flex-1 flex-wrap gap-1.5 overflow-y-auto">
                     {selectedGroups.map((g) => (
                       <span
@@ -602,7 +603,7 @@ export default function SheetImportPanel({
                 </div>
                 {(warnings.unknownAssignees.length > 0 || warnings.memberAssignees.length > 0) && (
                   <div className="flex items-start gap-2">
-                    <span className="mt-0.5 flex w-9 shrink-0 items-center text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">
+                    <span className="mt-1 flex w-14 shrink-0 items-center whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">
                       팀원
                       {warnings.unknownAssignees.length > 0 && (
                         <InfoTip label="팀원 추가 설명" width={320} className="ml-0.5">
@@ -648,13 +649,14 @@ export default function SheetImportPanel({
                     </div>
                   </div>
                 )}
-              </div>
+              </>
             ) : (
               <p className="text-[length:calc(14px*var(--ui-fs,1))] text-label-3">보낼 과제를 골라 주세요.</p>
             )}
-            <div className="mt-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 pt-1">
+              {footerSlot && <span className="w-14 shrink-0 whitespace-nowrap text-[length:calc(13px*var(--ui-fs,1))] font-semibold text-label-2">보낼 곳</span>}
               <div className="min-w-0">{footerSlot}</div>
-              <div className="flex shrink-0 justify-end gap-2">
+              <div className="ml-auto flex shrink-0 justify-end gap-2">
                 {onCancel && (
                   <Button variant="secondary" onClick={onCancel}>
                     취소
@@ -664,6 +666,7 @@ export default function SheetImportPanel({
                   {selectedGroups.length}개 과제 {V.go}
                 </Button>
               </div>
+            </div>
             </div>
           </div>
         </>
