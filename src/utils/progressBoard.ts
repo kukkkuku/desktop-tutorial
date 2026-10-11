@@ -77,7 +77,7 @@ export interface HeaderStyle {
 
 export interface ProgressData {
   // 엑셀 · 시트를 읽을 때 표로 옮기지 않은 줄: blank = 값이 하나도 없는 빈 줄 수, stray = 값은 있는데 과제 이름(L3)이 없는 줄의 시트 행 번호(1부터)
-  skipped?: { blank: number; stray: number[] }
+  skipped?: { blank: number; stray: number[]; preview?: string[] }
   spreadsheetId: string | null
   source: string // 탭 이름 또는 파일 이름
   fileTitle?: string // 구글시트 파일 이름
@@ -405,7 +405,12 @@ export function toProgressRows(
     const labels: Partial<Record<Level, string>> = {}
     for (const [lv, col] of Object.entries(levelCols) as [Level, number][]) {
       const t = cellText(raw?.rows[r.row]?.[col])
-      if (t.trim()) labels[lv] = t
+      if (t.trim()) {
+        labels[lv] = t
+        // 대분류(H) · L1 · L2 칸에 달린 메모도 그 이름 칸에 그대로 둔다
+        const n = raw?.notes?.[r.row]?.[col]
+        if (n) notes[`lvl:${lv}`] = n
+      }
     }
     // 구분(L2) 칸 색 · 서식: 이름이 적힌(묶음 맨 위) 칸에서 읽는다
     if (labels.l2 && levelCols.l2 !== undefined) {

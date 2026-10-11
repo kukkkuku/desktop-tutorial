@@ -20,15 +20,21 @@ export function sheetToData(parsed: ParsedSheet, raw: RawSheet, meta: Meta): Pro
   const used = new Set(parsed.rows.map((r) => r.row))
   const blank = 0
   const stray: number[] = []
+  const preview: string[] = []
   for (let r = parsed.header.dataStartRow; r < raw.rows.length; r++) {
     if (used.has(r)) continue
     const lvCols = new Set([parsed.header.hCol, parsed.header.l1Col, parsed.header.l2Col])
     const has = (raw.rows[r] ?? []).some((c, ci) => !lvCols.has(ci) && c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
-    if (has) stray.push(r + 1)
+    if (has) {
+      stray.push(r + 1)
+      const first = (raw.rows[r] ?? []).find((c, ci) => !lvCols.has(ci) && c !== undefined && c !== null && String(typeof c === 'object' ? JSON.stringify(c) : c).trim() !== '')
+      const t = typeof first === 'object' && first !== null ? String((first as { text?: string }).text ?? '') : String(first ?? '')
+      preview.push(t.replace(/\s+/g, ' ').trim().slice(0, 24))
+    }
   }
   return {
     ...meta,
-    ...(blank || stray.length ? { skipped: { blank, stray } } : {}),
+    ...(blank || stray.length ? { skipped: { blank, stray, preview } } : {}),
     year: Number(meta.tabTitle.match(/(20\d{2})/)?.[1]) || null,
     fetchedAt: new Date().toISOString(),
     weekCols: parsed.header.weekCols.map(({ key, month, week, col }) => ({ key, month, week, col })),

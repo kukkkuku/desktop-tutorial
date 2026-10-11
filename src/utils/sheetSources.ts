@@ -925,7 +925,14 @@ export function readXlsxBook(buffer: ArrayBuffer, fileName: string, opts: { disp
             : null
           fills[r][c] = cellFill(cell)
           if (cell && cell.t === 'n' && cell.z && XLSX.SSF.is_date(cell.z)) {
-            row.push({ kind: 'date', serial: cell.v as number, text: cell.w ?? String(cell.v) } satisfies DateCell)
+            // 추진현황 탭에서 탭 연도와 다른 해의 날짜는 「2025.11.24」처럼 연도를 붙여 둔다(월/일만 남기면 구글시트로 올릴 때 탭 연도로 읽힘)
+            let text = cell.w ?? String(cell.v)
+            const tabYear = /추진현황/.test(name) ? Number(name.match(/(20\d{2})/)?.[1]) : 0
+            if (tabYear && !/\d{4}/.test(text)) {
+              const dt = new Date(Math.round(((cell.v as number) - 25569) * 86400000))
+              if (dt.getUTCFullYear() !== tabYear) text = `${dt.getUTCFullYear()}.${dt.getUTCMonth() + 1}.${dt.getUTCDate()}`
+            }
+            row.push({ kind: 'date', serial: cell.v as number, text } satisfies DateCell)
           } else if (opts.displayNumbers && cell && cell.t === 'n' && cell.w !== undefined && cell.z && cell.z !== 'General' && !Number.isInteger(cell.v as number)) {
             row.push(cell.w.trim())
           } else row.push(cell ? cell.v : null)

@@ -217,6 +217,8 @@ export function buildProgressWorkbook(data0: ProgressData, drafts: Drafts, l1s: 
           }
           cell.alignment =
             c.level === 'h' ? { vertical: 'middle', horizontal: 'center', wrapText: true } : { vertical: 'top', horizontal: 'left', wrapText: true }
+          const lvNote = effectiveNote(row, e, `lvl:${c.level}`)
+          if (lvNote) cell.note = lvNote
           spanStart[`${i}`] = y
         }
         const next = rows[ri + 1]
