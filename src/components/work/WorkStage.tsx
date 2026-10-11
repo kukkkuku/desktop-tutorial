@@ -1077,10 +1077,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
         <button
           onClick={() => onOpenSheetImport(undefined, 'progress')}
           title="과제 입력의 추진현황에서 그룹(L2)을 골라 가져옵니다"
+          aria-label="추진현황에서 가져오기"
           className="flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-[8px] px-2.5 text-[length:calc(13px*var(--ui-fs,1))] font-medium text-label-2 hover:bg-black/[0.06] hover:text-label"
         >
           <Download {...icSm} />
-          추진현황에서 가져오기
         </button>
       </div>
       </div>
