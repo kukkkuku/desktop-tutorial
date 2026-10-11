@@ -217,7 +217,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'LOAD_STATE':
       // 예전에 내보낸 평가과제도 여기서 한 번 L3 · 묶음에 맞춘다(같은 묶음을 따로 내보낸 과제는 합쳐짐)
-      return withEvalSync(action.payload)
+      // 옛 데이터 · 가져온 파일에 빠진 목록(순위 리뷰 등)은 빈 목록으로 채워 화면이 멈추지 않게 한다
+      return withEvalSync({
+        ...action.payload,
+        rankReviews: action.payload.rankReviews ?? [],
+        taskPeerReviews: action.payload.taskPeerReviews ?? [],
+        peerReviews: action.payload.peerReviews ?? [],
+        meetingNotes: action.payload.meetingNotes ?? [],
+        contributions: action.payload.contributions ?? [],
+        tasks: action.payload.tasks ?? [],
+        members: action.payload.members ?? [],
+      })
 
     case 'SET_WORK_BOARD':
       // 과제리스트에서 담당자를 바꾸면 그 L3가 묶인 평가과제의 기여도(참여자)도 맞추고,

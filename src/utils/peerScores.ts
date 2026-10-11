@@ -34,7 +34,7 @@ function averageRanks(values: { id: string; v: number }[]): Map<string, number> 
 
 export function derivedPeerScores(state: Pick<AppState, 'rankReviews' | 'taskPeerReviews' | 'tasks'>): PeerScore[] {
   const out: PeerScore[] = []
-  for (const r of state.rankReviews) {
+  for (const r of state.rankReviews ?? []) {
     if (r.reviewerMemberId === r.targetMemberId) continue
     const score = rankToScore(r.rank, r.groupSize)
     if (score !== null) out.push({ targetMemberId: r.targetMemberId, score, source: 'rank' })
@@ -42,7 +42,7 @@ export function derivedPeerScores(state: Pick<AppState, 'rankReviews' | 'taskPee
   // 순위 리뷰만 점수에 넣는다(예전 기여도 리뷰는 참고용).
   const methodOf = new Map(state.tasks.map((t) => [t.id, 'rank' as const]))
   const groups = new Map<string, TaskPeerReview[]>()
-  for (const r of state.taskPeerReviews) {
+  for (const r of state.taskPeerReviews ?? []) {
     if (methodOf.get(r.taskId) !== r.method) continue
     const k = `${r.taskId}|${r.reviewerMemberId}`
     groups.set(k, [...(groups.get(k) ?? []), r])
@@ -62,5 +62,5 @@ export function derivedPeerScores(state: Pick<AppState, 'rankReviews' | 'taskPee
 
 // 점수 계산에 넘기는 피어리뷰 전체(예전 등급 리뷰 + 새 리뷰 변환값)
 export function peerInputsOf(state: Pick<AppState, 'peerReviews' | 'rankReviews' | 'taskPeerReviews' | 'tasks'>): (PeerReview | PeerScore)[] {
-  return [...state.peerReviews, ...derivedPeerScores(state)]
+  return [...(state.peerReviews ?? []), ...derivedPeerScores(state)]
 }
