@@ -5,7 +5,7 @@ css=ref[ref.index('<style>'):ref.index('</style>')+8]
 css=css.replace('</style>','.shot.half{max-width:760px}.kbd{font:600 11px/1.5 ui-monospace,Menlo,monospace;padding:1px 6px;border:1px solid #d0d5dd;border-bottom-width:2px;border-radius:5px;background:#fff;white-space:nowrap}.faq{display:grid;gap:10px}.faq details{border:1px solid var(--line);border-radius:10px;padding:13px 15px;font-size:13px}.faq summary{cursor:pointer;font-weight:700}.faq p{margin:8px 0 0;color:var(--muted);line-height:1.65}.feat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.feat div{border:1px solid var(--line);border-radius:10px;padding:13px 14px;font-size:12.5px;line-height:1.6;color:var(--muted)}.feat b{display:block;margin-bottom:2px;color:var(--ink);font-size:13px}.steps+.shot,.shot+.steps{margin-top:22px}@media(max-width:720px){.feat{grid-template-columns:1fr}}</style>')
 css=css.replace('.logo{display:grid;width:32px;height:32px;place-items:center;border-radius:9px;background:var(--ink);color:#fff;font-size:12px}','.logo{display:block;width:32px;height:32px;flex:0 0 32px}')
 import re
-def lines(t):
+def lines(t, fold=True, keep=2):
     """긴 줄글을 문장마다 줄바꿈(괄호 · 따옴표 · 태그 안은 자르지 않음)"""
     out=[];cur='';depth=0;i=0;intag=False
     while i<len(t):
@@ -21,7 +21,9 @@ def lines(t):
         i+=1
     if cur.strip(): out.append(cur.strip())
     if len(out)<=1: return f'<p>{t}</p>'
-    return '<ul class="ln">'+''.join(f'<li>{x}</li>' for x in out)+'</ul>'
+    ul=lambda xs: '<ul class="ln">'+''.join(f'<li>{x}</li>' for x in xs)+'</ul>'
+    if not fold or len(out)<=keep+1: return ul(out)
+    return ul(out[:keep])+f'<details class="more"><summary>자세히 보기 · {len(out)-keep}줄</summary>'+ul(out[keep:])+'</details>'
 def shot(src, bar, alt, half=False):
     cls = 'shot half' if half else 'shot'
     return f'<div class="{cls}"><div class="shot-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i>{bar}</div><img src="assets/{src}" alt="{alt}" loading="lazy"></div>'
@@ -52,10 +54,10 @@ for a, b in [('--ink:#111827', '--ink:#1D1D1F'), ('--muted:#667085', '--muted:#6
              ('#f2f4f7', '#F2F2F7'), ('#344054', '#1D1D1F'), ('#ecfdf3', '#E9F7EC'), ('#059669', '#28A745')]:
     assert a in css, a
     css = css.replace(a, b)
-css2 = css.replace('</style>', '.chapter{padding:34px 0}.step{gap:16px;margin:26px 0}.step h3{font-size:17px;margin:0 0 8px}.step p,.step li{font-size:14.5px;line-height:1.85;color:#3a3a3c}ul.ln{list-style:none;margin:0;padding:0;display:grid;gap:7px}ul.ln li{position:relative;padding-left:14px;font-size:14.5px;line-height:1.8;color:#3a3a3c}ul.ln li:before{content:\'\';position:absolute;left:1px;top:.85em;width:5px;height:5px;border-radius:50%;background:#C7C7CC}.feat{grid-template-columns:1fr;gap:12px}.feat div{padding:16px 18px;font-size:14px;background:#fff}.feat div>b:first-child{display:block;font-size:14.5px;margin-bottom:8px}.feat li b,.feat p b{display:inline;margin:0;font-size:inherit;color:var(--ink)}.feat ul.ln li{font-size:14px}.faq ul.ln{margin-top:10px}.faq ul.ln li{font-size:13.5px}.lead{font-size:15px;line-height:1.8}.note{font-size:14px;line-height:1.75}.embed .topbar .close{display:none}.chapter .eyebrow b{color:var(--accent);font-weight:700}.book-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.book-cards a{display:block;border:1px solid var(--line);border-radius:14px;padding:22px;text-decoration:none;color:inherit;background:#fff}.book-cards a:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}.book-cards h3{margin:0 0 6px;font-size:18px}.book-cards p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}@media(max-width:720px){.book-cards{grid-template-columns:1fr}}</style>')
+css2 = css.replace('</style>', '.more{margin-top:8px}.more summary{cursor:pointer;color:var(--accent);font-size:13px;font-weight:600;padding:4px 0;list-style:none}.more summary::-webkit-details-marker{display:none}.more summary:before{content:\'+ \'}.more[open] summary:before{content:\'− \'}.more[open] summary{margin-bottom:6px}.chapter{padding:34px 0}.step{gap:16px;margin:26px 0}.step h3{font-size:17px;margin:0 0 8px}.step p,.step li{font-size:14.5px;line-height:1.85;color:#3a3a3c}ul.ln{list-style:none;margin:0;padding:0;display:grid;gap:7px}ul.ln li{position:relative;padding-left:14px;font-size:14.5px;line-height:1.8;color:#3a3a3c}ul.ln li:before{content:\'\';position:absolute;left:1px;top:.85em;width:5px;height:5px;border-radius:50%;background:#C7C7CC}.feat{grid-template-columns:1fr;gap:12px}.feat div{padding:16px 18px;font-size:14px;background:#fff}.feat div>b:first-child{display:block;font-size:14.5px;margin-bottom:8px}.feat li b,.feat p b{display:inline;margin:0;font-size:inherit;color:var(--ink)}.feat ul.ln li{font-size:14px}.faq ul.ln{margin-top:10px}.faq ul.ln li{font-size:13.5px}.lead{font-size:15px;line-height:1.8}.note{font-size:14px;line-height:1.75}.embed .topbar .close{display:none}.chapter .eyebrow b{color:var(--accent);font-weight:700}.book-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}.book-cards a{display:block;border:1px solid var(--line);border-radius:14px;padding:22px;text-decoration:none;color:inherit;background:#fff}.book-cards a:hover{box-shadow:0 4px 16px rgba(0,0,0,.08)}.book-cards h3{margin:0 0 6px;font-size:18px}.book-cards p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}@media(max-width:720px){.book-cards{grid-template-columns:1fr}}</style>')
 
 def faqfix(h):
-    h=re.sub(r'(<summary>.*?</summary>)<p>(.*?)</p>', lambda m: m.group(1)+lines(m.group(2)), h, flags=re.S)
+    h=re.sub(r'(<summary>.*?</summary>)<p>(.*?)</p>', lambda m: m.group(1)+lines(m.group(2), fold=False), h, flags=re.S)
     h=re.sub(r'<div><b>([^<]*)</b>((?:(?!</div>).)*)</div>', lambda m: '<div><b>'+m.group(1)+'</b>'+lines(m.group(2))+'</div>', h, flags=re.S)
     return re.sub(r'<p class="raw">(.*?)</p>', lambda m: lines(m.group(1)), h, flags=re.S)
 
