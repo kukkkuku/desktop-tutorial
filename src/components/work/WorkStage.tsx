@@ -44,6 +44,7 @@ import { GoalCell, GradeCell, PeriodCell } from './EvalCells'
 import { useTabFit } from '../../hooks/useTabFit'
 import { readProgressSource } from '../../utils/progressImport'
 import { useWorkspaces } from '../../state/WorkspaceContext'
+import { useAppMode } from '../../state/AppMode'
 import { useAccessData } from '../../hooks/useAccessData'
 import type { AccessUser } from '../../utils/accessSheet'
 import { effectiveTeam, sameTeam } from '../../utils/memberTeam'
@@ -440,6 +441,7 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
   // 켜 있는 동안 행 추가 · 옮기기는 끈다(그룹 탭 안에서만 하는 일).
   // 처음에는 꺼져 있다(과제관리는 그룹 탭 보기부터)
   const [evalOnly, setEvalOnly] = useState(false)
+  const { setPerfStage } = useAppMode()
   const sourceItems = useMemo(() => {
     const base = allTab ? board.items : groupItems
     if (!allTab && !evalOnly) return groupItems
@@ -1161,6 +1163,11 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                 <span className={`rounded-full px-1.5 text-xs font-semibold tabular-nums ${evalOnly ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>{targetTaskCount}</span>
               )}
             </label>
+            {evalOnly && (
+              <Button variant="primary" onClick={() => setPerfStage('evaluate')} title="팀원별 기여도 · 개인수행등급을 매기는 「평가하기」로 이동">
+                평가하기
+              </Button>
+            )}
             {allTab && <span className="text-xs text-label-2">{viewRows.length}건 · 전체 보기에서는 행 추가 · 옮기기가 꺼집니다(그룹 탭에서)</span>}
             <div className="ml-auto flex items-center gap-1">
               <button
