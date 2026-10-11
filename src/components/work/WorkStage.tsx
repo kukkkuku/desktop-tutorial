@@ -615,6 +615,10 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
                   {n}
                 </Chip>
               ))}
+              <BundleAssigneeAdd
+                options={members.filter((m) => m.active !== false).map((m) => m.name).filter((n) => !people.includes(n))}
+                onAdd={(n) => addToBundle(all, n)}
+              />
             </div>
           )
         if (colId === V_GRADE) return gradeCell(isTarget ? taskOfItem.get(all.find((i) => taskOfItem.has(i.id))?.id ?? '') : undefined)
@@ -793,6 +797,18 @@ export default function WorkStage({ onOpenSheetImport }: WorkStageProps) {
       const names = [...i.assigneeIds.map((id) => nameOf.get(id) ?? ''), ...i.unmatchedAssignees].filter(Boolean)
       if (!names.includes(name)) continue
       edits.push({ rowId: i.id, colId: COL_ASSIGNEES, text: names.filter((n) => n !== name).join(', ') })
+    }
+    if (edits.length) commit(edits)
+  }
+
+  // 묶음 머리 행의 + : 그 묶음 안 모든 L3에 이 사람을 더한다
+  function addToBundle(items: WorkItem[], name: string) {
+    const nameOf = new Map(members.map((m) => [m.id, m.name]))
+    const edits: CellEdit[] = []
+    for (const i of items) {
+      const names = [...i.assigneeIds.map((id) => nameOf.get(id) ?? ''), ...i.unmatchedAssignees].filter(Boolean)
+      if (names.includes(name)) continue
+      edits.push({ rowId: i.id, colId: COL_ASSIGNEES, text: [...names, name].join(', ') })
     }
     if (edits.length) commit(edits)
   }
@@ -1610,6 +1626,74 @@ function GroupCategoryPicker({ value, needs, onPick }: { value: string; needs: b
 
 function UngroupIcon() {
   return <Ungroup {...icSm} />
+}
+
+// 묶음 머리 행 담당자 칸의 「＋」: 눌러서 팀원을 찾아 묶음 전체에 더한다
+function BundleAssigneeAdd({ options, onAdd }: { options: string[]; onAdd: (name: string) => void }) {
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    if (!pos) return
+    const close = () => setPos(null)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close()
+    window.addEventListener('mousedown', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [pos])
+  const list = options.filter((n) => !q.trim() || n.includes(q.trim()))
+  return (
+    <>
+      <button
+        type="button"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation()
+          const r = e.currentTarget.getBoundingClientRect()
+          setQ('')
+          setPos(pos ? null : { left: r.left, top: r.bottom + 6 })
+        }}
+        title="이 묶음의 모든 하위 과제에 담당자 추가"
+        aria-label="담당자 추가"
+        className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-[#C6C7CC] text-label-3 hover:border-accent hover:text-accent"
+      >
+        <Plus {...icSm} />
+      </button>
+      {pos &&
+        createPortal(
+          <div onMouseDown={(e) => e.stopPropagation()} className="mac-pop fixed z-[60] w-[260px] p-2.5" style={{ left: pos.left, top: pos.top }}>
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="이름 찾기"
+              className="mb-2 h-8 w-full rounded-control border border-hairline px-2.5 text-[length:calc(14px*var(--ui-fs,1))] outline-none focus:border-accent"
+            />
+            <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto">
+              {list.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => {
+                    onAdd(n)
+                    setPos(null)
+                  }}
+                  className={`${CHIP_BASE} cursor-pointer ${CHIP_IDLE}`}
+                >
+                  {n}
+                </button>
+              ))}
+              {list.length === 0 && <p className="text-xs text-label-3">추가할 팀원이 없습니다</p>}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 function Chip({ tone, title, children, onRemove }: { tone: string; title?: string; children: React.ReactNode; onRemove?: () => void }) {
